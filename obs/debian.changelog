@@ -1,3 +1,13 @@
+wasm (2.2.0-1) unstable; urgency=medium
+
+  * Blue/green activation per application: two instances behind an nginx upstream, a switch only after the health gate, no failed request
+  * Pull request previews for GitHub, GitLab and Gitea, with quota, expiry and removal on close; forks, outside authors and bots refused
+  * A GitHub App per server: private repositories with short-lived tokens, push and pull request events, deployment statuses, repository picker
+  * Remote backup destinations through rclone with verification, per-destination retention, encryption and restore; schedule retention applied
+  * Deployment notifications for every deploy, including started and rolled back; why each environment variable is hidden, and marks
+
+ -- Yago Lopez Prado <yago.lopez.adeje@gmail.com>  Mon, 28 Sep 2026 14:35:41 +0000
+
 wasm (2.1.0-1) unstable; urgency=medium
 
   * WASM is now free software under the GNU AGPL 3.0 or later

@@ -5,7 +5,7 @@
 #
 
 Name:           wasm-cli
-Version:        2.1.0
+Version:        2.2.0
 Release:        1%{?dist}
 Summary:        Web App System Management CLI Tool
 License:        AGPL-3.0-or-later
@@ -296,6 +296,12 @@ if [ -f /etc/systemd/system/wasm-web.service ]; then
 fi
 
 %changelog
+* Mon Sep 28 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 2.2.0-1
+- Blue/green activation per application: two instances behind an nginx upstream, a switch only after the health gate, no failed request
+- Pull request previews for GitHub, GitLab and Gitea, with quota, expiry and removal on close; forks, outside authors and bots refused
+- A GitHub App per server: private repositories with short-lived tokens, push and pull request events, deployment statuses, repository picker
+- Remote backup destinations through rclone with verification, per-destination retention, encryption and restore; schedule retention applied
+- Deployment notifications for every deploy, including started and rolled back; why each environment variable is hidden, and marks
 * Sat Sep 26 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 2.1.0-1
 - WASM is now free software under the GNU AGPL 3.0 or later
 - Configurable health check and release retention; rebuild or roll back to a deployment's exact commit; nothing-new check before updates
