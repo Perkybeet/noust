@@ -44,6 +44,7 @@ import threading
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import yaml  # type: ignore[import-untyped]
 
@@ -142,14 +143,19 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "notifications": {
         # Multi-channel event notifications, delivered by wasm.core.notifier.
         # Off until the operator turns them on; every event kind defaults to
-        # on so enabling the feature is one switch, not seven. The kind names
-        # are pinned against notifier.EVENT_KINDS by a test in
-        # tests/test_notifier.py, because this module cannot import the
-        # notifier (the notifier reads its settings from here).
+        # on so enabling the feature is one switch, not nine - except
+        # deploy_started, which fires once per deployment attempt with no
+        # outcome to report and would otherwise double the volume of every
+        # deploy that also succeeds or fails. The kind names are pinned
+        # against notifier.EVENT_KINDS by a test in tests/test_notifier.py,
+        # because this module cannot import the notifier (the notifier reads
+        # its settings from here).
         "enabled": False,
         "events": {
+            "deploy_started": False,
             "deploy_success": True,
             "deploy_failed": True,
+            "deploy_rolled_back": True,
             "cert_expiring": True,
             "unit_failed": True,
             "disk_threshold": True,
@@ -172,6 +178,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "enabled": False,
         "host": "127.0.0.1",
         "port": 8080,
+        # Where the console is reachable from a browser, not where this
+        # process binds: unset by default (host/port above are a bind
+        # address, often 127.0.0.1 behind a reverse proxy, and no site's
+        # public URL can be derived from that). Deploy notifications use it
+        # to link to a deployment's page; nothing else reads it today. Must
+        # be absolute https - see _validate_public_url.
+        "public_url": "",
         # These values are enforced by wasm.web.auth.SecurityConfig, whose
         # dataclass defaults must say the same numbers - core cannot import
         # the web layer to share one constant, so the agreement is pinned by
@@ -577,11 +590,45 @@ def _validate_telegram_chat_id(value: Any) -> str:
         ) from exc
 
 
+def _validate_public_url(value: Any) -> str:
+    """
+    Accept the console's public URL, or leave it unset.
+
+    Read by :mod:`wasm.core.deploy_notifications` to link a deployment
+    notification back to its page in the console. Restricted to https,
+    unlike the bind address it is next to in ``web.*``: this value is handed
+    to an operator's phone or chat client, and an ``http://`` link there is a
+    credential-carrying session cookie away from being read in the clear -
+    the exact outcome the console's own cookies are marked Secure to avoid.
+
+    Args:
+        value: The candidate value, from either front end.
+
+    Returns:
+        The value with any trailing slash removed, so every caller that
+        joins a path onto it produces exactly one - or ``""`` when unset.
+
+    Raises:
+        ConfigError: When it is set and is not an absolute ``https://`` URL.
+    """
+    text = "" if value is None else str(value).strip()
+    if not text:
+        return ""
+    parsed = urlparse(text)
+    if parsed.scheme != "https" or not parsed.netloc:
+        raise ConfigError(
+            "web.public_url must be an absolute https:// URL",
+            details=f"Got {text!r}. Use an address such as https://console.example.com.",
+        )
+    return text.rstrip("/")
+
+
 _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "webserver": _validate_webserver,
     "backup.max_per_app": _int_range_validator("backup.max_per_app", 1, 100),
     "web.port": _int_range_validator("web.port", 1, 65535),
     "web.session_timeout": _int_range_validator("web.session_timeout", 300, 86400),
+    "web.public_url": _validate_public_url,
     # The one key every deployer, wasm.core.config.Config.apps_directory and
     # the panel's disk usage meter read. "apps.directory" is a deprecated
     # dotted alias, resolved to this key by _canonical_key() before a

@@ -20,7 +20,7 @@ Channels and the payload each one receives:
 - **email** - delegates to :class:`wasm.monitor.email_notifier.EmailNotifier`,
   so there is exactly one SMTP implementation.
 
-Three rules hold everywhere:
+Four rules hold everywhere:
 
 - Every request has a deadline (:data:`NOTIFY_TIMEOUT`). An endpoint that
   stopped answering must not stall the deploy that fired the event.
@@ -29,6 +29,10 @@ Three rules hold everywhere:
 - Secrets never reach a log. The Telegram bot token is part of the request
   URL and urllib quotes the URL in some of its errors, so error text is
   scrubbed before it is logged or returned.
+- Slack, Discord and Telegram each reject a message over their own length
+  outright; a deploy failure's body can carry a health gate's full evidence,
+  so :func:`_message_text` cuts to :data:`_MESSAGE_LIMITS` per channel at
+  send time rather than asking every caller to know three different numbers.
 
 A fourth rule is enforced by :func:`_require_public_destination` rather than
 by convention: a notification channel is *configured* by whoever can write to
@@ -99,14 +103,39 @@ USER_AGENT = f"wasm-notifier/{__version__}"
 #: config.py cannot import this module (this module reads its settings from
 #: config.py), so the agreement is pinned by a test in tests/test_notifier.py,
 #: the same pattern that keeps the web security defaults honest.
+#:
+#: ``deploy_started`` and ``deploy_rolled_back`` are published by
+#: :mod:`wasm.core.deploy_notifications`, the default subscriber of every
+#: deployment in every process - CLI, console jobs and the webhook alike -
+#: alongside ``deploy_success`` and ``deploy_failed``. ``deploy_started``
+#: ships off by default (DEFAULT_CONFIG): it fires once per deployment
+#: attempt and is the one kind here with no failure or outcome to report,
+#: so an operator who wants the others is not opted into a message for
+#: every deploy that later also succeeds.
 EVENT_KINDS: tuple[str, ...] = (
+    "deploy_started",
     "deploy_success",
     "deploy_failed",
+    "deploy_rolled_back",
     "cert_expiring",
     "unit_failed",
     "disk_threshold",
     "backup_failed",
 )
+
+#: Longest message :func:`_message_text` may build for a channel with a hard
+#: limit on what it accepts, applied at send time so a caller building a
+#: :class:`NotificationEvent` never has to know Telegram's or Discord's own
+#: numbers - a deploy failure's body carries the health gate's evidence
+#: verbatim, unbounded, and only the channel that would otherwise reject it
+#: outright needs to cut it down. Slack's own limit is close to 40,000
+#: characters for a plain ``text`` payload; the webhook and email channels
+#: have no comparable ceiling and are left alone.
+_MESSAGE_LIMITS: dict[str, int] = {
+    "slack": 40000,
+    "discord": 2000,
+    "telegram": 4096,
+}
 
 #: The kind :meth:`Notifier.test_channel` sends. Always accepted and never
 #: filtered, so the settings-page button works before anything is enabled.
@@ -450,18 +479,26 @@ class TelegramChat:
     username: str | None = None
 
 
-def _message_text(event: NotificationEvent) -> str:
+def _message_text(event: NotificationEvent, *, limit: int | None = None) -> str:
     """
     Render the plain text the chat channels carry.
 
     Args:
         event: The event to render.
+        limit: The channel's own maximum message length, when it has one.
+            The cut always keeps the title, since that is the one line an
+            operator glancing at a notification list reads first.
 
     Returns:
         Title and body separated by a newline, or just the title when the
-        body is empty.
+        body is empty; cut to ``limit`` characters, with a marker in place
+        of what was dropped, when it would otherwise be too long to send.
     """
-    return f"{event.title}\n{event.body}" if event.body else event.title
+    text = f"{event.title}\n{event.body}" if event.body else event.title
+    if limit is not None and len(text) > limit:
+        marker = "\n... (truncated)"
+        text = text[: max(limit - len(marker), 0)] + marker
+    return text
 
 
 def _require_http_url(url: str, setting: str) -> str:
@@ -551,7 +588,7 @@ def _slack_request(url: str, event: NotificationEvent) -> Request:
         ValueError: When the URL is not HTTP(S).
     """
     _require_http_url(url, "notifications.channels.slack.webhook_url")
-    return _json_request(url, {"text": _message_text(event)})
+    return _json_request(url, {"text": _message_text(event, limit=_MESSAGE_LIMITS["slack"])})
 
 
 def _discord_request(url: str, event: NotificationEvent) -> Request:
@@ -569,7 +606,7 @@ def _discord_request(url: str, event: NotificationEvent) -> Request:
         ValueError: When the URL is not HTTP(S).
     """
     _require_http_url(url, "notifications.channels.discord.webhook_url")
-    return _json_request(url, {"content": _message_text(event)})
+    return _json_request(url, {"content": _message_text(event, limit=_MESSAGE_LIMITS["discord"])})
 
 
 def _telegram_request(bot_token: str, chat_id: str, event: NotificationEvent) -> Request:
@@ -592,7 +629,8 @@ def _telegram_request(bot_token: str, chat_id: str, event: NotificationEvent) ->
     validate_telegram_bot_token(bot_token)
     chat_id = validate_telegram_chat_id(chat_id)
     url = f"{_TELEGRAM_API}/bot{bot_token}/sendMessage"
-    return _json_request(url, {"chat_id": chat_id, "text": _message_text(event)})
+    text = _message_text(event, limit=_MESSAGE_LIMITS["telegram"])
+    return _json_request(url, {"chat_id": chat_id, "text": text})
 
 
 def _describe_error(exc: BaseException, *, include_body: bool = True) -> str:

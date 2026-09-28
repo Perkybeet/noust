@@ -293,6 +293,45 @@ class TestChatChannels:
             "content": "Deployed example.com\nwasm-example.com is running"
         }
 
+    def test_slack_cuts_an_oversized_body_to_its_own_limit(self, config: Config) -> None:
+        """Slack rejects a message over its own limit; this must never happen."""
+        config.set("notifications.enabled", True)
+        config.set("notifications.channels.slack.webhook_url", SLACK_URL)
+        opener = CapturingOpener()
+        event = make_event(body="x" * 50000)
+
+        Notifier(config, opener=opener).notify(event)
+
+        text = json.loads(opener.requests[0].data)["text"]
+        assert len(text) == 40000
+        assert text.startswith("Deployed example.com\n")
+        assert text.endswith("(truncated)")
+
+    def test_discord_cuts_an_oversized_body_to_its_own_limit(self, config: Config) -> None:
+        """Discord's 2000 character limit is far below a health gate's evidence."""
+        config.set("notifications.enabled", True)
+        config.set("notifications.channels.discord.webhook_url", DISCORD_URL)
+        opener = CapturingOpener()
+        event = make_event(body="npm ERR!\n" * 500)
+
+        Notifier(config, opener=opener).notify(event)
+
+        text = json.loads(opener.requests[0].data)["content"]
+        assert len(text) == 2000
+        assert text.endswith("(truncated)")
+
+    def test_a_short_body_is_sent_whole(self, config: Config) -> None:
+        """The common case: nothing is cut when there is nothing to cut."""
+        config.set("notifications.enabled", True)
+        config.set("notifications.channels.discord.webhook_url", DISCORD_URL)
+        opener = CapturingOpener()
+
+        Notifier(config, opener=opener).notify(make_event())
+
+        text = json.loads(opener.requests[0].data)["content"]
+        assert text == "Deployed example.com\nwasm-example.com is running"
+        assert "truncated" not in text
+
 
 class TestTelegramChannel:
     """The bot token rides in the URL, which is why it must never be logged."""
@@ -316,6 +355,18 @@ class TestTelegramChannel:
             "chat_id": "-1002003004005",
             "text": "Deployed example.com\nwasm-example.com is running",
         }
+
+    def test_cuts_an_oversized_body_to_the_bot_apis_own_limit(self, config: Config) -> None:
+        """The Bot API rejects a message over 4096 characters outright."""
+        self._configure(config)
+        opener = CapturingOpener()
+        event = make_event(body="journalctl output\n" * 400)
+
+        Notifier(config, opener=opener).notify(event)
+
+        text = json.loads(opener.requests[0].data)["text"]
+        assert len(text) == 4096
+        assert text.endswith("(truncated)")
 
     def test_half_a_configuration_sends_nothing(self, config: Config) -> None:
         """A token without a chat_id has nowhere to deliver to."""

@@ -425,11 +425,18 @@ def get_audit() -> AuditLogger | None:
     return _audit_logger
 
 
-#: Job types whose terminal state is a deployment outcome the operator asked
-#: to hear about: deploys, updates (the webhook auto-deploy queues these too)
-#: and rollbacks/restores. Everything else the job manager runs - certificate
-#: renewals, service actions, engine installs - has its own reporting surface.
-DEPLOY_JOB_TYPES = frozenset({"deploy", "update", "restore"})
+#: Job types whose terminal state is announced from here, by kind reused from
+#: the notifier's deploy vocabulary. A deploy, an update and a rollback are
+#: no longer among them: every deployment, from the CLI, a console job or the
+#: webhook alike, is recorded by wasm.deployers.deploy_events's
+#: DeploymentRecorder and announced by wasm.core.deploy_notifications, a
+#: default subscriber of that - reporting the same job's outcome again here
+#: would say it twice. A backup restore is not a deployment and is not
+#: recorded there, so it still reports through its own job's outcome, the
+#: same as a failed backup below. Everything else the job manager runs -
+#: certificate renewals, service actions, engine installs - has its own
+#: reporting surface.
+DEPLOY_JOB_TYPES = frozenset({"restore"})
 
 #: Terminal job status to the notification kind it publishes as.
 _TERMINAL_KINDS = {"completed": "deploy_success", "failed": "deploy_failed"}
@@ -449,10 +456,11 @@ def deployment_notification(job: Any) -> NotificationEvent | None:
         job: The job that changed, as the job manager reports it.
 
     Returns:
-        The event for a finished deploy, update or rollback - and for a
-        failed backup, which has a kind of its own - or None for everything
-        else: non-terminal transitions, cancellations, and job types with
-        their own reporting surface.
+        The event for a finished backup restore, or a failed backup, which
+        has a kind of its own - or None for everything else: non-terminal
+        transitions, cancellations, a deploy or an update (announced by
+        wasm.core.deploy_notifications instead), and job types with their
+        own reporting surface.
     """
     status = str(getattr(job.status, "value", job.status))
     job_type = str(getattr(job.type, "value", job.type))

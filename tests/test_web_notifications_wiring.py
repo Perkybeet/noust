@@ -5,13 +5,23 @@
 Tests for the job-to-notifier wiring in :mod:`wasm.web.server`.
 
 The subscriber sits on the job manager's ``subscribe_all`` for the life of
-the server and turns terminal deploy transitions into notification events.
-What is defended:
+the server and turns terminal job transitions into notification events - but
+only for the ones that do not already announce themselves. A deploy, an
+update and a rollback are recorded by
+:mod:`wasm.deployers.deploy_events`'s ``DeploymentRecorder`` in every
+process, CLI included, and :mod:`wasm.core.deploy_notifications` is a
+default subscriber of that publisher - so this subscriber must stay out of
+their way, or the console's own deploys would be announced twice. A backup
+restore is not a deployment and is not recorded there, so it is still
+reported from here; so is a failed backup. What is defended:
 
-- **A finished deploy becomes exactly one event of the right kind**, carrying
-  the domain and, for a failure, the tool's own error verbatim.
-- **Nothing else does.** Progress updates, cancellations and job types with
-  their own reporting surface must not reach anyone's phone.
+- **A finished restore, or a failed backup, becomes exactly one event of the
+  right kind**, carrying the domain and, for a failure, the tool's own error
+  verbatim.
+- **A deploy or an update job never does**, whatever its outcome: the
+  deployment recorder already announced it.
+- **Nothing else does either.** Progress updates, cancellations and job types
+  with their own reporting surface must not reach anyone's phone.
 - **The operator's per-kind switches hold.** The subscriber publishes through
   the notifier, so a kind switched off in ``notifications.events`` sends
   nothing, and that is asserted through the real notifier with an injected
@@ -37,14 +47,14 @@ from tests.test_notifier import (  # noqa: F401  (pytest resolves fixtures by na
 from wasm.core.config import Config
 from wasm.core.notifier import NotificationEvent, Notifier
 from wasm.web.jobs import Job, JobStatus, JobType
-from wasm.web.server import JobNotificationSubscriber, deployment_notification
+from wasm.web.server import DEPLOY_JOB_TYPES, JobNotificationSubscriber, deployment_notification
 
 WEBHOOK_URL = "https://hooks.example.test/wasm"
 
 
 def make_job(
     status: JobStatus,
-    job_type: JobType = JobType.DEPLOY,
+    job_type: JobType = JobType.RESTORE,
     *,
     job_id: str = "job-1",
     domain: str | None = "example.com",
@@ -52,6 +62,10 @@ def make_job(
 ) -> Job:
     """
     Build a job the way the job manager records one.
+
+    Defaults to a restore: the one deployment-shaped job type this
+    subscriber still reports on its own, deploy and update jobs having moved
+    to wasm.core.deploy_notifications.
 
     Args:
         status: Status to report.
@@ -66,8 +80,8 @@ def make_job(
     return Job(
         id=job_id,
         type=job_type,
-        name=f"Deploy {domain}" if domain else "Deploy",
-        description=f"Deploying a nextjs application to {domain}",
+        name=f"Restore {domain}" if domain else "Restore",
+        description=f"Restoring a backup to {domain}",
         status=status,
         completed_at=datetime.now(),
         error=error,
@@ -75,22 +89,30 @@ def make_job(
     )
 
 
+class TestDeployJobTypes:
+    """The set this module still reports on its own."""
+
+    def test_only_restore_remains(self) -> None:
+        """Deploy and update moved to wasm.core.deploy_notifications."""
+        assert DEPLOY_JOB_TYPES == frozenset({"restore"})
+
+
 class TestDeploymentNotification:
     """The translation from a job transition to an event, or to silence."""
 
-    def test_a_failed_deploy_becomes_deploy_failed_with_the_domain(self) -> None:
+    def test_a_failed_restore_becomes_deploy_failed_with_the_domain(self) -> None:
         """The event carries the domain and the tool's own words."""
-        job = make_job(JobStatus.FAILED, error="nginx: [emerg] duplicate listen")
+        job = make_job(JobStatus.FAILED, error="rclone: object not found")
 
         event = deployment_notification(job)
 
         assert event is not None
         assert event.kind == "deploy_failed"
         assert event.domain == "example.com"
-        assert "nginx: [emerg] duplicate listen" in event.body
+        assert "rclone: object not found" in event.body
         assert "failed" in event.title
 
-    def test_a_completed_deploy_becomes_deploy_success(self) -> None:
+    def test_a_completed_restore_becomes_deploy_success(self) -> None:
         """Success is announced under its own kind."""
         event = deployment_notification(make_job(JobStatus.COMPLETED))
 
@@ -98,13 +120,13 @@ class TestDeploymentNotification:
         assert event.kind == "deploy_success"
         assert event.domain == "example.com"
 
-    def test_updates_and_rollbacks_are_deployment_outcomes_too(self) -> None:
-        """The webhook auto-deploy queues updates; rollbacks restore."""
-        for job_type in (JobType.UPDATE, JobType.RESTORE):
+    def test_a_deploy_or_an_update_job_is_never_announced_here(self) -> None:
+        """The deployment recorder already announced it; this would be twice."""
+        for job_type in (JobType.DEPLOY, JobType.UPDATE):
             failed = deployment_notification(make_job(JobStatus.FAILED, job_type, error="boom"))
             completed = deployment_notification(make_job(JobStatus.COMPLETED, job_type))
-            assert failed is not None and failed.kind == "deploy_failed", job_type
-            assert completed is not None and completed.kind == "deploy_success", job_type
+            assert failed is None, job_type
+            assert completed is None, job_type
 
     def test_a_failed_backup_has_a_kind_of_its_own(self) -> None:
         """backup_failed exists precisely for this transition."""
@@ -125,8 +147,10 @@ class TestDeploymentNotification:
             assert deployment_notification(make_job(status)) is None, status
 
     def test_job_types_with_their_own_surface_are_silent(self) -> None:
-        """Certificate and service jobs report elsewhere."""
+        """Certificate, service, deploy and update jobs report elsewhere."""
         for job_type in (
+            JobType.DEPLOY,
+            JobType.UPDATE,
             JobType.CERT_CREATE,
             JobType.CERT_RENEW,
             JobType.SERVICE_ACTION,
@@ -147,11 +171,11 @@ class TestDeploymentNotification:
 class TestSubscriber:
     """The callable registered with the job manager's subscribe_all."""
 
-    def test_a_failed_deploy_is_delivered_once(self) -> None:
+    def test_a_failed_restore_is_delivered_once(self) -> None:
         """The same terminal job notified twice must not announce twice."""
         events: list[NotificationEvent] = []
         subscriber = JobNotificationSubscriber(deliver=events.append)
-        job = make_job(JobStatus.FAILED, error="npm exited 1")
+        job = make_job(JobStatus.FAILED, error="rclone exited 1")
 
         subscriber(job)
         subscriber(job)
@@ -176,6 +200,16 @@ class TestSubscriber:
 
         subscriber(make_job(JobStatus.RUNNING))
         subscriber(make_job(JobStatus.PENDING, job_id="job-2"))
+
+        assert events == []
+
+    def test_a_deploy_job_delivers_nothing(self) -> None:
+        """The console's own deploy jobs must not duplicate the recorder."""
+        events: list[NotificationEvent] = []
+        subscriber = JobNotificationSubscriber(deliver=events.append)
+
+        subscriber(make_job(JobStatus.COMPLETED, JobType.DEPLOY, job_id="job-deploy"))
+        subscriber(make_job(JobStatus.FAILED, JobType.UPDATE, job_id="job-update", error="boom"))
 
         assert events == []
 
