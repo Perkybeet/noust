@@ -240,6 +240,9 @@ Prompt for the backend's secret field without echoing it, twice.
 .TP
 .B \-\-encrypt
 Wrap the remote in an rclone crypt backend; run 'show\-key' once to keep a copy.
+.TP
+.B \-\-key\-stdin
+Encrypt with an existing key read from standard input, as 'show\-key' printed it (its text, its \-\-json, or the two passphrases on two lines). Implies \-\-encrypt.
 
 .SS wasm backup destination list
 List the configured backup destinations.
@@ -396,7 +399,7 @@ Run an application's backup schedule now (local backup, retention, destinations)
 Back applications up automatically on a timer.
 
 .SS wasm backup schedule create
-Back an application up on a timer and drop the old backups.
+Back an application up on a timer and drop its old scheduled backups.
 .TP
 .B Arguments
 .br
@@ -406,10 +409,10 @@ Back an application up on a timer and drop the old backups.
 hourly, daily, weekly, monthly, or a systemd OnCalendar expression. Default: daily.
 .TP
 .B \-\-retention\-count
-Keep at most this many local backups of the application. Default: 7.
+Keep at most this many of the backups this schedule makes (default: 7). 'default' leaves backup.max_per_app in charge, over every backup, as 2.1 did.
 .TP
 .B \-\-retention\-days
-Delete local backups of the application older than this many days. Default: 30.
+Delete this schedule's own backups older than this many days (default: 30). 'none' sets no age limit.
 .TP
 .B \-\-destination
 Push each backup to this remote destination, with its own retention. Repeatable.
@@ -435,10 +438,10 @@ Replace an application's backup schedule.
 hourly, daily, weekly, monthly, or a systemd OnCalendar expression. Default: daily.
 .TP
 .B \-\-retention\-count
-Keep at most this many local backups of the application. Default: 7.
+Keep at most this many of the backups this schedule makes. Kept as it is when not given; 'default' leaves backup.max_per_app in charge.
 .TP
 .B \-\-retention\-days
-Delete local backups of the application older than this many days. Default: 30.
+Delete this schedule's own backups older than this many days. Kept as it is when not given; 'none' sets no age limit.
 .TP
 .B \-\-destination
 Push each backup to this remote destination, with its own retention. Repeatable.
@@ -1382,13 +1385,22 @@ Turn previews on for an application, or change their settings.
 \fIdomain\fR
 .TP
 .B \-\-domain
-Base domain previews answer under; *.BASE must point at this server.
+Base domain previews answer under; *.BASE must point at this server. Required to turn previews on; kept when changing other settings.
 .TP
 .B \-\-max
-How many previews may exist at once (1 to 20). Default: 3.
+How many previews may exist at once (1 to 20). [default: 3, or the current value]
 .TP
 .B \-\-ttl
-How long a preview lives without a push: 12h, 7d, 2w (1 hour to 90 days). Default: 7d.
+How long a preview lives without a push: 12h, 7d, 2w (1 hour to 90 days). [default: 7d, or the current value]
+.TP
+.B \-\-allow\-bots, \-\-no\-allow\-bots
+Build previews of pull requests opened or pushed to by bot accounts (Dependabot, Renovate). [default: no, or the current value]
+.TP
+.B \-\-exclude\-env
+A variable never copied to previews; repeat for more. Replaces the current list; existing previews lose them at their next push.
+.TP
+.B \-\-no\-exclude\-env
+Copy every variable again (clear the excluded list).
 .TP
 .B \-v, \-\-verbose
 Show the detail of each step.
