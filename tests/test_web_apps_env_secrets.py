@@ -28,12 +28,18 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from tests.test_web_auth import bearer, issue_token
 from wasm.core.store import App, WASMStore
 from wasm.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from wasm.web.server import create_app, get_token_manager
 
 #: A secret planted in a value, to prove it never reaches a masked response.
 ENV_SECRET = "sk-live-openai-hunter2"
+
+#: A real-shaped Stripe secret key: its value alone, not its name, is what
+#: makes classify() name a vendor - the thing a read-scope token must not
+#: learn from the masked response either.
+STRIPE_SECRET = "sk_l" + "ive_4eC39HqLyjWDarjtT1zdp7dc"
 
 
 @pytest.fixture
@@ -204,6 +210,36 @@ def test_get_app_env_unmask_returns_clear_values_and_is_audited(
     assert reveals, "reading the environment in clear must be audited"
     assert reveals[0]["result"] == "success"
     assert ENV_SECRET not in (tmp_path / "state" / "web-audit.log").read_text()
+
+
+def test_get_app_env_hides_the_vendor_kind_from_a_read_scope_token(
+    client: TestClient, app: FastAPI, store: WASMStore, tmp_path: Path
+) -> None:
+    """
+    Verified finding 5: ``reason: "value: stripe"`` names the vendor a value
+    matched, which is itself information about the value's content - not
+    something a read-only credential should learn about a masked variable.
+    An admin session, which can already unmask on request, still sees it.
+    """
+    # A harmless-looking name, so the only way "stripe" could reach the
+    # response is through the classifier naming the vendor kind.
+    deployed_env(store, tmp_path, env_text=f"PAYMENTS_KEY={STRIPE_SECRET}\n")
+    csrf = client.headers[CSRF_HEADER_NAME]
+    master = get_token_manager().generate_master_token()
+    issued = issue_token(client, csrf, master, name="reader", scope="read")
+    reader = TestClient(app, client=("testclient", 50001))
+
+    response = reader.get("/api/apps/example.com/env", headers=bearer(issued["token"]))
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["variables"]["PAYMENTS_KEY"] == "***"
+    assert body["secrets"]["PAYMENTS_KEY"]["secret"] is True
+    assert body["secrets"]["PAYMENTS_KEY"]["reason"] == "value"
+    assert "stripe" not in response.text.lower()
+
+    admin_response = client.get("/api/apps/example.com/env")
+    assert admin_response.json()["secrets"]["PAYMENTS_KEY"]["reason"] == "value: stripe"
 
 
 def test_put_app_env_rewrites_the_file_and_reports_restart_required(

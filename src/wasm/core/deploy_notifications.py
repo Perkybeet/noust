@@ -19,29 +19,27 @@ them for a deploy or an update, to avoid saying the same thing twice - see
 its ``DEPLOY_JOB_TYPES``. A backup restore is not a deployment and still
 comes from there, alongside a failed backup.
 
-Delivery never touches the deploying thread beyond starting one of its own:
-:mod:`wasm.core.notifier` gives every channel up to
-:data:`~wasm.core.notifier.NOTIFY_TIMEOUT`, and a deployment must not wait on
-Slack the way it must not wait on npm. But a CLI process can exit within
-milliseconds of the deployment finishing - long before a daemon thread making
-an HTTP request gets to run - so every thread this module starts is tracked
-and, at process exit, joined with a hard cap (:data:`JOIN_TIMEOUT`): enough
-for one slow channel's own timeout to be felt, not enough to hang a `wasm`
-command that has already told the operator what happened.
+Delivery never touches the deploying thread beyond queueing: every
+notification of the process goes on the notifier's one worker
+(:data:`~wasm.core.notifier.NOTIFICATION_QUEUE`), first in first out, so a
+deployment's "failed" never reaches a channel before its "Deploying", and a
+deployment must not wait on Slack the way it must not wait on npm. A CLI
+process can exit within milliseconds of the deployment finishing, so that
+worker is drained at process exit under a hard cap
+(:data:`wasm.core.background.DRAIN_TIMEOUT`): enough for one slow channel's
+own timeout to be felt, not enough to hang a `wasm` command that has already
+told the operator what happened.
 """
 
 from __future__ import annotations
 
-import atexit
 import logging
 import sqlite3
-import threading
-import time
 from typing import Final
 
 from wasm.core.config import Config
 from wasm.core.exceptions import WASMError
-from wasm.core.notifier import NotificationEvent, Notifier
+from wasm.core.notifier import NOTIFICATION_QUEUE, NotificationEvent, Notifier, fresh_config
 from wasm.core.store import get_store
 from wasm.deployers.deploy_events import DeployEvent, DeployEventKind
 
@@ -59,24 +57,11 @@ _KIND_MAP: Final[dict[DeployEventKind, str]] = {
     DeployEventKind.ROLLED_BACK: "deploy_rolled_back",
 }
 
-#: Longest a process waits, at exit, for deploy notifications already in
-#: flight - a shared budget across every thread still pending, not a
-#: per-thread allowance, so a process that published several events shortly
-#: before exiting cannot multiply the delay. Generous enough for one slow
-#: channel's own NOTIFY_TIMEOUT to be felt; a thread still running after this
-#: is left to finish, or be killed with the process, rather than delay it
-#: further.
-JOIN_TIMEOUT: Final[float] = 15.0
-
 #: Errors a best-effort store lookup may raise; anything else is a bug and
 #: must be seen. Matches wasm.deployers.recorder's own tuple for the same
 #: reason: sqlite3.Error and OSError are how a locked or unreadable database
 #: surfaces here.
 _STORE_LOOKUP_ERRORS = (WASMError, OSError, sqlite3.Error)
-
-_lock = threading.Lock()
-_pending: list[threading.Thread] = []
-_atexit_registered = False
 
 
 def on_deploy_event(event: DeployEvent) -> None:
@@ -86,7 +71,7 @@ def on_deploy_event(event: DeployEvent) -> None:
     Registered as a default subscriber of
     :mod:`wasm.deployers.deploy_events`; called once per event, in the
     deploying thread. Building the notification and sending it both happen
-    off a thread of its own - see :func:`_deliver` - so this returns
+    on the notification worker, in publication order, so this returns
     immediately.
 
     Args:
@@ -98,7 +83,7 @@ def on_deploy_event(event: DeployEvent) -> None:
         # added there with no corresponding notification kind here.
         logger.warning("No notification kind for deploy event %r; not sent", event.kind)
         return
-    _deliver(event, kind)
+    NOTIFICATION_QUEUE.submit(lambda: _send(event, kind))
 
 
 def _title(event: DeployEvent) -> str:
@@ -230,99 +215,17 @@ def _send(event: DeployEvent, kind: str) -> None:
     """
     Build the notification and hand it to the notifier.
 
-    Runs off the deploying thread - see :func:`_deliver`. The configuration
-    is re-read here, once per notification, so a settings change saved in the
-    panel or made with the CLI applies to the next deploy without a restart.
+    Runs on the notification worker. The configuration is read afresh here,
+    once per notification, so a settings change saved in the panel or made
+    with the CLI applies to the next deploy without a restart - into a
+    detached copy, never by reloading the instance other threads are reading.
 
     Args:
         event: What happened.
         kind: The notification kind :func:`on_deploy_event` mapped it to.
     """
-    config = Config()
-    try:
-        config.reload()
-    except (OSError, WASMError) as exc:
-        # Error boundary for the notification thread: a config that cannot
-        # be re-read must cost this notification its freshness, not the
-        # deployment it is about.
-        logger.warning("Configuration reload before deploy notification failed: %s", exc)
-
+    config = fresh_config()
     notification = NotificationEvent(
         kind=kind, title=_title(event), body=_body(event, config), domain=event.domain
     )
     Notifier(config).notify(notification)
-
-
-def _deliver(event: DeployEvent, kind: str) -> None:
-    """
-    Run :func:`_send` on a thread of its own, tracked so the process can wait for it.
-
-    Args:
-        event: What happened.
-        kind: The notification kind.
-    """
-    thread = threading.Thread(
-        target=_run, args=(event, kind), name="wasm-deploy-notify", daemon=True
-    )
-    with _lock:
-        _pending.append(thread)
-        _ensure_atexit_registered()
-    thread.start()
-
-
-def _run(event: DeployEvent, kind: str) -> None:
-    """
-    Call :func:`_send`, then stop tracking this thread.
-
-    The target :func:`_deliver` starts.
-
-    Args:
-        event: What happened.
-        kind: The notification kind.
-    """
-    try:
-        _send(event, kind)
-    finally:
-        with _lock:
-            current = threading.current_thread()
-            if current in _pending:
-                _pending.remove(current)
-
-
-def _ensure_atexit_registered() -> None:
-    """Register :func:`_join_pending` with :mod:`atexit`, once per process."""
-    global _atexit_registered
-    if not _atexit_registered:
-        atexit.register(_join_pending)
-        _atexit_registered = True
-
-
-def _join_pending(timeout: float = JOIN_TIMEOUT) -> None:
-    """
-    Wait for deploy notifications already in flight, up to a shared budget.
-
-    Registered with :mod:`atexit` so a CLI process - which can exit within
-    milliseconds of a deployment finishing - actually sends the notification
-    it just queued, instead of it being abandoned mid-request along with
-    every other daemon thread when the interpreter shuts down. A long-running
-    process (the console, the monitor) only reaches this at its own
-    shutdown, and every notification thread it started has ordinarily long
-    since finished and untracked itself by then.
-
-    Args:
-        timeout: Total seconds to wait across every thread still pending,
-            not per thread.
-    """
-    deadline = time.monotonic() + timeout
-    with _lock:
-        threads = list(_pending)
-    for thread in threads:
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            logger.warning(
-                "Timed out after %.0fs waiting for %d deploy notification(s) to send",
-                timeout,
-                len(threads),
-            )
-            break
-        thread.join(remaining)

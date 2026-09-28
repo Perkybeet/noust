@@ -52,7 +52,14 @@ from wasm.core.exceptions import WASMError
 from wasm.core.runner import CommandRunner, get_runner
 from wasm.core.store import BLUE_GREEN_COLORS, App, DeploymentStatus, WASMStore, get_store
 from wasm.core.utils import domain_to_app_name
-from wasm.deployers.bluegreen import color_port, instance_unit, other_color, serving_port
+from wasm.deployers.bluegreen import (
+    color_port,
+    instance_unit,
+    leftover_advice,
+    leftover_unit,
+    other_color,
+    serving_port,
+)
 from wasm.deployers.helpers.health_gate import HealthCheck
 from wasm.deployers.helpers.layout import app_root
 from wasm.deployers.releases import Release, ReleaseManager
@@ -597,6 +604,23 @@ def _check_blue_green(ctx: _Context) -> ProbeResult:
                 "fail",
                 f"nginx proxies to {upstream_port or 'no upstream'}, but {serving} serves on {port}",
                 "\n".join(lines),
+            ),
+            facts,
+        )
+
+    leftover = leftover_unit(app, store=ctx.store, runner=ctx.runner)
+    if leftover is not None:
+        # Serving is fine; the next activation is not: blue starts on the
+        # port this unit holds, and the unit starts again at every boot.
+        what, fix = leftover_advice(leftover, app.domain)
+        facts["leftover_unit"] = leftover
+        return (
+            Check(
+                "blue_green",
+                "warn",
+                f"{leftover}.service still runs beside the instances; "
+                f"the next activation will refuse to start blue on port {color_port(app, 'blue')}",
+                "\n".join(lines) + f"\n\n{what}.\n{fix}",
             ),
             facts,
         )

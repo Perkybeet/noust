@@ -2147,7 +2147,10 @@ def _restart_blue_green(
             web=NginxManager(),
             probe=wait_until_healthy,
         ).activate(active.path, releases)
-    except DeploymentError as exc:
+    except WASMError as exc:
+        # Any refusal, not only a failed gate: nginx refusing the upstream
+        # is an NginxError, and the new limits must not stay in the template
+        # either way. The engine has already stopped the instance it started.
         put_back()
         raise DeploymentError(
             f"{app.domain} did not answer under the new limits; the previous ones are back",

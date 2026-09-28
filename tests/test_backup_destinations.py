@@ -25,7 +25,7 @@ from wasm.core.runner import FakeRunner
 from wasm.core.secrets import SecretStore
 from wasm.core.store import BackupScheduleRecord, WASMStore, get_store
 from wasm.managers.backup_destinations import BackupDestinationManager
-from wasm.managers.backup_manager import BackupManager, BackupMetadata
+from wasm.managers.backup_manager import BackupManager, BackupMetadata, server_id
 
 
 @pytest.fixture(autouse=True)
@@ -491,6 +491,14 @@ class TestPushVerifyRetention:
             ]
         )
         runner.script(("rclone", "lsjson", "--hash", target_dir), stdout=listing)
+        # Retention only counts and deletes this server's own backups, read
+        # from their sidecars.
+        own = server_id()
+        runner.script(
+            ("rclone", "cat", target_dir),
+            stdout=json.dumps({"id": new_id, "origin": own})
+            + json.dumps({"id": old_id, "origin": own}),
+        )
         runner.script(("rclone", "deletefile"))
 
         summary = manager.push(
@@ -597,6 +605,10 @@ class TestRemoteListAndDownload:
         writing_runner = _WritingRunner()
         writing_runner.only_knows("rclone")
         writing_runner.script(("rclone", "obscure", "-"), stdout="OBSCURED\n")
+        writing_runner.script(
+            ("rclone", "lsjson", "nas:wasm-backups/shop-example-com"),
+            stdout=json.dumps([{"Name": f"{backup_id}.tar.gz", "Size": len(archive_content)}]),
+        )
         writing_manager = BackupDestinationManager(runner=writing_runner)
         writing_manager.add("nas", "sftp", _sftp_fields())
 
@@ -641,6 +653,10 @@ class TestRemoteListAndDownload:
         writing_runner = _WritingRunner()
         writing_runner.only_knows("rclone")
         writing_runner.script(("rclone", "obscure", "-"), stdout="OBSCURED\n")
+        writing_runner.script(
+            ("rclone", "lsjson", "nas:wasm-backups/shop-example-com"),
+            stdout=json.dumps([{"Name": f"{backup_id}.tar.gz", "Size": 17}]),
+        )
         writing_manager = BackupDestinationManager(runner=writing_runner)
         writing_manager.add("nas", "sftp", _sftp_fields())
 

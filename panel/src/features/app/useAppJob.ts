@@ -7,7 +7,8 @@ import type { Job } from "../../api/queries/jobs";
 const JOB_WORDS: Readonly<Record<string, { running: string; noun: string }>> = {
   deploy: { running: "Deploying", noun: "Deploy" },
   update: { running: "Updating", noun: "Update" },
-  restore: { running: "Rolling back", noun: "Rollback" },
+  rollback: { running: "Rolling back", noun: "Rollback" },
+  restore: { running: "Restoring", noun: "Restore" },
   delete: { running: "Deleting", noun: "Deletion" },
   backup: { running: "Backing up", noun: "Backup" },
   push: { running: "Copying", noun: "Copy" },

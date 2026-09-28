@@ -110,6 +110,17 @@ class FakeStore:
         """
         return self._databases
 
+    def list_deployments(self, domain: str | None = None, limit: int = 50) -> list[object]:
+        """
+        Args:
+            domain: Application whose history is asked for.
+            limit: Most rows returned.
+
+        Returns:
+            No history: nothing here depends on a deployment's snapshot.
+        """
+        return []
+
 
 class FakeDatabaseManager:
     """

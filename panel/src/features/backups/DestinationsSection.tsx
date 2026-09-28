@@ -45,11 +45,26 @@ function TestCell({ state }: { state: TestState | undefined }) {
 /**
  * Removing a destination: the same type-to-confirm `ConfirmDialog` every irreversible action
  * uses. A destination a schedule still pushes to is refused with a hint to pass `--force`; the
- * second attempt offers exactly that, instead of asking the operator to find a CLI flag.
+ * second attempt offers exactly that, instead of asking the operator to find a CLI flag. An
+ * encrypted one only gets here after `ShowKeyDialog` showed its key and the operator ticked
+ * "saved" (`keySaved`), which is what the API requires to remove it.
  */
-function RemoveDestinationDialog({ destination, open, onOpenChange }: { destination: Destination; open: boolean; onOpenChange: (open: boolean) => void }) {
+function RemoveDestinationDialog({
+  destination,
+  open,
+  onOpenChange,
+  keySaved,
+}: {
+  destination: Destination;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  keySaved: boolean;
+}) {
   const { remove } = useDestinationActions();
   const [force, setForce] = useState(false);
+  const leftBehind = keySaved
+    ? "Backups already copied here are kept, readable only with the key you saved."
+    : "Backups already copied here are kept.";
 
   return (
     <ConfirmDialog
@@ -61,14 +76,14 @@ function RemoveDestinationDialog({ destination, open, onOpenChange }: { destinat
       title={`Remove ${destination.name}`}
       description={
         force
-          ? "A schedule still pushes backups here. Removing it anyway drops the reference from those schedules; backups already copied here are kept. Type the name again to remove it."
-          : "Backups already copied here are kept, but nothing more will be sent to it. Refused while a schedule still pushes to it."
+          ? `A schedule still pushes backups here. Removing it anyway drops the reference from those schedules. ${leftBehind} Type the name again to remove it.`
+          : `${leftBehind} Nothing more will be sent to it. Refused while a schedule still pushes to it.`
       }
       confirmText={destination.name}
       actionLabel={force ? "Remove anyway" : "Remove destination"}
       onConfirm={async () => {
         try {
-          await remove.mutateAsync({ name: destination.name, force });
+          await remove.mutateAsync({ name: destination.name, force, keySaved });
         } catch (error: unknown) {
           if (!force && isApiError(error) && (error.hint ?? "").toLowerCase().includes("force")) {
             setForce(true);
@@ -94,6 +109,9 @@ function DestinationActions({
   const [editOpen, setEditOpen] = useState(false);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [keyOpen, setKeyOpen] = useState(false);
+  const [removeKeyOpen, setRemoveKeyOpen] = useState(false);
+  // Removing deletes the only copy WASM has of an encrypted destination's key.
+  const keyed = destination.encrypted && destination.encryption_configured;
 
   return (
     <>
@@ -112,13 +130,23 @@ function DestinationActions({
             Show encryption key
           </MenuItem>
         ) : null}
-        <MenuItem icon={<Trash2 />} destructive onClick={() => setRemoveOpen(true)}>
+        <MenuItem icon={<Trash2 />} destructive onClick={() => (keyed ? setRemoveKeyOpen(true) : setRemoveOpen(true))}>
           Remove
         </MenuItem>
       </Menu>
       <DestinationDialog existing={destination} open={editOpen} onOpenChange={setEditOpen} />
-      <RemoveDestinationDialog destination={destination} open={removeOpen} onOpenChange={setRemoveOpen} />
+      <RemoveDestinationDialog destination={destination} open={removeOpen} onOpenChange={setRemoveOpen} keySaved={keyed} />
       {keyOpen ? <ShowKeyDialog name={destination.name} open onOpenChange={setKeyOpen} /> : null}
+      {removeKeyOpen ? (
+        <ShowKeyDialog
+          name={destination.name}
+          open
+          onOpenChange={setRemoveKeyOpen}
+          onContinueToRemove={() => {
+            setRemoveOpen(true);
+          }}
+        />
+      ) : null}
     </>
   );
 }

@@ -47,6 +47,8 @@ class StoreRegistrar:
         cpu_quota_percent: int | None = None,
         tasks_max: int | None = None,
         limits_given: bool = False,
+        preview_parent: str | None = None,
+        env_secret_marks: dict[str, bool] | None = None,
     ) -> App:
         """
         Create or update the application row.
@@ -87,6 +89,11 @@ class StoreRegistrar:
                 ``CreateAppRequest``); a redeploy or an update never passes
                 this, so the limits an operator set through the panel survive
                 every later deploy of the same application.
+            preview_parent: The application a new row is the preview of.
+                Ignored for an existing row, whose link only
+                :meth:`~wasm.core.store.WASMStore.set_preview_parent` writes.
+            env_secret_marks: The secret marks a new row starts with. Ignored
+                for an existing row, like ``preview_parent``.
 
         Returns:
             The stored application row.
@@ -128,6 +135,8 @@ class StoreRegistrar:
             # created_at belongs to the first deployment, not to this one.
             app.created_at = existing.created_at
             return self.store.update_app(app)
+        app.preview_parent = preview_parent
+        app.env_secret_marks = dict(env_secret_marks or {})
         return self.store.create_app(app)
 
     def register_site(

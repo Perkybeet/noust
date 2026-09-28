@@ -33,8 +33,9 @@ from wasm.core.exceptions import ConfigError
 from wasm.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
 
 # One segment: letters, digits, dot, dash, underscore; not starting with a
-# dot, so neither ``..`` nor a hidden file can be named.
-_SEGMENT = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$")
+# dot, so neither ``..`` nor a hidden file can be named. Always used with
+# fullmatch: ``$`` also matches before a trailing newline.
+_SEGMENT = re.compile(r"[A-Za-z0-9_][A-Za-z0-9._-]{0,127}")
 
 
 def secrets_dir() -> Path:
@@ -66,7 +67,7 @@ def _checked_name(name: str) -> tuple[str, ...]:
         ConfigError: The name is empty or a segment is not a simple name.
     """
     segments = tuple(name.split("/"))
-    if not name or not all(_SEGMENT.match(segment) for segment in segments):
+    if not name or not all(_SEGMENT.fullmatch(segment) for segment in segments):
         raise ConfigError(
             f"Invalid secret name: {name!r}",
             details="A secret is named by simple segments separated by '/'.",

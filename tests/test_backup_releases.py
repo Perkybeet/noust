@@ -85,6 +85,9 @@ class _NoStore:
     def list_databases(self, app_id: int | None = None) -> list[object]:
         return []
 
+    def list_deployments(self, domain: str | None = None, limit: int = 50) -> list[object]:
+        return []
+
 
 def members(manager: BackupManager, backup_id: str) -> set[str]:
     """Names in an archive, relative to the application tree."""

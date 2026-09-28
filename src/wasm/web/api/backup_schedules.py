@@ -21,6 +21,13 @@ here rather than in the handlers' bodies:
   runs, including the remote destinations a schedule pushes to.
 - **Every mutation is audited** to ``wasm.audit`` with the session that asked
   for it, like every other mutation the panel can perform.
+
+Retention may be null end to end. A schedule adopted from a 2.1 timer has
+none of its own - ``backup.max_per_app`` rotation, as 2.1 applied - and a
+``PUT`` that sends null keeps it that way; inventing 7/30 for it is how
+opening such a schedule to add a destination used to prune most of its local
+backups. Whatever a schedule's retention is, it only ever deletes backups the
+schedule made.
 """
 
 from __future__ import annotations
@@ -34,6 +41,7 @@ from pydantic import BaseModel, Field
 from wasm.core.exceptions import BackupError
 from wasm.core.store import get_store
 from wasm.core.utils import domain_to_app_name
+from wasm.managers.backup_manager import BackupManager
 from wasm.managers.backup_scheduler import (
     SCHEDULE_ALIASES,
     BackupSchedule,
@@ -78,10 +86,11 @@ class BackupScheduleInfo(BaseModel):
         next_run: When the timer fires next, as systemd prints it, or
             ``pending`` when it cannot say.
         last_run: When the timer last fired, or ``never``.
-        retention_count: Local backups to keep, from the store row; None for
-            the default.
-        retention_days: Maximum local backup age in days, from the store row;
-            None for no limit.
+        retention_count: The schedule's own local backups to keep, from the
+            store row; None when ``backup.max_per_app`` is in charge.
+        retention_days: Maximum age in days of the schedule's own local
+            backups, from the store row; None for no limit.
+        include_databases: Whether each backup dumps the databases too.
         destinations: Remote destinations this schedule pushes to.
     """
 
@@ -94,14 +103,22 @@ class BackupScheduleInfo(BaseModel):
     last_run: str
     retention_count: int | None = None
     retention_days: int | None = None
+    include_databases: bool = True
     destinations: list[ScheduleDestination] = Field(default_factory=list)
 
 
 class ScheduleListResponse(BaseModel):
-    """Response for listing backup schedules."""
+    """
+    Response for listing backup schedules.
+
+    Attributes:
+        default_retention_count: ``backup.max_per_app``: what rotation keeps
+            per application for a schedule whose ``retention_count`` is null.
+    """
 
     schedules: list[BackupScheduleInfo]
     total: int
+    default_retention_count: int
 
 
 class CreateScheduleRequest(BaseModel):
@@ -112,8 +129,21 @@ class CreateScheduleRequest(BaseModel):
         default="daily",
         description="hourly, daily, weekly, monthly or a systemd OnCalendar expression",
     )
-    retention_count: int = Field(default=7, ge=1, le=365, description="Backups to keep")
-    retention_days: int = Field(default=30, ge=1, le=3650, description="Max age in days")
+    retention_count: int | None = Field(
+        default=7,
+        ge=1,
+        le=365,
+        description="Backups this schedule made to keep; other backups are never deleted by it. "
+        "null leaves backup.max_per_app in charge, over every backup of the application, as "
+        "2.1 did. A new schedule defaults to 7.",
+    )
+    retention_days: int | None = Field(
+        default=30,
+        ge=1,
+        le=3650,
+        description="Maximum age in days of a backup this schedule made; null for no age limit. "
+        "A new schedule defaults to 30.",
+    )
     include_databases: bool = Field(default=True, description="Dump databases too")
     destinations: list[ScheduleDestination] = Field(
         default_factory=list, description="Remote destinations to push each backup to"
@@ -166,6 +196,7 @@ def _to_info(entry: dict[str, str]) -> BackupScheduleInfo:
     domain = entry.get("domain") or entry.get("app_name", "")
     retention_count = entry.get("retention_count") or ""
     retention_days = entry.get("retention_days") or ""
+    include_databases = entry.get("include_databases", "true") != "false"
 
     record = get_store().get_backup_schedule(domain)
     destinations = (
@@ -184,6 +215,7 @@ def _to_info(entry: dict[str, str]) -> BackupScheduleInfo:
         last_run=entry.get("last_run", "never"),
         retention_count=int(retention_count) if retention_count else None,
         retention_days=int(retention_days) if retention_days else None,
+        include_databases=include_databases,
         destinations=destinations,
     )
 
@@ -206,7 +238,9 @@ def list_schedules(
     """
     entries = BackupScheduler(verbose=False).list_schedules()
     return ScheduleListResponse(
-        schedules=[_to_info(entry) for entry in entries], total=len(entries)
+        schedules=[_to_info(entry) for entry in entries],
+        total=len(entries),
+        default_retention_count=BackupManager.configured_max_backups(),
     )
 
 
@@ -261,6 +295,7 @@ def _upsert_schedule(
             last_run="never",
             retention_count=data.retention_count,
             retention_days=data.retention_days,
+            include_databases=data.include_databases,
             destinations=data.destinations,
         ),
     )

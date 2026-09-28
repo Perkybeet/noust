@@ -46,9 +46,11 @@ from starlette.requests import HTTPConnection
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from wasm import __version__
-from wasm.core.exceptions import SecurityError, WASMError
+from wasm.core.exceptions import SecurityError
 from wasm.core.net import host_addresses, is_loopback_host, local_address, loopback_access_lines
-from wasm.core.notifier import NotificationEvent
+from wasm.core.notifier import NotificationEvent, notify_in_background
+from wasm.deployers import deploy_events
+from wasm.deployers.deploy_events import DeployEvent
 from wasm.web.auth import (
     SAFE_METHODS,
     SESSION_COOKIE_NAME,
@@ -91,6 +93,10 @@ logger = logging.getLogger(__name__)
 
 #: Path prefix of the forge webhooks, which get :data:`MAX_HOOK_BODY_BYTES`.
 HOOKS_PATH_PREFIX = "/hooks/"
+
+#: Prefix of the anonymous rate key forge deliveries are counted under, in
+#: front of the client address: a budget apart from the console's own.
+HOOKS_RATE_KEY = "hooks|"
 
 #: Methods whose body the middleware reads and counts before the app does.
 #: Nothing reads a GET's body, so a GET is judged by its declared length only.
@@ -200,6 +206,26 @@ def is_machine_path(path: str) -> bool:
     return any(path == prefix or path.startswith(prefix + "/") for prefix in MACHINE_PATH_PREFIXES)
 
 
+def has_dot_segment(path: str) -> bool:
+    """
+    Report whether a request path has a ``.`` or ``..`` segment.
+
+    No browser or HTTP client sends one: they resolve dot segments before the
+    request leaves. A path that still has one was forwarded verbatim by a
+    proxy that matched it after normalising - ``/api/x/../../hooks/y`` is
+    ``/hooks/y`` to nginx - and the router here, which does not normalise,
+    would send it somewhere the proxy never meant to expose. The ASGI path is
+    already percent-decoded, so ``%2e%2e`` is caught as ``..`` too.
+
+    Args:
+        path: The request path, decoded.
+
+    Returns:
+        True when any segment is exactly ``.`` or ``..``.
+    """
+    return any(segment in (".", "..") for segment in path.split("/"))
+
+
 def _spends_no_rate_budget(scope: Scope, path: str) -> bool:
     """
     Report whether a request is exempt from the rate limit.
@@ -251,20 +277,27 @@ def rate_bucket(connection: HTTPConnection, client_ip: str, path: str) -> RateBu
 
     A request with a valid credential is counted per credential, against
     ``rate_limit_authenticated_requests``; anything else per client IP,
-    against the strict ``rate_limit_requests``. Three kinds of request are
+    against the strict ``rate_limit_requests``. Two kinds of request are
     counted by address without their credential being looked at, because
     looking would make the limiter a credential oracle or an amplifier:
 
     - one outside :data:`~wasm.web.auth.CREDENTIAL_PATH_PREFIXES` (``/health``,
       the forge webhooks), where no endpoint checks a credential either;
     - one from an address the lockout has refused, which the lockout refuses
-      right after;
-    - one from an address already over the anonymous budget: it is refused
-      anyway, and checking its credential first would buy a flood a SQLite
-      query and a read of ``web-token`` per request.
+      right after.
 
-    A wrong credential the check does find is noted for the lockout by
-    :func:`~wasm.web.auth.rate_limit_identity`.
+    A forge delivery is counted in a budget of its own, keyed
+    :data:`HOOKS_RATE_KEY` plus the address. Behind ``wasm web
+    expose-hooks`` every delivery arrives from nginx on 127.0.0.1, the
+    address of the operator's SSH tunnel too, so anyone on the internet
+    could otherwise spend the tunnel's budget by posting to ``/hooks/``.
+
+    An address over its anonymous budget still has its credential checked:
+    a valid one must never be refused for what other clients behind the same
+    address did. The check stays bounded, because a wrong credential it
+    finds is noted for the lockout by
+    :func:`~wasm.web.auth.rate_limit_identity`, and a locked-out address is
+    not checked at all.
 
     Args:
         connection: The incoming request or handshake.
@@ -274,12 +307,10 @@ def rate_bucket(connection: HTTPConnection, client_ip: str, path: str) -> RateBu
     Returns:
         The bucket to count the request in.
     """
+    if path.startswith(HOOKS_PATH_PREFIX):
+        return RateBucket(get_rate_limiter(), HOOKS_RATE_KEY + client_ip)
     anonymous = RateBucket(get_rate_limiter(), client_ip)
-    if (
-        not carries_credentials(path)
-        or get_brute_force().is_locked(client_ip)
-        or anonymous.limiter.get_remaining(client_ip) <= 0
-    ):
+    if not carries_credentials(path) or get_brute_force().is_locked(client_ip):
         return anonymous
     identity = rate_limit_identity(connection, client_ip)
     if identity is not None:
@@ -440,6 +471,16 @@ def get_audit() -> AuditLogger | None:
 #: reporting surface.
 DEPLOY_JOB_TYPES = frozenset({"restore"})
 
+#: Job types that run a deployment the recorder announces - once it opens.
+#: One that fails before (the application busy with a CLI deploy, an in-place
+#: pull that fails, a pre-flight check that refuses) leaves no history row and
+#: no announcement, so its failure is announced from here instead; see
+#: :class:`DeploymentWitness`.
+RECORDED_JOB_TYPES = frozenset({"deploy", "update", "rollback"})
+
+#: Statuses a job ends in.
+_FINISHED_STATUSES = frozenset({"completed", "failed", "cancelled"})
+
 #: Terminal job status to the notification kind it publishes as.
 _TERMINAL_KINDS = {"completed": "deploy_success", "failed": "deploy_failed"}
 
@@ -489,44 +530,98 @@ def deployment_notification(job: Any) -> NotificationEvent | None:
     )
 
 
-def _deliver_notification(event: NotificationEvent) -> None:
+def _job_type(job: Any) -> str:
     """
-    Hand one event to the notifier without blocking the caller.
-
-    The job manager notifies subscribers from its worker thread, and the
-    notifier makes HTTP requests with a ten second deadline each: delivered
-    inline, one slow endpoint would stall every queued job behind the one
-    that finished. A daemon thread per event is cheap at the rate deploys
-    finish, and it does not hold the process open at shutdown.
-
     Args:
-        event: The event to publish.
+        job: A job, as the job manager reports it.
+
+    Returns:
+        Its type as a plain string.
     """
-    threading.Thread(target=_notify_now, args=(event,), name="wasm-notify", daemon=True).start()
+    return str(getattr(job.type, "value", job.type))
 
 
-def _notify_now(event: NotificationEvent) -> None:
+def _job_status(job: Any) -> str:
     """
-    Publish one event over the configuration as it stands on disk.
-
-    The configuration is re-read per notification - one small file per
-    finished deploy - so a notifications change saved in the panel or made
-    with the CLI applies to the next event without a restart.
-
     Args:
-        event: The event to publish.
-    """
-    from wasm.core.config import Config
-    from wasm.core.notifier import Notifier
+        job: A job, as the job manager reports it.
 
-    config = Config()
-    try:
-        config.reload()
-    except (OSError, WASMError) as exc:
-        # Error boundary for the notification thread: an unreadable config
-        # file must cost this announcement its freshness, not the thread.
-        logger.warning("Configuration reload before notification failed: %s", exc)
-    Notifier(config).notify(event)
+    Returns:
+        Its status as a plain string.
+    """
+    return str(getattr(job.status, "value", job.status))
+
+
+class DeploymentWitness:
+    """
+    Tells whether a console job's deployment was announced by the recorder.
+
+    Subscribed to :mod:`wasm.deployers.deploy_events` for the life of the
+    server. The job manager runs one job at a time in this process, and a
+    deployment publishes from the thread running it, so an event carrying the
+    job's id - or, for a rollback, whose history row carries none, the job's
+    domain - while the job runs is that job's deployment.
+    """
+
+    def __init__(self) -> None:
+        """Start with no job running."""
+        self._lock = threading.Lock()
+        self._running: dict[str, str | None] = {}
+        self._witnessed: set[str] = set()
+
+    def job_changed(self, job: Any) -> None:
+        """
+        Start following a running job of a recorded type.
+
+        Args:
+            job: The job that changed.
+        """
+        if _job_type(job) not in RECORDED_JOB_TYPES or _job_status(job) != "running":
+            return
+        domain = job.metadata.get("domain")
+        with self._lock:
+            self._running[job.id] = str(domain) if domain else None
+
+    def on_deploy_event(self, event: DeployEvent) -> None:
+        """
+        Note which running job a deployment event belongs to.
+
+        Args:
+            event: What the deployment published.
+        """
+        with self._lock:
+            if event.job_id is not None:
+                if event.job_id in self._running:
+                    self._witnessed.add(event.job_id)
+                return
+            for job_id, domain in self._running.items():
+                if domain == event.domain:
+                    self._witnessed.add(job_id)
+
+    def announced(self, job: Any) -> bool:
+        """
+        Stop following a finished job, telling whether its deployment was announced.
+
+        Args:
+            job: The finished job.
+
+        Returns:
+            True when a deployment event was published while it ran.
+        """
+        with self._lock:
+            self._running.pop(job.id, None)
+            if job.id in self._witnessed:
+                self._witnessed.discard(job.id)
+                return True
+            return False
+
+    def tracked(self) -> int:
+        """
+        Returns:
+            How many jobs are remembered, running or witnessed.
+        """
+        with self._lock:
+            return len(self._running) + len(self._witnessed)
 
 
 class JobNotificationSubscriber:
@@ -539,15 +634,48 @@ class JobNotificationSubscriber:
     builds the application without running it.
     """
 
-    def __init__(self, deliver: Any = None) -> None:
+    def __init__(self, deliver: Any = None, witness: DeploymentWitness | None = None) -> None:
         """
         Args:
-            deliver: Replacement for :func:`_deliver_notification`. Tests
-                inject a capture so nothing spawns a thread or reads config.
+            deliver: Replacement for
+                :func:`~wasm.core.notifier.notify_in_background`, the one
+                in-order notification worker deploy notifications use too.
+                Tests inject a capture so nothing runs a worker or reads config.
+            witness: What tells a deployment job the recorder announced from
+                one it never reached; None announces no deployment job.
         """
-        self._deliver = deliver or _deliver_notification
+        self._deliver = deliver or notify_in_background
+        self._witness = witness
         self._seen: OrderedDict[str, None] = OrderedDict()
         self._lock = threading.Lock()
+
+    def _unrecorded_failure(self, job: Any) -> NotificationEvent | None:
+        """
+        Announce a deployment job that failed before the recorder opened.
+
+        Args:
+            job: The job that changed.
+
+        Returns:
+            ``deploy_failed`` with the job's own error for such a job, None
+            for every other transition.
+        """
+        if self._witness is None or _job_type(job) not in RECORDED_JOB_TYPES:
+            return None
+        status = _job_status(job)
+        if status not in _FINISHED_STATUSES:
+            self._witness.job_changed(job)
+            return None
+        if self._witness.announced(job) or status != "failed":
+            return None
+        domain = job.metadata.get("domain")
+        return NotificationEvent(
+            kind="deploy_failed",
+            title=f"{job.name} failed",
+            # The tool's own words, never paraphrased.
+            body=job.error or "",
+            domain=str(domain) if domain else None,
+        )
 
     def __call__(self, job: Any) -> None:
         """
@@ -556,7 +684,10 @@ class JobNotificationSubscriber:
         Args:
             job: The job that changed.
         """
-        event = deployment_notification(job)
+        with self._lock:
+            if job.id in self._seen:
+                return
+        event = deployment_notification(job) or self._unrecorded_failure(job)
         if event is None:
             return
         with self._lock:
@@ -597,7 +728,9 @@ async def lifespan(app: FastAPI):
     # What a console killed mid-inspection could not remove itself.
     remove_stale_checkouts()
     jobs = get_job_manager()
-    notify_jobs = JobNotificationSubscriber()
+    witness = DeploymentWitness()
+    stop_witnessing = deploy_events.subscribe(witness.on_deploy_event)
+    notify_jobs = JobNotificationSubscriber(witness=witness)
     jobs.subscribe_all(notify_jobs)
     # One publisher per process, not per open stream: it reads the
     # application's state once per change and the event hub fans it out.
@@ -617,6 +750,7 @@ async def lifespan(app: FastAPI):
         stop_metrics_collector()
         jobs.unsubscribe_all(app_states)
         jobs.unsubscribe_all(notify_jobs)
+        stop_witnessing()
         manager.purge_expired_sessions()
 
 
@@ -961,6 +1095,23 @@ class SecurityMiddleware:
                 ws_code=WS_CLOSE_FORBIDDEN,
                 detail="HTTPS is required to reach this panel.",
                 error="forbidden",
+            )
+            return
+
+        if has_dot_segment(path):
+            # Refused ahead of the rate limiter and every credential check, so
+            # a request smuggled through the hooks proxy cannot count a guess
+            # against 127.0.0.1, the address of the operator's tunnel.
+            await self._deny(
+                scope,
+                receive,
+                send,
+                connection,
+                status_code=400,
+                ws_code=WS_CLOSE_FORBIDDEN,
+                detail="The request path has a '.' or '..' segment.",
+                error="validation_error",
+                hint="Resolve the path before sending it.",
             )
             return
 

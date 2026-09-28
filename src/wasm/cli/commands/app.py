@@ -399,6 +399,12 @@ def _print_zero_downtime(logger: Logger, status: ZeroDowntimeStatus) -> None:
         f"127.0.0.1:{status.upstream_port}" if status.upstream_port else "missing",
     )
     logger.key_value("Drain", f"{status.drain_seconds} s")
+    if status.reason:
+        # A unit an interrupted switch left running: the next activation
+        # refuses to start blue on the port it holds.
+        logger.warning(status.reason)
+        if status.hint:
+            logger.info(status.hint)
 
 
 @cli.command("zero-downtime")

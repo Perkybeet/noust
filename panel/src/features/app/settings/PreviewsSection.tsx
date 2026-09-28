@@ -20,6 +20,7 @@ import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Section } from "../../../components/page/Section";
 import { SegmentedControl } from "../../../components/page/SegmentedControl";
 import { Button } from "../../../components/ui/Button";
+import { Checkbox } from "../../../components/ui/Checkbox";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
@@ -108,8 +109,13 @@ function Needs({ domain, base }: { domain: string; base: string | null }) {
             Previews get this app's production secrets
           </p>
           <p className="text-fg">
-            A preview runs with the app's environment variables and connects to its databases. Anyone who can push a branch to the
-            repository and open a pull request runs code with them on this server.
+            A preview is built as root, like every deploy, from the pull request's branch. It runs with the app's environment variables,
+            except those never copied to previews, and connects to its databases. Anyone who can push a branch to the repository and
+            open a pull request runs code with them on this server.
+          </p>
+          <p className="text-fg">
+            Pull requests from forks never get a preview. On GitHub, only pull requests by the repository's owners, members and
+            collaborators do. Bot accounts, such as Dependabot and Renovate, are refused unless bots are allowed below.
           </p>
         </div>
       </div>
@@ -153,6 +159,8 @@ function PreviewSettingsForm({ domain, settings, previews }: { domain: string; s
     onSuccess: (result) => {
       setSubmitted(false);
       setTouched({});
+      // What was saved, as the backend stored it: the names listed once, in its spelling.
+      setDraft(previewDraftOf(result));
       queryClient.setQueryData<Previews>(previewsKey(domain), (known) => (known ? { ...known, enabled: true, settings: result } : known));
       void queryClient.invalidateQueries({ queryKey: previewsKey(domain) });
       // The toast is announced; saying it again would read it twice.
@@ -198,7 +206,7 @@ function PreviewSettingsForm({ domain, settings, previews }: { domain: string; s
   const errorOf = (field: PreviewField): string | undefined =>
     (submitted || touched[field] ? parsed.errors[field] : undefined) ?? serverFields[field];
 
-  const edit = (field: keyof PreviewDraft) => (value: string) => {
+  const edit = (field: Exclude<keyof PreviewDraft, "unit" | "allow_bots">) => (value: string) => {
     setDraft((previous) => ({ ...previous, [field]: value }));
     if (save.isError) save.reset();
   };
@@ -308,6 +316,32 @@ function PreviewSettingsForm({ domain, settings, previews }: { domain: string; s
         </div>
       </div>
 
+      <Field
+        label="Never copied to previews"
+        description="Variable names, separated by commas or spaces, such as live payment keys. Every other variable of the app is copied; a preview that has one of these loses it at its next push."
+        error={errorOf("exclude_env")}
+      >
+        <Input
+          mono
+          autoComplete="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          placeholder="STRIPE_SECRET_KEY, SMTP_PASSWORD"
+          value={draft.exclude_env}
+          onValueChange={edit("exclude_env")}
+          onBlur={blur("exclude_env")}
+        />
+      </Field>
+      <Checkbox
+        label="Allow pull requests from bots"
+        description="Dependabot, Renovate and other bot accounts. Their pull requests run code nobody has reviewed yet, with this app's secrets."
+        checked={draft.allow_bots}
+        onCheckedChange={(allow_bots) => {
+          setDraft((previous) => ({ ...previous, allow_bots }));
+          if (save.isError) save.reset();
+        }}
+      />
+
       {save.isError && formError !== null ? <ErrorBlock live compact error={formError} title="The preview settings were not saved" /> : null}
       {removalFailed ? (
         <ErrorBlock
@@ -320,11 +354,27 @@ function PreviewSettingsForm({ domain, settings, previews }: { domain: string; s
       ) : null}
 
       <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-12 text-fg-muted">
-          {settings !== null
-            ? `Now: at most ${previewCount(settings.max_previews)} under ${settings.base_domain}, each removed after ${lifetime(settings.ttl_hours)} without a push.`
-            : "Pull requests get no preview."}
-        </p>
+        {settings !== null ? (
+          <div className="flex min-w-0 flex-col gap-0.5 text-12 text-fg-muted">
+            <p>{`Now: at most ${previewCount(settings.max_previews)} under ${settings.base_domain}, each removed after ${lifetime(settings.ttl_hours)} without a push.`}</p>
+            <p>
+              {settings.exclude_env.length > 0 ? (
+                <>
+                  {"Never copied: "}
+                  <span translate="no" className="mono break-all text-fg">
+                    {settings.exclude_env.join(", ")}
+                  </span>
+                  {". "}
+                </>
+              ) : (
+                "Every variable is copied. "
+              )}
+              {settings.allow_bots ? "Bots get previews." : "Bots get none."}
+            </p>
+          </div>
+        ) : (
+          <p className="text-12 text-fg-muted">Pull requests get no preview.</p>
+        )}
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {enabled ? (
             <Button variant="ghost" onClick={turnOff}>

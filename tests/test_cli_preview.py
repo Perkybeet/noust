@@ -115,6 +115,68 @@ def test_enable_refuses_what_the_manager_refuses(store: WASMStore, extra: list[s
     assert store.get_preview_settings(PARENT) is None
 
 
+def test_enable_takes_bots_and_excluded_variables(store: WASMStore) -> None:
+    result = invoke(
+        [
+            "preview",
+            "enable",
+            PARENT,
+            "--domain",
+            BASE,
+            "--allow-bots",
+            "--exclude-env",
+            "STRIPE_KEY",
+            "--exclude-env",
+            "S3_SECRET",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    settings = store.get_preview_settings(PARENT)
+    assert settings is not None
+    assert (settings.allow_bots, settings.exclude_env) == (True, ["STRIPE_KEY", "S3_SECRET"])
+    assert "as root" in result.output
+
+
+def test_enable_changes_one_setting_and_keeps_the_rest(store: WASMStore) -> None:
+    invoke(["preview", "enable", PARENT, "--domain", BASE, "--max", "5", "--exclude-env", "A"])
+
+    result = invoke(["preview", "enable", PARENT, "--no-allow-bots", "--ttl", "1d"])
+
+    assert result.exit_code == 0, result.output
+    settings = store.get_preview_settings(PARENT)
+    assert settings is not None
+    assert (settings.base_domain, settings.max_previews, settings.ttl_hours) == (BASE, 5, 24)
+    assert (settings.allow_bots, settings.exclude_env) == (False, ["A"])
+
+    cleared = invoke(["preview", "enable", PARENT, "--no-exclude-env"])
+    assert cleared.exit_code == 0, cleared.output
+    settings = store.get_preview_settings(PARENT)
+    assert settings is not None and settings.exclude_env == []
+
+
+def test_enable_without_a_base_domain_needs_previews_on(store: WASMStore) -> None:
+    result = invoke(["preview", "enable", PARENT])
+
+    assert result.exit_code == 1, result.output
+    assert store.get_preview_settings(PARENT) is None
+
+
+def test_enable_refuses_an_invalid_variable_name(store: WASMStore) -> None:
+    result = invoke(["preview", "enable", PARENT, "--domain", BASE, "--exclude-env", "NOT-A-NAME"])
+
+    assert result.exit_code == 1, result.output
+    assert store.get_preview_settings(PARENT) is None
+
+
+def test_enable_help_says_builds_run_as_root() -> None:
+    result = invoke(["preview", "enable", "--help"])
+
+    assert result.exit_code == 0
+    assert "as root" in result.output
+    assert "--allow-bots" in result.output and "--exclude-env" in result.output
+
+
 def test_list_prints_json(store: WASMStore) -> None:
     store.save_preview_settings(PreviewSettings(app_domain=PARENT, base_domain=BASE))
     preview(store)

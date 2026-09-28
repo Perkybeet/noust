@@ -19,12 +19,10 @@ defended:
   through the real :class:`~wasm.core.notifier.Notifier`, the same way
   tests/test_web_notifications_wiring.py asserts the job-based wiring's
   switches, not by re-reading the default in isolation.
-- **Delivery never blocks the caller**, even when a channel is slow, and a
-  notification already in flight is actually sent before
-  :func:`~wasm.core.deploy_notifications._join_pending` returns - the
-  behaviour the module registers with :mod:`atexit` for, so a CLI process
-  that exits moments after a deploy still sends its notification instead of
-  losing it with every other daemon thread.
+- **Delivery never blocks the caller**, even when a channel is slow, and
+  goes through the notifier's one FIFO worker, whose exit drain
+  (tests/test_background_queue.py) is what lets a CLI process that exits
+  moments after a deploy still send its notification.
 """
 
 # The notifier's config fixture is imported rather than replicated, so there
@@ -37,14 +35,13 @@ import json
 import time
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
 
 import pytest
 
 from tests.test_notifier import CapturingOpener, config, public_dns  # noqa: F401
 from wasm.core import deploy_notifications
 from wasm.core.config import DEFAULT_CONFIG, Config
-from wasm.core.notifier import NotificationEvent, Notifier
+from wasm.core.notifier import NOTIFICATION_QUEUE, NotificationEvent, Notifier
 from wasm.core.store import App, PreviewRecord, WASMStore
 from wasm.deployers.deploy_events import DeployEvent, DeployEventKind
 
@@ -61,20 +58,16 @@ def store(tmp_path: Path) -> Iterator[WASMStore]:
 
 
 @pytest.fixture(autouse=True)
-def _reset_pending_threads() -> Iterator[None]:
+def _drained_queue() -> Iterator[None]:
     """
-    Keep one test's in-flight notification threads out of the next test's.
+    Keep one test's in-flight notifications out of the next test's.
 
-    ``_pending`` and ``_atexit_registered`` are process-wide: a thread a
-    previous test started (a deliberately slow one, for the threading tests
-    below) must not be joined - and its budget spent - by a later test that
-    never started it.
+    The notification worker is process-wide: a deliberately slow notification
+    a test left behind must have finished before the next test counts calls.
     """
-    deploy_notifications._pending.clear()
-    deploy_notifications._atexit_registered = False
+    NOTIFICATION_QUEUE.drain(timeout=10.0)
     yield
-    deploy_notifications._pending.clear()
-    deploy_notifications._atexit_registered = False
+    NOTIFICATION_QUEUE.drain(timeout=10.0)
 
 
 def make_event(
@@ -146,7 +139,7 @@ class TestKindMapping:
         notification_kind: str,
     ) -> None:
         deploy_notifications.on_deploy_event(make_event(event_kind))
-        deploy_notifications._join_pending(timeout=5.0)
+        NOTIFICATION_QUEUE.drain(timeout=5.0)
 
         assert [call.kind for call in fake_notifier.calls] == [notification_kind]
 
@@ -160,7 +153,7 @@ class TestKindMapping:
             domain = "shop.example.com"
 
         deploy_notifications.on_deploy_event(_FutureEvent())  # type: ignore[arg-type]
-        deploy_notifications._join_pending(timeout=1.0)
+        NOTIFICATION_QUEUE.drain(timeout=1.0)
 
         assert fake_notifier.calls == []
         assert "not-a-real-kind" in caplog.text
@@ -354,64 +347,53 @@ class TestDeliveryNeverBlocksTheDeployment:
         assert elapsed < 0.05
         assert fake_notifier.calls == []  # still in flight
 
-        deploy_notifications._join_pending(timeout=5.0)  # let the thread finish before teardown
+        NOTIFICATION_QUEUE.drain(timeout=5.0)  # let the thread finish before teardown
 
-    def test_join_pending_waits_for_a_slow_notification_to_actually_send(
+    def test_drain_waits_for_a_slow_notification_to_actually_send(
         self, config: Config, fake_notifier: type[FakeNotifier]
     ) -> None:
-        """What the atexit hook relies on: the CLI process exits only once this returns."""
+        """What the exit drain relies on: the CLI process exits only once this returns."""
         fake_notifier.delay = 0.15
 
         deploy_notifications.on_deploy_event(make_event())
-        deploy_notifications._join_pending(timeout=5.0)
+        NOTIFICATION_QUEUE.drain(timeout=5.0)
 
         assert len(fake_notifier.calls) == 1
 
-    def test_join_pending_gives_up_at_its_cap_rather_than_hang(
+    def test_drain_gives_up_at_its_cap_rather_than_hang(
         self, config: Config, fake_notifier: type[FakeNotifier]
     ) -> None:
-        fake_notifier.delay = 2.0
+        fake_notifier.delay = 1.0
 
         deploy_notifications.on_deploy_event(make_event())
         started = time.perf_counter()
-        deploy_notifications._join_pending(timeout=0.05)
+        NOTIFICATION_QUEUE.drain(timeout=0.05)
         elapsed = time.perf_counter() - started
 
-        assert elapsed < 1.0
+        assert elapsed < 0.5
         assert fake_notifier.calls == []  # the cap won, not the channel
 
-    def test_a_thread_forgets_itself_once_it_has_sent(
-        self, config: Config, fake_notifier: type[FakeNotifier]
+
+class TestOrdering:
+    """A deployment's moments reach the channels in the order they happened."""
+
+    def test_a_fast_failure_never_overtakes_a_slow_start(
+        self, config: Config, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """The tracking list must not grow forever in a long-running process."""
-        deploy_notifications.on_deploy_event(make_event())
-        deploy_notifications._join_pending(timeout=5.0)
+        delivered: list[str] = []
 
-        assert deploy_notifications._pending == []
+        class SlowStart:
+            def __init__(self, config: Config) -> None:
+                del config
 
+            def notify(self, event: NotificationEvent) -> None:
+                if event.kind == "deploy_started":
+                    time.sleep(0.1)
+                delivered.append(event.kind)
 
-class TestAtexitRegistration:
-    """The join is actually wired to process exit, once per process."""
-
-    def test_the_first_notification_registers_the_joiner(
-        self, monkeypatch: pytest.MonkeyPatch, config: Config, fake_notifier: type[FakeNotifier]
-    ) -> None:
-        registered: list[Any] = []
-        monkeypatch.setattr("atexit.register", registered.append)
-
-        deploy_notifications.on_deploy_event(make_event())
-
-        assert registered == [deploy_notifications._join_pending]
-
-    def test_a_second_notification_does_not_register_again(
-        self, monkeypatch: pytest.MonkeyPatch, config: Config, fake_notifier: type[FakeNotifier]
-    ) -> None:
-        registered: list[Any] = []
-        monkeypatch.setattr("atexit.register", registered.append)
-
-        deploy_notifications.on_deploy_event(make_event())
-        deploy_notifications._join_pending(timeout=5.0)
+        monkeypatch.setattr(deploy_notifications, "Notifier", SlowStart)
         deploy_notifications.on_deploy_event(make_event(DeployEventKind.STARTED))
-        deploy_notifications._join_pending(timeout=5.0)
+        deploy_notifications.on_deploy_event(make_event(DeployEventKind.FAILED, error="boom"))
+        NOTIFICATION_QUEUE.drain(timeout=5.0)
 
-        assert len(registered) == 1
+        assert delivered == ["deploy_started", "deploy_failed"]

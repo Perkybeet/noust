@@ -81,7 +81,11 @@ function RestoreFromDestinationDialog({
             <form onSubmit={submit} className="contents">
               <DialogFrame
                 title={`Restore ${backup.backup_id}`}
-                description={`Downloads this backup from ${destination} first, then replaces the application's files (and its database, if this backup includes one) with what it holds. Anything written since is lost.`}
+                description={
+                  targetDomain === backup.app_name
+                    ? `Downloads this backup from ${destination} first, then replaces the files of the application ${backup.app_name} (and its database, if this backup includes one) with what it holds. Anything written since is lost.`
+                    : `Downloads this backup from ${destination} first, then replaces the files of ${targetDomain || "the domain you type"} (and its database, if this backup includes one) with what it holds. Anything written since is lost.`
+                }
                 Title={AlertDialog.Title}
                 Description={AlertDialog.Description}
                 footer={

@@ -7,9 +7,10 @@ GitHub App webhook deliveries: ``POST /hooks/github`` (2.2).
 One endpoint for every application, authenticated by the App's own webhook
 secret (HMAC-SHA256 of the raw body, compared in constant time), with the
 same defences the per-application hook has (:mod:`wasm.web.api.hooks`): a
-delivery id is honoured once, wrong signatures lock the endpoint for a while
-without locking out the forge's address, and every outcome is audited
-without the signature or the secret.
+delivery - by its id and by its signed body - is honoured once, wrong
+signatures are refused for a while without locking out the forge's address
+or ever refusing a right one, and every outcome is audited without the
+signature or the secret.
 
 - ``ping``: 200; GitHub sends it when the webhook is switched on, which is
   how the console learns that it is.
@@ -23,6 +24,7 @@ without the signature or the secret.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from typing import Any
@@ -76,6 +78,21 @@ def _record(request: Request, result: str, detail: str) -> None:
             resource=RESOURCE,
             detail=detail,
         )
+
+
+def _replay_key(body: bytes, signature: str) -> str:
+    """
+    Name a signed delivery by what its signature covers.
+
+    Args:
+        body: The raw body.
+        signature: ``X-Hub-Signature-256``, already verified.
+
+    Returns:
+        A key for :data:`_deliveries` that no delivery id can collide with.
+    """
+    digest = hashlib.sha256(signature.encode() + b"\n" + body).hexdigest()
+    return f"body:{digest}"
 
 
 def _note_webhook_works() -> None:
@@ -153,28 +170,36 @@ async def deliver(request: Request) -> JSONResponse:
         _record(request, "denied", "no GitHub App or no webhook secret")
         raise HTTPException(status_code=404, detail="Not found")
 
-    failures = get_webhook_failures()
-    if failures.is_locked(LOCKOUT_KEY):
-        remaining = failures.get_lockout_remaining(LOCKOUT_KEY)
-        _record(request, "locked", f"refused for {remaining} more seconds")
-        return JSONResponse(
-            status_code=429,
-            content={
-                "error": "locked_out",
-                "detail": "Too many deliveries with a wrong signature.",
-                "hint": "Check the webhook secret of the GitHub App.",
-                "fields": None,
-            },
-            headers={"Retry-After": str(remaining)},
-        )
-
-    if not webhooks.verify_signature(secret, body, request.headers.get("X-Hub-Signature-256")):
+    signature = request.headers.get("X-Hub-Signature-256")
+    # The signature is checked before the lockout: a right one is always
+    # accepted, so strangers posting bad signatures (the URL is public) can
+    # never stop GitHub's own deliveries. Only wrong ones are counted.
+    if not webhooks.verify_signature(secret, body, signature):
+        failures = get_webhook_failures()
+        if failures.is_locked(LOCKOUT_KEY):
+            remaining = failures.get_lockout_remaining(LOCKOUT_KEY)
+            _record(request, "locked", f"refused for {remaining} more seconds")
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "error": "locked_out",
+                    "detail": "Too many deliveries with a wrong signature.",
+                    "hint": "Check the webhook secret of the GitHub App.",
+                    "fields": None,
+                },
+                headers={"Retry-After": str(remaining)},
+            )
         _record(request, "denied", "signature verification failed")
         failures.record_failure(LOCKOUT_KEY)
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     delivery = request.headers.get("X-GitHub-Delivery")
-    if delivery and _deliveries.seen(delivery):
+    # X-GitHub-Delivery is not covered by the signature, so a captured
+    # delivery replayed under a fresh id would pass the id check alone; the
+    # signed body and its signature are what cannot change.
+    if (delivery and _deliveries.seen(delivery)) or _deliveries.seen(
+        _replay_key(body, signature or "")
+    ):
         _record(request, "ignored", f"duplicate delivery {delivery}")
         return JSONResponse(status_code=200, content={"status": "ignored", "reason": "duplicate"})
 

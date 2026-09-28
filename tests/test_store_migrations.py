@@ -428,6 +428,7 @@ class TestSchemaV10Migration:
         with sqlite3.connect(db_path) as conn:
             tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master")}
         assert self.V10_TABLES <= tables
+        assert {"allow_bots", "exclude_env"} <= set(_raw_columns(db_path, "preview_settings"))
 
     def test_the_fresh_schema_and_the_migration_agree(self, fresh, tmp_path):
         """Both paths to v10 give every table the same columns."""

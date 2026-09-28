@@ -228,6 +228,10 @@ class BaseDeployer(AppDeployer):
         self.cpu_quota_percent: int | None = None
         self.tasks_max: int | None = None
         self._resource_limits_given: bool = False
+        # What a new application's row is created with, so the first
+        # deployment already reports and scrubs as what it is (a preview).
+        self._preview_parent: str | None = None
+        self._initial_secret_marks: dict[str, bool] = {}
 
         # Package manager (auto = auto-detect)
         self._package_manager: PackageManager = "auto"
@@ -343,6 +347,8 @@ class BaseDeployer(AppDeployer):
         cpu_quota_percent: int | None = None,
         tasks_max: int | None = None,
         resource_limits_given: bool = False,
+        preview_parent: str | None = None,
+        env_secret_marks: dict[str, bool] | None = None,
         **options: Any,
     ) -> None:
         """
@@ -386,6 +392,14 @@ class BaseDeployer(AppDeployer):
                 existing application's limits exactly as they were - set once
                 through ``PATCH .../limits`` or at creation, a redeploy or an
                 update must not silently clear them.
+            preview_parent: For a new application only: the application it
+                is the pull request preview of. Recorded on the row the
+                deployment creates, before anything runs, so the deployment's
+                own events (GitHub deployment statuses, notifications)
+                already call it a preview.
+            env_secret_marks: For a new application only: the secret marks
+                its row starts with, so its first build's log is scrubbed of
+                the values its parent marked secret.
             **options: ``replace_existing`` deploys into a directory that
                 already holds files (``wasm create --force``): in place they
                 are replaced, on releases a release is added beside them.
@@ -409,6 +423,8 @@ class BaseDeployer(AppDeployer):
         self.cpu_quota_percent = cpu_quota_percent
         self.tasks_max = tasks_max
         self._resource_limits_given = resource_limits_given
+        self._preview_parent = preview_parent
+        self._initial_secret_marks = dict(env_secret_marks or {})
         self._package_manager = package_manager  # type: ignore[assignment]
         self._requested_layout = layout
         self._persistent_request = list(persistent_paths) if persistent_paths is not None else None
@@ -2746,6 +2762,8 @@ class BaseDeployer(AppDeployer):
             cpu_quota_percent=self.cpu_quota_percent,
             tasks_max=self.tasks_max,
             limits_given=self._resource_limits_given,
+            preview_parent=self._preview_parent,
+            env_secret_marks=self._initial_secret_marks,
         )
 
 

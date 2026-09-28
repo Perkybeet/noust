@@ -183,13 +183,16 @@ def admin(app: FastAPI) -> TestClient:
         app: The application.
 
     Returns:
-        A signed-in client carrying the CSRF header.
+        A signed-in client carrying the CSRF header, in sudo mode: minting
+        or discarding a secret needs it.
     """
     signed_in = TestClient(app, client=("testclient", 50000), follow_redirects=False)
     token = get_token_manager().generate_master_token()
     response = signed_in.post("/api/auth/login", json={"token": token})
     assert response.status_code == 200, response.text
     signed_in.headers[CSRF_HEADER_NAME] = response.json()["csrf_token"]
+    elevated = signed_in.post("/api/auth/elevate", json={"token": token})
+    assert elevated.status_code == 200, elevated.text
     return signed_in
 
 
@@ -611,6 +614,23 @@ def test_minting_a_secret_requires_a_session(
     """Anonymous clients cannot mint or destroy webhook secrets."""
     assert client.post(f"/api/apps/{DOMAIN}/webhook-secret").status_code == 401
     assert client.delete(f"/api/apps/{DOMAIN}/webhook-secret").status_code == 401
+
+
+def test_minting_or_discarding_a_secret_requires_sudo_mode(
+    app: FastAPI, store: WASMStore, seeded: App
+) -> None:
+    """The secret is shown in clear and, since 2.2, can open previews: confirm it's you."""
+    signed_in = TestClient(app, client=("testclient", 50000), follow_redirects=False)
+    response = signed_in.post(
+        "/api/auth/login", json={"token": get_token_manager().generate_master_token()}
+    )
+    signed_in.headers[CSRF_HEADER_NAME] = response.json()["csrf_token"]
+
+    for method in ("post", "delete"):
+        refused = getattr(signed_in, method)(f"/api/apps/{DOMAIN}/webhook-secret")
+        assert refused.status_code == 403
+        assert refused.json()["error"] == "elevation_required"
+    assert store.get_webhook_secret(DOMAIN) is None
 
 
 def test_mint_and_delete_roundtrip(

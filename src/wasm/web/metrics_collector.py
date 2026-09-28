@@ -299,7 +299,7 @@ class MetricsCollector:
             memory_total: int | None = None
             cpu_total: float | None = None
             for unit in units:
-                unit_dir = self.cgroup_root / f"{unit}.service"
+                unit_dir = unit_cgroup_path(self.cgroup_root, unit)
                 try:
                     memory = int((unit_dir / "memory.current").read_text())
                 except (OSError, ValueError):
@@ -384,6 +384,52 @@ def _app_units(app: Any) -> list[str]:
     from wasm.managers.service_manager import ServiceManager
 
     return ServiceManager(verbose=False).app_units(app)
+
+
+def unit_cgroup_path(cgroup_root: Path, unit: str) -> Path:
+    """
+    Say where systemd accounts a unit's processes.
+
+    A unit sits directly in ``system.slice``. An instance of a template, such
+    as the ``<name>@blue`` and ``<name>@green`` of an application in
+    zero-downtime mode, sits in the slice systemd makes for the template:
+    ``system-<prefix>.slice``, the prefix escaped as a unit name (a dash is
+    ``\\x2d``, a slash a dash).
+
+    Args:
+        cgroup_root: ``system.slice``'s directory.
+        unit: The unit, without ``.service``.
+
+    Returns:
+        Its cgroup directory.
+    """
+    prefix, at, _instance = unit.partition("@")
+    if not at:
+        return cgroup_root / f"{unit}.service"
+    return cgroup_root / f"system-{_escape_unit_name(prefix)}.slice" / f"{unit}.service"
+
+
+def _escape_unit_name(text: str) -> str:
+    """
+    Escape a string the way ``systemd-escape`` does for a unit name.
+
+    Args:
+        text: The string.
+
+    Returns:
+        ASCII letters, digits, ``:``, ``_`` and ``.`` (not leading) as they
+        are, ``/`` as ``-``, everything else as ``\\xNN`` per byte.
+    """
+    out: list[str] = []
+    for index, byte in enumerate(text.encode("utf-8")):
+        char = chr(byte)
+        if char == "/":
+            out.append("-")
+        elif byte < 128 and (char.isalnum() or char in ":_" or (char == "." and index > 0)):
+            out.append(char)
+        else:
+            out.append(f"\\x{byte:02x}")
+    return "".join(out)
 
 
 def _read_cpu_usec(cpu_stat: Path) -> int | None:

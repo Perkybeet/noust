@@ -153,6 +153,95 @@ class TestBackups:
         assert store.delete_backup_schedule(DOMAIN)
 
 
+class TestReviewFixes:
+    """The 2.2 pre-release review: previews settings, narrow updates, damaged columns."""
+
+    def preview(self, store: WASMStore, status: str = "deploying") -> PreviewRecord:
+        return store.save_preview(
+            PreviewRecord(
+                parent_domain=DOMAIN,
+                domain="pr-7-shop-example-com.previews.example.com",
+                number=7,
+                branch="feature/x",
+                provider="github",
+                expires_at="2026-10-01T00:00:00+00:00",
+                head_sha="a" * 40,
+                status=status,
+            )
+        )
+
+    def test_bots_and_excluded_variables_are_kept(self, store: WASMStore) -> None:
+        store.save_preview_settings(
+            PreviewSettings(
+                app_domain=DOMAIN,
+                base_domain="p.example.com",
+                allow_bots=True,
+                exclude_env=["STRIPE_KEY"],
+            )
+        )
+        stored = store.get_preview_settings(DOMAIN)
+        assert stored is not None
+        assert (stored.allow_bots, stored.exclude_env) == (True, ["STRIPE_KEY"])
+
+    @pytest.mark.parametrize("raw", ["null", "{}", "not json", '["A", 1]'])
+    def test_a_damaged_excluded_list_still_loads(self, store: WASMStore, raw: str) -> None:
+        store.save_preview_settings(PreviewSettings(app_domain=DOMAIN, base_domain="p.example.com"))
+        store._get_connection().execute("UPDATE preview_settings SET exclude_env = ?", (raw,))
+        store._get_connection().commit()
+
+        stored = store.get_preview_settings(DOMAIN)
+        assert stored is not None
+        assert stored.exclude_env == (["A"] if raw.startswith("[") else [])
+
+    def test_update_writes_only_the_columns_given(self, store: WASMStore) -> None:
+        stale = self.preview(store)
+        store.save_preview(PreviewRecord(**{**stale.__dict__, "head_sha": "b" * 40}))
+
+        updated = store.update_preview(DOMAIN, 7, {"status": "ready", "error": None})
+
+        assert updated is not None and (updated.status, updated.head_sha) == ("ready", "b" * 40)
+
+    def test_update_only_while_the_preview_is_as_expected(self, store: WASMStore) -> None:
+        self.preview(store)
+
+        assert (
+            store.update_preview(
+                DOMAIN, 7, {"status": "ready"}, expect={"status": "deploying", "head_sha": "b"}
+            )
+            is None
+        )
+        assert store.update_preview(DOMAIN, 7, {"status": "ready"}, expect={"error": None})
+        assert store.update_preview(DOMAIN, 8, {"status": "ready"}) is None
+        with pytest.raises(ValueError):
+            store.update_preview(DOMAIN, 7, {"domain": "elsewhere.example.com"})
+
+    def test_a_save_without_a_comment_keeps_the_stored_one(self, store: WASMStore) -> None:
+        record = self.preview(store)
+        store.update_preview(DOMAIN, 7, {"comment_ref": "c-1"})
+
+        again = store.save_preview(PreviewRecord(**{**record.__dict__, "comment_ref": None}))
+
+        assert again.comment_ref == "c-1"
+
+    def test_delete_only_with_the_status_given(self, store: WASMStore) -> None:
+        record = self.preview(store, status="pending")
+
+        assert not store.delete_preview(record.domain, status="removing")
+        assert store.get_preview(DOMAIN, 7) is not None
+        assert store.delete_preview(record.domain, status="pending")
+
+    @pytest.mark.parametrize("raw", ["null", "{}", '"nas"', "3"])
+    def test_schedule_destinations_that_are_not_a_list_read_as_none(
+        self, store: WASMStore, raw: str
+    ) -> None:
+        store.save_backup_schedule(BackupScheduleRecord(app_domain=DOMAIN, schedule="daily"))
+        store._get_connection().execute("UPDATE backup_schedules SET destinations = ?", (raw,))
+        store._get_connection().commit()
+
+        stored = store.get_backup_schedule(DOMAIN)
+        assert stored is not None and stored.destinations == []
+
+
 class TestGitHub:
     def test_app_and_installations(self, store: WASMStore) -> None:
         store.save_github_app(GitHubAppRecord(app_id=1, slug="wasm-host", owner="acme"))

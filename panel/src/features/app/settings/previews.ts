@@ -19,11 +19,15 @@ export interface PreviewDraft {
   /** The lifetime in `unit`s, as typed. */
   ttl_hours: string;
   unit: TtlUnit;
+  /** Whether pull requests opened or pushed to by bot accounts get a preview. */
+  allow_bots: boolean;
+  /** Variable names never copied to a preview, as typed: separated by commas or spaces. */
+  exclude_env: string;
 }
 
-export type PreviewField = "base_domain" | "max_previews" | "ttl_hours";
+export type PreviewField = "base_domain" | "max_previews" | "ttl_hours" | "exclude_env";
 
-export const PREVIEW_FIELDS: readonly PreviewField[] = ["base_domain", "max_previews", "ttl_hours"];
+export const PREVIEW_FIELDS: readonly PreviewField[] = ["base_domain", "max_previews", "ttl_hours", "exclude_env"];
 
 export type PreviewErrors = Partial<Record<PreviewField, string>>;
 
@@ -31,6 +35,20 @@ export interface PreviewValues {
   base_domain: string;
   max_previews: number;
   ttl_hours: number;
+  allow_bots: boolean;
+  exclude_env: string[];
+}
+
+/** An environment variable name, as the backend's `ENV_NAME_PATTERN` has it. */
+const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/** The names in the "never copied" field: split on commas and white space, each once, in order. */
+export function envNamesOf(text: string): string[] {
+  const names: string[] = [];
+  for (const name of text.split(/[\s,]+/)) {
+    if (name !== "" && !names.includes(name)) names.push(name);
+  }
+  return names;
 }
 
 /** A lifetime shown in days when it is whole days, in hours otherwise. */
@@ -41,13 +59,19 @@ export function ttlDraft(hours: number): Pick<PreviewDraft, "ttl_hours" | "unit"
 /** The form for the settings an app has, or for turning previews on with the defaults. */
 export function previewDraftOf(settings: PreviewSettings | null | undefined): PreviewDraft {
   if (settings === null || settings === undefined) {
-    return { base_domain: "", max_previews: String(PREVIEW_DEFAULTS.max_previews), ...ttlDraft(PREVIEW_DEFAULTS.ttl_hours) };
+    return { base_domain: "", max_previews: String(PREVIEW_DEFAULTS.max_previews), ...ttlDraft(PREVIEW_DEFAULTS.ttl_hours), allow_bots: false, exclude_env: "" };
   }
-  return { base_domain: settings.base_domain, max_previews: String(settings.max_previews), ...ttlDraft(settings.ttl_hours) };
+  return { base_domain: settings.base_domain, max_previews: String(settings.max_previews), ...ttlDraft(settings.ttl_hours), allow_bots: settings.allow_bots, exclude_env: settings.exclude_env.join(", ") };
 }
 
 export function samePreviewDraft(a: PreviewDraft, b: PreviewDraft): boolean {
-  return a.base_domain.trim() === b.base_domain.trim() && a.max_previews.trim() === b.max_previews.trim() && hoursOf(a) === hoursOf(b);
+  return (
+    a.base_domain.trim() === b.base_domain.trim() &&
+    a.max_previews.trim() === b.max_previews.trim() &&
+    hoursOf(a) === hoursOf(b) &&
+    a.allow_bots === b.allow_bots &&
+    envNamesOf(a.exclude_env).join(",") === envNamesOf(b.exclude_env).join(",")
+  );
 }
 
 /** The lifetime in hours, or null when it is not a whole number. */
@@ -91,8 +115,14 @@ export function parsePreviewDraft(draft: PreviewDraft): { values: PreviewValues 
     errors.ttl_hours = draft.unit === "days" ? "From 1 to 90 days." : `From ${String(TTL_HOURS_MIN)} to ${String(TTL_HOURS_MAX)} hours (90 days).`;
   }
 
+  const excluded = envNamesOf(draft.exclude_env);
+  const invalid = excluded.filter((name) => !ENV_NAME.test(name));
+  if (invalid.length > 0) {
+    errors.exclude_env = `Not ${invalid.length === 1 ? "a variable name" : "variable names"}: ${invalid.join(", ")}. A name is letters, digits and underscores, and does not start with a digit.`;
+  }
+
   if (Object.keys(errors).length > 0 || max === null || hours === null) return { values: null, errors };
-  return { values: { base_domain: base, max_previews: max, ttl_hours: hours }, errors };
+  return { values: { base_domain: base, max_previews: max, ttl_hours: hours, allow_bots: draft.allow_bots, exclude_env: excluded }, errors };
 }
 
 /**
@@ -103,6 +133,7 @@ export function previewFieldOf(detail: string): PreviewField | null {
   if (/base domain|to put previews under|No room for the preview/i.test(detail)) return "base_domain";
   if (/preview lives|time-to-live|duration/i.test(detail)) return "ttl_hours";
   if (/previews at once|number of previews/i.test(detail)) return "max_previews";
+  if (/variable name|never copied/i.test(detail)) return "exclude_env";
   return null;
 }
 

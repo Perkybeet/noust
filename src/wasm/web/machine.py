@@ -223,7 +223,9 @@ def _count_apps(services: list[dict[str, Any]]) -> AppTally:
     :meth:`~wasm.managers.service_manager.ServiceManager.app_units`: the
     legacy prefix, a monorepo's workspaces and Compose are resolved there,
     once). An application with several units is as healthy as its worst one:
-    failed when any failed, running only when all run.
+    failed when any failed, running only when all run. An application in
+    zero-downtime mode is counted by the instance that serves
+    (:meth:`~wasm.managers.service_manager.ServiceManager.serving_units`).
 
     Args:
         services: What :func:`fetch_service_states` returned.
@@ -239,19 +241,32 @@ def _count_apps(services: list[dict[str, Any]]) -> AppTally:
         log.warning("Could not read applications for the machine snapshot: %s", exc)
         return AppTally(running=0, failed=0, stopped=0, static=0)
 
-    by_app: dict[str, list[str]] = {}
+    by_app: dict[str, dict[str, str]] = {}
     for service in services:
         domain = service.get("app")
         if domain:
-            by_app.setdefault(str(domain), []).append(classify_unit(service))
+            by_app.setdefault(str(domain), {})[str(service.get("name", ""))] = classify_unit(
+                service
+            )
 
+    from wasm.managers.service_manager import ServiceManager
+
+    manager: ServiceManager | None = None
     running = failed = stopped = static = 0
     for app in apps:
         if app.is_static:
             static += 1
             continue
 
-        buckets = by_app.get(app.domain, [])
+        units = by_app.get(app.domain, {})
+        if app.zero_downtime:
+            # The idle instance is stopped by design, and failed after a gate
+            # it did not pass: the serving one is the application's state.
+            # serving_units reads nothing for an application in the mode.
+            manager = manager if manager is not None else ServiceManager(verbose=False)
+            serving = set(manager.serving_units(app))
+            units = {name: bucket for name, bucket in units.items() if name in serving}
+        buckets = list(units.values())
         if "failed" in buckets:
             failed += 1
         elif buckets and all(bucket == "active" for bucket in buckets):

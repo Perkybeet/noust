@@ -29,6 +29,7 @@ from wasm.core.redact import (
     secret_env_values,
 )
 from wasm.core.runner import FakeRunner
+from wasm.core.secret_detection import name_looks_secret
 from wasm.core.store import App, WASMStore
 from wasm.deployers.nodejs import NodeJSDeployer
 from wasm.deployers.recorder import CapturingLogger, DeploymentRecorder
@@ -193,6 +194,65 @@ class TestWhatCountsAsSecret:
         assert SECRET in values
         assert DB_PASSWORD in values
         assert "storefront" not in values
+
+
+# ---------------------------------------------------------------------------
+# Regression: scrubbing must stay a superset of 2.1's name-only rule even
+# though 2.2's classify() relaxes a name-only verdict behind a public-looking
+# prefix (VITE_, NEXT_PUBLIC_, PUBLIC_, NUXT_PUBLIC_, REACT_APP_). That
+# relaxation is for what a human is shown, not for what a build tool might
+# echo into a log nobody expected it to print - see the finding this pins.
+# ---------------------------------------------------------------------------
+
+
+class TestScrubbingStaysASupersetOfTheNameOnlyRule:
+    #: Every name here is flagged by name_looks_secret alone (2.1's whole
+    #: rule, before classify() and its public-prefix relaxation existed), and
+    #: every one must still be scrubbed in full today, whatever classify()
+    #: would now say about how it is *displayed*.
+    NAMES_2_1_WOULD_HAVE_SCRUBBED = (
+        "VITE_API_SECRET",
+        "NEXT_PUBLIC_API_KEY",
+        "PUBLIC_DB_PASSWORD",
+        "DB_PASSWORD",
+        "STRIPE_API_KEY",
+        "GITHUB_TOKEN",
+        "ADMIN_PASS",
+    )
+
+    @pytest.mark.parametrize("name", NAMES_2_1_WOULD_HAVE_SCRUBBED)
+    def test_every_name_2_1_would_have_scrubbed_is_still_scrubbed(self, name: str) -> None:
+        value = "a-plain-looking-value-matching-no-value-pattern-0123456789"
+        # Sanity: this is exactly the rule 2.1 scrubbed by (see v2.1.0's
+        # wasm.core.redact.secret_env_values, before classify() existed).
+        assert name_looks_secret(name)
+
+        assert value in secret_env_values({name: value})
+
+    def test_the_named_regression_case_scrubs_all_four_values(self) -> None:
+        """
+        The exact table from the finding: 2.1 scrubbed all four; a public
+        prefix must never bring that number back down to one.
+        """
+        env = {
+            "VITE_API_SECRET": "vite-secret-value-0123456789",
+            "NEXT_PUBLIC_API_KEY": "next-public-key-value-0123456789",
+            "PUBLIC_DB_PASSWORD": "public-db-password-value-0123456789",
+            "DB_PASSWORD": "db-password-value-0123456789",
+        }
+
+        values = secret_env_values(env)
+
+        assert set(env.values()) <= set(values)
+
+    def test_an_explicit_not_secret_mark_still_wins_over_the_name_heuristic(self) -> None:
+        """The operator's own word is still absolute, even under the superset rule."""
+        values = secret_env_values(
+            {"NEXT_PUBLIC_API_KEY": "not-actually-sensitive-0123456789"},
+            marks={"NEXT_PUBLIC_API_KEY": False},
+        )
+
+        assert values == []
 
 
 # ---------------------------------------------------------------------------

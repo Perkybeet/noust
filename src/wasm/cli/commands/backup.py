@@ -63,6 +63,97 @@ SCHEDULE_ALIASES: dict[str, str] = {
 #: Ways to capture a Redis instance into a backup.
 REDIS_METHODS: tuple[str, ...] = ("rdb", "aof")
 
+#: What a new schedule keeps when the operator names no retention: its own
+#: last 7 backups, none older than 30 days.
+NEW_SCHEDULE_RETENTION_COUNT = 7
+NEW_SCHEDULE_RETENTION_DAYS = 30
+
+
+class RetentionValue(click.ParamType):
+    """
+    A retention limit: a positive number, or a word for "no limit of its own".
+
+    ``--retention-count default`` leaves the schedule on ``backup.max_per_app``
+    over every backup of the application, as 2.1 did; ``--retention-days none``
+    sets no age limit. Both reach the schedule as None.
+    """
+
+    name = "N"
+
+    def __init__(self, word: str) -> None:
+        """
+        Args:
+            word: The word that means "no limit of its own".
+        """
+        self.word = word
+
+    def convert(self, value: Any, param: click.Parameter | None, ctx: click.Context | None) -> Any:
+        """
+        Turn the option's text into a limit.
+
+        Args:
+            value: The text given, or an already-converted value.
+            param: The option.
+            ctx: The Click context.
+
+        Returns:
+            A positive integer, or :data:`RETENTION_UNSET` for the word.
+        """
+        if value is RETENTION_UNSET or isinstance(value, int):
+            return value
+        text = str(value).strip().lower()
+        if text == self.word:
+            return RETENTION_UNSET
+        try:
+            number = int(text)
+        except ValueError:
+            self.fail(f"expected a number or '{self.word}', got {value!r}", param, ctx)
+        if number < 1:
+            self.fail(f"must be at least 1, or '{self.word}'", param, ctx)
+        return number
+
+
+#: A retention option given as its word ("default", "none"): the schedule
+#: stores no limit of its own. Distinct from None, which is "not given".
+RETENTION_UNSET: Any = object()
+
+
+def _retention_choice(value: Any, fallback: int | None) -> int | None:
+    """
+    Resolve a retention option into what the schedule stores.
+
+    Args:
+        value: The option's converted value: None when not given,
+            :data:`RETENTION_UNSET` for its word, or a number.
+        fallback: What "not given" means for this command.
+
+    Returns:
+        The limit, or None for no limit of the schedule's own.
+    """
+    if value is None:
+        return fallback
+    if value is RETENTION_UNSET:
+        return None
+    return int(value)
+
+
+def _describe_retention(count: int | None, days: int | None) -> str:
+    """
+    Say what a schedule's retention does, in words.
+
+    Args:
+        count: Backups the schedule keeps, or None.
+        days: Maximum age in days, or None.
+
+    Returns:
+        The description.
+    """
+    if count is None and days is None:
+        return "server default (backup.max_per_app, over every backup of the application)"
+    kept = f"{count}" if count is not None else "backup.max_per_app"
+    age = f", none older than {days} days" if days is not None else ""
+    return f"the schedule's own last {kept} backups{age}; other backups are never touched"
+
 
 class AliasedGroup(WasmGroup):
     """
@@ -198,6 +289,33 @@ def _parse_field_options(pairs: Sequence[str]) -> dict[str, str]:
     return fields
 
 
+def _refuse_secret_fields(backend: str, fields: dict[str, str]) -> None:
+    """
+    Refuse a secret given as ``--field KEY=VALUE``.
+
+    Everything on a command line is in the shell's history and in ``ps`` for
+    every local user while the command runs; a secret field is read with
+    ``--stdin`` or ``--prompt`` instead.
+
+    Args:
+        backend: The destination's backend.
+        fields: The parsed ``--field`` values.
+
+    Raises:
+        click.UsageError: When one of them is a secret field.
+    """
+    from wasm.managers.backup_destinations import backend_fields
+
+    secret_keys = {spec.key for spec in backend_fields(backend) if spec.secret}
+    given = sorted(secret_keys & set(fields))
+    if given:
+        raise click.UsageError(
+            f"{', '.join(given)} is a secret: it is not accepted in --field, where it would "
+            "land in the shell history and in every local user's 'ps'. Pipe it in with "
+            "--stdin, or type it at --prompt."
+        )
+
+
 def _read_secret_field(backend: str, *, from_stdin: bool, from_prompt: bool) -> dict[str, str]:
     """
     Read a backend's one secret field, from stdin, a hidden prompt, or neither.
@@ -283,6 +401,7 @@ def _add_destination(
     from_stdin: bool,
     from_prompt: bool,
     encrypted: bool,
+    key_stdin: bool = False,
 ) -> int:
     """
     Create a backup destination and report it.
@@ -295,23 +414,45 @@ def _add_destination(
         from_stdin: Read the backend's secret field from standard input.
         from_prompt: Prompt for the backend's secret field.
         encrypted: Wrap the remote in an rclone crypt backend.
+        key_stdin: Read an existing encryption key from standard input, in
+            the format ``show-key`` prints, instead of generating one.
+            Implies ``encrypted``.
 
     Returns:
         0 on success, 1 if the destination could not be created.
+
+    Raises:
+        click.UsageError: When a secret is given as ``--field``, or both the
+            secret field and the key are to be read from standard input.
     """
-    from wasm.managers.backup_destinations import BackupDestinationManager
+    from wasm.managers.backup_destinations import BackupDestinationManager, parse_crypt_key
+
+    if key_stdin and from_stdin:
+        raise click.UsageError(
+            "--key-stdin and --stdin both read standard input; type the backend's secret "
+            "at --prompt instead."
+        )
 
     try:
         fields = _parse_field_options(fields_raw)
+        _refuse_secret_fields(backend, fields)
         fields.update(_read_secret_field(backend, from_stdin=from_stdin, from_prompt=from_prompt))
-        destination = BackupDestinationManager().add(name, backend, fields, encrypted=encrypted)
+        crypt_key = parse_crypt_key(sys.stdin.read()) if key_stdin else None
+        destination = BackupDestinationManager().add(
+            name, backend, fields, encrypted=encrypted or key_stdin, crypt_key=crypt_key
+        )
     except WASMError as exc:
         logger.error(f"Could not create backup destination: {exc}")
         return 1
 
     logger.success(f"Backup destination created: {destination.name}")
     logger.info(f"  Backend: {destination.backend}")
-    if destination.encrypted:
+    if destination.encrypted and key_stdin:
+        logger.info(
+            "  Encrypted with the key you gave: backups already there encrypted with it can be "
+            f"listed and restored ('wasm backup remote-list {destination.name}')."
+        )
+    elif destination.encrypted:
         logger.warning(
             "Encryption keys were generated and stored on this server only. Run "
             f"'wasm backup destination show-key {destination.name}' now and keep them "
@@ -353,6 +494,7 @@ def _update_destination(
             logger.error(f"No such backup destination: {name}")
             return 1
         fields = _parse_field_options(fields_raw)
+        _refuse_secret_fields(existing.backend, fields)
         fields.update(
             _read_secret_field(existing.backend, from_stdin=from_stdin, from_prompt=from_prompt)
         )
@@ -444,6 +586,11 @@ def _remove_destination(*, logger: Logger, name: str, force: bool = False) -> in
     """
     Remove a backup destination and its secrets.
 
+    An encrypted destination's key is printed once more, after the
+    confirmation and before anything is removed: the backups already sent
+    there stay behind, and removing the destination deletes the only copy
+    WASM has of what reads them.
+
     Args:
         logger: Logger to report through.
         name: Destination name.
@@ -455,15 +602,37 @@ def _remove_destination(*, logger: Logger, name: str, force: bool = False) -> in
     """
     from wasm.managers.backup_destinations import BackupDestinationManager
 
-    if not force and not click.confirm(
-        f"Remove backup destination {name!r}? Backups already sent there are not deleted.",
-        default=False,
-    ):
+    manager = BackupDestinationManager()
+    try:
+        destination = manager.get(name)
+        keyed = (
+            destination is not None and destination.encrypted and manager.has_encryption_key(name)
+        )
+    except WASMError as exc:
+        logger.error(f"Could not remove {name}: {exc}")
+        return 1
+
+    question = f"Remove backup destination {name!r}? Backups already sent there are not deleted."
+    if keyed:
+        question += (
+            " They are encrypted: without the key printed next, they cannot be read by anyone,"
+            " WASM included."
+        )
+    if not force and not click.confirm(question, default=False):
         logger.info("Cancelled")
         return 0
 
     try:
-        BackupDestinationManager().remove(name, force=force)
+        if keyed:
+            keys = manager.show_key(name)
+            logger.warning(
+                f"The encryption key of {name}, shown one last time. Keep it: the backups on "
+                "this destination are unreadable without it, and it can be given back with "
+                f"'wasm backup destination add {name} --encrypt --key-stdin'."
+            )
+            logger.info(f"  password:  {keys['password']}")
+            logger.info(f"  password2: {keys['password2']}")
+        manager.remove(name, force=force, key_saved=keyed)
     except WASMError as exc:
         logger.error(f"Could not remove {name}: {exc}")
         return 1
@@ -532,6 +701,7 @@ def _push_backup(*, logger: Logger, backup_id: str, destination: str) -> int:
         return 1
 
     logger.success(f"Uploaded {backup_id} to {destination}")
+    logger.info(f"  Verified by: {summary.get('verified_by', 'size')}")
     if summary.get("retention_deleted"):
         logger.info(f"  Removed by retention: {', '.join(summary['retention_deleted'])}")
     return 0
@@ -613,19 +783,19 @@ def _restore_from_destination(
         0 on success, 1 if the application cannot be determined, or the
         download or restore fails.
     """
-    import tempfile
-
     from wasm.managers.backup_destinations import BackupDestinationManager
-    from wasm.managers.backup_manager import BackupMetadata, app_name_of_backup_id
+    from wasm.managers.backup_manager import app_name_of_backup_id
 
     resolved_app = app_name or app_name_of_backup_id(backup_id)
     if not resolved_app:
         logger.error(f"Cannot determine the application {backup_id!r} belongs to; pass --app.")
         return 1
 
-    where = f" into {target_domain}" if target_domain else ""
+    # Without a target the backup goes back to the application whose folder it
+    # is read from: the download refuses a backup whose metadata says otherwise.
+    where = target_domain or f"the application {resolved_app}"
     if not force and not click.confirm(
-        f"Download {backup_id} from {destination} and restore it{where}. "
+        f"Download {backup_id} from {destination} and restore it into {where}. "
         "Anything deployed there now is overwritten. Continue?",
         default=False,
     ):
@@ -633,30 +803,20 @@ def _restore_from_destination(
         return 0
 
     try:
-        destination_manager = BackupDestinationManager()
-        backup_manager = BackupManager(verbose=logger.verbose)
-        with tempfile.TemporaryDirectory(prefix="wasm-restore-remote-") as staging:
-            staging_path = Path(staging)
-            logger.step(1, 2, f"Downloading {backup_id} from {destination}")
-            archive_path, metadata_path = destination_manager.download(
-                destination, backup_id, resolved_app, staging_path
-            )
-            fallback = BackupMetadata.from_dict(json.loads(metadata_path.read_text()))
-            target = target_domain or fallback.domain
-
-            logger.step(2, 2, f"Restoring to {target}")
-            backup_manager.restore_archive(
-                archive_path,
-                target_domain=target,
-                restore_env=restore_env,
-                expected_checksum=fallback.checksum,
-                fallback=fallback,
-            )
+        logger.step(1, 1, f"Downloading {backup_id} from {destination} and restoring it")
+        restored = BackupDestinationManager().restore_remote(
+            destination,
+            backup_id,
+            resolved_app,
+            target_domain=target_domain,
+            restore_env=restore_env,
+            backup_manager=BackupManager(verbose=logger.verbose),
+        )
     except WASMError as exc:
         logger.error(f"Restore failed: {exc}")
         return 1
 
-    logger.success(f"Successfully restored {target} from {backup_id} ({destination})")
+    logger.success(f"Successfully restored {restored} from {backup_id} ({destination})")
     return 0
 
 
@@ -685,6 +845,12 @@ def _run_schedule(*, logger: Logger, domain: str) -> int:
         return 1
 
     logger.success(f"Backup created: {result['backup_id']}")
+    if result.get("schedule_missing"):
+        logger.warning(
+            f"WASM's store has no schedule for {domain}: the backup was taken as 2.1 took it "
+            "(databases included, backup.max_per_app rotation, no destinations). Save the "
+            f"schedule again with 'wasm backup schedule update {domain}'."
+        )
     failed = False
     for name, outcome in result.get("destinations", {}).items():
         if outcome.get("ok"):
@@ -1143,8 +1309,8 @@ def _create_schedule(
     logger: Logger,
     domain: str,
     schedule: str = "daily",
-    retention_count: int = 7,
-    retention_days: int = 30,
+    retention_count: int | None = NEW_SCHEDULE_RETENTION_COUNT,
+    retention_days: int | None = NEW_SCHEDULE_RETENTION_DAYS,
     destinations: Sequence[str] = (),
     verb: str = "created",
 ) -> int:
@@ -1159,8 +1325,10 @@ def _create_schedule(
         logger: Logger to report through.
         domain: Domain of the application to back up.
         schedule: hourly, daily, weekly, monthly or a systemd OnCalendar value.
-        retention_count: Keep at most this many local backups.
-        retention_days: Delete local backups older than this many days.
+        retention_count: Keep at most this many of the schedule's own local
+            backups; None leaves ``backup.max_per_app`` in charge.
+        retention_days: Delete the schedule's own local backups older than
+            this many days; None for no age limit.
         destinations: Raw ``NAME[:COUNT[:DAYS]]`` destination specs.
         verb: Past-tense verb for the success message.
 
@@ -1188,7 +1356,7 @@ def _create_schedule(
 
     logger.success(f"Backup schedule {verb} for {domain}")
     logger.info(f"  Schedule: {backup_schedule.on_calendar}")
-    logger.info(f"  Retention: {retention_count} backups / {retention_days} days")
+    logger.info(f"  Retention: {_describe_retention(retention_count, retention_days)}")
     if parsed_destinations:
         logger.info(f"  Destinations: {', '.join(d['name'] for d in parsed_destinations)}")
     return 0
@@ -1219,7 +1387,7 @@ def _list_schedules(*, logger: Logger) -> int:
 
     logger.header("Backup Schedules")
     for sched in schedules:
-        retention = sched.get("retention_count") or "default"
+        retention = sched.get("retention_count") or "default (backup.max_per_app)"
         logger.info(
             f"  {sched['app_name']}: "
             f"next={sched.get('next_run', '?')} "
@@ -1675,6 +1843,12 @@ def backup_destination() -> None:
     is_flag=True,
     help="Wrap the remote in an rclone crypt backend; run 'show-key' once to keep a copy.",
 )
+@click.option(
+    "--key-stdin",
+    is_flag=True,
+    help="Encrypt with an existing key read from standard input, as 'show-key' printed it "
+    "(its text, its --json, or the two passphrases on two lines). Implies --encrypt.",
+)
 @pass_context
 def destination_add(
     state: Context,
@@ -1684,6 +1858,7 @@ def destination_add(
     from_stdin: bool,
     from_prompt: bool,
     encrypt: bool,
+    key_stdin: bool,
 ) -> None:
     """
     Create a backup destination.
@@ -1693,6 +1868,13 @@ def destination_add(
     an application key or an OAuth token) is read with --stdin or --prompt,
     never as a KEY=VALUE pair, since that would put it in this shell's
     history.
+
+    Give each server its own folder (--field path=...): remote retention only
+    deletes this server's own backups, but a shared folder is still shared.
+
+    On a replacement server, add the destination with --key-stdin and the key
+    the old one's 'show-key' printed: without it, encrypted backups already
+    there cannot be read.
     """
     _finish(
         _add_destination(
@@ -1703,6 +1885,7 @@ def destination_add(
             from_stdin=from_stdin,
             from_prompt=from_prompt,
             encrypted=encrypt,
+            key_stdin=key_stdin,
         )
     )
 
@@ -1778,6 +1961,9 @@ def destination_test(state: Context, name: str) -> None:
 def destination_remove(state: Context, name: str, force: bool) -> None:
     """
     Remove a backup destination and its secrets. Backups already sent there are kept.
+
+    An encrypted destination's key is printed one last time before it is
+    removed: the backups left there cannot be read without it.
     """
     _finish(_remove_destination(logger=state.logger, name=name, force=force))
 
@@ -1812,17 +1998,17 @@ def backup_schedule() -> None:
 )
 @click.option(
     "--retention-count",
-    type=click.INT,
-    default=7,
-    show_default=True,
-    help="Keep at most this many local backups of the application.",
+    type=RetentionValue("default"),
+    default=None,
+    help="Keep at most this many of the backups this schedule makes (default: 7). 'default' "
+    "leaves backup.max_per_app in charge, over every backup, as 2.1 did.",
 )
 @click.option(
     "--retention-days",
-    type=click.INT,
-    default=30,
-    show_default=True,
-    help="Delete local backups of the application older than this many days.",
+    type=RetentionValue("none"),
+    default=None,
+    help="Delete this schedule's own backups older than this many days (default: 30). "
+    "'none' sets no age limit.",
 )
 @click.option(
     "--destination",
@@ -1836,20 +2022,23 @@ def schedule_create(
     state: Context,
     domain: str,
     schedule: str,
-    retention_count: int,
-    retention_days: int,
+    retention_count: Any,
+    retention_days: Any,
     destinations: tuple[str, ...],
 ) -> None:
     """
-    Back an application up on a timer and drop the old backups.
+    Back an application up on a timer and drop its old scheduled backups.
+
+    Retention only ever deletes backups this schedule made: manual,
+    pre-deploy and rollback-safety backups are never its to delete.
     """
     _finish(
         _create_schedule(
             logger=state.logger,
             domain=domain,
             schedule=schedule,
-            retention_count=retention_count,
-            retention_days=retention_days,
+            retention_count=_retention_choice(retention_count, NEW_SCHEDULE_RETENTION_COUNT),
+            retention_days=_retention_choice(retention_days, NEW_SCHEDULE_RETENTION_DAYS),
             destinations=destinations,
             verb="created",
         )
@@ -1866,17 +2055,17 @@ def schedule_create(
 )
 @click.option(
     "--retention-count",
-    type=click.INT,
-    default=7,
-    show_default=True,
-    help="Keep at most this many local backups of the application.",
+    type=RetentionValue("default"),
+    default=None,
+    help="Keep at most this many of the backups this schedule makes. Kept as it is when not "
+    "given; 'default' leaves backup.max_per_app in charge.",
 )
 @click.option(
     "--retention-days",
-    type=click.INT,
-    default=30,
-    show_default=True,
-    help="Delete local backups of the application older than this many days.",
+    type=RetentionValue("none"),
+    default=None,
+    help="Delete this schedule's own backups older than this many days. Kept as it is when "
+    "not given; 'none' sets no age limit.",
 )
 @click.option(
     "--destination",
@@ -1890,23 +2079,33 @@ def schedule_update(
     state: Context,
     domain: str,
     schedule: str,
-    retention_count: int,
-    retention_days: int,
+    retention_count: Any,
+    retention_days: Any,
     destinations: tuple[str, ...],
 ) -> None:
     """
     Replace an application's backup schedule.
 
-    Every option is given again, as with 'create': this replaces the whole
-    schedule, it does not patch one field of it.
+    The schedule and the destinations are given again, as with 'create'.
+    Retention is the exception: left out, it stays what the schedule has, so
+    changing a schedule never changes which backups it deletes by accident.
     """
+    from wasm.core.store import get_store
+
+    record = get_store().get_backup_schedule(domain)
     _finish(
         _create_schedule(
             logger=state.logger,
             domain=domain,
             schedule=schedule,
-            retention_count=retention_count,
-            retention_days=retention_days,
+            retention_count=_retention_choice(
+                retention_count,
+                record.retention_count if record is not None else NEW_SCHEDULE_RETENTION_COUNT,
+            ),
+            retention_days=_retention_choice(
+                retention_days,
+                record.retention_days if record is not None else NEW_SCHEDULE_RETENTION_DAYS,
+            ),
             destinations=destinations,
             verb="updated",
         )
@@ -2057,8 +2256,8 @@ def _handle_backup_schedule(args: Namespace, logger: Logger) -> int:
             logger=logger,
             domain=getattr(args, "domain", ""),
             schedule=getattr(args, "schedule", "daily"),
-            retention_count=getattr(args, "retention_count", 7),
-            retention_days=getattr(args, "retention_days", 30),
+            retention_count=getattr(args, "retention_count", NEW_SCHEDULE_RETENTION_COUNT),
+            retention_days=getattr(args, "retention_days", NEW_SCHEDULE_RETENTION_DAYS),
         )
     if action == "list":
         return _list_schedules(logger=logger)

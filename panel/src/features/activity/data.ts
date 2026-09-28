@@ -139,6 +139,7 @@ const JOB_ACTION_LABELS: Readonly<Record<string, string>> = {
   update: "Update",
   backup: "Backup",
   restore: "Restore",
+  rollback: "Roll back",
   push: "Copy backup to destination",
   migrate: "Migrate to releases",
   cert_create: "Issue certificate",

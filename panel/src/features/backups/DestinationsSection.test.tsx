@@ -190,4 +190,95 @@ describe("DestinationsSection", () => {
       expect(backend.callsTo("POST /api/backup-destinations/offsite/backups/shop-example-com_20260101_000000/restore")).toHaveLength(1);
     });
   });
+  it("adds an encrypted destination with a key the operator already has, and shows no new key", async () => {
+    const backend = fakeBackend(
+      baseRoutes([], {
+        "POST /api/backup-destinations": () =>
+          json(201, { success: true, message: "Backup destination created: offsite", destination: destination({ encrypted: true, encryption_configured: true }) }),
+      }),
+    );
+    const { user } = renderConsole("/backups");
+    await screen.findByRole("heading", { level: 1, name: "Backups" });
+    await user.click(await screen.findByRole("button", { name: "Add destination" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Add backup destination" });
+    await user.type(within(dialog).getByLabelText("Name"), "offsite");
+    await user.click(within(dialog).getByRole("combobox", { name: "Backend" }));
+    await user.click(await screen.findByRole("option", { name: /^SFTP server/ }));
+    await user.type(within(dialog).getByLabelText("Host"), "backup.example.com");
+    await user.type(within(dialog).getByLabelText("User"), "wasm");
+    await user.click(within(dialog).getByRole("checkbox", { name: /Encrypt backups before upload/ }));
+    await user.click(within(dialog).getByRole("checkbox", { name: /I already have a key for this folder/ }));
+
+    const submit = within(dialog).getByRole("button", { name: "Add destination" });
+    expect(submit).toBeDisabled();
+    await user.type(within(dialog).getByLabelText("Password", { selector: "input" }), "old-passphrase");
+    await user.type(within(dialog).getByLabelText("Password 2 (salt)", { selector: "input" }), "old-salt");
+    await user.click(submit);
+
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/backup-destinations")).toHaveLength(1);
+    });
+    const body = backend.callsTo("POST /api/backup-destinations")[0]?.body as { encrypted: boolean; encryption_key: { password: string; password2: string } | null };
+    expect(body.encrypted).toBe(true);
+    expect(body.encryption_key).toEqual({ password: "old-passphrase", password2: "old-salt" });
+    // The key was typed in: there is nothing new to write down.
+    expect(screen.queryByRole("dialog", { name: "Encryption key for offsite" })).not.toBeInTheDocument();
+    expect(backend.callsTo("POST /api/backup-destinations/offsite/show-key")).toHaveLength(0);
+  });
+
+  it("shows an encrypted destination's key before removing it, and removes it with key_saved", async () => {
+    const backend = fakeBackend(
+      baseRoutes([destination({ encrypted: true, encryption_configured: true })], {
+        "POST /api/backup-destinations/offsite/show-key": () => json(200, { password: "first-passphrase", password2: "second-salt" }),
+        "DELETE /api/backup-destinations/offsite": () => json(200, { success: true, message: "Backup destination removed: offsite" }),
+      }),
+    );
+    const { user } = renderConsole("/backups");
+    const region = await destinationsRegion();
+    await within(region).findByText("offsite");
+
+    await user.click(within(region).getByRole("button", { name: "Actions for offsite" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Remove" }));
+
+    const keyDialog = await screen.findByRole("dialog", { name: "Save the key before removing offsite" });
+    expect(await within(keyDialog).findByText("first-passphrase")).toBeInTheDocument();
+    const next = within(keyDialog).getByRole("button", { name: "Continue to remove" });
+    expect(next).toBeDisabled();
+    await user.click(within(keyDialog).getByRole("checkbox", { name: /I have saved this key/ }));
+    await user.click(next);
+
+    const confirmDialog = await screen.findByRole("alertdialog", { name: "Remove offsite" });
+    expect(within(confirmDialog).getByText(/readable only with the key you saved/)).toBeInTheDocument();
+    await user.type(within(confirmDialog).getByRole("textbox"), "offsite");
+    await user.click(within(confirmDialog).getByRole("button", { name: "Remove destination" }));
+
+    await waitFor(() => {
+      expect(backend.callsTo("DELETE /api/backup-destinations/offsite")).toHaveLength(1);
+    });
+    expect(backend.callsTo("DELETE /api/backup-destinations/offsite")[0]?.search.get("key_saved")).toBe("true");
+  });
+
+  it("cancelling the key step removes nothing", async () => {
+    const backend = fakeBackend(
+      baseRoutes([destination({ encrypted: true, encryption_configured: true })], {
+        "POST /api/backup-destinations/offsite/show-key": () => json(200, { password: "first-passphrase", password2: "second-salt" }),
+      }),
+    );
+    const { user } = renderConsole("/backups");
+    const region = await destinationsRegion();
+    await within(region).findByText("offsite");
+
+    await user.click(within(region).getByRole("button", { name: "Actions for offsite" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Remove" }));
+    const keyDialog = await screen.findByRole("dialog", { name: "Save the key before removing offsite" });
+    await within(keyDialog).findByText("first-passphrase");
+    await user.click(within(keyDialog).getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Save the key before removing offsite" })).not.toBeInTheDocument();
+    });
+    expect(screen.queryByRole("alertdialog", { name: "Remove offsite" })).not.toBeInTheDocument();
+    expect(backend.callsTo("DELETE /api/backup-destinations/offsite")).toHaveLength(0);
+  });
 });

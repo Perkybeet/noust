@@ -38,11 +38,17 @@ class PreviewSettingsOut(BaseModel):
             wildcard record for it must point at this server.
         max_previews: How many may exist at once (1 to 20).
         ttl_hours: Hours a preview lives without a push (1 to 2160).
+        allow_bots: Whether pull requests from bot accounts (Dependabot,
+            Renovate) get a preview. A preview is built as root with the
+            application's secrets, so this is off unless turned on.
+        exclude_env: Variables never copied to a preview.
     """
 
     base_domain: str
     max_previews: int
     ttl_hours: int
+    allow_bots: bool
+    exclude_env: list[str]
     created_at: str | None = None
     updated_at: str | None = None
 
@@ -112,11 +118,18 @@ class PreviewSettingsRequest(BaseModel):
             (``previews.example.com`` for ``*.previews.example.com``).
         max_previews: How many at once, 1 to 20.
         ttl_hours: Hours one lives without a push, 1 to 2160 (90 days).
+        allow_bots: Build previews of bot accounts' pull requests; null
+            keeps the current value (off for new settings).
+        exclude_env: Names of variables never copied to a preview (and taken
+            out of existing ones at their next build); null keeps the
+            current list (none for new settings).
     """
 
     base_domain: str
     max_previews: int = previews.DEFAULT_MAX_PREVIEWS
     ttl_hours: int = previews.DEFAULT_TTL_HOURS
+    allow_bots: bool | None = None
+    exclude_env: list[str] | None = None
 
 
 class PreviewsDisabledResponse(BaseModel):
@@ -148,6 +161,8 @@ def _settings_out(settings: PreviewSettings) -> PreviewSettingsOut:
         base_domain=settings.base_domain,
         max_previews=settings.max_previews,
         ttl_hours=settings.ttl_hours,
+        allow_bots=settings.allow_bots,
+        exclude_env=list(settings.exclude_env),
         created_at=settings.created_at,
         updated_at=settings.updated_at,
     )
@@ -259,7 +274,10 @@ def put_preview_settings(
     Turn previews on for an application, or change their settings.
 
     Installs ``wasm-previews.timer`` the first time any application turns
-    previews on.
+    previews on. A preview is built as root, like every deployment, with a
+    copy of the application's environment minus ``exclude_env``; only pull
+    requests from people trusted with the repository get one (see
+    :func:`wasm.managers.previews.handle_pull_request`).
 
     Args:
         domain: The application.
@@ -281,13 +299,16 @@ def put_preview_settings(
         body.base_domain,
         max_previews=body.max_previews,
         ttl_hours=body.ttl_hours,
+        allow_bots=body.allow_bots,
+        exclude_env=body.exclude_env,
     )
     _audit(
         request,
         session,
         "previews.settings",
         f"previews on under {stored.base_domain}, at most {stored.max_previews}, "
-        f"{stored.ttl_hours} h",
+        f"{stored.ttl_hours} h, bots {'allowed' if stored.allow_bots else 'refused'}, "
+        f"{len(stored.exclude_env)} variable(s) excluded",
     )
     return _settings_out(stored)
 

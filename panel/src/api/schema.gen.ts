@@ -461,7 +461,8 @@ export interface paths {
          *     written, so a rejected variable leaves the file on disk untouched. The
          *     write goes through :func:`~wasm.deployers.helpers.app_env.write_app_env`,
          *     the same function ``wasm env configure`` uses, so the file lands 0600,
-         *     owned by the service account, in ``shared/`` on the release layout.
+         *     owned by the service account, in ``shared/`` on the release layout - and
+         *     a mark on a name the write drops is pruned there too, not just here.
          *
          *     The application is not restarted: a process already running keeps the
          *     environment it started with until it is, so the caller is told a restart
@@ -761,7 +762,10 @@ export interface paths {
          * @description Turn previews on for an application, or change their settings.
          *
          *     Installs ``wasm-previews.timer`` the first time any application turns
-         *     previews on.
+         *     previews on. A preview is built as root, like every deployment, with a
+         *     copy of the application's environment minus ``exclude_env``; only pull
+         *     requests from people trusted with the repository get one (see
+         *     :func:`wasm.managers.previews.handle_pull_request`).
          *
          *     Args:
          *         domain: The application.
@@ -1079,7 +1083,8 @@ export interface paths {
          *     Args:
          *         domain: Domain of the application.
          *         request: The incoming request, for the audit record and the hook URL.
-         *         session: The authenticated session.
+         *         session: An elevated session: the secret is shown in clear, and it
+         *             can open previews as well as deploy.
          *
          *     Returns:
          *         The secret, shown once, and the URL to configure at the forge.
@@ -1095,7 +1100,7 @@ export interface paths {
          *     Args:
          *         domain: Domain of the application.
          *         request: The incoming request, for the audit record.
-         *         session: The authenticated session.
+         *         session: An elevated session.
          *
          *     Returns:
          *         Confirmation that deliveries will now be answered with 404.
@@ -1918,13 +1923,15 @@ export interface paths {
          *         name: Destination name.
          *         force: Remove it even when a schedule references it, dropping the
          *             reference from those schedules.
+         *         key_saved: The operator kept a copy of the encryption key.
          *         session: The authenticated, elevated session.
          *
          *     Returns:
          *         The action outcome.
          *
          *     Raises:
-         *         BackupError: When a schedule references it and ``force`` was not given.
+         *         BackupError: When a schedule references it and ``force`` was not
+         *             given, or it is encrypted and ``key_saved`` was not given.
          */
         delete: operations["delete_destination_api_backup_destinations__name__delete"];
         options?: never;
@@ -6255,7 +6262,9 @@ export interface components {
          *             :func:`~wasm.core.secret_detection.classify` - present whether or
          *             not ``unmasked`` is true, so the console can label a variable
          *             (and let the operator override it) without asking to see its
-         *             value.
+         *             value. For a credential below admin scope, a value-based
+         *             verdict's ``reason`` never names the vendor it matched (see
+         *             :class:`EnvSecrecyOut`).
          */
         AppEnvResponse: {
             /** Domain */
@@ -6737,10 +6746,11 @@ export interface components {
          *         next_run: When the timer fires next, as systemd prints it, or
          *             ``pending`` when it cannot say.
          *         last_run: When the timer last fired, or ``never``.
-         *         retention_count: Local backups to keep, from the store row; None for
-         *             the default.
-         *         retention_days: Maximum local backup age in days, from the store row;
-         *             None for no limit.
+         *         retention_count: The schedule's own local backups to keep, from the
+         *             store row; None when ``backup.max_per_app`` is in charge.
+         *         retention_days: Maximum age in days of the schedule's own local
+         *             backups, from the store row; None for no limit.
+         *         include_databases: Whether each backup dumps the databases too.
          *         destinations: Remote destinations this schedule pushes to.
          */
         BackupScheduleInfo: {
@@ -6750,6 +6760,11 @@ export interface components {
             destinations?: components["schemas"]["ScheduleDestination"][];
             /** Domain */
             domain: string;
+            /**
+             * Include Databases
+             * @default true
+             */
+            include_databases: boolean;
             /** Last Run */
             last_run: string;
             /** Next Run */
@@ -7311,6 +7326,8 @@ export interface components {
              * @default false
              */
             encrypted: boolean;
+            /** @description An existing key, as show-key returned it, to use instead of generating one: how backups already on the destination are read from a new server. Requires encrypted. */
+            encryption_key?: components["schemas"]["EncryptionKey"] | null;
             /**
              * Fields
              * @description Field values by key
@@ -7347,16 +7364,16 @@ export interface components {
             include_databases: boolean;
             /**
              * Retention Count
-             * @description Backups to keep
+             * @description Backups this schedule made to keep; other backups are never deleted by it. null leaves backup.max_per_app in charge, over every backup of the application, as 2.1 did. A new schedule defaults to 7.
              * @default 7
              */
-            retention_count: number;
+            retention_count: number | null;
             /**
              * Retention Days
-             * @description Max age in days
+             * @description Maximum age in days of a backup this schedule made; null for no age limit. A new schedule defaults to 30.
              * @default 30
              */
-            retention_days: number;
+            retention_days: number | null;
             /**
              * Schedule
              * @description hourly, daily, weekly, monthly or a systemd OnCalendar expression
@@ -7970,6 +7987,16 @@ export interface components {
             elevated_until: string;
         };
         /**
+         * EncryptionKey
+         * @description An encrypted destination's two passphrases, as show-key returns them.
+         */
+        EncryptionKey: {
+            /** Password */
+            password: string;
+            /** Password2 */
+            password2: string;
+        };
+        /**
          * EngineInfo
          * @description A database engine and whether it is usable on this host.
          */
@@ -8053,8 +8080,13 @@ export interface components {
          *     Attributes:
          *         secret: Whether the value must not be shown or logged in clear.
          *         reason: One of ``"marked secret"``, ``"marked not secret"``,
-         *             ``"name"``, ``"value: <kind>"``, ``"url credentials"`` or
-         *             ``"plain"`` - see :class:`~wasm.core.secret_detection.Secrecy`.
+         *             ``"name"``, ``"value: <kind>"``, ``"value"``, ``"url
+         *             credentials"`` or ``"plain"`` - see
+         *             :class:`~wasm.core.secret_detection.Secrecy`. ``"value: <kind>"``
+         *             names the vendor a value's shape matched (``"value: stripe"``),
+         *             which is itself a fact about the value; a credential below admin
+         *             scope gets the generic ``"value"`` instead (see
+         *             :func:`~wasm.web.api.apps._secrets_map`).
          *         marked: Whether this came from an operator's own mark rather than
          *             from the variable's name or value.
          */
@@ -8992,12 +9024,20 @@ export interface components {
          *             wildcard record for it must point at this server.
          *         max_previews: How many may exist at once (1 to 20).
          *         ttl_hours: Hours a preview lives without a push (1 to 2160).
+         *         allow_bots: Whether pull requests from bot accounts (Dependabot,
+         *             Renovate) get a preview. A preview is built as root with the
+         *             application's secrets, so this is off unless turned on.
+         *         exclude_env: Variables never copied to a preview.
          */
         PreviewSettingsOut: {
+            /** Allow Bots */
+            allow_bots: boolean;
             /** Base Domain */
             base_domain: string;
             /** Created At */
             created_at?: string | null;
+            /** Exclude Env */
+            exclude_env: string[];
             /** Max Previews */
             max_previews: number;
             /** Ttl Hours */
@@ -9014,10 +9054,19 @@ export interface components {
          *             (``previews.example.com`` for ``*.previews.example.com``).
          *         max_previews: How many at once, 1 to 20.
          *         ttl_hours: Hours one lives without a push, 1 to 2160 (90 days).
+         *         allow_bots: Build previews of bot accounts' pull requests; null
+         *             keeps the current value (off for new settings).
+         *         exclude_env: Names of variables never copied to a preview (and taken
+         *             out of existing ones at their next build); null keeps the
+         *             current list (none for new settings).
          */
         PreviewSettingsRequest: {
+            /** Allow Bots */
+            allow_bots?: boolean | null;
             /** Base Domain */
             base_domain: string;
+            /** Exclude Env */
+            exclude_env?: string[] | null;
             /**
              * Max Previews
              * @default 3
@@ -9688,8 +9737,14 @@ export interface components {
         /**
          * ScheduleListResponse
          * @description Response for listing backup schedules.
+         *
+         *     Attributes:
+         *         default_retention_count: ``backup.max_per_app``: what rotation keeps
+         *             per application for a schedule whose ``retention_count`` is null.
          */
         ScheduleListResponse: {
+            /** Default Retention Count */
+            default_retention_count: number;
             /** Schedules */
             schedules: components["schemas"]["BackupScheduleInfo"][];
             /** Total */
@@ -12712,6 +12767,8 @@ export interface operations {
             query?: {
                 /** @description Remove it even if a schedule references it */
                 force?: boolean;
+                /** @description The encryption key was saved (show-key): required to remove an encrypted destination, whose backups are unreadable without it */
+                key_saved?: boolean;
             };
             header?: never;
             path: {

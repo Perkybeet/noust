@@ -41,8 +41,10 @@ export interface ScheduleDestinationInput {
 export interface CreateScheduleInput {
   domain: string;
   schedule: string;
-  retentionCount: number;
-  retentionDays: number;
+  /** Backups this schedule made to keep; null leaves `backup.max_per_app` in charge, as 2.1 did. */
+  retentionCount: number | null;
+  /** Maximum age in days of a backup this schedule made; null for no age limit. */
+  retentionDays: number | null;
   includeDatabases: boolean;
   destinations: ScheduleDestinationInput[];
 }

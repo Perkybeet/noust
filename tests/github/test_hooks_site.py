@@ -105,7 +105,9 @@ def test_the_site_forwards_only_hooks_to_loopback(
     result = hooks_site.expose(DOMAIN, port=9090, manager=nginx, cert_manager=certs)
     text = nginx.get_site_config(DOMAIN) or ""
     assert text.startswith(hooks_site.MARKER)
-    assert "location /hooks/ {\n        proxy_pass http://127.0.0.1:9090;" in text
+    # With a URI, nginx forwards the path it normalised and matched, never
+    # the raw request line: /api/x/../../hooks/y must not reach /api/x.
+    assert "proxy_pass http://127.0.0.1:9090/hooks/;" in text
     assert "location / {\n        return 404;" in text
     assert "listen 443 ssl" in text
     assert "/etc/letsencrypt/live/hooks.example.com/fullchain.pem" in text
@@ -118,13 +120,25 @@ def test_the_site_forwards_only_hooks_to_loopback(
     assert runner.ran("systemctl", "reload", "nginx")
 
 
+def test_dot_segments_are_refused_before_forwarding(
+    nginx: WebServerManager, saved: list[str | None]
+) -> None:
+    """A raw path with .. or an encoded dot, slash or backslash answers 400 at nginx."""
+    hooks_site.expose(DOMAIN, port=9090, manager=nginx, cert_manager=FakeCerts())
+    text = nginx.get_site_config(DOMAIN) or ""
+    block = text[text.index("location /hooks/ {") :]
+    guard = block.index("return 400;")
+    assert guard < block.index("proxy_pass")
+    assert r'if ($request_uri ~* "^[^?]*(\.\.|%2e|%2f|%5c)")' in block
+
+
 def test_a_console_serving_tls_is_reached_over_https(
     nginx: WebServerManager, saved: list[str | None]
 ) -> None:
     """A self-signed console on loopback is proxied without verification."""
     hooks_site.expose(DOMAIN, port=8443, scheme="https", manager=nginx, cert_manager=FakeCerts())
     text = nginx.get_site_config(DOMAIN) or ""
-    assert "proxy_pass https://127.0.0.1:8443;" in text
+    assert "proxy_pass https://127.0.0.1:8443/hooks/;" in text
     assert "proxy_ssl_verify off;" in text
 
 

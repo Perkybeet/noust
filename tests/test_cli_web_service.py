@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -169,7 +170,7 @@ def wasm_on_path(monkeypatch: pytest.MonkeyPatch) -> None:
     Args:
         monkeypatch: Patching helper, scoped to the test.
     """
-    monkeypatch.setattr(web.shutil, "which", lambda name: WASM_BIN if name == "wasm" else None)
+    monkeypatch.setattr(shutil, "which", lambda name: WASM_BIN if name == "wasm" else None)
 
 
 @pytest.fixture(autouse=True)
@@ -518,7 +519,7 @@ def test_enable_without_a_wasm_binary_on_path_says_so(
     unit_dirs: dict[str, Path],
 ) -> None:
     """systemd has no PATH of the operator's; a relative ExecStart never starts."""
-    monkeypatch.setattr(web.shutil, "which", lambda name: None)
+    monkeypatch.setattr(shutil, "which", lambda name: None)
 
     result = cli_runner.invoke(web.cli, ["enable"])
 

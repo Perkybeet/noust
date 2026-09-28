@@ -438,7 +438,7 @@ def rollback_deployment(
             },
         )
     job = get_job_manager().create_job(
-        job_type=JobType.RESTORE,
+        job_type=JobType.ROLLBACK,
         name=f"Rollback {domain}",
         description=f"Going back to deployment {deployment_id} of {domain}",
         func=rollback_deployment_job,

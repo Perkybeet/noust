@@ -43,7 +43,14 @@ server {
 
     # Only the webhook surface: never the console, its API or its sign-in.
     location /hooks/ {
-        proxy_pass {{ upstream_scheme | default('http') }}://127.0.0.1:{{ port }};
+        # nginx matched the normalised path; a raw one that needed normalising
+        # (/api/x/../../hooks/y, %2e, %2f, %5c) is never a delivery.
+        if ($request_uri ~* "^[^?]*(\.\.|%2e|%2f|%5c)") {
+            return 400;
+        }
+        # The URI makes nginx forward the path it normalised and matched,
+        # not the raw request line, which the console would route elsewhere.
+        proxy_pass {{ upstream_scheme | default('http') }}://127.0.0.1:{{ port }}/hooks/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

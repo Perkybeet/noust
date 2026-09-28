@@ -9,7 +9,7 @@ same endpoint. The page's own "type the domain to confirm" double-check was a
 page-level safety net with no JSON equivalent - the API trusts the session and
 the CSRF token, same as every other job it queues - so that part of the old
 coverage does not survive. What does: the request reaches the job manager as
-a ``RESTORE`` job carrying exactly the domain and backup id asked for, and the
+a ``ROLLBACK`` job carrying exactly the domain and backup id asked for, and the
 endpoint is not a hole in the fence. Before this, ``POST /api/jobs/rollback``
 had no test coverage at all.
 """
@@ -111,7 +111,7 @@ class RecordingJobs:
         self.created.append(kwargs)
         return Job(
             id="ab12cd34",
-            type=kwargs.get("job_type", JobType.RESTORE),
+            type=kwargs.get("job_type", JobType.ROLLBACK),
             name=kwargs.get("name", "Rollback"),
             description=kwargs.get("description", ""),
             status=JobStatus.PENDING,
@@ -147,7 +147,7 @@ def test_rollback_queues_a_restore_job_with_the_domain_and_backup_id(
     assert response.status_code == 202, response.text
     assert len(queued_jobs.created) == 1
     queued = queued_jobs.created[0]
-    assert queued["job_type"] == JobType.RESTORE
+    assert queued["job_type"] == JobType.ROLLBACK
     assert queued["kwargs"]["domain"] == "example.com"
     assert queued["kwargs"]["backup_id"] == "example-com_2026"
     assert response.json()["job"]["id"] == "ab12cd34"

@@ -22,7 +22,9 @@ What is defended here:
 - The limiter is not a credential oracle. It only looks at a credential where
   an endpoint would (``/api``, ``/events``, ``/ws``), a wrong one it looked at
   is counted against the lockout exactly once even when no endpoint checks it,
-  and an address already over the anonymous budget gets no credential check.
+  and a locked-out address gets no credential check. An address over its
+  anonymous budget still does: a valid credential is never refused for what
+  others behind the same address did (tests/test_web_hooks_hardening.py).
 """
 
 from __future__ import annotations
@@ -331,24 +333,6 @@ def test_a_signed_in_browser_with_an_expired_session_is_not_counted(sandbox: Pat
         client.get("/api/does-not-exist")
 
     assert get_brute_force().get_attempts_remaining("127.0.0.1") == 2
-
-
-def test_an_address_over_the_anonymous_budget_gets_no_credential_check(
-    sandbox: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A flood that is refused anyway must not cost a SQLite query and a file read each."""
-    client = build_client(sandbox)
-    token = get_token_manager().generate_master_token()
-    for _ in range(3):
-        client.get("/api/auth/session")
-    checked = spy_on_credential_checks(monkeypatch)
-
-    response = client.get("/api/auth/verify", headers=bearer(token))
-
-    assert response.status_code == 429
-    assert response.json()["error"] == "rate_limited"
-    assert response.headers["X-RateLimit-Limit"] == "3"
-    assert checked == []
 
 
 def test_retry_after_is_when_the_oldest_request_leaves_the_window(

@@ -17,6 +17,7 @@ from pathlib import Path
 
 from wasm.core.exceptions import WASMError
 from wasm.core.runner import CommandRunner
+from wasm.core.store import WASMStore, get_store
 from wasm.managers.source_manager import (
     GIT_AUTH_FAILURE_MESSAGE,
     git_auth_fix,
@@ -115,26 +116,64 @@ def insufficient_disk_space(directory: Path) -> list[str]:
     return []
 
 
-def port_taken(port: int, *, allowed_owner_port: int | None) -> list[str]:
+def port_taken(
+    port: int, *, allowed_owner_port: int | None, store: WASMStore | None = None
+) -> list[str]:
     """
-    Check that nothing else is already listening on the port.
+    Check that nothing else listens on the port, and that no other application owns it.
 
     Args:
         port: Port the application will bind.
         allowed_owner_port: Port recorded for the app being redeployed. When it
             matches, the listener is this application's own previous process.
+        store: Where the applications are read. Defaults to the process-wide
+            store.
 
     Returns:
         The problems found, empty when the port is free or ours.
     """
+    if allowed_owner_port == port:
+        return []
     probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         in_use = probe.connect_ex(("127.0.0.1", port)) == 0
     finally:
         probe.close()
 
-    if in_use and allowed_owner_port != port:
-        return [f"Port {port} is already in use"]
+    issues = [f"Port {port} is already in use"] if in_use else []
+    return issues + port_owned_by_app(port, store=store if store is not None else get_store())
+
+
+def port_owned_by_app(port: int, *, store: WASMStore) -> list[str]:
+    """
+    Check that the port is not an application's, whether or not it listens now.
+
+    A stopped application, and the idle instance of one in zero-downtime
+    mode, listen on nothing and still own their port: an application given
+    it would answer the other's health gate, which then switches the other
+    domain to it. The automatic port choice skips these ports; this refuses
+    them when one is asked for. The caller leaves out the port the
+    application being redeployed already has.
+
+    Args:
+        port: Port the application will bind.
+        store: Where the applications are read.
+
+    Returns:
+        The problems found, empty when no application owns the port.
+    """
+    # Imported here: the blue/green engine imports the deployers' helpers.
+    from wasm.deployers.bluegreen import GREEN, color_port, ports_of
+
+    for owner in store.list_apps():
+        if port not in ports_of(owner):
+            continue
+        idle = owner.zero_downtime and port == color_port(owner, GREEN) and port != owner.port
+        role = " (its green instance's, in zero-downtime mode)" if idle else ""
+        return [
+            f"Port {port} belongs to {owner.domain}{role}. Choose another port, or leave it "
+            "out to have a free one chosen"
+        ]
     return []
 
 

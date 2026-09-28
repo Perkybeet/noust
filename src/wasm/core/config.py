@@ -1363,6 +1363,29 @@ def _strip_removed_keys(config: dict[str, Any]) -> dict[str, Any]:
     return config
 
 
+def _apply_env_overrides(config: dict[str, Any]) -> None:
+    """
+    Apply the ``WASM_*`` environment overrides to a configuration mapping.
+
+    Args:
+        config: The mapping being built; modified in place.
+    """
+    env_mappings: dict[str, str | tuple[str, str]] = {
+        "WASM_APPS_DIR": "apps_directory",
+        "WASM_WEBSERVER": "webserver",
+        "WASM_SERVICE_USER": "service_user",
+        "WASM_SSL_EMAIL": ("ssl", "email"),
+    }
+
+    for env_var, config_key in env_mappings.items():
+        value = os.environ.get(env_var)
+        if value:
+            if isinstance(config_key, tuple):
+                config[config_key[0]][config_key[1]] = value
+            else:
+                config[config_key] = value
+
+
 class Config:
     """
     Configuration manager for WASM.
@@ -1420,12 +1443,26 @@ class Config:
         """
         Load configuration from file and merge with defaults.
 
+        The mapping is built aside and assigned once: this instance is shared
+        by every thread of the process, and a loader that put the defaults in
+        place first and merged the file into them afterwards let a concurrent
+        reader see ``/var/www/apps`` where config.yaml says otherwise.
+        """
+        self._config = self._build_config()
+
+    def _build_config(self) -> dict[str, Any]:
+        """
+        Read the defaults, the file and the environment into a new mapping.
+
         The defaults are deep-copied: a shallow copy would share the nested
         dictionaries with :data:`DEFAULT_CONFIG`, so any :meth:`set` on a nested
         key would rewrite the module-level defaults and leak, secrets included,
         into every later instance.
+
+        Returns:
+            The merged configuration; nothing on this instance is touched.
         """
-        self._config = copy.deepcopy(DEFAULT_CONFIG)
+        config = copy.deepcopy(DEFAULT_CONFIG)
 
         if DEFAULT_CONFIG_PATH.exists():
             try:
@@ -1435,28 +1472,29 @@ class Config:
                 logger.warning("Ignoring invalid config file %s: %s", DEFAULT_CONFIG_PATH, exc)
             else:
                 if isinstance(file_config, dict):
-                    self._config = self._deep_merge(self._config, _strip_removed_keys(file_config))
-                    _forget_blank_backup_directory(self._config)
+                    config = self._deep_merge(config, _strip_removed_keys(file_config))
+                    _forget_blank_backup_directory(config)
 
-        # Override with environment variables
-        self._load_env_overrides()
+        _apply_env_overrides(config)
+        return config
 
-    def _load_env_overrides(self) -> None:
-        """Load configuration overrides from environment variables."""
-        env_mappings: dict[str, str | tuple[str, str]] = {
-            "WASM_APPS_DIR": "apps_directory",
-            "WASM_WEBSERVER": "webserver",
-            "WASM_SERVICE_USER": "service_user",
-            "WASM_SSL_EMAIL": ("ssl", "email"),
-        }
+    @classmethod
+    def snapshot(cls) -> Config:
+        """
+        Read the configuration on disk into an instance nobody else shares.
 
-        for env_var, config_key in env_mappings.items():
-            value = os.environ.get(env_var)
-            if value:
-                if isinstance(config_key, tuple):
-                    self._config[config_key[0]][config_key[1]] = value
-                else:
-                    self._config[config_key] = value
+        For a background thread that wants the file as it stands now (a
+        notification, once per deploy) without reloading the process-wide
+        instance under every other thread's feet. Meant for reading: it
+        writes through the same file as the shared instance if asked to.
+
+        Returns:
+            A detached configuration.
+        """
+        instance = super().__new__(cls)
+        instance._fs = None
+        instance._config = instance._build_config()
+        return instance
 
     def _deep_merge(self, base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
         """

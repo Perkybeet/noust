@@ -75,7 +75,13 @@ from wasm.web.api.deps import (
     require_elevated,
     strict_domain,
 )
-from wasm.web.auth import actor_label, ensure_scope, get_audit_logger, get_client_ip
+from wasm.web.auth import (
+    actor_label,
+    ensure_scope,
+    get_audit_logger,
+    get_client_ip,
+    scope_satisfies,
+)
 from wasm.web.jobs import (
     JobType,
     delete_app_job,
@@ -316,8 +322,13 @@ class EnvSecrecyOut(BaseModel):
     Attributes:
         secret: Whether the value must not be shown or logged in clear.
         reason: One of ``"marked secret"``, ``"marked not secret"``,
-            ``"name"``, ``"value: <kind>"``, ``"url credentials"`` or
-            ``"plain"`` - see :class:`~wasm.core.secret_detection.Secrecy`.
+            ``"name"``, ``"value: <kind>"``, ``"value"``, ``"url
+            credentials"`` or ``"plain"`` - see
+            :class:`~wasm.core.secret_detection.Secrecy`. ``"value: <kind>"``
+            names the vendor a value's shape matched (``"value: stripe"``),
+            which is itself a fact about the value; a credential below admin
+            scope gets the generic ``"value"`` instead (see
+            :func:`~wasm.web.api.apps._secrets_map`).
         marked: Whether this came from an operator's own mark rather than
             from the variable's name or value.
     """
@@ -342,7 +353,9 @@ class AppEnvResponse(BaseModel):
             :func:`~wasm.core.secret_detection.classify` - present whether or
             not ``unmasked`` is true, so the console can label a variable
             (and let the operator override it) without asking to see its
-            value.
+            value. For a credential below admin scope, a value-based
+            verdict's ``reason`` never names the vendor it matched (see
+            :class:`EnvSecrecyOut`).
     """
 
     domain: str
@@ -662,7 +675,10 @@ def _redact_env(
 
 
 def _secrets_map(
-    values: Mapping[str, str], marks: Mapping[str, bool] | None = None
+    values: Mapping[str, str],
+    marks: Mapping[str, bool] | None = None,
+    *,
+    reveal_kind: bool = True,
 ) -> dict[str, EnvSecrecyOut]:
     """
     Classify every variable of an environment for the API response.
@@ -670,15 +686,52 @@ def _secrets_map(
     Args:
         values: The environment as read from the .env file.
         marks: The application's operator overrides.
+        reveal_kind: Whether a value-based verdict may name the vendor kind
+            it matched (``"value: stripe"``). False collapses every such
+            reason to the generic ``"value"``: the vendor a secret belongs to
+            is itself information about its content, which a credential
+            below admin scope has no business learning about a variable it
+            cannot unmask. Every other reason (``"name"``, ``"marked
+            secret"``, ...) already says nothing about the value and is
+            never collapsed.
 
     Returns:
         Variable name to its classification.
     """
 
     def _out(verdict: Secrecy) -> EnvSecrecyOut:
-        return EnvSecrecyOut(secret=verdict.secret, reason=verdict.reason, marked=verdict.marked)
+        reason = verdict.reason
+        if not reveal_kind and reason.startswith("value: "):
+            reason = "value"
+        return EnvSecrecyOut(secret=verdict.secret, reason=reason, marked=verdict.marked)
 
     return {key: _out(classify(key, value, marks)) for key, value in values.items()}
+
+
+def _mark_change_detail(marks: Mapping[str, bool | None]) -> str:
+    """
+    Render an audit-safe summary of a marks change: every name and its new direction.
+
+    Naming the keys alone (the previous shape of this line) let an auditor
+    see that ``APP_NAME`` changed but not whether it was marked secret,
+    marked not secret, or returned to automatic classification - the
+    distinction that matters when the audit log is the record of who told
+    WASM a variable was safe to display. Never carries a value.
+
+    Args:
+        marks: The marks the request asked to change, exactly as
+            :class:`UpdateEnvMarksRequest` carries them: true (secret), false
+            (not secret) or null (back to automatic).
+
+    Returns:
+        ``"no keys changed"`` when empty, otherwise one ``name -> direction``
+        pair per change, sorted by name.
+    """
+    if not marks:
+        return "no keys changed"
+    direction = {True: "secret", False: "not secret", None: "automatic"}
+    changes = ", ".join(f"{name} -> {direction[marks[name]]}" for name in sorted(marks))
+    return f"changed: {changes}"
 
 
 def _env_app(domain: str) -> App:
@@ -1291,7 +1344,11 @@ def get_app_env(
     app = _env_app(domain)
     values = read_app_env(app)
     marks = app.env_secret_marks
-    secrets = _secrets_map(values, marks)
+    # A read-scope token can reach this endpoint (GET only ever needs
+    # "read") and, unmasked or not, must not learn which vendor a secret's
+    # shape matched - that is information about the value itself.
+    admin = scope_satisfies(str(session.get("scope") or "read"), "admin")
+    secrets = _secrets_map(values, marks, reveal_kind=admin)
 
     if unmask:
         audit = get_audit_logger()
@@ -1328,7 +1385,8 @@ def update_app_env(
     written, so a rejected variable leaves the file on disk untouched. The
     write goes through :func:`~wasm.deployers.helpers.app_env.write_app_env`,
     the same function ``wasm env configure`` uses, so the file lands 0600,
-    owned by the service account, in ``shared/`` on the release layout.
+    owned by the service account, in ``shared/`` on the release layout - and
+    a mark on a name the write drops is pruned there too, not just here.
 
     The application is not restarted: a process already running keeps the
     environment it started with until it is, so the caller is told a restart
@@ -1368,16 +1426,6 @@ def update_app_env(
             actor=actor_label(session),
             resource=f"/api/apps/{app.domain}/env",
             detail=f"changed keys: {', '.join(changed)}" if changed else "no keys changed",
-        )
-
-    # A mark on a variable this write dropped is meaningless kept around, and
-    # would resurface with the wrong meaning if a later variable reused the
-    # name: drop it here, the one place an environment's variable set changes.
-    stale = set(app.env_secret_marks) - set(after)
-    if stale:
-        get_store().set_env_secret_marks(
-            app.domain,
-            {name: mark for name, mark in app.env_secret_marks.items() if name not in stale},
         )
 
     return AppEnvUpdateResponse(domain=app.domain, restart_required=True)
@@ -1435,9 +1483,7 @@ def update_app_env_marks(
             client_ip=get_client_ip(request),
             actor=actor_label(session),
             resource=f"/api/apps/{app.domain}/env/marks",
-            detail=f"changed keys: {', '.join(sorted(body.marks))}"
-            if body.marks
-            else "no keys changed",
+            detail=_mark_change_detail(body.marks),
         )
 
     values = read_app_env(app)

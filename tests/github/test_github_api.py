@@ -10,6 +10,7 @@ removing the App change what this server trusts, and need sudo mode.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import pytest
@@ -203,3 +204,71 @@ def test_removal_returns_where_to_delete_the_app(
         "settings_url": "https://github.com/settings/apps/wasm-test",
     }
     assert client.get(BASE).json()["configured"] is False
+
+
+def audit_lines(caplog: pytest.LogCaptureFixture) -> list[str]:
+    """
+    Args:
+        caplog: The log capture.
+
+    Returns:
+        What reached the ``wasm.audit`` logger.
+    """
+    return [record.getMessage() for record in caplog.records if record.name == "wasm.audit"]
+
+
+def test_every_trust_change_is_audited(
+    client: TestClient,
+    fake_github: FakeGitHub,
+    openssl: FakeRunner,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Creating, installing, syncing and removing the App each leave a named line."""
+    elevate(client)
+    with caplog.at_level(logging.INFO, logger="wasm.audit"):
+        started = client.post(
+            f"{BASE}/manifest", json={"origin": "http://localhost:8080", "organization": "acme"}
+        ).json()
+        fake_github.on(
+            "POST",
+            "/app-manifests/thecode/conversions",
+            {
+                "id": APP_ID,
+                "slug": "wasm-box",
+                "name": "wasm-box",
+                "owner": {"login": "you", "type": "User"},
+                "html_url": "https://github.com/apps/wasm-box",
+                "pem": "-----BEGIN RSA PRIVATE KEY-----\nk\n",
+                "webhook_secret": None,
+            },
+            status=201,
+        )
+        client.post(
+            f"{BASE}/manifest/conversions", json={"code": "thecode", "state": started["state"]}
+        )
+        fake_github.on(
+            "GET",
+            f"/app/installations/{INSTALLATION_ID}",
+            {"id": INSTALLATION_ID, "account": {"login": "you", "type": "User"}},
+        )
+        client.post(f"{BASE}/installations", json={"installation_id": INSTALLATION_ID})
+        fake_github.on("GET", r"/app/installations(\?.*)?", [])
+        client.post(f"{BASE}/installations/sync")
+        client.delete(BASE)
+
+    lines = audit_lines(caplog)
+    actions = [line.split(" ", 1)[0] for line in lines]
+    assert actions == [
+        "github_manifest_start",
+        "github_app_create",
+        "github_app_created",
+        "github_installation_add",
+        "github_installations_sync",
+        "github_app_remove",
+    ]
+    joined = "\n".join(lines)
+    assert "organization=acme" in joined
+    assert f"app_id={APP_ID}" in joined
+    assert f"installation_id={INSTALLATION_ID}" in joined
+    assert all("session=" in line for line in lines)
+    assert "thecode" not in joined and "PRIVATE KEY" not in joined

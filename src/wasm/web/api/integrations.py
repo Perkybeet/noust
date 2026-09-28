@@ -7,7 +7,8 @@ Integrations with code hosts: this server's GitHub App (2.2).
 A thin layer over :mod:`wasm.integrations.github`: every endpoint translates
 HTTP to one call there and back. Creating the App, recording an installation
 and removing the App change what this server trusts, so they require sudo
-mode; reading the status and listing repositories do not.
+mode; reading the status and listing repositories do not. Every change is
+audited by name on the ``wasm.audit`` logger.
 
 The manifest flow, as the console runs it:
 
@@ -22,6 +23,7 @@ The manifest flow, as the console runs it:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import asdict
 from typing import Annotated, Any
 
@@ -31,8 +33,14 @@ from pydantic import BaseModel
 from wasm.integrations.github import manifest, service
 from wasm.web.api.auth import get_current_session
 from wasm.web.api.deps import WASMErrorRoute, require_elevated
+from wasm.web.auth import actor_label
 
 router = APIRouter(route_class=WASMErrorRoute)
+
+#: Every change to what this server trusts on GitHub is written here by name,
+#: like every other mutation the console makes; never the code GitHub hands
+#: back or the App's key.
+audit_log = logging.getLogger("wasm.audit")
 
 
 class InstallationOut(BaseModel):
@@ -201,6 +209,11 @@ def github_manifest(
     Returns:
         The manifest, the form's action and its state (valid ten minutes).
     """
+    audit_log.info(
+        "github_manifest_start organization=%s session=%s",
+        data.organization or "-",
+        actor_label(session),
+    )
     started = manifest.start(
         data.origin, hooks_url=service.github_hooks_url(), organization=data.organization
     )
@@ -221,8 +234,17 @@ def github_manifest_conversion(
     Returns:
         The integration's status, now configured.
     """
+    audit_log.info("github_app_create session=%s", actor_label(session))
     manifest.convert(data.code, data.state)
-    return _status_out()
+    status = _status_out()
+    audit_log.info(
+        "github_app_created app_id=%s slug=%s owner=%s session=%s",
+        status.app_id,
+        status.slug,
+        status.owner,
+        actor_label(session),
+    )
+    return status
 
 
 @router.post("/github/installations", response_model=InstallationOut)
@@ -239,6 +261,11 @@ def github_add_installation(
     Returns:
         The installation.
     """
+    audit_log.info(
+        "github_installation_add installation_id=%s session=%s",
+        data.installation_id,
+        actor_label(session),
+    )
     return InstallationOut(**asdict(service.add_installation(data.installation_id)))
 
 
@@ -255,6 +282,7 @@ def github_sync_installations(
     Returns:
         The installations.
     """
+    audit_log.info("github_installations_sync session=%s", actor_label(session))
     items = [InstallationOut(**asdict(info)) for info in service.sync_installations()]
     return InstallationListOut(items=items, total=len(items))
 
@@ -309,4 +337,5 @@ def github_remove(session: Annotated[dict, Depends(require_elevated)]) -> Remova
     Returns:
         Whether there was one, and where to delete it on GitHub.
     """
+    audit_log.info("github_app_remove session=%s", actor_label(session))
     return RemovalOut(**service.remove())

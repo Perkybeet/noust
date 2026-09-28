@@ -182,6 +182,53 @@ def test_the_subscriber_hands_work_to_a_thread_and_never_raises(
     assert fake.calls == []
 
 
+def test_the_end_of_a_first_deploy_is_reported_after_its_records_are_gone(
+    linked: WASMStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    A first deploy that fails forgets the application before FAILED is
+    published; the target resolved at STARTED must still carry the end, or
+    the GitHub deployment stays in progress forever.
+    """
+    fake = FakeApp()
+    reporter = statuses.StatusReporter(load=lambda: fake)
+    monkeypatch.setattr(statuses, "reporter", reporter)
+
+    statuses.on_deploy_event(event(DeployEventKind.STARTED))
+    linked.delete_app("a.example.com")
+    assert statuses.target_for("a.example.com") is None
+    statuses.on_deploy_event(event(DeployEventKind.FAILED, error="npm exited 1"))
+    assert reporter.drain(timeout=5)
+
+    assert [c[3]["state"] for c in fake.calls if c[2].endswith("/statuses")] == [
+        "in_progress",
+        "failure",
+    ]
+    # Once ended, the deployment's target is forgotten.
+    assert reporter.cached_targets() == 0
+
+
+def test_the_reporter_is_drained_when_the_process_exits(
+    linked: WASMStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A CLI deploy's statuses are sent before the interpreter goes away."""
+    from wasm.core import background
+
+    monkeypatch.setattr(background, "_queues", [])
+    monkeypatch.setattr(background, "_atexit_registered", False)
+    registered: list[Any] = []
+    monkeypatch.setattr("atexit.register", registered.append)
+    fake = FakeApp()
+    reporter = statuses.StatusReporter(load=lambda: fake)
+    monkeypatch.setattr(statuses, "reporter", reporter)
+
+    statuses.on_deploy_event(event(DeployEventKind.STARTED))
+
+    assert registered == [background.drain_all]
+    assert background.drain_all(timeout=5)
+    assert len(fake.calls) == 2
+
+
 def test_the_subscriber_does_nothing_for_unlinked_apps(
     store: WASMStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -60,10 +60,11 @@ import json
 import os
 import re
 import shutil
+import socket
 import sqlite3
 import tarfile
 import tempfile
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
@@ -121,6 +122,7 @@ __all__ = [
     "RollbackManager",
     "app_name_of_backup_id",
     "backup_id_of_archive",
+    "server_id",
 ]
 
 #: Docker has to pull alpine the first time a volume is backed up.
@@ -160,6 +162,41 @@ ARCHIVE_SUFFIX = ".tar.gz"
 #: told apart from whatever else shares a directory with it - a misplaced backup
 #: directory was ``/root``, next to ``.ssh`` and ``.docker``.
 BACKUP_ID_PATTERN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?_\d{8}_\d{6}$")
+
+#: Where systemd keeps the machine's own identifier, the basis of :func:`server_id`.
+MACHINE_ID_PATH = Path("/etc/machine-id")
+
+#: Deployments, newest first, whose snapshot backup rotation never deletes. The
+#: bound is what keeps an in-place application updated every day from growing
+#: its backup directory forever: each of those updates links its pre-deploy
+#: backup as the previous deployment's snapshot.
+SNAPSHOT_DEPLOYMENTS_KEPT = 10
+
+#: The tag every backup a schedule takes carries, and the only backups a
+#: schedule's own retention may delete.
+SCHEDULED_TAG = "scheduled"
+
+
+def server_id() -> str:
+    """
+    Identify this server in the backups it writes, without revealing it.
+
+    Two servers pushing to the same bucket folder used to prune each other's
+    backups; recording which server wrote a backup is what lets remote
+    retention only ever delete this server's own. The machine id is hashed,
+    as ``machine-id(5)`` asks of anything that publishes it.
+
+    Returns:
+        16 hex characters derived from ``/etc/machine-id``, or from the host
+        name where there is no machine id.
+    """
+    try:
+        raw = MACHINE_ID_PATH.read_text(encoding="utf-8").strip()
+    except OSError:
+        raw = ""
+    if not raw:
+        raw = socket.gethostname()
+    return hashlib.sha256(f"wasm-backup-origin:{raw}".encode()).hexdigest()[:16]
 
 
 def backup_id_of_archive(path: Path) -> str | None:
@@ -227,6 +264,9 @@ class BackupMetadata:
     #: whether it passed. None for a backup nothing has verified yet.
     last_verified_at: str | None = None
     verified_ok: bool | None = None
+    #: :func:`server_id` of the server that took the backup; None for one
+    #: taken before 2.2, which remote retention therefore never deletes.
+    origin: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -258,6 +298,7 @@ class BackupMetadata:
             "tags": self.tags,
             "last_verified_at": self.last_verified_at,
             "verified_ok": self.verified_ok,
+            "origin": self.origin,
         }
 
     @classmethod
@@ -294,6 +335,7 @@ class BackupMetadata:
             tags=data.get("tags", []),
             last_verified_at=data.get("last_verified_at"),
             verified_ok=data.get("verified_ok"),
+            origin=data.get("origin"),
         )
 
     @property
@@ -481,9 +523,22 @@ class BackupManager:
         self.backup_dir = resolve_backup_directory(
             self.config.get("backup.directory"), default=self.DEFAULT_BACKUP_DIR
         )
-        self.max_backups = self.config.get("backup.max_per_app", self.DEFAULT_MAX_BACKUPS)
+        self.max_backups = self.configured_max_backups(self.config)
         self.max_entries = int(self.config.get("backup.max_entries", MAX_BACKUP_ENTRIES))
         self.max_bytes = int(self.config.get("backup.max_bytes", MAX_BACKUP_BYTES))
+
+    @classmethod
+    def configured_max_backups(cls, config: Config | None = None) -> int:
+        """
+        Read ``backup.max_per_app``: how many backups rotation keeps per application.
+
+        Args:
+            config: Configuration to read; a fresh one when None.
+
+        Returns:
+            The configured limit, or :attr:`DEFAULT_MAX_BACKUPS`.
+        """
+        return int((config or Config()).get("backup.max_per_app", cls.DEFAULT_MAX_BACKUPS))
 
     # -- plumbing ---------------------------------------------------------
 
@@ -868,9 +923,19 @@ class BackupManager:
         retention_days: int | None = None,
         tags: list[str] | None = None,
         pre_backup_hook: str | None = None,
+        *,
+        retention_tag: str | None = None,
+        protect: Collection[str] = (),
     ) -> BackupMetadata:
         """
         Create a self-contained backup of an application.
+
+        The whole operation - archive, sidecar and the rotation that follows -
+        holds the application's lock, so a backup never archives a tree an
+        update is half-way through changing, and two rotations never race over
+        the same files. Inside an operation that already holds it (the
+        pre-deploy backup of an update, the safety backup of a rollback) the
+        lock is simply re-entered.
 
         Args:
             domain: Domain name of the application.
@@ -886,6 +951,14 @@ class BackupManager:
             retention_days: Max age in days for backups.
             tags: Optional tags for the backup.
             pre_backup_hook: Optional command to run before the backup.
+            retention_tag: Apply ``retention_count``/``retention_days`` only
+                to backups carrying this tag: a schedule passes
+                :data:`SCHEDULED_TAG`, so its retention never reaches a manual,
+                pre-deploy or rollback-safety backup. None applies them to
+                every backup of the application.
+            protect: Backup ids the rotation after this backup must not
+                delete, whatever the policy says - the backup a rollback is
+                about to restore.
 
         Returns:
             Metadata describing the archive that was written. In a rehearsal,
@@ -898,6 +971,74 @@ class BackupManager:
                 per-schema dump is written by the engine outside the archive,
                 which is exactly the promise this module no longer makes.
             ValidationError: If the domain does not yield a usable app name.
+            AppBusyError: Another operation holds the application's lock.
+        """
+        # Validated before the lock, whose file is named after the domain.
+        validate_app_name(domain_to_app_name(domain))
+        with app_lock(domain, "backup"):
+            return self._create_locked(
+                domain,
+                description=description,
+                include_env=include_env,
+                include_node_modules=include_node_modules,
+                include_build=include_build,
+                include_databases=include_databases,
+                include_docker_volumes=include_docker_volumes,
+                schemas=schemas,
+                redis_method=redis_method,
+                retention_count=retention_count,
+                retention_days=retention_days,
+                tags=tags,
+                pre_backup_hook=pre_backup_hook,
+                retention_tag=retention_tag,
+                protect=protect,
+            )
+
+    def _create_locked(
+        self,
+        domain: str,
+        *,
+        description: str,
+        include_env: bool,
+        include_node_modules: bool,
+        include_build: bool,
+        include_databases: bool,
+        include_docker_volumes: bool,
+        schemas: list[str] | None,
+        redis_method: str,
+        retention_count: int | None,
+        retention_days: int | None,
+        tags: list[str] | None,
+        pre_backup_hook: str | None,
+        retention_tag: str | None,
+        protect: Collection[str],
+    ) -> BackupMetadata:
+        """
+        Do what :meth:`create` promises, with the application's lock held.
+
+        Args:
+            domain: Domain name of the application.
+            description: See :meth:`create`.
+            include_env: See :meth:`create`.
+            include_node_modules: See :meth:`create`.
+            include_build: See :meth:`create`.
+            include_databases: See :meth:`create`.
+            include_docker_volumes: See :meth:`create`.
+            schemas: See :meth:`create`.
+            redis_method: See :meth:`create`.
+            retention_count: See :meth:`create`.
+            retention_days: See :meth:`create`.
+            tags: See :meth:`create`.
+            pre_backup_hook: See :meth:`create`.
+            retention_tag: See :meth:`create`.
+            protect: See :meth:`create`.
+
+        Returns:
+            See :meth:`create`.
+
+        Raises:
+            BackupError: See :meth:`create`.
+            ValidationError: See :meth:`create`.
         """
         if schemas:
             raise BackupError(
@@ -1050,6 +1191,7 @@ class BackupManager:
             git_branch=git_branch,
             checksum=checksum,
             tags=tags or [],
+            origin=server_id(),
         )
 
         try:
@@ -1068,9 +1210,11 @@ class BackupManager:
                 app_name,
                 max_count=retention_count or self.max_backups,
                 max_age_days=retention_days,
+                tag=retention_tag,
+                protect=protect,
             )
         else:
-            self._rotate_backups(app_name)
+            self._rotate_backups(app_name, protect=protect)
 
         self.logger.debug(f"Backup created: {backup_file} ({metadata.size_human})")
 
@@ -2202,15 +2346,80 @@ class BackupManager:
         self.logger.debug(f"Deleted backup: {backup_id}")
         return True
 
-    def _rotate_backups(self, app_name: str) -> None:
+    def _protected_backup_ids(self, backups: Sequence[BackupMetadata]) -> set[str]:
         """
-        Keep only the most recent backups of an application.
+        Name the backups a deployment still depends on.
+
+        On the in-place layout a deployment's pre-deploy backup is recorded as
+        its snapshot, and going back to that deployment restores it; rotating
+        it away silently removes that way back. The snapshots of the newest
+        :data:`SNAPSHOT_DEPLOYMENTS_KEPT` deployments of each application are
+        kept.
+
+        Args:
+            backups: The backups rotation is considering.
+
+        Returns:
+            The ids of the snapshots among them.
+
+        Raises:
+            sqlite3.Error: The store could not be read.
+            WASMError: The store refused the query.
+        """
+        store = get_store()
+        protected: set[str] = set()
+        for domain in sorted({backup.domain for backup in backups}):
+            for record in store.list_deployments(domain, limit=SNAPSHOT_DEPLOYMENTS_KEPT):
+                if record.snapshot_backup:
+                    protected.add(record.snapshot_backup)
+        return protected
+
+    def _rotation_candidates(
+        self, app_name: str, *, tag: str | None, protect: Collection[str]
+    ) -> list[BackupMetadata] | None:
+        """
+        List the backups a rotation may delete, newest first.
 
         Args:
             app_name: Application name.
+            tag: Only backups carrying this tag; None for every backup.
+            protect: Backup ids that must never be deleted.
+
+        Returns:
+            The candidates, or None when the store cannot say which backups
+            deployments depend on - rotation then deletes nothing, since a
+            backup that cannot be told apart from a snapshot must be kept.
+        """
+        backups = self.list_backups(app_name=app_name)
+        try:
+            protected = self._protected_backup_ids(backups) | set(protect)
+        except (sqlite3.Error, WASMError) as exc:
+            self.logger.warning(
+                f"Skipped rotating the backups of {app_name}: could not read which of them "
+                f"deployments depend on ({exc}). Nothing was deleted."
+            )
+            return None
+        return [
+            backup
+            for backup in backups
+            if backup.id not in protected and (tag is None or tag in backup.tags)
+        ]
+
+    def _rotate_backups(self, app_name: str, *, protect: Collection[str] = ()) -> None:
+        """
+        Keep only the most recent backups of an application (``backup.max_per_app``).
+
+        A deployment's snapshot and every id in ``protect`` are never deleted
+        and do not count toward the limit.
+
+        Args:
+            app_name: Application name.
+            protect: Backup ids that must never be deleted.
         """
         self._prune_orphan_metadata(app_name)
-        backups = self.list_backups(app_name=app_name)
+        backups = self._rotation_candidates(app_name, tag=None, protect=protect)
+        if backups is None:
+            return
 
         if len(backups) > self.max_backups:
             for backup in backups[self.max_backups :]:
@@ -2225,26 +2434,34 @@ class BackupManager:
         app_name: str,
         max_count: int | None = None,
         max_age_days: int | None = None,
+        *,
+        tag: str | None = None,
+        protect: Collection[str] = (),
     ) -> int:
         """
         Rotate backups by count and/or age.
+
+        A deployment's snapshot and every id in ``protect`` are never deleted
+        and do not count toward ``max_count``.
 
         Args:
             app_name: Application name.
             max_count: Maximum number of backups to keep.
             max_age_days: Maximum age of a backup, in days.
+            tag: Only rotate backups carrying this tag - a schedule's own,
+                :data:`SCHEDULED_TAG` - and leave every other backup alone.
+                None rotates every backup of the application.
+            protect: Backup ids that must never be deleted.
 
         Returns:
             Number of backups deleted.
         """
-        from datetime import timedelta
-
         self._prune_orphan_metadata(app_name)
         deleted = 0
 
         if max_age_days:
             cutoff = datetime.now() - timedelta(days=max_age_days)
-            for backup in self.list_backups(app_name=app_name):
+            for backup in self._rotation_candidates(app_name, tag=tag, protect=protect) or []:
                 try:
                     if datetime.fromisoformat(backup.created_at) < cutoff:
                         self.delete(backup.id)
@@ -2254,7 +2471,7 @@ class BackupManager:
                     self.logger.warning(f"Failed to rotate backup {backup.id}: {exc}")
 
         if max_count:
-            remaining = self.list_backups(app_name=app_name)
+            remaining = self._rotation_candidates(app_name, tag=tag, protect=protect) or []
             for backup in remaining[max_count:]:
                 try:
                     self.delete(backup.id)
@@ -3241,6 +3458,8 @@ class RollbackManager:
         self,
         domain: str,
         description: str = "Pre-deploy backup",
+        *,
+        protect: Collection[str] = (),
     ) -> BackupMetadata | None:
         """
         Create a backup before a deployment.
@@ -3248,6 +3467,8 @@ class RollbackManager:
         Args:
             domain: Domain name.
             description: Backup description.
+            protect: Backup ids the rotation after this backup must not
+                delete: the one a rollback is about to restore.
 
         Returns:
             The backup metadata, or None when there is nothing deployed yet.
@@ -3264,6 +3485,7 @@ class RollbackManager:
             description=description,
             include_env=True,
             tags=["pre-deploy", "auto"],
+            protect=protect,
         )
         # On releases the previous build stays on disk as a release, which is
         # what going back to a deployment activates; only in place is this
@@ -3411,8 +3633,11 @@ class RollbackManager:
                 self.logger.info("Creating a safety backup of the current state")
                 safety: BackupMetadata | None = None
                 try:
+                    # The target is protected from the rotation this backup
+                    # triggers: when every backup is automatic the target is
+                    # the oldest, exactly the one rotation would delete.
                     safety = self.create_pre_deploy_backup(
-                        domain, description="Pre-rollback safety backup"
+                        domain, description="Pre-rollback safety backup", protect=[metadata.id]
                     )
                 except WASMError as exc:
                     self.logger.warning(f"Could not create safety backup: {exc}")

@@ -217,6 +217,49 @@ class TestApi:
         stored = store.get_preview_settings(PARENT)
         assert stored is not None and (stored.max_previews, stored.ttl_hours) == (5, 24)
 
+    def test_bots_and_excluded_variables_round_trip(
+        self, elevated: TestClient, store: WASMStore
+    ) -> None:
+        response = elevated.put(
+            f"/api/apps/{PARENT}/previews/settings",
+            json={"base_domain": BASE, "allow_bots": True, "exclude_env": ["STRIPE_KEY", "S3"]},
+        )
+
+        assert response.status_code == 200, response.text
+        assert (response.json()["allow_bots"], response.json()["exclude_env"]) == (
+            True,
+            ["STRIPE_KEY", "S3"],
+        )
+        # Left out, both keep what is stored.
+        again = elevated.put(f"/api/apps/{PARENT}/previews/settings", json={"base_domain": BASE})
+        assert (again.json()["allow_bots"], again.json()["exclude_env"]) == (
+            True,
+            ["STRIPE_KEY", "S3"],
+        )
+        listed = elevated.get(f"/api/apps/{PARENT}/previews").json()["settings"]
+        assert (listed["allow_bots"], listed["exclude_env"]) == (True, ["STRIPE_KEY", "S3"])
+
+    def test_new_settings_refuse_bots_and_copy_everything(
+        self, elevated: TestClient, store: WASMStore
+    ) -> None:
+        body = elevated.put(
+            f"/api/apps/{PARENT}/previews/settings", json={"base_domain": BASE}
+        ).json()
+
+        assert (body["allow_bots"], body["exclude_env"]) == (False, [])
+
+    def test_an_invalid_variable_name_is_refused_beside_its_field(
+        self, elevated: TestClient, store: WASMStore
+    ) -> None:
+        response = elevated.put(
+            f"/api/apps/{PARENT}/previews/settings",
+            json={"base_domain": BASE, "exclude_env": ["OK", "NOT-A-NAME"]},
+        )
+
+        assert response.status_code == 400, response.text
+        assert "exclude_env" in response.json().get("fields", {}), response.json()
+        assert store.get_preview_settings(PARENT) is None
+
     @pytest.mark.parametrize(
         "body",
         [
@@ -291,14 +334,23 @@ class TestApi:
 
 
 def github_pull_request(
-    action: str = "opened", *, fork: bool = False, number: int = 7
+    action: str = "opened",
+    *,
+    fork: bool = False,
+    number: int = 7,
+    login: str = "alice",
+    user_type: str = "User",
+    association: str = "MEMBER",
 ) -> dict[str, Any]:
     head_repo = "someone/shop" if fork else "acme/shop"
     return {
         "action": action,
         "number": number,
+        "sender": {"login": login, "type": user_type},
         "pull_request": {
             "title": "Add a feature",
+            "user": {"login": login, "type": user_type},
+            "author_association": association,
             "head": {
                 "ref": "feature/x",
                 "sha": "a" * 40,
@@ -436,6 +488,45 @@ class TestHookDispatch:
         assert job["func"] is previews.preview_deploy_job
         assert store.get_preview(PARENT, 7) is not None
 
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            github_pull_request(login="dependabot[bot]", user_type="Bot", association="NONE"),
+            github_pull_request(login="mallory", association="CONTRIBUTOR"),
+        ],
+        ids=["bot", "not-a-collaborator"],
+    )
+    def test_an_untrusted_author_gets_no_preview(
+        self,
+        forge: TestClient,
+        secret: str,
+        store: WASMStore,
+        queued: list[dict[str, Any]],
+        payload: dict[str, Any],
+    ) -> None:
+        store.save_preview_settings(PreviewSettings(app_domain=PARENT, base_domain=BASE))
+
+        response = deliver(forge, secret, payload, "github", "pull_request")
+
+        assert response.status_code == 200, response.text
+        assert response.json()["reason"] == "no_preview"
+        assert queued == []
+        assert store.get_preview(PARENT, 7) is None
+
+    def test_a_bot_gets_a_preview_when_bots_are_allowed(
+        self, forge: TestClient, secret: str, store: WASMStore, queued: list[dict[str, Any]]
+    ) -> None:
+        store.save_preview_settings(
+            PreviewSettings(app_domain=PARENT, base_domain=BASE, allow_bots=True)
+        )
+        payload = github_pull_request(login="renovate[bot]", user_type="Bot", association="NONE")
+
+        response = deliver(forge, secret, payload, "github", "pull_request")
+
+        assert response.status_code == 202, response.text
+        (job,) = queued
+        assert job["func"] is previews.preview_deploy_job
+
     def test_a_ping_is_answered_and_nothing_else(
         self, forge: TestClient, secret: str, queued: list[dict[str, Any]], handled: list[Any]
     ) -> None:
@@ -564,7 +655,73 @@ class TestPullRequestParsing:
             head_sha="a" * 40,
             from_fork=False,
             installation_id=42,
+            author="alice",
+            sender="alice",
+            bot=False,
+            author_association="MEMBER",
         )
+
+    @pytest.mark.parametrize(
+        ("login", "user_type", "bot"),
+        [
+            ("dependabot[bot]", "Bot", True),
+            ("renovate[bot]", "", True),
+            ("some-app", "Bot", True),
+            ("alice", "User", False),
+            # On GitHub a name is not a type: a person may be called "abbot".
+            ("abbot", "User", False),
+        ],
+    )
+    def test_github_bots(self, login: str, user_type: str, bot: bool) -> None:
+        event = pull_request_event("github", github_pull_request(login=login, user_type=user_type))
+        assert event is not None and event.bot is bot
+
+    def test_a_bot_pushing_to_a_persons_branch_counts(self) -> None:
+        payload = github_pull_request("synchronize")
+        payload["sender"] = {"login": "pre-commit-ci[bot]", "type": "Bot"}
+
+        event = pull_request_event("github", payload)
+
+        assert event is not None
+        assert (event.author, event.sender, event.bot) == ("alice", "pre-commit-ci[bot]", True)
+
+    @pytest.mark.parametrize(
+        ("login", "bot"),
+        [
+            ("renovate-bot", True),
+            ("dependabot", True),
+            ("gitea-actions[bot]", True),
+            ("bob", False),
+        ],
+    )
+    def test_gitea_bots_are_told_by_name(self, login: str, bot: bool) -> None:
+        payload = github_pull_request()
+        payload["pull_request"]["user"] = {"login": login}
+        payload["sender"] = {"login": login}
+        del payload["pull_request"]["author_association"]
+
+        event = pull_request_event("gitea", payload)
+
+        assert event is not None
+        assert (event.bot, event.author_association) == (bot, None)
+
+    @pytest.mark.parametrize(
+        ("username", "bot"),
+        [
+            ("renovate-bot", True),
+            ("project_12_bot_3f2a9c", True),
+            ("group_4_bot", True),
+            ("carol", False),
+        ],
+    )
+    def test_gitlab_bots_are_told_by_name(self, username: str, bot: bool) -> None:
+        payload = gitlab_merge_request()
+        payload["user"] = {"username": username}
+
+        event = pull_request_event("gitlab", payload)
+
+        assert event is not None
+        assert (event.author, event.bot, event.author_association) == (username, bot, None)
 
     @pytest.mark.parametrize(
         ("action", "expected"),

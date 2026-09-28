@@ -84,6 +84,7 @@ class Machine:
         self.site_modes: list[str] = []
         self.sleeps: list[float] = []
         self.refresh_fails = False
+        self.strangers: dict[int, list[bluegreen.Listener]] = {}
 
     # -- systemd -----------------------------------------------------------
 
@@ -218,6 +219,33 @@ class Machine:
         """The events, reduced to their first word."""
         return [event[0] for event in self.events]
 
+    # -- who listens where -------------------------------------------------
+
+    @staticmethod
+    def port_of(unit: str) -> int:
+        """The port a unit listens on while it runs: green the next one, the rest the app's."""
+        return PORT + 1 if unit.endswith("@green") else PORT
+
+    @staticmethod
+    def pid_of(unit: str) -> int:
+        """A stable process id for a unit of the fake machine."""
+        return 4000 + sum(map(ord, unit)) % 1000
+
+    def listeners(self, port: int) -> list[bluegreen.Listener]:
+        """What ``ss`` would say listens on a port: running units, and any stranger."""
+        found = [
+            bluegreen.Listener(process="node", pid=self.pid_of(unit), unit=f"{unit}.service")
+            for unit in self.running
+            if self.port_of(unit) == port
+        ]
+        return found + list(self.strangers.get(port, ()))
+
+    def unit_facts(self, unit: str) -> bluegreen.UnitFacts:
+        """A unit's state, and the processes in its cgroup: its own, while it runs."""
+        if unit in self.running:
+            return bluegreen.UnitFacts(state="active", pids=frozenset({self.pid_of(unit)}))
+        return bluegreen.UnitFacts(state="inactive", pids=frozenset())
+
 
 def write_release(root: Path, release_id: str, server: str = GOOD) -> Path:
     """Create a release directory with a server."""
@@ -225,6 +253,23 @@ def write_release(root: Path, release_id: str, server: str = GOOD) -> Path:
     path.mkdir(parents=True)
     (path / "server.js").write_text(server)
     return path
+
+
+@pytest.fixture(autouse=True)
+def nobody_can_name_listeners(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Engines built by the deployer and the lifecycle ask ss and the cgroups by default.
+
+    Here nobody can say who listens: the instance's state, which the fake
+    machine answers, is what the gate goes on. :func:`engine` injects the
+    fake machine's own answers instead. The status asks systemd about the
+    unit the application ran as before the mode; here none is left over.
+    """
+    monkeypatch.setattr(bluegreen, "listeners_on", lambda port, **kwargs: None)
+    monkeypatch.setattr(
+        bluegreen, "unit_facts_of", lambda unit, **kwargs: bluegreen.UnitFacts("", None)
+    )
+    monkeypatch.setattr(bluegreen, "leftover_unit", lambda app, **kwargs: None)
 
 
 @pytest.fixture
@@ -295,6 +340,8 @@ def engine(machine: Machine, store: WASMStore, **kwargs: Any) -> BlueGreen:
         sleep=machine.sleep,
         refresh_site=machine.refresh_site,
         port_free=kwargs.pop("port_free", lambda port: True),
+        listeners=kwargs.pop("listeners", machine.listeners),
+        unit_facts=kwargs.pop("unit_facts", machine.unit_facts),
         **kwargs,
     )
 

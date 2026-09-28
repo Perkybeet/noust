@@ -156,6 +156,12 @@ def write_app_env(
     older CLI path did) cannot smuggle a second directive into the file this
     unit and every other reader of it trusts.
 
+    A mark an operator set on a name this write drops is pruned here too,
+    the one place every writer - ``wasm env configure``, the panel's editor -
+    shares. Left in the store, a "not secret" mark would silently reattach
+    itself to a later variable that reused the same name and was, unlike the
+    one that earned the mark, an actual secret.
+
     Args:
         app: The application.
         values: The complete set of variables.
@@ -183,6 +189,13 @@ def write_app_env(
     clean = validate_environment(values)
     _reject_managed_vars(clean, current)
     writer.write_env_file(env_file, clean)
+
+    stale_marks = set(app.env_secret_marks) - set(clean)
+    if stale_marks:
+        get_store().set_env_secret_marks(
+            app.domain,
+            {name: mark for name, mark in app.env_secret_marks.items() if name not in stale_marks},
+        )
 
     config = Config()
     hand_over_file(

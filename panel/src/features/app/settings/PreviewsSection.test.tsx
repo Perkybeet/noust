@@ -6,7 +6,7 @@ import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { APPS, SESSION, fakeBackend, json, problem, signedInRoutes } from "../../../test/fakes";
 import type { RouteHandler } from "../../../test/fakes";
-import { lifetime, parsePreviewDraft, previewDraftOf, previewFieldOf, previewStatus, ttlDraft } from "./previews";
+import { envNamesOf, lifetime, parsePreviewDraft, previewDraftOf, previewFieldOf, previewStatus, samePreviewDraft, ttlDraft } from "./previews";
 
 const DOMAIN = "shop.example.com";
 const APP = {
@@ -23,6 +23,8 @@ const SETTINGS = {
   base_domain: "previews.example.com",
   max_previews: 3,
   ttl_hours: 168,
+  allow_bots: false,
+  exclude_env: [] as string[],
   created_at: "2026-09-20T10:00:00+00:00",
   updated_at: "2026-09-20T10:00:00+00:00",
 };
@@ -104,7 +106,11 @@ describe("pull request previews", () => {
     expect(within(needs).getByText("A wildcard DNS record")).toBeInTheDocument();
     expect(within(needs).getByText("Pull request events")).toBeInTheDocument();
     expect(within(section).getByText("Previews get this app's production secrets")).toBeInTheDocument();
-    expect(within(section).getByText(/runs with the app's environment variables and connects to its databases/)).toBeInTheDocument();
+    expect(within(section).getByText(/built as root, like every deploy/)).toBeInTheDocument();
+    expect(within(section).getByText(/except those never copied to previews, and connects to its databases/)).toBeInTheDocument();
+    expect(within(section).getByText(/only pull requests by the repository's owners, members and\s+collaborators/)).toBeInTheDocument();
+    expect(within(section).getByRole("checkbox", { name: "Allow pull requests from bots" })).not.toBeChecked();
+    expect(within(section).getByRole("textbox", { name: "Never copied to previews" })).toHaveValue("");
 
     expect(within(section).getByRole("textbox", { name: "At most" })).toHaveValue("3");
     expect(within(section).getByRole("textbox", { name: "Removed after" })).toHaveValue("7");
@@ -118,9 +124,12 @@ describe("pull request previews", () => {
         base_domain: "previews.example.com",
         max_previews: 3,
         ttl_hours: 168,
+        allow_bots: false,
+        exclude_env: [],
       });
     });
     expect(await within(section).findByText("On")).toBeInTheDocument();
+    expect(within(section).getByText("Every variable is copied. Bots get none.")).toBeInTheDocument();
     expect(within(section).getByText("Now: at most 3 previews under previews.example.com, each removed after 7 days without a push.")).toBeInTheDocument();
     expect(within(section).getByRole("button", { name: "Turn off previews" })).toBeInTheDocument();
   });
@@ -140,6 +149,8 @@ describe("pull request previews", () => {
         base_domain: "*.previews.example.com",
         max_previews: 3,
         ttl_hours: 36,
+        allow_bots: false,
+        exclude_env: [],
       });
     });
   });
@@ -155,6 +166,54 @@ describe("pull request previews", () => {
     expect(within(section).getByText("From 1 to 20 previews at once.")).toBeInTheDocument();
     expect(max).toHaveAttribute("aria-invalid", "true");
     expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/previews/settings`)).toHaveLength(0);
+  });
+
+  it("saves the variables never copied and whether bots get previews", async () => {
+    let state: object = { ...ON, previews: [] };
+    const { user, backend, section } = await previewsOf(() => state, {
+      [`PUT /api/apps/${DOMAIN}/previews/settings`]: () => {
+        const saved = { ...SETTINGS, allow_bots: true, exclude_env: ["STRIPE_SECRET_KEY", "SMTP_PASSWORD"] };
+        state = { ...ON, previews: [], settings: saved };
+        return json(200, saved);
+      },
+    });
+    const save = await within(section).findByRole("button", { name: "Save" });
+    expect(save).toBeDisabled();
+    await user.type(within(section).getByRole("textbox", { name: "Never copied to previews" }), "STRIPE_SECRET_KEY,  SMTP_PASSWORD STRIPE_SECRET_KEY");
+    await user.click(within(section).getByRole("checkbox", { name: "Allow pull requests from bots" }));
+    await user.click(save);
+    await waitFor(() => {
+      expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/previews/settings`)[0]?.body).toEqual({
+        base_domain: "previews.example.com",
+        max_previews: 3,
+        ttl_hours: 168,
+        allow_bots: true,
+        exclude_env: ["STRIPE_SECRET_KEY", "SMTP_PASSWORD"],
+      });
+    });
+    expect(await within(section).findByText("STRIPE_SECRET_KEY, SMTP_PASSWORD", { selector: "span" })).toBeInTheDocument();
+    expect(within(section).getByText(/Bots get previews\./)).toBeInTheDocument();
+    expect(within(section).getByRole("textbox", { name: "Never copied to previews" })).toHaveValue("STRIPE_SECRET_KEY, SMTP_PASSWORD");
+    expect(within(section).getByRole("checkbox", { name: "Allow pull requests from bots" })).toBeChecked();
+  });
+
+  it("refuses a variable name the backend would refuse, and places the backend's own refusal", async () => {
+    const { user, backend, section } = await previewsOf(() => ({ ...ON, previews: [] }), {
+      [`PUT /api/apps/${DOMAIN}/previews/settings`]: () =>
+        problem(400, "validation_error", "Invalid variable name: 'SECRET-KEY'", { fields: { exclude_env: "Invalid variable name: 'SECRET-KEY'" } }),
+    });
+    const names = await within(section).findByRole("textbox", { name: "Never copied to previews" });
+    await user.type(names, "1TOKEN");
+    await user.click(within(section).getByRole("button", { name: "Save" }));
+    expect(await within(section).findByText(/Not a variable name: 1TOKEN\./)).toBeInTheDocument();
+    expect(names).toHaveAttribute("aria-invalid", "true");
+    expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/previews/settings`)).toHaveLength(0);
+
+    await user.clear(names);
+    await user.type(names, "SECRET_KEY");
+    await user.click(within(section).getByRole("button", { name: "Save" }));
+    expect(await within(section).findByText("Invalid variable name: 'SECRET-KEY'")).toBeInTheDocument();
+    expect(names).toHaveAttribute("aria-invalid", "true");
   });
 
   it("puts the backend's refusal beside the field its words name", async () => {
@@ -276,9 +335,18 @@ describe("the preview settings and states", () => {
   it("reads the form as the backend will", () => {
     const draft = previewDraftOf(null);
     expect(parsePreviewDraft({ ...draft, base_domain: "previews.example.com" })).toEqual({
-      values: { base_domain: "previews.example.com", max_previews: 3, ttl_hours: 168 },
+      values: { base_domain: "previews.example.com", max_previews: 3, ttl_hours: 168, allow_bots: false, exclude_env: [] },
       errors: {},
     });
+    expect(parsePreviewDraft({ ...draft, base_domain: "a.example.com", exclude_env: " A_1, _b\nA_1 ", allow_bots: true }).values).toMatchObject({
+      allow_bots: true,
+      exclude_env: ["A_1", "_b"],
+    });
+    expect(parsePreviewDraft({ ...draft, base_domain: "a.example.com", exclude_env: "OK, 9X, A-B" }).errors.exclude_env).toMatch(/^Not variable names: 9X, A-B\./);
+    expect(envNamesOf("")).toEqual([]);
+    expect(previewDraftOf({ ...SETTINGS, allow_bots: true, exclude_env: ["A", "B"] })).toMatchObject({ allow_bots: true, exclude_env: "A, B" });
+    expect(samePreviewDraft({ ...draft, exclude_env: "A B" }, { ...draft, exclude_env: "A, B" })).toBe(true);
+    expect(samePreviewDraft({ ...draft, allow_bots: true }, draft)).toBe(false);
     expect(parsePreviewDraft({ ...draft, base_domain: "https://x.example.com" }).errors.base_domain).toMatch(/no scheme/);
     expect(parsePreviewDraft({ ...draft, base_domain: "a.example.com", ttl_hours: "91" }).errors.ttl_hours).toBe("From 1 to 90 days.");
     expect(parsePreviewDraft({ ...draft, base_domain: "a.example.com", ttl_hours: "2161", unit: "hours" }).errors.ttl_hours).toBe(
@@ -294,6 +362,7 @@ describe("the preview settings and states", () => {
     expect(previewFieldOf("verylong.example.com is too long to put previews under")).toBe("base_domain");
     expect(previewFieldOf("A preview lives from 1 hour to 90 days, not 3000 hours")).toBe("ttl_hours");
     expect(previewFieldOf("An application may have 1 to 20 previews at once, not 30")).toBe("max_previews");
+    expect(previewFieldOf("Invalid variable name: '1X'")).toBe("exclude_env");
     expect(previewFieldOf("shop.example.com is not deployed from a git repository")).toBeNull();
   });
 

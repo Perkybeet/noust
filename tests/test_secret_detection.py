@@ -240,7 +240,7 @@ def test_name_looks_secret_matches_classifys_name_only_step() -> None:
         "NEXT_PUBLIC_API_KEY",
         "VITE_API_KEY",
         "PUBLIC_KEY",
-        "NUXT_PUBLIC_API_TOKEN",
+        "NUXT_PUBLIC_API_KEY",
         "REACT_APP_SECRET",
     ],
 )
@@ -281,6 +281,50 @@ def test_a_public_prefixed_name_does_not_save_an_actual_stripe_key() -> None:
 
     assert verdict.secret is True
     assert verdict.reason == "value: stripe"
+
+
+# ---------------------------------------------------------------------------
+# The public-prefix relaxation never applies to a name that still reads as a
+# password or another private credential (verified finding 2, 2.2 review)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "PUBLIC_DB_PASSWORD",
+        "PUBLIC_DB_PASSWD",
+        "PUBLIC_DB_PASS",
+        "VITE_ENCRYPTION_SECRET_KEY",
+        "NEXT_PUBLIC_SIGNING_PRIVATE_KEY",
+        "REACT_APP_ACCESS_TOKEN",
+        "NUXT_PUBLIC_AUTH_TOKEN",
+    ],
+)
+def test_a_public_prefix_never_hides_a_password_or_private_credential(name: str) -> None:
+    """PUBLIC_DB_PASSWORD=hunter2 must stay hidden whatever prefix precedes it."""
+    verdict = classify(name, "hunter2-but-long-enough-to-matter")
+
+    assert verdict.secret is True
+    assert verdict.reason == "name"
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "NEXT_PUBLIC_API_URL",
+        "VITE_API_KEY",
+        "NEXT_PUBLIC_API_KEY",
+        "VITE_API_SECRET",
+        "REACT_APP_SECRET",
+    ],
+)
+def test_a_public_prefix_still_relaxes_a_genuinely_public_looking_name(name: str) -> None:
+    """The carve-out in finding 2 is narrow: it must not swallow the legitimate case."""
+    verdict = classify(name, "not-a-recognisable-secret-shape")
+
+    assert verdict.secret is False
+    assert verdict.reason == "plain"
 
 
 # ---------------------------------------------------------------------------

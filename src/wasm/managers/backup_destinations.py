@@ -21,7 +21,16 @@ backend, keyed by two passphrases generated with :func:`secrets.token_urlsafe`
 and stored the same way. Losing them makes every backup on that destination
 unrecoverable, which is why :meth:`BackupDestinationManager.show_key` exists:
 an operator who wants a copy for safekeeping can print them once, deliberately,
-through a sudo-mode API call or the CLI.
+through a sudo-mode API call or the CLI. The same key is accepted back by
+:meth:`BackupDestinationManager.add` (``crypt_key``), which is how a
+replacement server reads what the lost one encrypted; and removing an encrypted
+destination is refused until the caller confirms the key was saved, because
+the removal deletes the only copy WASM has.
+
+**One folder per server.** Every backup's sidecar records which server took it
+(:func:`~wasm.managers.backup_manager.server_id`), and remote retention only
+ever deletes this server's own backups. Two servers sharing a folder no longer
+prune each other, but they still share it: give each server its own folder.
 """
 
 from __future__ import annotations
@@ -30,14 +39,16 @@ import hashlib
 import json
 import re
 import secrets as _secrets_module
+import shutil
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 from wasm.core.dependencies import RCLONE_DEPENDENCY, dependency_install_hint
-from wasm.core.exceptions import BackupError, DependencyError
+from wasm.core.exceptions import BackupError, DependencyError, ValidationError
 from wasm.core.fs import SECRET_DIR_MODE, FileSystem, get_fs
+from wasm.core.logger import Logger
 from wasm.core.redact import Scrubber
 from wasm.core.runner import CommandRunner, get_runner
 from wasm.core.secrets import SecretStore
@@ -49,7 +60,9 @@ from wasm.managers.backup_manager import (
     BackupManager,
     BackupMetadata,
     backup_id_of_archive,
+    server_id,
 )
+from wasm.validators.names import validate_app_name
 
 __all__ = [
     "BACKEND_FIELDS",
@@ -57,6 +70,7 @@ __all__ = [
     "BackendField",
     "BackupDestinationManager",
     "backend_fields",
+    "parse_crypt_key",
     "validate_destination_name",
 ]
 
@@ -77,7 +91,24 @@ _TRANSFER_TIMEOUT = 3600
 #: A destination's name is also the rclone remote name WASM builds for it, so
 #: it is restricted to what safely survives being upper-cased into an
 #: environment variable prefix (see :func:`_env_prefix`).
-_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,31}$")
+#: Always used with fullmatch: ``$`` also matches before a trailing newline.
+_NAME_RE = re.compile(r"[a-z0-9][a-z0-9-]{0,31}")
+
+#: Directory under the backup directory a remote restore downloads into: the
+#: backups' own filesystem, sized for archives, rather than a ``/tmp`` that is
+#: often a small tmpfs. Hidden, and one level above the files, so no listing
+#: of local backups ever mistakes a download in progress for a backup.
+STAGING_DIR_NAME = ".remote-staging"
+
+#: Space left free on top of the archive when downloading one.
+_STAGING_HEADROOM = 64 * 1024 * 1024
+
+#: One line of what ``wasm backup destination show-key`` prints:
+#: ``password:  <value>`` or ``password2: <value>``, after the logger's icon.
+_KEY_LINE_RE = re.compile(r"(?<![A-Za-z0-9_])(password2?)\s*:\s*(\S+)\s*$")
+
+#: Terminal colour codes a copied CLI output may still carry.
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 #: rclone option names, per backend, that must be obscured (``rclone obscure
 #: -``) before they reach an ``RCLONE_CONFIG_*_*`` variable. Only the option
@@ -123,7 +154,8 @@ _PATH_FIELD = BackendField(
     label="Remote folder",
     required=False,
     placeholder=DEFAULT_REMOTE_PATH,
-    help="Folder under the remote where backups are written; created if it does not exist.",
+    help="Folder under the remote where backups are written; created if it does not exist. "
+    "Give each server its own folder.",
 )
 
 #: Fields per backend, in the order a form should ask for them. This is the
@@ -272,13 +304,87 @@ def validate_destination_name(name: str) -> str:
     Raises:
         BackupError: When the name does not match the pattern.
     """
-    if not _NAME_RE.match(name):
+    if not _NAME_RE.fullmatch(name):
         raise BackupError(
             f"Invalid backup destination name: {name!r}",
             details="Use 1-32 characters: lowercase letters, digits and '-', starting with a "
             "letter or digit. The name also becomes an rclone remote name.",
         )
     return name
+
+
+def _checked_crypt_key(password: object, password2: object) -> dict[str, str]:
+    """
+    Check both passphrases of a crypt key are present.
+
+    Args:
+        password: The first passphrase, as read.
+        password2: The second passphrase (the salt), as read.
+
+    Returns:
+        ``{"password": ..., "password2": ...}``.
+
+    Raises:
+        BackupError: When either is missing or not text.
+    """
+    if not isinstance(password, str) or not password.strip():
+        raise BackupError(
+            "The encryption key has no password",
+            details="Both passphrases 'wasm backup destination show-key' printed are needed.",
+        )
+    if not isinstance(password2, str) or not password2.strip():
+        raise BackupError(
+            "The encryption key has no password2",
+            details="Both passphrases 'wasm backup destination show-key' printed are needed: "
+            "password2 is the salt, and without it nothing decrypts.",
+        )
+    return {"password": password.strip(), "password2": password2.strip()}
+
+
+def parse_crypt_key(text: str) -> dict[str, str]:
+    """
+    Read an encryption key back from what ``show-key`` printed.
+
+    Accepted: the ``password:`` / ``password2:`` lines the CLI prints (with
+    the logger's icon, colours included), its ``--json`` output, and the two
+    passphrases on two lines, which is what the console's "Copy both" copies.
+
+    Args:
+        text: The key as pasted or piped in.
+
+    Returns:
+        ``{"password": ..., "password2": ...}``.
+
+    Raises:
+        BackupError: When no key can be read from the text.
+    """
+    stripped = _ANSI_RE.sub("", text).strip()
+    if stripped.startswith("{"):
+        try:
+            data = json.loads(stripped)
+        except json.JSONDecodeError as exc:
+            raise BackupError("The encryption key is not valid JSON", details=str(exc)) from exc
+        if not isinstance(data, dict):
+            raise BackupError("The encryption key must be a JSON object")
+        return _checked_crypt_key(data.get("password"), data.get("password2"))
+
+    labelled: dict[str, str] = {}
+    for line in stripped.splitlines():
+        match = _KEY_LINE_RE.search(line)
+        if match:
+            labelled[match.group(1)] = match.group(2)
+    if labelled:
+        return _checked_crypt_key(labelled.get("password"), labelled.get("password2"))
+
+    lines = [line.strip() for line in stripped.splitlines() if line.strip()]
+    if len(lines) == 2:
+        return _checked_crypt_key(lines[0], lines[1])
+    raise BackupError(
+        "Could not read an encryption key",
+        details="Give what 'wasm backup destination show-key NAME' printed: its "
+        "'password:' and 'password2:' lines, its --json output, or the two passphrases "
+        "on two lines.",
+    )
 
 
 def _env_prefix(name: str) -> str:
@@ -653,15 +759,24 @@ class BackupDestinationManager:
             )
         return result.stdout.strip()
 
-    def _ensure_crypt_secrets(self, name: str) -> None:
+    def _ensure_crypt_secrets(self, name: str, crypt_key: dict[str, str] | None = None) -> None:
         """
-        Generate the crypt passphrases for a destination, once.
+        Store the crypt passphrases for a destination: given, or generated once.
 
         Args:
             name: Destination name.
+            crypt_key: An existing key (``{"password", "password2"}``) to use
+                instead of generating one - the key of backups already on the
+                destination. None generates whichever passphrase is missing.
         """
         namespace = _secret_namespace(name)
         secret_values = self.secrets.read_json(namespace)
+        if crypt_key is not None:
+            checked = _checked_crypt_key(crypt_key.get("password"), crypt_key.get("password2"))
+            secret_values["crypt_password"] = checked["password"]
+            secret_values["crypt_password2"] = checked["password2"]
+            self.secrets.write_json(namespace, secret_values)
+            return
         changed = False
         for key in ("crypt_password", "crypt_password2"):
             if not secret_values.get(key):
@@ -673,7 +788,13 @@ class BackupDestinationManager:
     # -- CRUD -------------------------------------------------------------
 
     def add(
-        self, name: str, backend: str, fields: dict[str, str], *, encrypted: bool = False
+        self,
+        name: str,
+        backend: str,
+        fields: dict[str, str],
+        *,
+        encrypted: bool = False,
+        crypt_key: dict[str, str] | None = None,
     ) -> BackupDestinationRecord:
         """
         Create a backup destination.
@@ -684,26 +805,38 @@ class BackupDestinationManager:
             fields: Field values keyed by rclone option name.
             encrypted: Wrap the remote in an rclone ``crypt`` backend, with
                 generated passphrases only :meth:`show_key` ever prints.
+            crypt_key: The key of backups already on the destination, as
+                :meth:`show_key` returned it (see :func:`parse_crypt_key`),
+                used instead of generating one: how a replacement server reads
+                what the lost one encrypted. Requires ``encrypted``.
 
         Returns:
             The destination as stored.
 
         Raises:
             DependencyError: When rclone is not installed.
-            BackupError: When the name or a field is invalid, or the
-                destination already exists.
+            BackupError: When the name or a field is invalid, the destination
+                already exists, or a key is given for an unencrypted one.
         """
         _require_rclone(self.runner)
         validated_name = validate_destination_name(name)
         if self.store.get_backup_destination(validated_name) is not None:
             raise BackupError(f"Backup destination already exists: {validated_name}")
+        if crypt_key is not None and not encrypted:
+            raise BackupError(
+                "An encryption key was given for a destination that is not encrypted",
+                details="Add it with encryption on (--encrypt) to use an existing key.",
+            )
+        if crypt_key is not None:
+            # Checked before anything is stored, so a bad key leaves nothing behind.
+            _checked_crypt_key(crypt_key.get("password"), crypt_key.get("password2"))
 
         settings, secret_values = self._split_fields(backend, fields, partial=False)
         settings["path"] = _remote_path(settings.get("path"))
 
         self.secrets.write_json(_secret_namespace(validated_name), secret_values)
         if encrypted:
-            self._ensure_crypt_secrets(validated_name)
+            self._ensure_crypt_secrets(validated_name, crypt_key)
 
         record = BackupDestinationRecord(
             name=validated_name, backend=backend, settings=settings, encrypted=encrypted
@@ -756,20 +889,37 @@ class BackupDestinationManager:
         )
         return self.store.save_backup_destination(record)
 
-    def remove(self, name: str, *, force: bool = False) -> None:
+    def remove(self, name: str, *, force: bool = False, key_saved: bool = False) -> None:
         """
         Delete a destination and its secrets.
+
+        Backups already sent there are not deleted. For an encrypted
+        destination that means they stay behind readable only with its key,
+        and this deletes the only copy WASM has of it - so the removal is
+        refused until the caller says the key was saved (the CLI prints it and
+        asks, the console shows it and asks).
 
         Args:
             name: Destination name.
             force: Remove it even when a schedule still references it,
                 dropping the reference from every schedule that has it.
+            key_saved: The operator has a copy of the encryption key. Ignored
+                for a destination that is not encrypted or has no key left.
 
         Raises:
-            BackupError: When there is no such destination, or a schedule
-                references it and ``force`` was not given.
+            BackupError: When there is no such destination, a schedule
+                references it and ``force`` was not given, or it is encrypted
+                and ``key_saved`` was not given.
         """
-        self._require(name)
+        destination = self._require(name)
+        if destination.encrypted and not key_saved and self.has_encryption_key(name):
+            raise BackupError(
+                f"Backup destination {name!r} is encrypted: the backups already sent there "
+                "can only be read with its key",
+                details=f"Removing it deletes the only copy WASM has of that key. Run 'wasm "
+                f"backup destination show-key {name}' and keep what it prints, then remove it "
+                "confirming the key was saved (key_saved=true in the API).",
+            )
 
         referencing = [
             schedule.app_domain
@@ -910,17 +1060,37 @@ class BackupDestinationManager:
         """
         Return where one application's backups live on a destination.
 
+        The application name is validated here, where it becomes part of a
+        remote path, rather than by each caller: ``../..`` from a query string
+        must not list or download from outside the destination's folder.
+
         Args:
             name: Destination name.
             app_name: Application name.
 
         Returns:
             The remote reference of the application's own subdirectory.
+
+        Raises:
+            BackupError: When ``app_name`` is not a valid application name.
         """
-        return f"{self.target(name).rstrip('/')}/{app_name}"
+        try:
+            validated = validate_app_name(app_name)
+        except ValidationError as exc:
+            raise BackupError(
+                f"Invalid application name: {app_name!r}",
+                details="An application name is one path segment: letters, digits, '.', "
+                "'_' and '-'.",
+            ) from exc
+        return f"{self.target(name).rstrip('/')}/{validated}"
 
     def _list_remote(
-        self, env: dict[str, str], target_dir: str, secrets_literal: list[str]
+        self,
+        env: dict[str, str],
+        target_dir: str,
+        secrets_literal: list[str],
+        *,
+        hashes: bool = True,
     ) -> list[dict[str, Any]]:
         """
         List a remote directory, tolerating one that does not exist yet.
@@ -929,6 +1099,9 @@ class BackupDestinationManager:
             env: Environment built by :meth:`remote_env`.
             target_dir: Remote reference to list.
             secrets_literal: Values to scrub from any error text.
+            hashes: Ask for each file's hashes, which some backends compute
+                by reading the file (SFTP, local): only upload verification
+                needs them.
 
         Returns:
             The directory's entries; empty when it does not exist.
@@ -937,8 +1110,13 @@ class BackupDestinationManager:
             BackupError: When rclone fails for any other reason, or answers
                 with something that is not the JSON it promises.
         """
+        argv = (
+            ["rclone", "lsjson", "--hash", target_dir]
+            if hashes
+            else ["rclone", "lsjson", target_dir]
+        )
         result = self.runner.run(
-            ["rclone", "lsjson", "--hash", target_dir],
+            argv,
             env=env,
             timeout=_RCLONE_LIST_TIMEOUT,
             secrets=secrets_literal,
@@ -1012,7 +1190,7 @@ class BackupDestinationManager:
 
     # -- upload, verify, retention -------------------------------------
 
-    def _verify_uploaded(self, local_file: Path, entries: list[dict[str, Any]]) -> None:
+    def _verify_uploaded(self, local_file: Path, entries: list[dict[str, Any]]) -> str:
         """
         Confirm an uploaded file matches its local copy.
 
@@ -1021,9 +1199,15 @@ class BackupDestinationManager:
             entries: The destination directory's entries, from
                 :meth:`_list_remote`.
 
+        Returns:
+            What the file was verified by: the name of the hash that matched,
+            or ``"size"`` when the destination reports no hash Python can
+            compute (every crypt remote: it cannot hash what it encrypts).
+
         Raises:
             BackupError: When the file was not found remotely, its size
-                differs, or a hash the backend reports differs.
+                differs, a hash the backend reports differs, or the local
+                file can no longer be read.
         """
         entry = next((e for e in entries if e.get("Name") == local_file.name), None)
         if entry is None:
@@ -1032,41 +1216,162 @@ class BackupDestinationManager:
                 details="It was not listed there right after being copied.",
             )
 
-        local_size = local_file.stat().st_size
-        remote_size = entry.get("Size")
-        if isinstance(remote_size, int) and remote_size != local_size:
+        try:
+            local_size = local_file.stat().st_size
+            remote_size = entry.get("Size")
+            if isinstance(remote_size, int) and remote_size != local_size:
+                raise BackupError(
+                    f"Size mismatch after uploading {local_file.name}",
+                    details=f"Local file is {local_size} bytes; the destination reports "
+                    f"{remote_size}.",
+                )
+
+            for hash_name, remote_hash in (entry.get("Hashes") or {}).items():
+                if not remote_hash:
+                    continue
+                local_hash = _hash_file(local_file, hash_name)
+                if local_hash is None:
+                    continue
+                if local_hash != remote_hash:
+                    raise BackupError(
+                        f"Hash mismatch after uploading {local_file.name}",
+                        details=f"{hash_name} differs between the local file and the destination.",
+                    )
+                return str(hash_name)
+        except OSError as exc:
             raise BackupError(
-                f"Size mismatch after uploading {local_file.name}",
-                details=f"Local file is {local_size} bytes; the destination reports {remote_size}.",
+                f"Could not read {local_file} to verify its upload",
+                details=f"{exc}. The local backup may have been deleted while it was sent.",
+            ) from exc
+        return "size"
+
+    def _discard_upload(
+        self,
+        env: dict[str, str],
+        target_dir: str,
+        names: list[str],
+        secrets_literal: list[str],
+        failure: BackupError,
+    ) -> BackupError:
+        """
+        Remove an upload that failed verification, so it never counts as a backup.
+
+        A copy that does not match would otherwise stay on the destination,
+        be listed and restorable like any other, and count toward retention -
+        pushing a good backup out to make room for a bad one.
+
+        Args:
+            env: Environment built by :meth:`remote_env`.
+            target_dir: The application's own subdirectory on the destination.
+            names: File names that were uploaded.
+            secrets_literal: Values to scrub from any error text.
+            failure: Why verification failed.
+
+        Returns:
+            The error to raise: the verification failure, saying whether the
+            bad copy was removed, and rclone's own words when it was not.
+        """
+        leftovers: list[str] = []
+        for name in names:
+            result = self.runner.run(
+                ["rclone", "deletefile", f"{target_dir}/{name}"],
+                env=env,
+                timeout=_RCLONE_TIMEOUT,
+                secrets=secrets_literal,
+            )
+            if not result.success and "not found" not in (result.stderr or "").lower():
+                leftovers.append(
+                    f"{name}: " + _scrub((result.stderr or result.stdout).strip(), secrets_literal)
+                )
+        details = failure.details or ""
+        if leftovers:
+            details += (
+                "\n\nThe copy that failed verification could not be removed from the "
+                "destination either; delete it by hand before restoring anything from there:\n"
+                + "\n".join(leftovers)
+            )
+        else:
+            details += "\n\nThe copy that failed verification was removed from the destination."
+        return BackupError(failure.message, details=details.strip())
+
+    def _remote_origins(
+        self, env: dict[str, str], target_dir: str, secrets_literal: list[str]
+    ) -> dict[str, str | None]:
+        """
+        Read which server took each backup in an application's remote folder.
+
+        One ``rclone cat`` over every sidecar in the folder: they are small,
+        and each carries its own ``id``, so the concatenated output is split
+        back into objects rather than fetched one call per file.
+
+        Args:
+            env: Environment built by :meth:`remote_env`.
+            target_dir: The application's own subdirectory on the destination.
+            secrets_literal: Values to scrub from any error text.
+
+        Returns:
+            Backup id to the server id its sidecar records (None when it
+            records none). A sidecar that cannot be read is absent, and a
+            backup whose origin is unknown is never deleted by retention.
+
+        Raises:
+            BackupError: When rclone cannot read the folder.
+        """
+        result = self.runner.run(
+            ["rclone", "cat", target_dir, "--include", "*.json", "--max-depth", "1"],
+            env=env,
+            timeout=_RCLONE_LIST_TIMEOUT,
+            secrets=secrets_literal,
+        )
+        if not result.success:
+            raise BackupError(
+                f"Could not read the backup metadata in {target_dir}",
+                details=_scrub((result.stderr or result.stdout).strip(), secrets_literal),
             )
 
-        for hash_name, remote_hash in (entry.get("Hashes") or {}).items():
-            if not remote_hash:
-                continue
-            local_hash = _hash_file(local_file, hash_name)
-            if local_hash is None:
-                continue
-            if local_hash != remote_hash:
-                raise BackupError(
-                    f"Hash mismatch after uploading {local_file.name}",
-                    details=f"{hash_name} differs between the local file and the destination.",
-                )
-            break
+        origins: dict[str, str | None] = {}
+        decoder = json.JSONDecoder()
+        text = result.stdout or ""
+        position = 0
+        while True:
+            while position < len(text) and text[position].isspace():
+                position += 1
+            if position >= len(text):
+                break
+            try:
+                data, position = decoder.raw_decode(text, position)
+            except json.JSONDecodeError:
+                # Everything after an unreadable sidecar is unknown, and an
+                # unknown origin is kept - the safe way to be wrong.
+                break
+            if isinstance(data, dict) and isinstance(data.get("id"), str):
+                origin = data.get("origin")
+                origins[data["id"]] = origin if isinstance(origin, str) else None
+        return origins
 
     def _apply_remote_retention(
         self,
         env: dict[str, str],
         target_dir: str,
+        entries: list[dict[str, Any]],
         retention_count: int | None,
         retention_days: int | None,
         secrets_literal: list[str],
     ) -> list[str]:
         """
-        Delete the destination's own old backups of one application.
+        Delete this server's own old backups of one application on a destination.
+
+        Only backups whose sidecar records this server's
+        :func:`~wasm.managers.backup_manager.server_id` are counted or
+        deleted. Another server writing to the same folder, a backup taken
+        before 2.2 and a backup whose sidecar is missing are all left alone:
+        retention exists to bound this server's own usage, not to decide what
+        someone else keeps.
 
         Args:
             env: Environment built by :meth:`remote_env`.
             target_dir: The application's own subdirectory on the destination.
+            entries: The folder's entries, listed after the upload.
             retention_count: Backups to keep, newest first; None for no limit.
             retention_days: Maximum age in days; None for no limit.
             secrets_literal: Values to scrub from any error text.
@@ -1075,17 +1380,18 @@ class BackupDestinationManager:
             The backup identifiers removed.
 
         Raises:
-            BackupError: When rclone cannot list or delete a file for a
-                reason other than it already being gone.
+            BackupError: When rclone cannot read the sidecars or delete a
+                file for a reason other than it already being gone.
         """
         if not retention_count and not retention_days:
             return []
 
-        entries = self._list_remote(env, target_dir, secrets_literal)
+        origins = self._remote_origins(env, target_dir, secrets_literal)
+        own = server_id()
         by_id: dict[str, dict[str, Any]] = {}
         for entry in entries:
             backup_id = backup_id_of_archive(Path(entry.get("Name", "")))
-            if backup_id:
+            if backup_id and origins.get(backup_id) == own:
                 by_id[backup_id] = entry
 
         ordered = sorted(by_id.items(), key=lambda item: _mod_time_or_min(item[1]), reverse=True)
@@ -1131,21 +1437,23 @@ class BackupDestinationManager:
         Args:
             backup: Metadata of the local backup to upload.
             destination_name: Destination to upload to.
-            retention_count: Remote backups of this application to keep,
-                newest first; None applies none.
-            retention_days: Maximum age, in days, of a remote backup of this
-                application; None applies none.
+            retention_count: This server's remote backups of this application
+                to keep, newest first; None applies none.
+            retention_days: Maximum age, in days, of this server's remote
+                backups of this application; None applies none.
             backup_manager: Manager the local archive is read through;
                 defaults to a fresh one.
 
         Returns:
-            A summary: the files uploaded and the backup identifiers removed
-            by retention.
+            A summary: the files uploaded, what the archive was verified by
+            (``verified_by``: a hash name, or ``"size"`` when the destination
+            offers no hash), and the backup identifiers removed by retention.
 
         Raises:
             DependencyError: When rclone is not installed.
             BackupError: When the local archive is missing, the upload fails,
-                verification fails, or retention cannot be applied.
+                verification fails (the bad copy is removed first), or
+                retention cannot be applied.
         """
         _require_rclone(self.runner)
         self._require(destination_name)
@@ -1161,8 +1469,9 @@ class BackupDestinationManager:
 
         app_name = domain_to_app_name(backup.domain)
         target_dir = self._app_target(destination_name, app_name)
+        uploaded = [archive_path.name, metadata_path.name]
 
-        for local_file in (archive_path, metadata_path):
+        for position, local_file in enumerate((archive_path, metadata_path)):
             result = self.runner.run(
                 ["rclone", "copyto", str(local_file), f"{target_dir}/{local_file.name}"],
                 env=env,
@@ -1170,23 +1479,46 @@ class BackupDestinationManager:
                 secrets=secrets_literal,
             )
             if not result.success:
-                raise BackupError(
+                failure = BackupError(
                     f"Failed to upload {local_file.name} to {destination_name}",
                     details=_scrub((result.stderr or result.stdout).strip(), secrets_literal),
                 )
+                if position == 0:
+                    raise failure
+                # An archive with no sidecar is a backup nothing can restore
+                # or attribute to this server: it is removed, not left behind.
+                raise self._discard_upload(env, target_dir, uploaded, secrets_literal, failure)
 
         entries = self._list_remote(env, target_dir, secrets_literal)
-        for local_file in (archive_path, metadata_path):
-            self._verify_uploaded(local_file, entries)
+        try:
+            verified_by = self._verify_uploaded(archive_path, entries)
+            self._verify_uploaded(metadata_path, entries)
+        except BackupError as exc:
+            raise self._discard_upload(env, target_dir, uploaded, secrets_literal, exc) from exc
 
-        deleted = self._apply_remote_retention(
-            env, target_dir, retention_count, retention_days, secrets_literal
-        )
+        if verified_by == "size":
+            Logger(verbose=False).warning(
+                f"{destination_name} reports no hash WASM can compare for {archive_path.name}"
+                " (an encrypted destination never does): the upload was verified by its size "
+                "only."
+            )
+
+        try:
+            deleted = self._apply_remote_retention(
+                env, target_dir, entries, retention_count, retention_days, secrets_literal
+            )
+        except BackupError as exc:
+            raise BackupError(
+                f"{backup.id} was uploaded to {destination_name} and verified, but retention "
+                "could not be applied there",
+                details=exc.details or exc.message,
+            ) from exc
 
         return {
             "destination": destination_name,
             "backup_id": backup.id,
-            "uploaded": [archive_path.name, metadata_path.name],
+            "uploaded": uploaded,
+            "verified_by": verified_by,
             "retention_deleted": deleted,
         }
 
@@ -1258,13 +1590,23 @@ class BackupDestinationManager:
         fs: FileSystem | None = None,
     ) -> tuple[Path, Path]:
         """
-        Download a backup's archive and sidecar, verifying its checksum.
+        Download a backup's archive and sidecar, verifying both.
+
+        Before anything is transferred the archive's size is read from the
+        destination and compared with the space free where it is going: a
+        restore that fills the disk half-way fails the machine along with it.
+        After, the sidecar must describe this backup of this application -
+        the domain it records is where a restore without a target goes, so a
+        sidecar in the wrong folder must not decide that - and the archive
+        must match the checksum it records.
 
         Args:
             destination_name: Destination to download from.
             backup_id: Backup identifier.
-            app_name: Application the backup belongs to.
+            app_name: Application the backup belongs to, which is also the
+                folder it is read from.
             staging_dir: Directory to download into; created if missing.
+                :meth:`restore_remote` uses one under the backup directory.
             fs: Filesystem the staging directory is created through.
 
         Returns:
@@ -1272,14 +1614,16 @@ class BackupDestinationManager:
 
         Raises:
             DependencyError: When rclone is not installed.
-            BackupError: When the download fails, or the archive does not
-                match the checksum recorded in its sidecar.
+            BackupError: When the archive is not on the destination, there is
+                not enough space for it, the download fails, the sidecar
+                belongs to another backup or application, or the archive does
+                not match the checksum recorded in its sidecar.
         """
         _require_rclone(self.runner)
         self._require(destination_name)
+        target_dir = self._app_target(destination_name, app_name)
         env = self.remote_env(destination_name)
         secrets_literal = self._secret_literals(destination_name)
-        target_dir = self._app_target(destination_name, app_name)
 
         filesystem = fs or get_fs()
         filesystem.make_dir(staging_dir, mode=SECRET_DIR_MODE, parents=True)
@@ -1288,6 +1632,8 @@ class BackupDestinationManager:
         metadata_name = f"{backup_id}.json"
         archive_path = staging_dir / archive_name
         metadata_path = staging_dir / metadata_name
+
+        self._check_staging_space(env, target_dir, archive_name, staging_dir, secrets_literal)
 
         for name, destination_path in (
             (archive_name, archive_path),
@@ -1315,8 +1661,25 @@ class BackupDestinationManager:
             raise BackupError(
                 f"Downloaded metadata for {backup_id} is unreadable", details=str(exc)
             ) from exc
+        if not isinstance(sidecar, dict):
+            raise BackupError(f"Downloaded metadata for {backup_id} is not a JSON object")
 
-        expected_checksum = sidecar.get("checksum") if isinstance(sidecar, dict) else None
+        if sidecar.get("id") != backup_id:
+            raise BackupError(
+                f"The metadata downloaded as {metadata_name} describes another backup",
+                details=f"It names {sidecar.get('id')!r}. Nothing was restored.",
+            )
+        recorded_domain = sidecar.get("domain")
+        if not isinstance(recorded_domain, str) or domain_to_app_name(recorded_domain) != app_name:
+            raise BackupError(
+                f"Backup {backup_id} on {destination_name} says it belongs to "
+                f"{recorded_domain!r}, not to {app_name}",
+                details="A backup is restored from the folder of the application it was taken "
+                "from, and its metadata decides where a restore without a target goes, so the "
+                "two must agree. Nothing was restored.",
+            )
+
+        expected_checksum = sidecar.get("checksum")
         if expected_checksum:
             actual = BackupManager(verbose=False).checksum_of(archive_path)
             if actual != expected_checksum:
@@ -1327,3 +1690,110 @@ class BackupDestinationManager:
                 )
 
         return archive_path, metadata_path
+
+    def _check_staging_space(
+        self,
+        env: dict[str, str],
+        target_dir: str,
+        archive_name: str,
+        staging_dir: Path,
+        secrets_literal: list[str],
+    ) -> None:
+        """
+        Refuse a download the staging directory has no room for.
+
+        Args:
+            env: Environment built by :meth:`remote_env`.
+            target_dir: The application's own subdirectory on the destination.
+            archive_name: The archive about to be downloaded.
+            staging_dir: Where it is going.
+            secrets_literal: Values to scrub from any error text.
+
+        Raises:
+            BackupError: When the archive is not on the destination, or it
+                would not fit.
+        """
+        entries = self._list_remote(env, target_dir, secrets_literal, hashes=False)
+        entry = next((e for e in entries if e.get("Name") == archive_name), None)
+        if entry is None:
+            raise BackupError(
+                f"{archive_name} was not found on the destination",
+                details=f"Looked in {target_dir}. List what is there with "
+                "'wasm backup remote-list'.",
+            )
+        size = entry.get("Size")
+        if not isinstance(size, int) or size < 0:
+            return
+        free = shutil.disk_usage(staging_dir).free
+        if free < size + _STAGING_HEADROOM:
+            raise BackupError(
+                f"Not enough space to download {archive_name}",
+                details=f"The archive is {size} bytes and {staging_dir} has {free} bytes free "
+                f"(plus {_STAGING_HEADROOM} bytes kept spare). Free some space there first; "
+                "nothing was downloaded.",
+            )
+
+    def restore_remote(
+        self,
+        destination_name: str,
+        backup_id: str,
+        app_name: str,
+        *,
+        target_domain: str | None = None,
+        restore_env: bool = True,
+        backup_manager: BackupManager | None = None,
+    ) -> str:
+        """
+        Download a backup from a destination and restore it: the one remote restore.
+
+        The download is staged under the backup directory
+        (:data:`STAGING_DIR_NAME`), never in ``/tmp``, and removed afterwards
+        whatever happens.
+
+        Args:
+            destination_name: Destination to download from.
+            backup_id: Backup identifier.
+            app_name: Application folder the backup is read from.
+            target_domain: Domain to restore into. None restores into the
+                domain the backup's metadata records, which :meth:`download`
+                has checked belongs to ``app_name``.
+            restore_env: Restore the ``.env`` files from the archive.
+            backup_manager: Manager the restore runs through.
+
+        Returns:
+            The domain that was restored.
+
+        Raises:
+            DependencyError: When rclone is not installed.
+            BackupError: When the download, its checks or the restore fail.
+            AppBusyError: Another operation holds the target's lock.
+        """
+        manager = backup_manager or BackupManager(verbose=False)
+        filesystem = manager.fs
+        staging_root = manager.backup_dir / STAGING_DIR_NAME
+        staging = staging_root / f"{backup_id}-{_secrets_module.token_hex(4)}"
+        try:
+            filesystem.make_dir(staging_root, mode=SECRET_DIR_MODE, parents=True)
+            archive_path, metadata_path = self.download(
+                destination_name, backup_id, app_name, staging, fs=filesystem
+            )
+            try:
+                fallback = BackupMetadata.from_dict(json.loads(metadata_path.read_text()))
+            except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
+                raise BackupError(
+                    f"Downloaded metadata for {backup_id} is incomplete", details=str(exc)
+                ) from exc
+            domain = target_domain or fallback.domain
+            manager.restore_archive(
+                archive_path,
+                target_domain=domain,
+                restore_env=restore_env,
+                expected_checksum=fallback.checksum,
+                fallback=fallback,
+            )
+            return domain
+        finally:
+            try:
+                filesystem.remove_tree(staging)
+            except OSError as exc:
+                Logger(verbose=False).warning(f"Could not remove the download at {staging}: {exc}")

@@ -314,10 +314,26 @@ def _find_missing_methods() -> list[tuple[str, int, str]]:
 class FakeStore:
     """A stand-in for :class:`~wasm.core.store.WASMStore`."""
 
-    def __init__(self) -> None:
+    def __init__(self, db_path: Path | None = None) -> None:
         self.apps: dict[str, Any] = {}
         self.databases: list[Any] = []
         self.services: list[Any] = []
+        # Where the application locks live, beside the database: a backup
+        # holds its application's lock.
+        self.db_path = db_path or Path("/nonexistent/wasm.db")
+
+    def list_deployments(self, domain: str | None = None, limit: int = 50) -> list[Any]:
+        """
+        List deployment history.
+
+        Args:
+            domain: Only this domain's history.
+            limit: Most rows returned.
+
+        Returns:
+            No history.
+        """
+        return []
 
     def get_app(self, domain: str) -> Any | None:
         """
@@ -404,17 +420,18 @@ class FakeStore:
 
 
 @pytest.fixture
-def fake_store(monkeypatch: pytest.MonkeyPatch) -> FakeStore:
+def fake_store(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> FakeStore:
     """
     Replace the SQLite store with an in-memory stand-in everywhere.
 
     Args:
         monkeypatch: Patching helper, scoped to the test.
+        tmp_path: Per-test directory the store's locks live under.
 
     Returns:
         The fake store shared by every manager built during the test.
     """
-    store = FakeStore()
+    store = FakeStore(db_path=tmp_path / "store" / "wasm.db")
     modules = (
         "wasm.core.store",
         "wasm.managers.service_manager",

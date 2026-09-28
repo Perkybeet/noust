@@ -20,6 +20,12 @@ secrets are kept. Three things live here rather than in the manager:
   same D5 confirmation every other destructive or secret-revealing endpoint
   in this package requires.
 - **Every mutation is audited**, like every other change the panel can make.
+
+An encrypted destination is recoverable through here too: ``POST`` accepts
+the key ``show-key`` returned (``encryption_key``) for a replacement server,
+and ``DELETE`` of an encrypted destination is refused until ``key_saved`` says
+the key was kept - the console shows it first - because removing the
+destination deletes the only copy WASM has of what reads its backups.
 """
 
 from __future__ import annotations
@@ -39,7 +45,7 @@ from wasm.managers.backup_destinations import (
     validate_destination_name,
 )
 from wasm.managers.backup_manager import app_name_of_backup_id
-from wasm.validators.names import validate_filename
+from wasm.validators.names import validate_app_name, validate_filename
 from wasm.web.api.auth import get_current_session
 from wasm.web.api.deps import JobAcceptedResponse, WASMErrorRoute, require_elevated, strict_domain
 from wasm.web.auth import actor_label
@@ -103,6 +109,13 @@ class DestinationListResponse(BaseModel):
     total: int
 
 
+class EncryptionKey(BaseModel):
+    """An encrypted destination's two passphrases, as show-key returns them."""
+
+    password: str
+    password2: str
+
+
 class CreateDestinationRequest(BaseModel):
     """Request to create a backup destination."""
 
@@ -110,6 +123,12 @@ class CreateDestinationRequest(BaseModel):
     backend: str = Field(..., description="One of the backends from GET /backends")
     fields: dict[str, str] = Field(default_factory=dict, description="Field values by key")
     encrypted: bool = Field(default=False, description="Wrap the remote in an rclone crypt backend")
+    encryption_key: EncryptionKey | None = Field(
+        default=None,
+        description="An existing key, as show-key returned it, to use instead of generating "
+        "one: how backups already on the destination are read from a new server. Requires "
+        "encrypted.",
+    )
 
 
 class UpdateDestinationRequest(BaseModel):
@@ -275,7 +294,14 @@ def create_destination(
         actor_label(session),
     )
     manager = BackupDestinationManager()
-    destination = manager.add(name, data.backend, data.fields, encrypted=data.encrypted)
+    crypt_key = (
+        {"password": data.encryption_key.password, "password2": data.encryption_key.password2}
+        if data.encryption_key is not None
+        else None
+    )
+    destination = manager.add(
+        name, data.backend, data.fields, encrypted=data.encrypted, crypt_key=crypt_key
+    )
     return DestinationActionResponse(
         success=True,
         message=f"Backup destination created: {name}",
@@ -313,6 +339,13 @@ def delete_destination(
     name: str,
     session: Annotated[dict, Depends(require_elevated)],
     force: Annotated[bool, Query(description="Remove it even if a schedule references it")] = False,
+    key_saved: Annotated[
+        bool,
+        Query(
+            description="The encryption key was saved (show-key): required to remove an "
+            "encrypted destination, whose backups are unreadable without it"
+        ),
+    ] = False,
 ) -> DestinationActionResponse:
     """
     Remove a backup destination and its secrets.
@@ -321,18 +354,24 @@ def delete_destination(
         name: Destination name.
         force: Remove it even when a schedule references it, dropping the
             reference from those schedules.
+        key_saved: The operator kept a copy of the encryption key.
         session: The authenticated, elevated session.
 
     Returns:
         The action outcome.
 
     Raises:
-        BackupError: When a schedule references it and ``force`` was not given.
+        BackupError: When a schedule references it and ``force`` was not
+            given, or it is encrypted and ``key_saved`` was not given.
     """
     audit_log.info(
-        "delete_backup_destination name=%s force=%s session=%s", name, force, actor_label(session)
+        "delete_backup_destination name=%s force=%s key_saved=%s session=%s",
+        name,
+        force,
+        key_saved,
+        actor_label(session),
     )
-    BackupDestinationManager().remove(name, force=force)
+    BackupDestinationManager().remove(name, force=force, key_saved=key_saved)
     return DestinationActionResponse(success=True, message=f"Backup destination removed: {name}")
 
 
@@ -448,14 +487,21 @@ def restore_from_destination(
             detail=f"Cannot determine the application {validated_id!r} belongs to; pass app_name.",
         )
 
+    # Refused here so the request fails, not the job; the manager checks it again
+    # where it becomes a remote path.
+    app_name = validate_app_name(app_name)
+
     requested = data.target_domain if data else None
     target_domain = strict_domain(requested) if requested else None
     restore_env = data.restore_env if data else True
 
+    # Without a target the backup goes back to the application whose folder it
+    # is read from; the download refuses a backup whose metadata says otherwise.
+    into = target_domain or f"the application {app_name}"
     job = get_job_manager().create_job(
         job_type=JobType.RESTORE,
-        name=f"Restore {validated_id} from {name}",
-        description=f"Downloading {validated_id} from {name} and restoring it",
+        name=f"Restore {validated_id} from {name} into {into}",
+        description=f"Downloading {validated_id} from {name} and restoring it into {into}",
         func=restore_from_destination_job,
         kwargs={
             "destination_name": name,

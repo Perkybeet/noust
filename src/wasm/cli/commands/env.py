@@ -279,6 +279,14 @@ def _env_mark(domain: str, name: str, mark: str, verbose: bool) -> int:
     """
     Set or clear an operator override for one variable's secrecy.
 
+    Not audited: no command in this CLI tree writes to
+    :class:`~wasm.web.auth.AuditLogger` (that logger is installed by the web
+    server's own process and answers only its API; nothing here is a
+    parallel implementation of it). ``wasm`` runs as root at an operator's own
+    terminal, which is its own record of who acted, the same as every other
+    CLI mutation - ``wasm app delete``, ``wasm config set``. Auditing CLI
+    mutations at all is a decision for the CLI as a whole, not one command.
+
     Args:
         domain: Domain the application is served on.
         name: Environment variable name.

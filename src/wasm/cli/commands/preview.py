@@ -33,38 +33,87 @@ def cli() -> None:
 @click.option(
     "--domain",
     "base_domain",
-    required=True,
-    help="Base domain previews answer under; *.BASE must point at this server.",
+    default=None,
+    help="Base domain previews answer under; *.BASE must point at this server. "
+    "Required to turn previews on; kept when changing other settings.",
 )
 @click.option(
     "--max",
     "max_previews",
     type=int,
-    default=previews.DEFAULT_MAX_PREVIEWS,
-    show_default=True,
-    help="How many previews may exist at once (1 to 20).",
+    default=None,
+    help=f"How many previews may exist at once (1 to 20). "
+    f"[default: {previews.DEFAULT_MAX_PREVIEWS}, or the current value]",
 )
 @click.option(
     "--ttl",
-    default="7d",
-    show_default=True,
-    help="How long a preview lives without a push: 12h, 7d, 2w (1 hour to 90 days).",
+    default=None,
+    help="How long a preview lives without a push: 12h, 7d, 2w (1 hour to 90 days). "
+    "[default: 7d, or the current value]",
+)
+@click.option(
+    "--allow-bots/--no-allow-bots",
+    "allow_bots",
+    default=None,
+    help="Build previews of pull requests opened or pushed to by bot accounts "
+    "(Dependabot, Renovate). [default: no, or the current value]",
+)
+@click.option(
+    "--exclude-env",
+    "exclude_env",
+    multiple=True,
+    metavar="NAME",
+    help="A variable never copied to previews; repeat for more. Replaces the current "
+    "list; existing previews lose them at their next push.",
+)
+@click.option(
+    "--no-exclude-env",
+    "clear_exclude_env",
+    is_flag=True,
+    help="Copy every variable again (clear the excluded list).",
 )
 @global_flags
 @json_option("Print the settings as JSON.")
 @pass_context
-def enable(ctx: Context, domain: str, base_domain: str, max_previews: int, ttl: str) -> None:
+def enable(
+    ctx: Context,
+    domain: str,
+    base_domain: str | None,
+    max_previews: int | None,
+    ttl: str | None,
+    allow_bots: bool | None,
+    exclude_env: tuple[str, ...],
+    clear_exclude_env: bool,
+) -> None:
     """
     Turn previews on for an application, or change their settings.
 
     Each pull request opened against the application's repository gets its
     own copy at pr-<n>-<app>.BASE, built from the pull request's branch and
-    removed when it is closed or its time-to-live runs out. Previews copy the
-    application's environment variables, production secrets included, and
-    use its databases. Pull requests from forks never get one.
+    removed when it is closed or its time-to-live runs out. An option left
+    out keeps its current value.
+
+    A preview is built as root, like every deployment, with a copy of the
+    application's environment variables, production secrets included (except
+    --exclude-env), and uses its databases. So only people trusted with the
+    repository get one: pull requests from forks never do, on GitHub the
+    author must be an owner, member or collaborator, and bots only with
+    --allow-bots.
     """
+    if exclude_env and clear_exclude_env:
+        raise click.UsageError("Give --exclude-env or --no-exclude-env, not both.")
+    excluded: list[str] | None = None
+    if clear_exclude_env:
+        excluded = []
+    elif exclude_env:
+        excluded = list(exclude_env)
     stored = previews.enable_previews(
-        domain, base_domain, max_previews=max_previews, ttl_hours=previews.parse_ttl(ttl)
+        domain,
+        base_domain,
+        max_previews=max_previews,
+        ttl_hours=previews.parse_ttl(ttl) if ttl is not None else None,
+        allow_bots=allow_bots,
+        exclude_env=excluded,
     )
     if ctx.json_output:
         click.echo(json.dumps(dataclasses.asdict(stored)))
@@ -74,10 +123,16 @@ def enable(ctx: Context, domain: str, base_domain: str, max_previews: int, ttl: 
     logger.key_value("Answer at", f"pr-<n>-...{stored.base_domain}")
     logger.key_value("At most", str(stored.max_previews))
     logger.key_value("Time-to-live", f"{stored.ttl_hours} hours without a push")
+    logger.key_value("Bots", "allowed" if stored.allow_bots else "refused")
+    logger.key_value(
+        "Never copied", ", ".join(stored.exclude_env) if stored.exclude_env else "(none)"
+    )
     logger.blank()
     logger.warning(
-        f"Previews run with a copy of {stored.app_domain}'s environment variables, "
-        "production secrets included, and use the same databases."
+        f"Previews are built as root and run with a copy of {stored.app_domain}'s "
+        "environment variables, production secrets included"
+        + (" (except the ones never copied)" if stored.exclude_env else "")
+        + ", and use the same databases."
     )
     logger.info(f"Point a wildcard record *.{stored.base_domain} at this server.")
 
@@ -147,8 +202,11 @@ def list_command(ctx: Context, domain: str | None) -> None:
             logger.key_value(
                 "Previews",
                 f"under {settings.base_domain}, at most {settings.max_previews}, "
-                f"{settings.ttl_hours} h without a push",
+                f"{settings.ttl_hours} h without a push, bots "
+                f"{'allowed' if settings.allow_bots else 'refused'}",
             )
+            if settings.exclude_env:
+                logger.key_value("Never copied", ", ".join(settings.exclude_env))
     if not records:
         logger.info("No previews")
         return

@@ -211,7 +211,7 @@ describe("an application's page", () => {
           items: [{ id: "shop-example-com_20260923_182035", created_at: "2026-09-23T18:20:35", description: "Nightly backup", size_bytes: 2048, git_commit: "9f2c41a" }],
           total: 1,
         }),
-      "POST /api/jobs/rollback": () => json(202, { message: "Rollback job created", job: { ...JOB, type: "restore" } }),
+      "POST /api/jobs/rollback": () => json(202, { message: "Rollback job created", job: { ...JOB, type: "rollback" } }),
     });
     await user.click(await within(header()).findByRole("button", { name: "More actions" }));
     await user.click(await screen.findByRole("menuitem", { name: "Roll back" }));

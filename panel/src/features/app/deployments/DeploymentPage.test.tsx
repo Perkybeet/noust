@@ -271,8 +271,8 @@ describe("a deployment's page", { timeout: 20_000 }, () => {
       {
         [`GET /api/deployments/${String(FAILED.id)}`]: () => json(200, SERVED),
         [`POST /api/apps/${TAB_DOMAIN}/deployments/20/rollback`]: () =>
-          json(202, { job_id: "5ca1ab1e", status: "pending", message: "Rollback queued", job: { ...JOB, id: "5ca1ab1e", type: "restore" } }),
-        "GET /api/jobs/5ca1ab1e": () => json(200, { ...JOB, id: "5ca1ab1e", type: "restore", status: "completed", completed_at: "2026-09-25T19:00:01" }),
+          json(202, { job_id: "5ca1ab1e", status: "pending", message: "Rollback queued", job: { ...JOB, id: "5ca1ab1e", type: "rollback" } }),
+        "GET /api/jobs/5ca1ab1e": () => json(200, { ...JOB, id: "5ca1ab1e", type: "rollback", status: "completed", completed_at: "2026-09-25T19:00:01" }),
       },
       { layout: "releases" },
     );

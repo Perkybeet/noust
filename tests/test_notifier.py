@@ -290,7 +290,8 @@ class TestChatChannels:
 
         assert [r.full_url for r in opener.requests] == [DISCORD_URL]
         assert json.loads(opener.requests[0].data) == {
-            "content": "Deployed example.com\nwasm-example.com is running"
+            "content": "Deployed example.com\nwasm-example.com is running",
+            "allowed_mentions": {"parse": []},
         }
 
     def test_slack_cuts_an_oversized_body_to_its_own_limit(self, config: Config) -> None:

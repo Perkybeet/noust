@@ -23,12 +23,14 @@ change nothing.
 from __future__ import annotations
 
 import re
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from jinja2 import Environment, PackageLoader, TemplateError
 
+from wasm.core.applock import AppBusyError
 from wasm.core.config import SYSTEMD_DIR as _SYSTEMD_DIR
 from wasm.core.config import Config
 from wasm.core.exceptions import BackupError, WASMError
@@ -37,14 +39,24 @@ from wasm.core.logger import Logger
 from wasm.core.notifier import NotificationEvent, Notifier
 from wasm.core.runner import CommandRunner, get_runner
 from wasm.core.store import BackupScheduleRecord, get_store
-from wasm.core.utils import domain_to_app_name
+from wasm.core.utils import domain_to_app_name, find_wasm_executable
 from wasm.managers.backup_destinations import BackupDestinationManager
-from wasm.managers.backup_manager import BackupManager
+from wasm.managers.backup_manager import SCHEDULED_TAG, BackupManager
 from wasm.validators.domain import validate_domain
 from wasm.validators.names import resolve_within, validate_app_name, validate_service_name
 
 #: Deadline for a systemctl verb. Nothing here talks to the network.
 _SYSTEMCTL_TIMEOUT = 60
+
+#: How long a scheduled backup waits for a deploy, update or restore holding
+#: the application's lock before giving up, and how often it looks again. A
+#: nightly backup that collides with a deploy should be late, not lost.
+_LOCK_WAIT_SECONDS = 1800
+_LOCK_RETRY_SECONDS = 30
+
+#: What only a service unit rewritten for 2.2 runs. A unit without it still
+#: runs the 2.1 ``backup create`` line and is rewritten on the next listing.
+_RUN_SCHEDULE_COMMAND = "backup run-schedule"
 
 #: Unit files are world readable and root writable, like every other unit.
 _UNIT_MODE = 0o644
@@ -122,8 +134,11 @@ class BackupSchedule:
         schedule: Alias from :data:`SCHEDULE_ALIASES` or a systemd calendar
             expression.
         include_databases: Ask the scheduled run for database dumps.
-        retention_count: Backups to keep.
-        retention_days: Maximum age of a backup, in days.
+        retention_count: Backups this schedule made to keep. None keeps the
+            2.1 behaviour: ``backup.max_per_app`` over every backup of the
+            application.
+        retention_days: Maximum age, in days, of a backup this schedule made;
+            None for no age limit.
         tags: Tags attached to the backups this schedule creates.
         destinations: Remote copies to push each scheduled backup to, as
             ``{"name", "retention_count", "retention_days"}`` per destination
@@ -135,9 +150,9 @@ class BackupSchedule:
     app_name: str
     schedule: str
     include_databases: bool = True
-    retention_count: int = 7
-    retention_days: int = 30
-    tags: list[str] = field(default_factory=lambda: ["scheduled", "auto"])
+    retention_count: int | None = 7
+    retention_days: int | None = 30
+    tags: list[str] = field(default_factory=lambda: [SCHEDULED_TAG, "auto"])
     destinations: list[dict[str, Any]] = field(default_factory=list)
 
     @property
@@ -181,12 +196,6 @@ class BackupScheduler:
     """
 
     SYSTEMD_DIR = _SYSTEMD_DIR
-
-    #: Retention applied when a store row carries none - an adopted legacy
-    #: timer, most often - the same defaults :class:`BackupSchedule` itself
-    #: uses when a caller does not name one.
-    DEFAULT_RETENTION_COUNT = 7
-    DEFAULT_RETENTION_DAYS = 30
 
     def __init__(
         self,
@@ -423,11 +432,14 @@ class BackupScheduler:
 
         A timer with no matching store row - one created before 2.2, or by a
         server restored from an old backup - is adopted here: a row is
-        created from what systemd itself reports, retention and destinations
-        left at their defaults, and its service unit rewritten to run
-        ``wasm backup run-schedule DOMAIN`` instead of the ``backup create``
-        line it used to carry, so its retention starts being applied for
-        real the next time it fires.
+        created from what systemd itself reports, with no retention of its
+        own (``backup.max_per_app``, as 2.1 applied) and no destinations,
+        and its service unit rewritten to run ``wasm backup run-schedule
+        DOMAIN`` instead of the ``backup create`` line it used to carry. A
+        timer whose domain could not be read from its own description is
+        left exactly as it is: it keeps running its 2.1 command, and a row
+        filed under a guessed domain would make every backup it takes lose
+        the application's databases.
 
         Returns:
             One dictionary per timer: ``timer`` and ``app_name`` from the unit
@@ -435,8 +447,9 @@ class BackupScheduler:
             ``next_run`` and ``last_run`` as systemd prints them (``pending``
             and ``never`` when it prints nothing), ``schedule`` (the raw
             ``TimersCalendar`` property) and ``on_calendar`` (the expression
-            inside it) when the unit can be inspected, and ``retention_count``
-            / ``retention_days`` from the store row (empty string when unset).
+            inside it) when the unit can be inspected, ``retention_count``
+            / ``retention_days`` from the store row (empty string when unset),
+            and ``include_databases`` (``"true"``/``"false"``) from it too.
         """
         result = self._systemctl(
             "list-timers",
@@ -466,6 +479,7 @@ class BackupScheduler:
                 "last_run": "never",
             }
 
+            domain_read = False
             detail = self._systemctl(
                 "show",
                 unit,
@@ -488,6 +502,7 @@ class BackupScheduler:
                 description = properties.get("Description", "")
                 if description.startswith(_DESCRIPTION_PREFIX):
                     schedule_info["domain"] = description[len(_DESCRIPTION_PREFIX) :]
+                    domain_read = True
 
                 next_run = properties.get("NextElapseUSecRealtime", "")
                 if next_run and next_run != "n/a":
@@ -495,6 +510,15 @@ class BackupScheduler:
                 last_run = properties.get("LastTriggerUSec", "")
                 if last_run and last_run != "n/a":
                     schedule_info["last_run"] = last_run
+
+            if not domain_read:
+                self.logger.warning(
+                    f"Could not read the domain of {unit} from systemd; it was left as it is "
+                    "and keeps running its own command. List the schedules again once "
+                    f"'systemctl show {unit}' answers."
+                )
+                schedules.append(schedule_info)
+                continue
 
             self._adopt(schedule_info)
             record = get_store().get_backup_schedule(schedule_info["domain"])
@@ -505,6 +529,7 @@ class BackupScheduler:
                 schedule_info["retention_days"] = (
                     str(record.retention_days) if record.retention_days is not None else ""
                 )
+                schedule_info["include_databases"] = "true" if record.include_databases else "false"
 
             schedules.append(schedule_info)
 
@@ -514,32 +539,37 @@ class BackupScheduler:
         """
         Give a legacy timer a store row and rewrite it to call run-schedule.
 
-        Only runs once per domain: a schedule the store already knows about
-        is left exactly as it is, retention and destinations included.
+        The row is created once per domain: a schedule the store already
+        knows about keeps its retention and destinations exactly as they are.
+        The service unit is checked every time, so a rewrite that failed
+        (a read-only ``/etc``, a full disk) is retried on the next listing
+        instead of leaving the timer on its 2.1 command for good.
 
         Args:
             schedule_info: One entry as :meth:`list_schedules` builds it, with
-                ``domain`` and ``app_name`` already resolved.
+                ``domain`` read from the unit and ``app_name`` resolved.
         """
         store = get_store()
         domain = schedule_info["domain"]
-        if store.get_backup_schedule(domain) is not None:
-            return
-
-        on_calendar = schedule_info.get("on_calendar") or "daily"
-        store.save_backup_schedule(
-            BackupScheduleRecord(
-                app_domain=domain,
-                schedule=on_calendar,
-                include_databases=True,
-                retention_count=None,
-                retention_days=None,
-                destinations=[],
+        if store.get_backup_schedule(domain) is None:
+            on_calendar = schedule_info.get("on_calendar") or "daily"
+            store.save_backup_schedule(
+                BackupScheduleRecord(
+                    app_domain=domain,
+                    schedule=on_calendar,
+                    include_databases=True,
+                    retention_count=None,
+                    retention_days=None,
+                    destinations=[],
+                )
             )
-        )
 
         try:
             service_path = self._unit_path(f"{schedule_info['timer']}.service")
+            if not service_path.is_file():
+                return
+            if _RUN_SCHEDULE_COMMAND in service_path.read_text(encoding="utf-8"):
+                return
             content = self.render_service(
                 BackupSchedule(domain=domain, app_name=schedule_info["app_name"], schedule="daily")
             )
@@ -547,9 +577,10 @@ class BackupScheduler:
             self._systemctl("daemon-reload")
         except (BackupError, OSError) as exc:
             self.logger.warning(
-                f"Adopted the backup schedule for {domain} but could not rewrite its service "
-                f"unit to run-schedule: {exc}. It will keep running its old command until this "
-                "is retried."
+                f"Could not rewrite the service unit of the backup schedule for {domain} to "
+                f"run-schedule: {exc}. It keeps running its 2.1 command (a backup with "
+                "backup.max_per_app rotation and no destinations); listing the schedules "
+                "again retries the rewrite."
             )
 
     def get_schedule(self, domain: str) -> BackupSchedule | None:
@@ -562,6 +593,7 @@ class BackupScheduler:
         Returns:
             The schedule, merging the store row (retention, destinations)
             when one exists, or None when no timer is enabled for the domain.
+            Retention the row does not set stays None.
         """
         app_name = domain_to_app_name(domain)
         timer_name = f"wasm-backup-{app_name}"
@@ -572,15 +604,23 @@ class BackupScheduler:
 
         record = get_store().get_backup_schedule(domain)
         if record is None:
-            return BackupSchedule(domain=domain, app_name=app_name, schedule="unknown")
+            return BackupSchedule(
+                domain=domain,
+                app_name=app_name,
+                schedule="unknown",
+                retention_count=None,
+                retention_days=None,
+            )
 
+        # None stays None: an adopted schedule has no retention of its own,
+        # and inventing one here is how editing it used to prune backups.
         return BackupSchedule(
             domain=domain,
             app_name=app_name,
             schedule=record.schedule,
             include_databases=record.include_databases,
-            retention_count=record.retention_count or self.DEFAULT_RETENTION_COUNT,
-            retention_days=record.retention_days or self.DEFAULT_RETENTION_DAYS,
+            retention_count=record.retention_count,
+            retention_days=record.retention_days,
             destinations=list(record.destinations),
         )
 
@@ -639,7 +679,13 @@ class BackupScheduler:
         Raises:
             BackupError: If the template cannot be rendered.
         """
-        return self._render("backup-service.j2", domain=schedule.domain)
+        # The machine's own wasm: systemd has no PATH of the operator's, and a
+        # pip install puts it in /usr/local/bin, where /usr/bin/wasm misses it.
+        return self._render(
+            "backup-service.j2",
+            domain=schedule.domain,
+            wasm=find_wasm_executable() or "/usr/bin/wasm",
+        )
 
 
 def _notify_backup_failed(domain: str, title: str, body: str) -> None:
@@ -658,6 +704,45 @@ def _notify_backup_failed(domain: str, title: str, body: str) -> None:
     Notifier(Config()).notify(
         NotificationEvent(kind="backup_failed", title=title, body=body, domain=domain)
     )
+
+
+def _create_when_free(
+    backup_manager: BackupManager, domain: str, record: BackupScheduleRecord
+) -> Any:
+    """
+    Take the scheduled backup, waiting for an operation that holds the lock.
+
+    :meth:`BackupManager.create` holds the application's lock; a deploy or an
+    update running when the timer fires would otherwise cost the night's
+    backup. The wait is bounded, and giving up raises the lock's own error.
+
+    Args:
+        backup_manager: Manager the backup is taken through.
+        domain: Application domain.
+        record: The schedule.
+
+    Returns:
+        The new backup's metadata.
+
+    Raises:
+        AppBusyError: The lock was still held after :data:`_LOCK_WAIT_SECONDS`.
+        WASMError: The backup itself failed.
+    """
+    deadline = time.monotonic() + _LOCK_WAIT_SECONDS
+    while True:
+        try:
+            return backup_manager.create(
+                domain=domain,
+                include_databases=record.include_databases,
+                retention_count=record.retention_count,
+                retention_days=record.retention_days,
+                tags=[SCHEDULED_TAG, "auto"],
+                retention_tag=SCHEDULED_TAG,
+            )
+        except AppBusyError:
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(_LOCK_RETRY_SECONDS)
 
 
 def run_schedule(
@@ -679,6 +764,17 @@ def run_schedule(
     schedule's retention and its destinations are applied for real rather
     than only recorded.
 
+    A schedule's retention only ever deletes backups a schedule made (tagged
+    :data:`~wasm.managers.backup_manager.SCHEDULED_TAG`); a manual,
+    pre-deploy or rollback-safety backup is never its to delete.
+
+    With no store row - a store that moved, was reset or was restored from an
+    older copy while the timer kept firing - the backup is still taken, the
+    way 2.1 took it (databases included, ``backup.max_per_app`` rotation, no
+    destinations), and the operator is told the row is missing. Stopping every
+    backup silently because a row went missing is the one outcome worse than
+    running without its settings.
+
     Args:
         domain: Application domain the schedule belongs to.
         verbose: Enable verbose logging on the managers this composes.
@@ -686,40 +782,53 @@ def run_schedule(
         fs: Filesystem, injected for tests.
 
     Returns:
-        A summary: the local backup's id, and the outcome of each
-        destination push.
+        A summary: the local backup's id, the outcome of each destination
+        push, and ``schedule_missing`` when the row was not found.
 
     Raises:
-        BackupError: When there is no schedule for the domain, the local
-            backup itself fails (there is nothing to push without one), or
-            at least one destination could not be sent the backup - the
-            local backup is kept either way.
+        BackupError: When the local backup itself fails (there is nothing to
+            push without one), or at least one destination could not be sent
+            the backup - the local backup is kept either way.
+        AppBusyError: Another operation held the application's lock for
+            longer than a scheduled backup waits.
     """
     store = get_store()
     record = store.get_backup_schedule(domain)
+    schedule_missing = record is None
     if record is None:
-        raise BackupError(
-            f"No backup schedule for {domain}",
-            details="Run 'wasm backup schedule create' first.",
+        _notify_backup_failed(
+            domain,
+            f"Backup schedule settings missing: {domain}",
+            f"The timer for {domain} fired but WASM's store has no schedule for it, so the "
+            "backup was taken as 2.1 took it: databases included, backup.max_per_app "
+            "rotation, no remote destinations. Check which store WASM is using "
+            "(/var/lib/wasm), then save the schedule again with 'wasm backup schedule "
+            f"update {domain}' or from the console.",
+        )
+        record = BackupScheduleRecord(
+            app_domain=domain,
+            schedule="unknown",
+            include_databases=True,
+            retention_count=None,
+            retention_days=None,
+            destinations=[],
         )
 
     backup_manager = BackupManager(verbose=verbose, runner=runner, fs=fs)
     destination_manager = BackupDestinationManager(runner=runner)
 
     try:
-        metadata = backup_manager.create(
-            domain=domain,
-            include_databases=record.include_databases,
-            retention_count=record.retention_count,
-            retention_days=record.retention_days,
-            tags=["scheduled", "auto"],
-        )
+        metadata = _create_when_free(backup_manager, domain, record)
     except WASMError as exc:
         _notify_backup_failed(domain, f"Scheduled backup failed: {domain}", str(exc))
         raise
 
-    result: dict[str, Any] = {"domain": domain, "backup_id": metadata.id, "destinations": {}}
-
+    result: dict[str, Any] = {
+        "domain": domain,
+        "backup_id": metadata.id,
+        "destinations": {},
+        "schedule_missing": schedule_missing,
+    }
     failures: list[tuple[str, str]] = []
     for destination in record.destinations:
         name = destination.get("name")

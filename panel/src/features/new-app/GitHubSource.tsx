@@ -191,7 +191,7 @@ function RepositoryPicker({
               </span>
               <Visibility repository={repository} />
               {repository.default_branch ? (
-                <span translate="no" className="mono hidden shrink-0 items-center gap-1 text-12 text-fg-faint sm:flex">
+                <span translate="no" className="mono hidden shrink-0 items-center gap-1 text-12 text-fg-muted sm:flex">
                   <GitBranch aria-hidden="true" className="size-3" />
                   <span className="sr-only">default branch </span>
                   {repository.default_branch}

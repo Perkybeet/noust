@@ -38,7 +38,21 @@ decision, in one order of precedence:
    them is public by the framework's own contract. A name ending
    ``PUBLIC_KEY`` is treated the same way unless the value is itself a
    private key - it is the ``KEY`` in the name that trips the generic
-   heuristic, not anything about what a public key actually is.
+   heuristic, not anything about what a public key actually is. The
+   relaxation itself never fires when the rest of the name still reads as a
+   password or a private credential - ``PASSWORD``, ``PASSWD``, ``PASS``,
+   ``SECRET_KEY``, ``PRIVATE_KEY`` or ``TOKEN``: ``PUBLIC_DB_PASSWORD`` is
+   still a password whatever prefix precedes it. Decided conservatively on
+   purpose, the same way as :func:`_looks_like_high_entropy_secret`: a
+   developer's lazy or mistaken name does not change what the value
+   protects, and showing a credential in clear is a worse failure than
+   masking one that did not need it.
+
+This only ever governs what a name-only verdict *displays* as. Scrubbing
+build and job logs (:func:`wasm.core.redact.secret_env_values`) does not use
+this relaxation at all: it must remain a superset of the name-only heuristic
+regardless of a public-looking prefix, so over-scrubbing a log is preferred
+to a secret shaped like ``NEXT_PUBLIC_API_KEY`` appearing in one verbatim.
 
 Nothing here is perfect: a high-entropy value with no other signal is the
 last resort, not the first, and stays conservative on purpose (see
@@ -334,6 +348,27 @@ def _looks_like_private_key_pem(value: str) -> bool:
     return bool(_PRIVATE_KEY_PEM.search(value))
 
 
+#: Words that keep the public-prefix relaxation below from ever firing,
+#: matched as substrings against the whole name (case-insensitive), the same
+#: way :data:`NAME_PATTERNS` is. ``PASSWORD``, ``PASSWD`` and ``PASS`` overlap
+#: on purpose - the full word, the common abbreviation, and the bare stem a
+#: short name uses (``DB_PASS``) - so the list reads the same as the
+#: reasoning in the module docstring rather than relying on one substring to
+#: catch all three. ``SECRET_KEY`` and ``PRIVATE_KEY`` are the compound forms
+#: an encryption or signing key is named with, deliberately narrower than the
+#: bare ``SECRET`` :data:`NAME_PATTERNS` already matches: a framework-prefixed
+#: ``VITE_API_SECRET`` is, if the framework's contract holds, genuinely baked
+#: into the client bundle, so it stays eligible for the relaxation.
+_NEVER_PUBLIC_NAME_WORDS: tuple[str, ...] = (
+    "PASSWORD",
+    "PASSWD",
+    "PASS",
+    "SECRET_KEY",
+    "PRIVATE_KEY",
+    "TOKEN",
+)
+
+
 def _is_public_looking(name: str, value: str) -> bool:
     """
     Decide whether a name-only "secret" verdict should be overridden to public.
@@ -344,6 +379,13 @@ def _is_public_looking(name: str, value: str) -> bool:
     key or the like - only the generic ``KEY``/``TOKEN``/``SECRET`` word
     match on a name that says it is meant to be public.
 
+    The relaxation is refused outright when the rest of the name still reads
+    as a password or a private credential (:data:`_NEVER_PUBLIC_NAME_WORDS`):
+    ``PUBLIC_DB_PASSWORD`` must stay hidden even though ``PUBLIC_`` is one of
+    the framework prefixes, because a name that contradicts itself this way
+    is far more likely a careless name on a real secret than a framework
+    variable that happens to mention a password.
+
     Args:
         name: Variable name.
         value: Its value, to tell an actual private key apart from a name
@@ -353,6 +395,8 @@ def _is_public_looking(name: str, value: str) -> bool:
         True if the name marks this variable as intentionally public.
     """
     upper = name.upper()
+    if any(word in upper for word in _NEVER_PUBLIC_NAME_WORDS):
+        return False
     if upper.startswith(_PUBLIC_NAME_PREFIXES):
         return True
     if upper.endswith("PUBLIC_KEY"):

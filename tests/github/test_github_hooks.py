@@ -231,17 +231,38 @@ def test_missing_and_wrong_signatures_are_401(
     assert deliver(client, "ping", {}, secret="guess").status_code == 401
 
 
-def test_repeated_wrong_signatures_lock_the_endpoint(
+def test_repeated_wrong_signatures_lock_out_only_wrong_signatures(
     client: TestClient, github_configured: WASMStore, tmp_path: Path
 ) -> None:
-    """After the configured failures, even a right signature waits."""
+    """
+    A stranger's bad signatures must not stop GitHub's deliveries.
+
+    The signature is checked first: a right one is always accepted, and only
+    the wrong ones are counted and, past the limit, answered 429.
+    """
     for _ in range(3):
         deliver(client, "ping", {}, secret="guess")
-    locked = deliver(client, "ping", {})
-    assert locked.status_code == 429
-    assert "Retry-After" in locked.headers
+    still_wrong = deliver(client, "ping", {}, secret="guess")
+    genuine = deliver(client, "ping", {})
+    assert still_wrong.status_code == 429
+    assert "Retry-After" in still_wrong.headers
+    assert genuine.status_code == 200
     audit = (tmp_path / "state" / "web-audit.log").read_text()
     assert "sha256=" not in audit and SECRET not in audit
+
+
+def test_a_replayed_body_under_a_new_delivery_id_is_ignored(
+    client: TestClient, github_configured: WASMStore, queued: list[dict[str, Any]]
+) -> None:
+    """The delivery id is not signed: the signed body and signature are what repeat."""
+    github_configured.create_app(
+        App(domain="a.example.com", source="github:you/app", branch="main")
+    )
+    first = deliver(client, "push", push_payload(), delivery="d-1")
+    again = deliver(client, "push", push_payload(), delivery="d-2")
+    assert first.status_code == 202
+    assert again.json() == {"status": "ignored", "reason": "duplicate"}
+    assert len(queued) == 1
 
 
 def test_a_replayed_delivery_is_ignored(

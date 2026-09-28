@@ -19,6 +19,12 @@ export interface SaveDestinationInput {
   encrypted: boolean;
 }
 
+/** An encrypted destination's two passphrases, as "Show encryption key" displays them. */
+export interface EncryptionKeyInput {
+  password: string;
+  password2: string;
+}
+
 export interface RestoreFromDestinationInput {
   destination: string;
   backupId: string;
@@ -35,9 +41,15 @@ export function useDestinationActions() {
   };
 
   const create = useMutation({
-    mutationFn: (input: SaveDestinationInput & { backend: string }) =>
+    mutationFn: (input: SaveDestinationInput & { backend: string; encryptionKey?: EncryptionKeyInput | undefined }) =>
       request("post", "/api/backup-destinations", {
-        body: { name: input.name, backend: input.backend, fields: input.fields, encrypted: input.encrypted },
+        body: {
+          name: input.name,
+          backend: input.backend,
+          fields: input.fields,
+          encrypted: input.encrypted,
+          encryption_key: input.encryptionKey ?? null,
+        },
       }),
     onSuccess: (result) => {
       toast.success(result.message);
@@ -58,8 +70,8 @@ export function useDestinationActions() {
   });
 
   const remove = useMutation({
-    mutationFn: ({ name, force = false }: { name: string; force?: boolean }) =>
-      request("delete", "/api/backup-destinations/{name}", { params: { name }, query: { force } }),
+    mutationFn: ({ name, force = false, keySaved = false }: { name: string; force?: boolean; keySaved?: boolean }) =>
+      request("delete", "/api/backup-destinations/{name}", { params: { name }, query: { force, key_saved: keySaved } }),
     onSuccess: (result) => {
       toast.success(result.message);
       refreshList();

@@ -41,6 +41,7 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from wasm.core.applock import app_lock
 from wasm.core.exceptions import (
     CertificateError,
     DependencyError,
@@ -174,7 +175,24 @@ def add_domain(
             server configuration (monorepo, docker-compose), or the web
             server refuses the new configuration; nothing is left changed:
             the row and the file are put back.
+        AppBusyError: Another operation is running on the application.
     """
+    with app_lock(validate_domain(app_domain), "domain change"):
+        return _add_domain(
+            app_domain, domain, kind, issue_cert=issue_cert, logger=logger, verbose=verbose
+        )
+
+
+def _add_domain(
+    app_domain: str,
+    domain: str,
+    kind: str,
+    *,
+    issue_cert: bool,
+    logger: Logger | None,
+    verbose: bool,
+) -> DomainChange:
+    """:func:`add_domain`, under the application's lock."""
     log = logger or Logger(verbose=verbose)
     app = _application(app_domain)
     name = validate_domain(domain)
@@ -242,7 +260,16 @@ def remove_domain(
         ValidationError: When the application's type writes its own web
             server configuration, or the web server refuses the new
             configuration; the row and the file are put back.
+        AppBusyError: Another operation is running on the application.
     """
+    with app_lock(validate_domain(app_domain), "domain change"):
+        return _remove_domain(app_domain, domain, logger=logger, verbose=verbose)
+
+
+def _remove_domain(
+    app_domain: str, domain: str, *, logger: Logger | None, verbose: bool
+) -> DomainChange:
+    """:func:`remove_domain`, under the application's lock."""
     log = logger or Logger(verbose=verbose)
     app = _application(app_domain)
     name = domain.strip().lower()
@@ -288,18 +315,20 @@ def issue_certificate(
         DeploymentError: When its site does not serve TLS; there is no
             certificate to expand, and ``wasm cert create`` is how one starts.
         CertificateError: When certbot fails, carrying its output verbatim.
+        AppBusyError: Another operation is running on the application.
     """
     log = logger or Logger(verbose=verbose)
-    app = _application(app_domain)
-    deployer = _site_deployer(app, verbose=verbose)
-    if not _serves_tls(app, deployer):
-        raise DeploymentError(
-            f"{app.domain} is not served over TLS",
-            details=f"Obtain its first certificate with: wasm cert create -d {app.domain}",
-        )
-    _cover_every_domain(deployer)
-    log.success(f"The certificate of {app.domain} covers every domain")
-    return _change(app, True, certificate_issued=True)
+    with app_lock(validate_domain(app_domain), "certificate order"):
+        app = _application(app_domain)
+        deployer = _site_deployer(app, verbose=verbose)
+        if not _serves_tls(app, deployer):
+            raise DeploymentError(
+                f"{app.domain} is not served over TLS",
+                details=f"Obtain its first certificate with: wasm cert create -d {app.domain}",
+            )
+        _cover_every_domain(deployer)
+        log.success(f"The certificate of {app.domain} covers every domain")
+        return _change(app, True, certificate_issued=True)
 
 
 def check_dns(
@@ -414,9 +443,12 @@ def refresh_site(app: App, *, verbose: bool = False) -> None:
         ValidationError: The application's type writes its own web server
             configuration, or the web server refused the new site (the old
             file is back).
+        AppBusyError: Another operation is running on the application.
     """
-    deployer = _site_deployer(app, verbose=verbose)
-    deployer.refresh_site(with_ssl=_serves_tls(app, deployer))
+    # Reentrant: the blue/green switch calls this holding the lock already.
+    with app_lock(app.domain, "site refresh"):
+        deployer = _site_deployer(app, verbose=verbose)
+        deployer.refresh_site(with_ssl=_serves_tls(app, deployer))
 
 
 def _site_deployer(app: App, *, verbose: bool) -> BaseDeployer:

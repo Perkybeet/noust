@@ -320,7 +320,7 @@
         "type": "object"
       },
       "AppEnvResponse": {
-        "description": "An application's environment, as recorded in its ``.env`` file.\n\nAttributes:\n    domain: Domain of the application.\n    variables: Name to value mapping. Unless ``unmasked`` is true, a\n        secret-looking name and a URL credential embedded in a value are\n        both replaced by the fixed :data:`~wasm.core.config.REDACTED`\n        placeholder, exactly as ``wasm env show`` does on the terminal.\n    unmasked: Whether this response carries values in clear.\n    secrets: Every variable's classification, from\n        :func:`~wasm.core.secret_detection.classify` - present whether or\n        not ``unmasked`` is true, so the console can label a variable\n        (and let the operator override it) without asking to see its\n        value.",
+        "description": "An application's environment, as recorded in its ``.env`` file.\n\nAttributes:\n    domain: Domain of the application.\n    variables: Name to value mapping. Unless ``unmasked`` is true, a\n        secret-looking name and a URL credential embedded in a value are\n        both replaced by the fixed :data:`~wasm.core.config.REDACTED`\n        placeholder, exactly as ``wasm env show`` does on the terminal.\n    unmasked: Whether this response carries values in clear.\n    secrets: Every variable's classification, from\n        :func:`~wasm.core.secret_detection.classify` - present whether or\n        not ``unmasked`` is true, so the console can label a variable\n        (and let the operator override it) without asking to see its\n        value. For a credential below admin scope, a value-based\n        verdict's ``reason`` never names the vendor it matched (see\n        :class:`EnvSecrecyOut`).",
         "properties": {
           "domain": {
             "title": "Domain",
@@ -1213,7 +1213,7 @@
         "type": "object"
       },
       "BackupScheduleInfo": {
-        "description": "One backup schedule, merging what systemd reports with the store row.\n\nAttributes:\n    domain: Domain the schedule backs up.\n    app_name: Application name the unit names are built from.\n    timer: Timer unit name, without its ``.timer`` suffix.\n    schedule: The schedule in words: an alias such as ``daily`` when the\n        expression matches one, ``custom`` otherwise.\n    on_calendar: The systemd ``OnCalendar`` expression, verbatim.\n    next_run: When the timer fires next, as systemd prints it, or\n        ``pending`` when it cannot say.\n    last_run: When the timer last fired, or ``never``.\n    retention_count: Local backups to keep, from the store row; None for\n        the default.\n    retention_days: Maximum local backup age in days, from the store row;\n        None for no limit.\n    destinations: Remote destinations this schedule pushes to.",
+        "description": "One backup schedule, merging what systemd reports with the store row.\n\nAttributes:\n    domain: Domain the schedule backs up.\n    app_name: Application name the unit names are built from.\n    timer: Timer unit name, without its ``.timer`` suffix.\n    schedule: The schedule in words: an alias such as ``daily`` when the\n        expression matches one, ``custom`` otherwise.\n    on_calendar: The systemd ``OnCalendar`` expression, verbatim.\n    next_run: When the timer fires next, as systemd prints it, or\n        ``pending`` when it cannot say.\n    last_run: When the timer last fired, or ``never``.\n    retention_count: The schedule's own local backups to keep, from the\n        store row; None when ``backup.max_per_app`` is in charge.\n    retention_days: Maximum age in days of the schedule's own local\n        backups, from the store row; None for no limit.\n    include_databases: Whether each backup dumps the databases too.\n    destinations: Remote destinations this schedule pushes to.",
         "properties": {
           "app_name": {
             "title": "App Name",
@@ -1229,6 +1229,11 @@
           "domain": {
             "title": "Domain",
             "type": "string"
+          },
+          "include_databases": {
+            "default": true,
+            "title": "Include Databases",
+            "type": "boolean"
           },
           "last_run": {
             "title": "Last Run",
@@ -2254,6 +2259,17 @@
             "title": "Encrypted",
             "type": "boolean"
           },
+          "encryption_key": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EncryptionKey"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "An existing key, as show-key returned it, to use instead of generating one: how backups already on the destination are read from a new server. Requires encrypted."
+          },
           "fields": {
             "additionalProperties": {
               "type": "string"
@@ -2298,20 +2314,34 @@
             "type": "boolean"
           },
           "retention_count": {
+            "anyOf": [
+              {
+                "maximum": 365.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "default": 7,
-            "description": "Backups to keep",
-            "maximum": 365.0,
-            "minimum": 1.0,
-            "title": "Retention Count",
-            "type": "integer"
+            "description": "Backups this schedule made to keep; other backups are never deleted by it. null leaves backup.max_per_app in charge, over every backup of the application, as 2.1 did. A new schedule defaults to 7.",
+            "title": "Retention Count"
           },
           "retention_days": {
+            "anyOf": [
+              {
+                "maximum": 3650.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "default": 30,
-            "description": "Max age in days",
-            "maximum": 3650.0,
-            "minimum": 1.0,
-            "title": "Retention Days",
-            "type": "integer"
+            "description": "Maximum age in days of a backup this schedule made; null for no age limit. A new schedule defaults to 30.",
+            "title": "Retention Days"
           },
           "schedule": {
             "default": "daily",
@@ -3446,6 +3476,25 @@
         "title": "ElevateResponse",
         "type": "object"
       },
+      "EncryptionKey": {
+        "description": "An encrypted destination's two passphrases, as show-key returns them.",
+        "properties": {
+          "password": {
+            "title": "Password",
+            "type": "string"
+          },
+          "password2": {
+            "title": "Password2",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password",
+          "password2"
+        ],
+        "title": "EncryptionKey",
+        "type": "object"
+      },
       "EngineInfo": {
         "description": "A database engine and whether it is usable on this host.",
         "properties": {
@@ -3623,7 +3672,7 @@
         "type": "object"
       },
       "EnvSecrecyOut": {
-        "description": "Why one environment variable is, or is not, treated as a secret.\n\nAttributes:\n    secret: Whether the value must not be shown or logged in clear.\n    reason: One of ``\"marked secret\"``, ``\"marked not secret\"``,\n        ``\"name\"``, ``\"value: <kind>\"``, ``\"url credentials\"`` or\n        ``\"plain\"`` - see :class:`~wasm.core.secret_detection.Secrecy`.\n    marked: Whether this came from an operator's own mark rather than\n        from the variable's name or value.",
+        "description": "Why one environment variable is, or is not, treated as a secret.\n\nAttributes:\n    secret: Whether the value must not be shown or logged in clear.\n    reason: One of ``\"marked secret\"``, ``\"marked not secret\"``,\n        ``\"name\"``, ``\"value: <kind>\"``, ``\"value\"``, ``\"url\n        credentials\"`` or ``\"plain\"`` - see\n        :class:`~wasm.core.secret_detection.Secrecy`. ``\"value: <kind>\"``\n        names the vendor a value's shape matched (``\"value: stripe\"``),\n        which is itself a fact about the value; a credential below admin\n        scope gets the generic ``\"value\"`` instead (see\n        :func:`~wasm.web.api.apps._secrets_map`).\n    marked: Whether this came from an operator's own mark rather than\n        from the variable's name or value.",
         "properties": {
           "marked": {
             "title": "Marked",
@@ -5512,8 +5561,12 @@
         "type": "object"
       },
       "PreviewSettingsOut": {
-        "description": "The previews an application allows.\n\nAttributes:\n    base_domain: Previews answer at ``pr-<n>-<app>.<base_domain>``; a\n        wildcard record for it must point at this server.\n    max_previews: How many may exist at once (1 to 20).\n    ttl_hours: Hours a preview lives without a push (1 to 2160).",
+        "description": "The previews an application allows.\n\nAttributes:\n    base_domain: Previews answer at ``pr-<n>-<app>.<base_domain>``; a\n        wildcard record for it must point at this server.\n    max_previews: How many may exist at once (1 to 20).\n    ttl_hours: Hours a preview lives without a push (1 to 2160).\n    allow_bots: Whether pull requests from bot accounts (Dependabot,\n        Renovate) get a preview. A preview is built as root with the\n        application's secrets, so this is off unless turned on.\n    exclude_env: Variables never copied to a preview.",
         "properties": {
+          "allow_bots": {
+            "title": "Allow Bots",
+            "type": "boolean"
+          },
           "base_domain": {
             "title": "Base Domain",
             "type": "string"
@@ -5528,6 +5581,13 @@
               }
             ],
             "title": "Created At"
+          },
+          "exclude_env": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Exclude Env",
+            "type": "array"
           },
           "max_previews": {
             "title": "Max Previews",
@@ -5552,17 +5612,44 @@
         "required": [
           "base_domain",
           "max_previews",
-          "ttl_hours"
+          "ttl_hours",
+          "allow_bots",
+          "exclude_env"
         ],
         "title": "PreviewSettingsOut",
         "type": "object"
       },
       "PreviewSettingsRequest": {
-        "description": "Turn previews on, or change their settings.\n\nAttributes:\n    base_domain: The domain a wildcard record points at this server\n        (``previews.example.com`` for ``*.previews.example.com``).\n    max_previews: How many at once, 1 to 20.\n    ttl_hours: Hours one lives without a push, 1 to 2160 (90 days).",
+        "description": "Turn previews on, or change their settings.\n\nAttributes:\n    base_domain: The domain a wildcard record points at this server\n        (``previews.example.com`` for ``*.previews.example.com``).\n    max_previews: How many at once, 1 to 20.\n    ttl_hours: Hours one lives without a push, 1 to 2160 (90 days).\n    allow_bots: Build previews of bot accounts' pull requests; null\n        keeps the current value (off for new settings).\n    exclude_env: Names of variables never copied to a preview (and taken\n        out of existing ones at their next build); null keeps the\n        current list (none for new settings).",
         "properties": {
+          "allow_bots": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allow Bots"
+          },
           "base_domain": {
             "title": "Base Domain",
             "type": "string"
+          },
+          "exclude_env": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exclude Env"
           },
           "max_previews": {
             "default": 3,
@@ -6676,8 +6763,12 @@
         "type": "object"
       },
       "ScheduleListResponse": {
-        "description": "Response for listing backup schedules.",
+        "description": "Response for listing backup schedules.\n\nAttributes:\n    default_retention_count: ``backup.max_per_app``: what rotation keeps\n        per application for a schedule whose ``retention_count`` is null.",
         "properties": {
+          "default_retention_count": {
+            "title": "Default Retention Count",
+            "type": "integer"
+          },
           "schedules": {
             "items": {
               "$ref": "#/components/schemas/BackupScheduleInfo"
@@ -6692,7 +6783,8 @@
         },
         "required": [
           "schedules",
-          "total"
+          "total",
+          "default_retention_count"
         ],
         "title": "ScheduleListResponse",
         "type": "object"
@@ -9434,7 +9526,7 @@
         ]
       },
       "put": {
-        "description": "Replace an application's ``.env`` file wholesale.\n\nEvery name and value is validated against what can safely reach a\nsystemd unit (:mod:`wasm.validators.environment`) before anything is\nwritten, so a rejected variable leaves the file on disk untouched. The\nwrite goes through :func:`~wasm.deployers.helpers.app_env.write_app_env`,\nthe same function ``wasm env configure`` uses, so the file lands 0600,\nowned by the service account, in ``shared/`` on the release layout.\n\nThe application is not restarted: a process already running keeps the\nenvironment it started with until it is, so the caller is told a restart\nis required rather than one being queued silently underneath it.\n\nArgs:\n    domain: Domain of the application.\n    body: The complete name to value mapping to write.\n    request: The incoming request, for the audit record.\n    session: The authenticated session.\n\nReturns:\n    Confirmation that a restart is required to pick up the change.\n\nRaises:\n    HTTPException: 404 when the application is unknown, 422 when a name\n        or a value is not safe to write into a systemd unit, or when the\n        request tries to set PORT or NODE_ENV, which the unit sets inline\n        and are refused by :func:`~wasm.deployers.helpers.app_env.write_app_env`.",
+        "description": "Replace an application's ``.env`` file wholesale.\n\nEvery name and value is validated against what can safely reach a\nsystemd unit (:mod:`wasm.validators.environment`) before anything is\nwritten, so a rejected variable leaves the file on disk untouched. The\nwrite goes through :func:`~wasm.deployers.helpers.app_env.write_app_env`,\nthe same function ``wasm env configure`` uses, so the file lands 0600,\nowned by the service account, in ``shared/`` on the release layout - and\na mark on a name the write drops is pruned there too, not just here.\n\nThe application is not restarted: a process already running keeps the\nenvironment it started with until it is, so the caller is told a restart\nis required rather than one being queued silently underneath it.\n\nArgs:\n    domain: Domain of the application.\n    body: The complete name to value mapping to write.\n    request: The incoming request, for the audit record.\n    session: The authenticated session.\n\nReturns:\n    Confirmation that a restart is required to pick up the change.\n\nRaises:\n    HTTPException: 404 when the application is unknown, 422 when a name\n        or a value is not safe to write into a systemd unit, or when the\n        request tries to set PORT or NODE_ENV, which the unit sets inline\n        and are refused by :func:`~wasm.deployers.helpers.app_env.write_app_env`.",
         "operationId": "update_app_env_api_apps__domain__env_put",
         "parameters": [
           {
@@ -9900,7 +9992,7 @@
         ]
       },
       "put": {
-        "description": "Turn previews on for an application, or change their settings.\n\nInstalls ``wasm-previews.timer`` the first time any application turns\npreviews on.\n\nArgs:\n    domain: The application.\n    body: The settings.\n    request: The request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The settings as stored.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: A value is refused (400, with the reason).\n    ServiceError: The sweep timer could not be installed.",
+        "description": "Turn previews on for an application, or change their settings.\n\nInstalls ``wasm-previews.timer`` the first time any application turns\npreviews on. A preview is built as root, like every deployment, with a\ncopy of the application's environment minus ``exclude_env``; only pull\nrequests from people trusted with the repository get one (see\n:func:`wasm.managers.previews.handle_pull_request`).\n\nArgs:\n    domain: The application.\n    body: The settings.\n    request: The request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The settings as stored.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: A value is refused (400, with the reason).\n    ServiceError: The sweep timer could not be installed.",
         "operationId": "put_preview_settings_api_apps__domain__previews_settings_put",
         "parameters": [
           {
@@ -10325,7 +10417,7 @@
     },
     "/api/apps/{domain}/webhook-secret": {
       "delete": {
-        "description": "Disable webhooks for an application by discarding its secret.\n\nArgs:\n    domain: Domain of the application.\n    request: The incoming request, for the audit record.\n    session: The authenticated session.\n\nReturns:\n    Confirmation that deliveries will now be answered with 404.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "description": "Disable webhooks for an application by discarding its secret.\n\nArgs:\n    domain: Domain of the application.\n    request: The incoming request, for the audit record.\n    session: An elevated session.\n\nReturns:\n    Confirmation that deliveries will now be answered with 404.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
         "operationId": "delete_webhook_secret_api_apps__domain__webhook_secret_delete",
         "parameters": [
           {
@@ -10366,7 +10458,7 @@
         ]
       },
       "post": {
-        "description": "Mint (or replace) the webhook secret of an application.\n\nThe secret appears in this response and nowhere else, ever again: the\nstore keeps it for signature verification, but no listing or detail\nendpoint returns it. Calling this again rotates the secret, revoking the\nold one in the same motion.\n\nArgs:\n    domain: Domain of the application.\n    request: The incoming request, for the audit record and the hook URL.\n    session: The authenticated session.\n\nReturns:\n    The secret, shown once, and the URL to configure at the forge.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "description": "Mint (or replace) the webhook secret of an application.\n\nThe secret appears in this response and nowhere else, ever again: the\nstore keeps it for signature verification, but no listing or detail\nendpoint returns it. Calling this again rotates the secret, revoking the\nold one in the same motion.\n\nArgs:\n    domain: Domain of the application.\n    request: The incoming request, for the audit record and the hook URL.\n    session: An elevated session: the secret is shown in clear, and it\n        can open previews as well as deploy.\n\nReturns:\n    The secret, shown once, and the URL to configure at the forge.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
         "operationId": "create_webhook_secret_api_apps__domain__webhook_secret_post",
         "parameters": [
           {
@@ -11284,7 +11376,7 @@
     },
     "/api/backup-destinations/{name}": {
       "delete": {
-        "description": "Remove a backup destination and its secrets.\n\nArgs:\n    name: Destination name.\n    force: Remove it even when a schedule references it, dropping the\n        reference from those schedules.\n    session: The authenticated, elevated session.\n\nReturns:\n    The action outcome.\n\nRaises:\n    BackupError: When a schedule references it and ``force`` was not given.",
+        "description": "Remove a backup destination and its secrets.\n\nArgs:\n    name: Destination name.\n    force: Remove it even when a schedule references it, dropping the\n        reference from those schedules.\n    key_saved: The operator kept a copy of the encryption key.\n    session: The authenticated, elevated session.\n\nReturns:\n    The action outcome.\n\nRaises:\n    BackupError: When a schedule references it and ``force`` was not\n        given, or it is encrypted and ``key_saved`` was not given.",
         "operationId": "delete_destination_api_backup_destinations__name__delete",
         "parameters": [
           {
@@ -11305,6 +11397,18 @@
               "default": false,
               "description": "Remove it even if a schedule references it",
               "title": "Force",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "The encryption key was saved (show-key): required to remove an encrypted destination, whose backups are unreadable without it",
+            "in": "query",
+            "name": "key_saved",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "The encryption key was saved (show-key): required to remove an encrypted destination, whose backups are unreadable without it",
+              "title": "Key Saved",
               "type": "boolean"
             }
           }

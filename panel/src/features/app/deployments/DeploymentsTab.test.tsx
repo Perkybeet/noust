@@ -139,7 +139,7 @@ describe("the deployments tab", { timeout: 20_000 }, () => {
         "POST /api/jobs/rollback": () =>
           json(202, {
             message: "Rollback job created",
-            job: { id: "0a1b2c3d", type: "restore", name: "Rollback", description: "", status: "pending", progress: 0, total_steps: 100, current_step: "", created_at: "2026-09-25T19:00:00", logs: [], metadata: { domain: TAB_DOMAIN } },
+            job: { id: "0a1b2c3d", type: "rollback", name: "Rollback", description: "", status: "pending", progress: 0, total_steps: 100, current_step: "", created_at: "2026-09-25T19:00:00", logs: [], metadata: { domain: TAB_DOMAIN } },
           }),
       },
     );

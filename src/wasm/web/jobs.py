@@ -110,7 +110,11 @@ class JobType(str, Enum):
     DEPLOY = "deploy"
     UPDATE = "update"
     BACKUP = "backup"
+    # A backup restore. A rollback is a deployment, recorded and announced
+    # by the deployment recorder, and has a type of its own so that nothing
+    # reporting restores reports it a second time.
     RESTORE = "restore"
+    ROLLBACK = "rollback"
     PUSH = "push"
     CERT_CREATE = "cert_create"
     CERT_RENEW = "cert_renew"
@@ -949,6 +953,8 @@ def deploy_app_job(
     package_manager: str | None = None,
     trigger: str = "panel",
     github_installation_id: int | None = None,
+    preview_parent: str | None = None,
+    env_secret_marks: dict[str, bool] | None = None,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
     """
@@ -996,6 +1002,9 @@ def deploy_app_job(
         github_installation_id: The GitHub App installation the wizard read
             the repository through, recorded on the application once it
             exists so every update clones with it.
+        preview_parent: The application this one is the pull request preview
+            of, recorded on its row before the deployment runs.
+        env_secret_marks: The secret marks its row starts with.
         job_context: Injected by the job manager.
 
     Returns:
@@ -1037,6 +1046,8 @@ def deploy_app_job(
         tasks_max=tasks_max,
         resource_limits_given=True,
         package_manager=package_manager or "auto",
+        preview_parent=preview_parent,
+        env_secret_marks=env_secret_marks,
     )
 
     context.update("Deploying", 10)
@@ -1463,38 +1474,23 @@ def restore_from_destination_job(
         BackupError: When the download, its checksum, or the restore fails.
         DependencyError: When rclone is not installed.
     """
-    import json
-    import tempfile
-    from pathlib import Path
-
     from wasm.managers.backup_destinations import BackupDestinationManager
-    from wasm.managers.backup_manager import BackupManager, BackupMetadata
 
     context = _require_context(job_context)
     context.set_metadata("backup_id", backup_id)
     context.set_metadata("destination", destination_name)
-    context.update("Downloading backup", 10)
+    context.update("Downloading and restoring backup", 10)
 
-    destination_manager = BackupDestinationManager()
-    backup_manager = BackupManager(verbose=False)
-
-    with tempfile.TemporaryDirectory(prefix="wasm-restore-remote-") as staging:
-        staging_path = Path(staging)
-        archive_path, metadata_path = destination_manager.download(
-            destination_name, backup_id, app_name, staging_path
-        )
-        fallback = BackupMetadata.from_dict(json.loads(metadata_path.read_text()))
-        domain = target_domain or fallback.domain
-        context.set_metadata("domain", domain)
-        context.update("Restoring backup", 50)
-
-        backup_manager.restore_archive(
-            archive_path,
-            target_domain=domain,
-            restore_env=restore_env,
-            expected_checksum=fallback.checksum,
-            fallback=fallback,
-        )
+    # The one remote restore: staged under the backup directory with a free
+    # space check, the sidecar matched to its folder, cleaned up afterwards.
+    domain = BackupDestinationManager().restore_remote(
+        destination_name,
+        backup_id,
+        app_name,
+        target_domain=target_domain,
+        restore_env=restore_env,
+    )
+    context.set_metadata("domain", domain)
 
     context.update("Restore complete", 100)
     return {

@@ -347,12 +347,13 @@ def shutting_down() -> bool:
 
 
 #: Job types whose progress and outcome change what an application looks like.
-#: ``restore`` is the rollback job; certificate jobs carry a domain too but
-#: change a certificate, not the application's state.
-APP_JOB_TYPES = frozenset({"deploy", "update", "restore", "delete", "service_action"})
+#: ``rollback`` goes back to a deployment, ``restore`` puts a backup back;
+#: certificate jobs carry a domain too but change a certificate, not the
+#: application's state.
+APP_JOB_TYPES = frozenset({"deploy", "update", "rollback", "restore", "delete", "service_action"})
 
 #: Job types whose run is shown on the application as in progress.
-_IN_PROGRESS_TYPES = frozenset({"deploy", "update", "restore"})
+_IN_PROGRESS_TYPES = frozenset({"deploy", "update", "rollback", "restore"})
 
 #: Path segments directly under ``/api/apps/`` that are not a domain.
 _NON_DOMAIN_SEGMENTS = frozenset({"inspect"})

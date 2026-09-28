@@ -37,7 +37,7 @@ from urllib.parse import unquote
 
 from wasm.core.config import REDACTED, Config, redact_secrets
 from wasm.core.exceptions import WASMError
-from wasm.core.secret_detection import URL_CREDENTIALS, classify
+from wasm.core.secret_detection import URL_CREDENTIALS, classify, name_looks_secret
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +124,16 @@ def secret_env_values(env: Mapping[str, Any], marks: Mapping[str, bool] | None =
     the connection string - host, database name - stays in the log, which is
     what makes the log worth reading afterwards.
 
+    Scrubbing is deliberately a superset of the name-only heuristic
+    (:func:`~wasm.core.secret_detection.name_looks_secret`), even when
+    ``classify`` relaxes a name-based verdict because the name also looks
+    public (``NEXT_PUBLIC_API_KEY``, ``VITE_API_SECRET``): that relaxation
+    exists to decide what a human is shown, not what a build tool might echo
+    into a log nobody expected it to print. Over-scrubbing a log line is
+    harmless; a secret-shaped value appearing verbatim in one is not, so a
+    variable is scrubbed whenever its name alone would have flagged it,
+    unless the operator has explicitly marked it not secret.
+
     Args:
         env: Variable name to value. Non-string values are ignored.
         marks: Operator overrides for this application, as for
@@ -144,6 +154,9 @@ def secret_env_values(env: Mapping[str, Any], marks: Mapping[str, bool] | None =
         if verdict.marked and not verdict.secret:
             continue
         if verdict.secret and verdict.reason != "url credentials":
+            values.append(value)
+            continue
+        if not verdict.marked and name_looks_secret(key):
             values.append(value)
             continue
         for match in URL_CREDENTIALS.finditer(value):

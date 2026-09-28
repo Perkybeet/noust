@@ -816,7 +816,7 @@ def publisher(captured: Captured) -> events_module.AppStatePublisher:
     return events_module.AppStatePublisher(publish=captured.publish, refresh=captured.refresh)
 
 
-@pytest.mark.parametrize("job_type", ["deploy", "update", "restore"])
+@pytest.mark.parametrize("job_type", ["deploy", "update", "rollback", "restore"])
 def test_a_running_deploy_shows_the_application_as_deploying(
     publisher: events_module.AppStatePublisher, captured: Captured, job_type: str
 ) -> None:
@@ -832,7 +832,9 @@ def test_a_running_deploy_shows_the_application_as_deploying(
 
 
 @pytest.mark.parametrize("status", ["completed", "failed", "cancelled"])
-@pytest.mark.parametrize("job_type", ["deploy", "update", "restore", "delete", "service_action"])
+@pytest.mark.parametrize(
+    "job_type", ["deploy", "update", "rollback", "restore", "delete", "service_action"]
+)
 def test_a_finished_application_job_publishes_the_application_s_real_state(
     publisher: events_module.AppStatePublisher, captured: Captured, job_type: str, status: str
 ) -> None:

@@ -11,8 +11,10 @@ unit, ``<name>@blue`` on its port and ``<name>@green`` on the next one, and
 its site proxies to an nginx ``upstream`` that names only the instance that
 serves. An activation is then:
 
-1. point the idle instance at the release (``colors/<color>``) and start it;
-2. ask it the health gate's question on its own port;
+1. make sure nothing listens on the idle instance's port, point the
+   instance at the release (``colors/<color>``) and start it;
+2. ask it the health gate's question on its own port, and make sure what
+   answered is the instance: whatever listens there would pass the gate;
 3. point the upstream at it, ``nginx -t`` and reload: nginx finishes the
    requests in flight on the old workers and sends new ones to the new port;
 4. let the old instance drain, then stop it;
@@ -48,6 +50,7 @@ from wasm.core.exceptions import (
 )
 from wasm.core.fs import is_rehearsal
 from wasm.core.logger import Logger
+from wasm.core.runner import CommandRunner, get_runner
 from wasm.core.store import (
     BLUE_GREEN_COLORS,
     DEFAULT_DRAIN_SECONDS,
@@ -88,6 +91,13 @@ _INSTANCE_SUFFIX = max(len(f"@{color}") for color in BLUE_GREEN_COLORS)
 
 #: What refreshes an application's site from the store (see :func:`_refresh_site`).
 SiteRefresher = Callable[[App], None]
+
+#: Where the kernel publishes the processes of each cgroup: the unified
+#: hierarchy, or its mount on a hybrid cgroup v1 host.
+CGROUP_ROOTS = (Path("/sys/fs/cgroup"), Path("/sys/fs/cgroup/unified"))
+
+#: Unit states in which a unit still holds, or is about to take, its port.
+_RUNNING_STATES = frozenset({"active", "activating", "reloading", "deactivating"})
 
 
 # ---------------------------------------------------------------------------
@@ -175,6 +185,24 @@ def serving_port(app: App) -> int | None:
     if getattr(app, "zero_downtime", False) and app.active_color in BLUE_GREEN_COLORS:
         return color_port(app, app.active_color)
     return app.port
+
+
+def ports_of(app: App) -> set[int]:
+    """
+    Name the ports an application owns, whether or not anything listens on them.
+
+    Args:
+        app: The application.
+
+    Returns:
+        Its port, and in zero-downtime mode the idle instance's too; empty
+        when it has none.
+    """
+    if not app.port:
+        return set()
+    if getattr(app, "zero_downtime", False):
+        return {color_port(app, color) for color in BLUE_GREEN_COLORS}
+    return {app.port}
 
 
 def drain_of(app: App) -> int:
@@ -310,10 +338,9 @@ def check_eligible(
             field="enabled",
         )
     for other in store.list_apps():
-        if other.domain == domain or not other.port:
+        if other.domain == domain:
             continue
-        taken = {other.port, color_port(other, GREEN)} if other.zero_downtime else {other.port}
-        if green in taken:
+        if green in ports_of(other):
             raise ValidationError(
                 f"Port {green}, which the green instance of {domain} needs, is {other.domain}'s",
                 details=f"Move one of the two applications to another port. Blue runs on "
@@ -335,6 +362,240 @@ def check_eligible(
             f"'ss -ltnp sport = :{green}' and move it, or move {domain} to another port.",
             field="enabled",
         )
+
+
+# ---------------------------------------------------------------------------
+# Who listens on a port
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Listener:
+    """
+    One process listening on a port.
+
+    Attributes:
+        process: Its name, as ``ss`` reports it.
+        pid: Its process id.
+        unit: The systemd unit whose cgroup it runs in, such as
+            ``shop-example-com.service`` or ``session-3.scope``, or None when
+            that could not be read.
+    """
+
+    process: str
+    pid: int
+    unit: str | None = None
+
+    def describe(self) -> str:
+        """Say who it is, as an operator reads it."""
+        return f"{self.process} (pid {self.pid}" + (f", {self.unit})" if self.unit else ")")
+
+
+#: Finds who listens on a port: None when it cannot be told.
+Listeners = Callable[[int], "list[Listener] | None"]
+
+
+@dataclass(frozen=True)
+class UnitFacts:
+    """
+    What systemd says of one unit, asked by its literal name.
+
+    Attributes:
+        state: Its ActiveState, or empty when systemd did not say.
+        pids: The processes in its cgroup, its children's included, or None
+            when they could not be read.
+    """
+
+    state: str
+    pids: frozenset[int] | None
+
+
+#: Reads a unit's state and processes.
+UnitFactsReader = Callable[[str], UnitFacts]
+
+
+def listeners_on(
+    port: int, *, runner: CommandRunner | None = None, proc: Path = Path("/proc")
+) -> list[Listener] | None:
+    """
+    Ask ``ss`` who listens on a port on this machine.
+
+    Args:
+        port: The port.
+        runner: Runs ``ss``. Defaults to the process-wide runner.
+        proc: Where each process's cgroup is read, to name its unit.
+
+    Returns:
+        One entry per process, empty when nothing listens, or None when that
+        cannot be told: ``ss`` failed, or a socket listens whose process it
+        would not name.
+    """
+    # Imported here: the diagnosis imports this module. Its parser is the one
+    # reading of ss's output.
+    from wasm.managers.diagnose import _parse_ss_output
+
+    result = (runner or get_runner()).run(["ss", "-ltnpH"], timeout=10)
+    if not result.success:
+        return None
+    found: dict[int, Listener] = {}
+    for entry in _parse_ss_output(result.stdout):
+        if entry.port != port:
+            continue
+        if not entry.processes:
+            return None
+        for name, pid in entry.processes:
+            number = int(pid)
+            found.setdefault(
+                number, Listener(process=name, pid=number, unit=_unit_of_process(number, proc))
+            )
+    return list(found.values())
+
+
+def _unit_of_process(pid: int, proc: Path) -> str | None:
+    """
+    Name the systemd unit a process runs in, from its cgroup.
+
+    Args:
+        pid: The process.
+        proc: Where ``/proc`` is.
+
+    Returns:
+        The innermost ``.service`` or ``.scope`` of its cgroup path, or None.
+    """
+    try:
+        lines = (proc / str(pid) / "cgroup").read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    # The unified hierarchy's line ("0::/...") or systemd's own v1 one.
+    paths = [
+        line.split(":", 2)[2]
+        for line in lines
+        if line.count(":") >= 2 and (line.startswith("0::") or ":name=systemd:" in line)
+    ]
+    for path in paths:
+        for part in reversed(path.split("/")):
+            if part.endswith((".service", ".scope")):
+                return part
+    return None
+
+
+def unit_facts_of(
+    unit: str,
+    *,
+    runner: CommandRunner | None = None,
+    cgroups: Path | tuple[Path, ...] = CGROUP_ROOTS,
+) -> UnitFacts:
+    """
+    Read a unit's state and the processes running in its cgroup.
+
+    The unit is asked of systemd by its literal name: the service manager
+    answers an application's own name with the instance that serves.
+
+    Args:
+        unit: The unit, without ``.service``.
+        runner: Runs ``systemctl show``. Defaults to the process-wide runner.
+        cgroups: Where cgroup hierarchies are mounted.
+
+    Returns:
+        Its ActiveState, and its processes: None when systemd names no
+        cgroup or the cgroup cannot be read (a stopped unit, cgroup v1 only).
+    """
+    # Imported here: the diagnosis imports this module.
+    from wasm.managers.diagnose import _parse_systemctl_show
+
+    result = (runner or get_runner()).run(
+        ["systemctl", "show", "-p", "ActiveState,ControlGroup", f"{unit}.service"], timeout=15
+    )
+    if not result.success:
+        return UnitFacts(state="", pids=None)
+    properties = _parse_systemctl_show(result.stdout)
+    state = properties.get("ActiveState", "")
+    group = properties.get("ControlGroup", "")
+    if not group:
+        return UnitFacts(state=state, pids=None)
+    roots = (cgroups,) if isinstance(cgroups, Path) else cgroups
+    for root in roots:
+        directory = root / group.lstrip("/")
+        if not directory.is_dir():
+            continue
+        pids: set[int] = set()
+        try:
+            for procs in directory.rglob("cgroup.procs"):
+                pids.update(int(line) for line in procs.read_text().split() if line.isdigit())
+        except OSError:
+            return UnitFacts(state=state, pids=None)
+        return UnitFacts(state=state, pids=frozenset(pids))
+    return UnitFacts(state=state, pids=None)
+
+
+def own_unit_name(app: App, store: WASMStore) -> str:
+    """
+    Name the unit an application runs as outside zero-downtime mode.
+
+    Args:
+        app: The application.
+        store: Where its service row is read.
+
+    Returns:
+        The recorded unit's name (a legacy ``wasm-`` one included), or the
+        application's name when none is recorded.
+    """
+    service = store.get_service_by_app_id(app.id) if app.id is not None else None
+    return service.name.removesuffix(".service") if service is not None else unit_base(app)
+
+
+def leftover_unit(app: App, *, store: WASMStore, runner: CommandRunner | None = None) -> str | None:
+    """
+    Find the unit an application ran as before zero-downtime mode, still running.
+
+    Turning the mode on retires that unit once the drain is over. A switch
+    interrupted during the drain leaves it enabled and running the old
+    release on blue's port, where the next activation would start blue, and
+    at every boot after that.
+
+    Args:
+        app: The application.
+        store: Where the unit's name is read.
+        runner: Asks systemd. Defaults to the process-wide runner.
+
+    Returns:
+        The unit's name when the application is in zero-downtime mode and the
+        unit runs or starts at boot, else None.
+    """
+    if not app.zero_downtime:
+        return None
+    # Imported here: the diagnosis imports this module.
+    from wasm.managers.diagnose import _parse_systemctl_show
+
+    name = own_unit_name(app, store)
+    # systemd is asked by the unit's literal name: the service manager answers
+    # the application's own name with the instance that serves.
+    result = (runner or get_runner()).run(
+        ["systemctl", "show", "-p", "ActiveState,UnitFileState", f"{name}.service"], timeout=15
+    )
+    if not result.success:
+        return None
+    properties = _parse_systemctl_show(result.stdout)
+    running = properties.get("ActiveState", "") in _RUNNING_STATES
+    return name if running or properties.get("UnitFileState", "") == "enabled" else None
+
+
+def leftover_advice(unit: str, domain: str) -> tuple[str, str]:
+    """
+    Say what a unit left by an interrupted switch is, and what to do about it.
+
+    Args:
+        unit: The unit, without ``.service``.
+        domain: The application's domain.
+
+    Returns:
+        What it is, and how to remove it.
+    """
+    return (
+        f"{unit}.service, which ran {domain} before zero-downtime mode was turned on, "
+        "is still running or enabled: the switch that turned the mode on did not finish",
+        f"Stop and disable it, then activate again: systemctl disable --now {unit}.service",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -381,6 +642,8 @@ class BlueGreen:
         sleep: Callable[[float], None] | None = None,
         refresh_site: SiteRefresher | None = None,
         port_free: Callable[[int], bool] | None = None,
+        listeners: Listeners | None = None,
+        unit_facts: UnitFactsReader | None = None,
     ) -> None:
         """
         Initialize the engine.
@@ -398,6 +661,10 @@ class BlueGreen:
                 nginx, putting the old file back when nginx refuses the new
                 one. Defaults to the deployer's own rendering.
             port_free: Tells whether nothing listens on a port.
+            listeners: Names who listens on a port. Defaults to
+                :func:`listeners_on`.
+            unit_facts: Reads a unit's state and processes. Defaults to
+                :func:`unit_facts_of`.
         """
         self.app = app
         self.log = logger
@@ -412,6 +679,8 @@ class BlueGreen:
         self._sleep = sleep if sleep is not None else time.sleep
         self._refresh_site = refresh_site if refresh_site is not None else _refresh_site
         self._port_free = port_free if port_free is not None else is_port_available
+        self._listeners: Listeners = listeners if listeners is not None else listeners_on
+        self._unit_facts: UnitFactsReader = unit_facts if unit_facts is not None else unit_facts_of
 
     # -- Names -------------------------------------------------------------
 
@@ -471,7 +740,10 @@ class BlueGreen:
                 or nginx refused or failed to load the switch; the instance
                 that was serving still serves, and answers.
             DeploymentError: The same, and the instance that was serving does
-                not answer either; or no instance serves at all.
+                not answer either; or no instance serves at all; or something
+                else listens on the idle instance's port, which may be the
+                unit an interrupted switch to the mode left running (nothing
+                was started or switched).
         """
         serving = self.app.active_color
         if serving not in BLUE_GREEN_COLORS:
@@ -500,9 +772,16 @@ class BlueGreen:
                 port=port,
             )
 
+        self._claim_port(
+            unit, port, f"the {target} instance", keeps=f"the {serving} instance keeps serving"
+        )
         self.log.substep(f"Starting release {release_id} on the {target} instance (port {port})")
         releases.point_color(target, release, port=port)
         healthy, evidence = self._gate(target).restart_and_probe()
+        if healthy:
+            stranger = self._not_itself(unit, port)
+            if stranger is not None:
+                healthy, evidence = False, stranger
         if not healthy:
             self._stop(unit)
             raise self._kept_serving(
@@ -558,6 +837,93 @@ class BlueGreen:
             restart=lambda: self.services.restart(unit),
         )
 
+    def _claim_port(self, unit: str, port: int, what: str, *, keeps: str) -> None:
+        """
+        Make sure nothing but the unit about to start can answer on its port.
+
+        The gate asks whatever answers on the port; a port that is not free
+        before the unit starts would let another process pass it in the
+        release's place. The unit itself, left running by a switch that did
+        not finish or in a crash loop, is stopped first.
+
+        Args:
+            unit: The unit about to start there.
+            port: Its port.
+            what: The unit, as the error names it.
+            keeps: What keeps serving, as the error says it.
+
+        Raises:
+            DeploymentError: Something else listens there; nothing was
+                started or switched.
+        """
+        if self._port_free(port):
+            return
+        self._stop(unit)
+        if self._port_free(port):
+            return
+        listeners = self._listeners(port) or []
+        who = ", ".join(listener.describe() for listener in listeners) or (
+            "a process WASM could not identify"
+        )
+        message = (
+            f"Port {port}, where {what} of {self.app.domain} starts, is held by {who}; "
+            f"nothing was switched and {keeps}"
+        )
+        own = own_unit_name(self.app, self.store)
+        if self.app.zero_downtime and any(item.unit == f"{own}.service" for item in listeners):
+            what_it_is, fix = leftover_advice(own, self.app.domain)
+            raise DeploymentError(message, details=f"{what_it_is}. {fix}")
+        raise DeploymentError(
+            message,
+            details=f"Whatever listens on 127.0.0.1:{port} would answer the health check in "
+            f"place of the release. Stop or move it, then try again. See it with: "
+            f"ss -ltnp 'sport = :{port}'",
+        )
+
+    def _not_itself(self, unit: str, port: int) -> str | None:
+        """
+        Tell whether what answered the gate on a port was not the unit.
+
+        Something may have taken the port between :meth:`_claim_port` and the
+        unit binding it; the unit then fails to bind while the probe is
+        answered by the other process. The unit must be active, and where the
+        listening processes and the unit's cgroup can both be read, every
+        listener must be one of the unit's. Where they cannot (no ``ss``,
+        cgroup v1), the unit being active is what is left to go on: a process
+        that took the port in that window, while an instance that failed to
+        bind it stays up, could still pass.
+
+        Args:
+            unit: The unit that should answer.
+            port: The port the gate probed.
+
+        Returns:
+            Why it was not the unit, or None when nothing says so.
+        """
+        facts = self._unit_facts(unit)
+        # An empty state is systemd not saying, not evidence of anything.
+        if facts.state and facts.state != "active":
+            return (
+                f"{unit} is not active ({facts.state}) although something answered on port "
+                f"{port}: what answered the health check was not the release"
+            )
+        listeners = self._listeners(port)
+        pids = facts.pids
+        if not listeners or pids is None:
+            self.log.debug(
+                f"Could not tell which process listens on port {port}; trusting that {unit} "
+                "is active"
+            )
+            return None
+        strangers = [listener for listener in listeners if listener.pid not in pids]
+        if not strangers:
+            return None
+        who = ", ".join(listener.describe() for listener in strangers)
+        return (
+            f"Port {port} is held by {who}, which is not {unit}: what answered the health "
+            f"check was not the release. See it with: ss -ltnp 'sport = :{port}'"
+        )
+
     def _switch_upstream(self, target: str, unit: str, serving: str) -> None:
         """
         Point nginx at an instance that already answers.
@@ -573,7 +939,14 @@ class BlueGreen:
             DeploymentError: The same, and the old instance does not answer.
         """
         domain = self.app.domain
-        previous = self.web.write_upstream(domain, self.port(target))
+        try:
+            previous = self.web.write_upstream(domain, self.port(target))
+        except WASMError as exc:
+            # Nothing was written: the old upstream still names what serves.
+            self._stop(unit)
+            raise self._kept_serving(
+                f"nginx did not switch {domain} to the {target} instance", str(exc), serving
+            ) from exc
         problem = self.web.config_errors()
         if problem is None and self.web.reload():
             return
@@ -719,7 +1092,9 @@ class BlueGreen:
             DeploymentError: A step failed; everything was put back.
         """
         app = self.app
-        check_eligible(app, store=self.store, port_free=self._port_free)
+        # The port is checked below, once the green instance itself, if a
+        # switch left it running, is out of the way.
+        check_eligible(app, store=self.store)
         releases = self.releases()
         active = releases.current()
         if active is None:
@@ -734,6 +1109,10 @@ class BlueGreen:
                 details=f"Redeploy it so its unit is recorded: wasm update {app.domain}",
             )
 
+        green = self.unit(GREEN)
+        self._claim_port(
+            green, self.port(GREEN), "the green instance", keeps=f"{service.name} keeps serving"
+        )
         undo: list[Callable[[], None]] = []
         try:
             self.log.substep(f"Writing the template {self.base}@.service")
@@ -746,10 +1125,13 @@ class BlueGreen:
             for color in BLUE_GREEN_COLORS:
                 releases.point_color(color, active.path, port=self.port(color))
 
-            green = self.unit(GREEN)
             self.log.substep(f"Starting release {active.id} on the green instance")
             healthy, evidence = self._gate(GREEN).restart_and_probe()
             undo.append(lambda: self._stop(green))
+            if healthy:
+                stranger = self._not_itself(green, self.port(GREEN))
+                if stranger is not None:
+                    healthy, evidence = False, stranger
             if not healthy:
                 raise DeploymentError(
                     f"Release {active.id} did not answer on the green instance; "
@@ -833,6 +1215,13 @@ class BlueGreen:
             if self.services.service_exists(name):
                 # Left by a switch that did not finish; it runs nothing.
                 self.services.delete_service(name, keep_record=True)
+            # Blue's port: blue itself, if a drain was cut short, is stopped.
+            self._claim_port(
+                self.unit(BLUE),
+                int(app.port or 0),
+                f"{name}.service",
+                keeps=f"the {app.active_color} instance keeps serving",
+            )
             self.log.substep(f"Writing {name}.service to run release {active.id}")
             self.services.create_service(
                 name=name,
@@ -857,6 +1246,10 @@ class BlueGreen:
                 probe=self._probe,
             )
             healthy, evidence = gate.restart_and_probe()
+            if healthy:
+                stranger = self._not_itself(name, int(app.port or 0))
+                if stranger is not None:
+                    healthy, evidence = False, stranger
             if not healthy:
                 raise DeploymentError(
                     f"Release {active.id} did not answer as {name}; "
@@ -1028,7 +1421,8 @@ class ZeroDowntimeStatus:
         instances: Both instances, when enabled.
         upstream_port: The port nginx's upstream names, when there is one.
         eligible: Whether the mode can be turned on (always True when on).
-        reason: Why it cannot, when it cannot.
+        reason: Why it cannot, when it cannot; when it is on, what is wrong
+            with it (the unit an interrupted switch left running), if anything.
         hint: What to do about it.
     """
 
@@ -1088,7 +1482,11 @@ def _known_app(domain: str, store: WASMStore) -> App:
 
 
 def zero_downtime_status(
-    domain: str, *, services: ServiceManager | None = None, web: WebServerManager | None = None
+    domain: str,
+    *,
+    services: ServiceManager | None = None,
+    web: WebServerManager | None = None,
+    runner: CommandRunner | None = None,
 ) -> ZeroDowntimeStatus:
     """
     Describe an application's zero-downtime mode. Changes nothing.
@@ -1097,6 +1495,8 @@ def zero_downtime_status(
         domain: The application's domain.
         services: The service manager, for the instances' states.
         web: The nginx manager, for the upstream.
+        runner: Asks systemd about the unit the application ran as before
+            the mode (see :func:`leftover_unit`).
 
     Returns:
         The mode, the instances and, when off, whether it could be turned on.
@@ -1156,6 +1556,8 @@ def zero_downtime_status(
                 state=state,
             )
         )
+    leftover = leftover_unit(app, store=store, runner=runner)
+    reason, hint = leftover_advice(leftover, app.domain) if leftover is not None else (None, None)
     return ZeroDowntimeStatus(
         domain=app.domain,
         enabled=True,
@@ -1164,6 +1566,8 @@ def zero_downtime_status(
         instances=tuple(instances),
         upstream_port=web.upstream_port(app.domain),
         eligible=True,
+        reason=reason,
+        hint=hint,
     )
 
 

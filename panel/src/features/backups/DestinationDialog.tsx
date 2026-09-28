@@ -29,7 +29,9 @@ export interface DestinationDialogProps {
 /**
  * Adds or edits a backup destination: pick a backend (creating only - it cannot change once
  * chosen), fill its form, and optionally encrypt what is sent there. Saving an encryption key
- * for the first time hands off to `ShowKeyDialog`, the only chance to write it down.
+ * for the first time hands off to `ShowKeyDialog`, the only chance to write it down. Creating
+ * one can instead take a key the operator already has - the one a lost server encrypted its
+ * backups with - which is the only way those backups are read again.
  */
 export function DestinationDialog({ existing, open, onOpenChange }: DestinationDialogProps) {
   const formId = useId();
@@ -38,6 +40,9 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
   const [name, setName] = useState(existing?.name ?? "");
   const [values, setValues] = useState<Record<string, string>>(existing?.settings ?? {});
   const [encrypted, setEncrypted] = useState(existing?.encrypted ?? false);
+  const [useExistingKey, setUseExistingKey] = useState(false);
+  const [keyPassword, setKeyPassword] = useState("");
+  const [keyPassword2, setKeyPassword2] = useState("");
   const [revealFor, setRevealFor] = useState<string | null>(null);
   const { create, update } = useDestinationActions();
 
@@ -50,6 +55,9 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
     setName(existing?.name ?? "");
     setValues(existing?.settings ?? {});
     setEncrypted(existing?.encrypted ?? false);
+    setUseExistingKey(false);
+    setKeyPassword("");
+    setKeyPassword2("");
     create.reset();
     update.reset();
   };
@@ -65,10 +73,12 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
   const oauth = OAUTH_BACKENDS.has(backend);
   const configuredSecrets = new Set(existing?.configured_secret_fields ?? []);
 
+  const givesKey = existing === undefined && encrypted && useExistingKey;
   const canSubmit =
     backend !== "" &&
     (existing !== undefined || name.trim() !== "") &&
-    hasRequiredValues(fields, values, configuredSecrets);
+    hasRequiredValues(fields, values, configuredSecrets) &&
+    (!givesKey || (keyPassword.trim() !== "" && keyPassword2.trim() !== ""));
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
@@ -76,14 +86,24 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
     const payload = fieldsPayload(fields, values);
     const wasEncrypted = existing?.encrypted ?? false;
     const onSuccess = (): void => {
-      if (encrypted && !wasEncrypted) {
+      // A key the operator typed in is one they already hold: nothing new to write down.
+      if (encrypted && !wasEncrypted && !givesKey) {
         setRevealFor(existing?.name ?? name.trim());
         return;
       }
       close(false);
     };
     if (existing === undefined) {
-      create.mutate({ name: name.trim(), backend, fields: payload, encrypted }, { onSuccess });
+      create.mutate(
+        {
+          name: name.trim(),
+          backend,
+          fields: payload,
+          encrypted,
+          encryptionKey: givesKey ? { password: keyPassword.trim(), password2: keyPassword2.trim() } : undefined,
+        },
+        { onSuccess },
+      );
     } else {
       update.mutate({ name: existing.name, fields: payload, encrypted }, { onSuccess });
     }
@@ -224,7 +244,35 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
                   label="Encrypt backups before upload"
                   description="Wraps everything sent here in an rclone crypt layer, so the destination itself never sees a readable file."
                 />
-                {encrypted ? (
+                {encrypted && existing === undefined ? (
+                  <div className="flex flex-col gap-3 pl-6">
+                    <Checkbox
+                      checked={useExistingKey}
+                      onCheckedChange={setUseExistingKey}
+                      disabled={saving}
+                      label="I already have a key for this folder"
+                      description="The key another server showed for it. Backups already there can only be read with the key they were encrypted with."
+                    />
+                    {useExistingKey ? (
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <Field label="Password">
+                          <SecretInput label="Password" placeholder="" value={keyPassword} configured={false} disabled={saving} onChange={setKeyPassword} />
+                        </Field>
+                        <Field label="Password 2 (salt)">
+                          <SecretInput
+                            label="Password 2 (salt)"
+                            placeholder=""
+                            value={keyPassword2}
+                            configured={false}
+                            disabled={saving}
+                            onChange={setKeyPassword2}
+                          />
+                        </Field>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+                {encrypted && !useExistingKey ? (
                   <p className="flex items-start gap-1.5 pl-6 text-13 text-warn">
                     <span>
                       WASM keeps the key, but if this server is ever lost, so is the only other copy - unless you write it down when it

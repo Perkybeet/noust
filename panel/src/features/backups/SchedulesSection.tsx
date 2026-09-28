@@ -84,11 +84,16 @@ export function SchedulesSection() {
       id: "retention",
       header: "Retention",
       hideBelow: "md",
+      // Null is not unknown: it is backup.max_per_app over every backup, what an adopted 2.1
+      // timer has and what the operator chose when they left it on the server default.
       cell: (row) =>
-        row.retention_count !== null && row.retention_count !== undefined ? (
-          <Badge mono>{`${String(row.retention_count)} backups`}</Badge>
+        (row.retention_count ?? null) === null && (row.retention_days ?? null) === null ? (
+          <span className="text-fg-muted">Server default</span>
         ) : (
-          <span className="text-fg-faint">Unknown</span>
+          <span className="flex flex-wrap gap-1">
+            {row.retention_count !== null && row.retention_count !== undefined ? <Badge mono>{`${String(row.retention_count)} backups`}</Badge> : null}
+            {row.retention_days !== null && row.retention_days !== undefined ? <Badge mono>{`${String(row.retention_days)} days`}</Badge> : null}
+          </span>
         ),
     },
     {

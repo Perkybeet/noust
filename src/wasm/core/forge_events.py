@@ -12,6 +12,7 @@ everything after them - an update, a preview - reads only these.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
@@ -79,6 +80,18 @@ class PullRequestEvent:
         head_sha: The commit at the tip of its branch.
         from_fork: True when its branch lives in another repository.
         installation_id: As for :class:`PushEvent`.
+        author: Login of the account that opened it (GitLab: of the account
+            that caused the event; GitLab does not say who opened it).
+        sender: Login of the account whose action sent this delivery: for a
+            push to the branch, whoever pushed.
+        bot: True when the author or the sender is a bot account (GitHub
+            ``type: Bot`` or a ``[bot]`` login; on GitLab and Gitea, a
+            username ending in ``bot``). A bot's pull request runs code a
+            dependency update or an automation chose, not a person.
+        author_association: GitHub's relation of the author to the
+            repository (``OWNER``, ``MEMBER``, ``COLLABORATOR``,
+            ``CONTRIBUTOR``, ``NONE``...); None elsewhere, since GitLab and
+            Gitea send no role.
     """
 
     forge: Forge
@@ -92,6 +105,38 @@ class PullRequestEvent:
     head_sha: str
     from_fork: bool = False
     installation_id: int | None = None
+    author: str = ""
+    sender: str = ""
+    bot: bool = False
+    author_association: str | None = None
+
+
+#: GitLab project and group access tokens act as users named
+#: ``project_<id>_bot_<hash>`` and ``group_<id>_bot_<hash>``.
+_GITLAB_TOKEN_USER = re.compile(r"^(?:project|group)_\d+_bot(?:_[0-9a-f]+)?$", re.IGNORECASE)
+
+
+def _is_bot(login: str, account_type: str = "", *, by_suffix: bool = False) -> bool:
+    """
+    Tell a bot account from a person.
+
+    Args:
+        login: The account's login.
+        account_type: What the host says it is (GitHub: ``User``, ``Bot``,
+            ``Organization``); empty when it says nothing.
+        by_suffix: Also count a login that merely ends in ``bot``, for the
+            hosts that have no account type (GitLab, Gitea): that is how
+            their bots are named (``renovate-bot``, ``dependabot``).
+
+    Returns:
+        True for a bot.
+    """
+    name = login.lower()
+    if account_type.lower() == "bot" or name.endswith("[bot]"):
+        return True
+    if by_suffix and (name.endswith("bot") or _GITLAB_TOKEN_USER.match(name) is not None):
+        return True
+    return False
 
 
 #: Pull request actions of GitHub and Gitea that matter to a preview.
@@ -180,6 +225,16 @@ def parse_pull_request(provider: str, payload: dict[str, Any]) -> PullRequestEve
     head_name = _text(head_repo.get("full_name"))
     from_fork = not head_name or head_name.lower() != repository.lower()
     installation = _section(payload.get("installation")).get("id")
+    user = _section(pull.get("user"))
+    sender = _section(payload.get("sender"))
+    author = _text(user.get("login")) or _text(sender.get("login"))
+    sender_login = _text(sender.get("login")) or author
+    # Gitea's accounts carry no type; its bots are only told by their name.
+    by_suffix = forge is Forge.GITEA
+    bot = _is_bot(author, _text(user.get("type")), by_suffix=by_suffix) or _is_bot(
+        sender_login, _text(sender.get("type")), by_suffix=by_suffix
+    )
+    association = _text(pull.get("author_association")).upper()
     return PullRequestEvent(
         forge=forge,
         action=action,
@@ -192,6 +247,10 @@ def parse_pull_request(provider: str, payload: dict[str, Any]) -> PullRequestEve
         head_sha=_text(head.get("sha")),
         from_fork=from_fork,
         installation_id=installation if isinstance(installation, int) else None,
+        author=author,
+        sender=sender_login,
+        bot=bot,
+        author_association=association if forge is Forge.GITHUB and association else None,
     )
 
 
@@ -224,6 +283,9 @@ def _merge_request_event(payload: dict[str, Any]) -> PullRequestEvent | None:
     source_project = attributes.get("source_project_id")
     target_project = attributes.get("target_project_id")
     from_fork = source_project is None or source_project != target_project
+    # GitLab names the account that caused the event, not the one that
+    # opened the merge request, and says nothing of its role.
+    user = _text(_section(payload.get("user")).get("username"))
     return PullRequestEvent(
         forge=Forge.GITLAB,
         action=action,
@@ -235,4 +297,7 @@ def _merge_request_event(payload: dict[str, Any]) -> PullRequestEvent | None:
         base_branch=_text(attributes.get("target_branch")),
         head_sha=_text(_section(attributes.get("last_commit")).get("id")),
         from_fork=from_fork,
+        author=user,
+        sender=user,
+        bot=_is_bot(user, by_suffix=True),
     )

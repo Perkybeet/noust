@@ -467,7 +467,7 @@ def create_rollback_job(
     backup_id = validate_filename(request.backup_id) if request.backup_id else None
 
     job = get_job_manager().create_job(
-        job_type=JobType.RESTORE,
+        job_type=JobType.ROLLBACK,
         name=f"Rollback {domain}",
         description=(f"Rolling back {domain}" + (f" to backup {backup_id}" if backup_id else "")),
         func=rollback_app_job,

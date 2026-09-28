@@ -621,19 +621,50 @@ class PreviewSettings:
             ``previews.example.com`` for ``*.previews.example.com``.
         max_previews: How many may exist at once.
         ttl_hours: Hours a preview lives without a new push.
+        allow_bots: Whether pull requests opened or pushed to by bot
+            accounts (Dependabot, Renovate) get a preview. Off by default:
+            their code is whatever a dependency update brought in.
+        exclude_env: Names of the application's environment variables never
+            copied to a preview (production-only secrets).
     """
 
     app_domain: str
     base_domain: str
     max_previews: int = 3
     ttl_hours: int = 168
+    allow_bots: bool = False
+    exclude_env: list[str] = field(default_factory=list)
     created_at: str | None = None
     updated_at: str | None = None
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> "PreviewSettings":
         """Create from database row."""
-        return cls(**dict(row))
+        data = dict(row)
+        data["allow_bots"] = bool(data.get("allow_bots"))
+        data["exclude_env"] = _decode_names(data.get("exclude_env"))
+        return cls(**data)
+
+
+def _decode_names(raw: Any) -> list[str]:
+    """
+    Read a column holding a JSON list of names.
+
+    Args:
+        raw: The column value.
+
+    Returns:
+        The names. Anything that is not a list of strings reads as none, or
+        as the strings it holds: a damaged column must not stop the row
+        from loading.
+    """
+    try:
+        value = json.loads(raw) if raw else []
+    except (json.JSONDecodeError, TypeError):
+        return []
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
 
 
 @dataclass
@@ -738,6 +769,9 @@ class BackupScheduleRecord:
         try:
             destinations = json.loads(data.get("destinations") or "[]")
         except (json.JSONDecodeError, TypeError):
+            destinations = []
+        # Valid JSON that is not a list (null, an object) reads as none too.
+        if not isinstance(destinations, list):
             destinations = []
         data["destinations"] = [d for d in destinations if isinstance(d, dict)]
         return cls(**data)
@@ -1019,6 +1053,8 @@ CREATE TABLE IF NOT EXISTS preview_settings (
     base_domain TEXT NOT NULL,
     max_previews INTEGER NOT NULL DEFAULT 3,
     ttl_hours INTEGER NOT NULL DEFAULT 168,
+    allow_bots INTEGER NOT NULL DEFAULT 0,
+    exclude_env TEXT NOT NULL DEFAULT '[]',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -3772,15 +3808,19 @@ class WASMStore:
         with self._transaction() as cursor:
             cursor.execute(
                 "INSERT INTO preview_settings (app_domain, base_domain, max_previews, "
-                "ttl_hours, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) "
+                "ttl_hours, allow_bots, exclude_env, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(app_domain) DO UPDATE SET base_domain = excluded.base_domain, "
                 "max_previews = excluded.max_previews, ttl_hours = excluded.ttl_hours, "
+                "allow_bots = excluded.allow_bots, exclude_env = excluded.exclude_env, "
                 "updated_at = excluded.updated_at",
                 (
                     settings.app_domain,
                     settings.base_domain,
                     settings.max_previews,
                     settings.ttl_hours,
+                    1 if settings.allow_bots else 0,
+                    json.dumps(list(settings.exclude_env)),
                     now,
                     now,
                 ),
@@ -3807,7 +3847,9 @@ class WASMStore:
         Create or update the preview of one pull request.
 
         Keyed by application and pull request number: a new push to the same
-        pull request updates its row.
+        pull request updates its row. A record without a comment id keeps the
+        one stored: the push that rewrites the row read it before a build
+        posted the comment, and must not make the next build post another.
 
         Args:
             preview: The preview.
@@ -3824,7 +3866,8 @@ class WASMStore:
                 "ON CONFLICT(parent_domain, number) DO UPDATE SET domain = excluded.domain, "
                 "branch = excluded.branch, head_sha = excluded.head_sha, "
                 "provider = excluded.provider, repository = excluded.repository, "
-                "comment_ref = excluded.comment_ref, status = excluded.status, "
+                "comment_ref = COALESCE(excluded.comment_ref, previews.comment_ref), "
+                "status = excluded.status, "
                 "error = excluded.error, updated_at = excluded.updated_at, "
                 "expires_at = excluded.expires_at",
                 (
@@ -3845,6 +3888,54 @@ class WASMStore:
             )
         stored = self.get_preview(preview.parent_domain, preview.number)
         return _written(stored)
+
+    #: The columns :meth:`update_preview` writes and compares.
+    _PREVIEW_UPDATE_COLUMNS = frozenset({"status", "error", "comment_ref", "head_sha"})
+
+    def update_preview(
+        self,
+        parent_domain: str,
+        number: int,
+        values: dict[str, Any],
+        *,
+        expect: dict[str, Any] | None = None,
+    ) -> PreviewRecord | None:
+        """
+        Write some columns of one preview, only if it still is as expected.
+
+        Unlike :meth:`save_preview`, which writes the whole row, this writes
+        only what changed, so a build that read the row before a push does
+        not put back the commit the push replaced.
+
+        Args:
+            parent_domain: The application previewed.
+            number: The pull request number.
+            values: Column to new value: ``status``, ``error``, ``comment_ref``.
+            expect: Column to the value it must still have (``status``,
+                ``head_sha``...), NULL included; None writes unconditionally.
+
+        Returns:
+            The preview as stored after the write, or None when it does not
+            exist or no longer matches ``expect`` (nothing is written then).
+
+        Raises:
+            ValueError: A column is not one this method writes or compares.
+        """
+        conditions = dict(expect or {})
+        unknown = (set(values) | set(conditions)) - self._PREVIEW_UPDATE_COLUMNS
+        if unknown or not values:
+            raise ValueError(f"Cannot update preview columns: {sorted(unknown) or 'none'}")
+        assignments = ", ".join(f"{column} = ?" for column in values)
+        where = "".join(f" AND {column} IS ?" for column in conditions)
+        with self._transaction() as cursor:
+            cursor.execute(
+                f"UPDATE previews SET {assignments}, updated_at = ? "
+                f"WHERE parent_domain = ? AND number = ?{where}",
+                (*values.values(), _utc_now(), parent_domain, number, *conditions.values()),
+            )
+            if cursor.rowcount == 0:
+                return None
+        return self.get_preview(parent_domain, number)
 
     def get_preview(self, parent_domain: str, number: int) -> PreviewRecord | None:
         """
@@ -3923,18 +4014,26 @@ class WASMStore:
         )
         return [PreviewRecord.from_row(row) for row in rows]
 
-    def delete_preview(self, domain: str) -> bool:
+    def delete_preview(self, domain: str, *, status: str | None = None) -> bool:
         """
         Forget a preview (its application is removed by the previews manager).
 
         Args:
             domain: The preview's domain.
+            status: Only if its status is still this one: a pull request
+                reopened while its preview was being removed has a pending
+                record again, which the removal must leave.
 
         Returns:
-            True if it existed.
+            True if it existed (with that status) and is gone.
         """
         with self._transaction() as cursor:
-            cursor.execute("DELETE FROM previews WHERE domain = ?", (domain,))
+            if status is None:
+                cursor.execute("DELETE FROM previews WHERE domain = ?", (domain,))
+            else:
+                cursor.execute(
+                    "DELETE FROM previews WHERE domain = ? AND status = ?", (domain, status)
+                )
             return cursor.rowcount > 0
 
     # =========================================================================

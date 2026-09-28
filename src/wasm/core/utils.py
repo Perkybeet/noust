@@ -160,6 +160,22 @@ def command_exists(command: str) -> bool:
     return shutil.which(command) is not None
 
 
+def find_wasm_executable() -> str | None:
+    """
+    Locate the wasm entry point a systemd unit's ExecStart runs.
+
+    systemd has no PATH of the operator's, so a unit needs the absolute path,
+    and it is not always ``/usr/bin/wasm``: ``pip install`` as root puts it in
+    ``/usr/local/bin``.
+
+    Returns:
+        The absolute path ``shutil.which`` finds, or None when wasm is not
+        on PATH.
+    """
+    found = shutil.which("wasm")
+    return os.path.abspath(found) if found else None
+
+
 def sanitize_name(name: str) -> str:
     """
     Sanitize a name for use as filename or service name.

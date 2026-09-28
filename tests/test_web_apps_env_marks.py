@@ -301,6 +301,41 @@ def test_marks_endpoint_is_audited_without_the_value(
     assert "APP_NAME" in entries[0]["detail"]
 
 
+def test_marks_audit_detail_records_the_direction_of_each_change(
+    client: TestClient, store: WASMStore, tmp_path: Path
+) -> None:
+    """Verified finding 4: the audit line must say which way each mark went."""
+    deployed_env(store, tmp_path, env_text="APP_NAME=storefront\nAPI_KEY=short\n")
+    elevate(client)
+
+    response = client.put(
+        "/api/apps/example.com/env/marks",
+        json={"marks": {"APP_NAME": True, "API_KEY": False}},
+    )
+    assert response.status_code == 200, response.text
+
+    entries = [e for e in read_audit(tmp_path) if e["action"] == "apps.env.marks"]
+    detail = entries[-1]["detail"]
+    assert "APP_NAME -> secret" in detail
+    assert "API_KEY -> not secret" in detail
+    assert "short" not in detail
+    assert "storefront" not in detail
+
+
+def test_marks_audit_detail_records_a_cleared_mark_as_automatic(
+    client: TestClient, store: WASMStore, tmp_path: Path
+) -> None:
+    deployed_env(store, tmp_path, env_text="APP_NAME=storefront\n")
+    elevate(client)
+    client.put("/api/apps/example.com/env/marks", json={"marks": {"APP_NAME": True}})
+
+    response = client.put("/api/apps/example.com/env/marks", json={"marks": {"APP_NAME": None}})
+    assert response.status_code == 200, response.text
+
+    entries = [e for e in read_audit(tmp_path) if e["action"] == "apps.env.marks"]
+    assert "APP_NAME -> automatic" in entries[-1]["detail"]
+
+
 def test_an_unknown_application_is_404(client: TestClient, store: WASMStore) -> None:
     elevate(client)
 

@@ -15,6 +15,12 @@ export interface ShowKeyDialogProps {
   name: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /**
+   * Shown as the first step of removing the destination: the key is what reads the backups left
+   * behind, and the removal deletes WASM's copy. Cancelling is always allowed; continuing needs
+   * "I have saved it" ticked, and calls this.
+   */
+  onContinueToRemove?: () => void;
 }
 
 /**
@@ -23,7 +29,8 @@ export interface ShowKeyDialogProps {
  * gated on ticking "I have saved it", the same pattern `TwoFactorSection`'s backup codes use,
  * because losing them makes every backup on that destination unrecoverable.
  */
-export function ShowKeyDialog({ name, open, onOpenChange }: ShowKeyDialogProps) {
+export function ShowKeyDialog({ name, open, onOpenChange, onContinueToRemove }: ShowKeyDialogProps) {
+  const removing = onContinueToRemove !== undefined;
   const { showKey } = useDestinationActions();
   const [saved, setSaved] = useState(false);
   const [nudge, setNudge] = useState(false);
@@ -45,7 +52,7 @@ export function ShowKeyDialog({ name, open, onOpenChange }: ShowKeyDialogProps) 
 
   const close = (next: boolean): void => {
     if (next) return;
-    if (showKey.data !== undefined && !saved) {
+    if (!removing && showKey.data !== undefined && !saved) {
       setNudge(true);
       savedRef.current?.querySelector<HTMLElement>("[role=checkbox]")?.focus();
       return;
@@ -61,12 +68,32 @@ export function ShowKeyDialog({ name, open, onOpenChange }: ShowKeyDialogProps) 
       open={open}
       onOpenChange={close}
       size="sm"
-      title={`Encryption key for ${name}`}
-      description="Two passphrases wrap every backup sent to this destination. WASM keeps them, but printing them here is the only way to keep your own copy - and the only way to recover the backups if this server is ever lost."
+      title={removing ? `Save the key before removing ${name}` : `Encryption key for ${name}`}
+      description={
+        removing
+          ? `Backups already sent to ${name} stay there, encrypted. Without this key nobody can read them, WASM included, and removing the destination deletes the only copy WASM has.`
+          : "Two passphrases wrap every backup sent to this destination. WASM keeps them, but printing them here is the only way to keep your own copy - and the only way to recover the backups if this server is ever lost."
+      }
       footer={
-        <Button variant="primary" disabled={showKey.data === undefined || !saved} onClick={() => close(false)}>
-          Done
-        </Button>
+        removing ? (
+          <>
+            <Button onClick={() => close(false)}>Cancel</Button>
+            <Button
+              variant="primary"
+              disabled={showKey.data === undefined || !saved}
+              onClick={() => {
+                close(false);
+                onContinueToRemove();
+              }}
+            >
+              Continue to remove
+            </Button>
+          </>
+        ) : (
+          <Button variant="primary" disabled={showKey.data === undefined || !saved} onClick={() => close(false)}>
+            Done
+          </Button>
+        )
       }
     >
       <div className="flex flex-col gap-4">

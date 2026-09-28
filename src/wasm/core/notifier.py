@@ -71,7 +71,7 @@ import re
 import socket
 import urllib.request
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from html import escape
 from http.client import HTTPException
@@ -81,6 +81,7 @@ from urllib.parse import urlparse
 from urllib.request import Request
 
 from wasm import __version__
+from wasm.core.background import BackgroundQueue
 from wasm.core.config import Config
 from wasm.core.exceptions import WASMError
 from wasm.validators.telegram import validate_telegram_chat_id
@@ -573,6 +574,42 @@ def _webhook_request(url: str, event: NotificationEvent) -> Request:
     return _json_request(url, payload)
 
 
+def _slack_escape(text: str) -> str:
+    """
+    Escape the three characters Slack reads as control sequences.
+
+    A title or body carries text someone else chose - a branch name, a commit
+    message, a health gate's output - and ``<!channel>`` or ``<@U123>`` in it
+    would ping people. Slack asks for exactly these three to be escaped; a
+    bare URL is still linked.
+
+    Args:
+        text: Text to send.
+
+    Returns:
+        The text with ``&``, ``<`` and ``>`` as entities.
+    """
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+#: ``@everyone`` and ``@here``, however they are capitalised.
+_DISCORD_MASS_MENTION = re.compile(r"@(everyone|here)", re.IGNORECASE)
+
+
+def _discord_defuse(text: str) -> str:
+    """
+    Break Discord's mass mentions in text someone else chose.
+
+    Args:
+        text: Text to send.
+
+    Returns:
+        The text with a zero-width space after the ``@`` of ``@everyone``
+        and ``@here``, so they read the same and ping nobody.
+    """
+    return _DISCORD_MASS_MENTION.sub("@\u200b\\1", text)
+
+
 def _slack_request(url: str, event: NotificationEvent) -> Request:
     """
     Build the Slack incoming-webhook POST, ``{"text": ...}``.
@@ -588,7 +625,8 @@ def _slack_request(url: str, event: NotificationEvent) -> Request:
         ValueError: When the URL is not HTTP(S).
     """
     _require_http_url(url, "notifications.channels.slack.webhook_url")
-    return _json_request(url, {"text": _message_text(event, limit=_MESSAGE_LIMITS["slack"])})
+    escaped = replace(event, title=_slack_escape(event.title), body=_slack_escape(event.body))
+    return _json_request(url, {"text": _message_text(escaped, limit=_MESSAGE_LIMITS["slack"])})
 
 
 def _discord_request(url: str, event: NotificationEvent) -> Request:
@@ -606,7 +644,11 @@ def _discord_request(url: str, event: NotificationEvent) -> Request:
         ValueError: When the URL is not HTTP(S).
     """
     _require_http_url(url, "notifications.channels.discord.webhook_url")
-    return _json_request(url, {"content": _message_text(event, limit=_MESSAGE_LIMITS["discord"])})
+    defused = replace(event, title=_discord_defuse(event.title), body=_discord_defuse(event.body))
+    text = _message_text(defused, limit=_MESSAGE_LIMITS["discord"])
+    # Belt and braces: even a mention the text still spells (a role or user
+    # id in a branch name) pings nobody.
+    return _json_request(url, {"content": text, "allowed_mentions": {"parse": []}})
 
 
 def _telegram_request(bot_token: str, chat_id: str, event: NotificationEvent) -> Request:
@@ -1072,3 +1114,50 @@ def _channel_secrets(channels: dict[str, Any]) -> tuple[str, ...]:
         channel: dict[str, Any] = channels.get(name) or {}
         candidates.append(str(channel.get("webhook_url") or ""))
     return tuple(value for value in candidates if value)
+
+
+#: The one worker every notification of this process is delivered on, first
+#: in first out: a thread per event let a fast "failed" reach the channel
+#: before the "Deploying" published a moment earlier. It is drained, under a
+#: hard cap, when the process exits (wasm.core.background).
+NOTIFICATION_QUEUE = BackgroundQueue("wasm-notify")
+
+
+def notify_in_background(event: NotificationEvent) -> None:
+    """
+    Deliver an event on the notification worker and return at once.
+
+    The configuration is read afresh from disk for each notification, so a
+    settings change applies to the next event without a restart - but into
+    a detached :meth:`~wasm.core.config.Config.snapshot`, never by reloading
+    the instance every other thread of the process is reading.
+
+    Args:
+        event: What happened.
+    """
+    NOTIFICATION_QUEUE.submit(lambda: notify_now(event))
+
+
+def notify_now(event: NotificationEvent) -> None:
+    """
+    Deliver an event now, over the configuration as it stands on disk.
+
+    Args:
+        event: What happened.
+    """
+    Notifier(fresh_config()).notify(event)
+
+
+def fresh_config() -> Config:
+    """
+    Read the configuration on disk for one notification.
+
+    Returns:
+        A detached snapshot, or the shared instance as it is when the file
+        cannot be read - a notification loses its freshness, not its delivery.
+    """
+    try:
+        return Config.snapshot()
+    except (OSError, WASMError) as exc:
+        logger.warning("Configuration could not be re-read for a notification: %s", exc)
+        return Config()

@@ -339,10 +339,12 @@ def test_run_schedule_is_hidden_from_help() -> None:
     assert "run-schedule" not in result.output
 
 
-def test_run_schedule_reports_no_schedule() -> None:
+def test_run_schedule_without_a_schedule_still_tries_the_backup() -> None:
+    # A missing store row falls back to a 2.1 backup instead of stopping every
+    # backup silently; here the application itself does not exist.
     result = invoke(["backup", "run-schedule", "nowhere.example.com"])
     assert result.exit_code != 0
-    assert "No backup schedule" in result.output
+    assert "Application not found" in result.output
 
 
 def test_run_schedule_creates_a_backup(monkeypatch: pytest.MonkeyPatch) -> None:

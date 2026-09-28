@@ -6,6 +6,7 @@ import type { SyntheticEvent } from "react";
 import { appsQuery } from "../../api/queries/apps";
 import { backupDestinationsQuery } from "../../api/queries/backupDestinations";
 import type { BackupSchedule } from "../../api/queries/backups";
+import { backupSchedulesQuery } from "../../api/queries/backups";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
@@ -26,6 +27,17 @@ const PRESETS = [
 ];
 
 const KNOWN = new Set(["hourly", "daily", "weekly", "monthly"]);
+
+/** What a new schedule keeps unless the operator changes it; the API's own defaults too. */
+const NEW_SCHEDULE_KEEP = 7;
+const NEW_SCHEDULE_MAX_AGE = 30;
+
+type RetentionMode = "server" | "own";
+
+/** A retention limit as the form holds it: blank for "none", which the API takes as null. */
+function limitText(value: number | null | undefined): string {
+  return value === null || value === undefined ? "" : String(value);
+}
 
 /** A number typed for an optional field: blank stays unset rather than becoming 0. */
 function optionalNumber(value: string): number | undefined {
@@ -110,12 +122,19 @@ export function ScheduleDialog({ existing, open, onOpenChange }: ScheduleDialogP
   const formId = useId();
   const apps = useQuery({ ...appsQuery(), enabled: open && existing === undefined });
   const destinations = useQuery({ ...backupDestinationsQuery(), enabled: open });
+  const schedules = useQuery({ ...backupSchedulesQuery(), enabled: open });
+  const serverDefault = schedules.data?.default_retention_count;
   const [domain, setDomain] = useState(existing?.domain ?? "");
   const [preset, setPreset] = useState(existing !== undefined && KNOWN.has(existing.schedule) ? existing.schedule : "daily");
   const [customCalendar, setCustomCalendar] = useState(existing?.on_calendar ?? "");
-  const [retentionCount, setRetentionCount] = useState(String(existing?.retention_count ?? 7));
-  const [retentionDays, setRetentionDays] = useState(String(existing?.retention_days ?? 30));
-  const [includeDatabases, setIncludeDatabases] = useState(true);
+  // An existing schedule's retention is shown as it is: a schedule adopted from a 2.1 timer has
+  // none of its own, and pre-filling 7/30 here is how saving it used to prune most of its backups.
+  const [retentionMode, setRetentionMode] = useState<RetentionMode>(
+    existing !== undefined && (existing.retention_count ?? null) === null && (existing.retention_days ?? null) === null ? "server" : "own",
+  );
+  const [retentionCount, setRetentionCount] = useState(existing ? limitText(existing.retention_count) : String(NEW_SCHEDULE_KEEP));
+  const [retentionDays, setRetentionDays] = useState(existing ? limitText(existing.retention_days) : String(NEW_SCHEDULE_MAX_AGE));
+  const [includeDatabases, setIncludeDatabases] = useState(existing?.include_databases ?? true);
   const [scheduleDestinations, setScheduleDestinations] = useState<ScheduleDestinationInput[]>(
     (existing?.destinations ?? []).map((entry) => ({
       name: entry.name,
@@ -143,8 +162,8 @@ export function ScheduleDialog({ existing, open, onOpenChange }: ScheduleDialogP
       {
         domain: targetDomain,
         schedule,
-        retentionCount: Number(retentionCount) || 7,
-        retentionDays: Number(retentionDays) || 30,
+        retentionCount: retentionMode === "server" ? null : (optionalNumber(retentionCount) ?? null),
+        retentionDays: retentionMode === "server" ? null : (optionalNumber(retentionDays) ?? null),
         includeDatabases,
         destinations: scheduleDestinations,
       },
@@ -209,14 +228,40 @@ export function ScheduleDialog({ existing, open, onOpenChange }: ScheduleDialogP
             <Input mono value={customCalendar} onValueChange={setCustomCalendar} placeholder="*-*-* 03:30:00" autoComplete="off" spellCheck={false} />
           </Field>
         ) : null}
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Keep" description="Backups to keep locally.">
-            <Input mono inputMode="numeric" value={retentionCount} onValueChange={setRetentionCount} />
-          </Field>
-          <Field label="Max age" description="Days before a local backup is pruned.">
-            <Input mono inputMode="numeric" value={retentionDays} onValueChange={setRetentionDays} />
-          </Field>
-        </div>
+        <Field
+          label="Local retention"
+          nativeLabel={false}
+          description={
+            existing === undefined
+              ? `A new schedule keeps its own last ${String(NEW_SCHEDULE_KEEP)} backups for up to ${String(NEW_SCHEDULE_MAX_AGE)} days unless you change it. Retention only deletes backups this schedule made: manual, pre-deploy and rollback backups are never touched.`
+              : retentionMode === "server"
+                ? "The server default keeps the newest backups of the application, whatever made them, as 2.1 did."
+                : "Retention only deletes backups this schedule made: manual, pre-deploy and rollback backups are never touched."
+          }
+        >
+          <Select
+            aria-label="Local retention"
+            value={retentionMode}
+            onValueChange={(next) => setRetentionMode(next === "server" ? "server" : "own")}
+            options={[
+              {
+                value: "server",
+                label: `Server default (backup.max_per_app${serverDefault !== undefined ? ` = ${String(serverDefault)}` : ""})`,
+              },
+              { value: "own", label: "This schedule's own limits" },
+            ]}
+          />
+        </Field>
+        {retentionMode === "own" ? (
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Keep" description="Backups this schedule made to keep. Blank uses backup.max_per_app.">
+              <Input mono inputMode="numeric" value={retentionCount} onValueChange={setRetentionCount} />
+            </Field>
+            <Field label="Max age" description="Days before a backup this schedule made is pruned. Blank for no limit.">
+              <Input mono inputMode="numeric" value={retentionDays} onValueChange={setRetentionDays} />
+            </Field>
+          </div>
+        ) : null}
         <Checkbox checked={includeDatabases} onCheckedChange={setIncludeDatabases} label="Dump databases too" />
 
         <fieldset className="flex flex-col gap-2">

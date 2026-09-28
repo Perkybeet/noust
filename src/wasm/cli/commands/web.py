@@ -53,7 +53,6 @@ import json
 import logging
 import os
 import shlex
-import shutil
 import signal
 import socket
 import sys
@@ -81,6 +80,7 @@ from wasm.core.net import (
     strip_brackets,
 )
 from wasm.core.runner import get_runner
+from wasm.core.utils import find_wasm_executable
 
 if TYPE_CHECKING:
     from wasm.web.auth import SecurityConfig
@@ -1613,7 +1613,7 @@ def _wasm_executable() -> str:
     Raises:
         ServiceError: When wasm is not on PATH.
     """
-    found = shutil.which("wasm")
+    found = find_wasm_executable()
     if not found:
         raise ServiceError(
             "Could not find the wasm executable to run from the systemd unit",
@@ -1622,7 +1622,7 @@ def _wasm_executable() -> str:
                 "wasm-cli as root) so that 'wasm' is on PATH, then run 'wasm web enable' again."
             ),
         )
-    return os.path.abspath(found)
+    return found
 
 
 def _service_exec_start(options: StartOptions) -> str:

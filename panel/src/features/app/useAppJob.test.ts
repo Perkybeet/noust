@@ -20,7 +20,8 @@ const JOB: Job = {
 describe("jobWords", () => {
   it("names each job the way the header says it", () => {
     expect(jobWords("update")).toEqual({ running: "Updating", noun: "Update" });
-    expect(jobWords("restore")).toEqual({ running: "Rolling back", noun: "Rollback" });
+    expect(jobWords("rollback")).toEqual({ running: "Rolling back", noun: "Rollback" });
+    expect(jobWords("restore")).toEqual({ running: "Restoring", noun: "Restore" });
     expect(jobWords("migrate")).toEqual({ running: "Migrating", noun: "Migration" });
     expect(jobWords("push")).toEqual({ running: "Copying", noun: "Copy" });
     expect(jobWords("zero_downtime")).toEqual({ running: "Switching", noun: "Zero-downtime mode" });

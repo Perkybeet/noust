@@ -12,17 +12,19 @@ success, or failure (with "rolled back" when what served before was put
 back).
 
 Nothing here may slow or fail a deployment. The subscriber only reads the
-store and hands the event to one worker thread, which talks to GitHub in
-order - a deployment's end is never reported before its start - and logs
-whatever goes wrong. Which GitHub deployment belongs to which WASM deployment
-is remembered in memory: the events of one deployment are published by the
-process that runs it.
+store and hands the event to one worker (:mod:`wasm.core.background`), which
+talks to GitHub in order - a deployment's end is never reported before its
+start - logs whatever goes wrong, and is drained, under a hard cap, when the
+process exits, so a CLI deploy's statuses are not abandoned mid-request.
+Which GitHub deployment belongs to which WASM deployment, and where it is
+reported, is remembered in memory from the start: the events of one
+deployment are published by the process that runs it, and a first deploy
+that fails forgets the application's records before its end is published.
 """
 
 from __future__ import annotations
 
 import logging
-import queue
 import sqlite3
 import threading
 from collections import OrderedDict
@@ -30,6 +32,7 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import quote
 
+from wasm.core.background import BackgroundQueue
 from wasm.core.exceptions import WASMError
 from wasm.core.store import get_store
 from wasm.deployers.deploy_events import DeployEvent, DeployEventKind
@@ -109,48 +112,92 @@ class StatusReporter:
     def __init__(self, load: Any = load_app) -> None:
         self._load = load
         self._deployments: OrderedDict[tuple[str, int | None], int] = OrderedDict()
-        self._queue: queue.Queue[tuple[Target, DeployEvent]] = queue.Queue()
-        self._worker: threading.Thread | None = None
+        self._targets: OrderedDict[tuple[str, int], Target] = OrderedDict()
+        self._queue = BackgroundQueue("wasm-github-statuses")
         self._lock = threading.Lock()
+
+    def resolve(self, event: DeployEvent) -> Target | None:
+        """
+        Decide where an event is reported, remembering it from the start.
+
+        Called in the deploying thread. The target of a deployment with an
+        id is looked up at STARTED and kept until its end: a first deploy that
+        fails forgets the application before FAILED is published, and a
+        second lookup then would leave the GitHub deployment in progress.
+
+        Args:
+            event: What happened.
+
+        Returns:
+            The target, or None when there is nothing to report.
+        """
+        if event.deployment_id is None:
+            return target_for(event.domain)
+        key = (event.domain, event.deployment_id)
+        if event.kind is DeployEventKind.STARTED:
+            target = target_for(event.domain)
+            if target is not None:
+                with self._lock:
+                    self._targets[key] = target
+                    while len(self._targets) > _REMEMBERED:
+                        self._targets.popitem(last=False)
+            return target
+        with self._lock:
+            cached = self._targets.pop(key, None)
+        return cached if cached is not None else target_for(event.domain)
+
+    def cached_targets(self) -> int:
+        """
+        Count the deployments whose target is remembered (tests).
+
+        Returns:
+            How many started deployments have not ended.
+        """
+        with self._lock:
+            return len(self._targets)
 
     def submit(self, target: Target, event: DeployEvent) -> None:
         """
-        Queue an event for the worker, starting it if needed.
+        Queue an event for the worker.
 
         Args:
             target: Where to report.
             event: What happened.
         """
-        self._queue.put((target, event))
-        with self._lock:
-            if self._worker is None or not self._worker.is_alive():
-                self._worker = threading.Thread(
-                    target=self._run, name="wasm-github-statuses", daemon=True
-                )
-                self._worker.start()
+        self._queue.submit(lambda: self._report_logged(target, event))
 
-    def drain(self) -> None:
-        """Wait until every queued event was reported (tests, shutdown)."""
-        self._queue.join()
+    def drain(self, timeout: float | None = None) -> bool:
+        """
+        Wait until every queued event was reported (tests, shutdown).
 
-    def _run(self) -> None:
-        """Report queued events until the process ends."""
-        while True:
-            target, event = self._queue.get()
-            try:
-                self.report(target, event)
-            except (WASMError, sqlite3.Error, OSError, ValueError) as exc:
-                # IntegrationError is a WASMError; the rest is a store or a
-                # secret file that could not be read. None of it may end the
-                # worker, which the next deployment still needs.
-                logger.warning(
-                    "GitHub deployment status for %s (%s) not reported: %s",
-                    event.domain,
-                    event.kind.value,
-                    exc,
-                )
-            finally:
-                self._queue.task_done()
+        Args:
+            timeout: Seconds to wait at most; None waits as long as it takes.
+
+        Returns:
+            True when everything queued was reported.
+        """
+        return self._queue.drain(timeout)
+
+    def _report_logged(self, target: Target, event: DeployEvent) -> None:
+        """
+        Report one event on the worker, logging what goes wrong.
+
+        Args:
+            target: Where to report.
+            event: What happened.
+        """
+        try:
+            self.report(target, event)
+        except (WASMError, sqlite3.Error, OSError, ValueError) as exc:
+            # IntegrationError is a WASMError; the rest is a store or a
+            # secret file that could not be read. None of it may end the
+            # worker, which the next deployment still needs.
+            logger.warning(
+                "GitHub deployment status for %s (%s) not reported: %s",
+                event.domain,
+                event.kind.value,
+                exc,
+            )
 
     def report(self, target: Target, event: DeployEvent) -> None:
         """
@@ -305,6 +352,6 @@ def on_deploy_event(event: DeployEvent) -> None:
     Args:
         event: What happened.
     """
-    target = target_for(event.domain)
+    target = reporter.resolve(event)
     if target is not None:
         reporter.submit(target, event)

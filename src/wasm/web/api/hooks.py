@@ -59,7 +59,7 @@ from wasm.core.forge_events import parse_pull_request
 from wasm.core.store import DeploymentRecord, DeploymentTrigger, StoreError, get_store
 from wasm.managers.previews import handle_pull_request
 from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import WASMErrorRoute, strict_domain
+from wasm.web.api.deps import WASMErrorRoute, require_elevated, strict_domain
 from wasm.web.auth import actor_label, get_audit_logger, get_client_ip
 from wasm.web.jobs import JobContext, JobType, get_job_manager, run_update
 from wasm.web.pydantic_compat import iso_offset_validator
@@ -588,7 +588,7 @@ def _known_app_domain(domain: str) -> str:
 def create_webhook_secret(
     domain: str,
     request: Request,
-    session: Annotated[dict, Depends(get_current_session)],
+    session: Annotated[dict, Depends(require_elevated)],
 ) -> WebhookSecretResponse:
     """
     Mint (or replace) the webhook secret of an application.
@@ -601,7 +601,8 @@ def create_webhook_secret(
     Args:
         domain: Domain of the application.
         request: The incoming request, for the audit record and the hook URL.
-        session: The authenticated session.
+        session: An elevated session: the secret is shown in clear, and it
+            can open previews as well as deploy.
 
     Returns:
         The secret, shown once, and the URL to configure at the forge.
@@ -634,7 +635,7 @@ def create_webhook_secret(
 def delete_webhook_secret(
     domain: str,
     request: Request,
-    session: Annotated[dict, Depends(get_current_session)],
+    session: Annotated[dict, Depends(require_elevated)],
 ) -> WebhookDisabledResponse:
     """
     Disable webhooks for an application by discarding its secret.
@@ -642,7 +643,7 @@ def delete_webhook_secret(
     Args:
         domain: Domain of the application.
         request: The incoming request, for the audit record.
-        session: The authenticated session.
+        session: An elevated session.
 
     Returns:
         Confirmation that deliveries will now be answered with 404.
