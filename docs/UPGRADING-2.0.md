@@ -272,9 +272,31 @@ What changes when a 2.1 server upgrades to 2.2 (see [CHANGELOG-2.2.md](CHANGELOG
 - **Backup schedules move into the store.** Each existing `wasm-backup-*` timer is adopted
   the first time schedules are listed (`wasm backup schedule list`, or the Backups page): a
   row is written from what systemd reports and the timer's service is rewritten to run
-  `wasm backup run-schedule`. List them once after upgrading. **Retention is now applied**:
-  a schedule created with `--retention-count 7` keeps seven scheduled backups, which the
-  timer never did before, so older scheduled backups beyond that are removed on the next run.
+  `wasm backup run-schedule`. List them once after upgrading. An adopted schedule keeps the
+  server default retention (`backup.max_per_app`), exactly what the timer did in 2.1; nothing
+  changes until you give it a retention. A timer whose domain systemd could not report is
+  left as it was, and keeps working.
+- **Retention is now applied, and only to scheduled backups**: a schedule's count and days
+  apply to the backups that schedule made (tag `scheduled`). Manual backups, pre-deploy and
+  rollback safety backups are never removed by a schedule, and no rotation removes the
+  snapshot of one of an application's last ten deployments or the backup a rollback is
+  restoring. `wasm backup schedule update` keeps the retention you do not change;
+  `--retention-count default` and `--retention-days none` go back to the server default.
+- **A backup no longer runs during a deploy of the same application**: `wasm backup create`
+  is refused as busy, and a scheduled run waits up to 30 minutes for the deploy to finish.
+- **Remote destinations: one folder per server.** Remote retention only prunes backups
+  recorded as made by this server; backups another server (or an earlier machine) pushed
+  are never removed. A copy that fails verification is deleted; encrypted destinations are
+  verified by size only.
+- **An encrypted destination's key is the only way to read its backups.** Save it when WASM
+  shows it. On a replacement server: `wasm backup destination add NAME ... --key-stdin` with
+  the saved key, then `wasm backup remote-list NAME` and `wasm backup restore --from NAME ID`.
+  Remote restores are staged under the backup directory, after a free space check.
+- **Previews** build only pull requests opened by the repository's owners, members and
+  collaborators on GitHub; bots (Dependabot, Renovate) only with `--allow-bots`. Builds run
+  as root with the application's variables, like every deploy; keep variables out of
+  previews with `--exclude-env NAME`.
+- **Per-application webhook secrets** are created and deleted in sudo mode.
 - **Secrets beside the store**: credentials WASM keeps for itself (the GitHub App's key,
   backup destinations' passwords) are 0600 files under `secrets/` next to the store
   (`/var/lib/wasm/secrets`). Back that directory up with the store.

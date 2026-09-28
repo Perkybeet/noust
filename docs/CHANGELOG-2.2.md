@@ -25,10 +25,12 @@ Changes since 2.1.0. Upgrade notes are in [UPGRADING-2.0.md](UPGRADING-2.0.md#22
   releases with 256 MB and half a CPU, rebuilt on each push, and removed when the request
   closes or after its time without a push (7 days by default), up to a quota per application.
 - Events come from the application's own webhook (GitHub, GitLab, Gitea) or from the GitHub
-  App. Pull requests from forks are refused. On GitHub, a comment on the pull request carries
-  the link and the state.
+  App. Pull requests from forks are refused, and on GitHub so are those of authors who are
+  not the repository's owners, members or collaborators; bots build only when allowed
+  (`--allow-bots`). On GitHub, a comment on the pull request carries the link and the state.
 - A preview gets the application's environment variables, production secrets included, and
-  uses its databases: the console says so where previews are turned on.
+  uses its databases, except the variables listed with `--exclude-env`; its build runs as
+  root like every deploy. The console says so where previews are turned on.
 - Deleting an application removes its previews.
 
 ## GitHub
@@ -51,14 +53,19 @@ Changes since 2.1.0. Upgrade notes are in [UPGRADING-2.0.md](UPGRADING-2.0.md#22
   Cloudflare R2, Backblaze, Wasabi, MinIO, Hetzner, Scaleway), B2, Google Drive, OneDrive,
   Dropbox, pCloud, and mounted paths. `wasm backup destination add|test|list|update|remove`,
   or the Backups page. Credentials are secret files and reach rclone through its environment
-  only. Optional encryption per destination, with the key shown once to keep.
+  only. Optional encryption per destination: keep the key it shows; a replacement server
+  reads the backups again with `--key-stdin`.
+- One folder per server: remote retention only prunes backups this server made, so servers
+  sharing a bucket never remove each other's. A copy that fails verification is deleted.
 - Each scheduled backup is copied to the schedule's destinations, verified (size, and hash
   where the backend has one) and pruned per destination. A failure sends `backup_failed` with
   rclone's own words and keeps the local backup.
 - Copy any backup to a destination (`wasm backup push`), list a destination's backups and
   restore from one (`wasm backup restore --from NAME ID`).
 - **Schedules keep their word**: they live in the store, and their retention (count and
-  days) is applied. Before 2.2 the timer ignored it. Existing schedules are adopted as they are.
+  days) is applied to the backups they make. Before 2.2 the timer ignored it. Manual,
+  pre-deploy and rollback safety backups, and recent deployments' snapshots, are never
+  removed by a schedule. Existing schedules are adopted with the retention they had.
 
 ## Notifications
 
