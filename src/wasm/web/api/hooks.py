@@ -22,6 +22,16 @@ wrong secret and cut off every genuine delivery, for every application. Now
 the application being guessed at stops taking deliveries for a while, and
 nothing else does.
 
+A delivery is dispatched on the event its forge says it is (``X-GitHub-Event``,
+``X-Gitea-Event``, ``X-Gitlab-Event`` or GitLab's ``object_kind``): a push
+updates the application, a ping is answered and nothing else, a pull (merge)
+request goes to :func:`wasm.managers.previews.handle_pull_request`, and every
+other event is acknowledged and ignored. Before 2.2 the event was never read,
+so a pull request or ping delivery to an application without a pinned branch -
+neither carries a ``ref`` - queued an update of production. A delivery that
+names no event at all is still read as a push, which is what every forge sent
+this endpoint until then.
+
 The routers here are mounted in :mod:`wasm.web.server`, not in
 :mod:`wasm.web.api.router`: the hook must not inherit the ``/api`` prefix and
 its conventions, and the secret-management endpoints live under ``/api/apps``
@@ -42,9 +52,12 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 
 from wasm.core.exceptions import DeploymentError, DomainError
+from wasm.core.forge_events import Forge, PullRequestAction, PullRequestEvent
 from wasm.core.store import DeploymentRecord, DeploymentTrigger, StoreError, get_store
+from wasm.managers.previews import handle_pull_request
 from wasm.web.api.auth import get_current_session
 from wasm.web.api.deps import WASMErrorRoute, strict_domain
 from wasm.web.auth import actor_label, get_audit_logger, get_client_ip
@@ -268,26 +281,228 @@ def _delivery_id(request: Request) -> str | None:
     )
 
 
-def _pushed_branch(body: bytes) -> str | None:
+def _payload(body: bytes) -> dict[str, Any]:
+    """
+    Parse a delivery's JSON body.
+
+    Args:
+        body: The raw request body.
+
+    Returns:
+        The object, or an empty one when the body is not a JSON object.
+    """
+    try:
+        payload = json.loads(body) if body else {}
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+#: Event kinds a delivery is dispatched on.
+PUSH = "push"
+PING = "ping"
+PULL_REQUEST = "pull_request"
+
+#: GitLab's ``X-Gitlab-Event`` header values and ``object_kind``s, in the
+#: vocabulary above.
+_GITLAB_EVENTS = {
+    "push hook": PUSH,
+    "merge request hook": PULL_REQUEST,
+    "push": PUSH,
+    "merge_request": PULL_REQUEST,
+}
+
+
+def _event_kind(provider: str, request: Request, payload: dict[str, Any]) -> str | None:
+    """
+    Say which event a verified delivery is.
+
+    The header read is the one of the forge whose credential verified, so a
+    GitLab delivery cannot claim to be a GitHub pull request. Gitea also
+    sends ``X-GitHub-Event`` for compatibility, which is read after its own.
+
+    Args:
+        provider: ``github``, ``gitea`` or ``gitlab``, as verified.
+        request: The delivery.
+        payload: Its parsed body.
+
+    Returns:
+        ``push``, ``ping``, ``pull_request``, the forge's own name for any
+        other event (lowercased), or None when the delivery names none.
+    """
+    headers = request.headers
+    if provider == "gitlab":
+        named = headers.get("X-Gitlab-Event") or payload.get("object_kind")
+        if not isinstance(named, str) or not named.strip():
+            return None
+        lowered = named.strip().lower()
+        return _GITLAB_EVENTS.get(lowered, lowered)
+    if provider == "gitea":
+        named = headers.get("X-Gitea-Event") or headers.get("X-GitHub-Event")
+    else:
+        named = headers.get("X-GitHub-Event")
+    if not named or not named.strip():
+        return None
+    return named.strip().lower()
+
+
+#: Pull request actions of GitHub and Gitea that matter to a preview.
+_PR_ACTIONS = {
+    "opened": PullRequestAction.OPENED,
+    "reopened": PullRequestAction.OPENED,
+    "ready_for_review": PullRequestAction.OPENED,
+    "synchronize": PullRequestAction.UPDATED,
+    "synchronized": PullRequestAction.UPDATED,
+    "closed": PullRequestAction.CLOSED,
+}
+
+#: GitLab's merge request actions. ``update`` is also sent for a new title
+#: or label; only an update that carries ``oldrev`` moved the branch.
+_MR_ACTIONS = {
+    "open": PullRequestAction.OPENED,
+    "reopen": PullRequestAction.OPENED,
+    "update": PullRequestAction.UPDATED,
+    "close": PullRequestAction.CLOSED,
+    "merge": PullRequestAction.CLOSED,
+}
+
+
+def _text(value: Any) -> str:
+    """
+    Read a payload field that should be text.
+
+    Args:
+        value: The field.
+
+    Returns:
+        It, stripped, or an empty string when it is not text.
+    """
+    return value.strip() if isinstance(value, str) else ""
+
+
+def _section(value: Any) -> dict[str, Any]:
+    """
+    Read a payload field that should be an object.
+
+    Args:
+        value: The field.
+
+    Returns:
+        It, or an empty object when it is not one.
+    """
+    return value if isinstance(value, dict) else {}
+
+
+def pull_request_event(provider: str, payload: dict[str, Any]) -> PullRequestEvent | None:
+    """
+    Translate a pull (merge) request delivery into a :class:`PullRequestEvent`.
+
+    GitHub and Gitea send ``pull_request`` payloads of the same shape; GitLab
+    sends ``merge_request`` with ``object_attributes``. A branch is from a
+    fork when the repository it lives in is not the one the request targets
+    (GitHub: a deleted fork has no head repository at all, and counts).
+
+    Args:
+        provider: ``github``, ``gitea`` or ``gitlab``.
+        payload: The parsed body.
+
+    Returns:
+        The event, or None for an action a preview does not act on (labels,
+        reviews, a merge request edit that pushed nothing) or a payload that
+        lacks what an event needs.
+    """
+    if provider == "gitlab":
+        return _merge_request_event(payload)
+    forge = Forge.GITHUB if provider == "github" else Forge.GITEA
+    action = _PR_ACTIONS.get(_text(payload.get("action")))
+    pull = _section(payload.get("pull_request"))
+    number = payload.get("number", pull.get("number"))
+    head = _section(pull.get("head"))
+    base = _section(pull.get("base"))
+    base_repo = _section(base.get("repo")) or _section(payload.get("repository"))
+    head_repo = _section(head.get("repo"))
+    repository = _text(base_repo.get("full_name")) or _text(
+        _section(payload.get("repository")).get("full_name")
+    )
+    branch = _text(head.get("ref"))
+    if action is None or not isinstance(number, int) or isinstance(number, bool) or number < 1:
+        return None
+    if not repository or not branch:
+        return None
+    head_name = _text(head_repo.get("full_name"))
+    from_fork = not head_name or head_name.lower() != repository.lower()
+    installation = _section(payload.get("installation")).get("id")
+    return PullRequestEvent(
+        forge=forge,
+        action=action,
+        repository=repository,
+        clone_url=_text(head_repo.get("clone_url")) or _text(base_repo.get("clone_url")),
+        number=number,
+        title=_text(pull.get("title")),
+        branch=branch,
+        base_branch=_text(base.get("ref")),
+        head_sha=_text(head.get("sha")),
+        from_fork=from_fork,
+        installation_id=installation if isinstance(installation, int) else None,
+    )
+
+
+def _merge_request_event(payload: dict[str, Any]) -> PullRequestEvent | None:
+    """
+    Translate a GitLab merge request delivery.
+
+    Args:
+        payload: The parsed body.
+
+    Returns:
+        The event, or None (see :func:`pull_request_event`).
+    """
+    attributes = _section(payload.get("object_attributes"))
+    action = _MR_ACTIONS.get(_text(attributes.get("action")))
+    if action is PullRequestAction.UPDATED and not attributes.get("oldrev"):
+        return None
+    number = attributes.get("iid")
+    project = _section(payload.get("project"))
+    target = _section(attributes.get("target"))
+    source = _section(attributes.get("source"))
+    repository = _text(project.get("path_with_namespace")) or _text(
+        target.get("path_with_namespace")
+    )
+    branch = _text(attributes.get("source_branch"))
+    if action is None or not isinstance(number, int) or isinstance(number, bool) or number < 1:
+        return None
+    if not repository or not branch:
+        return None
+    source_project = attributes.get("source_project_id")
+    target_project = attributes.get("target_project_id")
+    from_fork = source_project is None or source_project != target_project
+    return PullRequestEvent(
+        forge=Forge.GITLAB,
+        action=action,
+        repository=repository,
+        clone_url=_text(source.get("git_http_url")) or _text(project.get("git_http_url")),
+        number=number,
+        title=_text(attributes.get("title")),
+        branch=branch,
+        base_branch=_text(attributes.get("target_branch")),
+        head_sha=_text(_section(attributes.get("last_commit")).get("id")),
+        from_fork=from_fork,
+    )
+
+
+def _pushed_branch(payload: dict[str, Any]) -> str | None:
     """
     Extract the branch from a push payload.
 
     All three forges put ``refs/heads/<branch>`` in ``ref`` for push events.
 
     Args:
-        body: The raw request body.
+        payload: The parsed body.
 
     Returns:
         The branch name, or None when the payload names no branch - a tag
         push, a ping event, or a body that is not the JSON it claims to be.
     """
-    try:
-        payload = json.loads(body) if body else {}
-    except (json.JSONDecodeError, UnicodeDecodeError):
-        return None
-    if not isinstance(payload, dict):
-        return None
-
     ref = payload.get("ref")
     if not isinstance(ref, str) or not ref:
         return None
@@ -334,7 +549,9 @@ async def deliver(domain: str, request: Request) -> JSONResponse:
 
     Returns:
         202 with the queued job id; 200 when the delivery is authentic but
-        ignored (wrong branch, or a replayed delivery id).
+        ignored (wrong branch, a replayed delivery id, a ping); for a pull
+        request, what :func:`_deliver_pull_request` answers; 202 ``ignored``
+        for any other event.
 
     Raises:
         HTTPException: A generic 404 when the domain has no webhook configured
@@ -386,8 +603,21 @@ async def deliver(domain: str, request: Request) -> JSONResponse:
         _record(request, validated, "ignored", f"duplicate delivery {delivery} ({provider})")
         return JSONResponse(status_code=200, content={"status": "ignored", "reason": "duplicate"})
 
+    payload = _payload(body)
+    kind = _event_kind(provider, request, payload)
+    if kind == PING:
+        _record(request, validated, "ignored", f"ping ({provider})")
+        return JSONResponse(status_code=200, content={"status": "ok", "event": PING})
+    if kind == PULL_REQUEST:
+        return await _deliver_pull_request(request, validated, provider, payload)
+    if kind is not None and kind != PUSH:
+        _record(request, validated, "ignored", f"{kind} event ({provider})")
+        return JSONResponse(
+            status_code=202, content={"status": "ignored", "reason": "event", "event": kind}
+        )
+
     app = get_store().get_app(validated)
-    branch = _pushed_branch(body)
+    branch = _pushed_branch(payload)
     if app is not None and app.branch and branch != app.branch:
         _record(
             request,
@@ -420,6 +650,40 @@ async def deliver(domain: str, request: Request) -> JSONResponse:
         f"queued job {job.id} ({provider}, branch {branch or 'any'})",
     )
     return JSONResponse(status_code=202, content={"job_id": job.id, "status": job.status.value})
+
+
+async def _deliver_pull_request(
+    request: Request, domain: str, provider: str, payload: dict[str, Any]
+) -> JSONResponse:
+    """
+    Hand a verified pull request delivery to the previews of this application.
+
+    Never an update of the application itself, whatever branch it tracks.
+
+    Args:
+        request: The delivery, for the audit record.
+        domain: The application the webhook belongs to.
+        provider: The forge that sent it.
+        payload: Its parsed body.
+
+    Returns:
+        202 with the queued job ids; 200 when nothing was queued (an action
+        previews ignore, previews off, a fork, the limit reached).
+    """
+    event = pull_request_event(provider, payload)
+    if event is None:
+        _record(request, domain, "ignored", f"pull request action not acted on ({provider})")
+        return JSONResponse(status_code=200, content={"status": "ignored", "reason": "action"})
+
+    # In a worker thread: the previews manager reads the store and may post a
+    # pull request comment, neither of which belongs on the event loop.
+    job_ids = await run_in_threadpool(handle_pull_request, event, app_domain=domain)
+    summary = f"pull request #{event.number} {event.action.value} ({provider})"
+    if not job_ids:
+        _record(request, domain, "ignored", f"{summary}: no preview queued")
+        return JSONResponse(status_code=200, content={"status": "ignored", "reason": "no_preview"})
+    _record(request, domain, "accepted", f"{summary}: queued {', '.join(job_ids)}")
+    return JSONResponse(status_code=202, content={"job_ids": job_ids, "status": "pending"})
 
 
 def _known_app_domain(domain: str) -> str:
