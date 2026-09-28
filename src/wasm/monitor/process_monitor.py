@@ -26,6 +26,7 @@ from wasm.core.config import SYSTEMD_DIR, Config
 from wasm.core.exceptions import MonitorError, WASMError
 from wasm.core.fs import SECRET_MODE, get_fs
 from wasm.core.logger import Logger
+from wasm.core.messages import Locale, message, normalize_locale, plural
 from wasm.core.notifier import NotificationEvent, Notifier
 from wasm.core.runner import CommandRunner, get_runner
 from wasm.core.utils import remove_file, write_file
@@ -479,6 +480,21 @@ class ProcessMonitor:
             self.logger.debug(f"Configuration reload before notification failed: {exc}")
         self.event_notifier.notify(NotificationEvent(kind=kind, title=title, body=body))
 
+    def _locale(self) -> Locale:
+        """
+        Language this daemon's own notification texts render in.
+
+        Read ahead of :meth:`_publish_event`'s own reload, since the caller
+        builds ``title`` and ``body`` from :mod:`wasm.core.messages` before
+        that call: a language switched in the panel takes effect from the
+        scan that happens to read it, the same lag every other monitor
+        setting already has.
+
+        Returns:
+            ``notifications.language``, normalised.
+        """
+        return normalize_locale(self.global_config.get("notifications.language"))
+
     def collect_metrics(self) -> ResourceMetrics:
         """
         Read the machine's resource counters.
@@ -609,16 +625,24 @@ class ProcessMonitor:
         Args:
             full_disks: The disks at or over :data:`DISK_ALERT_PERCENT`.
         """
+        locale = self._locale()
         for disk in full_disks:
             if disk.mountpoint in self._alerted_disks:
                 continue
             self._publish_event(
                 "disk_threshold",
-                f"Disk usage at {disk.percent:.0f}% on {disk.mountpoint}",
-                (
-                    f"{disk.mountpoint} is {disk.percent:.1f}% full, past the "
-                    f"{DISK_ALERT_PERCENT:.0f}% alert threshold. A full disk stops "
-                    "deployments, logs and databases on this machine."
+                message(
+                    "disk_threshold_title",
+                    locale,
+                    percent=f"{disk.percent:.0f}",
+                    mountpoint=disk.mountpoint,
+                ),
+                message(
+                    "disk_threshold_body",
+                    locale,
+                    mountpoint=disk.mountpoint,
+                    percent=f"{disk.percent:.1f}",
+                    threshold=f"{DISK_ALERT_PERCENT:.0f}",
                 ),
             )
         self._alerted_disks = {disk.mountpoint for disk in full_disks}
@@ -696,6 +720,7 @@ class ProcessMonitor:
         today = date.today()
         state = self._read_cert_notification_state()
         changed = False
+        locale = self._locale()
 
         for cert in certificates:
             days_left = _days_until_expiry(cert.expiry, today)
@@ -707,8 +732,16 @@ class ProcessMonitor:
             covers = ", ".join(cert.domains) if cert.domains else cert.name
             self._publish_event(
                 "cert_expiring",
-                f"Certificate for {cert.name} expires in {days_left} day(s)",
-                (f"{covers} expires on {cert.expiry}. Renew it with: wasm cert renew {cert.name}"),
+                message(
+                    "cert_expiring_title",
+                    locale,
+                    name=cert.name,
+                    days=days_left,
+                    unit=plural("day", locale, days_left),
+                ),
+                message(
+                    "cert_expiring_body", locale, covers=covers, expiry=cert.expiry, name=cert.name
+                ),
             )
             state[cert.name] = today.isoformat()
             changed = True
@@ -746,14 +779,17 @@ class ProcessMonitor:
             down.add(health.unit)
             self.logger.warning(f"{failure.title}: {failure.detail}")
             if health.unit not in self._failed_units:
+                locale = self._locale()
+                # failure.title and .detail are the log's own words, always
+                # English (the CLI and every server-generated string are out
+                # of scope for 2.3). The notification is built fresh from
+                # wasm.core.messages, keyed by the same failure.kind, with
+                # systemd's own reported state (failure.detail) carried
+                # through as evidence rather than retranslated.
                 self._publish_event(
                     "unit_failed",
-                    failure.title,
-                    (
-                        f"{failure.detail}\n"
-                        f"Inspect it with: systemctl status {health.unit} "
-                        f"and journalctl -u {health.unit} -n 50"
-                    ),
+                    message(f"unit_failed_title_{failure.kind}", locale, unit=health.unit),
+                    message("unit_failed_body", locale, detail=failure.detail, unit=health.unit),
                 )
         self._failed_units = down
         self._restart_counts = restarts

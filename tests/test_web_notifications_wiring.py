@@ -39,6 +39,9 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
+import pytest
+
+import wasm.web.server as server_module
 from tests.test_notifier import (  # noqa: F401  (pytest resolves fixtures by name)
     CapturingOpener,
     config,
@@ -166,6 +169,69 @@ class TestDeploymentNotification:
 
         assert event is not None
         assert event.domain is None
+
+    def test_a_job_about_nothing_still_gets_a_title(self) -> None:
+        """No domain to name must not crash the wasm.core.messages lookup."""
+        event = deployment_notification(make_job(JobStatus.FAILED, domain=None, error="boom"))
+
+        assert event is not None
+        assert "failed" in event.title.lower()
+
+
+class TestDeploymentNotificationInSpanish:
+    """notifications.language: es translates the title; the tool's error stays verbatim."""
+
+    def _wired(self, config: Config, monkeypatch: pytest.MonkeyPatch) -> None:
+        """
+        Args:
+            config: The sandboxed configuration, mutated in place.
+            monkeypatch: Patching helper, scoped to the test.
+        """
+        config.set("notifications.language", "es")
+        # deployment_notification has no config parameter of its own - it
+        # reads wasm.core.notifier.fresh_config() the same way a real
+        # deployment does, so the test stands in for the disk read the same
+        # way tests/test_deploy_notifications.py's fake_notifier stands in
+        # for delivery.
+        monkeypatch.setattr(server_module, "fresh_config", lambda: config)
+
+    def test_a_failed_restore(self, config: Config, monkeypatch: pytest.MonkeyPatch) -> None:
+        self._wired(config, monkeypatch)
+        job = make_job(JobStatus.FAILED, error="rclone: object not found")
+
+        event = deployment_notification(job)
+
+        assert event is not None
+        assert event.title == "No se ha podido restaurar example.com"
+        assert "rclone: object not found" in event.body
+
+    def test_a_completed_restore(self, config: Config, monkeypatch: pytest.MonkeyPatch) -> None:
+        self._wired(config, monkeypatch)
+
+        event = deployment_notification(make_job(JobStatus.COMPLETED))
+
+        assert event is not None
+        assert event.title == "Se ha restaurado example.com"
+
+    def test_a_failed_backup(self, config: Config, monkeypatch: pytest.MonkeyPatch) -> None:
+        self._wired(config, monkeypatch)
+        job = make_job(JobStatus.FAILED, JobType.BACKUP, error="tar: disk full")
+
+        event = deployment_notification(job)
+
+        assert event is not None
+        assert event.title == "La copia de seguridad de example.com ha fallado"
+        assert "tar: disk full" in event.body
+
+    def test_a_job_about_nothing_still_gets_a_spanish_title(
+        self, config: Config, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._wired(config, monkeypatch)
+
+        event = deployment_notification(make_job(JobStatus.FAILED, domain=None, error="boom"))
+
+        assert event is not None
+        assert event.title == "No se ha podido completar la restauración"
 
 
 class TestSubscriber:

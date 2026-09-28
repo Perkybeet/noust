@@ -25,10 +25,17 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+import wasm.web.server as server_module
+from tests.test_notifier import config  # noqa: F401  (pytest resolves fixtures by name)
+from wasm.core.config import Config
 from wasm.core.notifier import NotificationEvent
 from wasm.deployers.deploy_events import DeployEvent, DeployEventKind
 from wasm.web.jobs import Job, JobStatus, JobType
 from wasm.web.server import DeploymentWitness, JobNotificationSubscriber
+
+# The notifier's config fixture is imported rather than replicated, so there
+# stays one definition of "a sandboxed configuration".
+# ruff: noqa: F811
 
 
 def make_job(
@@ -135,6 +142,26 @@ def test_a_job_that_fails_before_the_recorder_opens_is_announced_once(
     assert len(sent) == 1
     assert sent[0].kind == "deploy_failed"
     assert sent[0].domain == "example.com"
+    assert "is busy" in sent[0].body
+
+
+def test_an_unrecorded_failure_is_announced_in_the_configured_language(
+    subscriber: Any,
+    witness: DeploymentWitness,
+    sent: list[NotificationEvent],
+    config: Config,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The same wasm.core.messages catalog as a recorded deploy failure."""
+    config.set("notifications.language", "es")
+    monkeypatch.setattr(server_module, "fresh_config", lambda: config)
+
+    run(subscriber, JobType.DEPLOY, events=[], witness=witness)
+    subscriber(make_job(JobStatus.FAILED, JobType.DEPLOY, error="again"))
+
+    assert len(sent) == 1
+    assert sent[0].title == "No se ha podido desplegar example.com"
+    # The tool's own words are never translated.
     assert "is busy" in sent[0].body
 
 

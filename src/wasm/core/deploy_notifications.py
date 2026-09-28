@@ -39,6 +39,7 @@ from typing import Final
 
 from wasm.core.config import Config
 from wasm.core.exceptions import WASMError
+from wasm.core.messages import DEFAULT_LOCALE, Locale, message, normalize_locale
 from wasm.core.notifier import NOTIFICATION_QUEUE, NotificationEvent, Notifier, fresh_config
 from wasm.core.store import get_store
 from wasm.deployers.deploy_events import DeployEvent, DeployEventKind
@@ -86,12 +87,16 @@ def on_deploy_event(event: DeployEvent) -> None:
     NOTIFICATION_QUEUE.submit(lambda: _send(event, kind))
 
 
-def _title(event: DeployEvent) -> str:
+def _title(event: DeployEvent, locale: Locale = DEFAULT_LOCALE) -> str:
     """
     Build the notification's one-line headline.
 
     Args:
         event: What happened.
+        locale: Language to render WASM's own words in; the commit and
+            branch that follow "deployed" are technical identifiers, not
+            translated. Defaults to English so every existing call site -
+            and its tests - is unaffected by 2.3's ``notifications.language``.
 
     Returns:
         E.g. ``"Deploying shop.example.com"``,
@@ -100,17 +105,17 @@ def _title(event: DeployEvent) -> str:
         ``"shop.example.com rolled back"``.
     """
     if event.kind is DeployEventKind.STARTED:
-        return f"Deploying {event.domain}"
+        return message("deploy_started_title", locale, domain=event.domain)
     if event.kind is DeployEventKind.SUCCEEDED:
         detail = f" {event.commit}" if event.commit else ""
         detail += f" ({event.branch})" if event.branch else ""
-        return f"{event.domain} deployed{detail}"
+        return message("deploy_succeeded_title", locale, domain=event.domain, detail=detail)
     if event.kind is DeployEventKind.FAILED:
-        return f"{event.domain} failed to deploy"
-    return f"{event.domain} rolled back"
+        return message("deploy_failed_title", locale, domain=event.domain)
+    return message("deploy_rolled_back_title", locale, domain=event.domain)
 
 
-def _preview_context(domain: str) -> str | None:
+def _preview_context(domain: str, locale: Locale) -> str | None:
     """
     Describe a preview application in terms of the pull request it answers.
 
@@ -119,6 +124,7 @@ def _preview_context(domain: str) -> str | None:
 
     Args:
         domain: The application's domain, as the deploy event carries it.
+        locale: Language to render WASM's own words in.
 
     Returns:
         ``"Preview of <parent> #<number>."`` when the pull request number is
@@ -143,11 +149,11 @@ def _preview_context(domain: str) -> str | None:
     if preview is not None:
         number = preview.number
 
-    return (
-        f"Preview of {app.preview_parent} #{number}."
-        if number is not None
-        else f"Preview of {app.preview_parent}."
-    )
+    if number is not None:
+        return message(
+            "deploy_preview_with_number", locale, parent=app.preview_parent, number=number
+        )
+    return message("deploy_preview", locale, parent=app.preview_parent)
 
 
 def _console_link(event: DeployEvent, config: Config) -> str | None:
@@ -175,7 +181,9 @@ def _body(event: DeployEvent, config: Config) -> str:
 
     Args:
         event: What happened.
-        config: Configuration to read the console's public URL from.
+        config: Configuration to read the console's public URL from, and,
+            since 2.3, ``notifications.language`` to render WASM's own
+            sentences in.
 
     Returns:
         The trigger and commit, the health gate's evidence verbatim for a
@@ -183,18 +191,19 @@ def _body(event: DeployEvent, config: Config) -> str:
         each on its own paragraph, so every channel's rendering keeps them
         apart.
     """
+    locale = normalize_locale(config.get("notifications.language"))
     parts: list[str] = []
 
-    preview = _preview_context(event.domain)
+    preview = _preview_context(event.domain, locale)
     if preview:
         parts.append(preview)
 
     facts: list[str] = []
     if event.trigger:
-        facts.append(f"Trigger: {event.trigger}")
+        facts.append(message("deploy_trigger", locale, trigger=event.trigger))
     if event.commit:
         commit = event.commit + (f" ({event.branch})" if event.branch else "")
-        facts.append(f"Commit: {commit}")
+        facts.append(message("deploy_commit", locale, commit=commit))
     if facts:
         parts.append("\n".join(facts))
 
@@ -225,7 +234,8 @@ def _send(event: DeployEvent, kind: str) -> None:
         kind: The notification kind :func:`on_deploy_event` mapped it to.
     """
     config = fresh_config()
+    locale = normalize_locale(config.get("notifications.language"))
     notification = NotificationEvent(
-        kind=kind, title=_title(event), body=_body(event, config), domain=event.domain
+        kind=kind, title=_title(event, locale), body=_body(event, config), domain=event.domain
     )
     Notifier(config).notify(notification)

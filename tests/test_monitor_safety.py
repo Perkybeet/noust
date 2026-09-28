@@ -29,6 +29,13 @@ from typing import Any, ClassVar
 import psutil
 import pytest
 
+from tests.test_notifier import config  # noqa: F401  (pytest resolves fixtures by name)
+from wasm.core.config import Config
+
+# The notifier's config fixture is imported rather than replicated, so there
+# stays one definition of "a sandboxed configuration".
+# ruff: noqa: F811
+
 MONITOR_PACKAGE = Path(__file__).resolve().parents[1] / "src" / "wasm" / "monitor"
 
 #: Calls that destroy processes or files. None of them belong in a monitor.
@@ -1138,3 +1145,79 @@ class TestCertificateExpiryNotifications:
         assert len(notifier.events) == 1, "the event still fires even though nothing was saved"
         assert not state_path.exists()
         assert any("cert-notifications.json" in skipped for skipped in dry_fs.skipped)
+
+    def test_the_notification_is_rendered_in_the_configured_language(
+        self, tmp_path: Path, config: Config
+    ) -> None:
+        """notifications.language: es translates the title and body."""
+        config.set("notifications.language", "es")
+        monitor, notifier = self._monitor(
+            tmp_path / "cert-notifications.json", [self._cert("soon.example.com", days=3)]
+        )
+
+        monitor._check_certificates()
+
+        assert len(notifier.events) == 1
+        event = notifier.events[0]
+        assert event.title == "El certificado de soon.example.com caduca en 3 días"
+        assert "caduca el" in event.body
+        assert "wasm cert renew soon.example.com" in event.body
+
+
+class TestDiskThresholdNotifications:
+    """``disk_threshold`` fires once per disk while it stays over the line."""
+
+    def _disk(self, mountpoint: str, percent: float) -> Any:
+        """
+        Args:
+            mountpoint: Where the filesystem is mounted.
+            percent: How full it is.
+
+        Returns:
+            A DiskUsage at that fill level; the other fields do not matter here.
+        """
+        from wasm.monitor.models import DiskUsage
+
+        return DiskUsage(
+            device="/dev/sda1",
+            mountpoint=mountpoint,
+            fstype="ext4",
+            total_bytes=100,
+            used_bytes=95,
+            free_bytes=5,
+            percent=percent,
+        )
+
+    def _monitor(self) -> tuple[Any, Any]:
+        """
+        Returns:
+            A monitor and the event notifier it was built with.
+        """
+        from wasm.monitor.process_monitor import MonitorConfig, ProcessMonitor
+
+        notifier = _FakeEventNotifier()
+        return ProcessMonitor(config=MonitorConfig(), event_notifier=notifier), notifier
+
+    def test_a_full_disk_is_published_in_english_by_default(self) -> None:
+        monitor, notifier = self._monitor()
+
+        monitor._notify_full_disks([self._disk("/", 93.4)])
+
+        assert len(notifier.events) == 1
+        event = notifier.events[0]
+        assert event.kind == "disk_threshold"
+        assert event.title == "Disk usage at 93% on /"
+        assert "93.4% full" in event.body
+        assert "90% alert threshold" in event.body
+
+    def test_a_full_disk_is_published_in_the_configured_language(self, config: Config) -> None:
+        config.set("notifications.language", "es")
+        monitor, notifier = self._monitor()
+
+        monitor._notify_full_disks([self._disk("/", 93.4)])
+
+        assert len(notifier.events) == 1
+        event = notifier.events[0]
+        assert event.title == "Uso de disco al 93% en /"
+        assert "93.4% de su capacidad" in event.body
+        assert "umbral de aviso del 90%" in event.body

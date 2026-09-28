@@ -523,6 +523,29 @@ class TestTestChannel:
         assert result is None
         assert [r.full_url for r in opener.requests] == [WEBHOOK_URL]
 
+    def test_message_defaults_to_english(self, config: Config) -> None:
+        config.set("notifications.channels.webhook.webhook_url", WEBHOOK_URL)
+        opener = CapturingOpener()
+
+        Notifier(config, opener=opener).test_channel("webhook")
+
+        payload = json.loads(opener.requests[0].data)
+        assert payload["title"] == "WASM test notification"
+        assert (
+            payload["body"] == "Receiving this means the webhook channel is configured correctly."
+        )
+
+    def test_message_is_rendered_in_the_configured_language(self, config: Config) -> None:
+        config.set("notifications.channels.webhook.webhook_url", WEBHOOK_URL)
+        config.set("notifications.language", "es")
+        opener = CapturingOpener()
+
+        Notifier(config, opener=opener).test_channel("webhook")
+
+        payload = json.loads(opener.requests[0].data)
+        assert payload["title"] == "Notificación de prueba de WASM"
+        assert payload["body"] == "Si recibes esto, el canal webhook está bien configurado."
+
     def test_works_while_notifications_are_disabled(self, config: Config) -> None:
         """The button exists to try a channel before switching the feature on."""
         assert config.get("notifications.enabled") is False

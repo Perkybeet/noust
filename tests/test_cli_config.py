@@ -567,6 +567,27 @@ def test_set_accepts_a_port_in_range_and_stores_it_as_a_number(
     assert yaml.safe_load(body)["web"]["port"] == 9090
 
 
+def test_set_accepts_spanish_as_the_notification_language(
+    wasm: Wasm, real_config_path: Path
+) -> None:
+    """notifications.language picks the wasm.core.messages catalog a notification renders in."""
+    result = wasm("config", "set", "notifications.language", "es")
+
+    assert result.exit_code == 0, result.output
+    assert wasm("config", "get", "notifications.language").output.strip() == "es"
+
+
+def test_set_refuses_an_unsupported_notification_language(
+    wasm: Wasm, real_config_path: Path
+) -> None:
+    """Only "en" and "es" are catalogued; anything else would fail at send time instead."""
+    result = wasm("config", "set", "notifications.language", "fr")
+
+    assert result.exit_code == 1
+    assert "notifications.language must be 'en' or 'es'" in result.output
+    assert not real_config_path.exists()
+
+
 def test_set_refuses_a_relative_apps_directory(wasm: Wasm, real_config_path: Path) -> None:
     """A relative path resolves against whatever CWD the caller happens to have."""
     result = wasm("config", "set", "apps_directory", "var/www/apps")

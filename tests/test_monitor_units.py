@@ -16,6 +16,8 @@ from typing import Any
 
 import pytest
 
+from tests.test_notifier import config  # noqa: F401  (pytest resolves fixtures by name)
+from wasm.core.config import Config
 from wasm.core.exceptions import ServiceError
 from wasm.core.runner import FakeRunner
 from wasm.managers.service_manager import ServiceManager
@@ -29,6 +31,10 @@ from wasm.monitor.process_monitor import (
     scan_interval_warning,
     unit_failure,
 )
+
+# The notifier's config fixture is imported rather than replicated, so there
+# stays one definition of "a sandboxed configuration".
+# ruff: noqa: F811
 
 
 def show_block(
@@ -282,6 +288,25 @@ def test_a_failed_unit_alerts_once_and_rearms_after_it_recovers() -> None:
     assert len(notifier.events) == 2
 
 
+def test_a_failed_unit_is_announced_in_the_configured_language(config: Config) -> None:
+    """notifications.language: es translates the title; systemd's own report stays verbatim."""
+    config.set("notifications.language", "es")
+    runner = FakeRunner()
+    monitor, notifier = make_monitor(runner, ["shop-example-com"])
+    failed = show_block(
+        "shop-example-com.service", active="failed", sub="failed", result="exit-code", status=1
+    )
+
+    scan(runner, monitor, failed)
+
+    assert len(notifier.events) == 1
+    event = notifier.events[0]
+    assert event.title == "La unidad shop-example-com ha fallado"
+    assert "result exit-code" in event.body
+    assert "exit status 1" in event.body
+    assert "journalctl -u shop-example-com" in event.body
+
+
 def test_a_unit_stopped_on_purpose_does_not_alert() -> None:
     """inactive after a clean stop is what `wasm stop` leaves; nobody needs a message for it."""
     runner = FakeRunner()
@@ -319,8 +344,8 @@ def test_a_crash_loop_alerts_when_the_restart_count_grows() -> None:
     same outage, and only a scan with no new restarts re-arms.
     """
     runner = FakeRunner()
-    monitor, notifier = make_monitor(runner, ["arennalabs-com"])
-    unit = "arennalabs-com.service"
+    monitor, notifier = make_monitor(runner, ["example-com"])
+    unit = "example-com.service"
 
     scan(
         runner,
@@ -338,7 +363,7 @@ def test_a_crash_loop_alerts_when_the_restart_count_grows() -> None:
             unit, active="activating", sub="auto-restart", result="exit-code", status=1, restarts=11
         ),
     )
-    assert [e.title for e in notifier.events] == ["Unit arennalabs-com is crash-looping"]
+    assert [e.title for e in notifier.events] == ["Unit example-com is crash-looping"]
     assert "6 time(s) since the previous check" in notifier.events[0].body
     assert "11 automatic restarts in total" in notifier.events[0].body
 

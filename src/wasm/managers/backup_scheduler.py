@@ -36,6 +36,7 @@ from wasm.core.config import Config
 from wasm.core.exceptions import BackupError, WASMError
 from wasm.core.fs import FileSystem, get_fs
 from wasm.core.logger import Logger
+from wasm.core.messages import message, normalize_locale
 from wasm.core.notifier import NotificationEvent, Notifier
 from wasm.core.runner import CommandRunner, get_runner
 from wasm.core.store import BackupScheduleRecord, get_store
@@ -688,7 +689,7 @@ class BackupScheduler:
         )
 
 
-def _notify_backup_failed(domain: str, title: str, body: str) -> None:
+def _notify_backup_failed(config: Config, domain: str, title: str, body: str) -> None:
     """
     Tell the operator a scheduled backup step failed.
 
@@ -696,12 +697,15 @@ def _notify_backup_failed(domain: str, title: str, body: str) -> None:
     channel and never raises, so there is nothing further to guard here.
 
     Args:
+        config: Configuration to deliver through - the caller's own, so this
+            reads ``notifications.language`` and the channel settings from
+            the same snapshot the caller built ``title`` and ``body`` from.
         domain: Application the backup belongs to.
         title: One-line summary.
         body: Detail shown to the operator - rclone's own stderr, scrubbed,
             or the manager's error text.
     """
-    Notifier(Config()).notify(
+    Notifier(config).notify(
         NotificationEvent(kind="backup_failed", title=title, body=body, domain=domain)
     )
 
@@ -793,17 +797,16 @@ def run_schedule(
             longer than a scheduled backup waits.
     """
     store = get_store()
+    config = Config()
+    locale = normalize_locale(config.get("notifications.language"))
     record = store.get_backup_schedule(domain)
     schedule_missing = record is None
     if record is None:
         _notify_backup_failed(
+            config,
             domain,
-            f"Backup schedule settings missing: {domain}",
-            f"The timer for {domain} fired but WASM's store has no schedule for it, so the "
-            "backup was taken as 2.1 took it: databases included, backup.max_per_app "
-            "rotation, no remote destinations. Check which store WASM is using "
-            "(/var/lib/wasm), then save the schedule again with 'wasm backup schedule "
-            f"update {domain}' or from the console.",
+            message("backup_schedule_missing_title", locale, domain=domain),
+            message("backup_schedule_missing_body", locale, domain=domain),
         )
         record = BackupScheduleRecord(
             app_domain=domain,
@@ -820,7 +823,12 @@ def run_schedule(
     try:
         metadata = _create_when_free(backup_manager, domain, record)
     except WASMError as exc:
-        _notify_backup_failed(domain, f"Scheduled backup failed: {domain}", str(exc))
+        _notify_backup_failed(
+            config,
+            domain,
+            message("backup_scheduled_failed_title", locale, domain=domain),
+            str(exc),
+        )
         raise
 
     result: dict[str, Any] = {
@@ -849,7 +857,12 @@ def run_schedule(
             # stderr, already scrubbed of the destination's secrets.
             result["destinations"][name] = {"ok": False, "error": str(exc)}
             failures.append((name, str(exc)))
-            _notify_backup_failed(domain, f"Backup upload to {name} failed: {domain}", str(exc))
+            _notify_backup_failed(
+                config,
+                domain,
+                message("backup_upload_failed_title", locale, name=name, domain=domain),
+                str(exc),
+            )
 
     if failures:
         # Each destination's own error, rclone's words included: a timer run

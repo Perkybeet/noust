@@ -696,6 +696,39 @@ class TestRelativeAppsDirectoryIsRefused:
         assert client.get("/api/config/apps-directory").json()["apps_directory"] == "/srv/apps"
 
 
+class TestNotificationLanguage:
+    """notifications.language picks the wasm.core.messages catalog for the console too."""
+
+    def test_patch_accepts_spanish(self, client: TestClient, config_path: Path) -> None:
+        response = client.patch(
+            "/api/config", json={"path": "notifications.language", "value": "es"}
+        )
+
+        assert response.status_code == 200, response.text
+        assert client.get("/api/config").json()["config"]["notifications"]["language"] == "es"
+
+    def test_patch_refuses_an_uncatalogued_language(
+        self, client: TestClient, config_path: Path
+    ) -> None:
+        response = client.patch(
+            "/api/config", json={"path": "notifications.language", "value": "fr"}
+        )
+
+        assert response.status_code == 400
+        assert "notifications.language must be 'en' or 'es'" in response.text
+
+    def test_full_replace_refuses_an_uncatalogued_language(
+        self, client: TestClient, config_path: Path
+    ) -> None:
+        response = client.put("/api/config", json={"config": {"notifications": {"language": "fr"}}})
+
+        assert response.status_code == 400
+        assert not config_path.exists()
+
+    def test_defaults_to_english(self, client: TestClient) -> None:
+        assert client.get("/api/config").json()["config"]["notifications"]["language"] == "en"
+
+
 class TestBackupDirectoryIsNeverRelative:
     """
     ``backup.directory: ''`` meant the working directory: backups went to /root.

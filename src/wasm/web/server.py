@@ -47,8 +47,9 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from wasm import __version__
 from wasm.core.exceptions import SecurityError
+from wasm.core.messages import Locale, message, normalize_locale
 from wasm.core.net import host_addresses, is_loopback_host, local_address, loopback_access_lines
-from wasm.core.notifier import NotificationEvent, notify_in_background
+from wasm.core.notifier import NotificationEvent, fresh_config, notify_in_background
 from wasm.deployers import deploy_events
 from wasm.deployers.deploy_events import DeployEvent
 from wasm.web.auth import (
@@ -491,6 +492,27 @@ _TERMINAL_KINDS = {"completed": "deploy_success", "failed": "deploy_failed"}
 _SEEN_JOBS_LIMIT = 512
 
 
+def _optional_domain_title(key: str, no_domain_key: str, locale: Locale, domain: str | None) -> str:
+    """
+    Render a notification title that names a domain when the job carries one.
+
+    A job's ``metadata`` is a plain dict a caller builds by hand; nothing
+    guarantees ``domain`` is set, and a catalog key with a ``{domain}``
+    placeholder must not be asked to format ``None``.
+
+    Args:
+        key: Catalog key expecting a ``{domain}`` placeholder.
+        no_domain_key: Catalog key with no placeholders, for when there is
+            none.
+        locale: Language to render WASM's own words in.
+        domain: The job's domain, already stringified, or None.
+
+    Returns:
+        The rendered title.
+    """
+    return message(key, locale, domain=domain) if domain else message(no_domain_key, locale)
+
+
 def deployment_notification(job: Any) -> NotificationEvent | None:
     """
     Translate a job transition into the event the notifier carries, or None.
@@ -508,6 +530,7 @@ def deployment_notification(job: Any) -> NotificationEvent | None:
     status = str(getattr(job.status, "value", job.status))
     job_type = str(getattr(job.type, "value", job.type))
     domain = job.metadata.get("domain")
+    domain_str = str(domain) if domain else None
 
     if job_type in DEPLOY_JOB_TYPES and status in _TERMINAL_KINDS:
         kind = _TERMINAL_KINDS[status]
@@ -516,18 +539,32 @@ def deployment_notification(job: Any) -> NotificationEvent | None:
     else:
         return None
 
-    if status == "failed":
-        title = f"{job.name} failed"
+    # The job's own name and description are console text, out of scope for
+    # 2.3 (docs/superpowers/specs/2026-09-28-wasm-2.3-design.md S1): this
+    # title is built fresh from wasm.core.messages instead of reusing them,
+    # so a Spanish operator reads a Spanish notification even though the
+    # job list itself still reads in English.
+    locale = normalize_locale(fresh_config().get("notifications.language"))
+
+    if kind == "backup_failed":
+        title = _optional_domain_title(
+            "backup_job_failed_title", "backup_job_failed_title_no_domain", locale, domain_str
+        )
         # The tool's own words, never paraphrased: this is what the operator
         # will search for.
         body = job.error or ""
+    elif status == "failed":
+        title = _optional_domain_title(
+            "restore_failed_title", "restore_failed_title_no_domain", locale, domain_str
+        )
+        body = job.error or ""
     else:
-        title = f"{job.name} completed"
-        body = job.description or ""
+        title = _optional_domain_title(
+            "restore_succeeded_title", "restore_succeeded_title_no_domain", locale, domain_str
+        )
+        body = ""
 
-    return NotificationEvent(
-        kind=kind, title=title, body=body, domain=str(domain) if domain else None
-    )
+    return NotificationEvent(kind=kind, title=title, body=body, domain=domain_str)
 
 
 def _job_type(job: Any) -> str:
@@ -669,12 +706,25 @@ class JobNotificationSubscriber:
         if self._witness.announced(job) or status != "failed":
             return None
         domain = job.metadata.get("domain")
+        domain_str = str(domain) if domain else None
+        # The same title wasm.core.deploy_notifications gives a recorded
+        # deploy failure - this is the same event, just from a run the
+        # recorder never opened for. A domain is always set for these job
+        # types in practice; the job's own English name is the fallback for
+        # the one that is not, rather than a catalog call that would raise
+        # on a missing placeholder.
+        locale = normalize_locale(fresh_config().get("notifications.language"))
+        title = (
+            message("deploy_failed_title", locale, domain=domain_str)
+            if domain_str
+            else f"{job.name} failed"
+        )
         return NotificationEvent(
             kind="deploy_failed",
-            title=f"{job.name} failed",
+            title=title,
             # The tool's own words, never paraphrased.
             body=job.error or "",
-            domain=str(domain) if domain else None,
+            domain=domain_str,
         )
 
     def __call__(self, job: Any) -> None:

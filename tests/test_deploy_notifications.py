@@ -185,6 +185,26 @@ class TestTitle:
         assert title == "shop.example.com rolled back"
 
 
+class TestTitleInSpanish:
+    """notifications.language: es renders WASM's own words, commit and branch left alone."""
+
+    def test_started(self) -> None:
+        title = deploy_notifications._title(make_event(DeployEventKind.STARTED), "es")
+        assert title == "Desplegando shop.example.com"
+
+    def test_succeeded_carries_the_commit_and_branch_untranslated(self) -> None:
+        title = deploy_notifications._title(make_event(DeployEventKind.SUCCEEDED), "es")
+        assert title == "shop.example.com desplegado abc1234 (main)"
+
+    def test_failed(self) -> None:
+        title = deploy_notifications._title(make_event(DeployEventKind.FAILED), "es")
+        assert title == "No se ha podido desplegar shop.example.com"
+
+    def test_rolled_back(self) -> None:
+        title = deploy_notifications._title(make_event(DeployEventKind.ROLLED_BACK), "es")
+        assert title == "Se ha vuelto a la versión anterior de shop.example.com"
+
+
 class TestBody:
     """Trigger, commit, evidence and a console link, apart in their own paragraph."""
 
@@ -276,6 +296,50 @@ class TestBody:
         """The domain is real (it is deploying), just not yet recorded."""
         body = deploy_notifications._body(make_event(domain="new.example.com"), config)
         assert "Preview of" not in body
+
+
+class TestBodyInSpanish:
+    """notifications.language: es translates WASM's sentences; evidence stays verbatim."""
+
+    def test_carries_the_trigger_and_commit(self, config: Config) -> None:
+        config.set("notifications.language", "es")
+        body = deploy_notifications._body(make_event(), config)
+        assert "Origen: webhook" in body
+        assert "Commit: abc1234 (main)" in body
+
+    def test_a_failures_evidence_is_still_verbatim_never_translated(self, config: Config) -> None:
+        config.set("notifications.language", "es")
+        evidence = "Probe / -> 502\nnginx: [emerg] duplicate listen\njournalctl: ..."
+        body = deploy_notifications._body(
+            make_event(DeployEventKind.FAILED, error=evidence), config
+        )
+        assert evidence in body
+
+    def test_names_the_preview_and_its_pull_request_number(
+        self, config: Config, store: WASMStore
+    ) -> None:
+        config.set("notifications.language", "es")
+        store.create_app(
+            App(
+                domain="pr-42.example.com",
+                app_path="/var/www/apps/pr-42-example-com",
+                preview_parent="shop.example.com",
+            )
+        )
+        store.save_preview(
+            PreviewRecord(
+                parent_domain="shop.example.com",
+                domain="pr-42.example.com",
+                number=42,
+                branch="feature",
+                provider="github",
+                expires_at="2099-01-01T00:00:00Z",
+            )
+        )
+
+        body = deploy_notifications._body(make_event(domain="pr-42.example.com"), config)
+
+        assert "Vista previa de shop.example.com n.º 42." in body
 
 
 class TestDefaultEnablement:

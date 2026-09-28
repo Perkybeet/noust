@@ -151,6 +151,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # because this module cannot import the notifier (the notifier reads
         # its settings from here).
         "enabled": False,
+        # Language WASM's own words in a notification are rendered in - the
+        # evidence they carry (a health gate's probes, rclone's or
+        # certbot's own output) never is. wasm.core.messages is the catalog;
+        # see _validate_notification_language for the accepted values.
+        "language": "en",
         "events": {
             "deploy_started": False,
             "deploy_success": True,
@@ -595,6 +600,33 @@ def _validate_telegram_chat_id(value: Any) -> str:
         ) from exc
 
 
+def _validate_notification_language(value: Any) -> str:
+    """
+    Accept the language WASM's own notification texts are rendered in.
+
+    Only ``"en"`` and ``"es"`` are catalogued in
+    :data:`wasm.core.messages.MESSAGES`; a third value would index that dict
+    into a ``KeyError`` the next time a deploy or the monitor tries to send
+    something, not at the moment an operator mistypes it here.
+
+    Args:
+        value: The candidate value, from either front end.
+
+    Returns:
+        ``"en"`` or ``"es"``.
+
+    Raises:
+        ConfigError: When it is neither.
+    """
+    text = "en" if value is None else str(value).strip().lower()
+    if text not in ("en", "es"):
+        raise ConfigError(
+            "notifications.language must be 'en' or 'es'",
+            details=f"Got {text!r}.",
+        )
+    return text
+
+
 def _validate_public_url(value: Any) -> str:
     """
     Accept the console's public URL, or leave it unset.
@@ -678,6 +710,7 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "monitor.smtp.from_address": _validate_optional_email("monitor.smtp.from_address"),
     "monitor.email_recipients": _validate_email_list("monitor.email_recipients"),
     "notifications.channels.telegram.chat_id": _validate_telegram_chat_id,
+    "notifications.language": _validate_notification_language,
 }
 
 # Rules spanning more than one key of the same container - monitor.smtp's

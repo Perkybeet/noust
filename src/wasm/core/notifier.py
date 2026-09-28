@@ -84,6 +84,7 @@ from wasm import __version__
 from wasm.core.background import BackgroundQueue
 from wasm.core.config import Config
 from wasm.core.exceptions import WASMError
+from wasm.core.messages import Locale, message, normalize_locale
 from wasm.validators.telegram import validate_telegram_chat_id
 
 if TYPE_CHECKING:
@@ -890,10 +891,11 @@ class Notifier:
             return f"Unknown notification channel {name!r}; expected one of: {known}"
 
         channels: dict[str, Any] = self._settings().get("channels") or {}
+        locale = self._locale()
         event = NotificationEvent(
             kind=TEST_KIND,
-            title="WASM test notification",
-            body=f"Receiving this means the {name} channel is configured correctly.",
+            title=message("test_notification_title", locale),
+            body=message("test_notification_body", locale, channel=name),
         )
         try:
             sent = self._dispatch(name, event, channels)
@@ -962,6 +964,18 @@ class Notifier:
         """
         settings = self._config.get("notifications", {})
         return settings if isinstance(settings, dict) else {}
+
+    def _locale(self) -> Locale:
+        """
+        Language this instance's own notification texts render in.
+
+        Returns:
+            ``notifications.language``, normalised by
+            :func:`wasm.core.messages.normalize_locale` -
+            :data:`~wasm.core.messages.DEFAULT_LOCALE` for anything unset or
+            not one of the two catalogued locales.
+        """
+        return normalize_locale(self._settings().get("language"))
 
     def _dispatch(self, name: str, event: NotificationEvent, channels: dict[str, Any]) -> bool:
         """
