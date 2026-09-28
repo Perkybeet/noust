@@ -49,6 +49,7 @@ class StoreRegistrar:
         limits_given: bool = False,
         preview_parent: str | None = None,
         env_secret_marks: dict[str, bool] | None = None,
+        initial_health: tuple[str | None, str | None, int | None] | None = None,
     ) -> App:
         """
         Create or update the application row.
@@ -94,6 +95,11 @@ class StoreRegistrar:
                 :meth:`~wasm.core.store.WASMStore.set_preview_parent` writes.
             env_secret_marks: The secret marks a new row starts with. Ignored
                 for an existing row, like ``preview_parent``.
+            initial_health: ``(path, expect, timeout)`` a new row's health
+                check starts with, written through
+                :meth:`~wasm.core.store.WASMStore.set_app_health` (which
+                validates) before anything is probed. Ignored for an existing
+                row, like ``preview_parent``.
 
         Returns:
             The stored application row.
@@ -137,7 +143,12 @@ class StoreRegistrar:
             return self.store.update_app(app)
         app.preview_parent = preview_parent
         app.env_secret_marks = dict(env_secret_marks or {})
-        return self.store.create_app(app)
+        created = self.store.create_app(app)
+        if initial_health is not None and any(value is not None for value in initial_health):
+            path, expect, timeout = initial_health
+            self.store.set_app_health(created.domain, path=path, expect=expect, timeout=timeout)
+            created.health_path, created.health_expect, created.health_timeout = initial_health
+        return created
 
     def register_site(
         self,

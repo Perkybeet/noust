@@ -2044,6 +2044,42 @@
             "description": "GitHub App installation that clones this application's repository, as the repository list returned it; kept for every later update",
             "title": "Github Installation Id"
           },
+          "health_expect": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Statuses that mean up, such as 200-399; omitted: below 500",
+            "title": "Health Expect"
+          },
+          "health_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Path the health gate probes from the first deployment, such as /healthz; omitted: the type's own (/)",
+            "title": "Health Path"
+          },
+          "health_timeout": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Seconds the health gate waits; omitted: its default",
+            "title": "Health Timeout"
+          },
           "include_www": {
             "default": false,
             "description": "Also answer on www.<domain>, as a redirect to it",

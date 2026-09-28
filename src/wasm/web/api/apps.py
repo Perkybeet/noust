@@ -310,6 +310,17 @@ class CreateAppRequest(BaseModel):
         "omitted or null detects it from the project's lock file. Ignored by app types that "
         "do not use one (monorepo, docker-compose).",
     )
+    health_path: str | None = Field(
+        default=None,
+        description="Path the health gate probes from the first deployment, such as /healthz; "
+        "omitted: the type's own (/)",
+    )
+    health_expect: str | None = Field(
+        default=None, description="Statuses that mean up, such as 200-399; omitted: below 500"
+    )
+    health_timeout: int | None = Field(
+        default=None, description="Seconds the health gate waits; omitted: its default"
+    )
     github_installation_id: int | None = Field(
         default=None,
         description="GitHub App installation that clones this application's repository, "
@@ -820,6 +831,39 @@ def list_apps(session: Annotated[dict, Depends(get_current_session)]) -> AppList
     return AppListResponse(apps=result, total=len(result))
 
 
+def _check_initial_health(path: str | None, expect: str | None, timeout: int | None) -> None:
+    """
+    Refuse health settings the gate could not use, naming the field.
+
+    Args:
+        path: Path to probe, or None.
+        expect: Accepted statuses, or None.
+        timeout: Seconds to wait, or None.
+
+    Raises:
+        ValidationError: A value is not usable; ``field`` names it.
+    """
+    from wasm.validators.health import (
+        check_health_expect,
+        check_health_path,
+        check_health_timeout,
+    )
+
+    checks: tuple[tuple[str, Callable[[Any], Any], Any], ...] = (
+        ("health_path", check_health_path, path),
+        ("health_expect", check_health_expect, expect),
+        ("health_timeout", check_health_timeout, timeout),
+    )
+    for field, check, value in checks:
+        if value is None:
+            continue
+        try:
+            check(value)
+        except ValidationError as exc:
+            exc.field = field
+            raise
+
+
 @router.post("", response_model=JobAcceptedResponse, status_code=202)
 def create_app(
     body: CreateAppRequest,
@@ -890,6 +934,9 @@ def create_app(
         cpu_quota_percent=body.cpu_quota_percent,
         tasks_max=body.tasks_max,
     ).validated()
+    # Checked before the job is queued, the same way PATCH .../health checks
+    # them: a value the gate cannot use is a 400 now, not a failed deploy.
+    _check_initial_health(body.health_path, body.health_expect, body.health_timeout)
 
     if body.package_manager is not None and body.package_manager not in SUPPORTED_PACKAGE_MANAGERS:
         raise ValidationError(
@@ -930,6 +977,9 @@ def create_app(
             "tasks_max": body.tasks_max,
             "package_manager": body.package_manager,
             "github_installation_id": body.github_installation_id,
+            "health_path": body.health_path,
+            "health_expect": body.health_expect,
+            "health_timeout": body.health_timeout,
         },
         metadata={
             "domain": domain,

@@ -7318,6 +7318,21 @@ export interface components {
              */
             github_installation_id?: number | null;
             /**
+             * Health Expect
+             * @description Statuses that mean up, such as 200-399; omitted: below 500
+             */
+            health_expect?: string | null;
+            /**
+             * Health Path
+             * @description Path the health gate probes from the first deployment, such as /healthz; omitted: the type's own (/)
+             */
+            health_path?: string | null;
+            /**
+             * Health Timeout
+             * @description Seconds the health gate waits; omitted: its default
+             */
+            health_timeout?: number | null;
+            /**
              * Include Www
              * @description Also answer on www.<domain>, as a redirect to it
              * @default false

@@ -421,3 +421,63 @@ def test_new_ports_skip_the_second_port_of_a_blue_green_application(store: Any) 
     store.create_app(App(domain="plain.example.com", app_path="/y", port=3005))
 
     assert store.ports_owned_by_apps() == {3000, 3001, 3005}
+
+
+def test_a_health_check_given_at_creation_reaches_the_job(
+    client: TestClient, queued: list[Any]
+) -> None:
+    """What another platform proposed is asked by the first deployment's gate."""
+    client.post(
+        "/api/apps",
+        json={
+            **PAYLOAD,
+            "health_path": "/healthz",
+            "health_expect": "200-399",
+            "health_timeout": 90,
+        },
+    )
+
+    kwargs = queued[0]["kwargs"]
+    assert (kwargs["health_path"], kwargs["health_expect"], kwargs["health_timeout"]) == (
+        "/healthz",
+        "200-399",
+        90,
+    )
+
+
+def test_an_unusable_health_check_is_refused_before_anything_is_queued(
+    client: TestClient, queued: list[Any]
+) -> None:
+    response = client.post("/api/apps", json={**PAYLOAD, "health_path": "https://evil.example/"})
+
+    assert response.status_code == 400
+    assert "health_path" in response.json().get("fields", {})
+    assert queued == []
+
+
+def test_a_new_row_starts_with_the_health_check_it_was_given(store: Any, tmp_path: Path) -> None:
+    """Written through set_app_health, which validates, before anything probes."""
+    from wasm.deployers.helpers.registration import StoreRegistrar
+
+    registrar = StoreRegistrar(store)
+    app = registrar.register_app(
+        domain="app.example.com",
+        app_type="nodejs",
+        source="https://github.com/you/app",
+        branch="main",
+        port=3000,
+        app_path=tmp_path / "app",
+        webserver="nginx",
+        ssl_enabled=False,
+        status="deploying",
+        is_static=False,
+        env_vars={},
+        initial_health=("/healthz", "200-399", 90),
+    )
+
+    stored = store.get_app(app.domain)
+    assert (stored.health_path, stored.health_expect, stored.health_timeout) == (
+        "/healthz",
+        "200-399",
+        90,
+    )

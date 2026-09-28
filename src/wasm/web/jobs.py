@@ -956,6 +956,9 @@ def deploy_app_job(
     preview_parent: str | None = None,
     env_secret_marks: dict[str, bool] | None = None,
     recipe: str | None = None,
+    health_path: str | None = None,
+    health_expect: str | None = None,
+    health_timeout: int | None = None,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
     """
@@ -1077,6 +1080,7 @@ def deploy_app_job(
         package_manager=package_manager or "auto",
         preview_parent=preview_parent,
         env_secret_marks=env_secret_marks,
+        initial_health=(health_path, health_expect, health_timeout),
     )
 
     context.update("Deploying", 10)

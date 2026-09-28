@@ -231,6 +231,7 @@ class BaseDeployer(AppDeployer):
         # What a new application's row is created with, so the first
         # deployment already reports and scrubs as what it is (a preview).
         self._preview_parent: str | None = None
+        self._initial_health: tuple[str | None, str | None, int | None] | None = None
         self._initial_secret_marks: dict[str, bool] = {}
 
         # Package manager (auto = auto-detect)
@@ -349,6 +350,7 @@ class BaseDeployer(AppDeployer):
         resource_limits_given: bool = False,
         preview_parent: str | None = None,
         env_secret_marks: dict[str, bool] | None = None,
+        initial_health: tuple[str | None, str | None, int | None] | None = None,
         **options: Any,
     ) -> None:
         """
@@ -400,6 +402,10 @@ class BaseDeployer(AppDeployer):
             env_secret_marks: For a new application only: the secret marks
                 its row starts with, so its first build's log is scrubbed of
                 the values its parent marked secret.
+            initial_health: For a new application only: ``(path, expect,
+                timeout)`` its health check starts with, so the first
+                deployment's gate already asks what the application answers
+                (another platform's configuration, say).
             **options: ``replace_existing`` deploys into a directory that
                 already holds files (``wasm create --force``): in place they
                 are replaced, on releases a release is added beside them.
@@ -425,6 +431,7 @@ class BaseDeployer(AppDeployer):
         self._resource_limits_given = resource_limits_given
         self._preview_parent = preview_parent
         self._initial_secret_marks = dict(env_secret_marks or {})
+        self._initial_health = initial_health
         self._package_manager = package_manager  # type: ignore[assignment]
         self._requested_layout = layout
         self._persistent_request = list(persistent_paths) if persistent_paths is not None else None
@@ -2764,6 +2771,7 @@ class BaseDeployer(AppDeployer):
             limits_given=self._resource_limits_given,
             preview_parent=self._preview_parent,
             env_secret_marks=self._initial_secret_marks,
+            initial_health=self._initial_health,
         )
 
 
