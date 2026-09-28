@@ -32,9 +32,10 @@ from starlette.concurrency import run_in_threadpool
 
 from wasm.core import app_state
 from wasm.core.app_state import AppState, resolve_state_with_status, resolve_states_with_status
-from wasm.core.config import REDACTED, redact_secrets
+from wasm.core.config import REDACTED
 from wasm.core.exceptions import DeploymentError, SourceError, ValidationError, WASMError
 from wasm.core.runner import CommandCancelled
+from wasm.core.secret_detection import Secrecy, classify
 from wasm.core.store import (
     DEFAULT_KEEP_RELEASES,
     App,
@@ -46,7 +47,7 @@ from wasm.core.store import (
 from wasm.core.utils import domain_to_app_name
 from wasm.deployers.base import BaseDeployer
 from wasm.deployers.helpers.app_env import read_app_env, write_app_env
-from wasm.deployers.helpers.env_manager import is_secret_env_name, redact_url_credentials
+from wasm.deployers.helpers.env_manager import redact_url_credentials
 from wasm.deployers.helpers.health_gate import HealthCheck
 from wasm.deployers.helpers.layout import RELEASES
 from wasm.deployers.helpers.package_manager import SUPPORTED_PACKAGE_MANAGERS
@@ -297,6 +298,24 @@ class AppLogsResponse(BaseModel):
     lines: int
 
 
+class EnvSecrecyOut(BaseModel):
+    """
+    Why one environment variable is, or is not, treated as a secret.
+
+    Attributes:
+        secret: Whether the value must not be shown or logged in clear.
+        reason: One of ``"marked secret"``, ``"marked not secret"``,
+            ``"name"``, ``"value: <kind>"``, ``"url credentials"`` or
+            ``"plain"`` - see :class:`~wasm.core.secret_detection.Secrecy`.
+        marked: Whether this came from an operator's own mark rather than
+            from the variable's name or value.
+    """
+
+    secret: bool
+    reason: str
+    marked: bool
+
+
 class AppEnvResponse(BaseModel):
     """
     An application's environment, as recorded in its ``.env`` file.
@@ -308,11 +327,17 @@ class AppEnvResponse(BaseModel):
             both replaced by the fixed :data:`~wasm.core.config.REDACTED`
             placeholder, exactly as ``wasm env show`` does on the terminal.
         unmasked: Whether this response carries values in clear.
+        secrets: Every variable's classification, from
+            :func:`~wasm.core.secret_detection.classify` - present whether or
+            not ``unmasked`` is true, so the console can label a variable
+            (and let the operator override it) without asking to see its
+            value.
     """
 
     domain: str
     variables: dict[str, str]
     unmasked: bool
+    secrets: dict[str, EnvSecrecyOut] = Field(default_factory=dict)
 
 
 class UpdateAppEnvRequest(BaseModel):
@@ -337,6 +362,30 @@ class AppEnvUpdateResponse(BaseModel):
 
     domain: str
     restart_required: bool = True
+
+
+class UpdateEnvMarksRequest(BaseModel):
+    """
+    Request to set or clear operator overrides on an application's environment.
+
+    Attributes:
+        marks: Variable name to ``true`` (always treat as a secret),
+            ``false`` (never treat as a secret) or ``null`` (remove any
+            existing mark and judge the variable by its name and value
+            again).
+    """
+
+    marks: dict[str, bool | None] = Field(
+        default_factory=dict,
+        description="Variable name to true (secret), false (not secret), or null to clear",
+    )
+
+
+class AppEnvSecretsResponse(BaseModel):
+    """The secrecy classification of every variable of an application's environment."""
+
+    domain: str
+    secrets: dict[str, EnvSecrecyOut]
 
 
 def _last_deployment_out(record: DeploymentRecord | None) -> LastDeploymentOut | None:
@@ -562,45 +611,61 @@ def _deployer_build_command(app: App) -> list[str]:
         return []
 
 
-def _looks_secret(name: str) -> bool:
+def _redact_env(
+    values: Mapping[str, str], marks: Mapping[str, bool] | None = None
+) -> dict[str, str]:
     """
-    Check a variable name against the one secret-name classifier.
+    Replace every secret value with the fixed REDACTED placeholder.
 
-    Args:
-        name: Environment variable name.
-
-    Returns:
-        True if the value behind this name must not be shown in clear.
-    """
-    return is_secret_env_name(name)
-
-
-def _redact_env(values: Mapping[str, str]) -> dict[str, str]:
-    """
-    Replace every secret-looking value with the fixed REDACTED placeholder.
-
-    The same three-classifier approach ``wasm env show`` uses on the
-    terminal: a key-based pass (:func:`~wasm.core.config.redact_secrets`), a
-    name match with :func:`is_secret_env_name` for the names
-    it misses, and a value-based pass for a password embedded inside a
-    connection string such as ``DATABASE_URL``. The placeholder is fixed
-    width, so a response never reveals the length of a secret or whether one
-    is set at all.
+    Uses :func:`~wasm.core.secret_detection.classify`, honouring the
+    application's own marks: a variable the operator marked secret is
+    redacted even if nothing about its name or value would otherwise say so,
+    and one marked not secret is shown even if it would. A value that is
+    secret only because of a credential embedded in it - ``DATABASE_URL``, a
+    connection string no name marks as a secret - keeps the rest of the
+    value readable, exactly as ``wasm env show`` does on the terminal. The
+    placeholder is fixed width, so a response never reveals the length of a
+    secret or whether one is set at all.
 
     Args:
         values: The environment as read from the .env file.
+        marks: The application's operator overrides, from
+            :attr:`~wasm.core.store.App.env_secret_marks`.
 
     Returns:
         A new mapping safe to send to a browser.
     """
-    by_word: Mapping[str, Any] = redact_secrets(dict(values))
     redacted: dict[str, str] = {}
     for key, value in values.items():
-        if by_word.get(key) == REDACTED or _looks_secret(key):
-            redacted[key] = REDACTED
+        text = str(value)
+        verdict = classify(key, text, marks)
+        if not verdict.secret:
+            redacted[key] = text
+        elif verdict.reason == "url credentials":
+            redacted[key] = redact_url_credentials(text)
         else:
-            redacted[key] = redact_url_credentials(str(value))
+            redacted[key] = REDACTED
     return redacted
+
+
+def _secrets_map(
+    values: Mapping[str, str], marks: Mapping[str, bool] | None = None
+) -> dict[str, EnvSecrecyOut]:
+    """
+    Classify every variable of an environment for the API response.
+
+    Args:
+        values: The environment as read from the .env file.
+        marks: The application's operator overrides.
+
+    Returns:
+        Variable name to its classification.
+    """
+
+    def _out(verdict: Secrecy) -> EnvSecrecyOut:
+        return EnvSecrecyOut(secret=verdict.secret, reason=verdict.reason, marked=verdict.marked)
+
+    return {key: _out(classify(key, value, marks)) for key, value in values.items()}
 
 
 def _env_app(domain: str) -> App:
@@ -1199,6 +1264,8 @@ def get_app_env(
 
     app = _env_app(domain)
     values = read_app_env(app)
+    marks = app.env_secret_marks
+    secrets = _secrets_map(values, marks)
 
     if unmask:
         audit = get_audit_logger()
@@ -1211,9 +1278,13 @@ def get_app_env(
                 resource=f"/api/apps/{app.domain}/env",
                 detail=f"revealed {len(values)} variable(s) in clear",
             )
-        return AppEnvResponse(domain=app.domain, variables=dict(values), unmasked=True)
+        return AppEnvResponse(
+            domain=app.domain, variables=dict(values), unmasked=True, secrets=secrets
+        )
 
-    return AppEnvResponse(domain=app.domain, variables=_redact_env(values), unmasked=False)
+    return AppEnvResponse(
+        domain=app.domain, variables=_redact_env(values, marks), unmasked=False, secrets=secrets
+    )
 
 
 @router.put("/{domain}/env", response_model=AppEnvUpdateResponse)
@@ -1273,7 +1344,78 @@ def update_app_env(
             detail=f"changed keys: {', '.join(changed)}" if changed else "no keys changed",
         )
 
+    # A mark on a variable this write dropped is meaningless kept around, and
+    # would resurface with the wrong meaning if a later variable reused the
+    # name: drop it here, the one place an environment's variable set changes.
+    stale = set(app.env_secret_marks) - set(after)
+    if stale:
+        get_store().set_env_secret_marks(
+            app.domain,
+            {name: mark for name, mark in app.env_secret_marks.items() if name not in stale},
+        )
+
     return AppEnvUpdateResponse(domain=app.domain, restart_required=True)
+
+
+@router.put("/{domain}/env/marks", response_model=AppEnvSecretsResponse)
+def update_app_env_marks(
+    domain: str,
+    body: UpdateEnvMarksRequest,
+    request: Request,
+    session: Annotated[dict, Depends(require_elevated)],
+) -> AppEnvSecretsResponse:
+    """
+    Set or clear operator overrides on an application's environment variables.
+
+    A mark always wins over the automatic classification, in both
+    directions: it is how an operator corrects a false positive (``KEYBOARD_LAYOUT``
+    is not a secret) or a false negative (``SESSION`` holding a value nothing
+    about its name suggests is one). Marks merge with what is already
+    stored - a request need only name the variables it changes - and a
+    ``null`` removes a mark rather than setting one, going back to the
+    automatic classification. Needs sudo mode, like writing the environment
+    itself: it changes what the console and the audit log will treat as
+    safe to display.
+
+    Args:
+        domain: Domain of the application.
+        body: The marks to set or clear.
+        request: The incoming request, for the audit record.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The application's full secrecy classification after the change.
+
+    Raises:
+        HTTPException: 404 when the application is unknown.
+        ValidationError: A variable name is not a valid environment variable
+            name (400).
+    """
+    app = _env_app(domain)
+    marks = dict(app.env_secret_marks)
+    for name, mark in body.marks.items():
+        if mark is None:
+            marks.pop(name, None)
+        else:
+            marks[name] = mark
+
+    get_store().set_env_secret_marks(app.domain, marks)
+
+    audit = get_audit_logger()
+    if audit:
+        audit.record(
+            action="apps.env.marks",
+            result="success",
+            client_ip=get_client_ip(request),
+            actor=actor_label(session),
+            resource=f"/api/apps/{app.domain}/env/marks",
+            detail=f"changed keys: {', '.join(sorted(body.marks))}"
+            if body.marks
+            else "no keys changed",
+        )
+
+    values = read_app_env(app)
+    return AppEnvSecretsResponse(domain=app.domain, secrets=_secrets_map(values, marks))
 
 
 @router.delete("/{domain}", response_model=JobAcceptedResponse, status_code=202)

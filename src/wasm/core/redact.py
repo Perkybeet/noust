@@ -37,6 +37,7 @@ from urllib.parse import unquote
 
 from wasm.core.config import REDACTED, Config, redact_secrets
 from wasm.core.exceptions import WASMError
+from wasm.core.secret_detection import URL_CREDENTIALS, classify
 
 logger = logging.getLogger(__name__)
 
@@ -111,38 +112,40 @@ class Scrubber:
         return pattern.sub(REDACTED, text)
 
 
-def secret_env_values(env: Mapping[str, Any]) -> list[str]:
+def secret_env_values(env: Mapping[str, Any], marks: Mapping[str, bool] | None = None) -> list[str]:
     """
     Pick the values of an environment that are secrets.
 
-    Uses the classifiers WASM already redacts ``.env`` listings with, rather
-    than a third opinion: :func:`~wasm.core.config.redact_secrets`, which
-    splits a name into words (``api_key``, ``AuthToken``),
-    :data:`~wasm.deployers.helpers.env_manager.EnvManager.SECRET_PATTERNS`,
-    which matches substrings such as ``_PASS``, and the password inside any
-    connection string, whatever the variable is called.
+    Uses :func:`~wasm.core.secret_detection.classify`, the one classifier for
+    the question, rather than a third opinion here. A value classified secret
+    for any reason other than an embedded URL credential is scrubbed whole; a
+    value that is only secret because of a credential inside it (a password
+    in ``DATABASE_URL``) has just that credential scrubbed, so the rest of
+    the connection string - host, database name - stays in the log, which is
+    what makes the log worth reading afterwards.
 
     Args:
         env: Variable name to value. Non-string values are ignored.
+        marks: Operator overrides for this application, as for
+            :func:`~wasm.core.secret_detection.classify`. A variable marked
+            not secret is trusted completely: nothing about it, including a
+            credential embedded in its value, is scrubbed.
 
     Returns:
         The secret values, including each URL password both as written and
         percent-decoded.
     """
-    # Imported here, not at the top: wasm.deployers imports the deployment
-    # recorder, which imports this module, so a top-level import would make
-    # the core layer depend on the deployers package being importable first.
-    from wasm.deployers.helpers.env_manager import URL_CREDENTIALS, EnvManager
-
     strings = {str(key): value for key, value in env.items() if isinstance(value, str)}
-    by_word = redact_secrets(strings)
     values: list[str] = []
     for key, value in strings.items():
         if not value:
             continue
-        upper = key.upper()
-        if by_word.get(key) == REDACTED or any(p in upper for p in EnvManager.SECRET_PATTERNS):
+        verdict = classify(key, value, marks)
+        if verdict.marked and not verdict.secret:
+            continue
+        if verdict.secret and verdict.reason != "url credentials":
             values.append(value)
+            continue
         for match in URL_CREDENTIALS.finditer(value):
             password = match.group(0)[len(match.group("prefix")) : -1]
             values.extend({password, unquote(password)})
@@ -223,17 +226,40 @@ def app_secret_values(domain: str) -> list[str]:
         app = store.get_app(domain)
         if app is None:
             return values
-        values.extend(secret_env_values(app.env_vars))
+        marks = app.env_secret_marks
+        values.extend(secret_env_values(app.env_vars, marks))
         service = store.get_service(domain_to_app_name(domain))
         if service is not None:
-            values.extend(secret_env_values(service.environment))
+            values.extend(secret_env_values(service.environment, marks))
         webhook_secret = store.get_webhook_secret(domain)
         if webhook_secret:
             values.append(webhook_secret)
-        values.extend(secret_env_values(read_app_env(app)))
+        values.extend(secret_env_values(read_app_env(app), marks))
     except (WASMError, OSError, sqlite3.Error) as exc:
         logger.warning("Could not read the secrets of %s to scrub its logs: %s", domain, exc)
     return values
+
+
+def _marks_for(domain: str) -> dict[str, bool]:
+    """
+    Read an application's operator-set secret marks, best effort.
+
+    Args:
+        domain: The application's domain.
+
+    Returns:
+        The marks, or empty when the application is unknown or its store row
+        cannot be read - the same best-effort contract as
+        :func:`app_secret_values`.
+    """
+    from wasm.core.store import get_store
+
+    try:
+        app = get_store().get_app(domain)
+    except (WASMError, sqlite3.Error) as exc:
+        logger.warning("Could not read the secret marks of %s: %s", domain, exc)
+        return {}
+    return app.env_secret_marks if app is not None else {}
 
 
 def scrubber_for(domain: str | None = None, env: Mapping[str, Any] | None = None) -> Scrubber:
@@ -253,5 +279,5 @@ def scrubber_for(domain: str | None = None, env: Mapping[str, Any] | None = None
     if domain:
         scrubber.add(app_secret_values(domain))
     if env:
-        scrubber.add(secret_env_values(env))
+        scrubber.add(secret_env_values(env, _marks_for(domain) if domain else None))
     return scrubber

@@ -31,10 +31,11 @@ from typing import Any
 import click
 
 from wasm.cli.app import Context, WasmGroup, json_option, pass_context
-from wasm.core.config import REDACTED, redact_secrets
+from wasm.core.config import REDACTED
 from wasm.core.exceptions import EnvConfigError, WASMError
 from wasm.core.logger import Logger
-from wasm.core.store import App
+from wasm.core.secret_detection import Secrecy, classify
+from wasm.core.store import App, get_store
 from wasm.deployers.helpers.app_env import find_app, read_app_env, write_app_env
 from wasm.deployers.helpers.env_manager import EnvConfig, EnvManager, redact_url_credentials
 from wasm.deployers.helpers.layout import code_path_for, env_file_for
@@ -97,48 +98,37 @@ class AliasedGroup(WasmGroup):
         return (command.name if command else None), command, remaining
 
 
-def _looks_secret(name: str) -> bool:
-    """
-    Check a variable name against the deployer's secret patterns.
-
-    Args:
-        name: Environment variable name.
-
-    Returns:
-        True if the value behind this name must not be shown.
-    """
-    upper = name.upper()
-    return any(pattern in upper for pattern in EnvManager.SECRET_PATTERNS)
-
-
-def _redact(values: Mapping[str, str]) -> dict[str, str]:
+def _redact(values: Mapping[str, str], marks: Mapping[str, bool] | None = None) -> dict[str, str]:
     """
     Replace every secret value with a placeholder.
 
-    Three classifiers are combined because each one misses what the others
-    catch: :func:`~wasm.core.config.redact_secrets` splits the name into words,
-    :data:`~wasm.deployers.helpers.env_manager.EnvManager.SECRET_PATTERNS`
-    matches substrings such as ``_PASS``, and
-    :func:`~wasm.deployers.helpers.env_manager.redact_url_credentials` catches a
-    password that only appears inside the value, including the user-less
-    ``redis://:password@host`` form.
+    Uses :func:`~wasm.core.secret_detection.classify`, the one classifier for
+    the question, honouring this application's own marks (see
+    ``wasm env mark``): a value marked secret is redacted even if nothing
+    about its name or value would otherwise say so, and one marked not
+    secret is shown even if it would. A value that is secret only because of
+    a credential embedded in it - the user-less ``redis://:password@host``
+    form included - keeps the rest of the value readable.
 
     The placeholder is fixed width, so the output never reveals the length of a
     secret nor whether one is set at all.
 
     Args:
         values: Variable name to value.
+        marks: Operator overrides for this application.
 
     Returns:
         A new mapping safe to print.
     """
-    by_word: Any = redact_secrets(dict(values))
     safe: dict[str, str] = {}
     for key, value in values.items():
-        if by_word.get(key) == REDACTED or _looks_secret(key):
-            safe[key] = REDACTED
-        else:
+        verdict = classify(key, value, marks)
+        if not verdict.secret:
+            safe[key] = value
+        elif verdict.reason == "url credentials":
             safe[key] = redact_url_credentials(value)
+        else:
+            safe[key] = REDACTED
     return safe
 
 
@@ -211,6 +201,22 @@ def _env_configure(domain: str, verbose: bool) -> int:
     return 0
 
 
+def _secrets_payload(secrets: Mapping[str, Secrecy]) -> dict[str, dict[str, Any]]:
+    """
+    Render a classification map the way ``--json`` prints it.
+
+    Args:
+        secrets: Variable name to its verdict.
+
+    Returns:
+        The same, as plain JSON-serialisable dictionaries.
+    """
+    return {
+        name: {"secret": verdict.secret, "reason": verdict.reason, "marked": verdict.marked}
+        for name, verdict in secrets.items()
+    }
+
+
 def _env_show(domain: str, unmask: bool, verbose: bool, *, json_output: bool = False) -> int:
     """
     Print the variables currently set for an application.
@@ -230,12 +236,24 @@ def _env_show(domain: str, unmask: bool, verbose: bool, *, json_output: bool = F
         EnvConfigError: If nothing is deployed at this domain.
     """
     logger = Logger(verbose=verbose)
-    values = read_app_env(_app(domain), manager=EnvManager(verbose=verbose))
+    app = _app(domain)
+    values = read_app_env(app, manager=EnvManager(verbose=verbose))
+    marks = app.env_secret_marks
+    secrets = {key: classify(key, value, marks) for key, value in values.items()}
 
-    shown = dict(values) if unmask else _redact(values)
+    shown = dict(values) if unmask else _redact(values, marks)
 
     if json_output:
-        click.echo(json.dumps({"domain": domain, "variables": shown, "redacted": not unmask}))
+        click.echo(
+            json.dumps(
+                {
+                    "domain": domain,
+                    "variables": shown,
+                    "redacted": not unmask,
+                    "secrets": _secrets_payload(secrets),
+                }
+            )
+        )
         return 0
 
     if not values:
@@ -248,12 +266,53 @@ def _env_show(domain: str, unmask: bool, verbose: bool, *, json_output: bool = F
         logger.warning("Printing secrets in clear. Check who can see this terminal.")
 
     for key in sorted(shown):
-        logger.key_value(f"  {key}", shown[key])
+        logger.key_value(f"  {key} ({secrets[key].reason})", shown[key])
 
     if not unmask:
         logger.blank()
         logger.info(f"Secrets are shown as {REDACTED}. Add --unmask to read them.")
 
+    return 0
+
+
+def _env_mark(domain: str, name: str, mark: str, verbose: bool) -> int:
+    """
+    Set or clear an operator override for one variable's secrecy.
+
+    Args:
+        domain: Domain the application is served on.
+        name: Environment variable name.
+        mark: ``"secret"``, ``"not_secret"`` or ``"auto"`` (remove any
+            existing mark and judge the variable automatically again).
+        verbose: Print the detail of each step.
+
+    Returns:
+        Exit code.
+
+    Raises:
+        EnvConfigError: If nothing is deployed at this domain.
+        ValidationError: If ``name`` is not a valid environment variable name.
+    """
+    logger = Logger(verbose=verbose)
+    app = _app(domain)
+
+    marks = dict(app.env_secret_marks)
+    if mark == "auto":
+        marks.pop(name, None)
+    else:
+        marks[name] = mark == "secret"
+
+    get_store().set_env_secret_marks(app.domain, marks)
+
+    values = read_app_env(app, manager=EnvManager(verbose=verbose))
+    verdict = classify(name, values.get(name, ""), marks)
+    state = "secret" if verdict.secret else "not secret"
+    if verdict.marked:
+        logger.success(f"{name} is now marked {state} for {domain}.")
+    else:
+        logger.success(
+            f"{name} is judged automatically again for {domain}: {state} ({verdict.reason})."
+        )
     return 0
 
 
@@ -340,6 +399,34 @@ def show(state: Context, domain: str, unmask: bool) -> None:
 def export(state: Context, domain: str, output: str) -> None:
     """Write an application's variables to a file, owner-readable only."""
     _env_export(domain, output, state.verbose)
+
+
+@cli.command("mark")
+@click.argument("domain")
+@click.argument("name")
+@click.option("--secret", "as_secret", is_flag=True, help="Always treat this variable as a secret.")
+@click.option(
+    "--not-secret",
+    "as_not_secret",
+    is_flag=True,
+    help="Never treat this variable as a secret.",
+)
+@click.option(
+    "--auto",
+    "as_auto",
+    is_flag=True,
+    help="Remove any override and judge this variable by its name and value again.",
+)
+@pass_context
+def mark(
+    state: Context, domain: str, name: str, as_secret: bool, as_not_secret: bool, as_auto: bool
+) -> None:
+    """Override whether one environment variable is treated as a secret."""
+    chosen = [flag for flag in (as_secret, as_not_secret, as_auto) if flag]
+    if len(chosen) != 1:
+        raise click.UsageError("Pass exactly one of --secret, --not-secret or --auto.")
+    value = "secret" if as_secret else "not_secret" if as_not_secret else "auto"
+    _env_mark(domain, name, value, state.verbose)
 
 
 def handle_env(args: Namespace) -> int:

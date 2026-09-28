@@ -30,37 +30,30 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
 
-from wasm.core.config import REDACTED, is_secret_key
 from wasm.core.exceptions import SecurityError, WASMError
 from wasm.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
 from wasm.core.logger import Logger
+from wasm.core.secret_detection import (
+    NAME_PATTERNS,
+    URL_CREDENTIALS,
+    classify,
+    name_looks_secret,
+    redact_url_credentials,
+)
 
-#: A credential embedded in a connection string. ``DATABASE_URL`` is the
-#: canonical example: nothing in the *name* marks it as a secret, yet the value
-#: carries the database password in clear.
-#:
-#: The user name is optional on purpose. ``redis://:password@host:6379`` is the
-#: form redis-py, Heroku Redis and docker-compose all produce, and a pattern
-#: that demands a user before the colon lets exactly that one through in clear.
-#: The password may not contain ``/``, ``?`` or ``#``: those end the authority
-#: in RFC 3986, so refusing them keeps ``http://host:8080/a@b`` from being read
-#: as a credential and redacted.
-URL_CREDENTIALS = re.compile(r"(?P<prefix>[A-Za-z][A-Za-z0-9+.\-]*://[^:/?#@\s]*:)[^@\s/?#]*@")
-
-
-def redact_url_credentials(value: str, placeholder: str = REDACTED) -> str:
-    """
-    Replace the password inside every connection string in a value.
-
-    Args:
-        value: Text that may contain one or more URLs.
-        placeholder: What to put where the password was.
-
-    Returns:
-        The value with every embedded password replaced. Text carrying no
-        credential is returned unchanged.
-    """
-    return URL_CREDENTIALS.sub(lambda match: f"{match.group('prefix')}{placeholder}@", value)
+# URL_CREDENTIALS and redact_url_credentials moved to wasm.core.secret_detection,
+# which is the one place that now knows every shape a secret can take;
+# re-exported here because wasm.deployers.inspect and other callers already
+# import them from this module and there is no reason to make them change.
+__all__ = [
+    "URL_CREDENTIALS",
+    "EnvConfig",
+    "EnvConfigError",
+    "EnvManager",
+    "EnvVariable",
+    "is_secret_env_name",
+    "redact_url_credentials",
+]
 
 
 def _is_real_directory(path: Path) -> bool:
@@ -173,21 +166,10 @@ class EnvManager:
         "CORS": "Security",
     }
 
-    # Secret detection patterns
-    SECRET_PATTERNS: ClassVar[list[str]] = [
-        "PASSWORD",
-        "_PASS",
-        "SECRET",
-        "TOKEN",
-        "API_KEY",
-        "PRIVATE_KEY",
-        "ENCRYPTION_KEY",
-        "SIGNING_KEY",
-        "ACCESS_KEY",
-        "SECRET_KEY",
-        "CLIENT_SECRET",
-        "WEBHOOK_SECRET",
-    ]
+    # Secret detection patterns, moved to wasm.core.secret_detection so
+    # discovery-time flagging and the full classifier share one list; kept as
+    # a class attribute because callers already read it off the class.
+    SECRET_PATTERNS: ClassVar[tuple[str, ...]] = NAME_PATTERNS
 
     #: Substrings that mark a default as a template placeholder rather than a
     #: real value, matched case-insensitively against the .env.example default.
@@ -723,7 +705,11 @@ class EnvManager:
         """
         Mask a value if it's a secret.
 
-        Shows only the first 4 characters followed by asterisks.
+        Shows only the first 4 characters followed by asterisks. Uses the
+        full classifier (:func:`~wasm.core.secret_detection.classify`), not
+        just the name-substring check :meth:`_is_secret` makes while parsing
+        ``.env.example``, so a value that only looks secret on its own shape
+        - a Stripe key behind an innocuous name - is masked here too.
 
         Args:
             name: Variable name.
@@ -732,7 +718,7 @@ class EnvManager:
         Returns:
             Masked or original value.
         """
-        if self._is_secret(name) and len(value) > 4:
+        if classify(name, value).secret and len(value) > 4:
             return value[:4] + "****"
         return value
 
@@ -820,18 +806,20 @@ def is_secret_env_name(name: str) -> bool:
     """
     Decide whether an environment variable's name marks its value as a secret.
 
-    The one classifier for anything that decides whether a value may be shown:
-    :data:`EnvManager.SECRET_PATTERNS` matches substrings (``ADMIN_PASS``,
-    ``STRIPE_API_KEY``), :func:`~wasm.core.config.is_secret_key` matches whole
-    words the configuration redacts (``AUTH``, ``SLACK_WEBHOOK``,
-    ``apiKey``). Each misses names the other catches, so a name is a secret
-    when either says so.
+    The name-only step of :func:`~wasm.core.secret_detection.classify`,
+    kept here under its established name for callers that have a name and
+    nothing else - :mod:`wasm.deployers.inspect` flags a discovered
+    ``.env.example`` default this way before any value has been chosen for
+    it. A caller that also has the value should call
+    :func:`~wasm.core.secret_detection.classify` directly instead: it also
+    catches a secret-shaped value behind an innocuous name, and honours an
+    operator's own mark.
 
     Args:
         name: Variable name.
 
     Returns:
-        True if the value behind this name must not be shown in clear.
+        True if the name alone means the value behind it must not be shown
+        in clear.
     """
-    upper = name.upper()
-    return any(pattern in upper for pattern in EnvManager.SECRET_PATTERNS) or is_secret_key(name)
+    return name_looks_secret(name)
