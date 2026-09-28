@@ -124,6 +124,8 @@ class Dependency:
     required: bool = True
     category: str = "system"  # system, nodejs, python, webserver
     install_apt: str | None = None  # apt package name
+    install_dnf: str | None = None  # dnf/yum package name, when it differs from apt's
+    install_zypper: str | None = None  # zypper package name, when it differs from apt's
     install_script: str | None = None  # Custom install script/URL
     version_flag: str = "--version"
     min_version: str | None = None
@@ -251,6 +253,58 @@ DOCKER_DEPENDENCIES: list[Dependency] = [
     ),
 ]
 
+# Backup destinations (2.2): uploading a backup to a remote goes through rclone.
+BACKUP_DEPENDENCIES: list[Dependency] = [
+    Dependency(
+        name="rclone",
+        command="rclone",
+        description="Sync tool used to copy backups to a remote backup destination",
+        required=False,
+        category="backup",
+        install_apt="rclone",
+        install_dnf="rclone",
+        install_zypper="rclone",
+    ),
+]
+
+#: The rclone dependency on its own, for callers that only need to check or
+#: report on it - :mod:`wasm.managers.backup_destinations` does not need the
+#: rest of this module's tables.
+RCLONE_DEPENDENCY = BACKUP_DEPENDENCIES[0]
+
+
+def dependency_install_hint(dep: Dependency) -> str:
+    """
+    Build an install hint covering every package manager a dependency names.
+
+    One dependency, such as :data:`RCLONE_DEPENDENCY`, can be installed the
+    same way on Debian, Fedora/RHEL and openSUSE; this collects whichever of
+    ``install_apt``, ``install_dnf`` and ``install_zypper`` are set into one
+    message, so an error naming a missing dependency does not have to guess
+    which distribution it is running on.
+
+    Args:
+        dep: The dependency to describe.
+
+    Returns:
+        A semicolon-separated list of install commands, one per package
+        manager the dependency declares; the install script, or a generic
+        message, when it declares none.
+    """
+    hints: list[str] = []
+    if dep.install_apt:
+        hints.append(f"apt install {dep.install_apt}")
+    if dep.install_dnf:
+        hints.append(f"dnf install {dep.install_dnf}")
+    if dep.install_zypper:
+        hints.append(f"zypper install {dep.install_zypper}")
+    if hints:
+        return "; ".join(hints)
+    if dep.install_script:
+        return dep.install_script
+    return f"Install {dep.name} using your system's package manager."
+
+
 # Python dependencies
 PYTHON_DEPENDENCIES: list[Dependency] = [
     Dependency(
@@ -293,6 +347,7 @@ class DependencyChecker:
         "nodejs": NODEJS_DEPENDENCIES,
         "python": PYTHON_DEPENDENCIES,
         "docker": DOCKER_DEPENDENCIES,
+        "backup": BACKUP_DEPENDENCIES,
     }
 
     # Package manager info

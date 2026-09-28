@@ -35,6 +35,7 @@ from wasm.web.jobs import (
     JobType,
     backup_app_job,
     get_job_manager,
+    push_backup_job,
     restore_backup_job,
 )
 from wasm.web.pydantic_compat import iso_offset_validator
@@ -153,6 +154,14 @@ class RestoreBackupRequest(BaseModel):
     restore_env: bool = Field(default=True, description="Restore the .env files from the archive")
     verify: bool = Field(
         default=True, description="Check the archive against its recorded checksum first"
+    )
+
+
+class PushBackupRequest(BaseModel):
+    """Request to upload a local backup to a remote destination."""
+
+    destination: str = Field(
+        ..., description="Name of a destination under /api/backup-destinations"
     )
 
 
@@ -471,6 +480,47 @@ def restore_backup(
         job_id=job.id,
         status=job.status.value,
         message=f"Restore queued for {target_domain}",
+        job=job.to_dict(),
+    )
+
+
+@router.post("/{backup_id}/push", response_model=JobAcceptedResponse, status_code=202)
+def push_backup(
+    backup_id: str,
+    data: PushBackupRequest,
+    session: Annotated[dict, Depends(require_elevated)],
+) -> JobAcceptedResponse:
+    """
+    Queue an upload of a local backup to a remote destination.
+
+    Sudo mode: this sends application data, potentially including its
+    database dump, to a remote WASM does not control past the point of
+    upload.
+
+    Args:
+        backup_id: Backup identifier.
+        data: Which destination to upload to.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The queued job.
+    """
+    _, backup = _load_backup(backup_id)
+
+    job = get_job_manager().create_job(
+        job_type=JobType.PUSH,
+        name=f"Push {backup.id}",
+        description=f"Uploading {backup.id} to {data.destination}",
+        func=push_backup_job,
+        kwargs={"backup_id": backup.id, "destination_name": data.destination},
+        metadata={"domain": backup.domain, "backup_id": backup.id, "destination": data.destination},
+        actor=actor_label(session),
+    )
+
+    return JobAcceptedResponse(
+        job_id=job.id,
+        status=job.status.value,
+        message=f"Upload of {backup.id} to {data.destination} queued",
         job=job.to_dict(),
     )
 

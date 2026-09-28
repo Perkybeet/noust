@@ -7,4 +7,4 @@ Description=WASM scheduled backup for {{ esc.line(domain) }}
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/wasm backup create {{ esc.line(domain) }} --include-databases --tags scheduled,auto
+ExecStart=/usr/bin/wasm backup run-schedule {{ esc.line(domain) }}

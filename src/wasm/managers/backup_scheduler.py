@@ -30,11 +30,16 @@ from typing import Any
 from jinja2 import Environment, PackageLoader, TemplateError
 
 from wasm.core.config import SYSTEMD_DIR as _SYSTEMD_DIR
+from wasm.core.config import Config
 from wasm.core.exceptions import BackupError, WASMError
 from wasm.core.fs import FileSystem, get_fs
 from wasm.core.logger import Logger
+from wasm.core.notifier import NotificationEvent, Notifier
 from wasm.core.runner import CommandRunner, get_runner
+from wasm.core.store import BackupScheduleRecord, get_store
 from wasm.core.utils import domain_to_app_name
+from wasm.managers.backup_destinations import BackupDestinationManager
+from wasm.managers.backup_manager import BackupManager
 from wasm.validators.domain import validate_domain
 from wasm.validators.names import resolve_within, validate_app_name, validate_service_name
 
@@ -120,6 +125,10 @@ class BackupSchedule:
         retention_count: Backups to keep.
         retention_days: Maximum age of a backup, in days.
         tags: Tags attached to the backups this schedule creates.
+        destinations: Remote copies to push each scheduled backup to, as
+            ``{"name", "retention_count", "retention_days"}`` per destination
+            - the same shape :attr:`wasm.core.store.BackupScheduleRecord.destinations`
+            stores.
     """
 
     domain: str
@@ -129,6 +138,7 @@ class BackupSchedule:
     retention_count: int = 7
     retention_days: int = 30
     tags: list[str] = field(default_factory=lambda: ["scheduled", "auto"])
+    destinations: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def on_calendar(self) -> str:
@@ -171,6 +181,12 @@ class BackupScheduler:
     """
 
     SYSTEMD_DIR = _SYSTEMD_DIR
+
+    #: Retention applied when a store row carries none - an adopted legacy
+    #: timer, most often - the same defaults :class:`BackupSchedule` itself
+    #: uses when a caller does not name one.
+    DEFAULT_RETENTION_COUNT = 7
+    DEFAULT_RETENTION_DAYS = 30
 
     def __init__(
         self,
@@ -298,7 +314,12 @@ class BackupScheduler:
 
     def create_schedule(self, schedule: BackupSchedule) -> bool:
         """
-        Create a backup schedule using a systemd timer and service pair.
+        Create or replace a backup schedule: its timer, service and store row.
+
+        Scheduling the same domain again rewrites all three, which is also
+        how a schedule is changed - there is one code path for "create" and
+        "update", the same way :meth:`~wasm.core.store.WASMStore.save_backup_schedule`
+        is itself an upsert.
 
         Args:
             schedule: Backup schedule configuration.
@@ -319,6 +340,7 @@ class BackupScheduler:
             retention_count=schedule.retention_count,
             retention_days=schedule.retention_days,
             tags=list(schedule.tags),
+            destinations=list(schedule.destinations),
         )
 
         timer_path = self._unit_path(f"{checked.timer_name}.timer")
@@ -335,6 +357,20 @@ class BackupScheduler:
                 f"Failed to enable timer: {checked.timer_name}.timer",
                 details=result.stderr.strip() or "Check 'systemctl status' for details.",
             )
+
+        # The timer's service now runs `wasm backup run-schedule DOMAIN`,
+        # which reads everything - include_databases, retention, destinations
+        # - from this row; the unit file itself carries none of it.
+        get_store().save_backup_schedule(
+            BackupScheduleRecord(
+                app_domain=domain,
+                schedule=calendar,
+                include_databases=checked.include_databases,
+                retention_count=checked.retention_count,
+                retention_days=checked.retention_days,
+                destinations=checked.destinations,
+            )
+        )
 
         self.logger.info(f"Created backup schedule: {checked.timer_name}")
         self.logger.info(f"  Schedule: {checked.on_calendar}")
@@ -354,7 +390,7 @@ class BackupScheduler:
             BackupError: If the domain does not yield a usable unit name, so a
                 crafted domain cannot make this delete an unrelated unit.
         """
-        _, app_name, _ = self._validate(
+        validated_domain, app_name, _ = self._validate(
             BackupSchedule(domain=domain, app_name=domain_to_app_name(domain), schedule="daily")
         )
         timer_name = f"wasm-backup-{app_name}"
@@ -370,13 +406,14 @@ class BackupScheduler:
                 self.logger.warning(f"Could not remove {path}: {exc}")
 
         self._systemctl("daemon-reload")
+        get_store().delete_backup_schedule(validated_domain)
 
         self.logger.info(f"Removed backup schedule: {timer_name}")
         return True
 
     def list_schedules(self) -> list[dict[str, str]]:
         """
-        List all WASM backup schedules.
+        List all WASM backup schedules, adopting any that predate schema v10.
 
         ``list-timers`` only finds the units; every value comes from
         ``systemctl show``, whose ``Property=value`` lines are a stable
@@ -384,13 +421,22 @@ class BackupScheduler:
         with locale and systemd version, and splitting them on whitespace is
         how the next run used to be reported as the word "Sat".
 
+        A timer with no matching store row - one created before 2.2, or by a
+        server restored from an old backup - is adopted here: a row is
+        created from what systemd itself reports, retention and destinations
+        left at their defaults, and its service unit rewritten to run
+        ``wasm backup run-schedule DOMAIN`` instead of the ``backup create``
+        line it used to carry, so its retention starts being applied for
+        real the next time it fires.
+
         Returns:
             One dictionary per timer: ``timer`` and ``app_name`` from the unit
             name, ``domain`` read back from the unit's own description,
             ``next_run`` and ``last_run`` as systemd prints them (``pending``
-            and ``never`` when it prints nothing), plus ``schedule`` (the raw
+            and ``never`` when it prints nothing), ``schedule`` (the raw
             ``TimersCalendar`` property) and ``on_calendar`` (the expression
-            inside it) when the unit can be inspected.
+            inside it) when the unit can be inspected, and ``retention_count``
+            / ``retention_days`` from the store row (empty string when unset).
         """
         result = self._systemctl(
             "list-timers",
@@ -450,9 +496,61 @@ class BackupScheduler:
                 if last_run and last_run != "n/a":
                     schedule_info["last_run"] = last_run
 
+            self._adopt(schedule_info)
+            record = get_store().get_backup_schedule(schedule_info["domain"])
+            if record is not None:
+                schedule_info["retention_count"] = (
+                    str(record.retention_count) if record.retention_count is not None else ""
+                )
+                schedule_info["retention_days"] = (
+                    str(record.retention_days) if record.retention_days is not None else ""
+                )
+
             schedules.append(schedule_info)
 
         return schedules
+
+    def _adopt(self, schedule_info: dict[str, str]) -> None:
+        """
+        Give a legacy timer a store row and rewrite it to call run-schedule.
+
+        Only runs once per domain: a schedule the store already knows about
+        is left exactly as it is, retention and destinations included.
+
+        Args:
+            schedule_info: One entry as :meth:`list_schedules` builds it, with
+                ``domain`` and ``app_name`` already resolved.
+        """
+        store = get_store()
+        domain = schedule_info["domain"]
+        if store.get_backup_schedule(domain) is not None:
+            return
+
+        on_calendar = schedule_info.get("on_calendar") or "daily"
+        store.save_backup_schedule(
+            BackupScheduleRecord(
+                app_domain=domain,
+                schedule=on_calendar,
+                include_databases=True,
+                retention_count=None,
+                retention_days=None,
+                destinations=[],
+            )
+        )
+
+        try:
+            service_path = self._unit_path(f"{schedule_info['timer']}.service")
+            content = self.render_service(
+                BackupSchedule(domain=domain, app_name=schedule_info["app_name"], schedule="daily")
+            )
+            self._write_unit(service_path, content)
+            self._systemctl("daemon-reload")
+        except (BackupError, OSError) as exc:
+            self.logger.warning(
+                f"Adopted the backup schedule for {domain} but could not rewrite its service "
+                f"unit to run-schedule: {exc}. It will keep running its old command until this "
+                "is retried."
+            )
 
     def get_schedule(self, domain: str) -> BackupSchedule | None:
         """
@@ -462,7 +560,8 @@ class BackupScheduler:
             domain: Application domain.
 
         Returns:
-            The schedule, or None when no timer is enabled for the domain.
+            The schedule, merging the store row (retention, destinations)
+            when one exists, or None when no timer is enabled for the domain.
         """
         app_name = domain_to_app_name(domain)
         timer_name = f"wasm-backup-{app_name}"
@@ -471,10 +570,18 @@ class BackupScheduler:
         if not result.success:
             return None
 
+        record = get_store().get_backup_schedule(domain)
+        if record is None:
+            return BackupSchedule(domain=domain, app_name=app_name, schedule="unknown")
+
         return BackupSchedule(
             domain=domain,
             app_name=app_name,
-            schedule="unknown",
+            schedule=record.schedule,
+            include_databases=record.include_databases,
+            retention_count=record.retention_count or self.DEFAULT_RETENTION_COUNT,
+            retention_days=record.retention_days or self.DEFAULT_RETENTION_DAYS,
+            destinations=list(record.destinations),
         )
 
     def _render(self, template_name: str, **values: str) -> str:
@@ -533,3 +640,112 @@ class BackupScheduler:
             BackupError: If the template cannot be rendered.
         """
         return self._render("backup-service.j2", domain=schedule.domain)
+
+
+def _notify_backup_failed(domain: str, title: str, body: str) -> None:
+    """
+    Tell the operator a scheduled backup step failed.
+
+    :meth:`~wasm.core.notifier.Notifier.notify` already isolates a failing
+    channel and never raises, so there is nothing further to guard here.
+
+    Args:
+        domain: Application the backup belongs to.
+        title: One-line summary.
+        body: Detail shown to the operator - rclone's own stderr, scrubbed,
+            or the manager's error text.
+    """
+    Notifier(Config()).notify(
+        NotificationEvent(kind="backup_failed", title=title, body=body, domain=domain)
+    )
+
+
+def run_schedule(
+    domain: str,
+    *,
+    verbose: bool = False,
+    runner: CommandRunner | None = None,
+    fs: FileSystem | None = None,
+) -> dict[str, Any]:
+    """
+    Perform everything an application's backup schedule promises.
+
+    Reads the schedule from the store, takes a local backup with its own
+    retention applied, then pushes it to every configured destination, each
+    with its own retention - continuing past one destination's failure so the
+    others still receive their copy. This is what the hidden ``wasm backup
+    run-schedule DOMAIN`` runs, and it is what every scheduled timer's
+    service unit now calls instead of a bare ``wasm backup create``, so a
+    schedule's retention and its destinations are applied for real rather
+    than only recorded.
+
+    Args:
+        domain: Application domain the schedule belongs to.
+        verbose: Enable verbose logging on the managers this composes.
+        runner: Command runner, injected for tests.
+        fs: Filesystem, injected for tests.
+
+    Returns:
+        A summary: the local backup's id, and the outcome of each
+        destination push.
+
+    Raises:
+        BackupError: When there is no schedule for the domain, the local
+            backup itself fails (there is nothing to push without one), or
+            at least one destination could not be sent the backup - the
+            local backup is kept either way.
+    """
+    store = get_store()
+    record = store.get_backup_schedule(domain)
+    if record is None:
+        raise BackupError(
+            f"No backup schedule for {domain}",
+            details="Run 'wasm backup schedule create' first.",
+        )
+
+    backup_manager = BackupManager(verbose=verbose, runner=runner, fs=fs)
+    destination_manager = BackupDestinationManager(runner=runner)
+
+    try:
+        metadata = backup_manager.create(
+            domain=domain,
+            include_databases=record.include_databases,
+            retention_count=record.retention_count,
+            retention_days=record.retention_days,
+            tags=["scheduled", "auto"],
+        )
+    except WASMError as exc:
+        _notify_backup_failed(domain, f"Scheduled backup failed: {domain}", str(exc))
+        raise
+
+    result: dict[str, Any] = {"domain": domain, "backup_id": metadata.id, "destinations": {}}
+
+    failures: list[str] = []
+    for destination in record.destinations:
+        name = destination.get("name")
+        if not name:
+            continue
+        try:
+            summary = destination_manager.push(
+                metadata,
+                name,
+                retention_count=destination.get("retention_count"),
+                retention_days=destination.get("retention_days"),
+                backup_manager=backup_manager,
+            )
+            result["destinations"][name] = {"ok": True, **summary}
+        except WASMError as exc:
+            # str(exc) is "message\n  Details: ..."; for a BackupError raised
+            # by BackupDestinationManager.push, details is rclone's own
+            # stderr, already scrubbed of the destination's secrets.
+            result["destinations"][name] = {"ok": False, "error": str(exc)}
+            failures.append(name)
+            _notify_backup_failed(domain, f"Backup upload to {name} failed: {domain}", str(exc))
+
+    if failures:
+        raise BackupError(
+            f"Backup of {domain} was taken but could not be sent to: {', '.join(failures)}",
+            details="The local backup was kept; see the notification for rclone's own error.",
+        )
+
+    return result

@@ -169,7 +169,9 @@ def test_creating_a_schedule_writes_both_units_and_enables_the_timer(
     assert response.status_code == 201, response.text
     timer, service = written_units(systemd_dir)
     assert "OnCalendar=*-*-* 02:00:00" in timer.read_text()
-    assert "wasm backup create example.com" in service.read_text()
+    # The timer runs the schedule the store keeps, so its retention and
+    # destinations apply.
+    assert "wasm backup run-schedule example.com" in service.read_text()
     assert ("systemctl", "daemon-reload") in runner.calls
     assert ("systemctl", "enable", "--now", "wasm-backup-example-com.timer") in runner.calls
 

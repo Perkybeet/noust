@@ -119,6 +119,8 @@ __all__ = [
     "BackupMetadata",
     "MisplacedBackups",
     "RollbackManager",
+    "app_name_of_backup_id",
+    "backup_id_of_archive",
 ]
 
 #: Docker has to pull alpine the first time a volume is backed up.
@@ -174,6 +176,27 @@ def backup_id_of_archive(path: Path) -> str | None:
         return None
     stem = path.name[: -len(ARCHIVE_SUFFIX)]
     return stem if BACKUP_ID_PATTERN.match(stem) else None
+
+
+def app_name_of_backup_id(backup_id: str) -> str | None:
+    """
+    Read the application name a backup identifier was generated for.
+
+    :meth:`BackupManager._generate_backup_id` builds an id as
+    ``<app-name>_<YYYYMMDD>_<HHMMSS>``, so the application name is always
+    recoverable from the id alone - which is what lets ``wasm backup restore
+    --from`` locate a remote backup's ``<app_name>/`` directory without being
+    told the application separately.
+
+    Args:
+        backup_id: A backup identifier.
+
+    Returns:
+        The application name, or None when the id is not one WASM generated.
+    """
+    if not BACKUP_ID_PATTERN.match(backup_id):
+        return None
+    return backup_id.rsplit("_", 2)[0]
 
 
 @dataclass
@@ -1232,6 +1255,42 @@ class BackupManager:
         """
         backups = self.list_backups(domain=domain, limit=1)
         return backups[0] if backups else None
+
+    def local_files(self, backup: BackupMetadata) -> tuple[Path, Path]:
+        """
+        Return where a backup's archive and metadata sidecar live on disk.
+
+        The one place that joins a backup's id back onto a path on this
+        machine, so a remote push and a local restore agree on where the
+        files are.
+
+        Args:
+            backup: Metadata as returned by :meth:`get_backup`.
+
+        Returns:
+            The archive path and the metadata sidecar path, in that order.
+            Neither is guaranteed to exist.
+        """
+        app_backup_dir = self._get_app_backup_dir(domain_to_app_name(backup.domain))
+        return (
+            app_backup_dir / f"{backup.id}{ARCHIVE_SUFFIX}",
+            app_backup_dir / f"{backup.id}.json",
+        )
+
+    def checksum_of(self, path: Path) -> str:
+        """
+        Compute the SHA256 checksum of a file, the same way a backup is checksummed.
+
+        Args:
+            path: File to hash.
+
+        Returns:
+            The hex digest.
+
+        Raises:
+            BackupError: If the file cannot be read.
+        """
+        return self._calculate_checksum(path)
 
     # -- restore ----------------------------------------------------------
 

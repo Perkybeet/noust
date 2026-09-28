@@ -111,6 +111,7 @@ class JobType(str, Enum):
     UPDATE = "update"
     BACKUP = "backup"
     RESTORE = "restore"
+    PUSH = "push"
     CERT_CREATE = "cert_create"
     CERT_RENEW = "cert_renew"
     SERVICE_ACTION = "service_action"
@@ -1377,6 +1378,120 @@ def restore_backup_job(
 
     context.update("Restore complete", 100)
     return {"domain": domain, "backup_id": backup_id, "status": "restored"}
+
+
+def push_backup_job(
+    backup_id: str,
+    destination_name: str,
+    job_context: JobContext | None = None,
+) -> dict[str, Any]:
+    """
+    Upload a local backup to a remote destination.
+
+    Args:
+        backup_id: Identifier of the local backup to upload.
+        destination_name: Destination to upload it to.
+        job_context: Injected by the job manager.
+
+    Returns:
+        Summary of the upload: files sent and any remote retention applied.
+
+    Raises:
+        BackupError: When the backup or the destination is unknown, or the
+            upload, its verification, or retention fails.
+        DependencyError: When rclone is not installed.
+    """
+    from wasm.managers.backup_destinations import BackupDestinationManager
+    from wasm.managers.backup_manager import BackupManager
+
+    context = _require_context(job_context)
+    context.set_metadata("backup_id", backup_id)
+    context.set_metadata("destination", destination_name)
+
+    manager = BackupManager(verbose=False)
+    backup = manager.get_backup(backup_id)
+    if backup is None:
+        raise BackupError(
+            f"Backup not found: {backup_id}",
+            details="List the available backups with 'wasm backup list'.",
+        )
+    context.set_metadata("domain", backup.domain)
+    context.update(f"Uploading to {destination_name}", 20)
+
+    summary = BackupDestinationManager().push(backup, destination_name, backup_manager=manager)
+
+    context.update("Upload complete", 100)
+    return {"domain": backup.domain, "backup_id": backup_id, **summary}
+
+
+def restore_from_destination_job(
+    destination_name: str,
+    backup_id: str,
+    app_name: str,
+    target_domain: str | None = None,
+    restore_env: bool = True,
+    job_context: JobContext | None = None,
+) -> dict[str, Any]:
+    """
+    Download a backup from a remote destination and restore it.
+
+    Args:
+        destination_name: Destination to download from.
+        backup_id: Identifier of the backup to restore.
+        app_name: Application the backup belongs to, to locate it on the
+            destination.
+        target_domain: Domain to restore into, defaulting to the one recorded
+            in the downloaded backup's own metadata.
+        restore_env: Restore the ``.env`` files from the archive.
+        job_context: Injected by the job manager.
+
+    Returns:
+        Summary of the restore.
+
+    Raises:
+        BackupError: When the download, its checksum, or the restore fails.
+        DependencyError: When rclone is not installed.
+    """
+    import json
+    import tempfile
+    from pathlib import Path
+
+    from wasm.managers.backup_destinations import BackupDestinationManager
+    from wasm.managers.backup_manager import BackupManager, BackupMetadata
+
+    context = _require_context(job_context)
+    context.set_metadata("backup_id", backup_id)
+    context.set_metadata("destination", destination_name)
+    context.update("Downloading backup", 10)
+
+    destination_manager = BackupDestinationManager()
+    backup_manager = BackupManager(verbose=False)
+
+    with tempfile.TemporaryDirectory(prefix="wasm-restore-remote-") as staging:
+        staging_path = Path(staging)
+        archive_path, metadata_path = destination_manager.download(
+            destination_name, backup_id, app_name, staging_path
+        )
+        fallback = BackupMetadata.from_dict(json.loads(metadata_path.read_text()))
+        domain = target_domain or fallback.domain
+        context.set_metadata("domain", domain)
+        context.update("Restoring backup", 50)
+
+        backup_manager.restore_archive(
+            archive_path,
+            target_domain=domain,
+            restore_env=restore_env,
+            expected_checksum=fallback.checksum,
+            fallback=fallback,
+        )
+
+    context.update("Restore complete", 100)
+    return {
+        "domain": domain,
+        "backup_id": backup_id,
+        "destination": destination_name,
+        "status": "restored",
+    }
 
 
 def rollback_app_job(
