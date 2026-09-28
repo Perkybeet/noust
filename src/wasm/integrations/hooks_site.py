@@ -275,8 +275,10 @@ def _point_github_webhook(url: str, result: HooksExposure) -> str | None:
     if not active:
         status = service.status()
         result.notes.append(
-            "Switch the GitHub App's webhook on: tick 'Active' under Webhook on "
-            f"{status.settings_url} and save."
+            "Switch the GitHub App's webhook on: on "
+            f"{status.settings_url}, tick 'Active' under Webhook and save; then under "
+            "'Permissions & events', subscribe to Push and Pull request and save. "
+            "An App created before this server had a public hooks URL has neither."
         )
         return "inactive"
     return "updated"

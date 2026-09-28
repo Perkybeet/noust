@@ -161,7 +161,8 @@ function WebhookState({ status }: { status: GitHubStatus }) {
           </p>
           <p className="text-13 text-pretty text-fg-muted">
             GitHub does not send the App's events until its webhook is switched on. In the App's settings on GitHub, set
-            the webhook URL to the address below and tick Active, once. The first delivery marks it active here.
+            the webhook URL to the address below and tick Active; then, under Permissions &amp; events, subscribe to Push
+            and Pull request. Once only. The first delivery marks it active here.
           </p>
           <code translate="no" className="mono w-fit max-w-full truncate rounded-control bg-bg-sunken px-2 py-1 text-12 text-fg">
             {url}
