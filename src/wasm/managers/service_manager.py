@@ -85,7 +85,7 @@ from wasm.core.config import SYSTEMD_DIR
 from wasm.core.exceptions import ServiceError, TemplateError, ValidationError, WASMError
 from wasm.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem
 from wasm.core.runner import DEFAULT_TIMEOUT, CommandResult, CommandRunner
-from wasm.core.store import App, Service, get_store
+from wasm.core.store import BLUE_GREEN_COLORS, App, Service, get_store
 from wasm.core.utils import domain_to_app_name
 from wasm.managers.base_manager import BaseManager
 from wasm.validators.environment import validate_environment, validate_unit_value
@@ -566,7 +566,7 @@ class ServiceManager(BaseManager):
         """
         return name in cls.OWN_UNITS or name.startswith(cls.OWN_UNIT_PREFIXES)
 
-    def _resolve_service_name(self, name: str) -> str:
+    def _resolve_service_name(self, name: str, *, serving: bool = True) -> str:
         """
         Resolve actual service name, checking both new and legacy formats.
 
@@ -575,6 +575,9 @@ class ServiceManager(BaseManager):
 
         Args:
             name: Base service name.
+            serving: Resolve the name of an application in zero-downtime mode
+                to the instance that serves. False for creating the unit of
+                that name, which is a different unit.
 
         Returns:
             Actual service name (may have legacy prefix if it exists).
@@ -603,7 +606,68 @@ class ServiceManager(BaseManager):
         if (self.SYSTEMD_DIR / f"{legacy_name}.service").exists():
             return legacy_name
 
+        if serving and "@" not in given and not (self.SYSTEMD_DIR / f"{given}.service").exists():
+            # An application in zero-downtime mode has no unit of its own
+            # name: it runs as <name>@blue and <name>@green. Asked for by its
+            # name (wasm restart, the Services page, its logs), it is the
+            # instance that serves.
+            instance = self._serving_instance(given)
+            if instance is not None:
+                return instance
+
         return given
+
+    @staticmethod
+    def instance_template(unit: str) -> str | None:
+        """
+        Name the template unit an instance is made from.
+
+        Args:
+            unit: Unit name without the ``.service`` suffix.
+
+        Returns:
+            ``<prefix>@`` for an instance such as ``shop@blue``, None for a
+            unit that is not an instance (a template itself included).
+        """
+        prefix, at, instance = unit.partition("@")
+        if not at or not prefix or not instance:
+            return None
+        return f"{prefix}@"
+
+    def _serving_instance(self, base: str) -> str | None:
+        """
+        Find the instance that serves an application in zero-downtime mode.
+
+        Args:
+            base: The application's unit name, such as ``shop-example-com``.
+
+        Returns:
+            ``<base>@<active color>``, or None when no blue/green template of
+            that name is installed or no application in the store runs as it.
+        """
+        if not (self.SYSTEMD_DIR / f"{base}@.service").is_file():
+            return None
+        for app in self._stored_apps():
+            if app.zero_downtime and domain_to_app_name(app.domain) == base:
+                return f"{base}@{app.active_color or BLUE_GREEN_COLORS[0]}"
+        return None
+
+    def _unit_path(self, unit: str) -> Path:
+        """
+        Return the file a unit is defined by in the managed directory.
+
+        Args:
+            unit: Unit name without the ``.service`` suffix.
+
+        Returns:
+            ``<unit>.service``; for an instance with no file of its own, the
+            template it is made from, which is what systemd loads for it.
+        """
+        path = self.SYSTEMD_DIR / f"{unit}.service"
+        template = self.instance_template(unit)
+        if template is not None and not path.exists():
+            return self.SYSTEMD_DIR / f"{template}.service"
+        return path
 
     def _get_service_file(self, name: str) -> Path:
         """
@@ -754,6 +818,10 @@ class ServiceManager(BaseManager):
            and knows nothing of the unprefixed name. Docker Compose
            applications are named the same way.
 
+        An application in zero-downtime mode runs as the two instances of
+        its template, ``<name>@blue`` and ``<name>@green``, the serving one
+        first, whatever the services table says.
+
         Args:
             app: The application.
             services: The services table, when the caller has already read it.
@@ -771,6 +839,17 @@ class ServiceManager(BaseManager):
         # behind from a type it had before.
         if app.is_static or app.app_type == "static":
             return []
+
+        # Read defensively: the monitor and the health report hand this rows
+        # of their own shape, which know nothing of the mode.
+        if getattr(app, "zero_downtime", False):
+            # Both instances, the one serving first: the idle one is still
+            # the application's (its journal holds why the last activation
+            # failed, and it runs beside the other while one takes over).
+            base = domain_to_app_name(app.domain)
+            active = app.active_color if app.active_color in BLUE_GREEN_COLORS else None
+            colors = sorted(BLUE_GREEN_COLORS, key=lambda color: color != active)
+            return [f"{base}@{color}" for color in colors]
 
         rows = services if services is not None else self._stored_services()
         if app.id is not None:
@@ -817,6 +896,23 @@ class ServiceManager(BaseManager):
         if legacy in listed and base not in listed and not (directory / f"{base}.service").exists():
             return [legacy]
         return [base]
+
+    def serving_units(self, app: App) -> list[str]:
+        """
+        Name the unit(s) that serve an application now.
+
+        What :meth:`app_units` returns, except for an application in
+        zero-downtime mode, whose idle instance is stopped by design and is
+        not a sign of anything wrong: its state is the serving instance's.
+
+        Args:
+            app: The application.
+
+        Returns:
+            Unit names without the ``.service`` suffix.
+        """
+        units = self.app_units(app)
+        return units[:1] if getattr(app, "zero_downtime", False) else units
 
     def _app_unit_owners(
         self,
@@ -940,11 +1036,18 @@ class ServiceManager(BaseManager):
         Returns:
             The first such file, or None.
         """
+        names = [unit]
+        template = self.instance_template(unit)
+        if template is not None:
+            # An instance is loaded from its template; one the system ships
+            # (getty@.service) makes every instance of it the system's.
+            names.append(template)
         return next(
             (
-                d / f"{unit}.service"
+                d / f"{name}.service"
+                for name in names
                 for d in self._foreign_unit_dirs()
-                if (d / f"{unit}.service").exists()
+                if (d / f"{name}.service").exists()
             ),
             None,
         )
@@ -996,12 +1099,14 @@ class ServiceManager(BaseManager):
             )
         return ""
 
-    def inspect_unit(self, name: str) -> UnitOwnership:
+    def inspect_unit(self, name: str, *, serving: bool = True) -> UnitOwnership:
         """
         Decide whether a unit belongs to WASM, and why.
 
         Args:
             name: Unit name, with or without the ``.service`` suffix.
+            serving: Resolve an application in zero-downtime mode to the
+                instance that serves (see :meth:`_resolve_service_name`).
 
         Returns:
             The ownership verdict, including the reason when it is negative.
@@ -1009,8 +1114,8 @@ class ServiceManager(BaseManager):
         Raises:
             ValidationError: When the name is not a safe unit name.
         """
-        unit = self._resolve_service_name(name)
-        path = self.SYSTEMD_DIR / f"{unit}.service"
+        unit = self._resolve_service_name(name, serving=serving)
+        path = self._unit_path(unit)
         fragment = self._fragment_path(f"{unit}.service")
         shadowed = self._shadowing_file(unit)
         exists = path.exists() or shadowed is not None or fragment is not None
@@ -1249,10 +1354,26 @@ class ServiceManager(BaseManager):
         candidates |= {name for name in rows if name.startswith(self.SERVICE_PREFIX)}
 
         units: list[ManagedUnit] = []
+        templates: dict[str, bool] = {}
         for name in sorted(candidates):
             path = Path(self.SYSTEMD_DIR) / f"{name}.service"
             row = rows.get(name)
             on_disk = name in marked
+            template = self.instance_template(name) if not on_disk else None
+            if template is not None:
+                # An instance has no file of its own: it is on disk when its
+                # template is, and WASM's when the template carries the marker.
+                # The idle instance of a blue/green application is listed too,
+                # though systemd has unloaded it.
+                if template not in templates:
+                    template_path = Path(self.SYSTEMD_DIR) / f"{template}.service"
+                    templates[template] = template_path.is_file() and self._file_has_marker(
+                        template_path
+                    )
+                on_disk = templates[template]
+                marked_now = on_disk
+            else:
+                marked_now = marked.get(name, False)
             loaded = row is not None and row.get("load") != "not-found"
             if not on_disk and not loaded:
                 continue
@@ -1267,7 +1388,7 @@ class ServiceManager(BaseManager):
                     path,
                     stored=stored,
                     app_owned=owners,
-                    has_marker=marked.get(name, False),
+                    has_marker=marked_now,
                 ),
             )
             if reason:
@@ -1596,7 +1717,7 @@ class ServiceManager(BaseManager):
         unit = self._get_service_name(name)
         env = validate_environment(environment or {})
 
-        info = self.inspect_unit(unit)
+        info = self.inspect_unit(unit, serving=False)
         if info.exists:
             if info.managed:
                 raise ServiceError(
@@ -1695,7 +1816,7 @@ class ServiceManager(BaseManager):
         unit = self._get_service_name(name)
         self._check_unit_body(unit, content)
 
-        info = self.inspect_unit(unit)
+        info = self.inspect_unit(unit, serving=False)
         if info.exists:
             if info.managed:
                 raise ServiceError(
@@ -1779,6 +1900,126 @@ class ServiceManager(BaseManager):
         self._write_unit_atomically(path, content)
         self.daemon_reload()
         return path
+
+    def install_instance_template(
+        self,
+        name: str,
+        *,
+        command: str,
+        colors_directory: str,
+        environment: Mapping[str, str],
+        environment_file: str | None,
+        description: str,
+        limits: ResourceLimits | None = None,
+        user: str | None = None,
+        group: str | None = None,
+    ) -> str | None:
+        """
+        Write the template unit the two instances of a blue/green application run from.
+
+        Validated exactly as :meth:`create_service` validates an
+        application's own unit, and written through :meth:`install_unit`, so
+        the ownership rules are the same: a template the system ships, or a
+        file that is not WASM's, is refused.
+
+        Args:
+            name: The application's unit name; the template is ``<name>@``.
+            command: ExecStart, with ``%i`` where the instance's directory goes.
+            colors_directory: Absolute directory holding one link and one
+                environment file per instance (``<instance>`` and
+                ``<instance>.env``).
+            environment: Variables written inline. Not secret, and not PORT:
+                each instance's comes from its own file.
+            environment_file: The shared, secret environment file, or None.
+            description: Description of the application.
+            limits: Limits each instance runs under.
+            user: User the instances run as.
+            group: Group they run as.
+
+        Returns:
+            The previous template, to put back with :meth:`restore_template`,
+            or None when there was none.
+
+        Raises:
+            ServiceError: When the template is not WASM's to write, or cannot
+                be written.
+            ValidationError: When a value would not survive in a unit file.
+        """
+        unit = f"{self._get_service_name(name)}@"
+        validate_service_name(unit)
+        if not os.path.isabs(colors_directory):
+            raise ValidationError(
+                f"The instance directory must be absolute, got {colors_directory!r}",
+                details="systemd refuses a relative WorkingDirectory=.",
+            )
+        context = {
+            "name": unit.removesuffix("@"),
+            "description": validate_unit_value(description, field="Description"),
+            "command": validate_unit_value(command, field="ExecStart"),
+            "colors_directory": validate_unit_value(colors_directory, field="WorkingDirectory"),
+            "user": validate_unit_value(user or self.config.service_user, field="User"),
+            "group": validate_unit_value(group or self.config.service_group, field="Group"),
+            "environment": validate_environment(dict(environment)),
+            "environment_file": self._validated_environment_file(environment_file),
+            "resource_limits": (limits or ResourceLimits()).validated().directives(),
+        }
+        path = self.SYSTEMD_DIR / f"{unit}.service"
+        previous = path.read_text() if path.is_file() and not path.is_symlink() else None
+        self.install_unit(unit, "app@", context)
+        return previous
+
+    def restore_template(self, name: str, previous: str | None) -> None:
+        """
+        Put a blue/green template back as :meth:`install_instance_template` found it.
+
+        Args:
+            name: The application's unit name.
+            previous: What that call returned: the old body, or None to
+                remove the template.
+
+        Raises:
+            ServiceError: When the template is not WASM's, or cannot be
+                written or removed.
+        """
+        if previous is None:
+            self.remove_template(name)
+            return
+        unit = f"{self._get_service_name(name)}@"
+        self._check_unit_body(unit, previous)
+        self._write_unit_atomically(self.SYSTEMD_DIR / f"{unit}.service", previous)
+        self.daemon_reload()
+
+    def remove_template(self, name: str) -> bool:
+        """
+        Remove the blue/green template of an application.
+
+        Its instances must be stopped and disabled first
+        (:meth:`delete_service` on each); this only removes the file.
+
+        Args:
+            name: The application's unit name; the template is ``<name>@``.
+
+        Returns:
+            True when a template was removed.
+
+        Raises:
+            ServiceError: When the file is not WASM's, or cannot be removed.
+        """
+        unit = f"{self._get_service_name(name)}@"
+        path = self.SYSTEMD_DIR / f"{unit}.service"
+        if not os.path.lexists(path):
+            return False
+        if path.is_symlink() or not self._file_has_marker(path):
+            raise ServiceError(
+                f"Refusing to remove {path}: it was not generated by WASM",
+                details="Remove it by hand if it really is not needed.",
+            )
+        try:
+            self.fs.remove(path, missing_ok=True)
+        except OSError as exc:
+            raise ServiceError(f"Failed to remove {path}", details=str(exc)) from exc
+        self.daemon_reload()
+        return True
 
     def _check_unit_body(self, unit: str, content: str) -> None:
         """
@@ -1881,12 +2122,19 @@ class ServiceManager(BaseManager):
             ) from exc
         return self.update_config(name, with_resource_limits(body, limits))
 
-    def delete_service(self, name: str) -> None:
+    def delete_service(self, name: str, *, keep_record: bool = False) -> None:
         """
         Delete a service.
 
+        An instance of a template (``shop@blue``) is stopped and disabled,
+        but its template is left: it is its sibling's too. Remove the
+        template with :meth:`remove_template` once no instance runs.
+
         Args:
             name: Service name.
+            keep_record: Leave its row in the services table. The mode switch
+                of blue/green retires the application's own unit, whose row
+                still describes how the application runs.
 
         Raises:
             ServiceError: If the unit is not managed by WASM, or if the unit
@@ -1899,16 +2147,19 @@ class ServiceManager(BaseManager):
             self._exec(["systemctl", "stop", info.unit_file], timeout=_LIFECYCLE_TIMEOUT)
             self._exec(["systemctl", "disable", info.unit_file])
 
-            try:
-                self.fs.remove(info.path, missing_ok=True)
-            except OSError as exc:
-                raise ServiceError(
-                    f"Failed to delete service: {info.unit}",
-                    details=str(exc),
-                ) from exc
+            if info.path.name == info.unit_file:
+                try:
+                    self.fs.remove(info.path, missing_ok=True)
+                except OSError as exc:
+                    raise ServiceError(
+                        f"Failed to delete service: {info.unit}",
+                        details=str(exc),
+                    ) from exc
 
             self.daemon_reload()
 
+        if keep_record:
+            return
         try:
             self.store.delete_service(info.unit)
         except (WASMError, sqlite3.Error) as exc:

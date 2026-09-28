@@ -11,7 +11,9 @@ calls too. ``limits`` sets the memory, CPU and task limits of its unit through
 :func:`wasm.deployers.lifecycle.set_resource_limits`, like ``PATCH
 /api/apps/{d}/limits``. ``health`` sets what the health gate asks of it
 through :func:`wasm.deployers.lifecycle.set_health_check`, like ``PATCH
-/api/apps/{d}/health``. This module only parses, presents and asks.
+/api/apps/{d}/health``. ``zero-downtime`` shows or switches blue/green
+activation through :mod:`wasm.deployers.bluegreen`, like ``GET`` and ``PUT
+/api/apps/{d}/zero-downtime``. This module only parses, presents and asks.
 """
 
 from __future__ import annotations
@@ -25,7 +27,13 @@ import click
 from wasm.cli.app import Context, WasmGroup, global_flags, json_option, pass_context
 from wasm.core.exceptions import WASMError
 from wasm.core.logger import Logger
-from wasm.core.store import App, DeploymentTrigger, get_store
+from wasm.core.store import MAX_DRAIN_SECONDS, App, DeploymentTrigger, get_store
+from wasm.deployers.bluegreen import (
+    ModeChange,
+    ZeroDowntimeStatus,
+    set_zero_downtime,
+    zero_downtime_status,
+)
 from wasm.deployers.helpers.health_gate import HealthCheck
 from wasm.deployers.lifecycle import set_health_check, set_resource_limits
 from wasm.deployers.migrate import MigrationPlan, migrate, plan_migration
@@ -345,3 +353,107 @@ def health_command(
     ctx.logger.key_value(
         "Timeout", f"{check.seconds} s" + ("" if app.health_timeout is not None else " (default)")
     )
+
+
+def zero_downtime_payload(status: ZeroDowntimeStatus) -> dict[str, object]:
+    """
+    Describe an application's zero-downtime mode as JSON.
+
+    Args:
+        status: The mode, from :func:`wasm.deployers.bluegreen.zero_downtime_status`.
+
+    Returns:
+        Its fields, the instances as a list.
+    """
+    return dataclasses.asdict(status) | {
+        "instances": [dataclasses.asdict(instance) for instance in status.instances]
+    }
+
+
+def _print_zero_downtime(logger: Logger, status: ZeroDowntimeStatus) -> None:
+    """
+    Render an application's zero-downtime mode for a human.
+
+    Args:
+        logger: Logger the command writes through.
+        status: The mode.
+    """
+    if not status.enabled:
+        logger.key_value("Zero downtime", "off: an activation restarts the unit")
+        if status.eligible:
+            logger.info(f"Turn it on with: wasm app zero-downtime {status.domain} on")
+        else:
+            logger.key_value("Available", f"no: {status.reason}")
+            if status.hint:
+                logger.info(status.hint)
+        return
+    logger.key_value("Zero downtime", f"on: {status.active_color} serves")
+    for instance in status.instances:
+        logger.key_value(
+            instance.color.capitalize(),
+            f"{instance.unit}, port {instance.port}, release {instance.release or 'none'}, "
+            f"{instance.state}" + (" (serving)" if instance.serving else ""),
+        )
+    logger.key_value(
+        "nginx upstream",
+        f"127.0.0.1:{status.upstream_port}" if status.upstream_port else "missing",
+    )
+    logger.key_value("Drain", f"{status.drain_seconds} s")
+
+
+@cli.command("zero-downtime")
+@click.argument("domain")
+@click.argument("mode", required=False, type=click.Choice(["on", "off"]))
+@click.option(
+    "--drain",
+    type=click.IntRange(0, MAX_DRAIN_SECONDS),
+    metavar="SECONDS",
+    help=f"Seconds the old instance keeps running after a switch, 0 to {MAX_DRAIN_SECONDS}. "
+    "Default: 10.",
+)
+@global_flags
+@json_option("Print the mode (or what was changed) as JSON.")
+@pass_context
+def zero_downtime_command(ctx: Context, domain: str, mode: str | None, drain: int | None) -> None:
+    """
+    Show or switch blue/green activation of an application.
+
+    On, the application runs as two instances of one unit, blue on its port
+    and green on the next: each deploy, update and rollback starts the new
+    release on the idle instance, switches nginx to it once it answers, and
+    stops the old one after the drain. The application must tolerate two
+    copies running for those seconds (a SQLite database written by both, a
+    queue with a single consumer or jobs scheduled in-process do not).
+    Switching the mode on or off is itself done without a cut. Without ON
+    or OFF, shows the mode.
+    """
+    if mode is None and drain is None:
+        status = zero_downtime_status(domain)
+        if ctx.json_output:
+            click.echo(json.dumps(zero_downtime_payload(status)))
+        else:
+            _print_zero_downtime(ctx.logger, status)
+        return
+
+    if mode is None:
+        # Only the drain: meaningful for an application already switched on.
+        current = zero_downtime_status(domain)
+        if not current.enabled:
+            raise click.UsageError(
+                f"{current.domain} is not in zero-downtime mode; turn it on with the drain: "
+                f"wasm app zero-downtime {current.domain} on --drain {drain}"
+            )
+        mode = "on"
+
+    logger = CapturingLogger(verbose=ctx.verbose)
+    change: ModeChange = set_zero_downtime(domain, mode == "on", drain_seconds=drain, logger=logger)
+    if ctx.json_output:
+        click.echo(json.dumps(dataclasses.asdict(change)))
+        return
+    if change.rehearsed:
+        logger.info("Rehearsal: nothing was changed")
+    elif not change.changed:
+        logger.info(f"{change.domain} is already {'on' if change.enabled else 'off'}")
+    elif change.enabled:
+        logger.key_value("Serving", str(change.active_color))
+        logger.key_value("Drain", f"{change.drain_seconds} s")

@@ -50,10 +50,14 @@ from urllib.error import HTTPError, URLError
 from wasm.core.config import Config
 from wasm.core.exceptions import WASMError
 from wasm.core.runner import CommandRunner, get_runner
-from wasm.core.store import App, DeploymentStatus, WASMStore, get_store
+from wasm.core.store import BLUE_GREEN_COLORS, App, DeploymentStatus, WASMStore, get_store
 from wasm.core.utils import domain_to_app_name
+from wasm.deployers.bluegreen import color_port, instance_unit, other_color, serving_port
 from wasm.deployers.helpers.health_gate import HealthCheck
+from wasm.deployers.helpers.layout import app_root
+from wasm.deployers.releases import Release, ReleaseManager
 from wasm.managers.cert_manager import CertManager
+from wasm.managers.nginx_manager import NginxManager
 from wasm.managers.service_manager import ServiceManager
 
 log = logging.getLogger(__name__)
@@ -164,6 +168,9 @@ class _Context:
 
 
 ProbeResult = tuple[Check, dict[str, Any]]
+
+#: What an instance without a release link shows as its release.
+_NO_RELEASE = Release(id="(none)", path=Path(), commit=None, created_at="", active=False)
 Probe = Callable[[_Context], ProbeResult]
 
 
@@ -381,7 +388,8 @@ def _check_port(ctx: _Context) -> ProbeResult:
     if ctx.app is not None and ctx.app.is_static:
         return Check("port", "skip", "Static site: no backend port to check", ""), {}
 
-    recorded_port = ctx.app.port if ctx.app else None
+    # In zero-downtime mode, the port of the instance that serves.
+    recorded_port = serving_port(ctx.app) if ctx.app else None
     if recorded_port is None:
         return Check("port", "skip", "No port recorded for this app", ""), {}
 
@@ -451,18 +459,19 @@ def _check_http_direct(ctx: _Context) -> ProbeResult:
     expectation - so a diagnosis never calls healthy what a deploy would
     roll back, or the reverse.
     """
-    if ctx.app is None or ctx.app.is_static or not ctx.app.port:
+    port = serving_port(ctx.app) if ctx.app is not None else None
+    if ctx.app is None or ctx.app.is_static or not port:
         return Check("http_direct", "skip", "No backend port to probe directly", ""), {}
 
     check = HealthCheck.for_app(ctx.app)
-    url = check.url(ctx.app.port)
+    url = check.url(port)
     code, error = ctx.http_get(url, {})
     if error is not None:
         return (
             Check(
                 "http_direct",
                 "fail",
-                f"Could not reach the app directly on port {ctx.app.port}",
+                f"Could not reach the app directly on port {port}",
                 error,
             ),
             {"ok": False, "status": None, "error": error},
@@ -474,7 +483,7 @@ def _check_http_direct(ctx: _Context) -> ProbeResult:
         Check(
             "http_direct",
             status,
-            f"HTTP {code} from 127.0.0.1:{ctx.app.port}",
+            f"HTTP {code} from 127.0.0.1:{port}",
             f"GET {url} -> {code} (healthy: {check.describe_expect()})",
         ),
         {"ok": ok, "status": code, "error": None},
@@ -537,6 +546,104 @@ def _check_journal(ctx: _Context) -> ProbeResult:
 
     lines = len(text.splitlines())
     return Check("journal", "ok", f"Last {lines} journal line(s) for {info.unit_file}", text), {}
+
+
+def _check_blue_green(ctx: _Context) -> ProbeResult:
+    """
+    Say which instance of a zero-downtime application serves, and how the other is.
+
+    The serving instance is what every other probe looks at. The idle one is
+    stopped by design; when it failed, its journal is why the last
+    activation was refused, which is worth seeing even though traffic never
+    reached it. And nginx's upstream must name the port of the instance the
+    store says serves, or nginx proxies to a port nothing listens on.
+    """
+    app = ctx.app
+    if app is None or not app.zero_downtime:
+        return Check("blue_green", "skip", "Not in zero-downtime mode", ""), {}
+
+    serving = app.active_color
+    if serving not in BLUE_GREEN_COLORS:
+        return (
+            Check(
+                "blue_green",
+                "fail",
+                "Zero-downtime mode is on but no instance is recorded as serving",
+                f"Turn it off and on again: wasm app zero-downtime {app.domain} off",
+            ),
+            {"no_color": True},
+        )
+    idle = other_color(serving)
+    port = color_port(app, serving)
+    releases = ReleaseManager(app_root(app))
+    serving_release = releases.color_release(serving)
+    idle_unit = instance_unit(app, idle)
+
+    upstream_port = NginxManager(runner=ctx.runner).upstream_port(app.domain)
+    lines = [
+        f"{instance_unit(app, color)}: port {color_port(app, color)}, release "
+        f"{(releases.color_release(color) or _NO_RELEASE).id}"
+        + (" (serving)" if color == serving else "")
+        for color in BLUE_GREEN_COLORS
+    ]
+    lines.append(f"nginx upstream: 127.0.0.1:{upstream_port if upstream_port else '(none)'}")
+    facts: dict[str, Any] = {"serving": serving, "port": port, "upstream_port": upstream_port}
+
+    if upstream_port != port:
+        facts["upstream_mismatch"] = True
+        return (
+            Check(
+                "blue_green",
+                "fail",
+                f"nginx proxies to {upstream_port or 'no upstream'}, but {serving} serves on {port}",
+                "\n".join(lines),
+            ),
+            facts,
+        )
+
+    shown = ctx.runner.run(
+        ["systemctl", "show", "-p", "ActiveState,SubState,Result", f"{idle_unit}.service"],
+        timeout=15,
+    )
+    idle_state = _parse_systemctl_show(shown.stdout)
+    summary = f"{serving} serves" + (
+        f" release {serving_release.id}" if serving_release is not None else ""
+    )
+    summary += f" on port {port}; {idle} is {idle_state.get('ActiveState') or 'unknown'}"
+    if idle_state.get("ActiveState") == "failed" or idle_state.get("Result") not in (
+        None,
+        "",
+        "success",
+    ):
+        journal = ctx.runner.run(
+            [
+                "journalctl",
+                "-u",
+                f"{idle_unit}.service",
+                "-n",
+                "50",
+                "--no-pager",
+                "-o",
+                "short-iso",
+            ],
+            timeout=15,
+        )
+        facts["idle_failed"] = True
+        evidence = (
+            "\n".join(lines)
+            + f"\n\nLast journal lines of {idle_unit}:\n"
+            + (journal.stdout.strip() or journal.stderr.strip())
+        )
+        return (
+            Check(
+                "blue_green",
+                "warn",
+                summary + f"; its last start failed, so {serving} kept serving",
+                evidence,
+            ),
+            facts,
+        )
+    return Check("blue_green", "ok", summary, "\n".join(lines)), facts
 
 
 def _check_nginx_log(ctx: _Context) -> ProbeResult:
@@ -781,6 +888,14 @@ def _decide(
             "see the last journal lines below.",
         )
 
+    blue_green = facts.get("blue_green", {})
+    if blue_green.get("upstream_mismatch"):
+        return (
+            "down",
+            f"nginx proxies {ctx.domain} to {blue_green.get('upstream_port') or 'no upstream'}, "
+            f"but the {blue_green.get('serving')} instance listens on {blue_green.get('port')}.",
+        )
+
     if port.get("recorded_port") is not None and not port.get("listening"):
         recorded_port = port["recorded_port"]
         if port.get("mismatch"):
@@ -870,10 +985,17 @@ def diagnose(
     resolved_runner = runner or get_runner()
     resolved_store = store or get_store()
 
+    app = _safe_get_app(resolved_store, domain)
     ctx = _Context(
         domain=domain,
-        app_name=domain_to_app_name(domain),
-        app=_safe_get_app(resolved_store, domain),
+        # In zero-downtime mode every probe of "the unit" is of the instance
+        # that serves; the idle one has a probe of its own.
+        app_name=(
+            instance_unit(app, app.active_color)
+            if app is not None and app.zero_downtime and app.active_color in BLUE_GREEN_COLORS
+            else domain_to_app_name(domain)
+        ),
+        app=app,
         runner=resolved_runner,
         store=resolved_store,
         now=(now or (lambda: datetime.now(timezone.utc)))(),
@@ -886,7 +1008,11 @@ def diagnose(
 
     checks: list[Check] = []
     facts: dict[str, dict[str, Any]] = {}
-    for name, probe in _PROBES:
+    probes = _PROBES
+    if app is not None and app.zero_downtime:
+        # Only then: which instance serves comes before everything else.
+        probes = (("blue_green", _check_blue_green), *_PROBES)
+    for name, probe in probes:
         try:
             check, probe_facts = probe(ctx)
         except (WASMError, OSError, ValueError) as exc:

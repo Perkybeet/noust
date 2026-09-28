@@ -63,6 +63,7 @@ from wasm.core.store import (
     get_store,
 )
 from wasm.core.utils import domain_to_app_name
+from wasm.deployers.bluegreen import BlueGreen
 from wasm.deployers.helpers import (
     EnvManager,
     NginxConfigBuilder,
@@ -1387,6 +1388,14 @@ class BaseDeployer(AppDeployer):
         template = (
             self.get_nginx_template() if self.webserver == "nginx" else self.get_apache_template()
         )
+        if template != "proxy" and self._zero_downtime_app() is not None:
+            raise DeploymentError(
+                f"{self.domain} runs blue/green, which needs the proxy site; this release "
+                f"renders the {template} template",
+                details="A wasm.nginx.yaml gives the site routes of its own, which the two "
+                f"instances cannot share. Remove it, or turn the mode off first: "
+                f"wasm app zero-downtime {self.domain} off",
+            )
 
         self.logger.substep(f"Web server: {self.webserver}")
         self.logger.substep(f"Template: {template}")
@@ -1559,6 +1568,25 @@ class BaseDeployer(AppDeployer):
         description = validate_unit_value(
             f"WASM: {self.domain} ({self.APP_TYPE})", field="Description"
         )
+
+        zero_downtime = self._zero_downtime_app()
+        if zero_downtime is not None:
+            # Two instances run from a template; the application's own unit
+            # is retired while the mode is on. The row still describes how it
+            # runs, which is what turning the mode off writes the unit from.
+            self.logger.substep(f"Template: {self.app_name}@.service (blue/green)")
+            self._blue_green(zero_downtime).write_template(command=start_command, environment=env)
+            self.registrar.register_service(
+                domain=self.domain,
+                name=self.app_name,
+                command=start_command,
+                working_directory=self.runtime_path,
+                environment=env,
+                port=self.port,
+                user=self.config.service_user,
+                group=self.config.service_group,
+            )
+            return True
 
         self.service_manager.create_service(
             name=self.app_name,
@@ -1929,11 +1957,27 @@ class BaseDeployer(AppDeployer):
         application goes back to what served a moment ago. The deployment
         then fails with the probe's and the journal's own output.
 
+        An application in zero-downtime mode is switched by
+        :class:`~wasm.deployers.bluegreen.BlueGreen` instead: the idle
+        instance starts on the release and takes the traffic once it
+        answers, and ``current`` moves last.
+
         Raises:
             DeploymentError: When the release did not pass the health check,
                 whether or not there was a release to go back to.
         """
         staged = self._require_staged()
+        zero_downtime = self._zero_downtime_app()
+        if zero_downtime is not None:
+            try:
+                self._blue_green(zero_downtime).activate(staged.path, staged.manager)
+            except WASMError:
+                self._record_release_status(staged, ReleaseStatus.FAILED)
+                raise
+            self._record_release_active(staged)
+            self._prune_releases(staged)
+            return
+
         previous = staged.manager.activate(staged.path)
         if previous is None:
             self.logger.substep(f"Activated release {staged.id}")
@@ -1964,6 +2008,43 @@ class BaseDeployer(AppDeployer):
         raise error_class(
             f"Release {staged.id} did not pass its health check; release {previous.id} {state}",
             details=evidence,
+        )
+
+    def _zero_downtime_app(self) -> App | None:
+        """
+        Return the application's row when it activates blue/green.
+
+        Read from the store each time, not from the row this deployment
+        registered: the mode is written only by its own setter, and the
+        registered row does not carry it.
+
+        Returns:
+            The row, when the application is on releases and in
+            zero-downtime mode; None otherwise, and for a new application.
+        """
+        if not self.domain or not self.uses_releases:
+            return None
+        app = self.store.get_app(self.domain)
+        return app if app is not None and app.zero_downtime else None
+
+    def _blue_green(self, app: App) -> BlueGreen:
+        """
+        Build the blue/green engine over this deployer's managers.
+
+        Args:
+            app: The application's row.
+
+        Returns:
+            The engine, probing with the probe this module holds.
+        """
+        return BlueGreen(
+            app,
+            logger=self.logger,
+            store=self.store,
+            services=self.service_manager,
+            web=self._webserver_manager(),
+            # Looked up here, at call time, so it is the one this module holds.
+            probe=wait_until_healthy,
         )
 
     def _restart_and_probe(self) -> tuple[bool, str]:

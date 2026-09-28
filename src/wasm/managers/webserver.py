@@ -67,6 +67,7 @@ from wasm.core.exceptions import (
 from wasm.core.fs import FileSystem
 from wasm.core.runner import CommandRunner
 from wasm.core.store import DomainKind, Site, WASMStore, WebServer, get_store
+from wasm.core.utils import domain_to_app_name
 from wasm.managers.base_manager import BaseManager, MappingRecord
 from wasm.managers.cert_manager import CertManager
 from wasm.validators.domain import is_valid_domain, should_include_www
@@ -87,6 +88,16 @@ DEFAULT_PROXY_PORT = 3000
 #: Mode of a virtual host file. World readable, like the rest of the web server
 #: configuration; the secrets live in the environment file, not here.
 _CONFIG_MODE = 0o644
+
+#: Where nginx finds the upstream of each application in zero-downtime mode:
+#: one file per application, naming the one instance that serves. Outside
+#: ``conf.d`` on purpose: it is included by the application's own site, and
+#: only while that site exists.
+NGINX_UPSTREAMS_DIR = Path("/etc/nginx/wasm-upstreams")
+
+#: Prefix of the upstream name, so it cannot collide with the upstreams an
+#: advanced or monorepo site names after its routes and workspaces.
+UPSTREAM_PREFIX = "wasm_bg_"
 
 
 def _as_port(value: Any) -> int | None:
@@ -180,6 +191,8 @@ class WebServerBackend:
         required_modules: Modules that must be enabled before a site works.
         server_name_pattern: Matches a directive naming what a virtual host
             answers on; its first group is the space-separated names.
+        upstreams_dir: Directory of the per-application upstream files of
+            blue/green activation, or None for a backend that has none.
         error: Exception type raised for failures of this backend, so existing
             callers keep catching what they already catch.
     """
@@ -205,6 +218,7 @@ class WebServerBackend:
     required_modules: tuple[str, ...] = ()
     webserver_record: str = WebServer.NGINX.value
     server_name_pattern: re.Pattern[str] = re.compile(r"^\s*server_name\s+([^;]*);", re.MULTILINE)
+    upstreams_dir: Path | None = None
 
 
 #: Main configuration wrapping one staged virtual host for ``nginx -t -c``.
@@ -250,6 +264,7 @@ NGINX_BACKEND = WebServerBackend(
     default_site_names=frozenset({"default"}),
     error=NginxError,
     webserver_record=WebServer.NGINX.value,
+    upstreams_dir=NGINX_UPSTREAMS_DIR,
 )
 
 APACHE_BACKEND = WebServerBackend(
@@ -886,7 +901,8 @@ class WebServerManager(BaseManager):
         """
         config_path = self.config_path(domain)
         names = self._application_names(domain.strip().lower())
-        ctx = self.build_context(domain, {**(context or {}), **names})
+        upstream = self._upstream_context(domain.strip().lower())
+        ctx = self.build_context(domain, {**(context or {}), **names, **upstream})
         content = self.render_config(domain, template, ctx)
 
         try:
@@ -936,6 +952,234 @@ class WebServerManager(BaseManager):
         served = [r.domain for r in records if r.kind != DomainKind.REDIRECT.value]
         redirects = [r.domain for r in records if r.kind == DomainKind.REDIRECT.value]
         return {"server_names": " ".join(served), "redirect_domains": redirects}
+
+    def _upstream_context(self, domain: str) -> dict[str, Any]:
+        """
+        Say whether an application's site proxies to its blue/green upstream.
+
+        The one place that decides it, from the store, for the same reason
+        :meth:`_application_names` reads the names there: the deployer, the
+        certificate step, the domain endpoints and the mode switch all
+        rewrite the same site, and one of them rendering the direct
+        ``proxy_pass`` would silently undo the mode. Only the proxy template
+        uses these variables; every other site renders exactly as before.
+
+        Args:
+            domain: Domain of the site being written.
+
+        Returns:
+            ``upstream_name`` and ``upstream_file`` when the domain is an
+            application in zero-downtime mode on this backend and its
+            upstream file is in place; empty otherwise, including for a store
+            that cannot be read. The file is looked at first: a site that
+            includes a file that is not there is one nginx refuses, and the
+            common case (no such file) then costs no query at all.
+        """
+        if self.backend.upstreams_dir is None or not is_valid_domain(domain)[0]:
+            return {}
+        path = self.upstream_path(domain)
+        if path.is_symlink() or not path.is_file():
+            return {}
+        try:
+            app = self.store.get_app(domain)
+        except (WASMError, sqlite3.Error) as exc:
+            self.logger.debug(f"Could not read {domain} from the store: {exc}")
+            return {}
+        if app is None or not app.zero_downtime:
+            return {}
+        return {
+            "upstream_name": self.upstream_name(domain),
+            "upstream_file": str(self.upstream_path(domain)),
+        }
+
+    # -- Blue/green upstreams ----------------------------------------------
+
+    def _upstreams_dir(self) -> Path:
+        """
+        Return the directory of the upstream files.
+
+        Returns:
+            The backend's directory.
+
+        Raises:
+            SiteError: The backend has none (apache): blue/green is nginx-only.
+        """
+        if self.backend.upstreams_dir is None:
+            raise self.backend.error(
+                f"{self.backend.name} has no blue/green upstreams",
+                details="Zero-downtime activation is nginx-only in WASM 2.2.",
+            )
+        return self.backend.upstreams_dir
+
+    def upstream_name(self, domain: str) -> str:
+        """
+        Name the upstream block of an application's instances.
+
+        Args:
+            domain: The application's domain.
+
+        Returns:
+            ``wasm_bg_`` and the application name with underscores, a valid
+            nginx identifier that no other site uses.
+        """
+        self.config_path(domain)
+        return UPSTREAM_PREFIX + domain_to_app_name(domain.strip().lower()).replace("-", "_")
+
+    def upstream_path(self, domain: str) -> Path:
+        """
+        Return the file that names the instance serving an application.
+
+        Args:
+            domain: The application's domain, validated before it becomes a path.
+
+        Returns:
+            ``<upstreams dir>/<app name>.conf``.
+
+        Raises:
+            DomainError: When the domain is not a valid domain name.
+            SiteError: The backend has no upstreams.
+        """
+        self.config_path(domain)
+        return self._upstreams_dir() / f"{domain_to_app_name(domain.strip().lower())}.conf"
+
+    def render_upstream(self, domain: str, port: int) -> str:
+        """
+        Render the upstream file of an application.
+
+        Args:
+            domain: The application's domain.
+            port: The port of the instance that serves.
+
+        Returns:
+            The file's content: one upstream with one server on loopback.
+        """
+        return (
+            f"# Upstream of {domain.strip().lower()}: the blue/green instance that serves\n"
+            "# Generated by WASM; rewritten on every activation.\n"
+            f"upstream {self.upstream_name(domain)} {{\n"
+            f"    server 127.0.0.1:{int(port)};\n"
+            "}\n"
+        )
+
+    def read_upstream(self, domain: str) -> str | None:
+        """
+        Read the upstream file of an application as it is on disk.
+
+        Args:
+            domain: The application's domain.
+
+        Returns:
+            Its content, or None when there is none.
+        """
+        path = self.upstream_path(domain)
+        if path.is_symlink() or not path.is_file():
+            return None
+        try:
+            return path.read_text(encoding="utf-8")
+        except OSError as exc:
+            self.logger.debug(f"Could not read {path}: {exc}")
+            return None
+
+    def upstream_port(self, domain: str) -> int | None:
+        """
+        Read which port the upstream of an application points at.
+
+        Args:
+            domain: The application's domain.
+
+        Returns:
+            The port nginx proxies to, or None when there is no upstream file
+            or it names no loopback server.
+        """
+        content = self.read_upstream(domain)
+        if content is None:
+            return None
+        match = re.search(r"^\s*server\s+127\.0\.0\.1:(\d+)\s*;", content, re.MULTILINE)
+        return int(match.group(1)) if match else None
+
+    def write_upstream(self, domain: str, port: int) -> str | None:
+        """
+        Point an application's upstream at one port, atomically.
+
+        Nothing is reloaded: the caller tests the configuration and reloads,
+        and puts the previous content back with :meth:`restore_upstream`
+        when the test fails.
+
+        Args:
+            domain: The application's domain.
+            port: The port of the instance that is to serve.
+
+        Returns:
+            The previous content, or None when there was no file.
+
+        Raises:
+            SiteError: The file could not be written, or a symlink stands
+                where it goes (a write through it would land anywhere).
+        """
+        path = self.upstream_path(domain)
+        if path.is_symlink() or (path.parent.exists() and path.parent.is_symlink()):
+            raise self.backend.error(
+                f"Refusing to write {path}: it is a symlink",
+                details=f"Remove the link; WASM writes the upstream of {domain} itself.",
+            )
+        previous = self.read_upstream(domain)
+        try:
+            self.fs.make_dir(path.parent)
+            self.fs.write_text(path, self.render_upstream(domain, port), mode=_CONFIG_MODE)
+        except OSError as exc:
+            raise self.backend.error(
+                f"Failed to write the upstream of {domain}: {path}", details=str(exc)
+            ) from exc
+        return previous
+
+    def restore_upstream(self, domain: str, previous: str | None) -> None:
+        """
+        Put an upstream file back as it was.
+
+        Args:
+            domain: The application's domain.
+            previous: What :meth:`write_upstream` returned: the old content,
+                or None to remove the file.
+
+        Raises:
+            SiteError: The file could not be written or removed.
+        """
+        path = self.upstream_path(domain)
+        try:
+            if previous is None:
+                self.fs.remove(path, missing_ok=True)
+            else:
+                self.fs.write_text(path, previous, mode=_CONFIG_MODE)
+        except OSError as exc:
+            raise self.backend.error(
+                f"Failed to restore the upstream of {domain}: {path}", details=str(exc)
+            ) from exc
+
+    def remove_upstream(self, domain: str) -> bool:
+        """
+        Remove an application's upstream file, if it has one.
+
+        Call it only once no site includes it any more: nginx refuses a
+        configuration that includes a file that is not there.
+
+        Args:
+            domain: The application's domain.
+
+        Returns:
+            True when a file was removed.
+        """
+        if self.backend.upstreams_dir is None:
+            return False
+        path = self.upstream_path(domain)
+        if not os.path.lexists(path):
+            return False
+        try:
+            self.fs.remove(path, missing_ok=True)
+        except OSError as exc:
+            raise self.backend.error(
+                f"Failed to remove the upstream of {domain}: {path}", details=str(exc)
+            ) from exc
+        return True
 
     def _record_site(self, domain: str, config_path: Path, ctx: Mapping[str, Any]) -> None:
         """
@@ -1117,6 +1361,9 @@ class WebServerManager(BaseManager):
                 f"Failed to delete site: {domain}",
                 details=str(exc),
             ) from exc
+        # The upstream of a blue/green application belongs to its site: once
+        # nothing includes it, it is only a file nginx does not read.
+        self.remove_upstream(domain)
 
         try:
             self.store.delete_site(domain)

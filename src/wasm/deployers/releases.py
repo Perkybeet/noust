@@ -12,6 +12,8 @@ An application on the release layout looks like this::
       current -> releases/20260925-143012-a1b2c3d
       shared/.env                         secrets, outside every release
       shared/<persistent paths>           uploads, storage... linked into each release
+      colors/blue -> ../releases/...      zero-downtime mode only: the release each
+      colors/blue.env                     instance runs, and the port it listens on
 
 The in-place layout builds over the tree the running service reads from, so a
 failed build leaves a half-updated application and a rollback means restoring
@@ -63,6 +65,13 @@ ENV_FILE = ".env"
 
 #: The repository cache: a clone releases are exported from.
 REPO_CACHE_DIR = "repo"
+
+#: Zero-downtime mode: one link per instance to the release it runs, and one
+#: environment file per instance with its port.
+COLORS_DIR = "colors"
+
+#: The names an instance can have, as the store spells them.
+_COLOR = re.compile(r"^(blue|green)$")
 
 #: Stands in for the commit when the source is not a git checkout.
 NO_COMMIT = "nogit"
@@ -229,6 +238,27 @@ def persistent_path(raw: str) -> PurePosixPath:
     return candidate
 
 
+def _color(color: str) -> str:
+    """
+    Check an instance name before it becomes part of a path.
+
+    Args:
+        color: Candidate.
+
+    Returns:
+        The color.
+
+    Raises:
+        DeploymentError: It is not ``blue`` or ``green``.
+    """
+    if not _COLOR.match(color):
+        raise DeploymentError(
+            f"{color!r} is not an instance of a zero-downtime application",
+            details="The instances are blue and green.",
+        )
+    return color
+
+
 def first_obstacle(root: Path, relative: PurePosixPath) -> Path | None:
     """
     Find the first ancestor of ``root/relative`` that cannot be walked into safely.
@@ -288,6 +318,7 @@ class ReleaseManager:
         self.releases_dir = self.app_path / RELEASES_DIR
         self.shared_dir = self.app_path / SHARED_DIR
         self.current_link = self.app_path / CURRENT_LINK
+        self.colors_dir = self.app_path / COLORS_DIR
         self._fs = fs
         self._runner = runner
         self._clock = clock if clock is not None else _utc_now
@@ -531,6 +562,137 @@ class ReleaseManager:
             ) from error
         return None if previous is None else dataclasses.replace(previous, active=False)
 
+    # ------------------------------------------------------------------
+    # Zero-downtime instances
+    # ------------------------------------------------------------------
+
+    def color_link(self, color: str) -> Path:
+        """
+        Return the link an instance runs its release from.
+
+        Args:
+            color: ``blue`` or ``green``.
+
+        Returns:
+            ``colors/<color>``, the instance's WorkingDirectory.
+
+        Raises:
+            DeploymentError: The color is neither.
+        """
+        return self.colors_dir / _color(color)
+
+    def color_env_file(self, color: str) -> Path:
+        """
+        Return the environment file that gives an instance its port.
+
+        Args:
+            color: ``blue`` or ``green``.
+
+        Returns:
+            ``colors/<color>.env``.
+
+        Raises:
+            DeploymentError: The color is neither.
+        """
+        return self.colors_dir / f"{_color(color)}.env"
+
+    def color_release(self, color: str) -> Release | None:
+        """
+        Read which release an instance runs.
+
+        Args:
+            color: ``blue`` or ``green``.
+
+        Returns:
+            The release its link points at, or None when there is no link, or
+            it points at anything but a release on disk.
+        """
+        link = self.color_link(color)
+        if not link.is_symlink():
+            return None
+        target = PurePosixPath(os.readlink(link))
+        # WASM only ever writes ../releases/<id>.
+        if (
+            len(target.parts) != 3
+            or target.parts[:2] != ("..", RELEASES_DIR)
+            or target.parts[2] not in self._ids_on_disk()
+        ):
+            return None
+        release_id = target.parts[2]
+        return self._release(release_id, active=release_id == self._active_id())
+
+    def point_color(self, color: str, release: Path, *, port: int) -> Path | None:
+        """
+        Make an instance run a release on a port, atomically.
+
+        The link is swapped with a rename, like ``current``; the environment
+        file is replaced whole. Neither is written through a symlink: the
+        directory is WASM's, and one planted there is refused.
+
+        Args:
+            color: ``blue`` or ``green``.
+            release: The release directory it is to run.
+            port: The port it is to listen on.
+
+        Returns:
+            The release directory the link pointed at before, or None.
+
+        Raises:
+            DeploymentError: The release is not one of this application's,
+                ``colors/`` is not a plain directory, or the files could not
+                be written.
+        """
+        release_id = self._existing_release_id(release)
+        self._require_colors_dir()
+        previous = self.color_release(color)
+        try:
+            self.fs.make_dir(self.colors_dir)
+            self.fs.symlink(Path("..") / RELEASES_DIR / release_id, self.color_link(color))
+            env_file = self.color_env_file(color)
+            if env_file.is_symlink():
+                raise DeploymentError(
+                    f"Refusing to write {env_file}: it is a symlink",
+                    details="Remove the link; WASM writes the port of each instance itself.",
+                )
+            self.fs.write_text(env_file, f"PORT={int(port)}\n", mode=0o644)
+        except OSError as error:
+            raise DeploymentError(
+                f"Could not point the {color} instance at release {release_id}",
+                details=str(error),
+            ) from error
+        return None if previous is None else previous.path
+
+    def remove_colors(self) -> None:
+        """
+        Remove what zero-downtime mode keeps beside the releases.
+
+        Only the links and the environment files: the releases they point at
+        are not touched.
+
+        Raises:
+            DeploymentError: ``colors/`` is not a plain directory.
+        """
+        if not os.path.lexists(self.colors_dir):
+            return
+        self._require_colors_dir()
+        self.fs.remove_tree(self.colors_dir)
+
+    def _require_colors_dir(self) -> None:
+        """
+        Refuse a ``colors/`` that is anything but WASM's own directory.
+
+        Raises:
+            DeploymentError: It is a symlink or a file.
+        """
+        if self.colors_dir.is_symlink() or (
+            os.path.lexists(self.colors_dir) and not self.colors_dir.is_dir()
+        ):
+            raise DeploymentError(
+                f"{self.colors_dir} is not a plain directory",
+                details="A symlink or file there would make WASM write somewhere else. "
+                "Remove it; WASM recreates the directory.",
+            )
+
     def rollback(self, to: str | None = None) -> Release:
         """
         Activate an earlier release.
@@ -605,6 +767,12 @@ class ReleaseManager:
 
         releases = self.list()
         survivors = {r.id for r in releases[:keep]}
+        # What a zero-downtime instance runs stays, whichever it is: the
+        # idle one is where the next rollback starts from.
+        for color in ("blue", "green"):
+            running = self.color_release(color)
+            if running is not None:
+                survivors.add(running.id)
         for index, release in enumerate(releases):
             if release.active:
                 survivors.add(release.id)

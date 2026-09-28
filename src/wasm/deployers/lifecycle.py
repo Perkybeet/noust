@@ -81,6 +81,7 @@ from wasm.core.store import (
 from wasm.core.utils import domain_to_app_name
 from wasm.deployers import deploy_events
 from wasm.deployers.base import BaseDeployer
+from wasm.deployers.bluegreen import BlueGreen, serving_port
 from wasm.deployers.docker_compose import (
     DockerComposeDeployer,
     compose_file_from_unit,
@@ -1076,15 +1077,31 @@ def _activate_release(
         git_info=lambda: (target.commit, _cache_branch(root, app.branch)),
     )
     with recording(recorder, git_branch=app.branch):
-        releases.activate(target.path)
-        log.substep(
-            f"Activated release {target.id}"
-            + (f" (was {previous.id})" if previous is not None else "")
-        )
-        healthy, evidence = health_gate_for(app, store, log).restart_and_probe()
-        if not healthy:
-            _set_release_status(store, app, target.id, ReleaseStatus.FAILED, log)
-            raise _restore_previous(app, store, releases, target, previous, evidence, log)
+        if app.zero_downtime:
+            # The idle instance starts on the target and takes the traffic
+            # once it answers; the serving one never stops before that.
+            try:
+                BlueGreen(
+                    app,
+                    logger=log,
+                    store=store,
+                    services=ServiceManager(),
+                    web=NginxManager(),
+                    probe=wait_until_healthy,
+                ).activate(target.path, releases)
+            except WASMError:
+                _set_release_status(store, app, target.id, ReleaseStatus.FAILED, log)
+                raise
+        else:
+            releases.activate(target.path)
+            log.substep(
+                f"Activated release {target.id}"
+                + (f" (was {previous.id})" if previous is not None else "")
+            )
+            healthy, evidence = health_gate_for(app, store, log).restart_and_probe()
+            if not healthy:
+                _set_release_status(store, app, target.id, ReleaseStatus.FAILED, log)
+                raise _restore_previous(app, store, releases, target, previous, evidence, log)
 
         _record_activation(store, app, target, previous if went_back else None, log)
         if went_back:
@@ -1200,10 +1217,14 @@ def health_gate_for(
     service = store.get_service_by_app_id(app.id) if app.id is not None else None
     if not app.is_static:
         unit = service.name if service is not None else app_root(app).name
+        if app.zero_downtime:
+            # The instance that serves, on its own port: restarting it is a
+            # cut, which only a caller that asked for a restart gets.
+            unit = services.serving_units(app)[0]
         check = HealthCheck.for_app(app)
         return HealthGate(
             unit=unit,
-            url=check.url(app.port),
+            url=check.url(serving_port(app)),
             check=check,
             services=services,
             logger=log,
@@ -2025,6 +2046,19 @@ def _set_resource_limits(
         for unit, previous in reversed(written):
             services.update_config(unit, previous)
 
+    if app.zero_downtime:
+        # Both instances run from one template: the limits are written once,
+        # into it, and apply to each.
+        units = services.app_units(app)
+        try:
+            written.append((units[0], services.set_resource_limits(units[0], limits)))
+        except WASMError:
+            put_back()
+            raise
+        if restart:
+            _restart_blue_green(app, store, log, put_back)
+        return _record_limits(app, limits, units, restart, store)
+
     try:
         for unit in units:
             written.append((unit, services.set_resource_limits(unit, limits)))
@@ -2049,11 +2083,76 @@ def _set_resource_limits(
                 details=evidence,
             )
 
+    return _record_limits(app, limits, units, restart, store)
+
+
+def _record_limits(
+    app: App, limits: ResourceLimits, units: Sequence[str], restarted: bool, store: WASMStore
+) -> LimitsChange:
+    """
+    Record the limits an application's units were given.
+
+    Args:
+        app: The application.
+        limits: The limits.
+        units: The units that have them.
+        restarted: Whether they were restarted under them.
+        store: The store.
+
+    Returns:
+        What was done.
+    """
     app.memory_max_mb = limits.memory_max_mb
     app.cpu_quota_percent = limits.cpu_quota_percent
     app.tasks_max = limits.tasks_max
     store.update_app(app)
-    return LimitsChange(domain=domain, limits=limits, units=tuple(units), restarted=restart)
+    return LimitsChange(domain=app.domain, limits=limits, units=tuple(units), restarted=restarted)
+
+
+def _restart_blue_green(
+    app: App, store: WASMStore, log: Logger, put_back: Callable[[], None]
+) -> None:
+    """
+    Run a blue/green application under new limits without a cut.
+
+    The active release is started on the idle instance, under the new
+    limits, and takes the traffic only once it answers: the same switch as
+    an activation. When it does not, the old limits are put back; the
+    instance that was serving never stopped.
+
+    Args:
+        app: The application, in zero-downtime mode.
+        store: The store.
+        log: Where the switch is reported.
+        put_back: Writes the previous template back.
+
+    Raises:
+        DeploymentError: It did not answer under the new limits; the old
+            ones are back and the serving instance still serves.
+    """
+    releases = ReleaseManager(app_root(app), logger=log)
+    active = releases.current()
+    if active is None:
+        put_back()
+        raise DeploymentError(
+            f"{app.domain} has no active release to restart under the new limits",
+            details=f"Build one first: wasm update {app.domain}",
+        )
+    try:
+        BlueGreen(
+            app,
+            logger=log,
+            store=store,
+            services=ServiceManager(),
+            web=NginxManager(),
+            probe=wait_until_healthy,
+        ).activate(active.path, releases)
+    except DeploymentError as exc:
+        put_back()
+        raise DeploymentError(
+            f"{app.domain} did not answer under the new limits; the previous ones are back",
+            details=f"{exc.message}\n\n{exc.details}".strip(),
+        ) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -2365,6 +2464,16 @@ def _delete_app(
             services.delete_service(unit)
         except WASMError as exc:
             failed(f"The unit {unit} was not removed", exc)
+
+    # Read defensively: callers and tests hand this rows of their own shape.
+    if app is not None and getattr(app, "zero_downtime", False):
+        # Its instances and their template; the upstream file goes with the
+        # site, once nothing includes it.
+        for warning in BlueGreen(
+            app, logger=log, store=store, services=services, web=NginxManager(verbose=log.verbose)
+        ).teardown():
+            warnings.append(warning)
+            log.warning(warning)
 
     phase(3, DELETE_PHASES, "Removing its site and certificate")
     deletion = delete_site_completely(
