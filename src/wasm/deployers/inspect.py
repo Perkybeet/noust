@@ -72,6 +72,7 @@ from wasm.deployers.helpers.env_manager import (
     is_secret_env_name,
 )
 from wasm.deployers.helpers.package_manager import PackageManagerHelper
+from wasm.deployers.importers import PLATFORM_FILES, Proposal, propose
 from wasm.deployers.interface import AppDeployer
 from wasm.deployers.registry import DeployerRegistry, _import_deployers
 from wasm.managers.source_manager import SourceManager
@@ -248,6 +249,11 @@ class SourceInspection:
             is (see :class:`Verdict`).
         verdict: What WASM found, in a sentence.
         suggestion: What to do before deploying, or None.
+        platform_proposal: What another platform's configuration in the
+            repository (``vercel.json``, ``render.yaml``...) says, read by
+            :func:`wasm.deployers.importers.propose`, so the wizard can
+            prefill the build, the environment and the health check; None
+            when the repository carries none.
     """
 
     app_type: str
@@ -263,6 +269,7 @@ class SourceInspection:
     compatible: bool = True
     verdict: str = ""
     suggestion: str | None = None
+    platform_proposal: Proposal | None = None
 
 
 @dataclass(frozen=True)
@@ -315,7 +322,8 @@ def sparse_patterns() -> list[str]:
     Read off the deployers themselves: every registered type's
     ``DETECTION_FILES`` and ``FRAMEWORK_CONFIG_FILES``, the compose file
     names, plus the files detection reads beyond those
-    (:data:`_ALSO_READ_AT_ROOT`), each workspace app's ``package.json``
+    (:data:`_ALSO_READ_AT_ROOT`), the other platforms' configuration files
+    (:data:`wasm.deployers.importers.PLATFORM_FILES`), each workspace app's ``package.json``
     (the monorepo detector counts them) and the example environment files
     :meth:`EnvManager.discover` reads under ``apps/``, ``packages/`` and
     ``services/``.
@@ -325,7 +333,7 @@ def sparse_patterns() -> list[str]:
         ``/apps/*/package.json``); ``*`` never spans a directory.
     """
     _import_deployers()
-    root: set[str] = set(COMPOSE_FILE_PRIORITY) | set(_ALSO_READ_AT_ROOT)
+    root: set[str] = set(COMPOSE_FILE_PRIORITY) | set(_ALSO_READ_AT_ROOT) | set(PLATFORM_FILES)
     for deployer_class in DeployerRegistry.in_detection_order():
         root.update(deployer_class.DETECTION_FILES)
         root.update(getattr(deployer_class, "FRAMEWORK_CONFIG_FILES", ()))
@@ -619,6 +627,7 @@ def _describe(
         compatible=verdict.compatible,
         verdict=verdict.summary,
         suggestion=verdict.suggestion,
+        platform_proposal=propose(checkout),
     )
 
 

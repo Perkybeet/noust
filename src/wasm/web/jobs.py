@@ -955,6 +955,7 @@ def deploy_app_job(
     github_installation_id: int | None = None,
     preview_parent: str | None = None,
     env_secret_marks: dict[str, bool] | None = None,
+    recipe: str | None = None,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
     """
@@ -1005,11 +1006,17 @@ def deploy_app_job(
         preview_parent: The application this one is the pull request preview
             of, recorded on its row before the deployment runs.
         env_secret_marks: The secret marks its row starts with.
+        recipe: Deploy this recipe (:mod:`wasm.recipes`): its plan, the same
+            one ``wasm create --recipe`` uses, provisions the database and
+            gives the source, type, variables (``env_vars`` over them),
+            layout, persistent paths and settings; ``source``, ``app_type``,
+            ``branch``, ``layout`` and ``persistent_paths`` are not used.
         job_context: Injected by the job manager.
 
     Returns:
         Summary of the deployment, including ``deployment_id``: the history
-        row this run wrote, or None if recording it failed.
+        row this run wrote, or None if recording it failed. A recipe adds
+        ``recipe`` and ``notes``: what to tell the operator next.
 
     Raises:
         DeploymentError: When the deployer reports failure.
@@ -1022,25 +1029,47 @@ def deploy_app_job(
     context.set_metadata("app_type", app_type)
 
     context.update("Preparing deployment", 5)
+    plan = None
+    settings: dict[str, Any] = {
+        "source": source,
+        "branch": branch,
+        "env_vars": env_vars or {},
+        "layout": layout or CONFIGURED_LAYOUT,
+        "persistent_paths": persistent_paths,
+    }
+    if recipe is not None:
+        from wasm.core.logger import Logger
+        from wasm.recipes.deploy import plan_recipe
+
+        context.update(f"Preparing the {recipe} recipe", 7)
+        plan = plan_recipe(
+            recipe,
+            domain,
+            port=port,
+            ssl=ssl,
+            env_overrides=env_vars or {},
+            logger=Logger(verbose=False),
+        )
+        app_type = plan.app_type
+        context.set_metadata("app_type", app_type)
+        context.set_metadata("recipe", recipe)
+        settings = plan.configure_arguments()
+
     deployer = get_deployer(app_type, verbose=False)
     deployer.configure(
         domain=domain,
-        source=source,
         port=port,
         webserver=webserver,
         ssl=ssl,
-        branch=branch,
-        env_vars=env_vars or {},
         subdomain_overrides=subdomain_overrides or {},
         workspace_filter=workspace_filter,
         skip_database=skip_database,
         compose_file=compose_file,
         compose_profiles=compose_profiles,
         trigger=trigger,
-        layout=layout or CONFIGURED_LAYOUT,
         job_id=context.job_id,
         include_www=include_www,
-        persistent_paths=persistent_paths,
+        **settings,
         memory_max_mb=memory_max_mb,
         cpu_quota_percent=cpu_quota_percent,
         tasks_max=tasks_max,
@@ -1059,8 +1088,7 @@ def deploy_app_job(
     if github_installation_id is not None:
         get_store().set_github_installation(domain, github_installation_id)
 
-    context.update("Deployment complete", 100)
-    return {
+    result: dict[str, Any] = {
         "domain": domain,
         "app_type": app_type,
         "port": port,
@@ -1070,6 +1098,16 @@ def deploy_app_job(
         # attribute just to be deployable.
         "deployment_id": getattr(deployer, "last_deployment_id", None),
     }
+    if plan is not None:
+        from wasm.core.logger import Logger
+        from wasm.recipes.deploy import finish_recipe
+
+        result["recipe"] = recipe
+        result["notes"] = finish_recipe(plan, logger=Logger(verbose=False))
+        for note in result["notes"]:
+            context.log(note)
+    context.update("Deployment complete", 100)
+    return result
 
 
 def update_app_job(

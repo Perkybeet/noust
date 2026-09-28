@@ -64,6 +64,8 @@ from wasm.deployers.registry import DeployerRegistry, available_types
 from wasm.deployers.releases import is_release_id
 from wasm.managers.backup_manager import RollbackManager
 from wasm.managers.service_manager import ResourceLimits, ServiceManager
+from wasm.recipes import RecipeError, get_recipe
+from wasm.recipes.deploy import refuse_conflicts
 from wasm.validators.environment import EnvironmentValidationError
 from wasm.validators.port import find_available_port, validate_port
 from wasm.validators.source import validate_source
@@ -74,6 +76,10 @@ from wasm.web.api.deps import (
     ensure_elevated,
     require_elevated,
     strict_domain,
+)
+from wasm.web.api.platform_proposal import (
+    PlatformProposalResponse,
+    platform_proposal_response,
 )
 from wasm.web.auth import (
     actor_label,
@@ -240,8 +246,20 @@ class CreateAppRequest(BaseModel):
     """
 
     domain: str = Field(..., description="Target domain name")
-    source: str = Field(..., description="Git URL or local path")
-    app_type: str = Field(default="auto", description="Application type")
+    source: str | None = Field(
+        default=None,
+        description="Git URL, archive URL or local path. Required unless recipe is given, "
+        "and refused with one",
+    )
+    app_type: str = Field(
+        default="auto", description="Application type. Left on auto with a recipe"
+    )
+    recipe: str | None = Field(
+        default=None,
+        description="Deploy a known application from its recipe (GET /api/recipes): its "
+        "source, type, database, variables and settings come from the recipe, and env_vars "
+        "are applied over its variables. The job's result carries the recipe's notes",
+    )
     port: int | None = Field(default=None, description="Application port")
     webserver: str = Field(default="nginx", description="Web server to use")
     branch: str | None = Field(default=None, description="Git branch to deploy")
@@ -832,10 +850,27 @@ def create_app(
         ValidationError: A resource limit is out of range (400, with the
             range) - the same check ``PATCH .../limits`` runs, so a limit
             given at creation cannot be more permissive than one set later -
-            or ``package_manager`` names one WASM does not drive.
+            or ``package_manager`` names one WASM does not drive, or neither a
+            source nor a recipe was given.
+        RecipeError: The recipe does not exist or is not available, or a
+            source or a type was given with it (400).
     """
     domain = strict_domain(body.domain)
-    _require_local_source_privilege(request, session, body.source)
+    recipe = get_recipe(body.recipe) if body.recipe is not None else None
+    if recipe is not None:
+        refuse_conflicts(source=body.source, app_type=body.app_type)
+        if not recipe.available:
+            raise RecipeError(
+                f"{recipe.title} is not available in this release",
+                details=recipe.unavailable_reason or "See GET /api/recipes",
+            )
+    elif not body.source:
+        raise ValidationError(
+            "A source is required", details="Give source, or a recipe from GET /api/recipes."
+        )
+    else:
+        _require_local_source_privilege(request, session, body.source)
+    app_type = recipe.app_type if recipe is not None else body.app_type
 
     if get_store().get_app(domain):
         raise HTTPException(status_code=409, detail=f"Application already exists: {domain}")
@@ -844,7 +879,8 @@ def create_app(
         port: int | None = validate_port(body.port)
     else:
         port = find_available_port(
-            preferred=DEFAULT_PORT, exclude=get_store().ports_owned_by_apps()
+            preferred=(recipe.port if recipe is not None and recipe.port else DEFAULT_PORT),
+            exclude=get_store().ports_owned_by_apps(),
         )
         if port is None:
             raise HTTPException(status_code=503, detail="No available port found")
@@ -865,12 +901,17 @@ def create_app(
     job = get_job_manager().create_job(
         job_type=JobType.DEPLOY,
         name=f"Deploy {domain}",
-        description=f"Deploying a {body.app_type} application to {domain}",
+        description=(
+            f"Deploying {recipe.title} to {domain}"
+            if recipe is not None
+            else f"Deploying a {app_type} application to {domain}"
+        ),
         func=deploy_app_job,
         kwargs={
             "domain": domain,
-            "source": body.source,
-            "app_type": body.app_type,
+            "source": body.source or "",
+            "app_type": app_type,
+            "recipe": recipe.name if recipe is not None else None,
             "port": port,
             "branch": body.branch,
             "env_vars": body.env_vars,
@@ -890,7 +931,12 @@ def create_app(
             "package_manager": body.package_manager,
             "github_installation_id": body.github_installation_id,
         },
-        metadata={"domain": domain, "app_type": body.app_type, "port": port},
+        metadata={
+            "domain": domain,
+            "app_type": app_type,
+            "port": port,
+            **({"recipe": recipe.name} if recipe is not None else {}),
+        },
         actor=actor_label(session),
     )
 
@@ -968,6 +1014,11 @@ class SourceInspectionResponse(BaseModel):
     verdict: str | None = Field(default=None, description="What WASM found, in a sentence")
     suggestion: str | None = Field(
         default=None, description="What to do before deploying, when there is something"
+    )
+    platform_proposal: PlatformProposalResponse | None = Field(
+        default=None,
+        description="What the repository's Vercel, Railway, Render or Heroku configuration "
+        "proposes, for the wizard to prefill; null when it carries none",
     )
 
 
@@ -1112,6 +1163,7 @@ async def inspect_app_source(
         compatible=result.compatible,
         verdict=result.verdict or None,
         suggestion=result.suggestion,
+        platform_proposal=platform_proposal_response(getattr(result, "platform_proposal", None)),
     )
 
 

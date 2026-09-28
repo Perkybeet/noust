@@ -13,6 +13,7 @@ route, such as in a dependency.
 
 from fastapi import APIRouter
 
+from wasm.web.api.app_export import router as app_export_router
 from wasm.web.api.apps import router as apps_router
 from wasm.web.api.audit import router as audit_router
 from wasm.web.api.auth import router as auth_router
@@ -35,6 +36,7 @@ from wasm.web.api.metrics import router as metrics_router
 from wasm.web.api.monitor import router as monitor_router
 from wasm.web.api.openapi import router as openapi_router
 from wasm.web.api.previews import router as previews_router
+from wasm.web.api.recipes import router as recipes_router
 from wasm.web.api.services import router as services_router
 from wasm.web.api.sites import router as sites_router
 from wasm.web.api.system import router as system_router
@@ -46,6 +48,10 @@ router = APIRouter()
 
 router.include_router(auth_router, prefix="/auth", tags=["Authentication"])
 router.include_router(audit_router, prefix="/audit", tags=["Audit"])
+# Before apps_router: POST /apps/import must not reach a route that reads
+# "import" as a domain. It also owns GET "/{domain}/export", which apps.py
+# does not define.
+router.include_router(app_export_router, prefix="/apps", tags=["Applications"])
 router.include_router(apps_router, prefix="/apps", tags=["Applications"])
 router.include_router(services_router, prefix="/services", tags=["Services"])
 router.include_router(sites_router, prefix="/sites", tags=["Sites"])
@@ -84,6 +90,7 @@ router.include_router(integrations_router, prefix="/integrations", tags=["Integr
 # apps.py does not define ("/zero-downtime", "/previews").
 router.include_router(zero_downtime_router, prefix="/apps", tags=["Applications"])
 router.include_router(previews_router, prefix="/apps", tags=["Previews"])
+router.include_router(recipes_router, prefix="/recipes", tags=["Recipes"])
 # No prefix: the route is declared as "/openapi.json" and this router mounts
 # directly under "/api", giving GET /api/openapi.json.
 router.include_router(openapi_router, tags=["OpenAPI"])

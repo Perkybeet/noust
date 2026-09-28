@@ -59,7 +59,9 @@ from wasm.deployers.monorepo import MonorepoDeployer
 from wasm.deployers.registry import available_types
 from wasm.managers.apache_manager import ApacheManager
 from wasm.managers.nginx_manager import NginxManager
-from wasm.managers.service_manager import ServiceManager
+from wasm.managers.service_manager import ResourceLimits, ServiceManager
+from wasm.recipes import RecipeError, get_recipe
+from wasm.recipes.deploy import finish_recipe, plan_recipe, refuse_conflicts
 from wasm.validators.domain import should_include_www, validate_domain
 from wasm.validators.environment import is_valid_env_name
 from wasm.validators.port import find_available_port, validate_port
@@ -198,6 +200,9 @@ def _create_app(
     layout: str | None = None,
     persist: tuple[str, ...] = (),
     replace_existing: bool = False,
+    env_vars: dict[str, str] | None = None,
+    env_secret_marks: dict[str, bool] | None = None,
+    limits: ResourceLimits | None = None,
 ) -> int:
     """
     Deploy an application.
@@ -225,6 +230,12 @@ def _create_app(
         persist: Paths kept in ``shared/`` and linked into every release.
         replace_existing: Deploy into an application directory that already
             holds files (``--force``); refused otherwise.
+        env_vars: Variables for the application environment, over those of
+            ``env_file``: what ``wasm app import`` and ``wasm import`` give.
+        env_secret_marks: The secret marks the new application's row starts
+            with, so its first build's log is already scrubbed of them.
+        limits: The unit's memory, CPU and task limits from the start; None
+            creates it without any.
 
     Returns:
         Exit code.
@@ -278,7 +289,7 @@ def _create_app(
         logger.info("  wasm setup doctor")
         return 1
 
-    env_vars = _read_env_file(env_file, logger) if env_file else {}
+    env_vars = {**(_read_env_file(env_file, logger) if env_file else {}), **(env_vars or {})}
 
     logger.header("WASM Deployment")
     logger.key_value("Domain", domain)
@@ -337,9 +348,188 @@ def _create_app(
         layout=layout or CONFIGURED,
         persistent_paths=list(persist) if persist else None,
         replace_existing=replace_existing,
+        **_import_options(env_secret_marks, limits),
     )
     deployer.deploy()
 
+    return 0
+
+
+def _import_options(
+    env_secret_marks: dict[str, bool] | None, limits: ResourceLimits | None
+) -> dict[str, Any]:
+    """
+    The deployer options only an import gives.
+
+    Passed only when given, so a plain ``wasm create`` configures the
+    deployer exactly as it always has.
+
+    Args:
+        env_secret_marks: The secret marks the new row starts with, or None.
+        limits: The unit's limits, or None.
+
+    Returns:
+        Keyword arguments for ``configure``.
+    """
+    options: dict[str, Any] = {}
+    if env_secret_marks:
+        options["env_secret_marks"] = env_secret_marks
+    if limits is not None:
+        options.update(
+            memory_max_mb=limits.memory_max_mb,
+            cpu_quota_percent=limits.cpu_quota_percent,
+            tasks_max=limits.tasks_max,
+            resource_limits_given=True,
+        )
+    return options
+
+
+def _parse_env_pairs(pairs: tuple[str, ...]) -> dict[str, str]:
+    """
+    Read ``--env NAME=VALUE`` options.
+
+    Args:
+        pairs: What was given, in order.
+
+    Returns:
+        Name to value; a later pair wins.
+
+    Raises:
+        click.BadParameter: When one is not ``NAME=VALUE`` with a valid name.
+    """
+    values: dict[str, str] = {}
+    for pair in pairs:
+        name, equals, value = pair.partition("=")
+        if not equals or not is_valid_env_name(name):
+            raise click.BadParameter(
+                f"{pair!r} is not NAME=VALUE with a valid variable name", param_hint="--env"
+            )
+        values[name] = value
+    return values
+
+
+def _create_from_recipe(
+    *,
+    logger: Logger,
+    recipe: str,
+    domain: str,
+    source: str | None,
+    app_type: str,
+    branch: str | None,
+    layout: str | None,
+    persist: tuple[str, ...],
+    port: int | None,
+    webserver: str,
+    ssl: bool,
+    www: bool,
+    env_file: Path | None,
+    env_vars: dict[str, str],
+    package_manager: str,
+    replace_existing: bool,
+) -> int:
+    """
+    Deploy an application from a recipe.
+
+    The recipe's plan (:func:`wasm.recipes.deploy.plan_recipe`, which the
+    API's job uses too) provisions the database and renders the variables;
+    the deployment is then the ordinary one, and the recipe's notes are
+    printed at the end.
+
+    Args:
+        logger: Logger of the current command.
+        recipe: The recipe's name.
+        domain: Domain the application is served on.
+        source: A source given as well, which is refused.
+        app_type: A type given as well (other than ``auto``), which is refused.
+        branch: A branch given as well, which is refused: the recipe pins it.
+        layout: A layout given as well, which is refused.
+        persist: Persistent paths given as well, which are refused.
+        port: Port to listen on. A free one near the recipe's is chosen when None.
+        webserver: ``nginx`` or ``apache``.
+        ssl: Request a certificate.
+        www: Also answer on ``www.<domain>``.
+        env_file: File of variables over the recipe's.
+        env_vars: ``--env`` variables, over the file's.
+        package_manager: Node package manager, or ``auto``.
+        replace_existing: Deploy into a directory that already holds files.
+
+    Returns:
+        Exit code.
+
+    Raises:
+        WASMError: When the recipe, the database or any deployment step fails.
+    """
+    refuse_conflicts(source=source, app_type=app_type)
+    if branch or layout or persist:
+        raise RecipeError(
+            "A recipe pins its ref, its layout and its persistent paths",
+            details="Leave out --branch, --layout and --persist with --recipe.",
+        )
+    domain = validate_domain(domain)
+    chosen = get_recipe(recipe)
+    if not chosen.available:
+        raise RecipeError(
+            f"{chosen.title} is not available in this release",
+            details=chosen.unavailable_reason or "See: wasm recipe list",
+        )
+
+    if port:
+        port = validate_port(port)
+    else:
+        port = find_available_port(
+            preferred=chosen.port or 3000, exclude=get_store().ports_owned_by_apps()
+        )
+        if not port:
+            raise DeploymentError(
+                "No available port found",
+                details="Free a port in the range WASM allocates from, or pass --port.",
+            )
+
+    can_deploy, missing, warnings = check_deployment_ready(
+        app_type=chosen.app_type, package_manager=package_manager, verbose=logger.verbose
+    )
+    for warning in warnings:
+        logger.warning(warning)
+    if not can_deploy:
+        logger.error("System is not ready for deployment")
+        for item in missing:
+            logger.error(f"  - {item}")
+        for requirement in chosen.requires:
+            logger.info(f"  {chosen.title} requires: {requirement}")
+        return 1
+
+    overrides = {**(_read_env_file(env_file, logger) if env_file else {}), **env_vars}
+
+    logger.header(f"WASM Deployment: {chosen.title}")
+    logger.key_value("Domain", domain)
+    logger.key_value("Recipe", chosen.name)
+    logger.key_value("Type", chosen.app_type)
+    logger.key_value("SSL", "Yes" if ssl else "No")
+    logger.blank()
+
+    plan = plan_recipe(
+        chosen.name, domain, port=port, ssl=ssl, env_overrides=overrides, logger=logger
+    )
+    logger.key_value("Source", plan.source)
+    deployer = get_deployer(plan.app_type, verbose=logger.verbose)
+    deployer.configure(
+        domain=domain,
+        port=port,
+        webserver=webserver,
+        ssl=ssl,
+        package_manager=package_manager,
+        include_www=www,
+        replace_existing=replace_existing,
+        **plan.configure_arguments(),
+    )
+    deployer.deploy()
+
+    notes = finish_recipe(plan, logger=logger)
+    if notes:
+        logger.blank()
+        logger.info("Next steps:")
+        for note in notes:
+            logger.info(f"  {note}")
     return 0
 
 
@@ -1351,7 +1541,25 @@ def cli() -> None:
 
 @cli.command()
 @click.option("-d", "--domain", required=True, help="Domain the application is served on.")
-@click.option("-s", "--source", required=True, help="Git URL or directory to deploy from.")
+@click.option(
+    "-s",
+    "--source",
+    help="Git URL, archive URL or directory to deploy from. Not with --recipe.",
+)
+@click.option(
+    "--recipe",
+    metavar="NAME",
+    help="Deploy a known application from its recipe (see 'wasm recipe list'): its "
+    "source, type, database and settings come from the recipe.",
+)
+@click.option(
+    "--env",
+    "env_pairs",
+    metavar="NAME=VALUE",
+    multiple=True,
+    help="Set a variable of the application environment, over --env-file and a "
+    "recipe's own. Repeat for several.",
+)
 @click.option(
     "-t",
     "--type",
@@ -1442,7 +1650,9 @@ def cli() -> None:
 def create(
     ctx: Context,
     domain: str,
-    source: str,
+    source: str | None,
+    recipe: str | None,
+    env_pairs: tuple[str, ...],
     app_type: str,
     port: int | None,
     webserver: str,
@@ -1464,13 +1674,40 @@ def create(
     Deploy a web application and put it online.
 
     Fetches the source, builds it, runs it under systemd, publishes it on the
-    domain and obtains a certificate for it.
+    domain and obtains a certificate for it. With --recipe, the source, the
+    type, the database and the settings come from the recipe.
     """
+    env_vars = _parse_env_pairs(env_pairs)
+    if recipe is not None:
+        _exit(
+            _create_from_recipe(
+                logger=ctx.logger,
+                recipe=recipe,
+                domain=domain,
+                source=source,
+                app_type=app_type,
+                branch=branch,
+                layout=layout,
+                persist=persist,
+                port=port,
+                webserver=webserver,
+                ssl=not no_ssl,
+                www=www,
+                env_file=env_file,
+                env_vars=env_vars,
+                package_manager=package_manager,
+                replace_existing=force,
+            )
+        )
+        return
+    if not source:
+        raise click.UsageError("Missing option '-s' / '--source' (or deploy a --recipe).")
     _exit(
         _create_app(
             logger=ctx.logger,
             domain=domain,
             source=source,
+            env_vars=env_vars or None,
             app_type=app_type,
             port=port,
             webserver=webserver,

@@ -744,3 +744,32 @@ def test_the_endpoint_answers_499_once_the_cancelled_inspection_stopped(
     )
 
     assert response.status_code == 499
+
+
+def test_the_inspection_carries_another_platform_s_proposal(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A repository with a railway.toml: the wizard gets what it proposes, warnings included."""
+    from wasm.deployers.importers.base import Proposal
+
+    proposal = Proposal(
+        platform="railway",
+        files=["railway.toml"],
+        start_command="npm run serve",
+        health_path="/healthz",
+        warnings=["Replicas have no equivalent: WASM runs one instance."],
+    )
+
+    def inspected(source: str, **kwargs: Any) -> Any:
+        return _inspection(platform_proposal=proposal)
+
+    monkeypatch.setattr(apps_api, "inspect_source", inspected)
+
+    response = client.post("/api/apps/inspect", json={"source": "https://example.com/app.git"})
+
+    assert response.status_code == 200, response.text
+    body = response.json()["platform_proposal"]
+    assert body["platform"] == "railway"
+    assert body["start_command"] == "npm run serve"
+    assert body["health_path"] == "/healthz"
+    assert body["warnings"] == ["Replicas have no equivalent: WASM runs one instance."]

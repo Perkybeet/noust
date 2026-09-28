@@ -543,7 +543,7 @@ def test_an_expired_certificate_is_reported_as_expired_not_expiring(server: Any)
     disagreed about how bad this was.
     """
     past = (datetime.now() - timedelta(days=80)).isoformat()
-    server.certs = _FakeCerts([{"name": "arenna38.com", "expiry": past}])
+    server.certs = _FakeCerts([{"name": "expired.example.com", "expiry": past}])
 
     result = invoke(standalone_mode=False)
 

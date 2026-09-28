@@ -13,7 +13,10 @@ calls too. ``limits`` sets the memory, CPU and task limits of its unit through
 through :func:`wasm.deployers.lifecycle.set_health_check`, like ``PATCH
 /api/apps/{d}/health``. ``zero-downtime`` shows or switches blue/green
 activation through :mod:`wasm.deployers.bluegreen`, like ``GET`` and ``PUT
-/api/apps/{d}/zero-downtime``. This module only parses, presents and asks.
+/api/apps/{d}/zero-downtime``. ``export`` and ``import`` write and read an
+application's definition through :mod:`wasm.deployers.app_export`, like ``GET
+/api/apps/{d}/export`` and ``POST /api/apps/import``; an import deploys through
+``wasm create``'s own path. This module only parses, presents and asks.
 """
 
 from __future__ import annotations
@@ -21,13 +24,29 @@ from __future__ import annotations
 import dataclasses
 import json
 import re
+from collections.abc import Callable
+from pathlib import Path
 
 import click
 
 from wasm.cli.app import Context, WasmGroup, global_flags, json_option, pass_context
-from wasm.core.exceptions import WASMError
+from wasm.cli.commands.webapp import _create_app, _read_env_file
+from wasm.core.exceptions import DeploymentError, WASMError
+from wasm.core.fs import SECRET_MODE, get_fs
 from wasm.core.logger import Logger
 from wasm.core.store import MAX_DRAIN_SECONDS, App, DeploymentTrigger, get_store
+from wasm.deployers.app_export import (
+    CreateSpec,
+    ImportPlan,
+    ImportReport,
+    apply_import,
+    dumps,
+    export_app,
+    load_document,
+    plan_import,
+    plan_summary,
+    report_summary,
+)
 from wasm.deployers.bluegreen import (
     ModeChange,
     ZeroDowntimeStatus,
@@ -463,3 +482,240 @@ def zero_downtime_command(ctx: Context, domain: str, mode: str | None, drain: in
     elif change.enabled:
         logger.key_value("Serving", str(change.active_color))
         logger.key_value("Drain", f"{change.drain_seconds} s")
+
+
+# Export and import -----------------------------------------------------------
+
+
+def parse_env_pairs(pairs: tuple[str, ...]) -> dict[str, str]:
+    """
+    Read ``--env NAME=VALUE`` options.
+
+    Args:
+        pairs: The options, as typed.
+
+    Returns:
+        Name to value, the last one winning.
+
+    Raises:
+        click.BadParameter: One has no ``=`` or no name.
+    """
+    values: dict[str, str] = {}
+    for pair in pairs:
+        name, sep, value = pair.partition("=")
+        if not sep or not name.strip():
+            raise click.BadParameter(f"{pair!r} is not NAME=VALUE", param_hint="--env")
+        values[name.strip()] = value
+    return values
+
+
+def gather_env(env_file: Path | None, pairs: tuple[str, ...], logger: Logger) -> dict[str, str]:
+    """
+    Collect the variables an import is given: the file, then ``--env`` over it.
+
+    The file is read by ``wasm create``'s own reader, so it means the same
+    thing here as it does there.
+
+    Args:
+        env_file: File given to ``--env-file``, or None.
+        pairs: ``--env`` options.
+        logger: Where a skipped line is reported.
+
+    Returns:
+        Name to value.
+    """
+    from_file = _read_env_file(env_file, logger) if env_file is not None else {}
+    return {**from_file, **parse_env_pairs(pairs)}
+
+
+def cli_deploy(logger: Logger) -> Callable[[CreateSpec], None]:
+    """
+    Build the deploy an import runs from the terminal: ``wasm create``'s own.
+
+    Args:
+        logger: Logger of the current command.
+
+    Returns:
+        A function that deploys what a plan asks for and raises when it fails.
+    """
+
+    def deploy(spec: CreateSpec) -> None:
+        code = _create_app(
+            logger=logger,
+            domain=spec.domain,
+            source=spec.source,
+            app_type=spec.app_type,
+            port=spec.port,
+            webserver=spec.webserver,
+            branch=spec.branch,
+            ssl=spec.ssl,
+            www=spec.include_www,
+            layout=spec.layout,
+            persist=spec.persistent_paths,
+            env_vars=spec.env_vars,
+            env_secret_marks=spec.env_secret_marks,
+            limits=ResourceLimits(
+                memory_max_mb=spec.memory_max_mb,
+                cpu_quota_percent=spec.cpu_quota_percent,
+                tasks_max=spec.tasks_max,
+            ),
+        )
+        if code != 0:
+            raise DeploymentError(
+                f"The deployment of {spec.domain} did not start",
+                details="Fix what is reported above and import again.",
+            )
+
+    return deploy
+
+
+def print_import_plan(logger: Logger, plan: ImportPlan) -> None:
+    """
+    Render what an import will do for a human.
+
+    Args:
+        logger: Logger the command writes through.
+        plan: The plan.
+    """
+    summary = plan_summary(plan)
+    create = summary["create"]
+    logger.key_value("Application", plan.domain)
+    if plan.domain != plan.exported_domain:
+        logger.key_value("Exported from", plan.exported_domain)
+    logger.key_value("Type", create["app_type"])
+    logger.key_value(
+        "Source", f"{create['source']}" + (f" ({create['branch']})" if create["branch"] else "")
+    )
+    logger.key_value("Variables", ", ".join(create["env"]) or "none")
+    for line in plan.steps[1:]:
+        logger.list_item(line)
+    for skipped in plan.skipped:
+        logger.warning(f"Will not apply {skipped.part}: {skipped.detail}")
+
+
+def print_import_report(logger: Logger, report: ImportReport) -> None:
+    """
+    Render what an import did for a human, what it did not do last.
+
+    Args:
+        logger: Logger the command writes through.
+        report: The report.
+    """
+    missing = report.not_applied
+    if not missing:
+        logger.success(f"Imported {report.domain}: everything in the export was applied")
+        return
+    logger.success(f"Imported {report.domain}")
+    logger.warning(f"{len(missing)} part(s) of the export were not applied:")
+    for step in missing:
+        logger.list_item(f"{step.part}: {step.detail}")
+
+
+def run_import(ctx: Context, plan: ImportPlan) -> None:
+    """
+    Show a plan, then carry it out unless this is a rehearsal.
+
+    Shared by ``wasm app import`` and ``wasm import --deploy``.
+
+    Args:
+        ctx: The command's context.
+        plan: The plan.
+    """
+    if ctx.dry_run:
+        if ctx.json_output:
+            click.echo(json.dumps({"plan": plan_summary(plan), "rehearsed": True}))
+            return
+        print_import_plan(ctx.logger, plan)
+        ctx.logger.info("Rehearsal: nothing was created")
+        return
+    if not ctx.json_output:
+        print_import_plan(ctx.logger, plan)
+    report = apply_import(plan, deploy=cli_deploy(ctx.logger), logger=ctx.logger)
+    if ctx.json_output:
+        click.echo(json.dumps({"plan": plan_summary(plan), "result": report_summary(report)}))
+        return
+    print_import_report(ctx.logger, report)
+
+
+@cli.command("export")
+@click.argument("domain")
+@click.option(
+    "--with-secrets",
+    is_flag=True,
+    default=False,
+    help="Include the values of secret variables. The file is written 0600.",
+)
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(dir_okay=False, path_type=Path),
+    help="Write the export to this file instead of printing it.",
+)
+@global_flags
+@json_option("The export is JSON already; accepted for scripts that always pass it.")
+@pass_context
+def export_command(ctx: Context, domain: str, with_secrets: bool, output: Path | None) -> None:
+    """
+    Export everything that defines an application as a JSON document.
+
+    Type, source, branch, layout, domains, variables, secret marks, health
+    check, limits, retention, persistent paths, cron jobs, backup schedule,
+    previews and zero-downtime. Secret values are left out unless
+    --with-secrets; WASM's own credentials (webhook secret, backup
+    destination keys, GitHub App) never go in. Recreate it anywhere with
+    'wasm app import'.
+    """
+    text = dumps(export_app(domain, with_secrets=with_secrets))
+    if output is None:
+        click.echo(text, nl=False)
+        return
+    fs = get_fs()
+    fs.write_text(output, text, mode=SECRET_MODE if with_secrets else 0o644)
+    if not ctx.json_output:
+        ctx.logger.success(f"Exported {domain} to {output}")
+        if not with_secrets:
+            ctx.logger.info(
+                "Secret values were left out; give them to 'wasm app import' with "
+                "--env-file or --env."
+            )
+
+
+@cli.command("import")
+@click.argument("file", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--domain", help="Create it on this domain instead of the exported one.")
+@click.option("--source", help="Deploy from this source instead of the exported one.")
+@click.option(
+    "--env-file",
+    type=click.Path(exists=True, dir_okay=False, readable=True, path_type=Path),
+    help="File of NAME=value lines: the secret values the export left out, or overrides.",
+)
+@click.option(
+    "--env",
+    "env_pairs",
+    multiple=True,
+    metavar="NAME=VALUE",
+    help="A variable's value, over the export and --env-file. Repeat for several.",
+)
+@global_flags
+@json_option("Print the plan and what was applied as JSON.")
+@pass_context
+def import_command(
+    ctx: Context,
+    file: Path,
+    domain: str | None,
+    source: str | None,
+    env_file: Path | None,
+    env_pairs: tuple[str, ...],
+) -> None:
+    """
+    Create an application from a 'wasm app export' document.
+
+    It is deployed through the normal path (built, health-gated, recorded),
+    then its domains, health check, retention, secret marks, cron jobs,
+    backup schedule, previews and zero-downtime are applied. What cannot be
+    applied here is listed at the end. With --dry-run, only the plan is shown.
+    """
+    document = load_document(file.read_text(encoding="utf-8"))
+    env = gather_env(env_file, env_pairs, ctx.logger)
+    plan = plan_import(document, domain=domain, source=source, env=env)
+    run_import(ctx, plan)

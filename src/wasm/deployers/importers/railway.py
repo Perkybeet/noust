@@ -1,0 +1,307 @@
+# Copyright (c) 2024-2026 Yago Lopez Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+"""
+Railway: ``railway.toml`` or ``railway.json`` (config as code).
+
+Both spell the same two sections, ``build`` and ``deploy``. Railway keeps
+variables, domains and databases in its dashboard, so the proposal carries
+the builder, the commands and the health check, and says so for the rest.
+"""
+
+from __future__ import annotations
+
+import re
+import sys
+from pathlib import Path
+from typing import Any
+
+from wasm.core.exceptions import ValidationError
+from wasm.deployers.importers.base import (
+    Proposal,
+    health_timeout,
+    int_value,
+    read_json_object,
+    read_text,
+    text_value,
+)
+
+PLATFORM = "railway"
+FILES = ("railway.toml", "railway.json")
+
+
+def detect(root: Path) -> bool:
+    """
+    Report whether a repository carries Railway configuration.
+
+    Args:
+        root: The repository.
+
+    Returns:
+        True when either file exists.
+    """
+    return any((root / name).exists() for name in FILES)
+
+
+def read(root: Path) -> Proposal:
+    """
+    Read Railway's configuration into a proposal.
+
+    ``railway.toml`` wins when both exist, as it would on Railway, which
+    reads the first it finds.
+
+    Args:
+        root: The repository.
+
+    Returns:
+        The proposal.
+
+    Raises:
+        ValidationError: The file cannot be read or parsed.
+    """
+    proposal = Proposal(platform=PLATFORM)
+    config: dict[str, Any] | None = None
+    text = read_text(root, "railway.toml")
+    if text is not None:
+        proposal.files.append("railway.toml")
+        config = load_toml(text, name="railway.toml")
+    else:
+        config = read_json_object(root, "railway.json")
+        if config is not None:
+            proposal.files.append("railway.json")
+    config = config or {}
+
+    build = _section(config, "build")
+    deploy = _section(config, "deploy")
+
+    _builder(build, proposal)
+    proposal.build_command = text_value(build, "buildCommand")
+    proposal.start_command = text_value(deploy, "startCommand")
+    proposal.note_commands()
+
+    proposal.health_path = text_value(deploy, "healthcheckPath")
+    proposal.health_timeout = health_timeout(
+        int_value(deploy, "healthcheckTimeout"), proposal, source="healthcheckTimeout"
+    )
+    _deploy_settings(deploy, proposal)
+
+    if isinstance(config.get("environments"), dict) and config["environments"]:
+        proposal.warn(
+            "The configuration overrides settings per Railway environment; the proposal "
+            "reads the base settings only."
+        )
+    proposal.warn(
+        "Railway keeps variables, domains and databases in its dashboard, not in the "
+        "repository: copy the variables over (to a file for --env-file) and create the "
+        "databases with 'wasm db create'."
+    )
+    return proposal
+
+
+def _section(config: dict[str, Any], key: str) -> dict[str, Any]:
+    """
+    Read one section of the configuration.
+
+    Args:
+        config: The whole configuration.
+        key: ``build`` or ``deploy``.
+
+    Returns:
+        The section, or an empty one when it is absent or not a table.
+    """
+    section = config.get(key)
+    return section if isinstance(section, dict) else {}
+
+
+def _builder(build: dict[str, Any], proposal: Proposal) -> None:
+    """
+    Map Railway's builder to a WASM type.
+
+    Nixpacks and Railpack detect the stack from the repository the way WASM
+    does, so the type is left to detection; a Dockerfile has no deployer of
+    its own here.
+
+    Args:
+        build: The ``build`` section.
+        proposal: Where the type and warnings go.
+    """
+    builder = (text_value(build, "builder") or "").upper()
+    if builder == "DOCKERFILE" or text_value(build, "dockerfilePath"):
+        proposal.warn(
+            "Railway builds this from a Dockerfile. WASM runs containers through Docker "
+            "Compose: commit a compose.yaml that builds it and deploy it as docker-compose."
+        )
+    if text_value(build, "nixpacksPlan") or isinstance(build.get("nixpacksPlan"), dict):
+        proposal.warn("The Nixpacks plan has no equivalent; WASM detects the stack itself.")
+    if isinstance(build.get("watchPatterns"), list) and build["watchPatterns"]:
+        proposal.warn(
+            "watchPatterns decide which pushes redeploy on Railway; a WASM webhook "
+            "redeploys on every push to the branch."
+        )
+
+
+def _deploy_settings(deploy: dict[str, Any], proposal: Proposal) -> None:
+    """
+    Warn about deploy settings without an equivalent.
+
+    Args:
+        deploy: The ``deploy`` section.
+        proposal: Where the warnings go.
+    """
+    policy = text_value(deploy, "restartPolicyType")
+    if policy is not None:
+        proposal.warn(
+            f"restartPolicyType is {policy}; systemd restarts a WASM application whenever "
+            "it exits with an error, without a retry limit."
+        )
+    replicas = int_value(deploy, "numReplicas")
+    if replicas is not None and replicas > 1:
+        proposal.warn(
+            f"Railway runs {replicas} replicas; a WASM application runs one instance "
+            "(two, briefly, with zero-downtime on)."
+        )
+    schedule = text_value(deploy, "cronSchedule")
+    if schedule is not None:
+        proposal.warn(
+            f"The service runs as a cron job ({schedule}) on Railway. Create it with "
+            "'wasm cron create' instead of deploying it as an application."
+        )
+    if text_value(deploy, "preDeployCommand") or isinstance(deploy.get("preDeployCommand"), list):
+        proposal.warn(
+            "preDeployCommand has no equivalent; run migrations from the build script, or "
+            "by hand after the deploy."
+        )
+    if deploy.get("sleepApplication"):
+        proposal.warn("sleepApplication has no equivalent; a WASM application keeps running.")
+    for key in ("region", "multiRegionConfig"):
+        if deploy.get(key):
+            proposal.warn(f"{key} has no equivalent; a WASM application runs on this server.")
+
+
+# TOML ----------------------------------------------------------------------
+
+_TABLE = re.compile(r"^\[\s*([A-Za-z0-9_.\-\"]+)\s*\]$")
+_PAIR = re.compile(r"^([A-Za-z0-9_\-\"]+)\s*=\s*(.+)$")
+
+
+def load_toml(text: str, *, name: str) -> dict[str, Any]:
+    """
+    Parse a TOML file with the standard library, or a subset of it on 3.10.
+
+    ``tomllib`` arrived in Python 3.11; Ubuntu 22.04 ships 3.10 and no TOML
+    parser WASM may depend on, so there :func:`_load_simple_toml` reads the
+    shape ``railway.toml`` is written in.
+
+    Args:
+        text: The file's text.
+        name: The file's name, for the error.
+
+    Returns:
+        The document.
+
+    Raises:
+        ValidationError: The text is not TOML (or, on 3.10, not the subset).
+    """
+    if sys.version_info >= (3, 11):
+        import tomllib
+
+        try:
+            return tomllib.loads(text)
+        except tomllib.TOMLDecodeError as exc:
+            raise ValidationError(f"{name} is not valid TOML", details=str(exc)) from exc
+    return _load_simple_toml(text, name=name)
+
+
+def _load_simple_toml(text: str, *, name: str) -> dict[str, Any]:
+    """
+    Read tables of ``key = value`` lines: strings, numbers, booleans, arrays.
+
+    Args:
+        text: The file's text.
+        name: The file's name, for the error.
+
+    Returns:
+        The document.
+
+    Raises:
+        ValidationError: A line is outside the subset.
+    """
+    document: dict[str, Any] = {}
+    table = document
+    for number, raw in enumerate(text.splitlines(), start=1):
+        line = _strip_comment(raw).strip()
+        if not line:
+            continue
+        header = _TABLE.match(line)
+        if header:
+            table = document
+            for part in header.group(1).split("."):
+                nested = table.setdefault(part.strip('"'), {})
+                if not isinstance(nested, dict):
+                    raise ValidationError(f"{name} line {number}: {part} is not a table")
+                table = nested
+            continue
+        pair = _PAIR.match(line)
+        if pair is None:
+            raise ValidationError(
+                f"{name} line {number} is not a key = value pair WASM can read",
+                details="On Python 3.10 WASM reads a subset of TOML: tables and key = value "
+                "lines of strings, numbers, booleans and arrays.",
+            )
+        table[pair.group(1).strip('"')] = _toml_value(pair.group(2).strip(), name, number)
+    return document
+
+
+def _strip_comment(line: str) -> str:
+    """
+    Remove a ``#`` comment that is not inside a string.
+
+    Args:
+        line: One line.
+
+    Returns:
+        The line without its comment.
+    """
+    quote: str | None = None
+    for index, char in enumerate(line):
+        if quote:
+            if char == quote:
+                quote = None
+        elif char in "\"'":
+            quote = char
+        elif char == "#":
+            return line[:index]
+    return line
+
+
+def _toml_value(value: str, name: str, number: int) -> Any:
+    """
+    Read one value of the subset.
+
+    Args:
+        value: The text after ``=``.
+        name: The file's name, for the error.
+        number: The line number, for the error.
+
+    Returns:
+        The value.
+
+    Raises:
+        ValidationError: It is outside the subset.
+    """
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        return value[1:-1]
+    if value in ("true", "false"):
+        return value == "true"
+    if re.fullmatch(r"[+-]?\d+", value):
+        return int(value)
+    if re.fullmatch(r"[+-]?\d+\.\d+", value):
+        return float(value)
+    if value.startswith("[") and value.endswith("]"):
+        inner = value[1:-1].strip()
+        if not inner:
+            return []
+        return [
+            _toml_value(item.strip(), name, number) for item in inner.split(",") if item.strip()
+        ]
+    raise ValidationError(f"{name} line {number}: cannot read the value {value}")
