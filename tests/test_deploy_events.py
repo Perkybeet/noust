@@ -1,4 +1,6 @@
+# Copyright (c) 2024-2026 Yago Lopez Prado
 # SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Every deployment announces its start and its end, rollbacks included."""
 
 from __future__ import annotations

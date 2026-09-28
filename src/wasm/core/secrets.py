@@ -1,4 +1,6 @@
+# Copyright (c) 2024-2026 Yago Lopez Prado
 # SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 Credentials WASM keeps for itself, one 0600 file each.
 

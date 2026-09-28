@@ -16,6 +16,7 @@ from fastapi import APIRouter
 from wasm.web.api.apps import router as apps_router
 from wasm.web.api.audit import router as audit_router
 from wasm.web.api.auth import router as auth_router
+from wasm.web.api.backup_destinations import router as backup_destinations_router
 from wasm.web.api.backup_schedules import router as backup_schedules_router
 from wasm.web.api.backups import router as backups_router
 from wasm.web.api.certs import router as certs_router
@@ -28,13 +29,16 @@ from wasm.web.api.deps import install_error_handlers
 from wasm.web.api.diagnose import router as diagnose_router
 from wasm.web.api.domains import dns_router
 from wasm.web.api.domains import router as domains_router
+from wasm.web.api.integrations import router as integrations_router
 from wasm.web.api.jobs import router as jobs_router
 from wasm.web.api.metrics import router as metrics_router
 from wasm.web.api.monitor import router as monitor_router
 from wasm.web.api.openapi import router as openapi_router
+from wasm.web.api.previews import router as previews_router
 from wasm.web.api.services import router as services_router
 from wasm.web.api.sites import router as sites_router
 from wasm.web.api.system import router as system_router
+from wasm.web.api.zero_downtime import router as zero_downtime_router
 
 __all__ = ["install_error_handlers", "router"]
 
@@ -72,6 +76,14 @@ router.include_router(domains_router, prefix="/apps", tags=["Domains"])
 # domains.py's second router: a DNS check with no application yet, for the
 # new-app wizard. GET /api/domains/dns.
 router.include_router(dns_router, prefix="/domains", tags=["Domains"])
+router.include_router(
+    backup_destinations_router, prefix="/backup-destinations", tags=["Backup Destinations"]
+)
+router.include_router(integrations_router, prefix="/integrations", tags=["Integrations"])
+# Same composition as diagnose: each owns paths under "/{domain}/..." that
+# apps.py does not define ("/zero-downtime", "/previews").
+router.include_router(zero_downtime_router, prefix="/apps", tags=["Applications"])
+router.include_router(previews_router, prefix="/apps", tags=["Previews"])
 # No prefix: the route is declared as "/openapi.json" and this router mounts
 # directly under "/api", giving GET /api/openapi.json.
 router.include_router(openapi_router, tags=["OpenAPI"])

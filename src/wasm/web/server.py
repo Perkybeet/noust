@@ -722,10 +722,14 @@ def create_app(config: SecurityConfig | None = None) -> FastAPI:
     # requirement and the rate limiter hold for a forge exactly as they do for
     # a browser. The companion router manages the secrets and is an ordinary
     # authenticated admin surface under /api/apps.
+    from wasm.web.api.github_hooks import router as github_hooks_router
     from wasm.web.api.hooks import admin_router as webhook_admin_router
     from wasm.web.api.hooks import router as hooks_router
 
     app.include_router(hooks_router, prefix="/hooks", tags=["Webhooks"])
+    # GitHub App deliveries: one endpoint for every application, verified
+    # with the App's own secret rather than a per-application one.
+    app.include_router(github_hooks_router, prefix="/hooks", tags=["Webhooks"])
     app.include_router(webhook_admin_router, prefix="/api/apps", tags=["Webhooks"])
 
     from wasm.web.websockets import router as ws_router
