@@ -261,6 +261,21 @@ What does not come back:
 - Deployment history, jobs and audit entries recorded under 2.0 (kept in
   `/var/lib/wasm.2.0` and `/etc/wasm.2.0`).
 
+## 2.3
+
+What changes when a 2.2 server upgrades to 2.3 (see [CHANGELOG-2.3.md](CHANGELOG-2.3.md)):
+
+- **No schema change**: the store stays at version 10; 2.2 and 2.3 read the same store.
+- **The console's language** follows the browser: a browser set to Spanish opens the console
+  in Spanish. Switch it in Settings → General or the session menu.
+- **Notifications** stay in English until `notifications.language` is set to `es`.
+- **PHP applications and the WordPress recipe** need PHP-FPM and its extensions, and the
+  recipe MariaDB or MySQL: `apt install php-fpm php-mysql php-curl php-gd php-mbstring
+  php-xml php-zip php-intl mariadb-server` (Debian, Ubuntu); `wasm recipe show wordpress`
+  lists what it needs. Nothing is installed by WASM on its own.
+- **The update notice** now reads the package repository this server installs from, over
+  HTTPS; `updates.check: false` still turns it off.
+
 ## 2.2
 
 What changes when a 2.1 server upgrades to 2.2 (see [CHANGELOG-2.2.md](CHANGELOG-2.2.md)):

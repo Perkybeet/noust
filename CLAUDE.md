@@ -291,7 +291,9 @@ Colour only ever encodes state (running green, in progress amber, failed red, st
 plus the violet accent for interactive elements; every state also has a shape and a text
 label. Navigation, surfaces and text are achromatic, so anything coloured on screen is
 telling the operator something. The design direction is D8 in
-`docs/superpowers/specs/2026-09-25-wasm-v2-design.md`; UI copy is English, sentence case.
+`docs/superpowers/specs/2026-09-25-wasm-v2-design.md`. UI copy is English and Spanish, sentence
+case, and lives only in the typed catalogs of `panel/src/i18n` (rules and glossary in its
+README): whole sentences with placeholders, never fragments.
 
 A system error is never paraphrased. Show nginx's or systemd's own output verbatim in mono,
 with the suggested fix above it.
