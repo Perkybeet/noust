@@ -19,6 +19,7 @@ import {
 } from "../../api/queries/config";
 import type { ConfigSection } from "../../api/queries/config";
 import { useDocumentTitle } from "../../app/documentTitle";
+import { LanguageSwitch } from "../../app/LanguageSwitch";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Sections } from "../../components/page/Section";
 import { Field } from "../../components/ui/Field";
@@ -27,6 +28,7 @@ import { Select } from "../../components/ui/Select";
 import type { SelectOption } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { toast } from "../../components/ui/toast";
+import { useT } from "../../i18n";
 import { configGetCommand, configSetCommand } from "./shell";
 import { SettingsFormCard, SettingsFormSkeleton, SettingsSection } from "./SettingsForm";
 import type { SkeletonField } from "./SettingsForm";
@@ -339,6 +341,16 @@ function ConsoleAddressSection() {
   );
 }
 
+/** The console's language: a preference of this browser, applied at once, not a server setting. */
+function LanguageSection() {
+  const t = useT();
+  return (
+    <SettingsSection title={t("language.label")} description={t("language.description")}>
+      <LanguageSwitch className="w-full max-w-64" />
+    </SettingsSection>
+  );
+}
+
 function cardProps<V extends FormValues>(form: SettingsForm<V>, errorTitle: string) {
   return {
     dirty: form.dirty,
@@ -389,6 +401,7 @@ export function GeneralSettings() {
       <CertificatesSection />
       <BackupsSection />
       <ConsoleAddressSection />
+      <LanguageSection />
     </Sections>
   );
 }

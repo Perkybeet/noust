@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent } from "react";
 
 import { Drawer } from "../components/ui/Drawer";
+import { useT } from "../i18n";
 import { useServerEvents } from "../realtime/events";
 import { CommandPalette } from "./CommandPalette";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -42,6 +43,7 @@ const APP_PATH = /^\/apps\/([^/]+)(?:\/|$)/;
  * It also opens the live event stream and moves focus to each new page's heading.
  */
 export function Shell() {
+  const t = useT();
   const navigate = useNavigate();
   const router = useRouter();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
@@ -97,7 +99,7 @@ export function Shell() {
       void navigate({ to });
     };
     const navShortcuts = [...NAV_GROUPS.flat(), SETTINGS_ITEM].flatMap((item) =>
-      item.shortcut ? [{ keys: item.shortcut, description: `Go to ${item.label.toLowerCase()}`, run: go(item.to) }] : [],
+      item.shortcut ? [{ keys: item.shortcut.keys, description: t(item.shortcut.description), run: go(item.to) }] : [],
     );
     return [
       ...navShortcuts,
@@ -125,7 +127,7 @@ export function Shell() {
       },
       { keys: ["?"], description: "Show keyboard shortcuts", run: openShortcuts },
     ];
-  }, [navigate, router, openPalette, openShortcuts]);
+  }, [navigate, router, openPalette, openShortcuts, t]);
 
   useKeyboardShortcuts(bindings);
 

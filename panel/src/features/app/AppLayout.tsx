@@ -19,6 +19,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { Spinner } from "../../components/ui/Spinner";
 import { StatusPill } from "../../components/ui/StatusPill";
 import type { StatusView } from "../../components/page/status";
+import { useT } from "../../i18n";
 import { AppActions } from "./AppActions";
 import { findCertificate } from "./lookups";
 import { jobStep, jobWords, useAppJob } from "./useAppJob";
@@ -137,6 +138,7 @@ function NotFound({ domain }: { domain: string }) {
  * run on it, and its sections as tabs whose state is the URL.
  */
 export function AppLayout({ domain }: { domain: string }) {
+  const t = useT();
   const app = useQuery(appQuery(domain));
   const certs = useQuery(certsQuery());
   const cert = findCertificate(certs.data, domain);
@@ -169,7 +171,7 @@ export function AppLayout({ domain }: { domain: string }) {
           <ErrorBlock error={app.error} title={`Could not load ${domain}`} onRetry={() => void app.refetch()} retrying={app.isRefetching} />
         ) : null}
         <JobStatus job={job} domain={domain} />
-        <LinkTabs label="Application sections" tabs={APP_TABS.map((tab) => ({ ...tab, params: { domain } }))} />
+        <LinkTabs label={t("nav.landmarks.appSections")} tabs={APP_TABS.map((tab) => ({ ...tab, params: { domain } }))} />
       </div>
       <Outlet />
     </>

@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useRef } from "react";
 
 import { useTabStrip } from "../components/ui/tabStrip";
+import { useT } from "../i18n";
 import { cx } from "../lib/cx";
 import type { TabItem } from "./nav";
 
@@ -18,6 +19,7 @@ export interface LinkTabsProps {
  * (`data-keep-focus`) instead of jumping to the page heading.
  */
 export function LinkTabs({ label, tabs, className }: LinkTabsProps) {
+  const t = useT();
   const ref = useRef<HTMLUListElement>(null);
   // On a phone the row is wider than the screen: the current section stays in view.
   useTabStrip(ref, '[data-status="active"]', "data-status");
@@ -37,7 +39,7 @@ export function LinkTabs({ label, tabs, className }: LinkTabsProps) {
                 "focus-visible:after:absolute focus-visible:after:inset-x-0 focus-visible:after:inset-y-1.5 focus-visible:after:rounded-control focus-visible:after:outline-2 focus-visible:after:outline-focus",
               )}
             >
-              {tab.label}
+              {t(tab.label)}
               <span
                 aria-hidden="true"
                 className="absolute inset-x-2.5 bottom-0 h-0.5 rounded-pill bg-transparent group-data-[status=active]:bg-accent-fg"

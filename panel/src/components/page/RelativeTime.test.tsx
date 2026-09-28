@@ -1,6 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { RelativeTime } from "./RelativeTime";
 
@@ -47,6 +48,25 @@ describe("RelativeTime", () => {
   it("says the fallback when there is no time at all", () => {
     render(<RelativeTime value={null} fallback="Never deployed" />);
     expect(screen.getByText("Never deployed")).toBeInTheDocument();
+  });
+
+  it("says Never by default, in the active language", async () => {
+    const { rerender } = render(<RelativeTime value={undefined} />);
+    expect(screen.getByText("Never")).toBeInTheDocument();
+    await act(async () => {
+      await setLocale("es");
+    });
+    rerender(<RelativeTime value={undefined} />);
+    expect(screen.getByText("Nunca")).toBeInTheDocument();
+  });
+
+  it("switches language while on screen", async () => {
+    render(<RelativeTime value={new Date(2026, 8, 25, 11, 57, 0)} />);
+    expect(screen.getByText("3m ago")).toBeInTheDocument();
+    await act(async () => {
+      await setLocale("es");
+    });
+    expect(screen.getByText("hace 3 min")).toBeInTheDocument();
   });
 
   it("has no accessibility violations", async () => {

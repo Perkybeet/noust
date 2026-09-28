@@ -2,27 +2,73 @@
  * How the console writes numbers, sizes, durations and times. One implementation, so a
  * memory figure reads the same in the apps table, the app page and a chart axis.
  *
- * Numbers use en-US grouping (the interface is English); sizes are binary (1 KB = 1024 B),
- * the way `df -h`, `free -h` and systemd's MemoryMax count them.
+ * Every function takes the language to write in and defaults to the active one, so decimal
+ * marks, grouping, month names and "ago" follow the console's language ("1.5 KB" and
+ * "1,5 KB"). A component re-renders on a language change when it calls `useT()` or
+ * `useLocale()`; one that only formats should pass `useLocale()[0]` through. Sizes are binary
+ * (1 KB = 1024 B), the way `df -h`, `free -h` and systemd's MemoryMax count them; unit
+ * symbols are the same in every language.
  */
 
-const NUMBER = new Intl.NumberFormat("en-US");
-const COMPACT = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
+import { getLocale } from "../app/locale";
+import type { Locale } from "../app/locale";
+import { translate } from "../i18n/translate";
+
+// Building an Intl formatter is expensive and a table formats hundreds of cells: one per
+// language and set of options.
+const numberFormats = new Map<string, Intl.NumberFormat>();
+const dateFormats = new Map<string, Intl.DateTimeFormat>();
+const relativeFormats = new Map<Locale, Intl.RelativeTimeFormat>();
+
+function numberFormat(locale: Locale, options: Intl.NumberFormatOptions = {}): Intl.NumberFormat {
+  const key = `${locale}|${JSON.stringify(options)}`;
+  let format = numberFormats.get(key);
+  if (format === undefined) {
+    format = new Intl.NumberFormat(locale, options);
+    numberFormats.set(key, format);
+  }
+  return format;
+}
+
+function dateFormat(locale: Locale, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const key = `${locale}|${JSON.stringify(options)}`;
+  let format = dateFormats.get(key);
+  if (format === undefined) {
+    format = new Intl.DateTimeFormat(locale, options);
+    dateFormats.set(key, format);
+  }
+  return format;
+}
+
+function relativeFormat(locale: Locale): Intl.RelativeTimeFormat {
+  let format = relativeFormats.get(locale);
+  if (format === undefined) {
+    // Narrow is the compact form the tables have room for: "3m ago", "hace 3 min".
+    format = new Intl.RelativeTimeFormat(locale, { style: "narrow", numeric: "always" });
+    relativeFormats.set(locale, format);
+  }
+  return format;
+}
+
+/** A number with exactly `digits` decimals, in the language's notation. */
+function fixed(value: number, digits: number, locale: Locale): string {
+  return numberFormat(locale, { minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: false }).format(value);
+}
 
 const BYTE_UNITS = ["B", "KB", "MB", "GB", "TB", "PB"] as const;
 
 /** Few significant figures: two below 1, one decimal below 10, whole numbers above. */
-function significant(value: number): string {
+function significant(value: number, locale: Locale): string {
   const abs = Math.abs(value);
   const digits = abs > 0 && abs < 1 ? 2 : abs < 10 ? 1 : 0;
-  return value.toFixed(digits);
+  return fixed(value, digits, locale);
 }
 
 /**
  * A size in bytes: "512 B", "1.5 KB", "96 MB", "6.2 GB". A unit is left for the next one up
  * once it would print four digits, so 1006 GB reads "0.98 TB".
  */
-export function formatBytes(bytes: number): string {
+export function formatBytes(bytes: number, locale: Locale = getLocale()): string {
   if (!Number.isFinite(bytes)) return "-";
   const sign = bytes < 0 ? "-" : "";
   let value = Math.abs(bytes);
@@ -31,49 +77,53 @@ export function formatBytes(bytes: number): string {
     value /= 1024;
     unit += 1;
   }
-  const text = unit === 0 ? String(Math.round(value)) : significant(value);
+  const text = unit === 0 ? String(Math.round(value)) : significant(value, locale);
   return `${sign}${text} ${BYTE_UNITS[unit] ?? "B"}`;
 }
 
 /** A transfer rate: "1.2 MB/s". */
-export function formatBytesRate(bytesPerSecond: number): string {
-  return `${formatBytes(bytesPerSecond)}/s`;
+export function formatBytesRate(bytesPerSecond: number, locale: Locale = getLocale()): string {
+  return `${formatBytes(bytesPerSecond, locale)}/s`;
 }
 
 /**
- * A percentage already on the 0-100 scale: "5.7%", "32%". One decimal below ten, where the
- * decimal is the difference between idle and busy; whole numbers above, where it is noise.
+ * A percentage already on the 0-100 scale: "5.7%", "32%" ("5,7 %" in Spanish). One decimal
+ * below ten, where the decimal is the difference between idle and busy; whole numbers above,
+ * where it is noise.
  */
-export function formatPercent(value: number): string {
+export function formatPercent(value: number, locale: Locale = getLocale()): string {
   if (!Number.isFinite(value)) return "-";
   const abs = Math.abs(value);
-  const text = abs === 0 ? "0" : abs < 10 ? value.toFixed(1) : String(Math.round(value));
-  return `${text}%`;
+  const digits = abs !== 0 && abs < 10 ? 1 : 0;
+  return numberFormat(locale, { style: "percent", minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value / 100);
 }
 
 /** A count: "1,284" in full up to ten thousand, then compact ("12.9K", "4.2M"). */
-export function formatCount(value: number): string {
+export function formatCount(value: number, locale: Locale = getLocale()): string {
   if (!Number.isFinite(value)) return "-";
-  return Math.abs(value) < 10_000 ? NUMBER.format(value) : COMPACT.format(value);
+  return Math.abs(value) < 10_000
+    ? numberFormat(locale).format(value)
+    : numberFormat(locale, { notation: "compact", maximumFractionDigits: 1 }).format(value);
 }
 
 /**
  * A span of time in seconds as the two largest units: "3 ms", "2.4s", "14s", "2m 05s",
- * "1h 12m", "3d 4h".
+ * "1h 12m", "3d 4h" ("2 min 05 s", "1 h 12 min" in Spanish: the unit words are the
+ * catalog's, under time.duration).
  */
-export function formatDuration(seconds: number): string {
+export function formatDuration(seconds: number, locale: Locale = getLocale()): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "-";
-  if (seconds < 1) return `${String(Math.max(1, Math.round(seconds * 1000)))} ms`;
-  if (seconds < 10) return `${(Math.floor(seconds * 10) / 10).toFixed(1)}s`;
+  if (seconds < 1) return translate(locale, "time.duration.milliseconds", { value: Math.max(1, Math.round(seconds * 1000)) });
+  if (seconds < 10) return translate(locale, "time.duration.seconds", { value: fixed(Math.floor(seconds * 10) / 10, 1, locale) });
   const whole = Math.floor(seconds);
-  if (whole < 60) return `${String(whole)}s`;
+  if (whole < 60) return translate(locale, "time.duration.seconds", { value: whole });
   const days = Math.floor(whole / 86_400);
   const hours = Math.floor((whole % 86_400) / 3_600);
   const minutes = Math.floor((whole % 3_600) / 60);
   const secs = whole % 60;
-  if (days > 0) return `${String(days)}d ${String(hours)}h`;
-  if (hours > 0) return `${String(hours)}h ${String(minutes)}m`;
-  return `${String(minutes)}m ${String(secs).padStart(2, "0")}s`;
+  if (days > 0) return translate(locale, "time.duration.daysHours", { days, hours });
+  if (hours > 0) return translate(locale, "time.duration.hoursMinutes", { hours, minutes });
+  return translate(locale, "time.duration.minutesSeconds", { minutes, seconds: String(secs).padStart(2, "0") });
 }
 
 // ---------------------------------------------------------------------------------------
@@ -126,36 +176,39 @@ export function parseTimestamp(value: string | number | Date | null | undefined)
   return null;
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
-
 function pad(value: number): string {
   return String(value).padStart(2, "0");
 }
 
 /**
- * How long ago (or how far ahead) a moment is, compactly: "just now", "42s ago", "3m ago",
- * "5h ago", "4d ago", then the date ("Sep 12", or "Sep 12, 2025" in another year).
+ * A day: "Dec 24, 2026" ("24 dic 2026" in Spanish), or without the year: "Sep 12".
  */
-export function formatRelative(date: Date, now: Date = new Date()): string {
+export function formatDate(date: Date, { year = true }: { year?: boolean } = {}, locale: Locale = getLocale()): string {
+  return dateFormat(locale, year ? { year: "numeric", month: "short", day: "numeric" } : { month: "short", day: "numeric" }).format(date);
+}
+
+/**
+ * How long ago (or how far ahead) a moment is, compactly: "just now", "42s ago", "3m ago",
+ * "5h ago", "4d ago", then the date ("Sep 12", or "Sep 12, 2025" in another year). The
+ * units come from `Intl.RelativeTimeFormat` ("hace 3 min"); "just now" from the catalog.
+ */
+export function formatRelative(date: Date, now: Date = new Date(), locale: Locale = getLocale()): string {
   const delta = Math.round((now.getTime() - date.getTime()) / 1000);
-  const future = delta < 0;
+  const sign = delta < 0 ? 1 : -1;
   const seconds = Math.abs(delta);
-  const say = (amount: number, unit: string): string =>
-    future ? `in ${String(amount)}${unit}` : `${String(amount)}${unit} ago`;
+  const say = (amount: number, unit: Intl.RelativeTimeFormatUnit): string => relativeFormat(locale).format(sign * amount, unit);
   // Either side of now by a few seconds is the same moment: clocks and ticks drift that much.
-  if (seconds < 10) return "just now";
-  if (seconds < 60) return say(seconds, "s");
-  if (seconds < 3_600) return say(Math.floor(seconds / 60), "m");
-  if (seconds < 86_400) return say(Math.floor(seconds / 3_600), "h");
-  if (seconds < 7 * 86_400) return say(Math.floor(seconds / 86_400), "d");
-  const month = MONTHS[date.getMonth()] ?? "";
-  const day = `${month} ${String(date.getDate())}`;
-  return date.getFullYear() === now.getFullYear() ? day : `${day}, ${String(date.getFullYear())}`;
+  if (seconds < 10) return translate(locale, "time.justNow");
+  if (seconds < 60) return say(seconds, "second");
+  if (seconds < 3_600) return say(Math.floor(seconds / 60), "minute");
+  if (seconds < 86_400) return say(Math.floor(seconds / 3_600), "hour");
+  if (seconds < 7 * 86_400) return say(Math.floor(seconds / 86_400), "day");
+  return formatDate(date, { year: date.getFullYear() !== now.getFullYear() }, locale);
 }
 
 /** The zone's short name where the browser knows one ("WEST", "UTC", "GMT+2"). */
-function zoneName(date: Date): string {
-  const part = new Intl.DateTimeFormat("en-US", { timeZoneName: "short" })
+function zoneName(date: Date, locale: Locale): string {
+  const part = dateFormat(locale, { timeZoneName: "short" })
     .formatToParts(date)
     .find((p) => p.type === "timeZoneName");
   return part?.value ?? "";
@@ -165,10 +218,10 @@ function zoneName(date: Date): string {
  * A moment in full, the way server logs print it: "2026-09-25 20:36:10 WEST". Unambiguous in
  * every locale and directly comparable with journal and nginx lines.
  */
-export function formatDateTime(date: Date): string {
+export function formatDateTime(date: Date, locale: Locale = getLocale()): string {
   const day = `${String(date.getFullYear())}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
   const time = `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-  const zone = zoneName(date);
+  const zone = zoneName(date, locale);
   return zone === "" ? `${day} ${time}` : `${day} ${time} ${zone}`;
 }
 

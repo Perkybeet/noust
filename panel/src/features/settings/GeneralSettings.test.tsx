@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { LOCALE_STORAGE_KEY } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
@@ -167,5 +168,38 @@ describe("Settings > General", () => {
     await user.click(within(section("Certificates")).getByRole("button", { name: "Save changes" }));
     await expectToast("Saved the certificate email");
     expect(backend.callsTo("PUT /api/config/ssl")[0]?.body).toEqual({ enabled: true, provider: "certbot", email: "certs@example.com" });
+  });
+
+  it("switches the console to Spanish at once, in every place that names a page, and passes axe", { timeout: 20_000 }, async () => {
+    fakeBackend(generalRoutes());
+    const { container, user } = renderConsole("/settings");
+    await screen.findByDisplayValue("/var/www/apps");
+    const language = section("Language");
+    const english = within(language).getByRole("button", { name: "English" });
+    const spanish = within(language).getByRole("button", { name: "Español" });
+    // Each option is written, and pronounced, in its own language.
+    expect(english).toHaveAttribute("lang", "en");
+    expect(spanish).toHaveAttribute("lang", "es");
+    expect(english).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(spanish);
+
+    const main = await screen.findByRole("navigation", { name: "Principal" });
+    // The failure count after a name is a plural of the catalog, in Spanish too.
+    expect(within(main).getByRole("link", { name: "Aplicaciones 1 con fallo" })).toBeInTheDocument();
+    expect(within(main).getByRole("link", { name: "Copias de seguridad" })).toBeInTheDocument();
+    const tabs = screen.getByRole("navigation", { name: "Secciones de los ajustes" });
+    expect(within(tabs).getByRole("link", { name: "Seguridad" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Idioma" })).toBeInTheDocument();
+    expect(spanish).toHaveAttribute("aria-pressed", "true");
+    // Focus stays on the choice just made: nothing was remounted.
+    expect(spanish).toHaveFocus();
+    expect(document.documentElement.lang).toBe("es");
+    expect(window.localStorage.getItem(LOCALE_STORAGE_KEY)).toBe("es");
+    await expectNoAxeViolations(container);
+
+    await user.click(within(screen.getByRole("region", { name: "Idioma" })).getByRole("button", { name: "English" }));
+    expect(await screen.findByRole("navigation", { name: "Main" })).toBeInTheDocument();
+    expect(document.documentElement.lang).toBe("en");
   });
 });

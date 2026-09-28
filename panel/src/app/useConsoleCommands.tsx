@@ -6,6 +6,7 @@ import { useMemo } from "react";
 import { appsQuery } from "../api/queries/apps";
 import { appStatus } from "../components/page/status";
 import { useSignOut } from "../features/auth/useSignOut";
+import { useT } from "../i18n";
 import type { Command } from "./CommandPalette";
 import { NAV_GROUPS, SETTINGS_ITEM, SETTINGS_TABS } from "./nav";
 import { useTheme } from "./theme";
@@ -17,6 +18,7 @@ const THEME_ICONS = { system: Monitor, light: Sun, dark: Moon } as const;
  * and the actions that are not a page.
  */
 export function useConsoleCommands(open: boolean, openShortcuts: () => void): Command[] {
+  const t = useT();
   const navigate = useNavigate();
   const [theme, setTheme] = useTheme();
   const { signOut } = useSignOut();
@@ -32,12 +34,12 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
       return {
         id: `page:${item.to}`,
         group: "Pages",
-        label: item.label,
+        label: t(item.label),
         icon: <Icon />,
         kind: "navigate",
         run: go(item.to),
-        ...(item.keywords !== undefined ? { keywords: item.keywords } : {}),
-        ...(item.shortcut !== undefined ? { shortcut: item.shortcut } : {}),
+        ...(item.keywords !== undefined ? { keywords: t(item.keywords) } : {}),
+        ...(item.shortcut !== undefined ? { shortcut: item.shortcut.keys } : {}),
       };
     });
     const settingsIcon = <SETTINGS_ITEM.icon />;
@@ -45,11 +47,12 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
       pages.push({
         id: `page:${tab.to}`,
         group: "Pages",
-        label: `${tab.label} settings`.replace("API tokens settings", "API tokens"),
+        label: t(tab.command),
         icon: settingsIcon,
         kind: "navigate",
         run: go(tab.to),
-        ...(tab.keywords !== undefined ? { keywords: `settings ${tab.keywords}` } : {}),
+        // Search words, not a sentence: joining them is safe in any language.
+        ...(tab.keywords !== undefined ? { keywords: `${t(SETTINGS_ITEM.label)} ${t(tab.keywords)}` } : {}),
       });
     }
 
@@ -87,5 +90,5 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
     ];
 
     return [...pages, ...applications, ...actions];
-  }, [apps, navigate, theme, setTheme, openShortcuts, signOut]);
+  }, [apps, navigate, theme, setTheme, openShortcuts, signOut, t]);
 }

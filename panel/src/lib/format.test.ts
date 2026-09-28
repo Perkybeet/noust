@@ -1,9 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
+import { setLocale } from "../app/locale";
+import { loadCatalog } from "../i18n";
 import {
   formatBytes,
   formatBytesRate,
   formatCount,
+  formatDate,
   formatDateTime,
   formatDuration,
   formatPercent,
@@ -155,5 +158,65 @@ describe("relativeRefreshMs", () => {
     expect(relativeRefreshMs(new Date(now.getTime() - 10 * 60_000), now)).toBe(30_000);
     expect(relativeRefreshMs(new Date(now.getTime() - 5 * 3_600_000), now)).toBe(300_000);
     expect(relativeRefreshMs(new Date(now.getTime() - 3 * 86_400_000), now)).toBe(3_600_000);
+  });
+});
+
+describe("in Spanish", () => {
+  beforeAll(async () => {
+    await loadCatalog("es");
+  });
+
+  it("writes sizes, rates and percentages with Spanish decimal marks", () => {
+    expect(formatBytes(1_536, "es")).toBe("1,5 KB");
+    expect(formatBytes(-2048, "es")).toBe("-2,0 KB");
+    expect(formatBytes(512, "es")).toBe("512 B");
+    expect(formatBytesRate(1_258_291, "es")).toBe("1,2 MB/s");
+    expect(formatPercent(5.7, "es")).toBe("5,7\u00a0%");
+    expect(formatPercent(31.5, "es")).toBe("32\u00a0%");
+  });
+
+  it("groups and abbreviates counts the Spanish way", () => {
+    // Spanish leaves four-digit numbers ungrouped.
+    expect(formatCount(1284, "es")).toBe("1284");
+    expect(formatCount(12_900, "es")).toBe("12,9\u00a0mil");
+    expect(formatCount(4_200_000, "es")).toBe("4,2\u00a0M");
+  });
+
+  it.each([
+    [0.003205, "3 ms"],
+    [2.46, "2,4 s"],
+    [14.9, "14 s"],
+    [125, "2 min 05 s"],
+    [4_320, "1 h 12 min"],
+    [273_600, "3 d 4 h"],
+  ])("%d seconds read as %s", (seconds, text) => {
+    expect(formatDuration(seconds, "es")).toBe(text);
+  });
+
+  const now = new Date(2026, 8, 25, 12, 0, 0);
+  const ago = (seconds: number) => new Date(now.getTime() - seconds * 1000);
+
+  it.each([
+    [3, "ahora mismo"],
+    [42, "hace 42 s"],
+    [180, "hace 3 min"],
+    [5 * 3600, "hace 5 h"],
+    [4 * 86_400, "hace 4 d"],
+  ])("%d seconds ago reads %s", (seconds, text) => {
+    expect(formatRelative(ago(seconds), now, "es")).toBe(text);
+  });
+
+  it("speaks of the future and names older days in Spanish", () => {
+    expect(formatRelative(new Date(now.getTime() + 3 * 3600 * 1000), now, "es")).toBe("dentro de 3 h");
+    expect(formatRelative(new Date(2026, 8, 12, 9), now, "es")).toBe("12 sept");
+    expect(formatRelative(new Date(2025, 8, 12, 9), now, "es")).toBe("12 sept 2025");
+    expect(formatDate(new Date(2026, 11, 24), {}, "es")).toBe("24 dic 2026");
+  });
+
+  it("follows the active language when none is given", async () => {
+    await setLocale("es");
+    expect(formatBytes(1_536)).toBe("1,5 KB");
+    expect(formatRelative(ago(180), now)).toBe("hace 3 min");
+    expect(formatDuration(125)).toBe("2 min 05 s");
   });
 });

@@ -4,6 +4,7 @@
  */
 
 import type { ApiToken } from "../../api/queries/auth";
+import { formatDate } from "../../lib/format";
 
 export type TokenScope = "read" | "deploy" | "admin";
 
@@ -71,7 +72,7 @@ export function sortTokens(tokens: readonly ApiToken[], now: number = Date.now()
   );
 }
 
-const DAY = new Intl.DateTimeFormat("en-US", { year: "numeric", month: "short", day: "numeric" });
+const DAY = { format: (date: Date): string => formatDate(date) };
 
 /** "expires Dec 24, 2026", or "never expires", for a Unix timestamp or null. */
 export function expiryPhrase(expiresAt: number | null): string {

@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { sessionQuery } from "../api/queries/auth";
 import { machineQuery } from "../api/queries/system";
 import { Logo } from "../components/ui/Logo";
+import { useT } from "../i18n";
 import { StatusGlyph } from "../components/ui/StatusPill";
 import { cx } from "../lib/cx";
 import { NAV_GROUPS, SETTINGS_ITEM } from "./nav";
@@ -17,6 +18,7 @@ function useFailureCounts(): Partial<Record<ConsolePath, number>> {
 }
 
 function NavLink({ item, failed, onNavigate }: { item: NavItem; failed?: number | undefined; onNavigate?: (() => void) | undefined }) {
+  const t = useT();
   const Icon = item.icon;
   return (
     <Link
@@ -32,13 +34,17 @@ function NavLink({ item, failed, onNavigate }: { item: NavItem; failed?: number 
       )}
     >
       <Icon aria-hidden="true" className="size-4 shrink-0 text-fg-faint group-hover:text-fg-muted group-data-[status=active]:text-fg" />
-      <span className="min-w-0 flex-1 truncate">{item.label}</span>
-      {/* Spaces between the parts keep the accessible name "Services 1 failed". */}
+      <span className="min-w-0 flex-1 truncate">{t(item.label)}</span>
+      {/* Spaces between the parts keep the accessible name "Services 1 failed"; the visible
+          number is the one inside that sentence, read once. */}
       {failed !== undefined && failed > 0 ? " " : null}
       {failed !== undefined && failed > 0 ? (
         <span className="inline-flex items-center gap-1 text-12 font-medium text-fail">
           <StatusGlyph state="failed" size={10} />
-          <span className="mono">{failed}</span> <span className="sr-only">failed</span>
+          <span aria-hidden="true" className="mono">
+            {failed}
+          </span>
+          <span className="sr-only">{t("nav.failed", { count: failed })}</span>
         </span>
       ) : null}
     </Link>
@@ -47,9 +53,10 @@ function NavLink({ item, failed, onNavigate }: { item: NavItem; failed?: number 
 
 /** The list of destinations, shared by the sidebar and the mobile menu. */
 export function SidebarNav({ onNavigate, className }: { onNavigate?: () => void; className?: string }) {
+  const t = useT();
   const failures = useFailureCounts();
   return (
-    <nav aria-label="Main" className={cx("flex flex-col gap-5", className)}>
+    <nav aria-label={t("nav.landmarks.main")} className={cx("flex flex-col gap-5", className)}>
       {NAV_GROUPS.map((group) => (
         <ul key={group[0]?.to} className="flex flex-col gap-px">
           {group.map((item) => (

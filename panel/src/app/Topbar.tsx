@@ -12,6 +12,8 @@ import { LogoMark } from "../components/ui/Logo";
 import { Mono } from "../components/ui/Mono";
 import { Popover } from "../components/ui/Popover";
 import { useSignOut } from "../features/auth/useSignOut";
+import { useT } from "../i18n";
+import { LanguageSwitch } from "./LanguageSwitch";
 import { MachineStrip } from "./MachineStrip";
 import { modKeyLabel } from "./shortcuts";
 import { ThemeSwitch } from "./ThemeSwitch";
@@ -26,6 +28,7 @@ export interface TopbarProps {
 }
 
 function SessionPanel({ onOpenShortcuts }: { onOpenShortcuts: () => void }) {
+  const t = useT();
   const [theme, setTheme] = useTheme();
   const [open, setOpen] = useState(false);
   const { data: session } = useQuery(sessionQuery());
@@ -51,6 +54,10 @@ function SessionPanel({ onOpenShortcuts }: { onOpenShortcuts: () => void }) {
         <div className="flex flex-col gap-1.5">
           <span className="text-12 font-medium text-fg-muted">Theme</span>
           <ThemeSwitch value={theme} onChange={setTheme} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <span className="text-12 font-medium text-fg-muted">{t("language.label")}</span>
+          <LanguageSwitch />
         </div>
         <div className="-mx-4 flex flex-col border-t border-border px-2 pt-2">
           <Button

@@ -3,14 +3,18 @@ import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 
 import { resetApiHooks } from "../api/client";
+import { resetLocale } from "../app/locale";
 import { cancelElevation } from "../features/auth/elevation";
 import { FakeEventSource, FakeWebSocket } from "./fakes";
+
+// Every file starts in English, on <html> too, whatever the machine's browser languages.
+resetLocale("en");
 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   // Module-level state a test may leave behind: a pending "Confirm it's you", cookies, the
-  // stored theme, the fakes' registries.
+  // stored theme and language, the fakes' registries.
   cancelElevation();
   resetApiHooks();
   for (const cookie of document.cookie.split(";")) {
@@ -19,6 +23,8 @@ afterEach(() => {
   }
   window.localStorage.clear();
   delete document.documentElement.dataset["theme"];
+  // Component tests read English: a test that switches to Spanish does not leak into the next.
+  resetLocale("en");
   FakeEventSource.instances = [];
   FakeWebSocket.instances = [];
 });
