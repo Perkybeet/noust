@@ -336,7 +336,11 @@ def sparse_patterns() -> list[str]:
 
 
 def inspect_source(
-    source: str, *, branch: str | None = None, cancel: threading.Event | None = None
+    source: str,
+    *,
+    branch: str | None = None,
+    cancel: threading.Event | None = None,
+    github_installation_id: int | None = None,
 ) -> SourceInspection:
     """
     Report what a repository is, fetching as little of it as possible.
@@ -350,6 +354,10 @@ def inspect_source(
         cancel: Set it, from any thread, to stop the inspection: the git
             command running is killed and the scratch directory removed
             before this returns.
+        github_installation_id: The GitHub App installation to clone a
+            github.com repository with, as the wizard's repository list
+            names it; None lets the installation on the owner's account
+            be used, when there is one.
 
     Returns:
         What the wizard needs to preview the deployment: the detected
@@ -374,7 +382,7 @@ def inspect_source(
         if source_type == "local":
             return _inspect_directory(Path(normalized), branch)
         if source_type == "git":
-            return _inspect_git(normalized, branch, event)
+            return _inspect_git(normalized, branch, event, github_installation_id)
         return _inspect_archive(normalized, branch, event)
 
 
@@ -414,7 +422,12 @@ def _inspect_directory(path: Path, branch: str | None) -> SourceInspection:
     return _describe(path, branch=branch, listing=_walk(path), repository=None)
 
 
-def _inspect_git(source: str, branch: str | None, event: threading.Event) -> SourceInspection:
+def _inspect_git(
+    source: str,
+    branch: str | None,
+    event: threading.Event,
+    github_installation_id: int | None = None,
+) -> SourceInspection:
     """
     Probe a git remote, check out the files detection reads, describe them.
 
@@ -422,6 +435,7 @@ def _inspect_git(source: str, branch: str | None, event: threading.Event) -> Sou
         source: Validated git URL, possibly with ``#branch``.
         branch: Branch requested, or None for the URL's or the default.
         event: The inspection's cancel event.
+        github_installation_id: As for :func:`inspect_source`.
 
     Returns:
         The inspection.
@@ -431,7 +445,7 @@ def _inspect_git(source: str, branch: str | None, event: threading.Event) -> Sou
             has no such branch.
         DeploymentError: Nothing matches.
     """
-    manager = SourceManager()
+    manager = SourceManager(github_installation_id=github_installation_id)
     # No separate ls-remote first: git runs non-interactively, so a private
     # repository or a typo fails the clone itself in one round trip, and an
     # extra round trip made every small repository slower than a plain clone.

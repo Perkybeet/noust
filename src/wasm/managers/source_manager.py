@@ -65,7 +65,7 @@ from urllib.request import (
 )
 
 from wasm.core.config import REDACTED
-from wasm.core.exceptions import SourceError
+from wasm.core.exceptions import IntegrationError, SourceError
 from wasm.core.fs import FileSystem, RealFileSystem, get_fs
 from wasm.core.runner import CommandResult, CommandRunner
 from wasm.managers.base_manager import BaseManager
@@ -163,6 +163,10 @@ _GIT_AUTH_FAILURE_MARKERS = (
     "permission denied (publickey",
     "repository not found",
 )
+
+#: git commands that talk to a remote. ``checkout`` is one in a blobless
+#: clone, which fetches the blobs it checks out.
+_NETWORK_VERBS = frozenset({"clone", "fetch", "ls-remote", "pull", "checkout", "submodule"})
 
 _HTTPS_REPOSITORY_RE = re.compile(r"^https?://(?P<host>[\w.-]+)/(?P<path>[\w./-]+?)(?:\.git)?/?$")
 
@@ -377,6 +381,12 @@ def git_auth_fix(url: str | None) -> str:
             "if there is none), then retry. If the repository does not exist, check the URL."
         )
     ssh_url = _ssh_equivalent(url) or "git@<host>:<owner>/<repo>.git"
+    github_app = (
+        "Or install this server's GitHub App on the repository's account "
+        "(console: Integrations, GitHub), which clones it with a token of its own. "
+        if url and url.strip().lower().startswith("https://github.com/")
+        else ""
+    )
     return (
         f"Deploy from the SSH URL instead ({ssh_url}) after adding this server's key "
         "as a deploy key of the repository: `wasm setup ssh --show` prints it "
@@ -384,6 +394,7 @@ def git_auth_fix(url: str | None) -> str:
         "and store an access token for the host with a git credential helper "
         "(`git config --global credential.helper store`, then a line "
         "https://<user>:<token>@<host> in /root/.git-credentials, mode 0600). "
+        f"{github_app}"
         "If the repository is public, check the URL: a missing repository is refused "
         "the same way."
     )
@@ -1376,6 +1387,7 @@ class SourceManager(BaseManager):
         verbose: bool = False,
         runner: CommandRunner | None = None,
         fs: FileSystem | None = None,
+        github_installation_id: int | None = None,
     ):
         """
         Initialize source manager.
@@ -1387,9 +1399,18 @@ class SourceManager(BaseManager):
             fs: Filesystem every change goes through. Defaults to the
                 process-wide one, which is what makes ``--dry-run`` and the test
                 doubles work without every call site knowing about them.
+            github_installation_id: The GitHub App installation that reaches
+                the repository (an application's ``github_installation_id``);
+                None lets :func:`~wasm.integrations.github.app.installation_for`
+                choose one.
         """
         super().__init__(verbose=verbose, runner=runner)
         self._fs = fs
+        self.github_installation_id = github_installation_id
+        #: The remote URL of every repository this manager cloned or fetched
+        #: from a URL, by path, so a later network command there (a fetch in
+        #: the cache, the checkout of a blobless clone) knows its host.
+        self._remote_urls: dict[str, str] = {}
         #: The credential environment (see :func:`split_url_credentials`) of
         #: every repository this manager cloned or fetched from a URL that
         #: carried one, by path. Its ``origin`` no longer carries the
@@ -1407,7 +1428,9 @@ class SourceManager(BaseManager):
         """
         return self._fs if self._fs is not None else get_fs()
 
-    def _remember_auth(self, repository: Path, auth: Mapping[str, str]) -> None:
+    def _remember_auth(
+        self, repository: Path, auth: Mapping[str, str], url: str | None = None
+    ) -> None:
         """
         Record the credential environment a repository is fetched with.
 
@@ -1415,8 +1438,11 @@ class SourceManager(BaseManager):
             repository: The clone.
             auth: Variables from :func:`split_url_credentials`; empty forgets
                 any credential recorded for the clone.
+            url: The remote URL, without credentials, when known.
         """
         key = os.path.abspath(repository)
+        if url:
+            self._remote_urls[key] = url
         if auth:
             self._remote_auth[key] = dict(auth)
         else:
@@ -1451,11 +1477,68 @@ class SourceManager(BaseManager):
             auth = self._remote_auth.get(os.path.abspath(cwd))
         if auth:
             env.update(auth)
+        else:
+            # A credential the operator put in the URL wins; otherwise a
+            # github.com repository is reached with this server's GitHub App.
+            env.update(self._github_auth(args, cwd))
         self.logger.debug(redact_git_text(f"Running: {' '.join(argv)}"))
         result = self.runner.run(argv, cwd=cwd, env=env, timeout=timeout)
         stderr = redact_git_text(result.stderr)
         self.logger.command_output(redact_git_text(result.stdout), stderr)
         return replace(result, stderr=stderr) if stderr != result.stderr else result
+
+    def _github_auth(self, args: Sequence[str], cwd: Path | None) -> dict[str, str]:
+        """
+        Build the GitHub App credential for one git network command, when one applies.
+
+        The one place an installation token reaches git, so the clone, the
+        fetches, ``ls-remote`` (the upstream check) and the blobless
+        checkout of an inspection all get it, and nothing else does. The
+        token travels in git's environment only (see
+        :func:`~wasm.integrations.github.app.git_auth_environment`).
+
+        Args:
+            args: The git arguments after the safe configuration.
+            cwd: The repository the command runs in, if any.
+
+        Returns:
+            Variables to add to git's environment; empty for a local command,
+            a repository that is not an https github.com one, a server with no
+            GitHub App, or no installation covering the repository. A token
+            GitHub would not give is logged and the command runs without it:
+            a public repository still clones, and a private one fails with
+            git's own words.
+        """
+        verb = args[0] if args else ""
+        if verb not in _NETWORK_VERBS:
+            return {}
+        # Imported here: the integration reads the store, which imports
+        # half of WASM, and this module is imported by the deployers.
+        from wasm.integrations.github.app import (
+            git_auth_environment,
+            github_app_configured,
+            is_github_https,
+        )
+
+        url = next((a for a in args if is_github_https(a)), None)
+        if url is None and cwd is not None:
+            url = self._remote_urls.get(os.path.abspath(cwd))
+        if url is None and cwd is not None and verb in ("fetch", "pull"):
+            if not github_app_configured():
+                return {}
+            origin = self._git(["remote", "get-url", "origin"], cwd=cwd)
+            url = origin.stdout.strip() if origin.success else None
+        if not url or not is_github_https(url):
+            return {}
+        try:
+            return git_auth_environment(
+                url,
+                installation_id=self.github_installation_id,
+                config_index=_inherited_config_count(),
+            )
+        except IntegrationError as exc:
+            self.logger.warning(f"No GitHub App token for {url}: {exc.message}")
+            return {}
 
     def _git_failed(
         self,
@@ -1588,7 +1671,7 @@ class SourceManager(BaseManager):
         bare, auth = split_url_credentials(url)
         safe_url = validate_git_remote_url(bare)
         safe_branch = validate_git_ref(branch) if branch else None
-        self._remember_auth(destination, auth)
+        self._remember_auth(destination, auth, safe_url)
 
         # Ensure directory is marked as safe (handles dubious ownership)
         self._ensure_safe_directory(destination)
@@ -1697,7 +1780,7 @@ class SourceManager(BaseManager):
         """
         bare, auth = split_url_credentials(url)
         safe_url = validate_git_remote_url(bare)
-        self._remember_auth(cache, auth)
+        self._remember_auth(cache, auth, safe_url)
         self._ensure_safe_directory(cache)
 
         result = self._git(["remote", "get-url", "origin"], cwd=cache)
@@ -2086,7 +2169,7 @@ class SourceManager(BaseManager):
         if not result.success:
             raise self._git_failed(result, f"Git clone failed: {safe_url}", url=safe_url)
 
-        self._remember_auth(destination, auth)
+        self._remember_auth(destination, auth, safe_url)
         return True
 
     def sparse_clone(
@@ -2168,7 +2251,7 @@ class SourceManager(BaseManager):
             return False
         if not result.success:
             raise self._git_failed(result, f"Git clone failed: {url}", url=url)
-        self._remember_auth(destination, auth)
+        self._remember_auth(destination, auth, url)
 
         result = self._git(["sparse-checkout", "set", "--no-cone", *patterns], cwd=destination)
         if not result.success:

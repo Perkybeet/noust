@@ -59,6 +59,8 @@ PUBLIC_PATHS = frozenset(
         "/api/auth/login",
         "/api/auth/session",
         "/hooks/deploy/{domain}",
+        # Verified with the GitHub App's own webhook secret instead.
+        "/hooks/github",
         "/{path:path}",
     }
 )

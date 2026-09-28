@@ -2385,6 +2385,135 @@ def install_command(ctx: Context, use_apt: bool, use_pip: bool) -> NoReturn:
     _exit(_install(use_apt, use_pip, ctx.verbose))
 
 
+def _console_upstream(port: int | None) -> tuple[int, str]:
+    """
+    Find where the console listens, for the hooks site to forward to.
+
+    The service's own command line is the truth when there is one: it is
+    what runs. Otherwise the configured port, over plain HTTP.
+
+    Args:
+        port: The port the operator named, which wins.
+
+    Returns:
+        The port and the scheme (``https`` when the console serves TLS).
+    """
+    scheme = "http"
+    found: int | None = None
+    unit = _service_unit_path()
+    if unit.exists():
+        for line in unit.read_text(encoding="utf-8").splitlines():
+            if not line.startswith("ExecStart="):
+                continue
+            argv = shlex.split(line.removeprefix("ExecStart="))
+            if any(a in ("--self-signed", "--tls-cert", "--require-https") for a in argv):
+                scheme = "https"
+            if "--port" in argv and argv.index("--port") + 1 < len(argv):
+                value = argv[argv.index("--port") + 1]
+                found = int(value) if value.isdigit() else None
+    configured = Config().get("web.port")
+    return port or found or int(configured or StartOptions().port), scheme
+
+
+def _expose_hooks(
+    domain: str,
+    *,
+    remove: bool,
+    ssl: bool,
+    port: int | None,
+    verbose: bool,
+    json_output: bool,
+) -> int:
+    """
+    Put the console's ``/hooks/`` on a dedicated public name, or take it off.
+
+    Args:
+        domain: The dedicated name.
+        remove: Remove the hooks site instead.
+        ssl: Obtain a certificate.
+        port: The console's port, when it is not the service's.
+        verbose: Whether to log verbosely.
+        json_output: Print the outcome as JSON.
+
+    Returns:
+        Exit code.
+    """
+    from wasm.integrations import hooks_site
+
+    logger = Logger(verbose=verbose)
+    if remove:
+        removed = hooks_site.unexpose(domain, verbose=verbose)
+        if json_output:
+            click.echo(json.dumps({"domain": domain, "removed": removed}))
+        elif removed:
+            logger.success(f"Removed the hooks site of {domain}")
+        else:
+            logger.info(f"There is no hooks site on {domain}")
+        return 0
+
+    console_port, scheme = _console_upstream(port)
+    result = hooks_site.expose(domain, port=console_port, scheme=scheme, ssl=ssl, verbose=verbose)
+    service = _service_status(verbose)
+    if service is None or not service["active"]:
+        result.notes.append(
+            "The console is not running as a service, so nothing answers the hooks when it "
+            "is stopped: run 'wasm web enable'."
+        )
+    if json_output:
+        click.echo(json.dumps(result.to_dict()))
+        return 0
+    logger.success(f"Webhooks are served at {result.hooks_url}")
+    logger.key_value("Forwards to", f"{scheme}://127.0.0.1:{console_port}/hooks/")
+    logger.key_value("GitHub App", f"{result.hooks_url}/github")
+    logger.key_value("Per application", f"{result.hooks_url}/deploy/<domain>")
+    for note in result.notes:
+        logger.warning(note)
+    return 0
+
+
+@cli.command("expose-hooks")
+@click.argument("domain")
+@click.option("--remove", is_flag=True, help="Remove the hooks site of DOMAIN.")
+@click.option(
+    "--no-ssl",
+    "no_ssl",
+    is_flag=True,
+    help="Serve plain HTTP instead of obtaining a certificate.",
+)
+@click.option(
+    "--port",
+    type=int,
+    default=None,
+    help="The console's port on loopback; read from wasm-web.service by default.",
+)
+@global_flags
+@json_option("Print the outcome as JSON.")
+@pass_context
+def expose_hooks_command(
+    ctx: Context, domain: str, remove: bool, no_ssl: bool, port: int | None
+) -> NoReturn:
+    """
+    Receive webhooks on DOMAIN, a name of its own, without exposing the console.
+
+    Creates an nginx site for DOMAIN that forwards only /hooks/ to the console
+    on 127.0.0.1 and answers 404 to everything else, with a certificate, and
+    records https://DOMAIN/hooks as the public URL the GitHub App and the
+    per-application webhooks use. DOMAIN must already point at this server and
+    must not be an application's. The console should run as a service
+    ('wasm web enable'), or nothing answers when it is stopped.
+    """
+    _exit(
+        _expose_hooks(
+            domain,
+            remove=remove,
+            ssl=not no_ssl,
+            port=port,
+            verbose=ctx.verbose,
+            json_output=ctx.json_output,
+        )
+    )
+
+
 # ---------------------------------------------------------------------------
 # Legacy argparse entry point
 # ---------------------------------------------------------------------------

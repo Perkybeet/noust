@@ -1,0 +1,207 @@
+# Copyright (c) 2024-2026 Yago Lopez Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+"""
+What a delivery to ``/hooks/github`` means, in WASM's terms.
+
+The router verifies and answers; this module reads GitHub's payloads into
+:mod:`wasm.core.forge_events` records and decides which applications a push
+concerns. Kept apart from HTTP so every decision is testable with a dict.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import hmac
+import logging
+from typing import Any
+
+from wasm.core.forge_events import Forge, PullRequestAction, PullRequestEvent, PushEvent
+from wasm.core.store import App, get_store
+from wasm.integrations.github.app import forget_tokens
+from wasm.integrations.github.client import json_object
+from wasm.integrations.github.service import installation_record
+from wasm.validators.source import github_repository, parse_git_url
+
+logger = logging.getLogger(__name__)
+
+_SIGNATURE_PREFIX = "sha256="
+
+#: GitHub's pull request actions, reduced to what a preview does about them.
+#: Anything else (labeled, edited, review_requested...) changes no code.
+PULL_REQUEST_ACTIONS: dict[str, PullRequestAction] = {
+    "opened": PullRequestAction.OPENED,
+    "reopened": PullRequestAction.OPENED,
+    "ready_for_review": PullRequestAction.OPENED,
+    "synchronize": PullRequestAction.UPDATED,
+    "closed": PullRequestAction.CLOSED,
+}
+
+
+def verify_signature(secret: str, body: bytes, header: str | None) -> bool:
+    """
+    Check GitHub's ``X-Hub-Signature-256`` in constant time.
+
+    Args:
+        secret: The App's webhook secret.
+        body: The raw body, exactly as delivered.
+        header: The header's value, or None when absent.
+
+    Returns:
+        True when the header is the HMAC-SHA256 of the body under the secret.
+    """
+    if not header or not header.startswith(_SIGNATURE_PREFIX) or not secret:
+        return False
+    presented = header[len(_SIGNATURE_PREFIX) :].strip().lower()
+    expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, presented)
+
+
+def _installation_id(payload: dict[str, Any]) -> int | None:
+    """
+    Read the installation that delivered an event.
+
+    Args:
+        payload: The event.
+
+    Returns:
+        Its id, or None.
+    """
+    installation = payload.get("installation")
+    if isinstance(installation, dict) and isinstance(installation.get("id"), int):
+        return int(installation["id"])
+    return None
+
+
+def parse_push(payload: dict[str, Any]) -> PushEvent | None:
+    """
+    Read a ``push`` event.
+
+    Args:
+        payload: GitHub's payload.
+
+    Returns:
+        The push, or None for a push that deploys nothing: a tag, a deleted
+        branch, or a payload missing what a push has.
+    """
+    ref = payload.get("ref")
+    if not isinstance(ref, str) or not ref.startswith("refs/heads/") or payload.get("deleted"):
+        return None
+    repository = json_object(payload.get("repository"))
+    full_name = repository.get("full_name")
+    head = payload.get("after")
+    if not isinstance(full_name, str) or not isinstance(head, str):
+        return None
+    return PushEvent(
+        forge=Forge.GITHUB,
+        repository=full_name,
+        clone_url=str(repository.get("clone_url") or f"https://github.com/{full_name}.git"),
+        branch=ref.removeprefix("refs/heads/"),
+        head_sha=head,
+        installation_id=_installation_id(payload),
+    )
+
+
+def parse_pull_request(payload: dict[str, Any]) -> PullRequestEvent | None:
+    """
+    Read a ``pull_request`` event.
+
+    Args:
+        payload: GitHub's payload.
+
+    Returns:
+        The event, or None for an action that changes no code, or a payload
+        missing what a pull request has.
+    """
+    action = PULL_REQUEST_ACTIONS.get(str(payload.get("action")))
+    if action is None:
+        return None
+    pull = json_object(payload.get("pull_request"))
+    head = json_object(pull.get("head"))
+    base = json_object(pull.get("base"))
+    head_repo = json_object(head.get("repo"))
+    base_repo = json_object(base.get("repo")) or json_object(payload.get("repository"))
+    repository = base_repo.get("full_name")
+    number = pull.get("number", payload.get("number"))
+    if not isinstance(repository, str) or not isinstance(number, int):
+        return None
+    head_name = head_repo.get("full_name")
+    return PullRequestEvent(
+        forge=Forge.GITHUB,
+        action=action,
+        repository=repository,
+        clone_url=str(
+            head_repo.get("clone_url")
+            or base_repo.get("clone_url")
+            or f"https://github.com/{repository}.git"
+        ),
+        number=number,
+        title=str(pull.get("title") or ""),
+        branch=str(head.get("ref") or ""),
+        base_branch=str(base.get("ref") or ""),
+        head_sha=str(head.get("sha") or ""),
+        # A deleted fork has no head repository: not this repository either.
+        from_fork=head_name != repository,
+        installation_id=_installation_id(payload),
+    )
+
+
+def apps_following(push: PushEvent, default_branch: str | None) -> list[App]:
+    """
+    Find the applications a push updates.
+
+    An application follows a push when its source is the pushed repository
+    and the branch it deploys is the one pushed to: its own branch, the
+    ``#branch`` of its source, or else the repository's default branch.
+    Previews are left out; their pull request's events rebuild them.
+
+    Args:
+        push: The push.
+        default_branch: The repository's default branch, from the payload.
+
+    Returns:
+        The applications, by domain.
+    """
+    wanted = push.repository.lower()
+    following: list[App] = []
+    for app in get_store().list_apps():
+        if app.preview_parent:
+            continue
+        repository = github_repository(app.source)
+        if repository is None or repository.lower() != wanted:
+            continue
+        branch = app.branch or parse_git_url(app.source)["branch"] or default_branch
+        if branch == push.branch:
+            following.append(app)
+    return sorted(following, key=lambda a: a.domain)
+
+
+def apply_installation_event(event: str, payload: dict[str, Any]) -> str:
+    """
+    Keep the stored installations in step with an ``installation`` or
+    ``installation_repositories`` event.
+
+    Args:
+        event: The ``X-GitHub-Event`` name.
+        payload: GitHub's payload.
+
+    Returns:
+        What was done: ``saved``, ``deleted`` or ``ignored``.
+    """
+    installation = json_object(payload.get("installation"))
+    if not installation.get("id"):
+        return "ignored"
+    action = str(payload.get("action") or "")
+    store = get_store()
+    if event == "installation" and action == "deleted":
+        installation_id = int(installation["id"])
+        store.delete_github_installation(installation_id)
+        forget_tokens(installation_id)
+        return "deleted"
+    if event == "installation" and action == "suspend":
+        # Kept: an unsuspend brings it back, and its applications keep
+        # their link meanwhile. Its tokens stop working now.
+        forget_tokens(int(installation["id"]))
+        return "ignored"
+    store.save_github_installation(installation_record(installation))
+    return "saved"
