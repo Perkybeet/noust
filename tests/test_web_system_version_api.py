@@ -71,7 +71,10 @@ def test_disabled_reports_status_disabled_and_makes_no_request(
     def _boom() -> str | None:
         raise AssertionError("the update check must not run a request while disabled")
 
-    monkeypatch.setattr(UpdateChecker, "_fetch_latest_version", classmethod(lambda cls: _boom()))
+    monkeypatch.setattr(UpdateChecker, "_fetch_published_version", classmethod(lambda cls: _boom()))
+    monkeypatch.setattr(
+        UpdateChecker, "_fetch_installable_version", classmethod(lambda cls, method: _boom())
+    )
 
     response = client.get("/api/system/version")
 
@@ -84,14 +87,32 @@ def test_disabled_reports_status_disabled_and_makes_no_request(
     assert body["update_command"] is None
 
 
+def _answer(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    *,
+    installable: str | None,
+    published: str | None,
+    method: str = "apt",
+) -> None:
+    """Script the check: where WASM came from, and what each source says."""
+    monkeypatch.setattr(UpdateChecker, "CACHE_FILE", tmp_path / "version_check.json")
+    monkeypatch.setattr(
+        UpdateChecker, "_detect_installation_method", classmethod(lambda cls: method)
+    )
+    monkeypatch.setattr(
+        UpdateChecker, "_fetch_installable_version", classmethod(lambda cls, m: installable)
+    )
+    monkeypatch.setattr(
+        UpdateChecker, "_fetch_published_version", classmethod(lambda cls: published)
+    )
+
+
 def test_enabled_reports_status_checked(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """The ordinary case - checking left on - is unaffected and reports 'checked'."""
-    monkeypatch.setattr(UpdateChecker, "CACHE_FILE", tmp_path / "version_check.json")
-    monkeypatch.setattr(
-        UpdateChecker, "_fetch_latest_version", classmethod(lambda cls: __version__)
-    )
+    _answer(monkeypatch, tmp_path, installable=__version__, published=__version__)
 
     response = client.get("/api/system/version")
 
@@ -99,3 +120,37 @@ def test_enabled_reports_status_checked(
     body = response.json()
     assert body["status"] == "checked"
     assert body["has_update"] is False
+    assert body["update_state"] == "up_to_date"
+    assert body["latest_version"] == __version__
+    assert body["published_version"] == __version__
+    assert body["update_command"] is None
+    assert body["release_url"] is None
+
+
+def test_an_installable_update_is_offered_with_its_command(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _answer(monkeypatch, tmp_path, installable="99.0.0", published="99.0.0")
+
+    body = client.get("/api/system/version").json()
+
+    assert body["update_state"] == "update_available"
+    assert body["has_update"] is True
+    assert body["latest_version"] == "99.0.0"
+    assert body["update_command"] == "sudo apt update && sudo apt install --only-upgrade wasm"
+    assert body["release_url"] == "https://github.com/Perkybeet/wasm/releases/tag/v99.0.0"
+
+
+def test_a_published_release_not_yet_packaged_is_on_the_way(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The bug: GitHub has it, the repository does not yet, and has_update must say no."""
+    _answer(monkeypatch, tmp_path, installable=__version__, published="99.0.0")
+
+    body = client.get("/api/system/version").json()
+
+    assert body["update_state"] == "on_the_way"
+    assert body["has_update"] is False
+    assert body["latest_version"] == __version__
+    assert body["published_version"] == "99.0.0"
+    assert body["release_url"] == "https://github.com/Perkybeet/wasm/releases/tag/v99.0.0"

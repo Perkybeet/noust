@@ -174,14 +174,18 @@ function VersionTile() {
   const version = useQuery(versionQuery());
   if (version.data === undefined) return <StatTile label="Version" value={<Skeleton className="h-5 w-16" />} />;
   const { current_version, has_update, latest_version } = version.data;
-  return (
-    <StatTile
-      label="Version"
-      value={current_version}
-      mono
-      detail={has_update && latest_version ? `Update available: v${latest_version}` : "Up to date"}
-    />
-  );
+  // New in 2.3; read loosely until the generated schema carries them.
+  const { update_state, published_version } = version.data as {
+    update_state?: string | null;
+    published_version?: string | null;
+  };
+  const detail =
+    has_update && latest_version
+      ? `Update available: v${latest_version}`
+      : update_state === "on_the_way" && published_version
+        ? `v${published_version} on the way`
+        : "Up to date";
+  return <StatTile label="Version" value={current_version} mono detail={detail} />;
 }
 
 function SystemInfo() {

@@ -53,6 +53,26 @@ describe("Settings > About", () => {
     expect(screen.queryByRole("link", { name: /What is new in/ })).not.toBeInTheDocument();
   });
 
+  it("says a published release is on the way without offering a command that installs nothing", async () => {
+    fakeBackend(
+      aboutRoutes({
+        current_version: "2.2.0",
+        latest_version: "2.2.0",
+        has_update: false,
+        published_version: "2.3.0",
+        update_state: "on_the_way",
+        update_command: "sudo apt update && sudo apt install --only-upgrade wasm",
+        release_url: "https://github.com/Perkybeet/wasm/releases/tag/v2.3.0",
+      }),
+    );
+    renderConsole("/settings/about");
+    const version = await screen.findByRole("region", { name: "Version and updates" });
+    expect(await within(version).findByText("Version 2.3.0 is on the way")).toBeInTheDocument();
+    expect(within(version).getByText(/the package for this server is not available yet/)).toBeInTheDocument();
+    expect(within(version).queryByText(/sudo apt update/)).not.toBeInTheDocument();
+    expect(within(version).getByRole("link", { name: /What is new in 2.3.0/ })).toBeInTheDocument();
+  });
+
   it("says when it is up to date, and when it could not tell", async () => {
     const backend = fakeBackend(
       aboutRoutes({ current_version: "2.1.0", latest_version: "2.1.0", has_update: false, update_command: null, release_url: null }),

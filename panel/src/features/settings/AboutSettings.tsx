@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { CircleArrowUp, CircleCheck, CircleHelp, ExternalLink, RotateCw } from "lucide-react";
+import { CircleArrowUp, CircleCheck, CircleDashed, CircleHelp, ExternalLink, RotateCw } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { sessionQuery } from "../../api/queries/auth";
@@ -15,7 +15,12 @@ import { Button } from "../../components/ui/Button";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { isHttpUrl } from "../../lib/url";
 
-type UpdateInfo = ResponseOf<"/api/system/version", "get">;
+// published_version and update_state are new in 2.3; the intersection keeps this compiling
+// against a schema generated before them, and is a no-op once the schema has them.
+type UpdateInfo = ResponseOf<"/api/system/version", "get"> & {
+  published_version?: string | null;
+  update_state?: "up_to_date" | "update_available" | "on_the_way" | null;
+};
 
 const REPOSITORY = "https://github.com/Perkybeet/wasm";
 
@@ -39,7 +44,41 @@ const TERMINAL: readonly { task: string; command: string }[] = [
   { task: "Installed version", command: "wasm --version" },
 ];
 
+function ReleaseNotesLink({ url, version }: { url: string | null | undefined; version: string }): ReactNode {
+  if (!url || !isHttpUrl(url)) return null;
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      className="flex w-fit items-center gap-1 rounded-[4px] text-13 font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus"
+    >
+      {`What is new in ${version}`}
+      <ExternalLink aria-hidden="true" className="size-3.5" />
+      <span className="sr-only">(opens in a new tab)</span>
+    </a>
+  );
+}
+
 function UpdateState({ info }: { info: UpdateInfo }): ReactNode {
+  if (info.update_state === "on_the_way" && info.published_version) {
+    // Published on GitHub, but the package this server upgrades from is still being built:
+    // offering the command now would send the operator to an upgrade that installs nothing.
+    return (
+      <div className="flex min-w-0 flex-col gap-3">
+        <div className="flex min-w-0 flex-col gap-1">
+          <p className="flex items-center gap-2 text-14 font-medium text-fg">
+            <CircleDashed aria-hidden="true" className="size-4 shrink-0 text-warn" />
+            {`Version ${info.published_version} is on the way`}
+          </p>
+          <p className="text-13 text-fg-muted">
+            It is published, but the package for this server is not available yet. Packages usually follow a release within 15 to 30 minutes. Nothing to do now.
+          </p>
+        </div>
+        <ReleaseNotesLink url={info.release_url} version={info.published_version} />
+      </div>
+    );
+  }
   if (info.has_update && info.latest_version) {
     return (
       <div className="flex min-w-0 flex-col gap-3">
@@ -48,18 +87,7 @@ function UpdateState({ info }: { info: UpdateInfo }): ReactNode {
           {`Version ${info.latest_version} is available`}
         </p>
         {info.update_command ? <CommandHint label="Update from a terminal" command={info.update_command} /> : null}
-        {info.release_url && isHttpUrl(info.release_url) ? (
-          <a
-            href={info.release_url}
-            target="_blank"
-            rel="noreferrer"
-            className="flex w-fit items-center gap-1 rounded-[4px] text-13 font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus"
-          >
-            {`What is new in ${info.latest_version}`}
-            <ExternalLink aria-hidden="true" className="size-3.5" />
-            <span className="sr-only">(opens in a new tab)</span>
-          </a>
-        ) : null}
+        <ReleaseNotesLink url={info.release_url} version={info.latest_version} />
       </div>
     );
   }
@@ -78,7 +106,7 @@ function UpdateState({ info }: { info: UpdateInfo }): ReactNode {
         Could not find out whether a newer version exists.
       </p>
       <p className="text-13 text-fg-muted">
-        The server asks GitHub for the latest release. Check that it can reach api.github.com, then check again.
+        The server asks the repository it installs WASM from and GitHub for the latest release. Check that it can reach them, then check again.
       </p>
     </div>
   );
@@ -91,7 +119,7 @@ function VersionSection() {
   return (
     <Section
       title="Version and updates"
-      description="The installed version of WASM, compared with the latest release. The server keeps the answer for a few minutes."
+      description="The installed version of WASM, compared with the newest one this server can install. The server keeps the answer for a few minutes."
       actions={
         <Button
           size="sm"

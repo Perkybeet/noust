@@ -792,6 +792,7 @@ READ_ONLY_PROGRAMS: frozenset[str] = frozenset(
     {
         "cat",
         "df",
+        "dpkg-query",
         "du",
         "getent",
         "grep",
@@ -823,6 +824,9 @@ READ_ONLY_SUBCOMMANDS: dict[str, frozenset[str]] = {
     "git": frozenset({"status", "log", "show", "rev-parse", "ls-remote", "describe"}),
     "docker": frozenset({"ps", "images", "info", "version", "inspect", "logs"}),
     "apt-get": frozenset({"--version"}),
+    "apt-cache": frozenset({"policy", "show", "madison"}),
+    "dpkg": frozenset({"--print-architecture"}),
+    "rpm": frozenset({"-q", "--query"}),
 }
 
 

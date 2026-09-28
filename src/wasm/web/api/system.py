@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import asdict
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
@@ -135,14 +135,23 @@ class NetworkResponse(BaseModel):
 
 
 class UpdateInfo(BaseModel):
-    """Installed version and, when known, the released one."""
+    """Installed version and, when known, the one this server can install."""
 
     current_version: str
+    #: The newest version the source this installation upgrades from (the
+    #: apt or rpm repository, PyPI) can install: what an update is offered for.
     latest_version: str | None = None
+    #: True only when ``latest_version`` is newer than the installed one.
     has_update: bool
+    #: The latest GitHub release. Newer than ``latest_version`` while the
+    #: package for this system is still being built and published.
+    published_version: str | None = None
+    #: ``up_to_date``, ``update_available``, or ``on_the_way`` when only the
+    #: published release is newer. None when the check is disabled.
+    update_state: Literal["up_to_date", "update_available", "on_the_way"] | None = None
     update_command: str | None = None
     release_url: str | None = None
-    #: "checked" when GitHub was actually asked (or the cache was used),
+    #: "checked" when the check actually ran (or the cache was used),
     #: "disabled" when the operator turned off ``updates.check`` - the panel
     #: shows that as the reason nothing about a new release is known, rather
     #: than a check that silently never happens.
@@ -593,49 +602,21 @@ def check_version(session: Annotated[dict, Depends(get_current_session)]) -> Upd
         The version comparison and how to update, or ``status="disabled"``
         and nothing else when the operator turned ``updates.check`` off.
     """
-    import time
-
     from wasm.core.update_checker import UpdateChecker
 
     if not UpdateChecker.enabled():
         return UpdateInfo(current_version=__version__, has_update=False, status="disabled")
 
-    cached = UpdateChecker._read_cache()
-
-    if not UpdateChecker._is_cache_valid():
-        latest = UpdateChecker._fetch_latest_version()
-        if latest:
-            has_update = UpdateChecker._is_newer_version(latest, __version__)
-            UpdateChecker._write_cache(
-                {
-                    "latest_version": latest,
-                    "has_update": has_update,
-                    "checked_at": time.time(),
-                }
-            )
-            cached = {"latest_version": latest, "has_update": has_update}
-
-    latest_version = cached.get("latest_version") if cached else None
-    has_update = bool(cached.get("has_update", False)) if cached else False
-
-    update_command = None
-    if has_update:
-        update_command = UpdateChecker._get_update_command(
-            UpdateChecker._detect_installation_method()
-        )
-
-    release_url = (
-        f"https://github.com/Perkybeet/wasm/releases/tag/v{latest_version}"
-        if latest_version and has_update
-        else None
-    )
-
+    check = UpdateChecker.check()
+    state = check.state
     return UpdateInfo(
         current_version=__version__,
-        latest_version=latest_version,
-        has_update=has_update,
-        update_command=update_command,
-        release_url=release_url,
+        latest_version=check.installable,
+        has_update=state == "update_available",
+        published_version=check.published,
+        update_state=state,
+        update_command=check.update_command if state != "up_to_date" else None,
+        release_url=check.release_url,
     )
 
 
