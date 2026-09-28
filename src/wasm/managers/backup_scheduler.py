@@ -720,7 +720,7 @@ def run_schedule(
 
     result: dict[str, Any] = {"domain": domain, "backup_id": metadata.id, "destinations": {}}
 
-    failures: list[str] = []
+    failures: list[tuple[str, str]] = []
     for destination in record.destinations:
         name = destination.get("name")
         if not name:
@@ -739,13 +739,17 @@ def run_schedule(
             # by BackupDestinationManager.push, details is rclone's own
             # stderr, already scrubbed of the destination's secrets.
             result["destinations"][name] = {"ok": False, "error": str(exc)}
-            failures.append(name)
+            failures.append((name, str(exc)))
             _notify_backup_failed(domain, f"Backup upload to {name} failed: {domain}", str(exc))
 
     if failures:
+        # Each destination's own error, rclone's words included: a timer run
+        # with no notification channel has only this, in its journal.
         raise BackupError(
-            f"Backup of {domain} was taken but could not be sent to: {', '.join(failures)}",
-            details="The local backup was kept; see the notification for rclone's own error.",
+            f"Backup of {domain} was taken but could not be sent to: "
+            + ", ".join(name for name, _ in failures),
+            details="The local backup was kept.\n"
+            + "\n".join(f"{name}: {error}" for name, error in failures),
         )
 
     return result

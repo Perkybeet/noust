@@ -219,15 +219,25 @@ class TestRemoteEnv:
         for call in runner.calls:
             assert "s3cr3t-password-value" not in call
 
-    def test_dashes_in_the_name_become_underscores(
+    def test_dashes_in_the_name_stay_dashes(
         self, manager: BackupDestinationManager, runner: FakeRunner
     ) -> None:
+        """rclone looks remote my-nas up as RCLONE_CONFIG_MY-NAS_* (found by the harness)."""
         manager.add("my-nas", "b2", {"account": "acct123", "key": "topsecretkey"})
         env = manager.remote_env("my-nas")
-        assert env["RCLONE_CONFIG_MY_NAS_TYPE"] == "b2"
-        assert env["RCLONE_CONFIG_MY_NAS_ACCOUNT"] == "acct123"
+        assert env["RCLONE_CONFIG_MY-NAS_TYPE"] == "b2"
+        assert env["RCLONE_CONFIG_MY-NAS_ACCOUNT"] == "acct123"
         # b2's key is not a rclone "password" option: never obscured.
-        assert env["RCLONE_CONFIG_MY_NAS_KEY"] == "topsecretkey"
+        assert env["RCLONE_CONFIG_MY-NAS_KEY"] == "topsecretkey"
+        assert not any(key.startswith("RCLONE_CONFIG_MY_NAS") for key in env)
+
+    def test_an_absolute_folder_stays_absolute(
+        self, manager: BackupDestinationManager, runner: FakeRunner
+    ) -> None:
+        """Without its slash rclone reads it relative to the directory the command ran from."""
+        manager.add("disk", "local", {"path": "/srv/backups/"})
+
+        assert manager.target("disk") == "disk:/srv/backups"
 
     def test_encrypted_destination_wraps_the_remote_in_crypt(
         self, manager: BackupDestinationManager, runner: FakeRunner
@@ -282,6 +292,38 @@ class TestTest:
             manager.test("nas")
 
         assert "s3cr3t-password-value" not in str(excinfo.value)
+
+
+class TestTestCreatesTheFolder:
+    def test_the_folder_is_created_before_it_is_listed(
+        self, manager: BackupDestinationManager, runner: FakeRunner
+    ) -> None:
+        """A destination nobody pushed to yet has no folder; the test must not fail on that."""
+        manager.add("nas", "sftp", _sftp_fields())
+        runner.script(("rclone", "obscure", "-"), stdout="OBSCURED\n")
+        runner.script(("rclone", "lsf", "nas:wasm-backups", "--max-depth", "1"), stdout="")
+
+        assert manager.test("nas") == {"ok": True, "entries": []}
+        argvs = [tuple(call) for call in runner.calls]
+        mkdir = argvs.index(("rclone", "mkdir", "nas:wasm-backups"))
+        lsf = argvs.index(("rclone", "lsf", "nas:wasm-backups", "--max-depth", "1"))
+        assert mkdir < lsf
+
+    def test_a_refused_mkdir_is_the_error_shown(
+        self, manager: BackupDestinationManager, runner: FakeRunner
+    ) -> None:
+        manager.add("nas", "sftp", _sftp_fields())
+        runner.script(("rclone", "obscure", "-"), stdout="OBSCURED\n")
+        runner.script(
+            ("rclone", "mkdir", "nas:wasm-backups"),
+            stderr="permission denied",
+            exit_code=1,
+        )
+
+        with pytest.raises(BackupError) as excinfo:
+            manager.test("nas")
+
+        assert "permission denied" in str(excinfo.value)
 
 
 class TestPushVerifyRetention:

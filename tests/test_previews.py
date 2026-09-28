@@ -956,3 +956,12 @@ class TestSweepTimer:
         store.delete_preview_settings(PARENT)
         stored_preview(store)
         assert previews.previews_in_use() is True
+
+
+def test_a_preview_without_a_certificate_is_linked_over_http(store: WASMStore) -> None:
+    """The deploy goes on without TLS when the certificate fails; the link must open."""
+    domain = "pr-3-shop-example-com.previews.example.com"
+    assert previews.preview_url(domain) == f"https://{domain}"
+
+    store.create_app(App(domain=domain, app_path="/x", ssl_enabled=False))
+    assert previews.preview_url(domain) == f"http://{domain}"

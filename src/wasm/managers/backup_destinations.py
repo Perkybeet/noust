@@ -289,11 +289,33 @@ def _env_prefix(name: str) -> str:
         name: Destination name.
 
     Returns:
-        The name, upper-cased with every ``-`` turned into ``_``, which is
-        how rclone itself derives an environment variable prefix from a
-        remote name.
+        The name, upper-cased. A dash stays a dash: rclone looks the remote
+        ``it-local`` up as ``RCLONE_CONFIG_IT-LOCAL_*`` (checked against
+        rclone 1.60 and 1.75), and turning it into an underscore made every
+        destination with a dash in its name unreachable.
     """
-    return name.upper().replace("-", "_")
+    return name.upper()
+
+
+def _remote_path(value: str | None) -> str:
+    """
+    Normalise a destination's folder without changing what it means.
+
+    Only trailing slashes go. A leading one is kept: ``/srv/backups`` on a
+    local or SFTP destination is absolute, and without the slash rclone
+    reads it relative to the directory the command ran from (or the SFTP
+    user's home).
+
+    Args:
+        value: The folder as given, or None.
+
+    Returns:
+        The folder, or :data:`DEFAULT_REMOTE_PATH` when none was given.
+    """
+    text = (value or "").strip()
+    if not text:
+        return DEFAULT_REMOTE_PATH
+    return text.rstrip("/") or "/"
 
 
 def _secret_namespace(name: str) -> str:
@@ -677,9 +699,7 @@ class BackupDestinationManager:
             raise BackupError(f"Backup destination already exists: {validated_name}")
 
         settings, secret_values = self._split_fields(backend, fields, partial=False)
-        settings["path"] = (settings.get("path") or DEFAULT_REMOTE_PATH).strip("/") or (
-            DEFAULT_REMOTE_PATH
-        )
+        settings["path"] = _remote_path(settings.get("path"))
 
         self.secrets.write_json(_secret_namespace(validated_name), secret_values)
         if encrypted:
@@ -716,7 +736,7 @@ class BackupDestinationManager:
 
         settings, secret_values = self._split_fields(existing.backend, fields, partial=True)
         if "path" in settings:
-            settings["path"] = settings["path"].strip("/") or DEFAULT_REMOTE_PATH
+            settings["path"] = _remote_path(settings["path"])
 
         if secret_values:
             namespace = _secret_namespace(name)
@@ -830,7 +850,14 @@ class BackupDestinationManager:
         prefix = _env_prefix(name)
         secret_values = self.secrets.read_json(_secret_namespace(name))
 
-        env: dict[str, str] = {f"RCLONE_CONFIG_{prefix}_TYPE": destination.backend}
+        env: dict[str, str] = {
+            f"RCLONE_CONFIG_{prefix}_TYPE": destination.backend,
+            # rclone's defaults retry an unreachable server for about a minute
+            # and a half; a destination that is down should say so in seconds.
+            # Flags as environment, so every command gets them.
+            "RCLONE_RETRIES": "1",
+            "RCLONE_CONTIMEOUT": "15s",
+        }
         for spec in backend_fields(destination.backend):
             if spec.key == "path":
                 continue
@@ -847,8 +874,7 @@ class BackupDestinationManager:
 
         if destination.encrypted:
             crypt_prefix = f"{prefix}CRYPT"
-            path = (destination.settings.get("path") or DEFAULT_REMOTE_PATH).strip("/")
-            wrapped = f"{name}:{path}" if path else f"{name}:"
+            wrapped = f"{name}:{_remote_path(destination.settings.get('path'))}"
             password = secret_values.get("crypt_password")
             password2 = secret_values.get("crypt_password2")
             if not password or not password2:
@@ -878,8 +904,7 @@ class BackupDestinationManager:
         destination = self._require(name)
         if destination.encrypted:
             return f"{name}crypt:"
-        path = (destination.settings.get("path") or DEFAULT_REMOTE_PATH).strip("/")
-        return f"{name}:{path}" if path else f"{name}:"
+        return f"{name}:{_remote_path(destination.settings.get('path'))}"
 
     def _app_target(self, name: str, app_name: str) -> str:
         """
@@ -955,6 +980,22 @@ class BackupDestinationManager:
         env = self.remote_env(name)
         secrets_literal = self._secret_literals(name)
         target = self.target(name)
+
+        # The folder is created on first use, as its help promises; a test
+        # of a destination nobody has pushed to yet must not fail on "not
+        # found". mkdir is idempotent and is also the first real write, so a
+        # read-only credential is caught here rather than at the first backup.
+        created = self.runner.run(
+            ["rclone", "mkdir", target],
+            env=env,
+            timeout=_RCLONE_LIST_TIMEOUT,
+            secrets=secrets_literal,
+        )
+        if not created.success:
+            raise BackupError(
+                f"Could not reach backup destination {name!r}",
+                details=_scrub((created.stderr or created.stdout).strip(), secrets_literal),
+            )
 
         result = self.runner.run(
             ["rclone", "lsf", target, "--max-depth", "1"],

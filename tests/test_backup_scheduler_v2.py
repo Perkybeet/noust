@@ -346,13 +346,16 @@ class TestRunSchedule:
             "wasm.core.notifier.Notifier.notify", lambda self, event: notified.append(event)
         )
 
-        with pytest.raises(BackupError):
+        with pytest.raises(BackupError) as excinfo:
             run_schedule("shop.example.com")
 
         assert any(
             event.kind == "backup_failed" and "permission denied for user wasm" in event.body
             for event in notified
         )
+        # With no notification channel, the timer's journal has only this.
+        assert "broken" in excinfo.value.message
+        assert "permission denied for user wasm" in excinfo.value.details
 
     def test_local_backup_failure_notifies_and_never_pushes(
         self, monkeypatch: pytest.MonkeyPatch

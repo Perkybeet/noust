@@ -343,8 +343,15 @@ def preview_url(domain: str) -> str:
         domain: The preview's domain.
 
     Returns:
-        Its HTTPS URL; previews always get a certificate.
+        Its URL: https once it has a certificate, http when the certificate
+        could not be obtained and it was deployed without one (the deploy
+        goes on without TLS then, and an https link would not open). Before
+        its first deployment finishes, https: what it will be when the
+        certificate works.
     """
+    app = get_store().get_app(domain)
+    if app is not None and not app.ssl_enabled:
+        return f"http://{domain}"
     return f"https://{domain}"
 
 
