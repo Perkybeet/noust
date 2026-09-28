@@ -38,7 +38,7 @@ from wasm.web.server import (
 STRICT_POLICY = (
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
     "font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; "
-    "form-action 'self'; object-src 'none'"
+    "form-action 'self' https://github.com; object-src 'none'"
 )
 
 

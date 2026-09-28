@@ -143,7 +143,9 @@ CONTENT_SECURITY_POLICY = (
     "connect-src 'self'; "
     "frame-ancestors 'none'; "
     "base-uri 'none'; "
-    "form-action 'self'; "
+    # github.com for one form only: creating this server's GitHub App posts
+    # its manifest there (GitHub's manifest flow has no API alternative).
+    "form-action 'self' https://github.com; "
     "object-src 'none'; "
     "require-trusted-types-for 'script'"
 )
