@@ -2413,22 +2413,40 @@ def deliver(sc: Scenario, secret: str, event: str, payload: dict[str, Any]) -> t
         return int(code), text
 
 
-def pull_request(action: str, number: int, branch: str, sha: str) -> dict[str, Any]:
-    """A GitHub ``pull_request`` delivery for a branch of the preview repository."""
+def pull_request(
+    action: str,
+    number: int,
+    branch: str,
+    sha: str,
+    *,
+    author: str = "it-owner",
+    author_type: str = "User",
+    association: str = "OWNER",
+) -> dict[str, Any]:
+    """
+    A GitHub ``pull_request`` delivery for a branch of the preview repository.
+
+    The author fields are GitHub's: previews build only for the repository's
+    owners, members and collaborators, and never for a bot unless allowed.
+    """
     repository = {
         "full_name": PREV_REPOSITORY,
         "clone_url": f"git://127.0.0.1/{PREV_REPOSITORY}",
     }
+    person = {"login": author, "type": author_type}
     return {
         "action": action,
         "number": number,
         "pull_request": {
             "number": number,
             "title": f"Integration pull request {number}",
+            "user": person,
+            "author_association": association,
             "head": {"ref": branch, "sha": sha, "repo": repository},
             "base": {"ref": "main", "repo": repository},
         },
         "repository": repository,
+        "sender": person,
     }
 
 
@@ -2549,6 +2567,26 @@ def _pr_preview(sc: Scenario, repo: str, findings: list[str]) -> None:
     )
     sc.run(f"git -C {repo} checkout -q main", timeout=15, label="(fixture repo) back to main")
 
+    # A bot's pull request (Dependabot, say) builds nothing unless the settings allow bots:
+    # its code would run as root with the application's secrets.
+    code, answer = deliver(
+        sc,
+        secret,
+        "pull_request",
+        pull_request(
+            "opened",
+            9,
+            "feature-1",
+            sha,
+            author="dependabot[bot]",
+            author_type="Bot",
+            association="NONE",
+        ),
+    )
+    sc.check(
+        code == 200 and isinstance(answer, dict) and answer.get("status") == "ignored",
+        f"a bot's pull request was refused: {code} {answer}",
+    )
     code, answer = deliver(sc, secret, "pull_request", pull_request("opened", 1, "feature-1", sha))
     sc.check(code == 202 and answer.get("job_ids"), f"opened answered {code} {answer!r}")
     wait_for_jobs(sc, token, answer["job_ids"], "the preview's first deploy")
