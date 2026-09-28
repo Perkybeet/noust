@@ -54,9 +54,51 @@ export interface paths {
          *         ValidationError: A resource limit is out of range (400, with the
          *             range) - the same check ``PATCH .../limits`` runs, so a limit
          *             given at creation cannot be more permissive than one set later -
-         *             or ``package_manager`` names one WASM does not drive.
+         *             or ``package_manager`` names one WASM does not drive, or neither a
+         *             source nor a recipe was given.
+         *         RecipeError: The recipe does not exist or is not available, or a
+         *             source or a type was given with it (400).
          */
         post: operations["create_app_api_apps_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import App
+         * @description Queue the creation of an application from an export document.
+         *
+         *     Checked before anything is queued: the document, the domain (409 when
+         *     taken), the source (a local path is the operator's alone, as for ``POST
+         *     /api/apps``) and the secret values the export left out (400 naming every
+         *     one missing). Sudo mode: it deploys as root.
+         *
+         *     Args:
+         *         body: The document, and what to change about it.
+         *         request: The incoming request, for the audit record of a refusal.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The queued job; its result lists what was applied and what was not.
+         *
+         *     Raises:
+         *         ValidationError: The document is not valid, or a value is missing.
+         *         DomainConflictError: The domain is taken.
+         *         HTTPException: 403 for a local source the credential may not deploy,
+         *             503 when no port is free.
+         */
+        post: operations["import_app_api_apps_import_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -528,6 +570,43 @@ export interface paths {
          *             name (400).
          */
         put: operations["update_app_env_marks_api_apps__domain__env_marks_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get App Export
+         * @description Export everything that defines an application.
+         *
+         *     Admin scope: the document names the source, the variables and every
+         *     schedule. Secret values are null unless ``with_secrets``, which needs
+         *     sudo mode and is audited, naming the caller and never a value.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         request: The incoming request, for the audit record.
+         *         session: The authenticated session.
+         *         with_secrets: Include secret values in clear.
+         *
+         *     Returns:
+         *         The document.
+         *
+         *     Raises:
+         *         HTTPException: 403 below admin scope or, with secrets, outside sudo
+         *             mode; 404 when the application is unknown.
+         */
+        get: operations["get_app_export_api_apps__domain__export_get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -5141,6 +5220,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/recipes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Recipes
+         * @description List the recipes, the ones this release can deploy first.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Every recipe, with whether it is available and why not.
+         */
+        get: operations["get_recipes_api_recipes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recipes/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Recipe Detail
+         * @description Describe one recipe.
+         *
+         *     Args:
+         *         name: The recipe.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The recipe in full.
+         *
+         *     Raises:
+         *         HTTPException: 404 when no recipe has that name.
+         */
+        get: operations["get_recipe_detail_api_recipes__name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/services": {
         parameters: {
             query?: never;
@@ -6312,6 +6447,48 @@ export interface components {
             restart_required: boolean;
         };
         /**
+         * AppExportDocument
+         * @description An application's definition, as ``wasm app export`` writes it.
+         */
+        AppExportDocument: {
+            app: components["schemas"]["ExportApp"];
+            backup?: components["schemas"]["ExportBackup"] | null;
+            /** Cron */
+            cron?: components["schemas"]["ExportCronJob"][];
+            /** Databases */
+            databases?: components["schemas"]["ExportDatabase"][];
+            domains?: components["schemas"]["ExportDomains"];
+            /** Env */
+            env?: {
+                [key: string]: components["schemas"]["ExportEnvEntry"];
+            };
+            /** Env Secret Marks */
+            env_secret_marks?: {
+                [key: string]: boolean;
+            };
+            /** Exported At */
+            exported_at?: string | null;
+            /**
+             * Format
+             * @description Always "wasm-app"
+             */
+            format: string;
+            github?: components["schemas"]["ExportGitHub"];
+            previews?: components["schemas"]["ExportPreviews"] | null;
+            /**
+             * Secrets Included
+             * @default false
+             */
+            secrets_included: boolean;
+            /**
+             * Version
+             * @description Shape of the document; this release writes 1
+             */
+            version: number;
+            /** Wasm Version */
+            wasm_version?: string | null;
+        };
+        /**
          * AppInfo
          * @description A deployed application and the live state of its service.
          *
@@ -7099,7 +7276,7 @@ export interface components {
         CreateAppRequest: {
             /**
              * App Type
-             * @description Application type
+             * @description Application type. Left on auto with a recipe
              * @default auto
              */
             app_type: string;
@@ -7172,6 +7349,11 @@ export interface components {
              */
             port?: number | null;
             /**
+             * Recipe
+             * @description Deploy a known application from its recipe (GET /api/recipes): its source, type, database, variables and settings come from the recipe, and env_vars are applied over its variables. The job's result carries the recipe's notes
+             */
+            recipe?: string | null;
+            /**
              * Skip Database
              * @description Monorepo: skip database provisioning
              * @default false
@@ -7179,9 +7361,9 @@ export interface components {
             skip_database: boolean;
             /**
              * Source
-             * @description Git URL or local path
+             * @description Git URL, archive URL or local path. Required unless recipe is given, and refused with one
              */
-            source: string;
+            source?: string | null;
             /**
              * Ssl
              * @description Obtain a certificate
@@ -8099,6 +8281,207 @@ export interface components {
             secret: boolean;
         };
         /**
+         * ExportApp
+         * @description The application itself.
+         */
+        ExportApp: {
+            /** App Type */
+            app_type: string;
+            /** Branch */
+            branch?: string | null;
+            /** Domain */
+            domain: string;
+            health?: components["schemas"]["ExportHealth"];
+            /**
+             * Include Www
+             * @default false
+             */
+            include_www: boolean;
+            /** Keep Releases */
+            keep_releases?: number | null;
+            /**
+             * Layout
+             * @description inplace, releases, or null
+             */
+            layout?: string | null;
+            limits?: components["schemas"]["ExportLimits"];
+            /** Persistent Paths */
+            persistent_paths?: string[];
+            /** Port */
+            port?: number | null;
+            /**
+             * Source
+             * @description Credentials inside a URL are replaced by ***
+             */
+            source?: string | null;
+            /**
+             * Ssl
+             * @default true
+             */
+            ssl: boolean;
+            /**
+             * Webserver
+             * @default nginx
+             */
+            webserver: string | null;
+            zero_downtime?: components["schemas"]["ExportZeroDowntime"];
+        };
+        /**
+         * ExportBackup
+         * @description The backup schedule.
+         */
+        ExportBackup: {
+            /** Destinations */
+            destinations?: components["schemas"]["ExportBackupDestination"][];
+            /**
+             * Include Databases
+             * @default true
+             */
+            include_databases: boolean;
+            /** Retention Count */
+            retention_count?: number | null;
+            /** Retention Days */
+            retention_days?: number | null;
+            /** Schedule */
+            schedule: string;
+        };
+        /**
+         * ExportBackupDestination
+         * @description A remote copy, by name; its credentials never leave the server.
+         */
+        ExportBackupDestination: {
+            /** Name */
+            name: string;
+            /** Retention Count */
+            retention_count?: number | null;
+            /** Retention Days */
+            retention_days?: number | null;
+        };
+        /**
+         * ExportCronJob
+         * @description One cron job of the application.
+         */
+        ExportCronJob: {
+            /** Command */
+            command: string;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /** Name */
+            name: string;
+            /** Schedule */
+            schedule: string;
+            /** User */
+            user?: string | null;
+            /** Working Directory */
+            working_directory?: string | null;
+        };
+        /**
+         * ExportDatabase
+         * @description A database linked to the application, named only.
+         */
+        ExportDatabase: {
+            /** Engine */
+            engine: string;
+            /** Name */
+            name?: string | null;
+        };
+        /**
+         * ExportDomains
+         * @description The names the application answers on besides its domain (www is include_www).
+         */
+        ExportDomains: {
+            /** Aliases */
+            aliases?: string[];
+            /** Redirects */
+            redirects?: string[];
+        };
+        /**
+         * ExportEnvEntry
+         * @description One environment variable.
+         */
+        ExportEnvEntry: {
+            /**
+             * Secret
+             * @default false
+             */
+            secret: boolean;
+            /**
+             * Value
+             * @description Null for a secret when secrets were not included
+             */
+            value?: string | null;
+        };
+        /**
+         * ExportGitHub
+         * @description Whether it cloned through a GitHub App installation.
+         */
+        ExportGitHub: {
+            /**
+             * Installation Linked
+             * @default false
+             */
+            installation_linked: boolean;
+        };
+        /**
+         * ExportHealth
+         * @description What the health gate asks; null is the default.
+         */
+        ExportHealth: {
+            /** Expect */
+            expect?: string | null;
+            /** Path */
+            path?: string | null;
+            /** Timeout */
+            timeout?: number | null;
+        };
+        /**
+         * ExportLimits
+         * @description The unit's limits; null is no limit.
+         */
+        ExportLimits: {
+            /** Cpu Quota Percent */
+            cpu_quota_percent?: number | null;
+            /** Memory Max Mb */
+            memory_max_mb?: number | null;
+            /** Tasks Max */
+            tasks_max?: number | null;
+        };
+        /**
+         * ExportPreviews
+         * @description Pull request preview settings.
+         */
+        ExportPreviews: {
+            /**
+             * Allow Bots
+             * @default false
+             */
+            allow_bots: boolean;
+            /** Base Domain */
+            base_domain: string;
+            /** Exclude Env */
+            exclude_env?: string[];
+            /** Max Previews */
+            max_previews?: number | null;
+            /** Ttl Hours */
+            ttl_hours?: number | null;
+        };
+        /**
+         * ExportZeroDowntime
+         * @description Blue/green activation.
+         */
+        ExportZeroDowntime: {
+            /** Drain Seconds */
+            drain_seconds?: number | null;
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+        };
+        /**
          * GitHubStatusOut
          * @description The GitHub integration of this server.
          */
@@ -8210,6 +8593,30 @@ export interface components {
             path?: string | null;
             /** Timeout */
             timeout?: number | null;
+        };
+        /**
+         * ImportAppRequest
+         * @description An export document to create an application from.
+         */
+        ImportAppRequest: {
+            document: components["schemas"]["AppExportDocument"];
+            /**
+             * Domain
+             * @description Create it on this domain instead of the exported one
+             */
+            domain?: string | null;
+            /**
+             * Env
+             * @description Values for variables, over the document's: the secrets it left out
+             */
+            env?: {
+                [key: string]: string;
+            };
+            /**
+             * Source
+             * @description Deploy from this source instead of the exported one
+             */
+            source?: string | null;
         };
         /**
          * InspectSourceRequest
@@ -8973,6 +9380,57 @@ export interface components {
             } | null;
         };
         /**
+         * PlatformProposalResponse
+         * @description What another platform's configuration says, in WASM's terms.
+         */
+        PlatformProposalResponse: {
+            /**
+             * App Type
+             * @description Null: detection decides
+             */
+            app_type?: string | null;
+            /** Build Command */
+            build_command?: string | null;
+            /**
+             * Databases
+             * @description Engines it needs
+             */
+            databases?: string[];
+            /** Domains */
+            domains?: string[];
+            /** Env */
+            env?: components["schemas"]["ProposedEnvResponse"][];
+            /**
+             * Files
+             * @description The files read
+             */
+            files?: string[];
+            /** Health Path */
+            health_path?: string | null;
+            /** Health Timeout */
+            health_timeout?: number | null;
+            /** Install Command */
+            install_command?: string | null;
+            /** Output Directory */
+            output_directory?: string | null;
+            /** Persistent Paths */
+            persistent_paths?: string[];
+            /**
+             * Platform
+             * @description vercel, railway, render or heroku
+             */
+            platform: string;
+            /** Port */
+            port?: number | null;
+            /** Start Command */
+            start_command?: string | null;
+            /**
+             * Warnings
+             * @description What has no equivalent, and what to do instead
+             */
+            warnings?: string[];
+        };
+        /**
          * PreviewOut
          * @description One pull request's preview.
          *
@@ -9192,6 +9650,41 @@ export interface components {
             user: string;
         };
         /**
+         * ProposedEnvResponse
+         * @description One environment variable the platform's configuration declares.
+         */
+        ProposedEnvResponse: {
+            /**
+             * Generated
+             * @description The platform generates it; WASM generates one in its place
+             * @default false
+             */
+            generated: boolean;
+            /** Name */
+            name: string;
+            /**
+             * Note
+             * @description Where the value came from there
+             */
+            note?: string | null;
+            /**
+             * Required
+             * @description A value must be given: the configuration has none
+             * @default false
+             */
+            required: boolean;
+            /**
+             * Secret
+             * @default false
+             */
+            secret: boolean;
+            /**
+             * Value
+             * @description The default it gives; null for a secret or none
+             */
+            value?: string | null;
+        };
+        /**
          * PushBackupRequest
          * @description Request to upload a local backup to a remote destination.
          */
@@ -9292,6 +9785,167 @@ export interface components {
              * @default false
              */
             truncated: boolean;
+        };
+        /**
+         * RecipeEnvOut
+         * @description One variable a recipe sets.
+         *
+         *     Attributes:
+         *         name: The variable.
+         *         generated: Whether WASM generates its value (a secret, a database
+         *             credential, the domain); either way ``env_vars`` overrides it.
+         */
+        RecipeEnvOut: {
+            /** Generated */
+            generated: boolean;
+            /** Name */
+            name: string;
+        };
+        /**
+         * RecipeHealthOut
+         * @description What the health gate asks of the application.
+         */
+        RecipeHealthOut: {
+            /** Expect */
+            expect?: string | null;
+            /** Path */
+            path: string;
+        };
+        /**
+         * RecipeListOut
+         * @description The catalogue, the recipes this release can deploy first.
+         */
+        RecipeListOut: {
+            /** Items */
+            items: components["schemas"]["RecipeSummaryOut"][];
+        };
+        /**
+         * RecipeOut
+         * @description One recipe in full.
+         *
+         *     Attributes:
+         *         source: Where its code comes from; None when unavailable.
+         *         layout: ``releases`` or ``inplace``.
+         *         port: Its default port, when it runs a process.
+         *         env: The variables it sets.
+         *         persistent_paths: What survives every release in ``shared/``.
+         *         health: Its health check.
+         *         notes: What the operator is told after the deploy, with ``{{ url }}``
+         *             and the like still to be filled in.
+         */
+        RecipeOut: {
+            /** App Type */
+            app_type?: string | null;
+            /** Available */
+            available: boolean;
+            /** Database */
+            database?: string | null;
+            /** Description */
+            description: string;
+            /**
+             * Env
+             * @default []
+             */
+            env: components["schemas"]["RecipeEnvOut"][];
+            health?: components["schemas"]["RecipeHealthOut"] | null;
+            /** Homepage */
+            homepage: string;
+            /**
+             * Layout
+             * @default releases
+             */
+            layout: string;
+            /** Name */
+            name: string;
+            /**
+             * Notes
+             * @default []
+             */
+            notes: string[];
+            /**
+             * Persistent Paths
+             * @default []
+             */
+            persistent_paths: string[];
+            /** Port */
+            port?: number | null;
+            /**
+             * Requires
+             * @default []
+             */
+            requires: string[];
+            source?: components["schemas"]["RecipeSourceOut"] | null;
+            /** Title */
+            title: string;
+            /** Unavailable Reason */
+            unavailable_reason?: string | null;
+        };
+        /**
+         * RecipeSourceOut
+         * @description Where a recipe's code comes from.
+         *
+         *     Attributes:
+         *         kind: ``git``, ``archive`` or ``template``.
+         *         url: The repository or archive.
+         *         ref: The git tag deployed.
+         *         sha256: The archive's pinned checksum.
+         *         checksum_url: Where the archive's checksum is published.
+         *         files: For a template, the files rendered from the recipe.
+         */
+        RecipeSourceOut: {
+            /** Checksum Url */
+            checksum_url?: string | null;
+            /**
+             * Files
+             * @default []
+             */
+            files: string[];
+            /** Kind */
+            kind: string;
+            /** Ref */
+            ref?: string | null;
+            /** Sha256 */
+            sha256?: string | null;
+            /** Url */
+            url?: string | null;
+        };
+        /**
+         * RecipeSummaryOut
+         * @description One recipe in the catalogue.
+         *
+         *     Attributes:
+         *         name: What ``recipe`` takes in ``POST /api/apps``.
+         *         title: What it is called.
+         *         description: One sentence.
+         *         homepage: The project's site.
+         *         available: Whether this release can deploy it.
+         *         unavailable_reason: Why not, when it cannot.
+         *         app_type: The deployer that builds it; None when unavailable.
+         *         database: The database engine it is given, if any.
+         *         requires: What the server needs, in words.
+         */
+        RecipeSummaryOut: {
+            /** App Type */
+            app_type?: string | null;
+            /** Available */
+            available: boolean;
+            /** Database */
+            database?: string | null;
+            /** Description */
+            description: string;
+            /** Homepage */
+            homepage: string;
+            /** Name */
+            name: string;
+            /**
+             * Requires
+             * @default []
+             */
+            requires: string[];
+            /** Title */
+            title: string;
+            /** Unavailable Reason */
+            unavailable_reason?: string | null;
         };
         /**
          * ReleaseActivationResponse
@@ -10108,6 +10762,8 @@ export interface components {
             install_command: string[];
             /** Package Manager */
             package_manager: string | null;
+            /** @description What the repository's Vercel, Railway, Render or Heroku configuration proposes, for the wizard to prefill; null when it carries none */
+            platform_proposal?: components["schemas"]["PlatformProposalResponse"] | null;
             /** Start Command */
             start_command: string;
             /**
@@ -10384,7 +11040,7 @@ export interface components {
         };
         /**
          * UpdateInfo
-         * @description Installed version and, when known, the released one.
+         * @description Installed version and, when known, the one this server can install.
          */
         UpdateInfo: {
             /** Current Version */
@@ -10393,6 +11049,8 @@ export interface components {
             has_update: boolean;
             /** Latest Version */
             latest_version?: string | null;
+            /** Published Version */
+            published_version?: string | null;
             /** Release Url */
             release_url?: string | null;
             /**
@@ -10402,6 +11060,8 @@ export interface components {
             status: string;
             /** Update Command */
             update_command?: string | null;
+            /** Update State */
+            update_state?: ("up_to_date" | "update_available" | "on_the_way") | null;
         };
         /**
          * UpdateLimitsRequest
@@ -11041,6 +11701,39 @@ export interface operations {
             };
         };
     };
+    import_app_api_apps_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportAppRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     inspect_app_source_api_apps_inspect_post: {
         parameters: {
             query?: never;
@@ -11474,6 +12167,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AppEnvSecretsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_app_export_api_apps__domain__export_get: {
+        parameters: {
+            query?: {
+                with_secrets?: boolean;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppExportDocument"];
                 };
             };
             /** @description Validation Error */
@@ -16123,6 +16849,57 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    get_recipes_api_recipes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecipeListOut"];
+                };
+            };
+        };
+    };
+    get_recipe_detail_api_recipes__name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecipeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

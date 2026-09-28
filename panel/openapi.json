@@ -394,6 +394,112 @@
         "title": "AppEnvUpdateResponse",
         "type": "object"
       },
+      "AppExportDocument": {
+        "description": "An application's definition, as ``wasm app export`` writes it.",
+        "properties": {
+          "app": {
+            "$ref": "#/components/schemas/ExportApp"
+          },
+          "backup": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExportBackup"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cron": {
+            "items": {
+              "$ref": "#/components/schemas/ExportCronJob"
+            },
+            "title": "Cron",
+            "type": "array"
+          },
+          "databases": {
+            "items": {
+              "$ref": "#/components/schemas/ExportDatabase"
+            },
+            "title": "Databases",
+            "type": "array"
+          },
+          "domains": {
+            "$ref": "#/components/schemas/ExportDomains"
+          },
+          "env": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ExportEnvEntry"
+            },
+            "title": "Env",
+            "type": "object"
+          },
+          "env_secret_marks": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Env Secret Marks",
+            "type": "object"
+          },
+          "exported_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exported At"
+          },
+          "format": {
+            "description": "Always \"wasm-app\"",
+            "title": "Format",
+            "type": "string"
+          },
+          "github": {
+            "$ref": "#/components/schemas/ExportGitHub"
+          },
+          "previews": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExportPreviews"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "secrets_included": {
+            "default": false,
+            "title": "Secrets Included",
+            "type": "boolean"
+          },
+          "version": {
+            "description": "Shape of the document; this release writes 1",
+            "title": "Version",
+            "type": "integer"
+          },
+          "wasm_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wasm Version"
+          }
+        },
+        "required": [
+          "format",
+          "version",
+          "app"
+        ],
+        "title": "AppExportDocument",
+        "type": "object"
+      },
       "AppInfo": {
         "description": "A deployed application and the live state of its service.\n\nAttributes:\n    name: Application name, which is its domain.\n    domain: Domain the application is served on.\n    status: What is true about it right now, resolved by\n        :func:`wasm.core.app_state.resolve_state` - the one place the CLI\n        and the panel agree on this: ``running``, ``restarting`` (systemd\n        is crash-looping the unit), ``no_answer`` (the unit is up but\n        nothing accepts connections on its port), ``stopped``, ``failed``\n        (systemd gave up on it), ``static`` (served directly by the web\n        server, there is no unit) or ``unknown`` (systemd could not be\n        asked).\n    active: Whether the unit is active.\n    enabled: Whether the unit starts on boot.\n    pid: Main PID when running.\n    uptime: How long the unit has been up.\n    port: Upstream port.\n    app_type: Deployer that owns it.\n    path: Application directory.\n    source: Git URL or local path it was deployed from.\n    branch: Git branch it tracks, or None for a source that has none.\n    layout: ``inplace`` or ``releases``.\n    keep_releases: Release directories kept before older ones are pruned.\n        Meaningful only on ``releases``; the in-place default otherwise.\n    build_command: Argv the deployer runs to build the project, read off\n        the same ``get_build_command()`` the deploy used. Empty in a\n        list response - computing it means instantiating the deployer\n        once per application, which this endpoint does not do for a\n        list - and filled in when this application is fetched on its own.\n    start_command: What its unit runs, exactly as the deploy recorded it\n        on the service row. None for a static site, which has no unit.\n    memory_max_mb: Memory limit of its unit, in MB, or None.\n    cpu_quota_percent: CPU quota of its unit, in percent of one CPU, or None.\n    tasks_max: Task limit of its unit, or None.\n    health_path: Path the health gate probes, or None for ``/``.\n    health_expect: Statuses the health gate accepts, such as\n        ``200-399``, or None for any status below 500.\n    health_timeout: Seconds the health gate waits, or None for its\n        default of 30.\n    webhook_enabled: Whether a webhook secret is set for it. The secret\n        itself is never part of this or any other response; it is set\n        through ``POST /api/apps/{domain}/webhook-secret`` and cleared\n        through the ``DELETE`` of the same path.\n    unit: The systemd unit that runs it, or None for a static site.\n    run_as: The account its unit runs as, or None for a static site.\n    last_deployment: Its most recent deployment attempt, or None when\n        nothing has ever been recorded for it.\n    zero_downtime: Whether it runs as two instances behind an nginx\n        upstream (blue/green); details at ``/zero-downtime``.\n    preview_parent: The application it previews a pull request of, or\n        None when it is not a preview.",
         "properties": {
@@ -1858,7 +1964,7 @@
         "properties": {
           "app_type": {
             "default": "auto",
-            "description": "Application type",
+            "description": "Application type. Left on auto with a recipe",
             "title": "App Type",
             "type": "string"
           },
@@ -2011,6 +2117,18 @@
             "description": "Application port",
             "title": "Port"
           },
+          "recipe": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Deploy a known application from its recipe (GET /api/recipes): its source, type, database, variables and settings come from the recipe, and env_vars are applied over its variables. The job's result carries the recipe's notes",
+            "title": "Recipe"
+          },
           "skip_database": {
             "default": false,
             "description": "Monorepo: skip database provisioning",
@@ -2018,9 +2136,16 @@
             "type": "boolean"
           },
           "source": {
-            "description": "Git URL or local path",
-            "title": "Source",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Git URL, archive URL or local path. Required unless recipe is given, and refused with one",
+            "title": "Source"
           },
           "ssl": {
             "default": true,
@@ -2071,8 +2196,7 @@
           }
         },
         "required": [
-          "domain",
-          "source"
+          "domain"
         ],
         "title": "CreateAppRequest",
         "type": "object"
@@ -3695,6 +3819,488 @@
         "title": "EnvSecrecyOut",
         "type": "object"
       },
+      "ExportApp": {
+        "description": "The application itself.",
+        "properties": {
+          "app_type": {
+            "title": "App Type",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "health": {
+            "$ref": "#/components/schemas/ExportHealth"
+          },
+          "include_www": {
+            "default": false,
+            "title": "Include Www",
+            "type": "boolean"
+          },
+          "keep_releases": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keep Releases"
+          },
+          "layout": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "inplace, releases, or null",
+            "title": "Layout"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/ExportLimits"
+          },
+          "persistent_paths": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Persistent Paths",
+            "type": "array"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Credentials inside a URL are replaced by ***",
+            "title": "Source"
+          },
+          "ssl": {
+            "default": true,
+            "title": "Ssl",
+            "type": "boolean"
+          },
+          "webserver": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "nginx",
+            "title": "Webserver"
+          },
+          "zero_downtime": {
+            "$ref": "#/components/schemas/ExportZeroDowntime"
+          }
+        },
+        "required": [
+          "domain",
+          "app_type"
+        ],
+        "title": "ExportApp",
+        "type": "object"
+      },
+      "ExportBackup": {
+        "description": "The backup schedule.",
+        "properties": {
+          "destinations": {
+            "items": {
+              "$ref": "#/components/schemas/ExportBackupDestination"
+            },
+            "title": "Destinations",
+            "type": "array"
+          },
+          "include_databases": {
+            "default": true,
+            "title": "Include Databases",
+            "type": "boolean"
+          },
+          "retention_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Count"
+          },
+          "retention_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Days"
+          },
+          "schedule": {
+            "title": "Schedule",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schedule"
+        ],
+        "title": "ExportBackup",
+        "type": "object"
+      },
+      "ExportBackupDestination": {
+        "description": "A remote copy, by name; its credentials never leave the server.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "retention_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Count"
+          },
+          "retention_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Days"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ExportBackupDestination",
+        "type": "object"
+      },
+      "ExportCronJob": {
+        "description": "One cron job of the application.",
+        "properties": {
+          "command": {
+            "title": "Command",
+            "type": "string"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "schedule": {
+            "title": "Schedule",
+            "type": "string"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User"
+          },
+          "working_directory": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Working Directory"
+          }
+        },
+        "required": [
+          "name",
+          "schedule",
+          "command"
+        ],
+        "title": "ExportCronJob",
+        "type": "object"
+      },
+      "ExportDatabase": {
+        "description": "A database linked to the application, named only.",
+        "properties": {
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "engine"
+        ],
+        "title": "ExportDatabase",
+        "type": "object"
+      },
+      "ExportDomains": {
+        "description": "The names the application answers on besides its domain (www is include_www).",
+        "properties": {
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Aliases",
+            "type": "array"
+          },
+          "redirects": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Redirects",
+            "type": "array"
+          }
+        },
+        "title": "ExportDomains",
+        "type": "object"
+      },
+      "ExportEnvEntry": {
+        "description": "One environment variable.",
+        "properties": {
+          "secret": {
+            "default": false,
+            "title": "Secret",
+            "type": "boolean"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null for a secret when secrets were not included",
+            "title": "Value"
+          }
+        },
+        "title": "ExportEnvEntry",
+        "type": "object"
+      },
+      "ExportGitHub": {
+        "description": "Whether it cloned through a GitHub App installation.",
+        "properties": {
+          "installation_linked": {
+            "default": false,
+            "title": "Installation Linked",
+            "type": "boolean"
+          }
+        },
+        "title": "ExportGitHub",
+        "type": "object"
+      },
+      "ExportHealth": {
+        "description": "What the health gate asks; null is the default.",
+        "properties": {
+          "expect": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expect"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "timeout": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout"
+          }
+        },
+        "title": "ExportHealth",
+        "type": "object"
+      },
+      "ExportLimits": {
+        "description": "The unit's limits; null is no limit.",
+        "properties": {
+          "cpu_quota_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Quota Percent"
+          },
+          "memory_max_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Max Mb"
+          },
+          "tasks_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tasks Max"
+          }
+        },
+        "title": "ExportLimits",
+        "type": "object"
+      },
+      "ExportPreviews": {
+        "description": "Pull request preview settings.",
+        "properties": {
+          "allow_bots": {
+            "default": false,
+            "title": "Allow Bots",
+            "type": "boolean"
+          },
+          "base_domain": {
+            "title": "Base Domain",
+            "type": "string"
+          },
+          "exclude_env": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Exclude Env",
+            "type": "array"
+          },
+          "max_previews": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Previews"
+          },
+          "ttl_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ttl Hours"
+          }
+        },
+        "required": [
+          "base_domain"
+        ],
+        "title": "ExportPreviews",
+        "type": "object"
+      },
+      "ExportZeroDowntime": {
+        "description": "Blue/green activation.",
+        "properties": {
+          "drain_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drain Seconds"
+          },
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "title": "ExportZeroDowntime",
+        "type": "object"
+      },
       "GitHubStatusOut": {
         "description": "The GitHub integration of this server.",
         "properties": {
@@ -3955,6 +4561,51 @@
           "effective_timeout"
         ],
         "title": "HealthCheckResponse",
+        "type": "object"
+      },
+      "ImportAppRequest": {
+        "description": "An export document to create an application from.",
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/AppExportDocument"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Create it on this domain instead of the exported one",
+            "title": "Domain"
+          },
+          "env": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Values for variables, over the document's: the secrets it left out",
+            "title": "Env",
+            "type": "object"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Deploy from this source instead of the exported one",
+            "title": "Source"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "ImportAppRequest",
         "type": "object"
       },
       "InspectSourceRequest": {
@@ -5461,6 +6112,155 @@
         "title": "ObservationListResponse",
         "type": "object"
       },
+      "PlatformProposalResponse": {
+        "description": "What another platform's configuration says, in WASM's terms.",
+        "properties": {
+          "app_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null: detection decides",
+            "title": "App Type"
+          },
+          "build_command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Build Command"
+          },
+          "databases": {
+            "description": "Engines it needs",
+            "items": {
+              "type": "string"
+            },
+            "title": "Databases",
+            "type": "array"
+          },
+          "domains": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Domains",
+            "type": "array"
+          },
+          "env": {
+            "items": {
+              "$ref": "#/components/schemas/ProposedEnvResponse"
+            },
+            "title": "Env",
+            "type": "array"
+          },
+          "files": {
+            "description": "The files read",
+            "items": {
+              "type": "string"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "health_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Health Path"
+          },
+          "health_timeout": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Health Timeout"
+          },
+          "install_command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Install Command"
+          },
+          "output_directory": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Directory"
+          },
+          "persistent_paths": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Persistent Paths",
+            "type": "array"
+          },
+          "platform": {
+            "description": "vercel, railway, render or heroku",
+            "title": "Platform",
+            "type": "string"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "start_command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Command"
+          },
+          "warnings": {
+            "description": "What has no equivalent, and what to do instead",
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "platform"
+        ],
+        "title": "PlatformProposalResponse",
+        "type": "object"
+      },
       "PreviewOut": {
         "description": "One pull request's preview.\n\nAttributes:\n    domain: The preview's own application domain.\n    url: Where it answers.\n    number: The pull (merge) request number.\n    branch: The branch it deploys.\n    head_sha: The commit last deployed or asked for.\n    provider: ``github``, ``gitlab`` or ``gitea``.\n    repository: ``owner/repo``.\n    status: ``pending``, ``deploying``, ``ready``, ``failed`` or\n        ``removing``.\n    error: Why the last build failed.\n    expires_at: When it is removed unless pushed to again.",
         "properties": {
@@ -5869,6 +6669,61 @@
         "title": "ProcessInfo",
         "type": "object"
       },
+      "ProposedEnvResponse": {
+        "description": "One environment variable the platform's configuration declares.",
+        "properties": {
+          "generated": {
+            "default": false,
+            "description": "The platform generates it; WASM generates one in its place",
+            "title": "Generated",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where the value came from there",
+            "title": "Note"
+          },
+          "required": {
+            "default": false,
+            "description": "A value must be given: the configuration has none",
+            "title": "Required",
+            "type": "boolean"
+          },
+          "secret": {
+            "default": false,
+            "title": "Secret",
+            "type": "boolean"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The default it gives; null for a secret or none",
+            "title": "Value"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ProposedEnvResponse",
+        "type": "object"
+      },
       "PushBackupRequest": {
         "description": "Request to upload a local backup to a remote destination.",
         "properties": {
@@ -5988,6 +6843,343 @@
           "mode"
         ],
         "title": "QueryResponse",
+        "type": "object"
+      },
+      "RecipeEnvOut": {
+        "description": "One variable a recipe sets.\n\nAttributes:\n    name: The variable.\n    generated: Whether WASM generates its value (a secret, a database\n        credential, the domain); either way ``env_vars`` overrides it.",
+        "properties": {
+          "generated": {
+            "title": "Generated",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "generated"
+        ],
+        "title": "RecipeEnvOut",
+        "type": "object"
+      },
+      "RecipeHealthOut": {
+        "description": "What the health gate asks of the application.",
+        "properties": {
+          "expect": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expect"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "RecipeHealthOut",
+        "type": "object"
+      },
+      "RecipeListOut": {
+        "description": "The catalogue, the recipes this release can deploy first.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RecipeSummaryOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "RecipeListOut",
+        "type": "object"
+      },
+      "RecipeOut": {
+        "description": "One recipe in full.\n\nAttributes:\n    source: Where its code comes from; None when unavailable.\n    layout: ``releases`` or ``inplace``.\n    port: Its default port, when it runs a process.\n    env: The variables it sets.\n    persistent_paths: What survives every release in ``shared/``.\n    health: Its health check.\n    notes: What the operator is told after the deploy, with ``{{ url }}``\n        and the like still to be filled in.",
+        "properties": {
+          "app_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Type"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "database": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Database"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "env": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RecipeEnvOut"
+            },
+            "title": "Env",
+            "type": "array"
+          },
+          "health": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecipeHealthOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "homepage": {
+            "title": "Homepage",
+            "type": "string"
+          },
+          "layout": {
+            "default": "releases",
+            "title": "Layout",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "notes": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "persistent_paths": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Persistent Paths",
+            "type": "array"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "requires": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Requires",
+            "type": "array"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecipeSourceOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "unavailable_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Reason"
+          }
+        },
+        "required": [
+          "name",
+          "title",
+          "description",
+          "homepage",
+          "available"
+        ],
+        "title": "RecipeOut",
+        "type": "object"
+      },
+      "RecipeSourceOut": {
+        "description": "Where a recipe's code comes from.\n\nAttributes:\n    kind: ``git``, ``archive`` or ``template``.\n    url: The repository or archive.\n    ref: The git tag deployed.\n    sha256: The archive's pinned checksum.\n    checksum_url: Where the archive's checksum is published.\n    files: For a template, the files rendered from the recipe.",
+        "properties": {
+          "checksum_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checksum Url"
+          },
+          "files": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "RecipeSourceOut",
+        "type": "object"
+      },
+      "RecipeSummaryOut": {
+        "description": "One recipe in the catalogue.\n\nAttributes:\n    name: What ``recipe`` takes in ``POST /api/apps``.\n    title: What it is called.\n    description: One sentence.\n    homepage: The project's site.\n    available: Whether this release can deploy it.\n    unavailable_reason: Why not, when it cannot.\n    app_type: The deployer that builds it; None when unavailable.\n    database: The database engine it is given, if any.\n    requires: What the server needs, in words.",
+        "properties": {
+          "app_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Type"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "database": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Database"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "homepage": {
+            "title": "Homepage",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "requires": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Requires",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "unavailable_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Reason"
+          }
+        },
+        "required": [
+          "name",
+          "title",
+          "description",
+          "homepage",
+          "available"
+        ],
+        "title": "RecipeSummaryOut",
         "type": "object"
       },
       "ReleaseActivationResponse": {
@@ -7391,6 +8583,17 @@
             ],
             "title": "Package Manager"
           },
+          "platform_proposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlatformProposalResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the repository's Vercel, Railway, Render or Heroku configuration proposes, for the wizard to prefill; null when it carries none"
+          },
           "start_command": {
             "title": "Start Command",
             "type": "string"
@@ -7889,7 +9092,7 @@
         "type": "object"
       },
       "UpdateInfo": {
-        "description": "Installed version and, when known, the released one.",
+        "description": "Installed version and, when known, the one this server can install.",
         "properties": {
           "current_version": {
             "title": "Current Version",
@@ -7909,6 +9112,17 @@
               }
             ],
             "title": "Latest Version"
+          },
+          "published_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published Version"
           },
           "release_url": {
             "anyOf": [
@@ -7936,6 +9150,22 @@
               }
             ],
             "title": "Update Command"
+          },
+          "update_state": {
+            "anyOf": [
+              {
+                "enum": [
+                  "up_to_date",
+                  "update_available",
+                  "on_the_way"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Update State"
           }
         },
         "required": [
@@ -8920,7 +10150,7 @@
         ]
       },
       "post": {
-        "description": "Queue the deployment of a new application.\n\nAdmin scope, through the blanket policy: the build runs as root. A local\npath as the source is further reserved to the operator in person; see\n:func:`_require_local_source_privilege`.\n\nArgs:\n    body: The deployment request.\n    request: The incoming request, for the audit record of a refusal.\n    session: The authenticated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 409 when the domain is already deployed, 503 when no\n        port is free, 403 when the source is a local path and the\n        credential may not deploy one.\n    PortError: When the requested port is not usable.\n    DomainError: When the domain is not acceptable.\n    ValidationError: A resource limit is out of range (400, with the\n        range) - the same check ``PATCH .../limits`` runs, so a limit\n        given at creation cannot be more permissive than one set later -\n        or ``package_manager`` names one WASM does not drive.",
+        "description": "Queue the deployment of a new application.\n\nAdmin scope, through the blanket policy: the build runs as root. A local\npath as the source is further reserved to the operator in person; see\n:func:`_require_local_source_privilege`.\n\nArgs:\n    body: The deployment request.\n    request: The incoming request, for the audit record of a refusal.\n    session: The authenticated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 409 when the domain is already deployed, 503 when no\n        port is free, 403 when the source is a local path and the\n        credential may not deploy one.\n    PortError: When the requested port is not usable.\n    DomainError: When the domain is not acceptable.\n    ValidationError: A resource limit is out of range (400, with the\n        range) - the same check ``PATCH .../limits`` runs, so a limit\n        given at creation cannot be more permissive than one set later -\n        or ``package_manager`` names one WASM does not drive, or neither a\n        source nor a recipe was given.\n    RecipeError: The recipe does not exist or is not available, or a\n        source or a type was given with it (400).",
         "operationId": "create_app_api_apps_post",
         "requestBody": {
           "content": {
@@ -8955,6 +10185,48 @@
           }
         },
         "summary": "Create App",
+        "tags": [
+          "Applications"
+        ]
+      }
+    },
+    "/api/apps/import": {
+      "post": {
+        "description": "Queue the creation of an application from an export document.\n\nChecked before anything is queued: the document, the domain (409 when\ntaken), the source (a local path is the operator's alone, as for ``POST\n/api/apps``) and the secret values the export left out (400 naming every\none missing). Sudo mode: it deploys as root.\n\nArgs:\n    body: The document, and what to change about it.\n    request: The incoming request, for the audit record of a refusal.\n    session: The authenticated session.\n\nReturns:\n    The queued job; its result lists what was applied and what was not.\n\nRaises:\n    ValidationError: The document is not valid, or a value is missing.\n    DomainConflictError: The domain is taken.\n    HTTPException: 403 for a local source the credential may not deploy,\n        503 when no port is free.",
+        "operationId": "import_app_api_apps_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportAppRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import App",
         "tags": [
           "Applications"
         ]
@@ -9625,6 +10897,59 @@
           }
         },
         "summary": "Update App Env Marks",
+        "tags": [
+          "Applications"
+        ]
+      }
+    },
+    "/api/apps/{domain}/export": {
+      "get": {
+        "description": "Export everything that defines an application.\n\nAdmin scope: the document names the source, the variables and every\nschedule. Secret values are null unless ``with_secrets``, which needs\nsudo mode and is audited, naming the caller and never a value.\n\nArgs:\n    domain: Domain of the application.\n    request: The incoming request, for the audit record.\n    session: The authenticated session.\n    with_secrets: Include secret values in clear.\n\nReturns:\n    The document.\n\nRaises:\n    HTTPException: 403 below admin scope or, with secrets, outside sudo\n        mode; 404 when the application is unknown.",
+        "operationId": "get_app_export_api_apps__domain__export_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "with_secrets",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "With Secrets",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppExportDocument"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get App Export",
         "tags": [
           "Applications"
         ]
@@ -16150,6 +17475,71 @@
         "summary": "Get Openapi Schema",
         "tags": [
           "OpenAPI"
+        ]
+      }
+    },
+    "/api/recipes": {
+      "get": {
+        "description": "List the recipes, the ones this release can deploy first.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Every recipe, with whether it is available and why not.",
+        "operationId": "get_recipes_api_recipes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Recipes",
+        "tags": [
+          "Recipes"
+        ]
+      }
+    },
+    "/api/recipes/{name}": {
+      "get": {
+        "description": "Describe one recipe.\n\nArgs:\n    name: The recipe.\n    session: The authenticated session.\n\nReturns:\n    The recipe in full.\n\nRaises:\n    HTTPException: 404 when no recipe has that name.",
+        "operationId": "get_recipe_detail_api_recipes__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Recipe Detail",
+        "tags": [
+          "Recipes"
         ]
       }
     },
