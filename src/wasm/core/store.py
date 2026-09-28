@@ -32,7 +32,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, NoReturn, Optional
+from typing import Any, NoReturn, Optional, TypeVar
 from urllib.parse import quote
 
 from wasm.core.exceptions import DomainConflictError, DomainError, ValidationError, WASMError
@@ -164,9 +164,29 @@ MIN_KEEP_RELEASES = 1
 MAX_KEEP_RELEASES = 50
 
 #: Columns of ``apps`` written only by their own setters
-#: (:meth:`WASMStore.set_app_health`, :meth:`WASMStore.set_keep_releases`),
-#: never by :meth:`WASMStore.update_app`'s full-row write.
-_OWN_SETTER_COLUMNS = ("health_path", "health_expect", "health_timeout", "keep_releases")
+#: (:meth:`WASMStore.set_app_health`, :meth:`WASMStore.set_keep_releases`,
+#: and the schema v10 setters), never by :meth:`WASMStore.update_app`'s
+#: full-row write.
+_OWN_SETTER_COLUMNS = (
+    "health_path",
+    "health_expect",
+    "health_timeout",
+    "keep_releases",
+    "zero_downtime",
+    "active_color",
+    "drain_seconds",
+    "env_secret_marks",
+    "github_installation_id",
+    "preview_parent",
+)
+
+#: The two instances of an application in zero-downtime mode.
+BLUE_GREEN_COLORS = ("blue", "green")
+
+#: Seconds the old instance keeps running after traffic moved, by default,
+#: and the most an application may ask for.
+DEFAULT_DRAIN_SECONDS = 10
+MAX_DRAIN_SECONDS = 300
 
 
 @dataclass
@@ -205,6 +225,19 @@ class App:
     health_path: str | None = None
     health_expect: str | None = None
     health_timeout: int | None = None
+    # Schema v10, each written only through its own setter.
+    # Blue/green: two instances, one serving (active_color), the other
+    # started for the next activation. Off is the restart-in-place of 2.1.
+    zero_downtime: bool = False
+    active_color: str | None = None
+    drain_seconds: int | None = None
+    # Environment variables the operator marked secret (True) or not
+    # secret (False), overriding what their names and values suggest.
+    env_secret_marks: dict[str, bool] = field(default_factory=dict)
+    # The GitHub App installation that clones this application's source.
+    github_installation_id: int | None = None
+    # The application this one previews a pull request of, if it is one.
+    preview_parent: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -213,6 +246,8 @@ class App:
             d["env_vars"] = json.dumps(d["env_vars"])
         if isinstance(d.get("persistent_paths"), list):
             d["persistent_paths"] = json.dumps(d["persistent_paths"])
+        d["env_secret_marks"] = json.dumps(d.get("env_secret_marks") or {}, sort_keys=True)
+        d["zero_downtime"] = 1 if d.get("zero_downtime") else 0
         return d
 
     @classmethod
@@ -234,6 +269,8 @@ class App:
             except (json.JSONDecodeError, TypeError):
                 data["env_vars"] = {}
         data["persistent_paths"] = _decode_paths(data.get("persistent_paths"))
+        data["env_secret_marks"] = _decode_marks(data.get("env_secret_marks"))
+        data["zero_downtime"] = bool(data.get("zero_downtime"))
         return cls(**data)
 
 
@@ -247,6 +284,28 @@ def _utc_now() -> str:
         keep their application's own timestamp instead.
     """
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _decode_marks(raw: Any) -> dict[str, bool]:
+    """
+    Read the ``env_secret_marks`` column.
+
+    Args:
+        raw: The column value: a JSON object of booleans, or NULL.
+
+    Returns:
+        The marks. Anything that is not an object of booleans reads as none:
+        a damaged column must not stop the application from loading.
+    """
+    if not raw:
+        return {}
+    try:
+        value = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+    if not isinstance(value, dict):
+        return {}
+    return {str(k): v for k, v in value.items() if isinstance(v, bool)}
 
 
 def _decode_paths(raw: Any) -> list[str]:
@@ -551,8 +610,224 @@ class MonorepoWorkspace:
         return d
 
 
+@dataclass
+class PreviewSettings:
+    """
+    The pull request previews an application allows (schema v10).
+
+    Attributes:
+        app_domain: The application previewed.
+        base_domain: Wildcard parent the previews answer under, such as
+            ``previews.example.com`` for ``*.previews.example.com``.
+        max_previews: How many may exist at once.
+        ttl_hours: Hours a preview lives without a new push.
+    """
+
+    app_domain: str
+    base_domain: str
+    max_previews: int = 3
+    ttl_hours: int = 168
+    created_at: str | None = None
+    updated_at: str | None = None
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> "PreviewSettings":
+        """Create from database row."""
+        return cls(**dict(row))
+
+
+@dataclass
+class PreviewRecord:
+    """
+    One pull request's preview (schema v10).
+
+    Attributes:
+        parent_domain: The application previewed.
+        domain: The preview's own application domain.
+        number: The pull (merge) request number.
+        branch: The branch it deploys.
+        head_sha: The commit last deployed or asked for.
+        provider: ``github``, ``gitlab`` or ``gitea``.
+        repository: ``owner/repo``, when the provider said.
+        comment_ref: The provider's id of the comment WASM keeps updated.
+        status: ``pending``, ``deploying``, ``ready``, ``failed`` or
+            ``removing``.
+        error: Why the last deployment failed, when it did.
+        expires_at: When it is removed unless pushed to again (UTC ISO).
+    """
+
+    parent_domain: str
+    domain: str
+    number: int
+    branch: str
+    provider: str
+    expires_at: str
+    head_sha: str | None = None
+    repository: str | None = None
+    comment_ref: str | None = None
+    status: str = "pending"
+    error: str | None = None
+    id: int | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> "PreviewRecord":
+        """Create from database row."""
+        return cls(**dict(row))
+
+
+@dataclass
+class BackupDestinationRecord:
+    """
+    A remote place backups are copied to (schema v10).
+
+    Attributes:
+        name: The operator's name for it, which also names its secret file.
+        backend: rclone backend (``s3``, ``sftp``, ``drive``...).
+        settings: Options that are not secret, as rclone names them.
+        encrypted: Whether copies are encrypted on this side first.
+    """
+
+    name: str
+    backend: str
+    settings: dict[str, str] = field(default_factory=dict)
+    encrypted: bool = False
+    created_at: str | None = None
+    updated_at: str | None = None
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> "BackupDestinationRecord":
+        """Create from database row."""
+        data = dict(row)
+        data["settings"] = _decode_object(data.get("settings"))
+        data["encrypted"] = bool(data.get("encrypted"))
+        return cls(**data)
+
+
+@dataclass
+class BackupScheduleRecord:
+    """
+    What an application's backup timer does (schema v10).
+
+    Attributes:
+        app_domain: The application backed up.
+        schedule: systemd ``OnCalendar`` expression or alias.
+        include_databases: Dump the application's databases too.
+        retention_count: Local backups kept, at most; None for the default.
+        retention_days: Days a local backup is kept, at most; None for no
+            age limit.
+        destinations: Remote copies: ``{"name", "retention_count",
+            "retention_days"}`` per destination.
+    """
+
+    app_domain: str
+    schedule: str
+    include_databases: bool = True
+    retention_count: int | None = None
+    retention_days: int | None = None
+    destinations: list[dict[str, Any]] = field(default_factory=list)
+    created_at: str | None = None
+    updated_at: str | None = None
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> "BackupScheduleRecord":
+        """Create from database row."""
+        data = dict(row)
+        data["include_databases"] = bool(data.get("include_databases"))
+        try:
+            destinations = json.loads(data.get("destinations") or "[]")
+        except (json.JSONDecodeError, TypeError):
+            destinations = []
+        data["destinations"] = [d for d in destinations if isinstance(d, dict)]
+        return cls(**data)
+
+
+@dataclass
+class GitHubAppRecord:
+    """
+    This server's GitHub App, as GitHub created it (schema v10).
+
+    Its private key, webhook secret and client secret are secret files,
+    never columns.
+    """
+
+    app_id: int
+    slug: str
+    name: str | None = None
+    owner: str | None = None
+    html_url: str | None = None
+    client_id: str | None = None
+    created_at: str | None = None
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> "GitHubAppRecord":
+        """Create from database row."""
+        data = dict(row)
+        data.pop("id", None)
+        return cls(**data)
+
+
+@dataclass
+class GitHubInstallationRecord:
+    """An account or organisation the GitHub App is installed on (schema v10)."""
+
+    installation_id: int
+    account: str
+    account_type: str | None = None
+    repository_selection: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> "GitHubInstallationRecord":
+        """Create from database row."""
+        return cls(**dict(row))
+
+
+_Record = TypeVar("_Record")
+
+
+def _written(record: _Record | None) -> _Record:
+    """
+    Return a row just written and read back.
+
+    Args:
+        record: What the read found.
+
+    Returns:
+        The record.
+
+    Raises:
+        WASMError: It was not there, which only a concurrent delete between
+            the write and the read can cause.
+    """
+    if record is None:
+        raise WASMError("A row just written could not be read back")
+    return record
+
+
+def _decode_object(raw: Any) -> dict[str, Any]:
+    """
+    Read a JSON object column.
+
+    Args:
+        raw: The column value.
+
+    Returns:
+        The object; empty when the column is NULL or not an object.
+    """
+    if not raw:
+        return {}
+    try:
+        value = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
 # Schema version for migrations
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 
 _DEPLOYMENT_STATUSES_SQL = ", ".join(f"'{status.value}'" for status in DeploymentStatus)
 _DEPLOYMENT_TRIGGERS_SQL = ", ".join(f"'{trigger.value}'" for trigger in DeploymentTrigger)
@@ -718,6 +993,101 @@ _APPS_V9_COLUMNS_SQL = "".join(
     f"    {name} {definition},\n" for name, definition in APPS_V9_COLUMNS
 )
 
+# Schema v10: blue/green, secret marks, the GitHub installation and the
+# preview link. Shared by the fresh install path and the v9-to-v10 migration.
+APPS_V10_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("zero_downtime", "INTEGER NOT NULL DEFAULT 0"),
+    ("active_color", "TEXT"),
+    ("drain_seconds", "INTEGER"),
+    ("env_secret_marks", "TEXT"),
+    ("github_installation_id", "INTEGER"),
+    ("preview_parent", "TEXT"),
+)
+
+_APPS_V10_COLUMNS_SQL = "".join(
+    f"    {name} {definition},\n" for name, definition in APPS_V10_COLUMNS
+)
+
+# Schema v10: what 2.2 keeps besides the application rows. Previews and
+# schedules are keyed by domain without a foreign key, like deployments: the
+# managers that own them remove them with their application, and a row that
+# outlives one by a crash is harmless and visible.
+V10_SCHEMA_SQL = """
+-- Pull request previews an application allows
+CREATE TABLE IF NOT EXISTS preview_settings (
+    app_domain TEXT PRIMARY KEY,
+    base_domain TEXT NOT NULL,
+    max_previews INTEGER NOT NULL DEFAULT 3,
+    ttl_hours INTEGER NOT NULL DEFAULT 168,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+-- One preview per pull request
+CREATE TABLE IF NOT EXISTS previews (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    parent_domain TEXT NOT NULL,
+    domain TEXT NOT NULL UNIQUE,
+    number INTEGER NOT NULL,
+    branch TEXT NOT NULL,
+    head_sha TEXT,
+    provider TEXT NOT NULL,
+    repository TEXT,
+    comment_ref TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    error TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    UNIQUE(parent_domain, number)
+);
+CREATE INDEX IF NOT EXISTS idx_previews_parent ON previews(parent_domain);
+
+-- Remote places backups are copied to; credentials live in secret files
+CREATE TABLE IF NOT EXISTS backup_destinations (
+    name TEXT PRIMARY KEY,
+    backend TEXT NOT NULL,
+    settings TEXT NOT NULL DEFAULT '{}',
+    encrypted INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+-- Backup schedules: what the wasm-backup-* timer of each application does
+CREATE TABLE IF NOT EXISTS backup_schedules (
+    app_domain TEXT PRIMARY KEY,
+    schedule TEXT NOT NULL,
+    include_databases INTEGER NOT NULL DEFAULT 1,
+    retention_count INTEGER,
+    retention_days INTEGER,
+    destinations TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+-- This server's GitHub App: one at most; its keys live in secret files
+CREATE TABLE IF NOT EXISTS github_app (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    app_id INTEGER NOT NULL,
+    slug TEXT NOT NULL,
+    name TEXT,
+    owner TEXT,
+    html_url TEXT,
+    client_id TEXT,
+    created_at TEXT NOT NULL
+);
+
+-- Accounts and organisations the GitHub App is installed on
+CREATE TABLE IF NOT EXISTS github_installations (
+    installation_id INTEGER PRIMARY KEY,
+    account TEXT NOT NULL,
+    account_type TEXT,
+    repository_selection TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+"""
+
 
 def _run_script(cursor: sqlite3.Cursor, script: str) -> None:
     """
@@ -781,6 +1151,9 @@ CREATE TABLE IF NOT EXISTS apps (
     + """    -- Schema v9: the health check columns, from APPS_V9_COLUMNS.
 """
     + _APPS_V9_COLUMNS_SQL
+    + """    -- Schema v10: from APPS_V10_COLUMNS.
+"""
+    + _APPS_V10_COLUMNS_SQL
     + """    created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     deployed_at TEXT
@@ -867,6 +1240,7 @@ CREATE INDEX IF NOT EXISTS idx_databases_app_id ON databases(app_id);
     + JOBS_SCHEMA_SQL
     + RELEASES_SCHEMA_SQL
     + DOMAINS_SCHEMA_SQL
+    + V10_SCHEMA_SQL
 )
 
 
@@ -1274,6 +1648,7 @@ class WASMStore:
             7: self._migrate_v6_to_v7,
             8: self._migrate_v7_to_v8,
             9: self._migrate_v8_to_v9,
+            10: self._migrate_v9_to_v10,
         }
 
         for version in range(from_version + 1, SCHEMA_VERSION + 1):
@@ -1418,6 +1793,25 @@ class WASMStore:
         }
         if "snapshot_backup" not in deployments:
             cursor.execute("ALTER TABLE deployments ADD COLUMN snapshot_backup TEXT")
+
+    def _migrate_v9_to_v10(self, cursor: sqlite3.Cursor) -> None:
+        """
+        Add what 2.2 keeps: blue/green, secret marks, previews, backup destinations and schedules, GitHub (schema v10).
+
+        Every new ``apps`` column is NULL or off for existing rows, which is
+        exactly what 2.1 did. Existing backup schedules are systemd timers
+        with no row; the backup scheduler adopts them the first time it
+        lists them, so nothing here has to read systemd.
+
+        Args:
+            cursor: Cursor the migration runs on.
+        """
+        # Idempotent for the same reason as v8-to-v9.
+        apps = {row[1] for row in cursor.execute("PRAGMA table_info(apps)").fetchall()}
+        for name, definition in APPS_V10_COLUMNS:
+            if name not in apps:
+                cursor.execute(f"ALTER TABLE apps ADD COLUMN {name} {definition}")
+        _run_script(cursor, V10_SCHEMA_SQL)
 
     # =========================================================================
     # Application CRUD
@@ -3182,6 +3576,638 @@ class WASMStore:
     # =========================================================================
     # Utility methods
     # =========================================================================
+
+    # =========================================================================
+    # Schema v10: blue/green, secret marks, GitHub installation, previews link
+    # =========================================================================
+
+    def _set_app_columns(self, domain: str, values: dict[str, Any]) -> bool:
+        """
+        Write some of an application's own-setter columns.
+
+        Args:
+            domain: Application domain.
+            values: Column name to value; names come from this class only.
+
+        Returns:
+            True if the application exists and the row was updated.
+        """
+        assignments = ", ".join(f"{column} = ?" for column in values)
+        with self._transaction() as cursor:
+            cursor.execute(
+                f"UPDATE apps SET {assignments}, updated_at = ? WHERE domain = ?",
+                (*values.values(), datetime.now().isoformat(), domain),
+            )
+            return cursor.rowcount > 0
+
+    def set_zero_downtime(
+        self, domain: str, enabled: bool, *, drain_seconds: int | None = None
+    ) -> bool:
+        """
+        Turn blue/green activation on or off for an application.
+
+        Only the flag and the drain are stored here; moving the application
+        between the two modes (units, upstream) is the deployer's work, which
+        calls this once that is done.
+
+        Args:
+            domain: Application domain.
+            enabled: True for two instances and a switch of the upstream.
+            drain_seconds: Seconds the old instance keeps running after the
+                switch; None for :data:`DEFAULT_DRAIN_SECONDS`.
+
+        Returns:
+            True if the application exists and the row was updated.
+
+        Raises:
+            ValidationError: The drain is out of range; nothing is written.
+        """
+        if drain_seconds is not None and (
+            isinstance(drain_seconds, bool)
+            or not isinstance(drain_seconds, int)
+            or not 0 <= drain_seconds <= MAX_DRAIN_SECONDS
+        ):
+            raise ValidationError(
+                f"Cannot drain for {drain_seconds!r} seconds",
+                details=f"Drain from 0 to {MAX_DRAIN_SECONDS} seconds.",
+                field="drain_seconds",
+            )
+        return self._set_app_columns(
+            domain,
+            {
+                "zero_downtime": 1 if enabled else 0,
+                "drain_seconds": drain_seconds,
+                # The color means nothing once the mode is off.
+                **({} if enabled else {"active_color": None}),
+            },
+        )
+
+    def set_active_color(self, domain: str, color: str | None) -> bool:
+        """
+        Record which instance of a blue/green application serves.
+
+        Args:
+            domain: Application domain.
+            color: ``blue``, ``green``, or None when none does.
+
+        Returns:
+            True if the application exists and the row was updated.
+
+        Raises:
+            ValidationError: The color is neither.
+        """
+        if color is not None and color not in BLUE_GREEN_COLORS:
+            raise ValidationError(f"Unknown instance color: {color!r}")
+        return self._set_app_columns(domain, {"active_color": color})
+
+    def set_env_secret_marks(self, domain: str, marks: dict[str, bool]) -> bool:
+        """
+        Store which environment variables the operator marked secret or not.
+
+        Replaces every mark at once. A variable absent from ``marks`` is
+        judged by its name and value again.
+
+        Args:
+            domain: Application domain.
+            marks: Variable name to True (secret) or False (not secret).
+
+        Returns:
+            True if the application exists and the row was updated.
+
+        Raises:
+            ValidationError: A name is not an environment variable name, or a
+                mark is not a boolean.
+        """
+        from wasm.validators.environment import ENV_NAME_PATTERN
+
+        for name, mark in marks.items():
+            if not isinstance(name, str) or not ENV_NAME_PATTERN.match(name):
+                raise ValidationError(f"Invalid variable name: {name!r}", field="marks")
+            if not isinstance(mark, bool):
+                raise ValidationError(f"The mark of {name} must be true or false", field="marks")
+        return self._set_app_columns(
+            domain, {"env_secret_marks": json.dumps(dict(marks), sort_keys=True)}
+        )
+
+    def set_github_installation(self, domain: str, installation_id: int | None) -> bool:
+        """
+        Record which GitHub App installation clones an application's source.
+
+        Args:
+            domain: Application domain.
+            installation_id: The installation, or None for none.
+
+        Returns:
+            True if the application exists and the row was updated.
+        """
+        return self._set_app_columns(domain, {"github_installation_id": installation_id})
+
+    def set_preview_parent(self, domain: str, parent: str | None) -> bool:
+        """
+        Record that an application is the preview of another.
+
+        Args:
+            domain: The preview's domain.
+            parent: The application it previews, or None.
+
+        Returns:
+            True if the application exists and the row was updated.
+        """
+        return self._set_app_columns(domain, {"preview_parent": parent})
+
+    # =========================================================================
+    # Previews (schema v10)
+    # =========================================================================
+
+    def get_preview_settings(self, app_domain: str) -> PreviewSettings | None:
+        """
+        Read the previews an application allows.
+
+        Args:
+            app_domain: Application domain.
+
+        Returns:
+            Its settings, or None when previews are off.
+        """
+        row = (
+            self._get_connection()
+            .execute("SELECT * FROM preview_settings WHERE app_domain = ?", (app_domain,))
+            .fetchone()
+        )
+        return PreviewSettings.from_row(row) if row else None
+
+    def save_preview_settings(self, settings: PreviewSettings) -> PreviewSettings:
+        """
+        Turn previews on for an application, or change their settings.
+
+        Values are validated by the previews manager before they get here.
+
+        Args:
+            settings: The settings.
+
+        Returns:
+            The settings as stored.
+        """
+        now = _utc_now()
+        with self._transaction() as cursor:
+            cursor.execute(
+                "INSERT INTO preview_settings (app_domain, base_domain, max_previews, "
+                "ttl_hours, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(app_domain) DO UPDATE SET base_domain = excluded.base_domain, "
+                "max_previews = excluded.max_previews, ttl_hours = excluded.ttl_hours, "
+                "updated_at = excluded.updated_at",
+                (
+                    settings.app_domain,
+                    settings.base_domain,
+                    settings.max_previews,
+                    settings.ttl_hours,
+                    now,
+                    now,
+                ),
+            )
+        stored = self.get_preview_settings(settings.app_domain)
+        return _written(stored)
+
+    def delete_preview_settings(self, app_domain: str) -> bool:
+        """
+        Turn previews off for an application (its previews are not touched).
+
+        Args:
+            app_domain: Application domain.
+
+        Returns:
+            True if they were on.
+        """
+        with self._transaction() as cursor:
+            cursor.execute("DELETE FROM preview_settings WHERE app_domain = ?", (app_domain,))
+            return cursor.rowcount > 0
+
+    def save_preview(self, preview: PreviewRecord) -> PreviewRecord:
+        """
+        Create or update the preview of one pull request.
+
+        Keyed by application and pull request number: a new push to the same
+        pull request updates its row.
+
+        Args:
+            preview: The preview.
+
+        Returns:
+            The preview as stored, with its id.
+        """
+        now = _utc_now()
+        with self._transaction() as cursor:
+            cursor.execute(
+                "INSERT INTO previews (parent_domain, domain, number, branch, head_sha, provider, "
+                "repository, comment_ref, status, error, created_at, updated_at, expires_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(parent_domain, number) DO UPDATE SET domain = excluded.domain, "
+                "branch = excluded.branch, head_sha = excluded.head_sha, "
+                "provider = excluded.provider, repository = excluded.repository, "
+                "comment_ref = excluded.comment_ref, status = excluded.status, "
+                "error = excluded.error, updated_at = excluded.updated_at, "
+                "expires_at = excluded.expires_at",
+                (
+                    preview.parent_domain,
+                    preview.domain,
+                    preview.number,
+                    preview.branch,
+                    preview.head_sha,
+                    preview.provider,
+                    preview.repository,
+                    preview.comment_ref,
+                    preview.status,
+                    preview.error,
+                    now,
+                    now,
+                    preview.expires_at,
+                ),
+            )
+        stored = self.get_preview(preview.parent_domain, preview.number)
+        return _written(stored)
+
+    def get_preview(self, parent_domain: str, number: int) -> PreviewRecord | None:
+        """
+        Read the preview of one pull request.
+
+        Args:
+            parent_domain: The application previewed.
+            number: The pull request number.
+
+        Returns:
+            The preview, or None.
+        """
+        row = (
+            self._get_connection()
+            .execute(
+                "SELECT * FROM previews WHERE parent_domain = ? AND number = ?",
+                (parent_domain, number),
+            )
+            .fetchone()
+        )
+        return PreviewRecord.from_row(row) if row else None
+
+    def get_preview_by_domain(self, domain: str) -> PreviewRecord | None:
+        """
+        Read a preview by its own domain.
+
+        Args:
+            domain: The preview's domain.
+
+        Returns:
+            The preview, or None.
+        """
+        row = (
+            self._get_connection()
+            .execute("SELECT * FROM previews WHERE domain = ?", (domain,))
+            .fetchone()
+        )
+        return PreviewRecord.from_row(row) if row else None
+
+    def list_previews(self, parent_domain: str | None = None) -> list[PreviewRecord]:
+        """
+        List previews, oldest first.
+
+        Args:
+            parent_domain: Only this application's; None for all.
+
+        Returns:
+            The previews.
+        """
+        if parent_domain is None:
+            rows = self._get_connection().execute("SELECT * FROM previews ORDER BY id").fetchall()
+        else:
+            rows = (
+                self._get_connection()
+                .execute(
+                    "SELECT * FROM previews WHERE parent_domain = ? ORDER BY id", (parent_domain,)
+                )
+                .fetchall()
+            )
+        return [PreviewRecord.from_row(row) for row in rows]
+
+    def list_expired_previews(self, now: str) -> list[PreviewRecord]:
+        """
+        List previews whose time is up.
+
+        Args:
+            now: The current time, UTC ISO 8601, as :func:`_utc_now` writes.
+
+        Returns:
+            The previews that expired at or before ``now``.
+        """
+        rows = (
+            self._get_connection()
+            .execute("SELECT * FROM previews WHERE expires_at <= ? ORDER BY id", (now,))
+            .fetchall()
+        )
+        return [PreviewRecord.from_row(row) for row in rows]
+
+    def delete_preview(self, domain: str) -> bool:
+        """
+        Forget a preview (its application is removed by the previews manager).
+
+        Args:
+            domain: The preview's domain.
+
+        Returns:
+            True if it existed.
+        """
+        with self._transaction() as cursor:
+            cursor.execute("DELETE FROM previews WHERE domain = ?", (domain,))
+            return cursor.rowcount > 0
+
+    # =========================================================================
+    # Backup destinations and schedules (schema v10)
+    # =========================================================================
+
+    def save_backup_destination(
+        self, destination: BackupDestinationRecord
+    ) -> BackupDestinationRecord:
+        """
+        Create or replace a backup destination (its credentials are secret files).
+
+        Args:
+            destination: The destination.
+
+        Returns:
+            The destination as stored.
+        """
+        now = _utc_now()
+        with self._transaction() as cursor:
+            cursor.execute(
+                "INSERT INTO backup_destinations (name, backend, settings, encrypted, "
+                "created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(name) DO UPDATE SET backend = excluded.backend, "
+                "settings = excluded.settings, encrypted = excluded.encrypted, "
+                "updated_at = excluded.updated_at",
+                (
+                    destination.name,
+                    destination.backend,
+                    json.dumps(destination.settings, sort_keys=True),
+                    1 if destination.encrypted else 0,
+                    now,
+                    now,
+                ),
+            )
+        stored = self.get_backup_destination(destination.name)
+        return _written(stored)
+
+    def get_backup_destination(self, name: str) -> BackupDestinationRecord | None:
+        """
+        Read a backup destination.
+
+        Args:
+            name: Its name.
+
+        Returns:
+            The destination, or None.
+        """
+        row = (
+            self._get_connection()
+            .execute("SELECT * FROM backup_destinations WHERE name = ?", (name,))
+            .fetchone()
+        )
+        return BackupDestinationRecord.from_row(row) if row else None
+
+    def list_backup_destinations(self) -> list[BackupDestinationRecord]:
+        """
+        List the backup destinations by name.
+
+        Returns:
+            The destinations.
+        """
+        rows = (
+            self._get_connection()
+            .execute("SELECT * FROM backup_destinations ORDER BY name")
+            .fetchall()
+        )
+        return [BackupDestinationRecord.from_row(row) for row in rows]
+
+    def delete_backup_destination(self, name: str) -> bool:
+        """
+        Forget a backup destination.
+
+        Args:
+            name: Its name.
+
+        Returns:
+            True if it existed.
+        """
+        with self._transaction() as cursor:
+            cursor.execute("DELETE FROM backup_destinations WHERE name = ?", (name,))
+            return cursor.rowcount > 0
+
+    def save_backup_schedule(self, schedule: BackupScheduleRecord) -> BackupScheduleRecord:
+        """
+        Create or replace an application's backup schedule.
+
+        Args:
+            schedule: The schedule.
+
+        Returns:
+            The schedule as stored.
+        """
+        now = _utc_now()
+        with self._transaction() as cursor:
+            cursor.execute(
+                "INSERT INTO backup_schedules (app_domain, schedule, include_databases, "
+                "retention_count, retention_days, destinations, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(app_domain) DO UPDATE SET schedule = excluded.schedule, "
+                "include_databases = excluded.include_databases, "
+                "retention_count = excluded.retention_count, "
+                "retention_days = excluded.retention_days, "
+                "destinations = excluded.destinations, updated_at = excluded.updated_at",
+                (
+                    schedule.app_domain,
+                    schedule.schedule,
+                    1 if schedule.include_databases else 0,
+                    schedule.retention_count,
+                    schedule.retention_days,
+                    json.dumps(schedule.destinations, sort_keys=True),
+                    now,
+                    now,
+                ),
+            )
+        stored = self.get_backup_schedule(schedule.app_domain)
+        return _written(stored)
+
+    def get_backup_schedule(self, app_domain: str) -> BackupScheduleRecord | None:
+        """
+        Read an application's backup schedule.
+
+        Args:
+            app_domain: Application domain.
+
+        Returns:
+            The schedule, or None.
+        """
+        row = (
+            self._get_connection()
+            .execute("SELECT * FROM backup_schedules WHERE app_domain = ?", (app_domain,))
+            .fetchone()
+        )
+        return BackupScheduleRecord.from_row(row) if row else None
+
+    def list_backup_schedules(self) -> list[BackupScheduleRecord]:
+        """
+        List every backup schedule by domain.
+
+        Returns:
+            The schedules.
+        """
+        rows = (
+            self._get_connection()
+            .execute("SELECT * FROM backup_schedules ORDER BY app_domain")
+            .fetchall()
+        )
+        return [BackupScheduleRecord.from_row(row) for row in rows]
+
+    def delete_backup_schedule(self, app_domain: str) -> bool:
+        """
+        Forget an application's backup schedule.
+
+        Args:
+            app_domain: Application domain.
+
+        Returns:
+            True if it existed.
+        """
+        with self._transaction() as cursor:
+            cursor.execute("DELETE FROM backup_schedules WHERE app_domain = ?", (app_domain,))
+            return cursor.rowcount > 0
+
+    # =========================================================================
+    # GitHub App (schema v10)
+    # =========================================================================
+
+    def save_github_app(self, app: GitHubAppRecord) -> GitHubAppRecord:
+        """
+        Record this server's GitHub App, replacing any previous one.
+
+        Args:
+            app: The app as GitHub created it.
+
+        Returns:
+            The app as stored.
+        """
+        with self._transaction() as cursor:
+            cursor.execute(
+                "INSERT INTO github_app (id, app_id, slug, name, owner, html_url, client_id, "
+                "created_at) VALUES (1, ?, ?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(id) DO UPDATE SET app_id = excluded.app_id, slug = excluded.slug, "
+                "name = excluded.name, owner = excluded.owner, html_url = excluded.html_url, "
+                "client_id = excluded.client_id, created_at = excluded.created_at",
+                (
+                    app.app_id,
+                    app.slug,
+                    app.name,
+                    app.owner,
+                    app.html_url,
+                    app.client_id,
+                    _utc_now(),
+                ),
+            )
+        stored = self.get_github_app()
+        return _written(stored)
+
+    def get_github_app(self) -> GitHubAppRecord | None:
+        """
+        Read this server's GitHub App.
+
+        Returns:
+            The app, or None when there is none.
+        """
+        row = self._get_connection().execute("SELECT * FROM github_app WHERE id = 1").fetchone()
+        return GitHubAppRecord.from_row(row) if row else None
+
+    def delete_github_app(self) -> bool:
+        """
+        Forget the GitHub App, its installations, and every application's link to them.
+
+        Returns:
+            True if there was one.
+        """
+        with self._transaction() as cursor:
+            cursor.execute("DELETE FROM github_installations")
+            cursor.execute("UPDATE apps SET github_installation_id = NULL")
+            cursor.execute("DELETE FROM github_app")
+            return cursor.rowcount > 0
+
+    def save_github_installation(
+        self, installation: GitHubInstallationRecord
+    ) -> GitHubInstallationRecord:
+        """
+        Record an installation of the GitHub App, or update it.
+
+        Args:
+            installation: The installation.
+
+        Returns:
+            The installation as stored.
+        """
+        now = _utc_now()
+        with self._transaction() as cursor:
+            cursor.execute(
+                "INSERT INTO github_installations (installation_id, account, account_type, "
+                "repository_selection, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(installation_id) DO UPDATE SET account = excluded.account, "
+                "account_type = excluded.account_type, "
+                "repository_selection = excluded.repository_selection, "
+                "updated_at = excluded.updated_at",
+                (
+                    installation.installation_id,
+                    installation.account,
+                    installation.account_type,
+                    installation.repository_selection,
+                    now,
+                    now,
+                ),
+            )
+        row = (
+            self._get_connection()
+            .execute(
+                "SELECT * FROM github_installations WHERE installation_id = ?",
+                (installation.installation_id,),
+            )
+            .fetchone()
+        )
+        return GitHubInstallationRecord.from_row(row)
+
+    def list_github_installations(self) -> list[GitHubInstallationRecord]:
+        """
+        List the GitHub App's installations by account.
+
+        Returns:
+            The installations.
+        """
+        rows = (
+            self._get_connection()
+            .execute("SELECT * FROM github_installations ORDER BY account")
+            .fetchall()
+        )
+        return [GitHubInstallationRecord.from_row(row) for row in rows]
+
+    def delete_github_installation(self, installation_id: int) -> bool:
+        """
+        Forget an installation, and every application's link to it.
+
+        Args:
+            installation_id: The installation.
+
+        Returns:
+            True if it existed.
+        """
+        with self._transaction() as cursor:
+            cursor.execute(
+                "UPDATE apps SET github_installation_id = NULL WHERE github_installation_id = ?",
+                (installation_id,),
+            )
+            cursor.execute(
+                "DELETE FROM github_installations WHERE installation_id = ?", (installation_id,)
+            )
+            return cursor.rowcount > 0
 
     def get_app_with_relations(self, domain: str) -> dict[str, Any] | None:
         """

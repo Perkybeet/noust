@@ -35,6 +35,7 @@ from wasm.core.config import Config
 from wasm.core.exceptions import (
     DeploymentError,
     DockerError,
+    RolledBackError,
     SecurityError,
     ValidationError,
     WASMError,
@@ -1766,7 +1767,7 @@ class DockerComposeDeployer(AppDeployer):
         restored, after = self._activate(lambda: None)
         if restored:
             self.store.update_app_status(self.domain, AppStatus.RUNNING.value)
-            return DeploymentError(
+            return RolledBackError(
                 f"{attempted}; the containers that were serving are running again",
                 details=_paragraphs(evidence, *notes),
             )

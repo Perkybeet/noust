@@ -169,6 +169,26 @@ def isolated_store_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 @pytest.fixture(autouse=True)
+def quiet_deploy_events() -> Iterator[None]:
+    """
+    Keep the default deployment listeners (notifications, GitHub) out of tests.
+
+    A test that deploys must not try to notify a channel or call GitHub; a
+    test of a listener calls it directly or subscribes explicitly.
+
+    Yields:
+        Nothing; the listeners are forgotten on the way out.
+    """
+    from wasm.deployers import deploy_events
+
+    deploy_events.reset()
+    deploy_events.suspend_defaults(True)
+    yield
+    deploy_events.reset()
+    deploy_events.suspend_defaults(False)
+
+
+@pytest.fixture(autouse=True)
 def default_filesystem() -> Iterator[None]:
     """
     Put the process-wide filesystem back to the real one after every test.

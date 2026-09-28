@@ -93,7 +93,7 @@ def get_public_key(private_key_path: Path | None = None) -> str | None:
 
     try:
         return public_key_path.read_text().strip()
-    except Exception:
+    except (OSError, UnicodeDecodeError):
         return None
 
 
@@ -119,7 +119,7 @@ def generate_ssh_key(
     if not ssh_dir.exists():
         try:
             ssh_dir.mkdir(mode=0o700, parents=True)
-        except Exception as e:
+        except OSError as e:
             return False, None, f"Failed to create SSH directory: {e}"
 
     # Determine key path

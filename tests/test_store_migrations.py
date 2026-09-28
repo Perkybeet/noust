@@ -324,7 +324,7 @@ class TestSchemaV9Migration:
 
         store = WASMStore(db_path, fs=RecordingFileSystem())
 
-        assert _raw_max_version(db_path) == SCHEMA_VERSION == 9
+        assert _raw_max_version(db_path) == SCHEMA_VERSION
         app = store.get_app("v8.example.com")
         assert app is not None
         assert (app.layout, app.keep_releases, app.memory_max_mb) == ("releases", 7, 512)
@@ -394,3 +394,77 @@ class TestSchemaV9Migration:
             90,
         )
         assert store.get_deployment(1).snapshot_backup == "v8-example-com_20260102_030405"
+
+
+class TestSchemaV10Migration:
+    """
+    Schema v10: blue/green, secret marks, the GitHub link and the preview link
+    on every application, and the tables previews, backup destinations and
+    schedules, and the GitHub App keep.
+    """
+
+    V10_TABLES = {
+        "preview_settings",
+        "previews",
+        "backup_destinations",
+        "backup_schedules",
+        "github_app",
+        "github_installations",
+    }
+
+    def test_a_v8_database_climbs_to_v10_with_everything_off(self, fresh, tmp_path):
+        """Every new column is off or NULL - exactly what 2.1 did - and the rows survive."""
+        db_path = tmp_path / "wasm.db"
+        _create_v8_database(db_path)
+
+        store = WASMStore(db_path, fs=RecordingFileSystem())
+
+        assert _raw_max_version(db_path) == SCHEMA_VERSION == 10
+        app = store.get_app("v8.example.com")
+        assert app is not None
+        assert (app.zero_downtime, app.active_color, app.drain_seconds) == (False, None, None)
+        assert app.env_secret_marks == {}
+        assert (app.github_installation_id, app.preview_parent) == (None, None)
+        with sqlite3.connect(db_path) as conn:
+            tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master")}
+        assert self.V10_TABLES <= tables
+
+    def test_the_fresh_schema_and_the_migration_agree(self, fresh, tmp_path):
+        """Both paths to v10 give every table the same columns."""
+        db_path = tmp_path / "migrated.db"
+        _create_v8_database(db_path)
+        WASMStore(db_path, fs=RecordingFileSystem())
+        WASMStore.reset_instance()
+        WASMStore(tmp_path / "fresh.db", fs=RecordingFileSystem())
+
+        for table in ("apps", *sorted(self.V10_TABLES)):
+            assert _raw_columns(db_path, table) == _raw_columns(tmp_path / "fresh.db", table)
+
+    def test_the_migration_is_idempotent(self, fresh, tmp_path):
+        """Run again on a migrated database, it adds nothing and breaks nothing."""
+        db_path = tmp_path / "wasm.db"
+        _create_v8_database(db_path)
+        store = WASMStore(db_path, fs=RecordingFileSystem())
+        before = _raw_columns(db_path, "apps")
+
+        with store._ddl_transaction() as cursor:
+            store._migrate_v9_to_v10(cursor)
+
+        assert _raw_columns(db_path, "apps") == before
+
+    def test_a_failing_v9_to_v10_step_leaves_v9_intact(self, fresh, tmp_path):
+        """A crash partway rolls the step back with its version row."""
+        db_path = tmp_path / "wasm.db"
+        _create_v8_database(db_path)
+
+        def _crash(self: WASMStore, cursor: sqlite3.Cursor) -> None:
+            cursor.execute("ALTER TABLE apps ADD COLUMN zero_downtime INTEGER NOT NULL DEFAULT 0")
+            raise sqlite3.OperationalError("simulated crash mid-migration")
+
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr(WASMStore, "_migrate_v9_to_v10", _crash)
+            with pytest.raises(sqlite3.OperationalError):
+                WASMStore(db_path, fs=RecordingFileSystem())
+
+        assert _raw_max_version(db_path) == 9
+        assert "zero_downtime" not in _raw_columns(db_path, "apps")

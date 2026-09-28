@@ -91,7 +91,9 @@ def is_port_available(port: int, host: str = "127.0.0.1") -> bool:
             sock.settimeout(1)
             result = sock.connect_ex((host, port))
             return result != 0
-    except Exception:
+    except OSError:
+        # No socket could be made (descriptors exhausted, say): the port
+        # cannot be vouched for.
         return False
 
 

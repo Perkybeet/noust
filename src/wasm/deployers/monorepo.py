@@ -42,6 +42,7 @@ from wasm.core.exceptions import (
     BuildError,
     DeploymentError,
     OutOfMemoryError,
+    RolledBackError,
     ServiceError,
     WASMError,
 )
@@ -853,7 +854,7 @@ class MonorepoDeployer(AppDeployer):
 
         again = self._restart_and_probe(units)
         if again.healthy:
-            return DeploymentError(
+            return RolledBackError(
                 f"{attempted}; commit {previous} is serving again", details=evidence
             )
         return DeploymentError(

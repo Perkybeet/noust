@@ -189,7 +189,9 @@ class TestErrorHandling:
     #: catches are the genuine per-connection error boundaries, and they log.
     #: wasm/core/update_checker.py kept one of its eight: the top of its
     #: background thread, which logs; the rest catch what they guard against.
-    MAX_BLIND_EXCEPTS = 29
+    #: 2.2: the deployment event dispatcher is a logged boundary (a listener
+    #: must not fail a deployment); port and SSH key helpers now catch OSError.
+    MAX_BLIND_EXCEPTS = 27
 
     def test_blind_excepts_do_not_grow(self):
         found: list[str] = []

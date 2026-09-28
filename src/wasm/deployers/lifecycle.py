@@ -59,6 +59,7 @@ from wasm.core.applock import app_lock
 from wasm.core.config import Config
 from wasm.core.exceptions import (
     DeploymentError,
+    RolledBackError,
     ServiceError,
     SourceError,
     ValidationError,
@@ -78,6 +79,7 @@ from wasm.core.store import (
     get_store,
 )
 from wasm.core.utils import domain_to_app_name
+from wasm.deployers import deploy_events
 from wasm.deployers.base import BaseDeployer
 from wasm.deployers.docker_compose import (
     DockerComposeDeployer,
@@ -1253,7 +1255,10 @@ def _restore_previous(
     releases.activate(previous.path)
     restored, _ = health_gate_for(app, store, log).restart_and_probe()
     state = "is active again" if restored else "is active again but is not answering either"
-    return DeploymentError(
+    # Only a previous release that answers makes this a rollback: one that
+    # does not leaves the application down, which is a plain failure.
+    error_class = RolledBackError if restored else DeploymentError
+    return error_class(
         f"Release {target.id} did not pass its health check; release {previous.id} {state}",
         details=evidence,
     )
@@ -1879,8 +1884,25 @@ def _record_failure_after_the_fact(
         return
     try:
         store.finish_deployment(deployment_id, DeploymentStatus.FAILED.value, error=error.message)
+        record = store.get_deployment(deployment_id)
     except _RECORDING_ERRORS as exc:
         log.warning(f"Could not record deployment {deployment_id} as failed: {exc}")
+        return
+    if record is not None:
+        # The recorder already announced a success for this row; what the
+        # listeners were told must follow the row.
+        deploy_events.publish(
+            deploy_events.DeployEvent(
+                kind=deploy_events.DeployEventKind.FAILED,
+                domain=record.domain,
+                deployment_id=deployment_id,
+                trigger=record.triggered_by,
+                commit=record.git_commit,
+                branch=record.git_branch,
+                error=error.message,
+                job_id=record.job_id,
+            )
+        )
 
 
 # ---------------------------------------------------------------------------

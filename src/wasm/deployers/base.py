@@ -44,6 +44,7 @@ from wasm.core.exceptions import (
     CertificateError,
     DeploymentError,
     OutOfMemoryError,
+    RolledBackError,
     ServiceError,
     ValidationError,
     WASMError,
@@ -1957,7 +1958,10 @@ class BaseDeployer(AppDeployer):
         staged.manager.activate(previous.path)
         restored, _ = self._restart_and_probe()
         state = "is active again" if restored else "is active again but is not answering either"
-        raise DeploymentError(
+        # Only a previous release that answers makes this a rollback: one that
+        # does not leaves the application down, which is a plain failure.
+        error_class = RolledBackError if restored else DeploymentError
+        raise error_class(
             f"Release {staged.id} did not pass its health check; release {previous.id} {state}",
             details=evidence,
         )

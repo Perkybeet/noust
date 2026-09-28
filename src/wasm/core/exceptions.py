@@ -63,6 +63,19 @@ class DeploymentError(WASMError):
     pass
 
 
+class RolledBackError(DeploymentError):
+    """
+    Raised when a new version failed and what served before was put back.
+
+    A deployment that ends this way failed, and says so, but the application
+    is not down: the previous release, commit or containers answer again.
+    The deployment record and its notification tell the two apart through
+    this class, so no caller has to read the message to know.
+    """
+
+    pass
+
+
 class BuildError(DeploymentError):
     """Raised when application build fails."""
 

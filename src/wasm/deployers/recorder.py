@@ -37,11 +37,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Protocol, TextIO
 
-from wasm.core.exceptions import WASMError
+from wasm.core.exceptions import RolledBackError, WASMError
 from wasm.core.fs import DryRunFileSystem, FileSystem, get_fs
 from wasm.core.logger import Icons, Logger
 from wasm.core.redact import Scrubber, app_secret_values, scrubber_for, secret_env_values
 from wasm.core.store import DeploymentStatus, WASMStore
+from wasm.deployers.deploy_events import DeployEvent, DeployEventKind, publish
 
 #: How many history rows, and their log files, survive per domain.
 DEFAULT_KEEP = 20
@@ -264,6 +265,7 @@ class DeploymentRecorder:
         self._store = store
         self._domain = domain
         self._trigger = trigger
+        self._rolled_back = False
         self._logger = logger
         self._fs = fs if fs is not None else get_fs()
         self._git_info = git_info
@@ -310,6 +312,7 @@ class DeploymentRecorder:
             return
 
         self.also_capture(self._logger)
+        self._announce(DeployEventKind.STARTED, branch=git_branch)
 
     def also_capture(self, logger: Logger) -> None:
         """
@@ -378,6 +381,9 @@ class DeploymentRecorder:
         # A fresh deploy wrote its .env during the run; read it again so a
         # value generated there is known before the error is stored.
         self._scrubber.add(app_secret_values(self._domain))
+        # The row says failed either way; the announcement says whether the
+        # application is still up on what served before.
+        self._rolled_back = isinstance(error, RolledBackError)
         self._finish(DeploymentStatus.FAILED.value, self._scrub(str(error)))
 
     # Internals -------------------------------------------------------------
@@ -459,6 +465,8 @@ class DeploymentRecorder:
         if self._deployment_id is None or self._finished:
             return
         self._finished = True
+        git_commit: str | None = None
+        git_branch: str | None = None
         try:
             git_commit, git_branch = self._collect_git_info()
             commit_message = self._collect_commit_message()
@@ -475,6 +483,43 @@ class DeploymentRecorder:
             self._rotate()
         except _RECORDING_ERRORS as exc:
             self._warn(exc)
+        if status == DeploymentStatus.SUCCESS.value:
+            kind = DeployEventKind.SUCCEEDED
+        elif self._rolled_back:
+            kind = DeployEventKind.ROLLED_BACK
+        else:
+            kind = DeployEventKind.FAILED
+        self._announce(kind, commit=git_commit, branch=git_branch, error=error)
+
+    def _announce(
+        self,
+        kind: DeployEventKind,
+        *,
+        commit: str | None = None,
+        branch: str | None = None,
+        error: str | None = None,
+    ) -> None:
+        """
+        Publish a deployment event for this recording.
+
+        Args:
+            kind: What happened.
+            commit: The commit deployed, when known.
+            branch: The branch deployed, when known.
+            error: The scrubbed failure, when it failed.
+        """
+        publish(
+            DeployEvent(
+                kind=kind,
+                domain=self._domain,
+                deployment_id=self._deployment_id,
+                trigger=self._trigger,
+                commit=commit,
+                branch=branch,
+                error=error,
+                job_id=self._job_id,
+            )
+        )
 
     def _collect_git_info(self) -> tuple[str | None, str | None]:
         """
