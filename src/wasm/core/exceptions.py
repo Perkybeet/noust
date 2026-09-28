@@ -338,3 +338,9 @@ class EnvConfigError(WASMError):
     """Raised when environment configuration fails."""
 
     pass
+
+
+class IntegrationError(WASMError):
+    """Raised when a code host (GitHub) refuses a request or cannot be reached."""
+
+    pass

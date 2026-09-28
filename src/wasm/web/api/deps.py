@@ -54,6 +54,7 @@ from wasm.core.exceptions import (
     DatabaseNotFoundError,
     DomainConflictError,
     DomainError,
+    IntegrationError,
     SecurityError,
     SourceError,
     ValidationError,
@@ -112,6 +113,8 @@ _STATUS_BY_ERROR: tuple[tuple[type[WASMError], int], ...] = (
     (ConfigError, 400),
     (SourceError, 400),
     (WASMPermissionError, 403),
+    # GitHub refused or could not be reached: the fault is upstream.
+    (IntegrationError, 502),
 )
 
 
