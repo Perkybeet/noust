@@ -6352,6 +6352,10 @@ export interface components {
          *         run_as: The account its unit runs as, or None for a static site.
          *         last_deployment: Its most recent deployment attempt, or None when
          *             nothing has ever been recorded for it.
+         *         zero_downtime: Whether it runs as two instances behind an nginx
+         *             upstream (blue/green); details at ``/zero-downtime``.
+         *         preview_parent: The application it previews a pull request of, or
+         *             None when it is not a preview.
          */
         AppInfo: {
             /** Active */
@@ -6395,6 +6399,8 @@ export interface components {
             pid?: number | null;
             /** Port */
             port?: number | null;
+            /** Preview Parent */
+            preview_parent?: string | null;
             /** Run As */
             run_as?: string | null;
             /** Source */
@@ -6414,6 +6420,11 @@ export interface components {
              * @default false
              */
             webhook_enabled: boolean;
+            /**
+             * Zero Downtime
+             * @default false
+             */
+            zero_downtime: boolean;
         };
         /**
          * AppListResponse

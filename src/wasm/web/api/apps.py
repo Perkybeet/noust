@@ -178,6 +178,10 @@ class AppInfo(BaseModel):
         run_as: The account its unit runs as, or None for a static site.
         last_deployment: Its most recent deployment attempt, or None when
             nothing has ever been recorded for it.
+        zero_downtime: Whether it runs as two instances behind an nginx
+            upstream (blue/green); details at ``/zero-downtime``.
+        preview_parent: The application it previews a pull request of, or
+            None when it is not a preview.
     """
 
     name: str
@@ -206,6 +210,8 @@ class AppInfo(BaseModel):
     unit: str | None = None
     run_as: str | None = None
     last_deployment: LastDeploymentOut | None = None
+    zero_downtime: bool = False
+    preview_parent: str | None = None
 
 
 class AppListResponse(BaseModel):
@@ -576,6 +582,8 @@ def _to_app_info(
         unit=service.name if service is not None else None,
         run_as=service.user if service is not None else None,
         last_deployment=_last_deployment_out(last_deployment),
+        zero_downtime=bool(getattr(app, "zero_downtime", False)),
+        preview_parent=getattr(app, "preview_parent", None),
     )
 
 
