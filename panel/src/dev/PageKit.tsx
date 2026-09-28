@@ -71,7 +71,7 @@ function Facts() {
                 { label: "Main PID", value: 41002 },
                 { label: "Starts at boot", value: "Yes", mono: false, copy: false },
                 { label: "Layout", value: "Releases", mono: false, copy: false, hint: "Each deploy is a release; rollback is instant" },
-                { label: "Directory", value: "/var/www/apps/shop.arenna.dev/releases/20260925-143012-a1b2c3d" },
+                { label: "Directory", value: "/var/www/apps/shop.example.dev/releases/20260925-143012-a1b2c3d" },
                 { label: "Unit user", value: null },
               ]}
             />
@@ -153,7 +153,7 @@ const LONG_FAILURE = new ApiError(
   "configtesterror",
   Array.from({ length: 14 }, (_, index) =>
     index === 9
-      ? 'nginx: [emerg] unknown directive "proxy_passs" in /etc/nginx/sites-enabled/shop.arenna.dev:23'
+      ? 'nginx: [emerg] unknown directive "proxy_passs" in /etc/nginx/sites-enabled/shop.example.dev:23'
       : `nginx: [warn] the "listen ... http2" directive is deprecated, use the "http2" directive instead in /etc/nginx/sites-enabled/site-${String(index)}:4`,
   ).join("\n") + "\nnginx: configuration file /etc/nginx/nginx.conf test failed",
   "Fix the line nginx names, then save again. The file on disk is unchanged.",
@@ -209,7 +209,7 @@ function States() {
               </ul>
             )}
           </QueryState>
-          <ErrorBlock live compact error={FAILURE} title="Renewal of shop.arenna.dev failed" />
+          <ErrorBlock live compact error={FAILURE} title="Renewal of shop.example.dev failed" />
           <ErrorBlock compact error={LONG_FAILURE} title="The configuration test failed" />
         </div>
       </Stage>
@@ -283,8 +283,8 @@ function Terminal() {
     >
       <Stage>
         <div className="flex flex-col gap-4">
-          <CommandHint command="wasm status shop.arenna.dev" label="From a terminal" />
-          <CommandHint command="wasm create -d shop.arenna.dev -s git@github.com:arenna/shop.git -t nextjs --branch main" />
+          <CommandHint command="wasm status shop.example.dev" label="From a terminal" />
+          <CommandHint command="wasm create -d shop.example.dev -s git@github.com:acme/shop.git -t nextjs --branch main" />
         </div>
       </Stage>
     </Section>
@@ -306,9 +306,9 @@ function Danger() {
             description="Stops and removes the service, the site, the certificate and the files. Backups are kept."
             action={
               <ConfirmDialog
-                title="Delete shop.arenna.dev"
+                title="Delete shop.example.dev"
                 description="Stops and removes the service, the site, the certificate and the app's files. Backups are kept."
-                confirmText="shop.arenna.dev"
+                confirmText="shop.example.dev"
                 actionLabel="Delete application"
                 onConfirm={() => new Promise((resolve) => setTimeout(resolve, 800))}
                 trigger={<Button variant="danger">Delete application</Button>}

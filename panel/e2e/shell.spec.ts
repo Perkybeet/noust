@@ -147,11 +147,11 @@ test("the command palette opens with Ctrl+K, filters, navigates on Enter and clo
 
   // Applications come from the API: the seeded machine's apps are searchable.
   await page.keyboard.press("Control+k");
-  await search.fill("picconia");
-  await expect(page.getByRole("option", { name: /picconia\.com/ })).toBeVisible();
+  await search.fill("shop");
+  await expect(page.getByRole("option", { name: /shop\.example\.net/ })).toBeVisible();
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/apps\/picconia\.com$/);
-  await expect(heading(page)).toHaveText("picconia.com");
+  await expect(page).toHaveURL(/\/apps\/shop\.example\.net$/);
+  await expect(heading(page)).toHaveText("shop.example.net");
 
   // Opened from the search button, Escape hands focus back to it.
   const trigger = page.getByRole("button", { name: /^Search/ }).first();

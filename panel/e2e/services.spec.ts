@@ -11,15 +11,15 @@ test("lists a seeded WASM-managed service and opens its page", async ({ page, co
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Services");
 
   const table = page.getByRole("region", { name: /^Services/ });
-  const link = table.getByRole("link", { name: "wasm-picconia-com" });
+  const link = table.getByRole("link", { name: "wasm-shop-example-net" });
   await expect(link).toBeVisible();
 
   await settle(page);
   await expectNoA11yViolations(page, "the services list");
 
   await link.click();
-  await expect(page).toHaveURL(/\/services\/wasm-picconia-com$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("wasm-picconia-com");
+  await expect(page).toHaveURL(/\/services\/wasm-shop-example-net$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("wasm-shop-example-net");
   // Its facts say who manages it (a foreign unit's page says WASM did not create it).
   await expect(page.getByText("Managed by", { exact: true })).toBeVisible();
   await expect(page.getByRole("region", { name: /Logs for/ })).toBeVisible();
@@ -27,11 +27,11 @@ test("lists a seeded WASM-managed service and opens its page", async ({ page, co
 });
 
 test("restarts a unit from its own page", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/services/wasm-picconia-com");
-  const restarted = page.waitForResponse((response) => response.url().endsWith("/api/services/wasm-picconia-com/restart"));
+  await signIn(page, consoleServer, "/services/wasm-shop-example-net");
+  const restarted = page.waitForResponse((response) => response.url().endsWith("/api/services/wasm-shop-example-net/restart"));
   await page.getByRole("button", { name: "Restart" }).click();
   expect((await restarted).status()).toBe(200);
-  await expect(toasts(page).getByText("Restarted wasm-picconia-com")).toBeVisible();
+  await expect(toasts(page).getByText("Restarted wasm-shop-example-net")).toBeVisible();
 });
 
 test("creates a service in simple mode and finds it in the list", async ({ page, consoleServer, problems }) => {
@@ -57,9 +57,9 @@ test("creates a service in simple mode and finds it in the list", async ({ page,
 });
 
 test("saving the unit file asks to confirm it's you, then shows the saved result", async ({ page, consoleServer, problems }) => {
-  problems.expect(/status of 403 .*\/api\/services\/wasm-picconia-com\/config$/);
-  await signIn(page, consoleServer, "/services/wasm-picconia-com");
-  const textarea = page.getByLabel("Unit file for wasm-picconia-com", { exact: true });
+  problems.expect(/status of 403 .*\/api\/services\/wasm-shop-example-net\/config$/);
+  await signIn(page, consoleServer, "/services/wasm-shop-example-net");
+  const textarea = page.getByLabel("Unit file for wasm-shop-example-net", { exact: true });
   await expect(textarea).toBeVisible();
   const original = await textarea.inputValue();
   await textarea.fill(`${original}\n# edited by e2e\n`);
@@ -72,18 +72,18 @@ test("saving the unit file asks to confirm it's you, then shows the saved result
   await page.getByRole("button", { name: "Confirm" }).click();
   await expect(confirm).toBeHidden();
 
-  await expect(toasts(page).getByText("Saved the unit file for wasm-picconia-com")).toBeVisible();
+  await expect(toasts(page).getByText("Saved the unit file for wasm-shop-example-net")).toBeVisible();
   await expect(textarea).toHaveValue(/# edited by e2e/);
 
   // The elevation covers the next ten minutes; reloading the unit file's own read (no
   // elevation needed for GET) confirms the write actually landed, not just the toast.
   await page.reload();
-  await expect(page.getByLabel("Unit file for wasm-picconia-com", { exact: true })).toHaveValue(/# edited by e2e/);
+  await expect(page.getByLabel("Unit file for wasm-shop-example-net", { exact: true })).toHaveValue(/# edited by e2e/);
 });
 
 test("checks the unit with systemd-analyze before saving, and blocks a save it rejects", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/services/wasm-picconia-com");
-  const textarea = page.getByLabel("Unit file for wasm-picconia-com", { exact: true });
+  await signIn(page, consoleServer, "/services/wasm-shop-example-net");
+  const textarea = page.getByLabel("Unit file for wasm-shop-example-net", { exact: true });
   const original = await textarea.inputValue();
   // The fake systemd-analyze refuses a unit with no ExecStart=; nothing else about the file
   // needs to be realistic for the check to fail.
@@ -104,7 +104,7 @@ test("checks the unit with systemd-analyze before saving, and blocks a save it r
 
   // Nothing was written: reloading shows the unit exactly as it was before the attempt.
   await page.reload();
-  await expect(page.getByLabel("Unit file for wasm-picconia-com", { exact: true })).toHaveValue(original);
+  await expect(page.getByLabel("Unit file for wasm-shop-example-net", { exact: true })).toHaveValue(original);
 });
 
 test("shows every unit, including one WASM did not create, read-only, behind the show-all-units toggle", async ({ page, consoleServer, problems }) => {

@@ -79,13 +79,13 @@ describe("QueryState", () => {
   });
 
   it("shows the content once loaded", () => {
-    renderState(query({ data: ["picconia.com", "cittek.es"] }));
+    renderState(query({ data: ["shop.example.net", "example.org"] }));
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
   });
 
   it("keeps the last answer on screen when a refresh fails, and says so", () => {
-    renderState(query({ data: ["picconia.com"], isError: true, error: FAILURE }));
-    expect(screen.getByText("picconia.com")).toBeInTheDocument();
+    renderState(query({ data: ["shop.example.net"], isError: true, error: FAILURE }));
+    expect(screen.getByText("shop.example.net")).toBeInTheDocument();
     expect(screen.getByText(/Could not refresh applications/)).toBeInTheDocument();
   });
 

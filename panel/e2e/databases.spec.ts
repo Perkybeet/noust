@@ -21,8 +21,8 @@ test("engines, databases and users are listed, and the page passes axe", async (
   await expect(engines.getByRole("button", { name: "Install" })).toBeVisible();
 
   const databases = page.getByRole("region", { name: "Databases" });
-  await expect(databases.getByRole("link", { name: "arennalabs_production" })).toBeVisible();
-  await expect(databases.getByRole("link", { name: "picconia_wp" })).toBeVisible();
+  await expect(databases.getByRole("link", { name: "example_production" })).toBeVisible();
+  await expect(databases.getByRole("link", { name: "shop_wp" })).toBeVisible();
 
   await settle(page);
   await expectNoA11yViolations(page, "the databases page");
@@ -74,8 +74,8 @@ test("creating a user shows its password exactly once", async ({ page, consoleSe
 });
 
 test("a read query against the SQL console renders as a grid", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/databases/postgresql/arennalabs_production");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("arennalabs_production");
+  await signIn(page, consoleServer, "/databases/postgresql/example_production");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("example_production");
 
   const console_ = page.getByRole("region", { name: "SQL console" });
   await expect(console_.getByRole("radio", { name: "Read" })).toHaveAttribute("aria-checked", "true");
@@ -101,7 +101,7 @@ test("a read query against the SQL console renders as a grid", async ({ page, co
 
 test("write mode asks the operator to confirm it's them before it runs", async ({ page, consoleServer, problems }) => {
   problems.expect(/status of 403 .*\/api\/databases\/query$/);
-  await signIn(page, consoleServer, "/databases/postgresql/arennalabs_production");
+  await signIn(page, consoleServer, "/databases/postgresql/example_production");
 
   const console_ = page.getByRole("region", { name: "SQL console" });
   await console_.getByRole("radio", { name: "Write" }).click();
@@ -146,7 +146,7 @@ test("the grant dialog offers the engine's own privileges, not a fixed list", as
   await expectNoA11yViolations(page, "the grant dialog");
 
   await dialog.getByRole("combobox", { name: "Database" }).click();
-  await page.getByRole("option", { name: "arennalabs_production" }).click();
+  await page.getByRole("option", { name: "example_production" }).click();
   await dialog.getByRole("checkbox", { name: "SELECT" }).click();
 
   const granted = page.waitForRequest(
@@ -156,7 +156,7 @@ test("the grant dialog offers the engine's own privileges, not a fixed list", as
   expect((await granted).postDataJSON()).toEqual({
     engine: "postgresql",
     username: "wasm_app",
-    database: "arennalabs_production",
+    database: "example_production",
     host: "localhost",
     privileges: ["SELECT"],
   });

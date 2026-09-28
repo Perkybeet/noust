@@ -1,7 +1,7 @@
 /**
  * Why each environment variable is hidden or shown, and the operator's own call about it,
  * against the real backend (2.2). The seed (tests/panel_factory.seed_env_marks) marks two
- * variables of blog.cittek.es: ANALYTICS_TOKEN, hidden by its name, as not secret, and
+ * variables of blog.example.org: ANALYTICS_TOKEN, hidden by its name, as not secret, and
  * SMTP_HOST, which nothing about looks secret, as secret. Every other line is the
  * classifier's own verdict, said in words.
  *
@@ -13,7 +13,7 @@ import type { Page } from "@playwright/test";
 
 import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, stillness, test } from "./fixtures";
 
-const DOMAIN = "blog.cittek.es";
+const DOMAIN = "blog.example.org";
 const SEEDED_MARKS = { ANALYTICS_TOKEN: false, SMTP_HOST: true };
 
 function table(page: Page) {
@@ -105,7 +105,7 @@ test("says why each value is hidden, and marks one secret, not secret or automat
   // The listing follows the marks: a secret comes masked, a value marked not secret in clear.
   const listing = (await (await page.request.get(`/api/apps/${DOMAIN}/env`)).json()) as { variables: Record<string, string> };
   expect(listing.variables.FEATURE_FLAGS).toBe("***");
-  expect(listing.variables.SMTP_HOST).toBe("smtp.cittek.es");
+  expect(listing.variables.SMTP_HOST).toBe("smtp.example.org");
   expect(listing.variables.ANALYTICS_TOKEN).toBe("***");
   const saved = await marksOf(page);
   expect(saved.FEATURE_FLAGS).toEqual({ secret: true, reason: "marked secret", marked: true });

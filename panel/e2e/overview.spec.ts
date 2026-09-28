@@ -8,7 +8,7 @@
 import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
 
 /** The app the seed fails: its newest deploy failed with npm's own words. */
-const FAILED = "clientes.arennalabs.com";
+const FAILED = "clientes.example.com";
 
 test("a failed app is under Needs attention, in its own words, and links to its page", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer);
@@ -37,8 +37,8 @@ test("a failed app is under Needs attention, in its own words, and links to its 
 test("the expiring certificate and the failed unit are named too", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer);
   const attention = page.getByRole("region", { name: /^Needs attention/ });
-  // The seed's arennalabs.com certificate expires in twelve days.
-  const cert = attention.getByRole("listitem").filter({ has: page.getByRole("link", { name: "arennalabs.com", exact: true }) });
+  // The seed's example.com certificate expires in twelve days.
+  const cert = attention.getByRole("listitem").filter({ has: page.getByRole("link", { name: "example.com", exact: true }) });
   await expect(cert.getByText(/^Certificate expires in \d+ days$/)).toBeVisible();
 
   // A failed app names its own unit; each failed WASM unit beyond those is named and links to it.

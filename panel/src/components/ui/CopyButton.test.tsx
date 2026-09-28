@@ -18,9 +18,9 @@ describe("CopyButton", () => {
   it("copies the exact value and confirms it in words", async () => {
     const writeText = vi.fn(() => Promise.resolve());
     stubClipboard(writeText);
-    render(<CopyButton value="ssh root@arenna.dev" label="Copy SSH command" />);
+    render(<CopyButton value="ssh root@example.dev" label="Copy SSH command" />);
     await userEvent.click(screen.getByRole("button", { name: "Copy SSH command" }));
-    expect(writeText).toHaveBeenCalledWith("ssh root@arenna.dev");
+    expect(writeText).toHaveBeenCalledWith("ssh root@example.dev");
     expect(screen.getByRole("status")).toHaveTextContent("Copied to clipboard");
   });
 

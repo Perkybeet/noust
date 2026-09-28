@@ -36,10 +36,10 @@ test("every seeded app is listed with its state, and the page passes axe", async
   await expect(rows(page)).toHaveCount(total);
   await expect(page.getByText(`${String(total)} applications`)).toBeVisible();
 
-  const picconia = rows(page).filter({ has: page.getByRole("link", { name: "picconia.com", exact: true }) });
-  await expect(picconia.getByText("Running")).toBeVisible();
-  await expect(picconia.getByText("nextjs")).toBeVisible();
-  const landing = rows(page).filter({ has: page.getByRole("link", { name: "bodas.arennalabs.com", exact: true }) });
+  const shop = rows(page).filter({ has: page.getByRole("link", { name: "shop.example.net", exact: true }) });
+  await expect(shop.getByText("Running")).toBeVisible();
+  await expect(shop.getByText("nextjs")).toBeVisible();
+  const landing = rows(page).filter({ has: page.getByRole("link", { name: "bodas.example.com", exact: true }) });
   await expect(landing.getByText("Static", { exact: true })).toBeVisible();
 
   await settle(page);
@@ -51,15 +51,15 @@ test("/ focuses the search, and the search lives in the URL", async ({ page, con
   const apps = await seededApps(page);
   const total = apps.length;
   await expect(rows(page)).toHaveCount(total);
-  const matching = apps.filter((app) => app.domain.includes("arennalabs")).length;
+  const matching = apps.filter((app) => app.domain.includes("example.com")).length;
   expect(matching).toBeGreaterThan(1);
 
   await page.getByRole("heading", { level: 1 }).click();
   await page.keyboard.press("/");
   const search = page.getByRole("searchbox", { name: "Search applications" });
   await expect(search).toBeFocused();
-  await search.fill("arennalabs");
-  await expect(page).toHaveURL(/\/apps\?q=arennalabs$/);
+  await search.fill("example.com");
+  await expect(page).toHaveURL(/\/apps\?q=example\.com$/);
   await expect(rows(page)).toHaveCount(matching);
   await expect(page.getByText(`${String(matching)} of ${String(total)} applications`)).toBeVisible();
 
@@ -94,26 +94,26 @@ test("a row's menu restarts the app and queues an update through the API", async
   await signIn(page, consoleServer, "/apps");
   await expect(rows(page)).toHaveCount(await seeded(page));
 
-  await page.getByRole("button", { name: "Actions for picconia.com" }).click();
+  await page.getByRole("button", { name: "Actions for shop.example.net" }).click();
   await expectNoA11yViolations(page, "a row's menu");
-  const restarted = page.waitForResponse((response) => response.url().endsWith("/api/apps/picconia.com/restart"));
+  const restarted = page.waitForResponse((response) => response.url().endsWith("/api/apps/shop.example.net/restart"));
   await page.getByRole("menuitem", { name: "Restart" }).click();
   expect((await restarted).status()).toBe(200);
-  await expect(toasts(page).getByText("Restarted picconia.com")).toBeVisible();
+  await expect(toasts(page).getByText("Restarted shop.example.net")).toBeVisible();
 
-  await page.getByRole("button", { name: "Actions for picconia.com" }).click();
+  await page.getByRole("button", { name: "Actions for shop.example.net" }).click();
   const queued = page.waitForRequest((request) => request.url().endsWith("/api/jobs/update") && request.method() === "POST");
   await page.getByRole("menuitem", { name: "Update" }).click();
-  expect((await queued).postDataJSON()).toEqual({ domain: "picconia.com", force: false });
-  await expect(toasts(page).getByText("Update of picconia.com queued")).toBeVisible();
+  expect((await queued).postDataJSON()).toEqual({ domain: "shop.example.net", force: false });
+  await expect(toasts(page).getByText("Update of shop.example.net queued")).toBeVisible();
 });
 
 test("a static site has nothing to restart", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/apps");
-  await page.getByRole("button", { name: "Actions for bodas.arennalabs.com" }).click();
+  await page.getByRole("button", { name: "Actions for bodas.example.com" }).click();
   await expect(page.getByRole("menuitem", { name: "Restart" })).toHaveAttribute("aria-disabled", "true");
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("button", { name: "Actions for bodas.arennalabs.com" })).toBeFocused();
+  await expect(page.getByRole("button", { name: "Actions for bodas.example.com" })).toBeFocused();
 });
 
 test("on a phone the table scrolls inside itself, never the page", async ({ page, consoleServer }) => {

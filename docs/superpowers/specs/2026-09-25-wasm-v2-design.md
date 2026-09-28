@@ -306,7 +306,7 @@ layout en disco de las apps nuevas.
 
 ## Riesgos
 
-- **Producción del dueño** (≈19 apps en arennalabs.com): la v2 no toca apps existentes hasta
+- **Producción del dueño** (≈19 apps reales): la v2 no toca apps existentes hasta
   que se migran a mano. El paquete no se instala allí sin haber pasado el arnés real.
 - **Determinismo del build**: si Vite no reproduce byte a byte en CI, el gate compara el
   build de CI consigo mismo dos veces y contra el commiteado a nivel de manifiesto.

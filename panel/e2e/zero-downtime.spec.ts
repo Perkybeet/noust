@@ -1,6 +1,6 @@
 /**
  * Blue/green activation in an application's Settings, against the real engine: the seeded
- * pagos.cittek.es runs as two instances with green serving, is turned off (back to one unit)
+ * pagos.example.org runs as two instances with green serving, is turned off (back to one unit)
  * and on again, each through its confirmation and the real "Confirm it's you", each followed
  * as a job until the backend reports it done. The console server models the instances' units
  * and answers their health checks, so the switches are the ones `wasm app zero-downtime` runs.
@@ -13,9 +13,9 @@ import type { Page } from "@playwright/test";
 
 import { confirmItsYou, expect, expectNoA11yViolations, signIn, stillness, test, toasts } from "./fixtures";
 
-const ZD_APP = "pagos.cittek.es";
-const UNIT = "pagos-cittek-es";
-const IN_PLACE_APP = "picconia.com";
+const ZD_APP = "pagos.example.org";
+const UNIT = "pagos-example-org";
+const IN_PLACE_APP = "shop.example.net";
 /** What the seed recorded, and what the test puts back. */
 const DRAIN = "2";
 

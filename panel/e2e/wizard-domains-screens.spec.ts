@@ -44,7 +44,7 @@ const SCREENS: readonly Screen[] = [
     path: "/apps/new",
     act: async (page, server, problems) => {
       await inspected(page, server, problems);
-      await page.getByLabel("Domain", { exact: true }).fill("tienda-nueva.qrboda.com");
+      await page.getByLabel("Domain", { exact: true }).fill("tienda-nueva.example.net");
       for (const field of await page.getByRole("button", { name: /^Generate/ }).all()) await field.click();
       await page.getByLabel("DATABASE_URL").fill("postgres://storefront@localhost/storefront");
       await page.getByRole("button", { name: "Continue" }).click();
@@ -77,13 +77,13 @@ const SCREENS: readonly Screen[] = [
       await expect(page.getByRole("dialog", { name: "Issue a certificate" })).toBeVisible();
     },
   },
-  { name: "site-config", path: "/domains/sites/qrboda.com" },
+  { name: "site-config", path: "/domains/sites/example.net" },
   {
     name: "site-config-rejected",
-    path: "/domains/sites/arennalabs.com",
-    expect: /status of (403|400) .* \/api\/sites\/arennalabs\.com\/config$/,
+    path: "/domains/sites/example.com",
+    expect: /status of (403|400) .* \/api\/sites\/example\.com\/config$/,
     act: async (page, server) => {
-      const editor = page.getByRole("textbox", { name: "Configuration of arennalabs.com" });
+      const editor = page.getByRole("textbox", { name: "Configuration of example.com" });
       await expect(editor).toHaveValue(/server_name/);
       const text = await editor.inputValue();
       await editor.fill(text.replace("proxy_http_version 1.1;", "proxy_http_version 1.1"));
@@ -96,15 +96,15 @@ const SCREENS: readonly Screen[] = [
       await expect(page.getByText("Nothing was saved: the configuration test failed.")).toBeVisible();
     },
   },
-  { name: "app-domains", path: "/apps/picconia.com/domains" },
+  { name: "app-domains", path: "/apps/shop.example.net/domains" },
   {
     name: "app-domains-failed",
-    path: "/apps/qrboda.com/domains",
+    path: "/apps/example.net/domains",
     act: async (page) => {
-      if ((await page.getByText("soon.qrboda.com", { exact: true }).count()) > 0) return;
+      if ((await page.getByText("soon.example.net", { exact: true }).count()) > 0) return;
       await page.getByRole("button", { name: "Add domain" }).click();
-      const dialog = page.getByRole("dialog", { name: "Add a domain to qrboda.com" });
-      await dialog.getByLabel("Domain").fill("soon.qrboda.com");
+      const dialog = page.getByRole("dialog", { name: "Add a domain to example.net" });
+      await dialog.getByLabel("Domain").fill("soon.example.net");
       await dialog.getByRole("button", { name: "Check DNS" }).click();
       await dialog.getByRole("button", { name: "Add anyway" }).click();
       await expect(page.getByText("The certificate was not extended")).toBeVisible({ timeout: 20_000 });
@@ -115,13 +115,13 @@ const SCREENS: readonly Screen[] = [
   },
   {
     name: "app-domains-add",
-    path: "/apps/cittek.es/domains",
+    path: "/apps/example.org/domains",
     act: async (page) => {
       await page.getByRole("button", { name: "Add domain" }).click();
-      const dialog = page.getByRole("dialog", { name: "Add a domain to cittek.es" });
-      await dialog.getByLabel("Domain").fill("old.cittek.es");
+      const dialog = page.getByRole("dialog", { name: "Add a domain to example.org" });
+      await dialog.getByLabel("Domain").fill("old.example.org");
       await dialog.getByRole("button", { name: "Check DNS" }).click();
-      await expect(dialog.getByText("old.cittek.es points somewhere else")).toBeVisible();
+      await expect(dialog.getByText("old.example.org points somewhere else")).toBeVisible();
     },
   },
 ];

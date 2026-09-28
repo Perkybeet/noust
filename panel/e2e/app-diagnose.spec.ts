@@ -10,9 +10,9 @@ import type { Page } from "@playwright/test";
 import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
 
 /** Its unit is failed: systemd gave up restarting it. */
-const FAILED = "clientes.arennalabs.com";
+const FAILED = "clientes.example.com";
 /** On releases, running and answering. */
-const RUNNING = "tienda.cittek.es";
+const RUNNING = "tienda.example.org";
 
 function verdict(page: Page) {
   return page.getByRole("heading", { level: 2, name: /^Verdict:/ });

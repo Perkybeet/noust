@@ -54,7 +54,7 @@ describe("Checkbox", () => {
       <div>
         <Checkbox label="Include www" description="Redirect www to the apex." defaultChecked />
         <Checkbox label="All volumes" indeterminate />
-        <Checkbox aria-label="Select shop.arenna.dev" />
+        <Checkbox aria-label="Select shop.example.dev" />
         <Checkbox label="Encrypt" disabled />
       </div>,
     );

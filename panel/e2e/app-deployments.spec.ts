@@ -6,19 +6,19 @@
  * both themes, with the CSP and console gates of the `problems` fixture.
  *
  * The seeded machine (scripts/console_server.py, "an application's tabs" and "a deploy's
- * actions"): tienda.cittek.es is on releases with thirteen deploys, two of whose releases are
- * on disk and not serving; pedidos.cittek.es is in place with a real tree whose update runs the
+ * actions"): tienda.example.org is on releases with thirteen deploys, two of whose releases are
+ * on disk and not serving; pedidos.example.org is in place with a real tree whose update runs the
  * real update sequence, its npm output streamed a line at a time, and a deployment whose
- * snapshot backup still exists; bodas.arennalabs.com is a static site with one deploy.
+ * snapshot backup still exists; bodas.example.com is a static site with one deploy.
  */
 
 import type { Page } from "@playwright/test";
 
 import { expect, expectNoA11yViolations, settle, signIn, stillness, test } from "./fixtures";
 
-const RELEASES_APP = "tienda.cittek.es";
-const LIVE_APP = "pedidos.cittek.es";
-const STATIC_APP = "bodas.arennalabs.com";
+const RELEASES_APP = "tienda.example.org";
+const LIVE_APP = "pedidos.example.org";
+const STATIC_APP = "bodas.example.com";
 
 interface Row {
   id: number;

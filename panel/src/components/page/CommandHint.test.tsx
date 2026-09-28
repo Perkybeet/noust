@@ -7,8 +7,8 @@ import { CommandHint } from "./CommandHint";
 
 describe("CommandHint", () => {
   it("shows the command behind a prompt that is not part of it", () => {
-    render(<CommandHint command="wasm status picconia.com" label="From a terminal" />);
-    const code = screen.getByText("wasm status picconia.com", { exact: false });
+    render(<CommandHint command="wasm status shop.example.net" label="From a terminal" />);
+    const code = screen.getByText("wasm status shop.example.net", { exact: false });
     expect(code.tagName).toBe("CODE");
     expect(code.querySelector('[aria-hidden="true"]')).toHaveTextContent("$");
     expect(screen.getByText("From a terminal")).toBeInTheDocument();
@@ -18,9 +18,9 @@ describe("CommandHint", () => {
     const writeText = vi.fn(() => Promise.resolve());
     vi.stubGlobal("isSecureContext", true);
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
-    render(<CommandHint command="wasm update picconia.com" />);
+    render(<CommandHint command="wasm update shop.example.net" />);
     await userEvent.click(screen.getByRole("button", { name: "Copy command" }));
-    expect(writeText).toHaveBeenCalledWith("wasm update picconia.com");
+    expect(writeText).toHaveBeenCalledWith("wasm update shop.example.net");
   });
 
   it("has no accessibility violations", async () => {

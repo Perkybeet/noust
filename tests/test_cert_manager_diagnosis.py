@@ -38,9 +38,9 @@ from wasm.managers.cert_manager import CertManager
 _CHALLENGE_FAILURE = (
     "Certbot failed to authenticate some domains (authenticator: standalone). "
     "The Certificate Authority reported these problems:\n"
-    "  Domain: arenna38.com\n"
+    "  Domain: expired.example.com\n"
     "  Type:   connection\n"
-    "  Detail: Fetching http://arenna38.com/.well-known/acme-challenge/xyz: "
+    "  Detail: Fetching http://expired.example.com/.well-known/acme-challenge/xyz: "
     "Connection refused connecting to 2001:db8::9999, addressUsed: 2001:db8::9999\n"
 )
 
@@ -90,7 +90,7 @@ def test_a_wrong_aaaa_record_is_named_as_the_cause(
         "check_dns",
         _fake_check_dns(
             DnsCheck(
-                domain="arenna38.com",
+                domain="expired.example.com",
                 expected_addresses=("203.0.113.10",),
                 resolved_addresses=("2001:db8::9999",),
                 points_here=False,
@@ -99,15 +99,15 @@ def test_a_wrong_aaaa_record_is_named_as_the_cause(
     )
 
     with pytest.raises(CertificateError) as raised:
-        certs.obtain("arenna38.com", standalone=True)
+        certs.obtain("expired.example.com", standalone=True)
 
     error = raised.value
     assert error.message == (
-        "arenna38.com has an IPv6 (AAAA) record, 2001:db8::9999, that is not this machine. "
+        "expired.example.com has an IPv6 (AAAA) record, 2001:db8::9999, that is not this machine. "
         "Let's Encrypt connects over IPv6 first, so the challenge reached another server."
     )
     assert error.details == (
-        "Remove or correct the AAAA record for arenna38.com; this machine answers on 203.0.113.10."
+        "Remove or correct the AAAA record for expired.example.com; this machine answers on 203.0.113.10."
     )
     # certbot's own output is never lost, even once it has been diagnosed.
     assert "Connection refused" in (error.output or "")
@@ -261,7 +261,7 @@ def test_renewal_of_one_domain_is_diagnosed_the_same_way(
         "check_dns",
         _fake_check_dns(
             DnsCheck(
-                domain="arenna38.com",
+                domain="expired.example.com",
                 expected_addresses=("203.0.113.10",),
                 resolved_addresses=("2001:db8::9999",),
                 points_here=False,
@@ -270,7 +270,7 @@ def test_renewal_of_one_domain_is_diagnosed_the_same_way(
     )
 
     with pytest.raises(CertificateError) as raised:
-        certs.renew("arenna38.com")
+        certs.renew("expired.example.com")
 
     assert "IPv6 (AAAA) record" in raised.value.message
 
@@ -285,7 +285,7 @@ def test_the_letsencrypt_log_fills_in_a_detail_stdout_lacks(
         "2026-01-01 00:00:00,000:DEBUG:certbot._internal.log:noise\n"
         "2026-01-01 00:00:01,000:DEBUG:acme.client:Storing nonce\n"
         "2026-01-01 00:00:02,000:INFO:certbot._internal.reporter:"
-        "Detail: Fetching http://arenna38.com/.well-known/acme-challenge/xyz: "
+        "Detail: Fetching http://expired.example.com/.well-known/acme-challenge/xyz: "
         "Connection refused connecting to 2001:db8::9999, addressUsed: 2001:db8::9999\n"
     )
     monkeypatch.setattr(cert_manager_module, "LETSENCRYPT_LOG", log_path)
@@ -293,7 +293,7 @@ def test_the_letsencrypt_log_fills_in_a_detail_stdout_lacks(
     # carries neither "Detail:" nor "addressUsed" itself.
     runner.script(
         ["certbot", "certonly"],
-        stderr="Fetching http://arenna38.com/.well-known/acme-challenge/xyz timed out\n",
+        stderr="Fetching http://expired.example.com/.well-known/acme-challenge/xyz timed out\n",
         exit_code=1,
     )
     monkeypatch.setattr(
@@ -301,7 +301,7 @@ def test_the_letsencrypt_log_fills_in_a_detail_stdout_lacks(
         "check_dns",
         _fake_check_dns(
             DnsCheck(
-                domain="arenna38.com",
+                domain="expired.example.com",
                 expected_addresses=("203.0.113.10",),
                 resolved_addresses=("203.0.113.10",),
                 points_here=True,
@@ -310,9 +310,9 @@ def test_the_letsencrypt_log_fills_in_a_detail_stdout_lacks(
     )
 
     with pytest.raises(CertificateError) as raised:
-        certs.obtain("arenna38.com", standalone=True)
+        certs.obtain("expired.example.com", standalone=True)
 
-    assert "Fetching http://arenna38.com/.well-known/acme-challenge/xyz timed out" in (
+    assert "Fetching http://expired.example.com/.well-known/acme-challenge/xyz timed out" in (
         raised.value.output or ""
     )
     assert "Detail: Fetching" in (raised.value.output or "")

@@ -46,7 +46,7 @@ test("a repository and branch chosen from GitHub reach the inspection and the de
   // Reading a source as root is sudo mode: the first inspection of a session is refused until
   // "Confirm it's you", and retried.
   problems.expect(/status of 403 .* \/api\/apps\/inspect$/);
-  const domain = "desde-github.qrboda.com";
+  const domain = "desde-github.example.net";
   await signIn(page, consoleServer, "/apps/new");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("New application");
 
@@ -62,11 +62,11 @@ test("a repository and branch chosen from GitHub reach the inspection and the de
   // Typed to filter, chosen from the keyboard.
   await search.fill("land");
   await expect(repositories).toHaveCount(1);
-  await expect(repositories.first()).toContainText("arennalabs/landing");
+  await expect(repositories.first()).toContainText("acme/landing");
   await search.press("Enter");
   const change = page.getByRole("button", { name: "Change repository" });
   await expect(change).toBeFocused();
-  await expect(page.getByText("arennalabs/landing", { exact: true })).toBeVisible();
+  await expect(page.getByText("acme/landing", { exact: true })).toBeVisible();
 
   // The default branch is chosen; another is picked from GitHub's list.
   const branch = page.getByRole("combobox", { name: "Branch" });
@@ -83,7 +83,7 @@ test("a repository and branch chosen from GitHub reach the inspection and the de
   );
   await page.getByRole("button", { name: "Inspect source" }).click();
   expect((await inspected).postDataJSON()).toMatchObject({
-    source: "github:arennalabs/landing",
+    source: "github:acme/landing",
     branch: "develop",
     github_installation_id: 61000001,
   });
@@ -110,7 +110,7 @@ test("a repository and branch chosen from GitHub reach the inspection and the de
   await page.getByRole("button", { name: `Deploy ${domain}` }).click();
   expect((await queued).postDataJSON()).toMatchObject({
     domain,
-    source: "github:arennalabs/landing",
+    source: "github:acme/landing",
     branch: "develop",
     github_installation_id: 61000001,
     app_type: "nextjs",

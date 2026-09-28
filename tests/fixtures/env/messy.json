@@ -5,7 +5,7 @@
   "REDIS_URL": "redis://:s3cr3t@127.0.0.1:6379/0",
   "JWT_SECRET": "2f7c9e1a4b6d8f0a3c5e7b9d1f2a4c6e",
   "SMTP_PASSWORD": "",
-  "MAIL_FROM": "Pedidos Cittek <pedidos@cittek.es>",
+  "MAIL_FROM": "Example Orders <orders@example.org>",
   "QUERY_STRING": "a=1&b=2",
   "GREETING": "hola # not a comment",
   "FEATURE_FLAGS": "checkout-v2,fast-search",

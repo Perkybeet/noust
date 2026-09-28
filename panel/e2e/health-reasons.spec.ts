@@ -27,8 +27,8 @@ test("a report that needs attention lists its warnings beside the checks", async
   // Every reason carries its level as a word, beside the report's own sentence.
   await expect(reasons.getByRole("listitem").filter({ hasText: "Warning" }).filter({ hasText: /^Warning.*App '.+' - / }).first()).toBeVisible();
   await expect(reasons.getByText(/^Critical/)).toHaveCount(0);
-  const expiring = reasons.getByRole("listitem").filter({ hasText: /Certificate for picconia\.com expires in \d+ days/ });
-  await expect(expiring.getByRole("link", { name: "picconia.com" })).toHaveAttribute("href", "/domains?q=picconia.com");
+  const expiring = reasons.getByRole("listitem").filter({ hasText: /Certificate for shop\.example\.net expires in \d+ days/ });
+  await expect(expiring.getByRole("link", { name: "shop.example.net" })).toHaveAttribute("href", "/domains?q=shop.example.net");
   await settle(page);
   await expectNoA11yViolations(page, "the health reasons");
 });
@@ -54,20 +54,20 @@ withExpiredCertificate("a critical report names the expired certificate and link
   await expect(health.getByText("Critical", { exact: true }).first()).toBeVisible();
   const reasons = health.getByRole("group", { name: "Reasons" });
   const issue = reasons.getByRole("listitem").first();
-  await expect(issue).toContainText(/^CriticalCertificate for arennalabs\.com expired \d+ days ago$/);
+  await expect(issue).toContainText(/^CriticalCertificate for example\.com expired \d+ days ago$/);
   await settle(page);
   await expectNoA11yViolations(page, "a critical health report");
 
-  await issue.getByRole("link", { name: "arennalabs.com" }).click();
-  await expect(page).toHaveURL(/\/domains\?q=arennalabs\.com$/);
-  await expect(page.getByRole("searchbox", { name: "Filter certificates by name" })).toHaveValue("arennalabs.com");
+  await issue.getByRole("link", { name: "example.com" }).click();
+  await expect(page).toHaveURL(/\/domains\?q=example\.com$/);
+  await expect(page.getByRole("searchbox", { name: "Filter certificates by name" })).toHaveValue("example.com");
   const certificates = page.getByRole("region", { name: "Certificates matching the filter" });
-  await expect(certificates.getByRole("row").nth(1)).toContainText("arennalabs.com");
+  await expect(certificates.getByRole("row").nth(1)).toContainText("example.com");
   await expect(certificates.getByRole("row").nth(1)).toContainText(/Expired/);
   // Only certificates covering that name are left.
   for (const row of await certificates.getByRole("row").all()) {
     if ((await row.getByRole("columnheader").count()) > 0) continue;
-    await expect(row).toContainText("arennalabs.com");
+    await expect(row).toContainText("example.com");
   }
   await settle(page);
   await expectNoA11yViolations(page, "the certificates filtered from the health report");

@@ -1,6 +1,6 @@
 /**
- * Pull request previews against the real backend: portal.cittek.es has previews on under
- * previews.cittek.es, with #42 ready (deployed as its own application), #57 building and #61
+ * Pull request previews against the real backend: portal.example.org has previews on under
+ * previews.example.org, with #42 ready (deployed as its own application), #57 building and #61
  * failed. Its Settings tab draws every state and the failed build's output verbatim, the
  * applications list says whose preview #42 is, the settings are saved through "Confirm it's
  * you", and removing #42 takes its application down through the real deletion job.
@@ -14,8 +14,8 @@ import type { Page } from "@playwright/test";
 import { confirmItsYou, expect, expectNoA11yViolations, signIn, stillness, test } from "./fixtures";
 import { toastSaying } from "./settings.helpers";
 
-const APP = "portal.cittek.es";
-const READY = "pr-42-portal-cittek-es.previews.cittek.es";
+const APP = "portal.example.org";
+const READY = "pr-42-portal-example-org.previews.example.org";
 
 test.describe.configure({ mode: "serial" });
 
@@ -38,8 +38,8 @@ test("the settings show previews on, and each preview in its state", async ({ pa
   await signIn(page, consoleServer, `/apps/${APP}/settings`);
   const section = previewsSection(page);
   await expect(section.getByText("Pull requests get a preview.", { exact: true })).toBeVisible();
-  await expect(section.getByLabel("Base domain")).toHaveValue("previews.cittek.es");
-  await expect(section.getByText(/^Now: at most 5 previews under previews\.cittek\.es/)).toBeVisible();
+  await expect(section.getByLabel("Base domain")).toHaveValue("previews.example.org");
+  await expect(section.getByText(/^Now: at most 5 previews under previews\.example\.org/)).toBeVisible();
   await expect(section.getByText("3 of at most 5", { exact: true })).toBeVisible();
 
   const ready = previewItem(page, 42);
@@ -47,7 +47,7 @@ test("the settings show previews on, and each preview in its state", async ({ pa
   await expect(ready.getByRole("link", { name: READY, exact: true })).toBeVisible();
   await expect(ready.getByText("feature/checkout-redesign", { exact: true })).toBeVisible();
   await expect(ready.getByText("8c1f2e7", { exact: true })).toBeVisible();
-  await expect(ready.getByText("github cittek/portal", { exact: true })).toBeVisible();
+  await expect(ready.getByText("github example-org/portal", { exact: true })).toBeVisible();
   await expect(ready.getByRole("link", { name: "Open preview of pull request #42 (opens in a new tab)" })).toHaveAttribute(
     "href",
     `https://${READY}`,
@@ -102,9 +102,9 @@ test("the preview settings are saved and kept", async ({ page, consoleServer }) 
   const sent = page.waitForRequest((r) => r.url().endsWith(`/api/apps/${APP}/previews/settings`) && r.method() === "PUT");
   await save.click();
   await confirmItsYou(page, consoleServer);
-  expect((await sent).postDataJSON()).toMatchObject({ base_domain: "previews.cittek.es", max_previews: 4, ttl_hours: 72 });
+  expect((await sent).postDataJSON()).toMatchObject({ base_domain: "previews.example.org", max_previews: 4, ttl_hours: 72 });
   await expect(toastSaying(page, `Saved the preview settings of ${APP}`)).toBeVisible();
-  await expect(section.getByText(/^Now: at most 4 previews under previews\.cittek\.es, each removed after 3 days/)).toBeVisible();
+  await expect(section.getByText(/^Now: at most 4 previews under previews\.example\.org, each removed after 3 days/)).toBeVisible();
 
   await page.reload();
   await expect(previewsSection(page).getByLabel("At most")).toHaveValue("4");

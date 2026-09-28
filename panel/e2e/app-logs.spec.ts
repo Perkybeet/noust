@@ -7,7 +7,7 @@
 
 import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
 
-const DOMAIN = "tienda.cittek.es";
+const DOMAIN = "tienda.example.org";
 const PHONE = { width: 390, height: 844 };
 
 test("the journal streams in, `/` searches it and counts the matches", async ({ page, consoleServer }) => {
@@ -15,7 +15,7 @@ test("the journal streams in, `/` searches it and counts the matches", async ({ 
   const journal = page.getByRole("region", { name: `Journal of ${DOMAIN}` });
   await expect(page.getByText("Live", { exact: true })).toBeVisible();
   // Following: the newest lines are the ones in view.
-  await expect(journal.getByText(/tienda-cittek-es\[\d+\]: /).last()).toBeVisible();
+  await expect(journal.getByText(/tienda-example-org\[\d+\]: /).last()).toBeVisible();
   const count = page.getByText(/^\d[\d,]* lines$/);
   await expect(count).toBeVisible();
   const before = Number.parseInt(((await count.textContent()) ?? "0").replace(/,/g, ""), 10);
@@ -40,7 +40,7 @@ test("on a phone the journal wraps by default and the toolbar stays on screen", 
   await page.setViewportSize(PHONE);
   await signIn(page, consoleServer, `/apps/${DOMAIN}/logs`);
   const journal = page.getByRole("region", { name: `Journal of ${DOMAIN}` });
-  await expect(journal.getByText(/tienda-cittek-es\[\d+\]: /).first()).toBeVisible();
+  await expect(journal.getByText(/tienda-example-org\[\d+\]: /).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Wrap lines" })).toHaveAttribute("aria-pressed", "true");
 
   // The fullest toolbar state: an active search shows the match counter and step buttons
@@ -58,7 +58,7 @@ test("on a phone the journal wraps by default and the toolbar stays on screen", 
 });
 
 test("a static site says it has no process to log", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/apps/taller.arennalabs.com/logs");
+  await signIn(page, consoleServer, "/apps/taller.example.com/logs");
   await expect(page.getByRole("heading", { level: 2, name: "A static site has no process to log" })).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "a static site's logs tab");

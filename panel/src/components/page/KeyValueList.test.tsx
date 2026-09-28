@@ -12,7 +12,7 @@ function stubClipboard(writeText: (text: string) => Promise<void>) {
 
 const ITEMS = [
   { label: "Port", value: 3001 },
-  { label: "Directory", value: "/var/www/apps/picconia.com" },
+  { label: "Directory", value: "/var/www/apps/shop.example.net" },
   { label: "Starts at boot", value: "Yes", mono: false, copy: false as const },
   { label: "PID", value: null },
 ];
@@ -22,7 +22,7 @@ describe("KeyValueList", () => {
     render(<KeyValueList items={ITEMS} />);
     const terms = screen.getAllByRole("term").map((term) => term.textContent);
     expect(terms).toEqual(["Port", "Directory", "Starts at boot", "PID"]);
-    const directory = screen.getByText("/var/www/apps/picconia.com");
+    const directory = screen.getByText("/var/www/apps/shop.example.net");
     expect(directory).toHaveClass("mono");
     expect(directory.closest("dd")).not.toBeNull();
   });
@@ -37,7 +37,7 @@ describe("KeyValueList", () => {
     stubClipboard(writeText);
     render(<KeyValueList items={ITEMS} />);
     await userEvent.click(screen.getByRole("button", { name: "Copy directory" }));
-    expect(writeText).toHaveBeenCalledWith("/var/www/apps/picconia.com");
+    expect(writeText).toHaveBeenCalledWith("/var/www/apps/shop.example.net");
     expect(screen.getByRole("button", { name: "Copy port" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Copy starts at boot" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Copy pid" })).not.toBeInTheDocument();

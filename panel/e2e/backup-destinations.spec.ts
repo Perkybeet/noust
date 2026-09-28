@@ -76,7 +76,7 @@ test("testing a destination says it is reachable and what is there", async ({ pa
   const toast = toasts(page).locator(".toast").filter({ hasText: `${SFTP} is reachable` });
   await expect(toast).toBeVisible();
   // The folders rclone listed at the destination's path: one per application backed up there.
-  await expect(toast).toContainText("picconia-com/");
+  await expect(toast).toContainText("shop-example-net/");
   await settle(page);
   await expectNoA11yViolations(page, "a tested destination");
 });
@@ -141,12 +141,12 @@ test("browsing a destination lists its applications and backups, and restores on
   const dialog = page.getByRole("dialog", { name: "Browse a destination" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("combobox", { name: "Destination" })).toContainText(SFTP);
-  await expect(dialog.getByRole("button", { name: "arennalabs-com" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "example-com" })).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "a destination's applications");
 
-  await dialog.getByRole("button", { name: "picconia-com" }).click();
-  const backups = dialog.getByRole("region", { name: `Backups on ${SFTP} for picconia-com` });
+  await dialog.getByRole("button", { name: "shop-example-net" }).click();
+  const backups = dialog.getByRole("region", { name: `Backups on ${SFTP} for shop-example-net` });
   const rows = backups.getByRole("row").filter({ hasNot: page.getByRole("columnheader") });
   // The two copies of the local backups, and an older one only the destination still has.
   await expect(rows).toHaveCount(3);
@@ -156,7 +156,7 @@ test("browsing a destination lists its applications and backups, and restores on
   // The oldest: the one there is no local copy of, which is why a destination is restored from.
   const oldest = rows.last();
   const backupId = (await oldest.getByRole("cell").first().innerText()).trim();
-  expect(backupId).toMatch(/^picconia-com_\d{8}_\d{6}$/);
+  expect(backupId).toMatch(/^shop-example-net_\d{8}_\d{6}$/);
   await oldest.getByRole("button", { name: "Restore" }).click();
 
   const confirm = page.getByRole("alertdialog", { name: `Restore ${backupId}` });
@@ -164,8 +164,8 @@ test("browsing a destination lists its applications and backups, and restores on
   const restore = confirm.getByRole("button", { name: "Restore" });
   await expect(restore).toBeDisabled();
   // The folder is named after the application; the target offered is its domain.
-  await expect(confirm.getByLabel("Restore into")).toHaveValue("picconia.com");
-  await confirm.getByLabel(/to confirm$/).fill("picconia.com");
+  await expect(confirm.getByLabel("Restore into")).toHaveValue("shop.example.net");
+  await confirm.getByLabel(/to confirm$/).fill("shop.example.net");
   await expect(restore).toBeEnabled();
   await settle(page);
   await expectNoA11yViolations(page, "restoring from a destination");
@@ -178,7 +178,7 @@ test("browsing a destination lists its applications and backups, and restores on
   );
   await restore.click();
   await confirmItsYou(page, consoleServer);
-  expect((await requested).postDataJSON()).toMatchObject({ app_name: "picconia-com", target_domain: null, restore_env: true });
+  expect((await requested).postDataJSON()).toMatchObject({ app_name: "shop-example-net", target_domain: null, restore_env: true });
   await expect(toasts(page).getByText(`Restore from ${SFTP} queued for ${backupId}`, { exact: true })).toBeVisible();
   const { job_id: jobId } = (await (await accepted).json()) as { job_id: string };
   await expectJobCompletes(page, jobId);
@@ -219,7 +219,7 @@ test("the encrypted destination's key is shown after confirming it's you, and ke
 test("a schedule copies to both destinations, each with its own retention", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/backups");
   const schedules = page.getByRole("region", { name: "Backup schedules" });
-  const row = schedules.getByRole("row").filter({ has: page.getByRole("cell", { name: "picconia.com", exact: true }) });
+  const row = schedules.getByRole("row").filter({ has: page.getByRole("cell", { name: "shop.example.net", exact: true }) });
   await expect(row.getByText("7 backups")).toBeVisible();
   await expect(row.getByText(SFTP, { exact: true })).toBeVisible();
   await expect(row.getByText(ENCRYPTED, { exact: true })).toBeVisible();
@@ -227,9 +227,9 @@ test("a schedule copies to both destinations, each with its own retention", asyn
   await expect(row.getByText("daily", { exact: true })).toBeVisible();
   await expect(row.getByText("*-*-* 02:00:00", { exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "Actions for the schedule on picconia.com" }).click();
+  await page.getByRole("button", { name: "Actions for the schedule on shop.example.net" }).click();
   await page.getByRole("menuitem", { name: "Edit" }).click();
-  const dialog = page.getByRole("dialog", { name: "Edit the schedule for picconia.com" });
+  const dialog = page.getByRole("dialog", { name: "Edit the schedule for shop.example.net" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel(`Keep on ${SFTP}`)).toHaveValue("14");
   await expect(dialog.getByLabel(`Max age on ${SFTP}`)).toHaveValue("90");
@@ -244,8 +244,8 @@ test("copying a local backup to a destination queues a job that finishes", async
   await signIn(page, consoleServer, "/backups");
 
   const listed = (await (await page.request.get("/api/backups")).json()) as { backups: { backup_id: string; domain: string }[] };
-  const backup = listed.backups.find((entry) => entry.domain === "arennalabs.com");
-  if (backup === undefined) throw new Error("the seed has no backup of arennalabs.com");
+  const backup = listed.backups.find((entry) => entry.domain === "example.com");
+  if (backup === undefined) throw new Error("the seed has no backup of example.com");
 
   await page.getByRole("button", { name: `Actions for ${backup.backup_id}`, exact: true }).click();
   await page.getByRole("menuitem", { name: "Copy to destination…" }).click();
@@ -268,7 +268,7 @@ test("copying a local backup to a destination queues a job that finishes", async
   await expectJobCompletes(page, jobId);
 
   // What the destination holds now includes it, as Browse lists it.
-  const remote = (await (await page.request.get(`/api/backup-destinations/${ENCRYPTED}/backups?app=arennalabs-com`)).json()) as {
+  const remote = (await (await page.request.get(`/api/backup-destinations/${ENCRYPTED}/backups?app=example-com`)).json()) as {
     backups: { backup_id: string }[];
   };
   expect(remote.backups.map((entry) => entry.backup_id)).toContain(backup.backup_id);

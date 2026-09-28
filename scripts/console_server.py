@@ -375,7 +375,7 @@ def write_config(sandbox: Sandbox) -> None:
         "webserver": "nginx",
         "service_user": "www-data",
         "service_group": "www-data",
-        "ssl": {"enabled": True, "provider": "certbot", "email": "ops@arennalabs.com"},
+        "ssl": {"enabled": True, "provider": "certbot", "email": "ops@example.com"},
         "logging": {"level": "info", "file": str(sandbox.var / "log" / "wasm" / "wasm.log")},
         "backup": {"directory": str(sandbox.backup_dir), "max_per_app": 10},
     }
@@ -620,20 +620,20 @@ FAILED_JOURNAL_LINES = (
 # ---------------------------------------------------------------------------
 
 #: PostgreSQL databases the demo machine knows about: owner and size in bytes,
-#: matching what `arennalabs_production` and `arennalabs_staging` list as.
+#: matching what `example_production` and `example_staging` list as.
 _PG_DATABASES: dict[str, tuple[str, int]] = {
     "postgres": ("postgres", 7553827),
-    "arennalabs_production": ("wasm_app", 48218931),
-    "arennalabs_staging": ("wasm_app", 9120563),
+    "example_production": ("wasm_app", 48218931),
+    "example_staging": ("wasm_app", 9120563),
 }
 
 #: PostgreSQL roles `list_users` reports: name, superuser, createdb, createrole,
 #: and (5th column) the databases it may connect to, comma-separated - the same
 #: shape `PostgresManager.list_users`'s combined query now answers in one row.
 _PG_USERS = (
-    "postgres|t|t|t|postgres,arennalabs_production,arennalabs_staging\n"
-    "wasm_app|f|f|f|arennalabs_production,arennalabs_staging\n"
-    "wasm_readonly|f|f|f|arennalabs_production,arennalabs_staging\n"
+    "postgres|t|t|t|postgres,example_production,example_staging\n"
+    "wasm_app|f|f|f|example_production,example_staging\n"
+    "wasm_readonly|f|f|f|example_production,example_staging\n"
 )
 
 #: A read the SQL console can run against any PostgreSQL database, pipe-separated
@@ -651,14 +651,14 @@ _PG_DEMO_ROWS_CSV = (
 
 #: MySQL/MariaDB schemas the demo machine knows about: size in bytes, table count.
 _MYSQL_DATABASES: dict[str, tuple[int, int]] = {
-    "picconia_wp": (52_428_800, 18),
-    "cittek_shop": (23_068_672, 11),
+    "shop_wp": (52_428_800, 18),
+    "example_shop": (23_068_672, 11),
 }
 
 #: MySQL users `list_users` reports: name, host and (3rd column) the databases
 #: it has database-level grants on, comma-separated - the same shape
 #: `MySQLManager.list_users`'s combined query now answers in one row.
-_MYSQL_USERS = "root\tlocalhost\t\npicconia\t%\tpicconia_wp\ncittek\t%\tcittek_shop\n"
+_MYSQL_USERS = "root\tlocalhost\t\nshop\t%\tshop_wp\nexample\t%\texample_shop\n"
 
 #: The same read as `_PG_DEMO_ROWS`, tab-separated the way `mysql -N -B` prints it.
 _MYSQL_DEMO_ROWS = "1024\tmaria@example.com\t129.90\n1025\tjon@example.com\t54.00\n1026\tpriya@example.com\t312.40\n"
@@ -1231,7 +1231,7 @@ def make_runner(
             template = FAILED_JOURNAL_LINES if unit and unit.active == "failed" else JOURNAL_LINES
             start = datetime.now() - timedelta(minutes=len(template))
             lines = [
-                f"{(start + timedelta(minutes=i)).strftime('%b %d %H:%M:%S')} arenna "
+                f"{(start + timedelta(minutes=i)).strftime('%b %d %H:%M:%S')} acme "
                 f"{name or 'systemd'}[{unit.pid if unit and unit.pid else 1}]: "
                 + line.format(unit=name, domain=domains.get(name, name), port=ports.get(name, 3000))
                 for i, line in enumerate(template)
@@ -1366,12 +1366,12 @@ def seed_overview_failed_worker(sandbox: Sandbox, store: Any, units: dict[str, U
     from wasm.managers.service_manager import WASM_UNIT_MARKER
 
     name = "queue-worker"
-    command = "/usr/bin/node /var/www/apps/arennalabs.com/current/worker.js"
+    command = "/usr/bin/node /var/www/apps/example.com/current/worker.js"
     store.create_service(
         Service(
             name=name,
             unit_file=str(sandbox.systemd_dir / f"{name}.service"),
-            working_directory="/var/www/apps/arennalabs.com/current",
+            working_directory="/var/www/apps/example.com/current",
             command=command,
             status="failed",
         )
@@ -1384,9 +1384,9 @@ def seed_overview_failed_worker(sandbox: Sandbox, store: Any, units: dict[str, U
     (sandbox.systemd_dir / f"{name}.service").write_text(
         f"# {WASM_UNIT_MARKER}\n"
         "[Unit]\n"
-        "Description=Queue worker for arennalabs.com\n\n"
+        "Description=Queue worker for example.com\n\n"
         "[Service]\n"
-        "WorkingDirectory=/var/www/apps/arennalabs.com/current\n"
+        "WorkingDirectory=/var/www/apps/example.com/current\n"
         f"ExecStart={command}\n"
         "Restart=on-failure\n",
         encoding="utf-8",
@@ -1717,15 +1717,15 @@ def seed_job_history(sandbox: Sandbox, store: Any, domain: str) -> None:
 
 #: On the release layout: three releases on disk, one failed build that was
 #: removed, resource limits, webhook deliveries and a long deployment history.
-TABS_RELEASE_APP = "tienda.cittek.es"
+TABS_RELEASE_APP = "tienda.example.org"
 
 #: In place, with a real tree: its .env is read and written, and an update runs
 #: the real update sequence with the build output streamed a line at a time.
-TABS_LIVE_APP = "pedidos.cittek.es"
+TABS_LIVE_APP = "pedidos.example.org"
 
 #: In place, to be migrated to releases. A migration cannot be undone through
 #: the API, so the E2E suite migrates one per theme project.
-TABS_MIGRATE_APPS = ("blog.cittek.es", "docs.cittek.es")
+TABS_MIGRATE_APPS = ("blog.example.org", "docs.example.org")
 
 #: Seconds between the lines of a streamed npm install or build of the live app.
 TABS_BUILD_LINE_DELAY = 0.35
@@ -2050,13 +2050,13 @@ def _tabs_release_log(
             f"http://127.0.0.1:{port}/ did not answer after 15 attempts "
             "([Errno 111] Connection refused)\n"
             "-- journal --\n"
-            "Error: Cannot find module '/var/www/apps/tienda-cittek-es/current/.next/standalone/server.js'\n"
-            "tienda-cittek-es.service: Main process exited, code=exited, status=1/FAILURE"
+            "Error: Cannot find module '/var/www/apps/tienda-example-org/current/.next/standalone/server.js'\n"
+            "tienda-example-org.service: Main process exited, code=exited, status=1/FAILURE"
         )
     lines += [
         (at + 3.9, "[9/9] Health check..."),
         (at + 4.0, f"✓ Release {release_id} answered 200 in 84 ms"),
-        (at + 4.1, "✓ Deployed tienda.cittek.es"),
+        (at + 4.1, "✓ Deployed tienda.example.org"),
     ]
     return lines, None
 
@@ -2235,7 +2235,7 @@ def seed_app_tabs_history(store: Any) -> dict[str, _TabsApp]:
     now = datetime.now()
     apps: dict[str, _TabsApp] = {}
 
-    source = "https://github.com/cittek/tienda.git"
+    source = "https://github.com/example-org/tienda.git"
     release = _TabsApp(port=_tabs_serve_ok())
     previous: str | None = None
     for days, trigger, commit, kind, status in _TABS_RELEASE_HISTORY:
@@ -2277,7 +2277,7 @@ def seed_app_tabs_history(store: Any) -> dict[str, _TabsApp]:
                 lines=_tabs_inplace_log(
                     domain,
                     commit=commit,
-                    source="https://github.com/cittek/" + domain_to_app_name(domain),
+                    source="https://github.com/example-org/" + domain_to_app_name(domain),
                     port=seeded.port,
                 ),
                 status="success",
@@ -2371,10 +2371,10 @@ def _tabs_release_app(
         "DATABASE_URL=postgres://tienda:K9v2xQ7mLp@127.0.0.1:5432/tienda\n"
         "REDIS_URL=redis://127.0.0.1:6379/2\n"
         "SESSION_SECRET=6b1f0e4c2d9a8b7e5f3c1a0d9e8f7a6b\n"
-        "STRIPE_SECRET_KEY=sk_live_51Hx8cittekTiendaSeeded\n"
-        "STRIPE_PUBLISHABLE_KEY=pk_live_51Hx8cittekTiendaSeeded\n"
-        "NEXT_PUBLIC_SITE_URL=https://tienda.cittek.es\n"
-        "MAIL_FROM=Tienda Cittek <pedidos@cittek.es>\n"
+        "STRIPE_SECRET_KEY=sk_l" + "ive_51Hx8exampleShopSeeded\n"
+        "STRIPE_PUBLISHABLE_KEY=pk_l" + "ive_51Hx8exampleShopSeeded\n"
+        "NEXT_PUBLIC_SITE_URL=https://tienda.example.org\n"
+        "MAIL_FROM=Example Shop <orders@example.org>\n"
         "LOG_LEVEL=info\n"
     )
     shared = root / "shared"
@@ -2388,7 +2388,7 @@ def _tabs_release_app(
     app = App(
         domain=domain,
         app_type="nextjs",
-        source="https://github.com/cittek/tienda.git",
+        source="https://github.com/example-org/tienda.git",
         branch="main",
         port=port,
         app_path=str(root),
@@ -2487,7 +2487,7 @@ def _tabs_inplace_app(
         f"DATABASE_URL=postgres://{name.split('-')[0]}:Wm4p8Zr2@127.0.0.1:5432/{name.split('-')[0]}\n"
         "JWT_SECRET=2f7c9e1a4b6d8f0a3c5e7b9d1f2a4c6e\n"
         f"PUBLIC_URL=https://{domain}\n"
-        "SMTP_HOST=smtp.cittek.es\n"
+        "SMTP_HOST=smtp.example.org\n"
         "SMTP_PASSWORD=\n"
         "FEATURE_FLAGS=checkout-v2,fast-search\n"
     )
@@ -2622,7 +2622,7 @@ class _TabsJournalFollow:
     def _line(self, moment: datetime, message: str) -> str:
         pid = self._state.pid if self._state and self._state.pid else 1
         stamp = moment.astimezone().strftime("%Y-%m-%dT%H:%M:%S%z")
-        return f"{stamp} arenna {self._unit}[{pid}]: {message}"
+        return f"{stamp} acme {self._unit}[{pid}]: {message}"
 
     def _backlog(self) -> list[str]:
         failed = self._state is not None and self._state.active == "failed"
@@ -2825,14 +2825,14 @@ def seed_app_tabs(
 #: On releases, with a git source whose branch head (as the modelled remote
 #: answers `git ls-remote`) is the commit that is live: an update from the
 #: console answers 409 nothing_new.
-NOTHING_NEW_APP = "catalogo.cittek.es"
+NOTHING_NEW_APP = "catalogo.example.org"
 
 #: Its repository, and the commit both its live release and the remote's main are at.
-NOTHING_NEW_SOURCE = "https://github.com/cittek/catalogo.git"
+NOTHING_NEW_SOURCE = "https://github.com/example-org/catalogo.git"
 NOTHING_NEW_COMMIT = "6d1e0b27c4a95f3e8d20b61c7a4f9e5d3b2c1a08"
 
 #: A static site with one deploy of ten seconds in its history: its Health phase does not apply.
-STATIC_DEPLOY_APP = "bodas.arennalabs.com"
+STATIC_DEPLOY_APP = "bodas.example.com"
 
 #: The wizard's source that is a lone Dockerfile: no type matches, and the verdict says to add compose.
 WIZARD_DOCKERFILE_SOURCE = "container-api"
@@ -3869,7 +3869,7 @@ def seed_domains_and_sources(
     domains_api.check_dns = modelled  # type: ignore[assignment]
 
     _domains_site_files(store)
-    seed_sites_server_names("qrboda.com", ["www", "shop", "status"])
+    seed_sites_server_names("example.net", ["www", "shop", "status"])
     _domains_wizard_sources(sandbox)
 
 
@@ -3906,11 +3906,11 @@ def pin_settings_update_check() -> str:
     """
     Answer the update check from the sandbox instead of GitHub.
 
-    ``GET /api/system/version`` asks the GitHub releases API when its cache is
-    older than five minutes, which would make the About page depend on the
-    network and on whatever was released last. The latest release is pinned
-    to the next minor version of the one installed, so the page always shows
-    an update to offer.
+    ``GET /api/system/version`` asks GitHub and the installation's package
+    source when its cache is older than five minutes, which would make the
+    About page depend on the network and on whatever was released last. Both
+    answers are pinned to the next minor version of the one installed, so the
+    page always shows an update to offer.
 
     Returns:
         The version the check reports as released.
@@ -3921,11 +3921,17 @@ def pin_settings_update_check() -> str:
     numbers = [int(part) for part in re.findall(r"\d+", __version__)[:2]] + [0, 0]
     latest = f"{numbers[0]}.{numbers[1] + 1}.0"
 
-    def fetch_latest(cls: type[UpdateChecker]) -> str:
-        """Report the pinned release."""
+    def fetch_latest(cls: type[UpdateChecker], *args: object) -> str:
+        """Report the pinned release, both published and installable."""
         return latest
 
-    UpdateChecker._fetch_latest_version = classmethod(fetch_latest)  # type: ignore[method-assign,assignment]
+    def detect(cls: type[UpdateChecker]) -> str:
+        """Report a pip installation without asking the sandbox's fake runner."""
+        return "pip"
+
+    UpdateChecker._fetch_published_version = classmethod(fetch_latest)  # type: ignore[method-assign,assignment]
+    UpdateChecker._fetch_installable_version = classmethod(fetch_latest)  # type: ignore[method-assign,assignment]
+    UpdateChecker._detect_installation_method = classmethod(detect)  # type: ignore[method-assign,assignment]
     return latest
 
 
@@ -4053,7 +4059,7 @@ def seed_zero_downtime(
     """
     Seed an application in blue/green mode, turned on by the real engine.
 
-    ``pagos.cittek.es`` is deployed on releases like the tabs' release app,
+    ``pagos.example.org`` is deployed on releases like the tabs' release app,
     then :func:`wasm.deployers.bluegreen.set_zero_downtime` turns the mode on
     exactly as ``wasm app zero-downtime`` would: the template written, green
     started and probed, the upstream and the site switched, the old unit
@@ -4089,8 +4095,8 @@ def seed_zero_downtime(
     (shared / ".env").write_text(
         "NODE_ENV=production\n"
         "DATABASE_URL=postgres://pagos:Q7m2vK9xLp@127.0.0.1:5432/pagos\n"
-        "STRIPE_SECRET_KEY=sk_live_51Hx8cittekPagosSeeded\n"
-        "NEXT_PUBLIC_SITE_URL=https://pagos.cittek.es\n",
+        "STRIPE_SECRET_KEY=sk_l" + "ive_51Hx8examplePaymentsSeeded\n"
+        "NEXT_PUBLIC_SITE_URL=https://pagos.example.org\n",
         encoding="utf-8",
     )
     (shared / ".env").chmod(0o600)
@@ -4099,7 +4105,7 @@ def seed_zero_downtime(
     app = App(
         domain=domain,
         app_type="nextjs",
-        source="https://github.com/cittek/pagos.git",
+        source="https://github.com/example-org/pagos.git",
         branch="main",
         port=port,
         app_path=str(root),
@@ -4165,7 +4171,7 @@ def seed_zero_downtime(
 
 
 #: In blue/green mode: green serves, blue is stopped, the upstream names green.
-ZD_APP = "pagos.cittek.es"
+ZD_APP = "pagos.example.org"
 
 #: Seconds the old instance keeps running after a switch: short, so a test that
 #: turns the mode off and on again does not wait long for either.
@@ -4279,8 +4285,8 @@ def seed_previews(
     """
     Seed an application with pull request previews, and one preview deployed beside it.
 
-    ``portal.cittek.es`` is deployed from GitHub on releases, with previews on
-    under ``previews.cittek.es``: #42 ready (its own application, on releases
+    ``portal.example.org`` is deployed from GitHub on releases, with previews on
+    under ``previews.example.org``: #42 ready (its own application, on releases
     too, marked as the portal's preview), #57 building and #61 failed. The
     sweep timer's units go to the sandboxed systemd directory, so saving the
     settings writes them there; removing a preview deletes its application
@@ -4318,7 +4324,7 @@ def seed_previews(
 
 
 #: The application with pull request previews.
-PREVIEWS_APP = "portal.cittek.es"
+PREVIEWS_APP = "portal.example.org"
 
 
 def _previews_release_app(
@@ -4379,7 +4385,7 @@ def _previews_release_app(
     app = App(
         domain=domain,
         app_type="nextjs",
-        source="https://github.com/cittek/portal.git",
+        source="https://github.com/example-org/portal.git",
         branch=branch,
         port=port,
         app_path=str(root),
@@ -4410,7 +4416,7 @@ def _previews_release_app(
 
 
 #: Where this machine receives code hosts' events (``wasm web expose-hooks``).
-GITHUB_HOOKS_URL = "https://hooks.arennalabs.com/hooks"
+GITHUB_HOOKS_URL = "https://hooks.example.com/hooks"
 
 #: The one-time code GitHub's manifest flow hands back that it no longer honours
 #: (codes last an hour and work once): the conversion is refused with GitHub's 404.
@@ -4697,13 +4703,13 @@ def _github_git_and_openssl(sandbox: Sandbox) -> None:
 DESTINATIONS_SFTP_PATH = "/srv/backups/web-01"
 
 #: Applications whose local backups the SFTP destination already holds copies of.
-DESTINATIONS_SFTP_APPS = ("picconia.com", "arennalabs.com")
+DESTINATIONS_SFTP_APPS = ("shop.example.net", "example.com")
 
 #: The application whose backups the encrypted destination holds.
-DESTINATIONS_ENCRYPTED_APP = "pedidos.cittek.es"
+DESTINATIONS_ENCRYPTED_APP = "pedidos.example.org"
 
 #: The application with a schedule that copies to both destinations.
-DESTINATIONS_SCHEDULED_APP = "picconia.com"
+DESTINATIONS_SCHEDULED_APP = "shop.example.net"
 
 #: A host suffix no resolver answers (RFC 6761): a destination pointed at one is
 #: unreachable, and rclone's own words say so.
@@ -4739,7 +4745,7 @@ def seed_backup_destinations(sandbox: Sandbox, store: Any) -> None:
         DESTINATION_SFTP,
         "sftp",
         {
-            "host": "backup.cittek.es",
+            "host": "backup.example.org",
             "user": "wasm",
             "port": "22",
             "pass": "Kd82-sftp-seeded-password",
@@ -4764,7 +4770,7 @@ def seed_backup_destinations(sandbox: Sandbox, store: Any) -> None:
     for domain in DESTINATIONS_SFTP_APPS:
         _destinations_copy_backups(sandbox, domain, sftp_root)
     # One backup only the destination still has: older than anything kept locally.
-    _destinations_copy_backups(sandbox, "picconia.com", sftp_root, remote_only_days=41)
+    _destinations_copy_backups(sandbox, "shop.example.net", sftp_root, remote_only_days=41)
     # rclone's crypt remote carries the wrapped path itself (`vault-r2crypt:`).
     _destinations_copy_backups(
         sandbox, DESTINATIONS_ENCRYPTED_APP, remotes / f"{DESTINATION_ENCRYPTED}crypt"

@@ -1,6 +1,6 @@
 /**
  * An application's metrics against the real backend: CPU and memory from the history
- * endpoint (seeded thirty days deep for tienda.cittek.es), a sentence per chart, deploys
+ * endpoint (seeded thirty days deep for tienda.example.org), a sentence per chart, deploys
  * drawn by the chart itself as marker links and listed below it, adaptive axis and table time
  * labels, and the range kept in the URL. Both themes, with the CSP and console gates of the
  * `problems` fixture.
@@ -8,7 +8,7 @@
 
 import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
 
-const DOMAIN = "tienda.cittek.es";
+const DOMAIN = "tienda.example.org";
 
 test("the charts summarise the range in words; switching it updates the URL and the summary", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/apps/${DOMAIN}/metrics`);
@@ -77,7 +77,7 @@ test("the 7d range's table reads dates, not a bare clock", async ({ page, consol
 });
 
 test("a static site says it has no process to measure", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/apps/bodas.arennalabs.com/metrics?range=30d");
+  await signIn(page, consoleServer, "/apps/bodas.example.com/metrics?range=30d");
   await expect(page.getByRole("heading", { level: 2, name: "A static site has no process to measure" })).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "a static site's metrics tab");

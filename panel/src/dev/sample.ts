@@ -10,12 +10,12 @@ export interface SampleApp {
 }
 
 export const SAMPLE_APPS: SampleApp[] = [
-  { domain: "shop.arenna.dev", type: "Next.js", status: "running", port: 3004, commit: "a1b2c3d", deployedMinutesAgo: 12 },
-  { domain: "api.arenna.dev", type: "FastAPI", status: "deploying", port: 8001, commit: "9f8e7d6", deployedMinutesAgo: 1 },
-  { domain: "status.arenna.dev", type: "Static", status: "static", port: null, commit: "4c5d6e7", deployedMinutesAgo: 2880 },
-  { domain: "worker.arenna.dev", type: "Node.js", status: "failed", port: 3011, commit: "e3f4a5b", deployedMinutesAgo: 45 },
-  { domain: "legacy.arenna.dev", type: "Vite", status: "stopped", port: 3020, commit: "0a9b8c7", deployedMinutesAgo: 20160 },
-  { domain: "labs.arenna.dev", type: "Python", status: "unknown", port: 8040, commit: "77aa11c", deployedMinutesAgo: 360 },
+  { domain: "shop.example.dev", type: "Next.js", status: "running", port: 3004, commit: "a1b2c3d", deployedMinutesAgo: 12 },
+  { domain: "api.example.dev", type: "FastAPI", status: "deploying", port: 8001, commit: "9f8e7d6", deployedMinutesAgo: 1 },
+  { domain: "status.example.dev", type: "Static", status: "static", port: null, commit: "4c5d6e7", deployedMinutesAgo: 2880 },
+  { domain: "worker.example.dev", type: "Node.js", status: "failed", port: 3011, commit: "e3f4a5b", deployedMinutesAgo: 45 },
+  { domain: "legacy.example.dev", type: "Vite", status: "stopped", port: 3020, commit: "0a9b8c7", deployedMinutesAgo: 20160 },
+  { domain: "labs.example.dev", type: "Python", status: "unknown", port: 8040, commit: "77aa11c", deployedMinutesAgo: 360 },
 ];
 
 export function ago(minutes: number): string {
@@ -30,7 +30,7 @@ const ESC = "\u001b";
 
 const BUILD_LOG = [
   `${ESC}[2m$ git fetch --depth 1 origin main${ESC}[0m`,
-  "From github.com:arenna/shop",
+  "From github.com:acme/shop",
   " * branch            main       -> FETCH_HEAD",
   `${ESC}[2mHEAD is now at a1b2c3d Fix checkout rounding for EUR totals${ESC}[0m`,
   `${ESC}[1m${ESC}[36m==>${ESC}[0m ${ESC}[1mInstalling dependencies${ESC}[0m`,
@@ -60,7 +60,7 @@ const BUILD_LOG = [
   "└ ƒ /api/orders                            142 B         102 kB",
   "",
   `${ESC}[1m${ESC}[36m==>${ESC}[0m ${ESC}[1mActivating release 20260925-143012-a1b2c3d${ESC}[0m`,
-  "Restarting wasm-shop.arenna.dev.service",
+  "Restarting wasm-shop.example.dev.service",
   `${ESC}[31mError:${ESC}[0m health check GET http://127.0.0.1:3004/ returned 502 after 30s`,
   `${ESC}[31m${ESC}[1mRolled back${ESC}[0m to release 20260924-101500-9f8e7d6. The previous version is serving traffic.`,
 ];
@@ -73,7 +73,7 @@ export const SAMPLE_BUILD_LOG: LogLine[] = BUILD_LOG.map((text, index) => {
 });
 
 const JOURNAL = [
-  "Started wasm-shop.arenna.dev.service - shop.arenna.dev (Next.js).",
+  "Started wasm-shop.example.dev.service - shop.example.dev (Next.js).",
   "▲ Next.js 15.5.2",
   "- Local:        http://127.0.0.1:3004",
   "✓ Ready in 412ms",

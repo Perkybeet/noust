@@ -14,8 +14,8 @@ import path from "node:path";
 
 import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, stillness, test } from "./fixtures";
 
-const RELEASE_APP = "tienda.cittek.es";
-const IN_PLACE_APP = "pedidos.cittek.es";
+const RELEASE_APP = "tienda.example.org";
+const IN_PLACE_APP = "pedidos.example.org";
 
 function region(page: Page, name: string) {
   return page.getByRole("region", { name, exact: true });
@@ -104,7 +104,7 @@ test("the source, branch, build and start commands read what the API records", a
 });
 
 test("a static site has nothing to build or start, and the facts it does have", async ({ page, consoleServer }) => {
-  const domain = "bodas.arennalabs.com";
+  const domain = "bodas.example.com";
   await signIn(page, consoleServer, `/apps/${domain}/settings`);
   const facts = await factsOf(page, domain);
   const source = region(page, "Source and runtime");
@@ -209,14 +209,14 @@ test("retention is saved at once and says what it removed; an in-place app has n
 });
 
 test("a static site's health check is its files: nothing to configure", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/apps/bodas.arennalabs.com/settings");
+  await signIn(page, consoleServer, "/apps/bodas.example.com/settings");
   const releases = region(page, "Releases");
   await expect(releases.getByText(/A static site is served as files by the web server/)).toBeVisible();
   await expect(releases.getByRole("textbox", { name: "Path" })).toHaveCount(0);
 });
 
 test("an in-place app moves to releases after its plan is read and confirmed", async ({ page, consoleServer, problems }, testInfo) => {
-  const domain = testInfo.project.name === "dark" ? "docs.cittek.es" : "blog.cittek.es";
+  const domain = testInfo.project.name === "dark" ? "docs.example.org" : "blog.example.org";
   // The migration finishing invalidates the app's whole query prefix, migration-plan included
   // (the same way any finished job on an app does): the plan can still be enabled for the
   // moment it takes this page to notice the app is on releases now, and asks again - the API

@@ -6,8 +6,8 @@
  * `problems` fixture.
  *
  * The paste replaces the whole file, so each theme project writes to its own app: the light
- * one to the in-place pedidos.cittek.es (<app>/.env), the dark one to the release app
- * tienda.cittek.es (shared/.env). Both projects can share a worker's machine.
+ * one to the in-place pedidos.example.org (<app>/.env), the dark one to the release app
+ * tienda.example.org (shared/.env). Both projects can share a worker's machine.
  */
 
 import type { Page, TestInfo } from "@playwright/test";
@@ -24,7 +24,7 @@ const SAVED_MAP = Object.fromEntries(Object.entries(MESSY_MAP).filter(([name]) =
 const SCREENS = process.env.WASM_TABS_SCREENS ?? "/tmp/console-tabs";
 
 function appFor(testInfo: TestInfo): string {
-  return testInfo.project.name === "dark" ? "tienda.cittek.es" : "pedidos.cittek.es";
+  return testInfo.project.name === "dark" ? "tienda.example.org" : "pedidos.example.org";
 }
 
 function table(page: Page, domain: string) {
@@ -81,8 +81,8 @@ test("a messy .env pasted in is saved as exactly what EnvManager reads from it",
 
 test("a secret is shown only after confirming it's you", async ({ page, consoleServer, problems }) => {
   // The same value in the seeded file and in messy.env, so the other test's save does not matter.
-  const domain = "pedidos.cittek.es";
-  problems.expect(/status of 403 .*\/api\/apps\/pedidos\.cittek\.es\/env$/);
+  const domain = "pedidos.example.org";
+  problems.expect(/status of 403 .*\/api\/apps\/pedidos\.example\.org\/env$/);
   await signIn(page, consoleServer, `/apps/${domain}/environment`);
   await expect(table(page, domain)).toBeVisible();
   await expect(table(page, domain).getByText("2f7c9e1a4b6d8f0a3c5e7b9d1f2a4c6e")).toHaveCount(0);
@@ -102,17 +102,17 @@ test.describe("environment dialogs @screens", () => {
   const PHONE = { width: 390, height: 844 };
 
   test("app tab environment dialogs", async ({ page, consoleServer, problems }, testInfo) => {
-    problems.expect(/status of 403 .*\/api\/apps\/blog\.cittek\.es\/env$/);
+    problems.expect(/status of 403 .*\/api\/apps\/blog\.example\.org\/env$/);
     const dir = path.join(SCREENS, testInfo.project.name);
     // Read only: the dialogs are photographed and cancelled, nothing is saved.
-    const domain = "blog.cittek.es";
+    const domain = "blog.example.org";
     await page.setViewportSize(DESKTOP);
     await signIn(page, consoleServer, `/apps/${domain}/environment`);
     await expect(table(page, domain)).toBeVisible();
 
     await page.getByRole("button", { name: "Paste .env" }).click();
     const paste = page.getByRole("dialog", { name: "Paste a .env file" });
-    await paste.getByLabel(".env contents").fill(`export API_URL=https://api.cittek.es\n${MESSY}`);
+    await paste.getByLabel(".env contents").fill(`export API_URL=https://api.example.org\n${MESSY}`);
     await settle(page);
     await page.screenshot({ path: path.join(dir, "environment-paste-1440.png") });
     await page.setViewportSize(PHONE);

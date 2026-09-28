@@ -6,15 +6,15 @@ import { jobStep, jobWords } from "./useAppJob";
 const JOB: Job = {
   id: "96bad296",
   type: "update",
-  name: "Update picconia.com",
-  description: "Updating the application at picconia.com",
+  name: "Update shop.example.net",
+  description: "Updating the application at shop.example.net",
   status: "running",
   progress: 0,
   total_steps: 100,
   current_step: "",
   created_at: "2026-09-25T19:21:13",
   logs: [{ timestamp: "2026-09-25T19:21:13", level: "info", message: "Installing dependencies", step: 1 }],
-  metadata: { domain: "picconia.com" },
+  metadata: { domain: "shop.example.net" },
 };
 
 describe("jobWords", () => {

@@ -8,11 +8,11 @@ function app(domain: string, status: string, type: string | null): AppInfo {
 }
 
 const APPS = [
-  app("picconia.com", "running", "nextjs"),
-  app("cittek.es", "stopped", "nextjs"),
-  app("bodas.arennalabs.com", "static", "static"),
-  app("api.arennalabs.com", "Restarting", "python"),
-  app("legacy.example.com", "running", null),
+  app("shop.example.net", "running", "nextjs"),
+  app("example.org", "stopped", "nextjs"),
+  app("bodas.example.com", "static", "static"),
+  app("api.example.com", "Restarting", "python"),
+  app("legacy.internal.test", "running", null),
 ];
 
 describe("validateAppsSearch", () => {
@@ -32,18 +32,18 @@ describe("validateAppsSearch", () => {
 
 describe("filterApps", () => {
   it("matches the domain or the type, case-insensitively", () => {
-    expect(filterApps(APPS, { q: "ARENNA" }).map((a) => a.domain)).toEqual(["bodas.arennalabs.com", "api.arennalabs.com"]);
-    expect(filterApps(APPS, { q: "python" }).map((a) => a.domain)).toEqual(["api.arennalabs.com"]);
+    expect(filterApps(APPS, { q: "EXAMPLE.COM" }).map((a) => a.domain)).toEqual(["bodas.example.com", "api.example.com"]);
+    expect(filterApps(APPS, { q: "python" }).map((a) => a.domain)).toEqual(["api.example.com"]);
   });
 
   it("filters by the drawn state, whatever word the backend used", () => {
-    expect(filterApps(APPS, { state: "running" }).map((a) => a.domain)).toEqual(["picconia.com", "legacy.example.com"]);
+    expect(filterApps(APPS, { state: "running" }).map((a) => a.domain)).toEqual(["shop.example.net", "legacy.internal.test"]);
     // "Restarting" is drawn as in progress.
-    expect(filterApps(APPS, { state: "deploying" }).map((a) => a.domain)).toEqual(["api.arennalabs.com"]);
+    expect(filterApps(APPS, { state: "deploying" }).map((a) => a.domain)).toEqual(["api.example.com"]);
   });
 
   it("combines filters", () => {
-    expect(filterApps(APPS, { state: "running", type: "nextjs", q: "pic" }).map((a) => a.domain)).toEqual(["picconia.com"]);
+    expect(filterApps(APPS, { state: "running", type: "nextjs", q: "shop" }).map((a) => a.domain)).toEqual(["shop.example.net"]);
   });
 
   it("keeps everything without filters", () => {

@@ -31,8 +31,8 @@ describe("collectAttention", () => {
   it("is empty on a healthy machine", () => {
     expect(
       collectAttention({
-        apps: [app("picconia.com", "running"), app("cittek.es", "stopped")],
-        deployments: [deploy(2, "picconia.com", "success")],
+        apps: [app("shop.example.net", "running"), app("example.org", "stopped")],
+        deployments: [deploy(2, "shop.example.net", "success")],
         certificates: [],
         observations: [],
         machine: HEALTHY,
@@ -42,26 +42,26 @@ describe("collectAttention", () => {
 
   it("names an app whose newest deploy failed, with the first line of the error verbatim", () => {
     const items = collectAttention({
-      apps: [app("clientes.arennalabs.com", "stopped")],
+      apps: [app("clientes.example.com", "stopped")],
       deployments: [
-        deploy(12, "clientes.arennalabs.com", "failed", "npm ERR! code ELIFECYCLE\nnpm ERR! errno 1"),
-        deploy(11, "clientes.arennalabs.com", "success"),
+        deploy(12, "clientes.example.com", "failed", "npm ERR! code ELIFECYCLE\nnpm ERR! errno 1"),
+        deploy(11, "clientes.example.com", "success"),
       ],
       machine: HEALTHY,
     });
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({
-      title: "clientes.arennalabs.com",
+      title: "clientes.example.com",
       severity: "fail",
-      subject: { kind: "app", domain: "clientes.arennalabs.com" },
+      subject: { kind: "app", domain: "clientes.example.com" },
       reasons: [{ summary: "Last deploy failed", detail: "npm ERR! code ELIFECYCLE", deploymentId: 12 }],
     });
   });
 
   it("forgets a failure an app has since deployed over", () => {
     const items = collectAttention({
-      apps: [app("picconia.com", "running")],
-      deployments: [deploy(13, "picconia.com", "success"), deploy(12, "picconia.com", "failed", "boom")],
+      apps: [app("shop.example.net", "running")],
+      deployments: [deploy(13, "shop.example.net", "success"), deploy(12, "shop.example.net", "failed", "boom")],
     });
     expect(items).toEqual([]);
   });
@@ -80,9 +80,9 @@ describe("collectAttention", () => {
 
   it("groups everything about one domain under it, with the worst severity", () => {
     const items = collectAttention({
-      apps: [app("arennalabs.com", "running")],
-      deployments: [deploy(3, "arennalabs.com", "rolled_back")],
-      certificates: [{ domain: "arennalabs.com", domains: [], days_remaining: 12, expires_on: "2026-10-07", auto_renew: true }],
+      apps: [app("example.com", "running")],
+      deployments: [deploy(3, "example.com", "rolled_back")],
+      certificates: [{ domain: "example.com", domains: [], days_remaining: 12, expires_on: "2026-10-07", auto_renew: true }],
     });
     expect(items).toHaveLength(1);
     expect(items[0]?.severity).toBe("warn");

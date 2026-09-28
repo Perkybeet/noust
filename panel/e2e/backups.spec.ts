@@ -20,7 +20,7 @@ test("every seeded backup is listed, and the page passes axe", async ({ page, co
   const listed = (await (await page.request.get("/api/backups")).json()) as { backups: unknown[] };
   expect(listed.backups.length, "the seed has backups").toBeGreaterThan(0);
   await expect(rows(page)).toHaveCount(listed.backups.length);
-  await expect(page.getByRole("link", { name: "picconia.com" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "shop.example.net" }).first()).toBeVisible();
 
   await settle(page);
   await expectNoA11yViolations(page, "the backups page");
@@ -34,7 +34,7 @@ test("creating a backup with databases included sends the right request", async 
   await expectNoA11yViolations(page, "the create backup dialog");
 
   await dialog.getByRole("combobox", { name: "Application" }).click();
-  await page.getByRole("option", { name: "picconia.com" }).click();
+  await page.getByRole("option", { name: "shop.example.net" }).click();
   await dialog.getByLabel("Description").fill("Before the migration");
   await dialog.getByRole("checkbox", { name: "Databases" }).check();
   await dialog.getByLabel("Tags").fill("manual, pre-migration");
@@ -42,7 +42,7 @@ test("creating a backup with databases included sends the right request", async 
   const queued = page.waitForRequest((request) => request.url().endsWith("/api/backups") && request.method() === "POST");
   await dialog.getByRole("button", { name: "Create backup" }).click();
   expect((await queued).postDataJSON()).toEqual({
-    domain: "picconia.com",
+    domain: "shop.example.net",
     description: "Before the migration",
     include_env: true,
     include_node_modules: false,
@@ -53,7 +53,7 @@ test("creating a backup with databases included sends the right request", async 
     redis_method: "rdb",
     tags: ["manual", "pre-migration"],
   });
-  await expect(toasts(page).getByText("Backup queued for picconia.com", { exact: true })).toBeVisible();
+  await expect(toasts(page).getByText("Backup queued for shop.example.net", { exact: true })).toBeVisible();
   await expect(dialog).not.toBeVisible();
 });
 
@@ -63,7 +63,7 @@ test("restoring a backup is confirmed by typing the target domain", async ({ pag
   await signIn(page, consoleServer, "/backups");
 
   const row = rows(page)
-    .filter({ has: page.getByRole("link", { name: "picconia.com" }) })
+    .filter({ has: page.getByRole("link", { name: "shop.example.net" }) })
     .first();
   await row.getByRole("button", { name: /^Actions for/ }).click();
   await page.getByRole("menuitem", { name: "Restore" }).click();
@@ -74,11 +74,11 @@ test("restoring a backup is confirmed by typing the target domain", async ({ pag
   await expect(confirmButton).toBeDisabled();
 
   const domainField = dialog.getByRole("textbox").nth(0);
-  await expect(domainField).toHaveValue("picconia.com");
+  await expect(domainField).toHaveValue("shop.example.net");
   const confirmField = dialog.getByRole("textbox").nth(1);
   await confirmField.fill("not-the-domain");
   await expect(confirmButton).toBeDisabled();
-  await confirmField.fill("picconia.com");
+  await confirmField.fill("shop.example.net");
   await expect(confirmButton).toBeEnabled();
   await expectNoA11yViolations(page, "the restore confirmation");
 
@@ -95,25 +95,25 @@ test("restoring a backup is confirmed by typing the target domain", async ({ pag
   const body = (await requested).postDataJSON() as { target_domain: string | null; restore_env: boolean; verify: boolean };
   expect(body).toEqual({ target_domain: null, restore_env: true, verify: true });
   await expect(elevate).toBeHidden();
-  await expect(toasts(page).getByText("Restore queued for picconia.com", { exact: true })).toBeVisible();
+  await expect(toasts(page).getByText("Restore queued for shop.example.net", { exact: true })).toBeVisible();
 });
 
 test("restoring into a different domain is confirmed by typing that domain", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/backups");
 
   const row = rows(page)
-    .filter({ has: page.getByRole("link", { name: "picconia.com" }) })
+    .filter({ has: page.getByRole("link", { name: "shop.example.net" }) })
     .first();
   await row.getByRole("button", { name: /^Actions for/ }).click();
   await page.getByRole("menuitem", { name: "Restore" }).click();
 
   const dialog = page.getByRole("alertdialog", { name: /^Restore / });
   const domainField = dialog.getByRole("textbox").nth(0);
-  await domainField.fill("picconia-staging.example.com");
+  await domainField.fill("shop-staging.example.com");
   const confirmField = dialog.getByRole("textbox").nth(1);
-  await confirmField.fill("picconia.com");
+  await confirmField.fill("shop.example.net");
   await expect(dialog.getByRole("button", { name: "Restore" })).toBeDisabled();
-  await confirmField.fill("picconia-staging.example.com");
+  await confirmField.fill("shop-staging.example.com");
   await expect(dialog.getByRole("button", { name: "Restore" })).toBeEnabled();
 });
 
@@ -121,7 +121,7 @@ test("verifying a backup updates its row with the result", async ({ page, consol
   await signIn(page, consoleServer, "/backups");
 
   const row = rows(page)
-    .filter({ has: page.getByRole("link", { name: "picconia.com" }) })
+    .filter({ has: page.getByRole("link", { name: "shop.example.net" }) })
     .first();
   await expect(row.getByText("Never verified")).toBeVisible();
 
@@ -142,7 +142,7 @@ test("verifying a backup updates its row with the result", async ({ page, consol
   await page.reload();
   await expect(
     rows(page)
-      .filter({ has: page.getByRole("link", { name: "picconia.com" }) })
+      .filter({ has: page.getByRole("link", { name: "shop.example.net" }) })
       .first()
       .getByText("Verified", { exact: true }),
   ).toBeVisible();

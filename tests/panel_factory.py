@@ -38,14 +38,14 @@ from wasm.core.store import (
 #: other count equal to it reproduces, field for field, what the script
 #: created before this factory existed.
 DEFAULT_DOMAINS: tuple[str, ...] = (
-    "arennalabs.com",
-    "picconia.com",
-    "cittek.es",
-    "qrboda.com",
-    "convertidordepdf.com",
-    "clientes.arennalabs.com",
-    "taller.arennalabs.com",
-    "bodas.arennalabs.com",
+    "example.com",
+    "shop.example.net",
+    "example.org",
+    "example.net",
+    "tools.example.net",
+    "clientes.example.com",
+    "taller.example.com",
+    "bodas.example.com",
 )
 
 
@@ -369,8 +369,8 @@ def seed_console_state(store: WASMStore) -> SeededState:
 
     first, second = state.domains[0], state.domains[1]
     for name, engine, port, owner in (
-        ("arennalabs_production", DatabaseEngine.POSTGRESQL.value, 5432, first),
-        ("picconia_wp", DatabaseEngine.MYSQL.value, 3306, second),
+        ("example_production", DatabaseEngine.POSTGRESQL.value, 5432, first),
+        ("shop_wp", DatabaseEngine.MYSQL.value, 3306, second),
         ("sessions", DatabaseEngine.REDIS.value, 6379, None),
     ):
         store.create_database(
@@ -475,8 +475,8 @@ def seed_zero_downtime_history(store: WASMStore, domain: str) -> str:
 
 # --- 2.2: pull request previews ----------------------------------------------
 
-#: Where the seeded previews answer: ``*.previews.cittek.es`` points at the machine.
-PREVIEWS_BASE_DOMAIN = "previews.cittek.es"
+#: Where the seeded previews answer: ``*.previews.example.org`` points at the machine.
+PREVIEWS_BASE_DOMAIN = "previews.example.org"
 
 #: The output a preview's failed build leaves, as npm prints it.
 PREVIEW_FAILED_ERROR = (
@@ -570,7 +570,7 @@ def seed_previews_records(
                 number=number,
                 branch=branch,
                 provider="github",
-                repository="cittek/portal",
+                repository="example-org/portal",
                 head_sha=sha,
                 status=status,
                 error=error,
@@ -590,28 +590,28 @@ def seed_previews_records(
 #: This server's GitHub App, as GitHub's manifest conversion describes it.
 GITHUB_APP: dict[str, object] = {
     "app_id": 1043871,
-    "slug": "wasm-arenna",
-    "name": "wasm-arenna",
-    "owner": "arennalabs",
+    "slug": "wasm-acme",
+    "name": "wasm-acme",
+    "owner": "acme",
     "owner_type": "Organization",
-    "html_url": "https://github.com/apps/wasm-arenna",
+    "html_url": "https://github.com/apps/wasm-acme",
     "client_id": "Iv23liC0nsoleSandbox",
 }
 
 #: Where the App is installed: the organisation, every repository; a personal
 #: account, a chosen few. (installation id, account, account type, selection)
 GITHUB_INSTALLATIONS: tuple[tuple[int, str, str, str], ...] = (
-    (61000001, "arennalabs", "Organization", "all"),
+    (61000001, "acme", "Organization", "all"),
     (61000002, "yago-lopez", "User", "selected"),
 )
 
 #: What each installation lets the App read: (name, private, default branch).
 GITHUB_REPOSITORIES: dict[int, tuple[tuple[str, bool, str], ...]] = {
     61000001: (
-        ("arennalabs/clientes", True, "main"),
-        ("arennalabs/landing", False, "main"),
-        ("arennalabs/tienda-api", True, "develop"),
-        ("arennalabs/status-page", False, "main"),
+        ("acme/clientes", True, "main"),
+        ("acme/landing", False, "main"),
+        ("acme/tienda-api", True, "develop"),
+        ("acme/status-page", False, "main"),
     ),
     61000002: (("yago-lopez/portfolio", False, "main"),),
 }
@@ -709,7 +709,7 @@ def seed_push_job(
 #: The application whose ``.env`` carries an operator's own marks. Its file is
 #: never replaced by the E2E suite (only read, and moved into ``shared/`` by a
 #: migration, which keeps every name), so the marks always name variables it holds.
-ENV_MARKS_APP = "blog.cittek.es"
+ENV_MARKS_APP = "blog.example.org"
 
 #: An analytics site id: ``TOKEN`` in its name hides it, the operator knows it is
 #: printed in every page's HTML. Added to the file by the console server.

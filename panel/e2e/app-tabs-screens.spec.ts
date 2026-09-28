@@ -45,31 +45,31 @@ interface Screen {
 }
 
 const SCREENS: readonly Screen[] = [
-  { name: "deployments-releases", path: () => "/apps/tienda.cittek.es/deployments" },
-  { name: "deployments-inplace", path: () => "/apps/pedidos.cittek.es/deployments" },
+  { name: "deployments-releases", path: () => "/apps/tienda.example.org/deployments" },
+  { name: "deployments-inplace", path: () => "/apps/pedidos.example.org/deployments" },
   {
     name: "deployment-succeeded",
-    path: async (page) => `/apps/tienda.cittek.es/deployments/${String(await deploymentId(page, "tienda.cittek.es", (d) => d.status === "success"))}`,
+    path: async (page) => `/apps/tienda.example.org/deployments/${String(await deploymentId(page, "tienda.example.org", (d) => d.status === "success"))}`,
   },
   {
     name: "deployment-build-failed",
     path: async (page) =>
-      `/apps/tienda.cittek.es/deployments/${String(await deploymentId(page, "tienda.cittek.es", (d) => d.status === "failed" && (d.error ?? "").includes("Type error")))}`,
+      `/apps/tienda.example.org/deployments/${String(await deploymentId(page, "tienda.example.org", (d) => d.status === "failed" && (d.error ?? "").includes("Type error")))}`,
   },
   {
     name: "deployment-health-failed",
     path: async (page) =>
-      `/apps/tienda.cittek.es/deployments/${String(await deploymentId(page, "tienda.cittek.es", (d) => d.status === "failed" && (d.error ?? "").includes("health check")))}`,
+      `/apps/tienda.example.org/deployments/${String(await deploymentId(page, "tienda.example.org", (d) => d.status === "failed" && (d.error ?? "").includes("health check")))}`,
   },
-  { name: "logs", path: () => "/apps/tienda.cittek.es/logs" },
-  { name: "logs-failed-unit", path: () => "/apps/clientes.arennalabs.com/logs" },
-  { name: "metrics-24h", path: () => "/apps/tienda.cittek.es/metrics" },
-  { name: "metrics-7d", path: () => "/apps/tienda.cittek.es/metrics?range=7d" },
-  { name: "environment", path: () => "/apps/pedidos.cittek.es/environment" },
-  { name: "diagnose", path: () => "/apps/tienda.cittek.es/diagnose" },
-  { name: "diagnose-down", path: () => "/apps/clientes.arennalabs.com/diagnose" },
-  { name: "settings-releases", path: () => "/apps/tienda.cittek.es/settings" },
-  { name: "settings-inplace", path: () => "/apps/pedidos.cittek.es/settings" },
+  { name: "logs", path: () => "/apps/tienda.example.org/logs" },
+  { name: "logs-failed-unit", path: () => "/apps/clientes.example.com/logs" },
+  { name: "metrics-24h", path: () => "/apps/tienda.example.org/metrics" },
+  { name: "metrics-7d", path: () => "/apps/tienda.example.org/metrics?range=7d" },
+  { name: "environment", path: () => "/apps/pedidos.example.org/environment" },
+  { name: "diagnose", path: () => "/apps/tienda.example.org/diagnose" },
+  { name: "diagnose-down", path: () => "/apps/clientes.example.com/diagnose" },
+  { name: "settings-releases", path: () => "/apps/tienda.example.org/settings" },
+  { name: "settings-inplace", path: () => "/apps/pedidos.example.org/settings" },
 ];
 
 test.describe("app tabs @screens", () => {

@@ -177,12 +177,12 @@ function Forms() {
       <Stage>
         <div className="grid gap-x-8 gap-y-6 md:grid-cols-2">
           <Field label="Domain" description="The address the app will answer on. DNS must point here.">
-            <Input mono placeholder="example.com" defaultValue="shop.arenna.dev" />
+            <Input mono placeholder="example.com" defaultValue="shop.example.dev" />
           </Field>
           <Field label="Repository">
             <Input mono prefix="https://" placeholder="github.com/you/app.git" />
           </Field>
-          <Field label="Port" error="Port 3004 is already used by wasm-shop.arenna.dev.service.">
+          <Field label="Port" error="Port 3004 is already used by wasm-shop.example.dev.service.">
             <Input mono defaultValue="3004" inputMode="numeric" />
           </Field>
           <Field label="Branch" optional>
@@ -206,7 +206,7 @@ function Forms() {
               label="Include www"
               description={
                 <>
-                  Serve <Mono>www.shop.arenna.dev</Mono> and redirect it to the apex.
+                  Serve <Mono>www.shop.example.dev</Mono> and redirect it to the apex.
                 </>
               }
               defaultChecked
@@ -253,15 +253,15 @@ function Overlays() {
               }
             >
               <Field label="New domain">
-                <Input mono defaultValue="shop.arenna.dev" />
+                <Input mono defaultValue="shop.example.dev" />
               </Field>
             </Dialog>
           </Item>
           <Item label="Type to confirm">
             <ConfirmDialog
-              title="Delete shop.arenna.dev"
+              title="Delete shop.example.dev"
               description="Stops the service, removes the nginx site and the release directories. Backups and the database are kept."
-              confirmText="shop.arenna.dev"
+              confirmText="shop.example.dev"
               actionLabel="Delete application"
               onConfirm={() => new Promise((resolve) => setTimeout(resolve, 900))}
               trigger={
@@ -273,9 +273,9 @@ function Overlays() {
           </Item>
           <Item label="Failure shown verbatim">
             <ConfirmDialog
-              title="Stop worker.arenna.dev"
+              title="Stop worker.example.dev"
               description="The worker stops taking jobs. Jobs in progress are cancelled."
-              confirmText="worker.arenna.dev"
+              confirmText="worker.example.dev"
               actionLabel="Stop service"
               onConfirm={() =>
                 new Promise((_, reject) =>
@@ -284,7 +284,7 @@ function Overlays() {
                       Object.assign(new Error("systemctl stop failed"), {
                         hint: "The unit did not stop within 90 seconds. Check what it is waiting on, then stop it again.",
                         detail:
-                          "Job for wasm-worker.arenna.dev.service canceled.\nwasm-worker.arenna.dev.service: State 'stop-sigterm' timed out. Killing.",
+                          "Job for wasm-worker.example.dev.service canceled.\nwasm-worker.example.dev.service: State 'stop-sigterm' timed out. Killing.",
                       }),
                     );
                   }, 700),
@@ -295,7 +295,7 @@ function Overlays() {
           </Item>
           <Item label="Taller than the screen">
             <Dialog
-              title="Migrate shop.arenna.dev to releases"
+              title="Migrate shop.example.dev to releases"
               description="What moves where. Nothing is deleted; the old tree is kept until you remove it."
               trigger={<Button data-testid="open-long-dialog">Review the plan</Button>}
               footer={
@@ -375,7 +375,7 @@ function Navigation() {
           {["overview", "deployments", "logs", "metrics", "environment", "domains", "diagnose", "settings"].map((value) => (
             <TabPanel key={value} value={value}>
               <p className="text-14 text-fg-muted">
-                The <span className="font-medium text-fg">{value}</span> view of shop.arenna.dev.
+                The <span className="font-medium text-fg">{value}</span> view of shop.example.dev.
               </p>
             </TabPanel>
           ))}
@@ -408,7 +408,7 @@ function Navigation() {
               align="start"
               trigger={<Button trailingIcon={<Ellipsis />} data-testid="open-menu">Actions</Button>}
             >
-              <MenuGroup label="shop.arenna.dev">
+              <MenuGroup label="shop.example.dev">
                 <MenuItem icon={<RotateCw />} shortcut={["R"]}>
                   Restart
                 </MenuItem>
@@ -495,7 +495,7 @@ function Feedback() {
           <Item label="Success">
             <Button
               data-testid="toast-success"
-              onClick={() => toast.success("Deployed shop.arenna.dev", { description: "a1b2c3d is live. Build took 42 s." })}
+              onClick={() => toast.success("Deployed shop.example.dev", { description: "a1b2c3d is live. Build took 42 s." })}
             >
               Success toast
             </Button>
@@ -520,7 +520,7 @@ function Feedback() {
             </Button>
           </Item>
           <Item label="Info">
-            <Button onClick={() => toast.info("Backup started", { description: "shop.arenna.dev, database included." })}>
+            <Button onClick={() => toast.info("Backup started", { description: "shop.example.dev, database included." })}>
               Info toast
             </Button>
           </Item>
@@ -609,13 +609,13 @@ function Attributes() {
                 <Mono>/var/www/apps/shop/current</Mono>
                 <Mono>:3004</Mono>
                 <Mono tone="muted">a1b2c3d</Mono>
-                <Mono>wasm-shop.arenna.dev.service</Mono>
+                <Mono>wasm-shop.example.dev.service</Mono>
               </div>
             </Item>
             <Item label="Copy">
               <div className="flex items-center gap-1 rounded-control border border-border bg-surface py-0.5 pr-0.5 pl-2.5">
-                <Mono>ssh root@arenna.dev</Mono>
-                <CopyButton value="ssh root@arenna.dev" label="Copy SSH command" />
+                <Mono>ssh root@example.dev</Mono>
+                <CopyButton value="ssh root@example.dev" label="Copy SSH command" />
               </div>
             </Item>
           </Row>
@@ -646,7 +646,7 @@ function Cards() {
         </Card>
         <Card
           title="Deploy on push"
-          description="Webhook for github.com/arenna/shop"
+          description="Webhook for github.com/acme/shop"
           footer={
             <>
               <Button variant="ghost">Disable</Button>
@@ -658,8 +658,8 @@ function Cards() {
             <Input
               mono
               readOnly
-              value="https://arenna.dev/hooks/github/shop"
-              suffix={<CopyButton value="https://arenna.dev/hooks/github/shop" label="Copy payload URL" />}
+              value="https://example.dev/hooks/github/shop"
+              suffix={<CopyButton value="https://example.dev/hooks/github/shop" label="Copy payload URL" />}
             />
           </Field>
         </Card>
@@ -776,7 +776,7 @@ function Charts() {
             title="CPU"
             description="Last 30 minutes"
             timestamps={metrics.timestamps}
-            series={[{ label: "shop.arenna.dev", values: metrics.cpu }]}
+            series={[{ label: "shop.example.dev", values: metrics.cpu }]}
             formatValue={(v) => `${v.toFixed(0)}%`}
             yRange={[0, 100]}
           />
@@ -798,7 +798,7 @@ function Charts() {
             title="CPU"
             description="Last 7 days"
             timestamps={week.timestamps}
-            series={[{ label: "shop.arenna.dev", values: week.cpu }]}
+            series={[{ label: "shop.example.dev", values: week.cpu }]}
             formatValue={(v) => `${v.toFixed(0)}%`}
             yRange={[0, 100]}
             markers={weekMarkers}
@@ -830,12 +830,12 @@ function Logs() {
       title="Log viewer"
       description="Output stays text: select it, search it, copy it, download it. Program colours map onto state tokens. Following pauses as soon as you scroll up and offers the way back. Timestamped lines keep their time column in the copy and the download; below the sm breakpoint (639px) lines start wrapped. At most one viewer per page sets pageSearch, so the page's `/` shortcut lands here."
     >
-      <LogViewer lines={SAMPLE_BUILD_LOG} height={420} label="Build log for shop.arenna.dev" filename="shop-a1b2c3d.log" />
+      <LogViewer lines={SAMPLE_BUILD_LOG} height={420} label="Build log for shop.example.dev" filename="shop-a1b2c3d.log" />
       <div className="flex flex-col gap-3">
         <Row>
           <Switch label="Stream journal lines" checked={streaming} onCheckedChange={setStreaming} />
         </Row>
-        <LogViewer lines={lines} height={300} label="Journal for shop.arenna.dev" filename="shop-journal.log" pageSearch />
+        <LogViewer lines={lines} height={300} label="Journal for shop.example.dev" filename="shop-journal.log" pageSearch />
       </div>
       <LogViewer lines={[]} height={140} label="Empty log" />
     </Section>

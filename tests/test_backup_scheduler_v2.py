@@ -20,6 +20,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.test_notifier import config  # noqa: F401  (pytest resolves fixtures by name)
+from wasm.core.config import Config
 from wasm.core.exceptions import BackupError
 from wasm.core.notifier import NotificationEvent
 from wasm.core.runner import FakeRunner
@@ -27,6 +29,10 @@ from wasm.core.store import BackupScheduleRecord, WASMStore, get_store
 from wasm.managers.backup_destinations import BackupDestinationManager
 from wasm.managers.backup_manager import BackupManager, BackupMetadata
 from wasm.managers.backup_scheduler import BackupSchedule, BackupScheduler, run_schedule
+
+# The notifier's config fixture is imported rather than replicated, so there
+# stays one definition of "a sandboxed configuration".
+# ruff: noqa: F811
 
 #: What ``systemctl list-timers --no-legend`` prints for one legacy timer.
 LIST_TIMERS_LINE = (
@@ -388,3 +394,62 @@ class TestRunSchedule:
 
         assert pushed == []
         assert any(event.kind == "backup_failed" for event in notified)
+
+    def test_notifications_are_rendered_in_the_configured_language(
+        self, monkeypatch: pytest.MonkeyPatch, config: Config
+    ) -> None:
+        """notifications.language: es translates the title; rclone's stderr stays verbatim."""
+        config.set("notifications.language", "es")
+        get_store().save_backup_schedule(
+            BackupScheduleRecord(
+                app_domain="shop.example.com",
+                schedule="daily",
+                destinations=[{"name": "broken", "retention_count": None, "retention_days": None}],
+            )
+        )
+        monkeypatch.setattr(
+            BackupManager,
+            "create",
+            lambda self, **kwargs: _metadata(
+                "shop-example-com_20260101_000000", "shop.example.com"
+            ),
+        )
+
+        def fake_push(self, backup, destination_name, **kwargs):  # type: ignore[no-untyped-def]
+            raise BackupError(
+                "Failed to upload to broken", details="rclone: permission denied for user wasm"
+            )
+
+        monkeypatch.setattr(BackupDestinationManager, "push", fake_push)
+
+        notified: list[NotificationEvent] = []
+        monkeypatch.setattr(
+            "wasm.core.notifier.Notifier.notify", lambda self, event: notified.append(event)
+        )
+
+        with pytest.raises(BackupError):
+            run_schedule("shop.example.com")
+
+        assert len(notified) == 1
+        assert (
+            notified[0].title
+            == "No se ha podido subir la copia de seguridad de shop.example.com a broken"
+        )
+        assert "permission denied for user wasm" in notified[0].body
+
+    def test_the_missing_schedule_notice_is_rendered_in_the_configured_language(
+        self, config: Config, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        config.set("notifications.language", "es")
+        notified: list[NotificationEvent] = []
+        monkeypatch.setattr(
+            "wasm.core.notifier.Notifier.notify", lambda self, event: notified.append(event)
+        )
+
+        with pytest.raises(BackupError):
+            run_schedule("nowhere.example.com")
+
+        assert notified
+        assert notified[0].title == (
+            "Faltan los ajustes de la copia de seguridad programada: nowhere.example.com"
+        )

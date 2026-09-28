@@ -108,11 +108,11 @@ function Palette() {
 
 const TYPE: { name: string; spec: string; className: string; sample: string }[] = [
   { name: "Display", spec: "32/40 600 wide", className: "display text-32", sample: "Your server, deployed." },
-  { name: "Title", spec: "24/32 600 wide", className: "title text-24", sample: "shop.arenna.dev" },
+  { name: "Title", spec: "24/32 600 wide", className: "title text-24", sample: "shop.example.dev" },
   { name: "Heading", spec: "18/24 600 wide", className: "title text-18", sample: "Deployments" },
   { name: "Lead", spec: "16/24 400", className: "text-16", sample: "Builds run in their own release directory." },
   { name: "Body", spec: "14/20 400", className: "text-14", sample: "The previous release keeps serving until the new one passes its health check." },
-  { name: "Dense", spec: "13/20 400", className: "text-13", sample: "Restarted wasm-shop.arenna.dev.service after a configuration change." },
+  { name: "Dense", spec: "13/20 400", className: "text-13", sample: "Restarted wasm-shop.example.dev.service after a configuration change." },
   { name: "Caption", spec: "12/16 500", className: "text-12 font-medium text-fg-muted", sample: "Deployed 12 min ago by webhook" },
   { name: "Mono", spec: "13/20 400", className: "mono text-13", sample: "/var/www/apps/shop/releases/20260925-143012-a1b2c3d" },
 ];

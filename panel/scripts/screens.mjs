@@ -107,7 +107,7 @@ async function main() {
         ];
         for (const [testId, name] of overlays) {
           await open(page, testId);
-          if (name === "confirm") await page.keyboard.type("shop.arenna");
+          if (name === "confirm") await page.keyboard.type("shop.example");
           await page.screenshot({ path: path.join(dir, `overlay-${name}.png`) });
           await closeAll(page);
         }

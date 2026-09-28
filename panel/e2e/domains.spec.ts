@@ -23,7 +23,7 @@ function row(page: Page, table: string, name: string) {
 }
 
 test("an alias is added after DNS says it points here, and the certificate is extended to it", async ({ page, consoleServer }) => {
-  const app = "qrboda.com";
+  const app = "example.net";
   const alias = `blog.${app}`;
   await signIn(page, consoleServer, `/apps/${app}/domains`);
   const primary = page.getByRole("region", { name: `Domains of ${app}` }).getByRole("row").filter({ hasText: "Primary" });
@@ -61,10 +61,10 @@ test("an alias is added after DNS says it points here, and the certificate is ex
 });
 
 test("a name that does not point here is added, and the failed order is shown in certbot's words", async ({ page, consoleServer, problems }) => {
-  const app = "cittek.es";
+  const app = "example.org";
   const name = `new.${app}`;
   // Removing it first asks for elevation (403), which Chromium logs as a failed resource.
-  problems.expect(/status of 403 .* \/api\/apps\/cittek\.es\/domains\/new\.cittek\.es$/);
+  problems.expect(/status of 403 .* \/api\/apps\/example\.org\/domains\/new\.example\.org$/);
   await signIn(page, consoleServer, `/apps/${app}/domains`);
   await page.getByRole("button", { name: "Add domain" }).click();
   const dialog = page.getByRole("dialog", { name: `Add a domain to ${app}` });
@@ -98,14 +98,14 @@ test("a name that does not point here is added, and the failed order is shown in
 });
 
 test("a configuration nginx rejects is not saved, and nginx's output says why", async ({ page, consoleServer, problems }) => {
-  const site = "arennalabs.com";
+  const site = "example.com";
   // Chromium logs both refusals as failed resources: the save first asks for elevation (403),
   // then nginx's test refuses the text (400). Both are the behaviour under test.
-  problems.expect(/status of 403 .* \/api\/sites\/arennalabs\.com\/config$/);
-  problems.expect(/status of 400 .* \/api\/sites\/arennalabs\.com\/config$/);
+  problems.expect(/status of 403 .* \/api\/sites\/example\.com\/config$/);
+  problems.expect(/status of 400 .* \/api\/sites\/example\.com\/config$/);
   await signIn(page, consoleServer, `/domains/sites/${site}`);
   const editor = page.getByRole("textbox", { name: `Configuration of ${site}` });
-  await expect(editor).toHaveValue(/server_name arennalabs\.com;/);
+  await expect(editor).toHaveValue(/server_name example\.com;/);
   const original = await editor.inputValue();
   await settle(page);
   await expectNoA11yViolations(page, "a site's configuration editor");
@@ -166,8 +166,8 @@ test("the certificates and sites tabs: the most urgent certificate first, renewi
   await signIn(page, consoleServer, "/domains");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Domains and certificates");
   const certificates = page.getByRole("region", { name: "Certificates" });
-  // arennalabs.com expires in 12 days: first, and flagged.
-  await expect(certificates.getByRole("row").nth(1)).toContainText("arennalabs.com");
+  // example.com expires in 12 days: first, and flagged.
+  await expect(certificates.getByRole("row").nth(1)).toContainText("example.com");
   await expect(certificates.getByRole("row").nth(1)).toContainText(/Expires in 1[12] days/);
   await expect(certificates.getByRole("row").nth(1)).toContainText(/Expires in \d+ days/);
   // CertInfo.issuer, in words rather than the raw "C = US, O = Let's Encrypt, CN = R11".
@@ -175,11 +175,11 @@ test("the certificates and sites tabs: the most urgent certificate first, renewi
   await settle(page);
   await expectNoA11yViolations(page, "the certificates tab");
 
-  const renewal = row(page, "Certificates", "bodas.arennalabs.com");
-  await renewal.getByRole("button", { name: "Actions for bodas.arennalabs.com" }).click();
+  const renewal = row(page, "Certificates", "bodas.example.com");
+  await renewal.getByRole("button", { name: "Actions for bodas.example.com" }).click();
   await page.getByRole("menuitem", { name: "Renew now" }).click();
   // The job's own banner on the page (the live region may say the same words).
-  await expect(page.getByRole("main").getByText("Renewed bodas.arennalabs.com")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("main").getByText("Renewed bodas.example.com")).toBeVisible({ timeout: 20_000 });
   await expect(renewal).toContainText(/Valid for (89|90) days/);
 
   await page.getByRole("button", { name: "Issue certificate" }).click();
@@ -193,18 +193,18 @@ test("the certificates and sites tabs: the most urgent certificate first, renewi
   await page.getByRole("tab", { name: /Sites/ }).click();
   await expect(page).toHaveURL(/\/domains\?tab=sites$/);
   await expect(page.getByRole("region", { name: "Sites" })).toBeVisible();
-  await expect(row(page, "Sites", "convertidordepdf.com")).toContainText("Disabled");
+  await expect(row(page, "Sites", "tools.example.net")).toContainText("Disabled");
 
-  // SiteInfo.server_names: qrboda.com's site was seeded to answer on more than its own name.
+  // SiteInfo.server_names: example.net's site was seeded to answer on more than its own name.
   // Another test may since have added an alias to it too, so the expectation comes from the
   // API rather than a fixed list.
-  const qrboda = (await (await page.request.get("/api/sites/qrboda.com")).json()) as { server_names: string[] };
-  expect(qrboda.server_names.length).toBeGreaterThan(1);
-  const qrbodaRow = row(page, "Sites", "qrboda.com");
-  const shownNames = qrboda.server_names.slice(0, 3).join(", ");
-  await expect(qrbodaRow).toContainText(shownNames);
-  const hiddenCount = qrboda.server_names.length - 3;
-  if (hiddenCount > 0) await expect(qrbodaRow).toContainText(`+${String(hiddenCount)} more`);
+  const exampleNet = (await (await page.request.get("/api/sites/example.net")).json()) as { server_names: string[] };
+  expect(exampleNet.server_names.length).toBeGreaterThan(1);
+  const exampleNetRow = row(page, "Sites", "example.net");
+  const shownNames = exampleNet.server_names.slice(0, 3).join(", ");
+  await expect(exampleNetRow).toContainText(shownNames);
+  const hiddenCount = exampleNet.server_names.length - 3;
+  if (hiddenCount > 0) await expect(exampleNetRow).toContainText(`+${String(hiddenCount)} more`);
   await dismissToasts(page);
   await settle(page);
   await expectNoA11yViolations(page, "the sites tab");
@@ -234,10 +234,10 @@ test("a site's own page lists every name it serves, and a template is offered fr
   await page.keyboard.press("Escape");
   await expect(createDialog).toBeHidden();
 
-  const qrboda = (await (await page.request.get("/api/sites/qrboda.com")).json()) as { server_names: string[] };
-  await page.goto("/domains/sites/qrboda.com");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("qrboda.com");
-  await expect(page.getByText(qrboda.server_names.join(", "))).toBeVisible();
+  const exampleNet = (await (await page.request.get("/api/sites/example.net")).json()) as { server_names: string[] };
+  await page.goto("/domains/sites/example.net");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("example.net");
+  await expect(page.getByText(exampleNet.server_names.join(", "))).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "a site's own page with the names it serves");
 });
@@ -245,14 +245,14 @@ test("a site's own page lists every name it serves, and a template is offered fr
 test("deleting a certificate needs the operator to confirm it's them", async ({ page, consoleServer, problems }) => {
   await signIn(page, consoleServer, "/domains");
 
-  // Other tests rely on arennalabs.com, cittek.es, qrboda.com and bodas.arennalabs.com keeping
-  // their certificates, and health-reasons.spec.ts on picconia.com's being close to expiry
+  // Other tests rely on example.com, example.org, example.net and bodas.example.com keeping
+  // their certificates, and health-reasons.spec.ts on shop.example.net's being close to expiry
   // (the two may share a worker's server); picked from the API so whichever other seeded certificate
   // exists works, rather than assuming one by name. Revoking is not exercised on top of this:
   // CertManager.revoke() asks certbot for --delete-after-revoke, so a revoked certificate is
   // already gone - the two are not independently sequenceable on one lineage, and this is the
   // one every "Revoke" ends as anyway.
-  const reserved = new Set(["arennalabs.com", "picconia.com", "cittek.es", "qrboda.com", "bodas.arennalabs.com"]);
+  const reserved = new Set(["example.com", "shop.example.net", "example.org", "example.net", "bodas.example.com"]);
   const certs = (await (await page.request.get("/api/certs")).json()) as { certificates: { domain: string }[] };
   const target = certs.certificates.find((cert) => !reserved.has(cert.domain));
   if (!target) throw new Error("No certificate free of other tests' use was seeded to delete.");
@@ -282,7 +282,7 @@ test("on a phone the domains pages keep to the screen", async ({ page, consoleSe
   await signIn(page, consoleServer, "/domains?tab=sites");
   await expect(page.getByRole("region", { name: "Sites" })).toBeVisible();
   await settle(page);
-  for (const path of ["/domains?tab=sites", "/domains", "/apps/picconia.com/domains", "/domains/sites/picconia.com"]) {
+  for (const path of ["/domains?tab=sites", "/domains", "/apps/shop.example.net/domains", "/domains/sites/shop.example.net"]) {
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await settle(page);

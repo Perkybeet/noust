@@ -72,7 +72,7 @@ test("sets the console's public address, refusing one that is not https", async 
   await settle(page);
 
   // http is refused by the configuration's own rule, in its words, under the field.
-  await input.fill("http://console.cittek.es");
+  await input.fill("http://console.example.org");
   await section.getByRole("button", { name: "Save changes" }).click();
   await confirmItsYou(page, consoleServer);
   await expect(section.getByText(/web\.public_url must be an absolute https:\/\/ URL/)).toBeVisible();
@@ -82,12 +82,12 @@ test("sets the console's public address, refusing one that is not https", async 
   await expectNoA11yViolations(page, "a refused public address");
 
   // An https address is saved without its trailing slash, and read back after a reload.
-  await input.fill("https://console.cittek.es/");
+  await input.fill("https://console.example.org/");
   await section.getByRole("button", { name: "Save changes" }).click();
   await expect(section.getByRole("button", { name: "Save changes" })).toBeDisabled();
   await expect(input).not.toHaveAttribute("aria-invalid", "true");
   await page.reload();
-  await expect(link(page).getByLabel("Console address")).toHaveValue("https://console.cittek.es");
+  await expect(link(page).getByLabel("Console address")).toHaveValue("https://console.example.org");
   // The terminal equivalent names the key it reads.
   await expect(link(page).getByText("wasm config get web.public_url")).toBeVisible();
   await settle(page);

@@ -5,7 +5,7 @@ import { Announcer } from "../../app/Announcer";
 import { useAnnounceChange } from "./useAnnounceChange";
 
 function Watcher({ state }: { state: string | null }) {
-  useAnnounceChange(state, state === null ? null : `picconia.com: ${state}`, state === "failed" ? "assertive" : "polite");
+  useAnnounceChange(state, state === null ? null : `shop.example.net: ${state}`, state === "failed" ? "assertive" : "polite");
   return null;
 }
 
@@ -54,7 +54,7 @@ describe("useAnnounceChange", () => {
       </>,
     );
     settle();
-    expect(screen.getByRole("status")).toHaveTextContent("picconia.com: deploying");
+    expect(screen.getByRole("status")).toHaveTextContent("shop.example.net: deploying");
     rerender(
       <>
         <Announcer />
@@ -62,6 +62,6 @@ describe("useAnnounceChange", () => {
       </>,
     );
     settle();
-    expect(screen.getByRole("alert")).toHaveTextContent("picconia.com: failed");
+    expect(screen.getByRole("alert")).toHaveTextContent("shop.example.net: failed");
   });
 });

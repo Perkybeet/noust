@@ -9,8 +9,8 @@ import type { RouteHandler } from "../../test/fakes";
 /** One backup, with every field `BackupInfo` requires, so a test only names what it varies. */
 function backup(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
-    backup_id: "picconia-com_20260101_000000",
-    domain: "picconia.com",
+    backup_id: "shop-example-net_20260101_000000",
+    domain: "shop.example.net",
     timestamp: "2026-01-01T00:00:00+00:00",
     size: 1_048_576,
     size_human: "1 MB",

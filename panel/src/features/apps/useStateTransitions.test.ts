@@ -4,15 +4,15 @@ import { describeTransitions } from "./useStateTransitions";
 
 describe("describeTransitions", () => {
   const before = new Map([
-    ["picconia.com", "Running"],
-    ["cittek.es", "Running"],
+    ["shop.example.net", "Running"],
+    ["example.org", "Running"],
   ]);
 
   it("says nothing when nothing changed", () => {
     expect(
       describeTransitions(before, [
-        { domain: "picconia.com", status: "running" },
-        { domain: "cittek.es", status: "Running" },
+        { domain: "shop.example.net", status: "running" },
+        { domain: "example.org", status: "Running" },
       ]),
     ).toBeNull();
   });
@@ -20,14 +20,14 @@ describe("describeTransitions", () => {
   it("names every app that changed, in one sentence", () => {
     expect(
       describeTransitions(before, [
-        { domain: "picconia.com", status: "deploying" },
-        { domain: "cittek.es", status: "stopped" },
+        { domain: "shop.example.net", status: "deploying" },
+        { domain: "example.org", status: "stopped" },
       ]),
-    ).toEqual({ message: "picconia.com: Deploying. cittek.es: Stopped.", failed: false });
+    ).toEqual({ message: "shop.example.net: Deploying. example.org: Stopped.", failed: false });
   });
 
   it("flags a failure so it is said assertively", () => {
-    expect(describeTransitions(before, [{ domain: "picconia.com", status: "failed" }])?.failed).toBe(true);
+    expect(describeTransitions(before, [{ domain: "shop.example.net", status: "failed" }])?.failed).toBe(true);
   });
 
   it("does not count an app that just appeared", () => {

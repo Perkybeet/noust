@@ -10,7 +10,7 @@ import type { Locator, Page } from "@playwright/test";
 
 import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
 
-const DOMAIN = "tienda.cittek.es";
+const DOMAIN = "tienda.example.org";
 const CLOCK = /^\d{2}:\d{2}$/;
 
 /** The overview's CPU chart once the collector has at least two samples to draw. */

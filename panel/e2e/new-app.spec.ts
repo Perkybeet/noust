@@ -48,7 +48,7 @@ test("inspects a directory on the server, deploys it and lands on its deployment
   // The deploy runs to its end (a failed health check: nothing listens in the sandbox) before
   // the test lets go of the machine.
   test.setTimeout(180_000);
-  const domain = "tienda-nueva.qrboda.com";
+  const domain = "tienda-nueva.example.net";
   await signIn(page, consoleServer, "/apps/new");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("New application");
   await settle(page);
@@ -72,7 +72,7 @@ test("inspects a directory on the server, deploys it and lands on its deployment
   await expect(page.getByLabel(/^LOG_LEVEL/)).toHaveValue("info");
   await expect(page.getByLabel(/^NEXTAUTH_SECRET/)).toHaveAttribute("type", "password");
   await page.getByLabel("Domain", { exact: true }).fill(domain);
-  // Checked as it is typed: qrboda.com is a seeded zone, so this name resolves here.
+  // Checked as it is typed: example.net is a seeded zone, so this name resolves here.
   await expect(page.getByText(`${domain} points here`)).toBeVisible();
   await page.getByLabel(/^DATABASE_URL/).fill("postgres://storefront@localhost/storefront");
   for (const name of ["NEXTAUTH_SECRET", "STRIPE_SECRET_KEY", "SMTP_PASSWORD"]) {
@@ -106,9 +106,9 @@ test("inspects a directory on the server, deploys it and lands on its deployment
 test("a taken domain and the variables without a default keep the operator on Review", async ({ page, consoleServer, problems }) => {
   await signIn(page, consoleServer, "/apps/new");
   await inspectSource(page, consoleServer, problems, await wizardSource(page, "storefront"));
-  await page.getByLabel("Domain", { exact: true }).fill("picconia.com");
+  await page.getByLabel("Domain", { exact: true }).fill("shop.example.net");
   await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByText("picconia.com is already deployed.", { exact: false })).toBeVisible();
+  await expect(page.getByText("shop.example.net is already deployed.", { exact: false })).toBeVisible();
   // Focus goes to the first field that needs attention.
   await expect(page.getByLabel("Domain", { exact: true })).toBeFocused();
   await expect(page.getByText(".env.example gives it no value, so the app expects one.")).toHaveCount(4);
@@ -120,7 +120,7 @@ test("a taken domain and the variables without a default keep the operator on Re
   await page.getByRole("button", { name: "Back" }).click();
   await expect(page.getByRole("heading", { level: 2, name: "Source" })).toBeFocused();
   await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByLabel("Domain", { exact: true })).toHaveValue("picconia.com");
+  await expect(page.getByLabel("Domain", { exact: true })).toHaveValue("shop.example.net");
 });
 
 test("a directory that does not exist is refused on its field, in the server's words", async ({ page, consoleServer, problems }) => {
@@ -159,9 +159,9 @@ test("the type select lists every type the deployer registry knows, not a hand-k
 test("a domain that resolves elsewhere warns instead of blocking the deploy", async ({ page, consoleServer, problems }) => {
   await signIn(page, consoleServer, "/apps/new");
   await inspectSource(page, consoleServer, problems, await wizardSource(page, "storefront"));
-  // old.qrboda.com is modelled as pointing at another server.
-  await page.getByLabel("Domain", { exact: true }).fill("old.qrboda.com");
-  await expect(page.getByText("old.qrboda.com points somewhere else")).toBeVisible();
+  // old.example.net is modelled as pointing at another server.
+  await page.getByLabel("Domain", { exact: true }).fill("old.example.net");
+  await expect(page.getByText("old.example.net points somewhere else")).toBeVisible();
   await page.getByLabel(/^DATABASE_URL/).fill("x");
   for (const name of ["NEXTAUTH_SECRET", "STRIPE_SECRET_KEY", "SMTP_PASSWORD"]) {
     await page.getByRole("button", { name: `Generate ${name}` }).click();

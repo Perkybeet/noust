@@ -25,9 +25,9 @@ test("merges the jobs history and the audit log, newest first, including this si
   await expect(signInRow.getByText("Success")).toBeVisible();
   await expect(signInRow.getByText(/^Session [0-9a-f]{8}$/)).toBeVisible();
 
-  // A seeded job (the backup of picconia.com), so the merge is proven with both kinds of row
+  // A seeded job (the backup of shop.example.net), so the merge is proven with both kinds of row
   // on screen at once.
-  await expect(table.getByRole("row").filter({ has: page.getByText("picconia.com") }).first()).toBeVisible();
+  await expect(table.getByRole("row").filter({ has: page.getByText("shop.example.net") }).first()).toBeVisible();
 
   await settle(page);
   await expectNoA11yViolations(page, "the activity timeline");
@@ -62,17 +62,17 @@ test("filtering by result narrows the timeline to one source", async ({ page, co
 test("opening a job with a captured log shows it verbatim", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/activity");
   const table = page.getByRole("region", { name: /^Activity/ });
-  // The seeded update of arennalabs.com that kept its log: the job the master token started.
+  // The seeded update of example.com that kept its log: the job the master token started.
   const row = table
     .getByRole("row")
-    .filter({ has: page.getByText("Updating the application at arennalabs.com") })
+    .filter({ has: page.getByText("Updating the application at example.com") })
     .filter({ has: page.getByText("master", { exact: true }) });
   await expect(row).toBeVisible();
   await row.getByRole("button", { name: /View log of/ }).click();
 
-  const drawer = page.getByRole("dialog", { name: "Update arennalabs.com" });
+  const drawer = page.getByRole("dialog", { name: "Update example.com" });
   await expect(drawer).toBeVisible();
-  await expect(drawer.getByText(/Updating arennalabs\.com/)).toBeVisible();
-  await expect(drawer.getByText(/Update of arennalabs\.com finished/)).toBeVisible();
+  await expect(drawer.getByText(/Updating example\.com/)).toBeVisible();
+  await expect(drawer.getByText(/Update of example\.com finished/)).toBeVisible();
   await expectNoA11yViolations(page, "a job's log");
 });

@@ -9,7 +9,7 @@ import type { Page } from "@playwright/test";
 
 import { expect, expectNoA11yViolations, settle, signIn, stillness, test, toasts } from "./fixtures";
 
-const DOMAIN = "picconia.com";
+const DOMAIN = "shop.example.net";
 
 function header(page: Page) {
   return page.locator("main header").filter({ has: page.getByRole("heading", { level: 1 }) });
@@ -52,7 +52,7 @@ test("Update queues a job; the header follows it over the event stream to its en
         super(url, init);
         this.addEventListener("app", (event: MessageEvent<string>) => {
           const data = JSON.parse(event.data) as { domain?: string; status?: string };
-          if (data.domain === "picconia.com" && data.status) seen.push(data.status);
+          if (data.domain === "shop.example.net" && data.status) seen.push(data.status);
         });
       }
     };
@@ -98,7 +98,7 @@ test("Update queues a job; the header follows it over the event stream to its en
 });
 
 /** Seeded on releases with a remote whose main is the commit that is live (console_server.py). */
-const NOTHING_NEW_APP = "catalogo.cittek.es";
+const NOTHING_NEW_APP = "catalogo.example.org";
 
 /** The CSRF header every write through `page.request` carries, mirrored from its cookie. */
 async function csrf(page: Page): Promise<Record<string, string>> {
@@ -145,7 +145,7 @@ test("Update with nothing new asks, in the backend's words, and rebuilds only wh
 
 test("Stop asks first; the header follows the unit down and back up", async ({ page, consoleServer }) => {
   // Its own app: stopping changes the worker's machine for every later test.
-  const domain = "convertidordepdf.com";
+  const domain = "tools.example.net";
   await signIn(page, consoleServer, `/apps/${domain}`);
   await expect(pill(page)).toHaveAttribute("data-state", "running");
 
@@ -180,7 +180,7 @@ test("Delete stays disabled until the domain is typed", async ({ page, consoleSe
   await expect(dialog).toBeVisible();
   const confirm = dialog.getByRole("button", { name: "Delete application" });
   await expect(confirm).toBeDisabled();
-  await dialog.getByRole("textbox").fill("picconia");
+  await dialog.getByRole("textbox").fill("shop");
   await expect(confirm).toBeDisabled();
   await dialog.getByRole("textbox").fill(DOMAIN);
   await expect(confirm).toBeEnabled();
@@ -207,7 +207,7 @@ test("Roll back lists the backups of an app deployed in place", async ({ page, c
 });
 
 test("the overview tab shows the deploys as dots that open each deploy, and the runtime", async ({ page, consoleServer }) => {
-  const domain = "clientes.arennalabs.com";
+  const domain = "clientes.example.com";
   await signIn(page, consoleServer, `/apps/${domain}`);
   const dots = page.getByRole("list", { name: /^Last \d+ deploys, oldest first$/ });
   const newest = dots.getByRole("link").last();
@@ -217,7 +217,7 @@ test("the overview tab shows the deploys as dots that open each deploy, and the 
 
   const facts = (await (await page.request.get(`/api/apps/${domain}`)).json()) as { source: string | null; branch: string | null };
   const runtime = page.getByRole("region", { name: "Runtime" });
-  await expect(runtime.getByText("/var/www/apps/clientes.arennalabs.com")).toBeVisible();
+  await expect(runtime.getByText("/var/www/apps/clientes.example.com")).toBeVisible();
   if (facts.source !== null) {
     const repo = runtime.getByRole("link", { name: new RegExp(`^${facts.source.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`) });
     if (facts.source.startsWith("https://")) await expect(repo).toHaveAttribute("href", facts.source);
@@ -229,7 +229,7 @@ test("the overview tab shows the deploys as dots that open each deploy, and the 
   await expect(page.getByRole("region", { name: "Domains" }).getByText("No certificate").first()).toBeVisible();
 
   await newest.click();
-  await expect(page).toHaveURL(/\/apps\/clientes\.arennalabs\.com\/deployments\/\d+$/);
+  await expect(page).toHaveURL(/\/apps\/clientes\.example\.com\/deployments\/\d+$/);
 });
 
 test("on a phone the header's actions fold into one menu", async ({ page, consoleServer }) => {
