@@ -8,6 +8,10 @@
 # --cgroupns=host and the host cgroup filesystem bind-mounted read-write, plus
 # tmpfs mounts for /run and /run/lock - run.py does all of that.
 #
+# rclone is installed for the remote backup scenario: WASM uploads to backup
+# destinations through it, and the distribution package is what an operator
+# installs (core/dependencies.py names it).
+#
 # certbot is deliberately not installed: every scenario that needs a
 # certificate is skipped in favour of --no-ssl, because this container has no
 # real domain and no path to the public internet's ACME servers.
@@ -33,6 +37,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         sqlite3 \
         procps \
         iproute2 \
+        rclone \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

@@ -25,6 +25,8 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import hashlib
+import hmac
 import json
 import re
 import secrets
@@ -34,6 +36,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 INTEGRATION_DIR = Path(__file__).resolve().parent
@@ -875,7 +878,7 @@ def scenario_status_and_list(sc: Scenario) -> None:
 CONSOLE_CSP = (
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
     "font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; "
-    "form-action 'self'; object-src 'none'"
+    "form-action 'self' https://github.com; object-src 'none'"
 )
 
 PANEL_URL = "http://127.0.0.1:8080"
@@ -1517,6 +1520,1244 @@ def scenario_compose_rollback(sc: Scenario) -> None:
         label="SELECT the update's history row",
     )
     sc.check(row.stdout.strip() == "failed", f"the update's row: {row.stdout!r}")
+
+
+# ---------------------------------------------------------------------------
+# 2.2: blue/green, remote backups, pull request previews, deploy notifications
+# ---------------------------------------------------------------------------
+
+#: Scripts the 2.2 scenarios run inside the container: a load generator and a
+#: notification recorder. Copied in by :func:`install_tools`.
+TOOLS_DIR = INTEGRATION_DIR / "tools"
+CONTAINER_TOOLS = "/root/it-tools"
+
+#: The notification recorder: a POST listener the ``webhook`` channel points at.
+RECORDER_UNIT = "wasm-it-recorder"
+NOTIFY_PORT = 9199
+NOTIFY_URL = f"http://127.0.0.1:{NOTIFY_PORT}/wasm"
+NOTIFY_LOG = "/root/it-notifications.jsonl"
+
+#: The load generator: one request through nginx every LOAD_INTERVAL seconds.
+LOAD_UNIT = "wasm-it-load"
+LOAD_LOG = "/root/it-load.log"
+LOAD_INTERVAL = 0.05
+
+#: What every repository the 2.2 scenarios create commits as.
+GIT_IDENTITY = (
+    "git config user.email wasm-it@example.com && git config user.name 'WASM Integration'"
+)
+
+
+def install_tools(sc: Scenario) -> None:
+    """Copy tests/integration/tools into the container; idempotent."""
+    sh(["docker", "exec", sc.container, "mkdir", "-p", CONTAINER_TOOLS], timeout=30)
+    sh(["docker", "cp", f"{TOOLS_DIR}/.", f"{sc.container}:{CONTAINER_TOOLS}"], timeout=30)
+
+
+def make_node_repo(sc: Scenario, name: str) -> tuple[str, str]:
+    """
+    Create a repository of the Node fixture at VERSION 1 on ``main``, served by git daemon.
+
+    Its own repository, so the commits a scenario makes never reach another
+    scenario's application. git daemon exports everything under
+    /root/fixtures, so the repository is reachable the moment it exists.
+
+    Args:
+        sc: The scenario.
+        name: Path under /root/fixtures, such as ``bg-app`` or ``acme/prev-app``.
+
+    Returns:
+        The repository's path in the container and its git:// URL.
+    """
+    repo = f"/root/fixtures/{name}"
+    sc.run(
+        f"rm -rf {repo} && mkdir -p {repo} && "
+        f"git -C /root/fixtures/node-app archive HEAD | tar -x -C {repo} && "
+        f"cd {repo} && echo 1 > VERSION && git init -q -b main && {GIT_IDENTITY} && "
+        "git add -A && git commit -q -m 'version 1'",
+        timeout=30,
+        label=f"(fixture repo) {repo}: the Node fixture at VERSION 1, served at "
+        f"git://127.0.0.1/{name}",
+    )
+    return repo, f"git://127.0.0.1/{name}"
+
+
+def commit_to(sc: Scenario, repo: str, script: str, message: str) -> str:
+    """Change a fixture repository, commit it, and return the new commit."""
+    return sc.run(
+        f"cd {repo} && {script} && git add -A && git commit -q -m '{message}' && "
+        "git rev-parse HEAD",
+        timeout=30,
+        label=f"(fixture repo {repo}) {script}; git commit -m '{message}'",
+    ).stdout.strip()
+
+
+def json_of(proc: subprocess.CompletedProcess[str], what: str) -> Any:
+    """Parse a command's JSON output, whatever it printed around it."""
+    text = proc.stdout.strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        start = min((i for i in (text.find("{"), text.find("[")) if i >= 0), default=-1)
+        if start < 0:
+            raise AssertionError(f"{what} printed no JSON: {text!r}") from None
+        return json.loads(text[start:])
+
+
+def journal_tail(sc: Scenario, units: str, label: str) -> None:
+    """Put the end of some units' journal into the evidence, for a failure."""
+    sc.run(
+        f"journalctl --no-pager -n 60 {units} || true",
+        timeout=30,
+        check=False,
+        label=label,
+    )
+
+
+# -- Notifications -----------------------------------------------------------
+
+
+def start_notifications(sc: Scenario, *, started: bool) -> None:
+    """
+    Start the recorder and point WASM's ``webhook`` channel at it.
+
+    Loopback is inside the SSRF guard's forbidden networks, so the recorder's
+    host is listed under ``notifications.allow_private_hosts``, which is
+    exactly what an operator with an internal endpoint does.
+
+    Args:
+        sc: The scenario.
+        started: Whether ``deploy_started`` is switched on.
+    """
+    install_tools(sc)
+    sc.run(
+        f"systemctl stop {RECORDER_UNIT} 2>/dev/null; systemctl reset-failed {RECORDER_UNIT} "
+        f"2>/dev/null; rm -f {NOTIFY_LOG}; systemd-run --unit {RECORDER_UNIT} --collect "
+        f"/usr/bin/python3 {CONTAINER_TOOLS}/recorder.py {NOTIFY_PORT} {NOTIFY_LOG}",
+        timeout=30,
+        label=f"start the notification recorder (POST listener on 127.0.0.1:{NOTIFY_PORT})",
+    )
+    deadline = time.time() + 15
+    while time.time() < deadline:
+        probe = docker_exec(
+            sc.container,
+            f"curl -sS -o /dev/null -w '%{{http_code}}' -X POST -d '{{}}' {NOTIFY_URL}",
+            timeout=15,
+            check=False,
+        )
+        if probe.stdout.strip() == "204":
+            break
+        time.sleep(0.5)
+    else:
+        raise AssertionError("the notification recorder never answered")
+    sc.run(f": > {NOTIFY_LOG}", timeout=15, label="empty the recorder's log")
+    for setting in (
+        f"notifications.channels.webhook.webhook_url {NOTIFY_URL}",
+        "notifications.allow_private_hosts 127.0.0.1 --list",
+        f"notifications.events.deploy_started {'true' if started else 'false'}",
+        "notifications.enabled true",
+    ):
+        sc.run(f"wasm config set {setting}", timeout=30, label=f"wasm config set {setting}")
+
+
+def stop_notifications(sc: Scenario) -> None:
+    """Turn notifications off and stop the recorder; never raises."""
+    sc.run(
+        "wasm config set notifications.enabled false; "
+        "wasm config set notifications.events.deploy_started false; "
+        f"systemctl stop {RECORDER_UNIT} 2>/dev/null; true",
+        timeout=60,
+        check=False,
+        label="turn notifications off and stop the recorder",
+    )
+
+
+def recorded_notifications(sc: Scenario, label: str) -> list[dict[str, Any]]:
+    """Every notification the recorder received, in order."""
+    lines = sc.run(f"cat {NOTIFY_LOG}", timeout=15, label=label).stdout.splitlines()
+    return [json.loads(line) for line in lines if line.strip()]
+
+
+# -- Load --------------------------------------------------------------------
+
+
+def start_load(sc: Scenario, host: str) -> int:
+    """
+    Start one request through nginx every 50 ms as ``host``, and wait for the first answers.
+
+    Returns:
+        The log's line count once it is running: the first phase's start.
+    """
+    install_tools(sc)
+    sc.run(
+        f"systemctl stop {LOAD_UNIT} 2>/dev/null; systemctl reset-failed {LOAD_UNIT} 2>/dev/null; "
+        f"rm -f {LOAD_LOG}; systemd-run --unit {LOAD_UNIT} --collect /usr/bin/python3 "
+        f"{CONTAINER_TOOLS}/load.py {host} {LOAD_LOG} {LOAD_INTERVAL}",
+        timeout=30,
+        label=f"start the load: GET / as {host} through nginx every {int(LOAD_INTERVAL * 1000)} ms",
+    )
+    deadline = time.time() + 15
+    while time.time() < deadline:
+        count = load_mark(sc)
+        if count >= 10:
+            return count
+        time.sleep(0.5)
+    raise AssertionError("the load generator is not writing its log")
+
+
+def load_mark(sc: Scenario) -> int:
+    """The number of complete lines in the load log."""
+    proc = docker_exec(sc.container, f"wc -l < {LOAD_LOG} 2>/dev/null || echo 0", timeout=15)
+    return int(proc.stdout.strip() or 0)
+
+
+def load_phase(sc: Scenario, phase: str, since: int) -> int:
+    """
+    Count what the load saw since a mark, put it in the evidence, and fail on any error.
+
+    Args:
+        sc: The scenario.
+        phase: What was happening, for the evidence.
+        since: The mark the phase started at.
+
+    Returns:
+        The mark the next phase starts at.
+    """
+    # Requests in flight when the command returned land within the timeout.
+    time.sleep(1)
+    proc = docker_exec(sc.container, f"tail -n +{since + 1} {LOAD_LOG}", timeout=30)
+    text = proc.stdout
+    if not text.endswith("\n"):
+        text = text[: text.rfind("\n") + 1]
+    lines = text.splitlines()
+    failures = [line for line in lines if not line.startswith("OK ")]
+    answers: dict[str, int] = {}
+    order: list[str] = []
+    for line in lines:
+        if line.startswith("OK "):
+            body = line.split(" ", 3)[3] if line.count(" ") >= 3 else ""
+            if body not in answers:
+                order.append(body)
+            answers[body] = answers.get(body, 0) + 1
+    seconds = 0.0
+    if lines:
+        seconds = float(lines[-1].split(" ", 2)[1]) - float(lines[0].split(" ", 2)[1])
+    summary = ", ".join(f"{body!r} x{answers[body]}" for body in order) or "none"
+    sc.evidence.append(
+        f"[load] {phase}: {len(lines)} requests through nginx over {seconds:.1f}s, "
+        f"{len(failures)} failed; answers in order of appearance: {summary}"
+        + ("\n" + "\n".join(failures[:30]) if failures else "")
+    )
+    running = docker_exec(sc.container, f"systemctl is-active {LOAD_UNIT}", check=False)
+    sc.check(running.stdout.strip() == "active", f"the load generator died during {phase}")
+    sc.check(len(lines) >= 20, f"{phase}: only {len(lines)} requests were made")
+    sc.check(
+        not failures,
+        f"{phase}: {len(failures)} of {len(lines)} requests failed: {failures[:5]}",
+    )
+    return since + len(lines)
+
+
+# -- Blue/green ----------------------------------------------------------------
+
+BG_DOMAIN = "bg.test"
+BG_APP = "bg-test"
+BG_PORT = 3710
+BG_UPSTREAM = f"/etc/nginx/wasm-upstreams/{BG_APP}.conf"
+BG_TEMPLATE = f"/etc/systemd/system/{BG_APP}@.service"
+BG_UNIT_FILE = f"/etc/systemd/system/{BG_APP}.service"
+
+
+def zero_downtime_status(sc: Scenario, label: str) -> dict[str, Any]:
+    """``wasm app zero-downtime DOMAIN --json``."""
+    status: dict[str, Any] = json_of(
+        sc.run(f"wasm app zero-downtime {BG_DOMAIN} --json", timeout=30, label=label), label
+    )
+    return status
+
+
+def unit_states(sc: Scenario, label: str) -> dict[str, str]:
+    """systemd's ActiveState of the application's own unit and of both instances."""
+    units = [BG_APP, f"{BG_APP}@blue", f"{BG_APP}@green"]
+    proc = sc.run(f"systemctl is-active {' '.join(units)}", timeout=15, check=False, label=label)
+    return dict(zip(units, proc.stdout.split(), strict=False))
+
+
+def listening(sc: Scenario, port: int) -> bool:
+    """Whether something listens on a loopback TCP port."""
+    proc = docker_exec(sc.container, f"ss -ltnH 'sport = :{port}'", timeout=15, check=False)
+    return bool(proc.stdout.strip())
+
+
+@scenario("blue_green_zero_downtime")
+def scenario_blue_green(sc: Scenario) -> None:
+    """
+    Blue/green: an update, a rollback, a broken update and switching off serve every request.
+
+    A Node app on releases is switched to two instances with a 3 s drain.
+    While a request goes through nginx every 50 ms, it is updated (the other
+    colour serves the new release), rolled back (the first colour serves the
+    old one), updated to a commit whose server throws at start (the update
+    fails, the colour that served keeps serving and a rolled-back
+    notification goes out), and switched off (its own unit serves on its own
+    port again). Not one request may fail in any of them.
+    """
+    repo, url = make_node_repo(sc, "bg-app")
+    create = (
+        f"wasm create -d {BG_DOMAIN} -s {url} -t nodejs --no-ssl --layout releases --port {BG_PORT}"
+    )
+    sc.run(create, timeout=DEPLOY_TIMEOUT, label=create)
+    try:
+        _blue_green(sc, repo)
+    except AssertionError:
+        journal_tail(sc, f"-u '{BG_APP}*'", f"journalctl -u '{BG_APP}*' (on failure)")
+        raise
+    finally:
+        sc.run(f"systemctl stop {LOAD_UNIT}; true", timeout=30, check=False, label="stop the load")
+        stop_notifications(sc)
+        sc.run(f"wasm delete {BG_DOMAIN} -f", timeout=180, check=False, label="cleanup")
+
+
+def _blue_green(sc: Scenario, repo: str) -> None:
+    """The body of :func:`scenario_blue_green`."""
+    served = curl_host(sc, BG_DOMAIN).strip()
+    sc.check(served == "ok 1", f"expected 'ok 1' before the switch, got {served!r}")
+
+    sc.run(
+        f"wasm app zero-downtime {BG_DOMAIN} on --drain 3",
+        timeout=180,
+        label=f"wasm app zero-downtime {BG_DOMAIN} on --drain 3",
+    )
+    status = zero_downtime_status(sc, "wasm app zero-downtime --json (after on)")
+    sc.check(
+        status["enabled"] and status["active_color"] == "green" and status["drain_seconds"] == 3,
+        f"the mode after on: {status!r}",
+    )
+    sc.check(status["upstream_port"] == BG_PORT + 1, f"upstream port: {status!r}")
+    states = unit_states(sc, "systemctl is-active (after on)")
+    sc.check(states.get(f"{BG_APP}@green") == "active", f"green is not active: {states!r}")
+    sc.check(states.get(BG_APP) != "active", f"the old single unit still runs: {states!r}")
+    files = sc.run(
+        f"cat {BG_UPSTREAM}; test -e {BG_UNIT_FILE} && echo single-unit-file-present; "
+        f"test -e {BG_TEMPLATE} && echo template-present; "
+        f"grep -c 'wasm-upstreams/{BG_APP}.conf' /etc/nginx/sites-available/{BG_DOMAIN}",
+        timeout=15,
+        check=False,
+        label="the upstream, the unit files and the site (after on)",
+    )
+    sc.check(
+        f"server 127.0.0.1:{BG_PORT + 1};" in files.stdout,
+        f"the upstream does not name green's port: {files.stdout!r}",
+    )
+    sc.check("single-unit-file-present" not in files.stdout, f"{BG_UNIT_FILE} is still there")
+    sc.check("template-present" in files.stdout, f"{BG_TEMPLATE} was not written")
+    sc.check(files.stdout.strip().endswith("1"), "the site does not include the upstream file")
+    sc.check(
+        listening(sc, BG_PORT + 1) and not listening(sc, BG_PORT),
+        "green should listen on port+1 and nothing on the app's own port",
+    )
+    served = curl_host(sc, BG_DOMAIN).strip()
+    sc.check(served == "ok 1", f"expected 'ok 1' through the upstream, got {served!r}")
+
+    mark = start_load(sc, BG_DOMAIN)
+
+    # (a) An update starts the new release on blue and switches to it.
+    commit_to(sc, repo, "echo 2 > VERSION", "version 2")
+    sc.run(f"wasm update {BG_DOMAIN}", timeout=DEPLOY_TIMEOUT, label=f"wasm update {BG_DOMAIN}")
+    mark = load_phase(sc, "(a) wasm update (green -> blue)", mark)
+    status = zero_downtime_status(sc, "wasm app zero-downtime --json (after the update)")
+    sc.check(status["active_color"] == "blue", f"the update did not switch colour: {status!r}")
+    sc.check(status["upstream_port"] == BG_PORT, f"upstream after the update: {status!r}")
+    states = unit_states(sc, "systemctl is-active (after the update)")
+    sc.check(
+        states.get(f"{BG_APP}@blue") == "active" and states.get(f"{BG_APP}@green") != "active",
+        f"green was not stopped after the drain: {states!r}",
+    )
+    served = curl_host(sc, BG_DOMAIN).strip()
+    sc.check(served == "ok 2", f"expected 'ok 2' after the update, got {served!r}")
+
+    # (b) A rollback puts the previous release back on green.
+    sc.run(
+        f"wasm releases rollback {BG_DOMAIN}",
+        timeout=180,
+        label=f"wasm releases rollback {BG_DOMAIN}",
+    )
+    mark = load_phase(sc, "(b) wasm releases rollback (blue -> green)", mark)
+    status = zero_downtime_status(sc, "wasm app zero-downtime --json (after the rollback)")
+    sc.check(status["active_color"] == "green", f"the rollback did not switch colour: {status!r}")
+    served = curl_host(sc, BG_DOMAIN).strip()
+    sc.check(served == "ok 1", f"expected 'ok 1' after the rollback, got {served!r}")
+
+    # (c) A release that throws at start never takes the traffic.
+    start_notifications(sc, started=False)
+    commit_to(
+        sc,
+        repo,
+        "echo 3 > VERSION && sed -i '1i throw new Error(\"broken on purpose\");' server.js",
+        "break the server",
+    )
+    broken = sc.run(
+        f"wasm update {BG_DOMAIN}",
+        timeout=DEPLOY_TIMEOUT,
+        check=False,
+        label=f"wasm update {BG_DOMAIN} (a commit whose server throws at start)",
+    )
+    mark = load_phase(sc, "(c) wasm update to a broken commit (green keeps serving)", mark)
+    sc.check(broken.returncode != 0, "the update of a release that never ran reported success")
+    sc.check(
+        "green instance kept serving" in broken.stdout + broken.stderr,
+        "the failure does not say the serving instance kept serving",
+    )
+    status = zero_downtime_status(sc, "wasm app zero-downtime --json (after the broken update)")
+    sc.check(status["active_color"] == "green", f"the colour moved: {status!r}")
+    sc.check(status["upstream_port"] == BG_PORT + 1, f"the upstream moved: {status!r}")
+    states = unit_states(sc, "systemctl is-active (after the broken update)")
+    sc.check(states.get(f"{BG_APP}@blue") != "active", f"blue was left running: {states!r}")
+    row = sc.run(
+        store_query(
+            "SELECT status || '|' || COALESCE(error, '') FROM deployments "
+            "WHERE domain = 'bg.test' ORDER BY id DESC LIMIT 1"
+        ),
+        timeout=15,
+        label="SELECT the last deployment of bg.test",
+    ).stdout.strip()
+    sc.check(
+        row.split("|", 1)[0] in ("failed", "rolled_back") and "broken on purpose" in row,
+        f"the history does not show the failed deployment with its cause: {row!r}",
+    )
+    served = curl_host(sc, BG_DOMAIN).strip()
+    sc.check(served == "ok 1", f"expected 'ok 1' after the failed update, got {served!r}")
+    events = [
+        event
+        for event in recorded_notifications(sc, "the notifications the recorder received")
+        if event.get("domain") == BG_DOMAIN
+    ]
+    kinds = [event.get("event") for event in events]
+    sc.check(
+        kinds == ["deploy_rolled_back"],
+        f"expected exactly one deploy_rolled_back notification for {BG_DOMAIN}, got {kinds!r}",
+    )
+    sc.check(
+        "broken on purpose" in str(events[0].get("body")),
+        f"the rolled-back notification does not carry the health gate's cause: {events[0]!r}",
+    )
+    stop_notifications(sc)
+    sc.run(f"cd {repo} && git revert --no-edit HEAD", timeout=30, label="(fixture repo) revert")
+
+    # (d) Switching off hands the traffic back to the app's own unit.
+    sc.run(
+        f"wasm app zero-downtime {BG_DOMAIN} off",
+        timeout=180,
+        label=f"wasm app zero-downtime {BG_DOMAIN} off",
+    )
+    mark = load_phase(sc, "(d) wasm app zero-downtime off (green -> single unit)", mark)
+    status = zero_downtime_status(sc, "wasm app zero-downtime --json (after off)")
+    sc.check(not status["enabled"], f"the mode is still on: {status!r}")
+    states = unit_states(sc, "systemctl is-active (after off)")
+    sc.check(
+        states.get(BG_APP) == "active"
+        and states.get(f"{BG_APP}@blue") != "active"
+        and states.get(f"{BG_APP}@green") != "active",
+        f"units after off: {states!r}",
+    )
+    files = sc.run(
+        f"test -e {BG_TEMPLATE} && echo template-present; "
+        f"test -e {BG_UPSTREAM} && echo upstream-present; "
+        f"test -e {BG_UNIT_FILE} && echo single-unit-file-present; "
+        f"grep -c 'wasm-upstreams' /etc/nginx/sites-available/{BG_DOMAIN}; "
+        f"ls -A /var/www/apps/{BG_APP}",
+        timeout=15,
+        check=False,
+        label="the template, the upstream, the unit file, the site and the app tree (after off)",
+    )
+    sc.check("template-present" not in files.stdout, f"{BG_TEMPLATE} is still there")
+    sc.check("upstream-present" not in files.stdout, f"{BG_UPSTREAM} is still there")
+    sc.check("single-unit-file-present" in files.stdout, f"{BG_UNIT_FILE} was not written")
+    sc.check("\n0\n" in f"\n{files.stdout}", "the site still includes the upstream file after off")
+    sc.check("colors" not in files.stdout.split(), "the instance links are still there")
+    sc.check(
+        listening(sc, BG_PORT) and not listening(sc, BG_PORT + 1),
+        "the app's own unit should listen on its port and nothing on port+1",
+    )
+    served = curl_host(sc, BG_DOMAIN).strip()
+    sc.check(served == "ok 1", f"expected 'ok 1' after off, got {served!r}")
+
+
+# -- Remote backups ------------------------------------------------------------
+
+BK_DOMAIN = "bk.test"
+BK_APP = "bk-test"
+BK_REMOTE_DIR = "/srv/wasm-it-remote"
+SFTP_IMAGE = "atmoz/sftp:alpine"
+SFTP_USER = "wasmit"
+
+
+def local_backup_ids(sc: Scenario, label: str) -> list[str]:
+    """The ids of the application's local archives, oldest first."""
+    proc = sc.run(
+        f"find /var/backups/wasm -name '{BK_APP}_*.tar.gz' -printf '%f\\n' | sort",
+        timeout=15,
+        label=label,
+    )
+    return [name.removesuffix(".tar.gz") for name in proc.stdout.split()]
+
+
+def remote_ids(listing: dict[str, Any]) -> list[str]:
+    """The backup ids of a ``wasm backup remote-list --app`` listing, sorted."""
+    return sorted(entry["backup_id"] for entry in listing.get("backups", []))
+
+
+@scenario("remote_backups_rclone")
+def scenario_remote_backups(sc: Scenario) -> None:
+    """
+    Schedules push to rclone destinations with their own retention, and restore from them.
+
+    A local directory destination takes three scheduled runs and keeps two;
+    the local copies keep one; a backup is listed and restored from the
+    remote. An SFTP server in a sibling container takes a push; with it
+    stopped, a scheduled run exits non-zero, keeps its local backup and
+    sends a backup_failed notification.
+    """
+    probe = sc.run("rclone version | head -1", timeout=30, check=False, label="rclone version")
+    sc.check(probe.returncode == 0, "rclone is not installed in the image (Dockerfile.systemd)")
+    create = f"wasm create -d {BK_DOMAIN} -s /root/fixtures/static-site -t static --no-ssl"
+    sc.run(create, timeout=DEPLOY_TIMEOUT, label=create)
+    findings: list[str] = []
+    sftp = f"{sc.container}-sftp"
+    try:
+        _remote_backups_local(sc, findings)
+        _remote_backups_sftp(sc, sftp, findings)
+    finally:
+        subprocess.run(["docker", "rm", "-f", sftp], capture_output=True, text=True, timeout=60)
+        stop_notifications(sc)
+        sc.run(
+            f"wasm backup schedule delete {BK_DOMAIN}; "
+            "wasm backup destination remove itlocal -f; "
+            "wasm backup destination remove itsftp -f; "
+            f"wasm delete {BK_DOMAIN} -f; rm -rf {BK_REMOTE_DIR}",
+            timeout=180,
+            check=False,
+            label="cleanup",
+        )
+    sc.check(not findings, "product findings:\n- " + "\n- ".join(findings))
+
+
+def _remote_backups_local(sc: Scenario, findings: list[str]) -> None:
+    """Part (a): a ``local`` destination, retention on both sides, remote-list, restore --from."""
+    # A name with a dash is one validate_destination_name accepts, and the
+    # one the console's own placeholder suggests. Checked on its own, so the
+    # rest of the scenario runs with dashless names whatever it finds.
+    dashed = sc.run(
+        "wasm backup destination add it-dash --type local --field path=/tmp && "
+        "wasm backup destination test it-dash",
+        timeout=60,
+        check=False,
+        label="wasm backup destination add it-dash --type local --field path=/tmp; ... test it-dash",
+    )
+    if dashed.returncode != 0:
+        findings.append(
+            "a destination whose name has a dash cannot be reached: rclone reads the remote "
+            "`it-dash` from RCLONE_CONFIG_IT-DASH_*, but managers/backup_destinations.py "
+            "_env_prefix() turns the dash into an underscore (RCLONE_CONFIG_IT_DASH_*), so "
+            "rclone answers `didn't find section in config file` (rclone 1.60.1 from Ubuntu "
+            "24.04 and upstream 1.75.1 alike)"
+        )
+    sc.run(
+        "wasm backup destination remove it-dash -f",
+        timeout=60,
+        check=False,
+        label="wasm backup destination remove it-dash -f",
+    )
+
+    sc.run(f"rm -rf {BK_REMOTE_DIR}", timeout=15, label=f"rm -rf {BK_REMOTE_DIR}")
+    add = f"wasm backup destination add itlocal --type local --field path={BK_REMOTE_DIR}"
+    sc.run(add, timeout=60, label=add)
+    fresh = sc.run(
+        "wasm backup destination test itlocal",
+        timeout=60,
+        check=False,
+        label="wasm backup destination test itlocal (its folder does not exist yet)",
+    )
+    if fresh.returncode != 0:
+        findings.append(
+            "`wasm backup destination test` fails on a destination whose folder does not exist "
+            "yet, although the path field's help says it is 'created if it does not exist' "
+            "(managers/backup_destinations.py test(): `rclone lsf` of a missing directory)"
+        )
+        sc.run(f"mkdir -p {BK_REMOTE_DIR}", timeout=15, label=f"mkdir -p {BK_REMOTE_DIR}")
+        sc.run(
+            "wasm backup destination test itlocal",
+            timeout=60,
+            label="wasm backup destination test itlocal (folder created)",
+        )
+
+    schedule = (
+        f"wasm backup schedule create {BK_DOMAIN} --schedule daily --retention-count 1 "
+        "--destination itlocal:2"
+    )
+    sc.run(schedule, timeout=60, label=schedule)
+    for run in range(1, 4):
+        sc.run(
+            f"wasm backup run-schedule {BK_DOMAIN}",
+            timeout=300,
+            label=f"wasm backup run-schedule {BK_DOMAIN} (run {run} of 3)",
+        )
+
+    remote = sc.run(
+        f"ls -1 {BK_REMOTE_DIR}/{BK_APP}",
+        timeout=15,
+        check=False,
+        label=f"ls -1 {BK_REMOTE_DIR}/{BK_APP}",
+    ).stdout.split()
+    archives = sorted(name.removesuffix(".tar.gz") for name in remote if name.endswith(".tar.gz"))
+    sidecars = sorted(name.removesuffix(".json") for name in remote if name.endswith(".json"))
+    sc.check(
+        len(archives) == 2 and archives == sidecars and len(remote) == 4,
+        f"the destination should hold 2 archives and their sidecars: {remote!r}",
+    )
+    local = local_backup_ids(sc, "the local archives of bk-test")
+    sc.check(
+        len(local) == 1 and local[0] == archives[-1],
+        f"local retention 1 should keep only the newest ({archives[-1]}): {local!r}",
+    )
+
+    listing = json_of(
+        sc.run(
+            f"wasm backup remote-list itlocal --app {BK_APP} --json",
+            timeout=60,
+            label=f"wasm backup remote-list itlocal --app {BK_APP} --json",
+        ),
+        "remote-list",
+    )
+    sc.check(remote_ids(listing) == archives, f"remote-list: {listing!r}")
+    apps = json_of(
+        sc.run(
+            "wasm backup remote-list itlocal --json",
+            timeout=60,
+            label="wasm backup remote-list itlocal --json",
+        ),
+        "remote-list",
+    )
+    sc.check(BK_APP in apps.get("apps", []), f"remote-list without --app: {apps!r}")
+
+    # The same listing from another working directory: an absolute path must
+    # not depend on where the operator happens to stand.
+    elsewhere = sc.run(
+        f"cd /root && wasm backup remote-list itlocal --app {BK_APP} --json",
+        timeout=60,
+        check=False,
+        label=f"cd /root && wasm backup remote-list itlocal --app {BK_APP} --json",
+    )
+    try:
+        elsewhere_ids = remote_ids(json_of(elsewhere, "remote-list from /root"))
+    except (AssertionError, json.JSONDecodeError):
+        elsewhere_ids = []
+    if elsewhere.returncode != 0 or elsewhere_ids != archives:
+        findings.append(
+            f"a `local` destination with path={BK_REMOTE_DIR} resolves relative to the working "
+            "directory: run from /root, remote-list sees "
+            f"{elsewhere_ids!r} instead of {archives!r} (managers/backup_destinations.py "
+            'target(): `.strip("/")` drops the leading slash, so the rclone path becomes '
+            f"itlocal:{BK_REMOTE_DIR.lstrip('/')}; a push from /root writes under "
+            f"/root{BK_REMOTE_DIR})"
+        )
+
+    root = sc.run(
+        f"readlink -e /var/www/apps/{BK_APP}/current || echo /var/www/apps/{BK_APP}",
+        timeout=15,
+        label="the served tree",
+    ).stdout.strip()
+    sc.run(
+        f"echo tampered > {root}/index.html",
+        timeout=15,
+        label=f"echo tampered > {root}/index.html",
+    )
+    sc.check(curl_host(sc, BK_DOMAIN).strip() == "tampered", "the tampered page is not served")
+    restore = f"wasm backup restore {archives[-1]} --from itlocal -f"
+    sc.run(restore, timeout=300, label=restore)
+    page = curl_host(sc, BK_DOMAIN)
+    sc.check(
+        "WASM Integration Static Fixture" in page,
+        f"restoring from the destination did not bring the page back: {page[:200]!r}",
+    )
+
+
+def _remote_backups_sftp(sc: Scenario, sftp: str, findings: list[str]) -> None:
+    """Part (b): an SFTP destination; a push; the server stopped; the failure is reported."""
+    image = subprocess.run(
+        ["docker", "image", "inspect", SFTP_IMAGE], capture_output=True, text=True, timeout=30
+    )
+    if image.returncode != 0:
+        pulled = subprocess.run(
+            ["docker", "pull", SFTP_IMAGE], capture_output=True, text=True, timeout=300
+        )
+        if pulled.returncode != 0:
+            sc.evidence.append(
+                f"NOTE: {SFTP_IMAGE} is not cached and could not be pulled, so the SFTP part "
+                f"of this scenario is SKIPPED:\n{pulled.stderr.strip()}"
+            )
+            return
+    password = secrets.token_urlsafe(16)
+    subprocess.run(["docker", "rm", "-f", sftp], capture_output=True, text=True, timeout=60)
+    sh(
+        ["docker", "run", "-d", "--name", sftp, SFTP_IMAGE, f"{SFTP_USER}:{password}:::upload"],
+        timeout=60,
+    )
+    address = sh(
+        [
+            "docker",
+            "inspect",
+            "-f",
+            "{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}",
+            sftp,
+        ],
+        timeout=30,
+    ).stdout.split()[0]
+    sc.evidence.append(f"[host] docker run -d --name {sftp} {SFTP_IMAGE} (at {address})")
+    sc.run(
+        f"for i in $(seq 1 60); do timeout 1 bash -c '</dev/tcp/{address}/22' && exit 0; "
+        "sleep 0.5; done; exit 1",
+        timeout=60,
+        label=f"wait for sshd on {address}:22",
+    )
+
+    sc.run(
+        f"printf '%s' '{password}' | wasm backup destination add itsftp --type sftp "
+        f"--field host={address} --field user={SFTP_USER} --field path=upload/wasm --stdin",
+        timeout=60,
+        label=f"printf '%s' <password> | wasm backup destination add itsftp --type sftp "
+        f"--field host={address} --field user={SFTP_USER} --field path=upload/wasm --stdin",
+    )
+    stored = sc.run(
+        f"grep -rl '{password}' /var/lib/wasm /root/.local/share/wasm /etc/wasm 2>/dev/null; "
+        f"ps -eo args | grep -c '{password}' || true",
+        timeout=30,
+        check=False,
+        label="where the password is stored in clear (the secret store only)",
+    )
+    sc.check(
+        all("secrets" in line or line.strip().isdigit() for line in stored.stdout.splitlines()),
+        f"the SFTP password is stored in clear outside the secret store: {stored.stdout!r}",
+    )
+    fresh = sc.run(
+        "wasm backup destination test itsftp",
+        timeout=120,
+        check=False,
+        label="wasm backup destination test itsftp (upload/wasm does not exist yet)",
+    )
+    if fresh.returncode != 0:
+        sh(
+            [
+                "docker",
+                "exec",
+                sftp,
+                "sh",
+                "-c",
+                f"mkdir -p /home/{SFTP_USER}/upload/wasm && "
+                f"chown -R {SFTP_USER} /home/{SFTP_USER}/upload/wasm",
+            ],
+            timeout=30,
+        )
+        sc.evidence.append(f"[host] docker exec {sftp} mkdir -p /home/{SFTP_USER}/upload/wasm")
+        sc.run(
+            "wasm backup destination test itsftp",
+            timeout=120,
+            label="wasm backup destination test itsftp (folder created)",
+        )
+
+    update = (
+        f"wasm backup schedule update {BK_DOMAIN} --schedule daily --retention-count 10 "
+        "--destination itsftp:5"
+    )
+    sc.run(update, timeout=60, label=update)
+    pushed = sc.run(
+        f"wasm backup run-schedule {BK_DOMAIN}",
+        timeout=300,
+        label=f"wasm backup run-schedule {BK_DOMAIN} (to SFTP)",
+    )
+    match = re.search(rf"({BK_APP}_\d{{8}}_\d{{6}})", pushed.stdout + pushed.stderr)
+    sc.check(match is not None, "run-schedule did not name the backup it took")
+    backup_id = match.group(1) if match else ""
+    arrived = sh(
+        ["docker", "exec", sftp, "ls", "-l", f"/home/{SFTP_USER}/upload/wasm/{BK_APP}"],
+        timeout=30,
+        check=False,
+    )
+    sc.evidence.append(
+        f"[host] docker exec {sftp} ls -l /home/{SFTP_USER}/upload/wasm/{BK_APP}\n"
+        f"{arrived.stdout.rstrip()}{arrived.stderr.rstrip()}"
+    )
+    sc.check(
+        f"{backup_id}.tar.gz" in arrived.stdout and f"{backup_id}.json" in arrived.stdout,
+        f"{backup_id} did not arrive on the SFTP server",
+    )
+    listing = json_of(
+        sc.run(
+            f"wasm backup remote-list itsftp --app {BK_APP} --json",
+            timeout=120,
+            label=f"wasm backup remote-list itsftp --app {BK_APP} --json",
+        ),
+        "remote-list",
+    )
+    sc.check(backup_id in remote_ids(listing), f"remote-list itsftp: {listing!r}")
+
+    # The server goes away: the run fails, keeps its local backup, and says so.
+    sh(["docker", "stop", "-t", "1", sftp], timeout=60)
+    sc.evidence.append(f"[host] docker stop {sftp}")
+    start_notifications(sc, started=False)
+    before = local_backup_ids(sc, "the local archives (before the run with SFTP down)")
+    started = time.monotonic()
+    failed = sc.run(
+        f"wasm backup run-schedule {BK_DOMAIN}",
+        timeout=600,
+        check=False,
+        label=f"wasm backup run-schedule {BK_DOMAIN} (SFTP server stopped)",
+    )
+    elapsed = time.monotonic() - started
+    sc.evidence.append(f"[timing] the failing run took {elapsed:.1f}s")
+    sc.check(failed.returncode != 0, "run-schedule succeeded with the destination down")
+    if "dial tcp" not in failed.stdout + failed.stderr:
+        findings.append(
+            "`wasm backup run-schedule` (what the timer runs, so also its journal) does not say "
+            "why a destination failed: run_schedule() raises a summary BackupError once any "
+            "destination fails (managers/backup_scheduler.py:745-749, 'see the notification for "
+            "rclone's own error'), so the CLI's per-destination 'Failed to send to' lines "
+            "(cli/commands/backup.py _run_schedule) never run; without a notification channel "
+            "rclone's error is not shown anywhere"
+        )
+    after = local_backup_ids(sc, "the local archives (after the run with SFTP down)")
+    sc.check(
+        len(after) == len(before) + 1 and set(before) < set(after),
+        f"the local backup was not kept: before {before!r}, after {after!r}",
+    )
+    events = [
+        event
+        for event in recorded_notifications(sc, "the notifications the recorder received")
+        if event.get("event") == "backup_failed" and event.get("domain") == BK_DOMAIN
+    ]
+    sc.check(
+        len(events) == 1 and "itsftp" in str(events[0].get("title")),
+        f"expected one backup_failed notification naming itsftp: {events!r}",
+    )
+    if elapsed > 120:
+        findings.append(
+            f"a scheduled run with its SFTP destination unreachable took {elapsed:.0f}s to fail"
+        )
+
+
+# -- Pull request previews ---------------------------------------------------------
+
+PREV_DOMAIN = "prev.test"
+PREV_APP = "prev-test"
+PREV_REPOSITORY = "acme/prev-app"
+PREV_BASE = "previews.test"
+PREVIEW_DOMAIN = f"pr-1-{PREV_APP}.{PREV_BASE}"
+PREVIEW_APP = f"pr-1-{PREV_APP}-previews-test"
+
+
+def wait_for_console(sc: Scenario) -> None:
+    """Start the console and wait for /health."""
+    sc.run("wasm web start --daemon", timeout=60, label="wasm web start --daemon")
+    deadline = time.time() + 30
+    while time.time() < deadline:
+        probe = docker_exec(
+            sc.container,
+            f"curl -sS -o /dev/null -w '%{{http_code}}' {PANEL_URL}/health",
+            timeout=15,
+            check=False,
+        )
+        if probe.stdout.strip() == "200":
+            return
+        time.sleep(1)
+    raise AssertionError("the console did not answer /health within 30s")
+
+
+def api(sc: Scenario, token: str, method: str, path: str, label: str) -> tuple[int, Any]:
+    """Call the console's API with a Bearer token; the token never reaches the evidence."""
+    proc = docker_exec(
+        sc.container,
+        f"curl -sS -X {method} -H 'Authorization: Bearer {token}' "
+        f"-w '\\n%{{http_code}}' {PANEL_URL}{path}",
+        timeout=30,
+        check=False,
+    )
+    body, _, code = proc.stdout.rpartition("\n")
+    try:
+        payload: Any = json.loads(body) if body.strip() else None
+    except json.JSONDecodeError:
+        payload = body
+    sc.evidence.append(f"$ {label}\n{code} {str(payload)[:4000]}")
+    return int(code or 0), payload
+
+
+def deliver(sc: Scenario, secret: str, event: str, payload: dict[str, Any]) -> tuple[int, Any]:
+    """POST a GitHub-signed delivery to the parent's webhook."""
+    body = json.dumps(payload, separators=(",", ":"))
+    sc.check("'" not in body, "a delivery body cannot carry a single quote through printf")
+    signature = hmac.new(secret.encode(), body.encode(), hashlib.sha256).hexdigest()
+    proc = sc.run(
+        f"printf '%s' '{body}' > /root/it-delivery.json && "
+        "curl -sS -o /root/it-delivery.out -w '%{http_code}' -X POST "
+        f"-H 'Content-Type: application/json' -H 'X-GitHub-Event: {event}' "
+        f"-H 'X-GitHub-Delivery: {secrets.token_hex(8)}' "
+        f"-H 'X-Hub-Signature-256: sha256={signature}' "
+        f"--data-binary @/root/it-delivery.json {PANEL_URL}/hooks/deploy/{PREV_DOMAIN}; "
+        "echo; cat /root/it-delivery.out",
+        timeout=60,
+        label=f"POST /hooks/deploy/{PREV_DOMAIN} (X-GitHub-Event: {event}, signed): {body}",
+    )
+    code, _, text = proc.stdout.partition("\n")
+    try:
+        return int(code), json.loads(text)
+    except json.JSONDecodeError:
+        return int(code), text
+
+
+def pull_request(action: str, number: int, branch: str, sha: str) -> dict[str, Any]:
+    """A GitHub ``pull_request`` delivery for a branch of the preview repository."""
+    repository = {
+        "full_name": PREV_REPOSITORY,
+        "clone_url": f"git://127.0.0.1/{PREV_REPOSITORY}",
+    }
+    return {
+        "action": action,
+        "number": number,
+        "pull_request": {
+            "number": number,
+            "title": f"Integration pull request {number}",
+            "head": {"ref": branch, "sha": sha, "repo": repository},
+            "base": {"ref": "main", "repo": repository},
+        },
+        "repository": repository,
+    }
+
+
+def wait_for_jobs(sc: Scenario, token: str, job_ids: list[str], what: str) -> None:
+    """Wait for console jobs to finish; fail with their log when one did not complete."""
+    for job_id in job_ids:
+        deadline = time.time() + DEPLOY_TIMEOUT
+        job: Any = None
+        while time.time() < deadline:
+            proc = docker_exec(
+                sc.container,
+                f"curl -sS -H 'Authorization: Bearer {token}' {PANEL_URL}/api/jobs/{job_id}",
+                timeout=30,
+                check=False,
+            )
+            try:
+                job = json.loads(proc.stdout)
+            except json.JSONDecodeError:
+                job = {"status": "unreadable", "raw": proc.stdout}
+            if job.get("status") in ("completed", "failed", "cancelled"):
+                break
+            time.sleep(2)
+        logs = "\n".join(
+            f"  [{entry.get('level')}] {entry.get('message')}" for entry in job.get("logs", [])
+        )
+        sc.evidence.append(
+            f"$ GET /api/jobs/{job_id} ({what})\nstatus={job.get('status')} "
+            f"error={job.get('error')!r}\n{logs}"
+        )
+        if job.get("status") != "completed":
+            api(sc, token, "GET", f"/api/jobs/{job_id}/log", f"GET /api/jobs/{job_id}/log")
+        sc.check(job.get("status") == "completed", f"{what}: job {job_id} ended {job!r:.300}")
+
+
+def parent_state(sc: Scenario, label: str) -> tuple[str, str]:
+    """The parent's history row count and active release."""
+    count = sc.run(
+        store_query("SELECT COUNT(*) FROM deployments WHERE domain = 'prev.test'"),
+        timeout=15,
+        label=label + ": count the deployments of prev.test",
+    ).stdout.strip()
+    current = sc.run(
+        f"readlink /var/www/apps/{PREV_APP}/current",
+        timeout=15,
+        label=f"{label}: readlink current of {PREV_DOMAIN}",
+    ).stdout.strip()
+    return count, current
+
+
+@scenario("pr_preview_webhook")
+def scenario_pr_preview(sc: Scenario) -> None:
+    """
+    A signed pull_request delivery builds a preview; synchronize updates it; closed removes it.
+
+    The parent is on releases, deployed from git daemon; previews are turned
+    on under previews.test. Deliveries are signed with the parent's webhook
+    secret, minted through the API with an admin token. The preview answers
+    through nginx by Host header. Certificates cannot be issued here (no
+    certbot, no public DNS), so the scenario also records what a preview does
+    when its certificate fails. A ping and the pull request deliveries never
+    update the parent.
+    """
+    repo, url = make_node_repo(sc, PREV_REPOSITORY)
+    create = f"wasm create -d {PREV_DOMAIN} -s {url} -t nodejs --no-ssl --layout releases"
+    sc.run(create, timeout=DEPLOY_TIMEOUT, label=create)
+    findings: list[str] = []
+    try:
+        _pr_preview(sc, repo, findings)
+    except AssertionError:
+        journal_tail(sc, "-u 'wasm*' -u 'pr-*'", "journalctl (on failure)")
+        raise
+    finally:
+        sc.run(
+            f"wasm web stop; wasm preview disable {PREV_DOMAIN} -y; "
+            f"wasm delete {PREVIEW_DOMAIN} -f 2>/dev/null; wasm delete {PREV_DOMAIN} -f",
+            timeout=300,
+            check=False,
+            label="cleanup",
+        )
+    sc.check(not findings, "product findings:\n- " + "\n- ".join(findings))
+
+
+def _pr_preview(sc: Scenario, repo: str, findings: list[str]) -> None:
+    """The body of :func:`scenario_pr_preview`."""
+    enable = f"wasm preview enable {PREV_DOMAIN} --domain {PREV_BASE} --max 2 --ttl 1h"
+    sc.run(enable, timeout=60, label=enable)
+
+    issued = docker_exec(
+        sc.container,
+        f"wasm token create it-previews-{secrets.token_hex(4)} --scope admin",
+        timeout=30,
+    )
+    token_match = re.search(r"Token:\s*(\S+)", issued.stdout)
+    sc.check(token_match is not None, "wasm token create printed no token")
+    token = token_match.group(1) if token_match else ""
+    sc.evidence.append("$ wasm token create it-previews-... --scope admin\n(token issued)")
+
+    wait_for_console(sc)
+    code, minted = api(
+        sc, token, "POST", f"/api/apps/{PREV_DOMAIN}/webhook-secret", "POST webhook-secret"
+    )
+    sc.check(code == 200 and isinstance(minted, dict), f"minting the secret answered {code}")
+    secret = str(minted["secret"])
+    sc.evidence[-1] = sc.evidence[-1].replace(secret, "<secret>")
+
+    parent_before = parent_state(sc, "before the deliveries")
+
+    code, answer = deliver(sc, secret, "ping", {"zen": "Keep it logically awesome.", "hook_id": 1})
+    sc.check(code == 200 and answer.get("event") == "ping", f"ping answered {code} {answer!r}")
+    wrong = deliver(sc, "not-the-secret", "ping", {"zen": "forged"})
+    sc.check(wrong[0] == 401, f"a delivery signed with the wrong secret answered {wrong!r}")
+
+    sha = commit_to(
+        sc,
+        repo,
+        "git checkout -q -b feature-1 && echo pr1 > VERSION",
+        "pull request 1",
+    )
+    sc.run(f"git -C {repo} checkout -q main", timeout=15, label="(fixture repo) back to main")
+
+    code, answer = deliver(sc, secret, "pull_request", pull_request("opened", 1, "feature-1", sha))
+    sc.check(code == 202 and answer.get("job_ids"), f"opened answered {code} {answer!r}")
+    wait_for_jobs(sc, token, answer["job_ids"], "the preview's first deploy")
+
+    listed = json_of(
+        sc.run(
+            f"wasm preview list {PREV_DOMAIN} --json",
+            timeout=30,
+            label=f"wasm preview list {PREV_DOMAIN} --json",
+        ),
+        "preview list",
+    )
+    items = listed.get("items", [])
+    sc.check(
+        len(items) == 1
+        and items[0]["domain"] == PREVIEW_DOMAIN
+        and items[0]["status"] == "ready"
+        and items[0]["number"] == 1,
+        f"preview list: {items!r}",
+    )
+    row = sc.run(
+        store_query(
+            "SELECT layout || '|' || ssl_enabled || '|' || COALESCE(preview_parent, '') "
+            "FROM apps WHERE domain = 'pr-1-prev-test.previews.test'"
+        ),
+        timeout=15,
+        label="SELECT layout, ssl_enabled, preview_parent of the preview",
+    ).stdout.strip()
+    sc.check(
+        row.startswith("releases|") and row.endswith(f"|{PREV_DOMAIN}"),
+        f"the preview's row: {row!r}",
+    )
+    served = curl_host(sc, PREVIEW_DOMAIN).strip()
+    sc.check(served == "ok pr1", f"the preview should serve 'ok pr1', got {served!r}")
+    log_path = sc.run(
+        store_query(
+            "SELECT log_path FROM deployments "
+            "WHERE domain = 'pr-1-prev-test.previews.test' ORDER BY id DESC LIMIT 1"
+        ),
+        timeout=15,
+        label="SELECT the preview's deploy log",
+    ).stdout.strip()
+    sc.run(
+        f"grep -iE 'ssl|certif' {log_path}",
+        timeout=15,
+        check=False,
+        label="what the preview's deploy log says about its certificate",
+    )
+    tls = sc.run(
+        f"grep -cE 'listen 443|ssl_certificate' /etc/nginx/sites-available/{PREVIEW_DOMAIN}",
+        timeout=15,
+        check=False,
+        label="TLS lines in the preview's site",
+    )
+    sc.evidence.append(
+        "NOTE (certificates): a preview is always created with ssl=True "
+        "(managers/previews.py _deploy). Here certbot is absent and nothing is publicly "
+        f"resolvable; the store says ssl_enabled={row.split('|')[1]!r} and the log lines above "
+        "show what the deploy did about it."
+    )
+    sc.check(
+        tls.stdout.strip().endswith("0"),
+        "the preview's site has TLS server blocks without a certificate",
+    )
+    advertised = str(items[0].get("url"))
+    if row.split("|")[1] == "0" and advertised.startswith("https://"):
+        findings.append(
+            f"the preview is served over HTTP only (its certificate failed, ssl_enabled=0) but "
+            f"`wasm preview list`, the API and the pull request comment advertise {advertised} "
+            "(managers/previews.py preview_url() always answers https://)"
+        )
+
+    sc.check(
+        parent_state(sc, "after ping and opened") == parent_before,
+        "a ping or pull_request delivery updated the parent",
+    )
+
+    sha2 = commit_to(
+        sc,
+        repo,
+        "git checkout -q feature-1 && echo pr1b > VERSION",
+        "pull request 1, second push",
+    )
+    sc.run(f"git -C {repo} checkout -q main", timeout=15, label="(fixture repo) back to main")
+    code, answer = deliver(
+        sc, secret, "pull_request", pull_request("synchronize", 1, "feature-1", sha2)
+    )
+    sc.check(code == 202 and answer.get("job_ids"), f"synchronize answered {code} {answer!r}")
+    wait_for_jobs(sc, token, answer["job_ids"], "the preview's update")
+    served = curl_host(sc, PREVIEW_DOMAIN).strip()
+    sc.check(served == "ok pr1b", f"the updated preview should serve 'ok pr1b', got {served!r}")
+    releases = sc.run(
+        f"ls /var/www/apps/{PREVIEW_APP}/releases | wc -l",
+        timeout=15,
+        label="ls releases of the preview | wc -l",
+    ).stdout.strip()
+    sc.check(releases == "2", f"the update did not build a second release: {releases}")
+
+    code, answer = deliver(sc, secret, "pull_request", pull_request("closed", 1, "feature-1", sha2))
+    sc.check(code == 202 and answer.get("job_ids"), f"closed answered {code} {answer!r}")
+    wait_for_jobs(sc, token, answer["job_ids"], "the preview's removal")
+    rows = sc.run(
+        store_query("SELECT COUNT(*) FROM apps WHERE domain = 'pr-1-prev-test.previews.test'"),
+        timeout=15,
+        label="the preview's row (after closed)",
+    ).stdout.strip()
+    gone = sc.run(
+        f"echo {rows}; test -e /etc/systemd/system/{PREVIEW_APP}.service && echo unit-present; "
+        f"test -e /etc/nginx/sites-available/{PREVIEW_DOMAIN} && echo site-present; "
+        f"test -e /etc/nginx/sites-enabled/{PREVIEW_DOMAIN} && echo site-enabled; "
+        f"test -e /var/www/apps/{PREVIEW_APP} && echo tree-present; "
+        f"systemctl is-active {PREVIEW_APP} || true",
+        timeout=15,
+        check=False,
+        label="the preview's row, unit, site and tree (after closed)",
+    )
+    sc.check(
+        gone.stdout.split() in (["0", "inactive"], ["0", "unknown"]),
+        f"the preview was not removed completely: {gone.stdout!r}",
+    )
+    listed = json_of(
+        sc.run(
+            f"wasm preview list {PREV_DOMAIN} --json",
+            timeout=30,
+            label=f"wasm preview list {PREV_DOMAIN} --json (after closed)",
+        ),
+        "preview list",
+    )
+    sc.check(listed.get("items") == [], f"the preview record is still listed: {listed!r}")
+
+    sc.check(
+        parent_state(sc, "after every delivery") == parent_before,
+        "a pull_request delivery updated the parent",
+    )
+    served = curl_host(sc, PREV_DOMAIN).strip()
+    sc.check(served == "ok 1", f"the parent should still serve 'ok 1', got {served!r}")
+
+
+# -- Deploy notifications --------------------------------------------------------
+
+NTF_DOMAIN = "ntf.test"
+
+
+@scenario("deploy_notifications")
+def scenario_deploy_notifications(sc: Scenario) -> None:
+    """
+    A deploy from the CLI notifies: started and success, then rolled back with the gate's cause.
+
+    The webhook channel points at a recorder inside the container. With
+    deploy_started on, ``wasm update`` sends started then success for the
+    application; an update to a commit whose server throws sends started then
+    rolled back, the process's own error in the body.
+    """
+    repo, url = make_node_repo(sc, "ntf-app")
+    create = f"wasm create -d {NTF_DOMAIN} -s {url} -t nodejs --no-ssl --layout releases"
+    sc.run(create, timeout=DEPLOY_TIMEOUT, label=create)
+    try:
+        start_notifications(sc, started=True)
+
+        commit = commit_to(sc, repo, "echo 2 > VERSION", "version 2")
+        sc.run(
+            f"wasm update {NTF_DOMAIN}", timeout=DEPLOY_TIMEOUT, label=f"wasm update {NTF_DOMAIN}"
+        )
+        events = [
+            event
+            for event in recorded_notifications(sc, "the notifications the recorder received")
+            if event.get("domain") == NTF_DOMAIN
+        ]
+        kinds = [event.get("event") for event in events]
+        sc.check(
+            kinds == ["deploy_started", "deploy_success"],
+            f"expected started then success for {NTF_DOMAIN}, got {kinds!r}",
+        )
+        sc.check(
+            commit[:7] in str(events[1].get("title")) + str(events[1].get("body")),
+            f"the success notification does not name the commit {commit[:7]}: {events[1]!r}",
+        )
+
+        sc.run(f": > {NOTIFY_LOG}", timeout=15, label="empty the recorder's log")
+        commit_to(
+            sc,
+            repo,
+            "echo 3 > VERSION && sed -i '1i throw new Error(\"broken on purpose\");' server.js",
+            "break the server",
+        )
+        broken = sc.run(
+            f"wasm update {NTF_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            check=False,
+            label=f"wasm update {NTF_DOMAIN} (a commit whose server throws at start)",
+        )
+        sc.check(broken.returncode != 0, "the broken update reported success")
+        events = [
+            event
+            for event in recorded_notifications(sc, "the notifications the recorder received")
+            if event.get("domain") == NTF_DOMAIN
+        ]
+        kinds = [event.get("event") for event in events]
+        sc.check(
+            kinds == ["deploy_started", "deploy_rolled_back"],
+            f"expected started then rolled back for {NTF_DOMAIN}, got {kinds!r}",
+        )
+        sc.check(
+            "broken on purpose" in str(events[1].get("body")),
+            f"the rolled-back notification does not carry the gate's cause: {events[1]!r}",
+        )
+    finally:
+        stop_notifications(sc)
+        sc.run(f"wasm delete {NTF_DOMAIN} -f", timeout=180, check=False, label="cleanup")
 
 
 @dataclass
