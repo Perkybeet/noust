@@ -490,6 +490,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/env/marks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update App Env Marks
+         * @description Set or clear operator overrides on an application's environment variables.
+         *
+         *     A mark always wins over the automatic classification, in both
+         *     directions: it is how an operator corrects a false positive (``KEYBOARD_LAYOUT``
+         *     is not a secret) or a false negative (``SESSION`` holding a value nothing
+         *     about its name suggests is one). Marks merge with what is already
+         *     stored - a request need only name the variables it changes - and a
+         *     ``null`` removes a mark rather than setting one, going back to the
+         *     automatic classification. Needs sudo mode, like writing the environment
+         *     itself: it changes what the console and the audit log will treat as
+         *     safe to display.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The marks to set or clear.
+         *         request: The incoming request, for the audit record.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The application's full secrecy classification after the change.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: A variable name is not a valid environment variable
+         *             name (400).
+         */
+        put: operations["update_app_env_marks_api_apps__domain__env_marks_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/health": {
         parameters: {
             query?: never;
@@ -669,6 +713,123 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/previews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Previews
+         * @description Read an application's preview settings and its previews.
+         *
+         *     Args:
+         *         domain: The application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Settings (None when previews are off) and previews.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["list_previews_api_apps__domain__previews_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/previews/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Preview Settings
+         * @description Turn previews on for an application, or change their settings.
+         *
+         *     Installs ``wasm-previews.timer`` the first time any application turns
+         *     previews on.
+         *
+         *     Args:
+         *         domain: The application.
+         *         body: The settings.
+         *         request: The request, for the audit record.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The settings as stored.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: A value is refused (400, with the reason).
+         *         ServiceError: The sweep timer could not be installed.
+         */
+        put: operations["put_preview_settings_api_apps__domain__previews_settings_put"];
+        post?: never;
+        /**
+         * Delete Preview Settings
+         * @description Turn previews off for an application and queue the removal of the ones it has.
+         *
+         *     Previews stop at once: a pull request opened from now on gets none. The
+         *     existing ones are removed by one job.
+         *
+         *     Args:
+         *         domain: The application.
+         *         request: The request, for the audit record.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What is being removed, and the job doing it.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        delete: operations["delete_preview_settings_api_apps__domain__previews_settings_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/previews/{number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Preview
+         * @description Queue the removal of one preview: its application, certificate and record.
+         *
+         *     Args:
+         *         domain: The application previewed.
+         *         number: The pull request number.
+         *         request: The request, for the audit record.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application or the preview is unknown.
+         */
+        delete: operations["delete_preview_api_apps__domain__previews__number__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -977,6 +1138,58 @@ export interface paths {
          */
         get: operations["webhook_deliveries_api_apps__domain__webhook_deliveries_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/zero-downtime": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Zero Downtime
+         * @description Show whether an application activates without a cut. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The mode, both instances when it is on, and whether it could be
+         *         turned on when it is off.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_zero_downtime_api_apps__domain__zero_downtime_get"];
+        /**
+         * Put Zero Downtime
+         * @description Queue turning an application's blue/green activation on or off.
+         *
+         *     It rewrites units and the site and starts and stops processes, so it
+         *     needs sudo mode. An application that cannot use the mode is refused
+         *     here, before a job is queued; the job checks again when it runs. With
+         *     the mode already as asked, the job only records a new drain.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The mode, and optionally the drain.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: It cannot run as two instances (400, with why).
+         */
+        put: operations["put_zero_downtime_api_apps__domain__zero_downtime_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1610,6 +1823,239 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/backup-destinations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Destinations
+         * @description List every configured backup destination.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The destinations, with every secret redacted.
+         */
+        get: operations["list_destinations_api_backup_destinations_get"];
+        put?: never;
+        /**
+         * Create Destination
+         * @description Create a backup destination.
+         *
+         *     Args:
+         *         data: The destination to create.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The action outcome, carrying the destination as created.
+         */
+        post: operations["create_destination_api_backup_destinations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backup-destinations/backends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Backends
+         * @description Describe every backend's destination form.
+         *
+         *     Declared before ``/{name}`` so the literal path wins.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Every backend WASM can build a destination for, with its fields.
+         */
+        get: operations["list_backends_api_backup_destinations_backends_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backup-destinations/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Destination
+         * @description Change a backup destination's fields.
+         *
+         *     Args:
+         *         name: Destination name.
+         *         data: Fields to change; a blank secret field keeps its stored value.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The action outcome, carrying the destination as it now stands.
+         */
+        put: operations["update_destination_api_backup_destinations__name__put"];
+        post?: never;
+        /**
+         * Delete Destination
+         * @description Remove a backup destination and its secrets.
+         *
+         *     Args:
+         *         name: Destination name.
+         *         force: Remove it even when a schedule references it, dropping the
+         *             reference from those schedules.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The action outcome.
+         *
+         *     Raises:
+         *         BackupError: When a schedule references it and ``force`` was not given.
+         */
+        delete: operations["delete_destination_api_backup_destinations__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backup-destinations/{name}/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Remote Backups
+         * @description Browse what a destination holds.
+         *
+         *     Args:
+         *         name: Destination name.
+         *         app: Application to list backups for; without it, the application
+         *             directories found at the destination's own path.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The applications found, or that application's backups, newest first.
+         */
+        get: operations["list_remote_backups_api_backup_destinations__name__backups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backup-destinations/{name}/backups/{backup_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore From Destination
+         * @description Queue a restore of a backup downloaded from a remote destination.
+         *
+         *     Args:
+         *         name: Destination to download from.
+         *         backup_id: Backup identifier.
+         *         data: Restore options.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 400 when the application cannot be determined from
+         *             the backup id and ``app_name`` was not given.
+         */
+        post: operations["restore_from_destination_api_backup_destinations__name__backups__backup_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backup-destinations/{name}/show-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Show Key
+         * @description Reveal a destination's encryption passphrases, for safekeeping.
+         *
+         *     Sudo mode: printing these makes every backup encrypted with them
+         *     recoverable by whoever reads the response, same as revealing any other
+         *     stored credential.
+         *
+         *     Args:
+         *         name: Destination name.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The passphrases.
+         *
+         *     Raises:
+         *         BackupError: When the destination is not encrypted, or its keys are
+         *             missing.
+         */
+        post: operations["show_key_api_backup_destinations__name__show_key_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backup-destinations/{name}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Destination
+         * @description Check that a destination can be reached.
+         *
+         *     Args:
+         *         name: Destination name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The top-level entries found there.
+         */
+        post: operations["test_destination_api_backup_destinations__name__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/backup-schedules": {
         parameters: {
             query?: never;
@@ -1621,11 +2067,14 @@ export interface paths {
          * List Schedules
          * @description List every scheduled backup on this machine, with its next run.
          *
+         *     Listing is also when a timer that predates schema v10 is adopted into
+         *     the store - see :meth:`BackupScheduler.list_schedules`.
+         *
          *     Args:
          *         session: The authenticated session.
          *
          *     Returns:
-         *         The schedules as systemd reports them.
+         *         The schedules, merging what systemd reports with each one's store row.
          */
         get: operations["list_schedules_api_backup_schedules_get"];
         put?: never;
@@ -1634,8 +2083,9 @@ export interface paths {
          * @description Schedule automatic backups of an application on a systemd timer.
          *
          *     Scheduling the same domain again rewrites its unit pair, so this is also
-         *     how a schedule is changed. Sudo mode, like deleting one: a schedule is a
-         *     root timer, and its retention decides which backups are thrown away.
+         *     how a schedule is changed - ``PUT /{domain}`` calls the same
+         *     implementation. Sudo mode, like deleting one: a schedule is a root timer,
+         *     and its retention decides which backups are thrown away.
          *
          *     Args:
          *         data: The schedule request. Its calendar expression was already
@@ -1664,7 +2114,24 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
+        /**
+         * Update Schedule
+         * @description Change an application's backup schedule.
+         *
+         *     Args:
+         *         domain: Domain whose schedule is changed; must match ``data.domain``.
+         *         data: The new schedule.
+         *         session: The authenticated session, elevated.
+         *
+         *     Returns:
+         *         The action outcome, carrying the schedule as it now stands.
+         *
+         *     Raises:
+         *         HTTPException: 400 when ``domain`` and ``data.domain`` disagree.
+         *         BackupError: When a unit cannot be written or the timer cannot be
+         *             enabled.
+         */
+        put: operations["update_schedule_api_backup_schedules__domain__put"];
         post?: never;
         /**
          * Delete Schedule
@@ -1799,6 +2266,38 @@ export interface paths {
          *         BackupError: When the manager cannot delete the backup.
          */
         delete: operations["delete_backup_api_backups__backup_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backups/{backup_id}/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Push Backup
+         * @description Queue an upload of a local backup to a remote destination.
+         *
+         *     Sudo mode: this sends application data, potentially including its
+         *     database dump, to a remote WASM does not control past the point of
+         *     upload.
+         *
+         *     Args:
+         *         backup_id: Backup identifier.
+         *         data: Which destination to upload to.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["push_backup_api_backups__backup_id__push_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3588,6 +4087,206 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/integrations/github": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Github Status
+         * @description Describe this server's GitHub App, its installations and its webhook.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The status; ``configured`` false when there is no App yet.
+         */
+        get: operations["github_status_api_integrations_github_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Github Remove
+         * @description Forget the App's credentials and installations on this server.
+         *
+         *     GitHub offers no API for this, so the App itself stays on GitHub until
+         *     the operator deletes it at ``settings_url``.
+         *
+         *     Args:
+         *         session: An elevated session.
+         *
+         *     Returns:
+         *         Whether there was one, and where to delete it on GitHub.
+         */
+        delete: operations["github_remove_api_integrations_github_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/github/installations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Github Add Installation
+         * @description Record an installation after GitHub confirms it is the App's.
+         *
+         *     Args:
+         *         data: The setup callback's installation id.
+         *         session: An elevated session.
+         *
+         *     Returns:
+         *         The installation.
+         */
+        post: operations["github_add_installation_api_integrations_github_installations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/github/installations/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Github Sync Installations
+         * @description Make the stored installations exactly those GitHub lists for the App.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The installations.
+         */
+        post: operations["github_sync_installations_api_integrations_github_installations_sync_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/github/manifest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Github Manifest
+         * @description Start creating the App: its manifest, and where to post it.
+         *
+         *     Args:
+         *         data: The console's origin and, optionally, the organisation.
+         *         session: An elevated session.
+         *
+         *     Returns:
+         *         The manifest, the form's action and its state (valid ten minutes).
+         */
+        post: operations["github_manifest_api_integrations_github_manifest_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/github/manifest/conversions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Github Manifest Conversion
+         * @description Finish creating the App: exchange GitHub's code for its credentials.
+         *
+         *     Args:
+         *         data: The callback's code and state.
+         *         session: An elevated session.
+         *
+         *     Returns:
+         *         The integration's status, now configured.
+         */
+        post: operations["github_manifest_conversion_api_integrations_github_manifest_conversions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/github/repositories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Github Repositories
+         * @description List every repository the App's installations cover, for the new-app wizard.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The repositories, by name.
+         */
+        get: operations["github_repositories_api_integrations_github_repositories_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/github/repositories/{owner}/{repo}/branches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Github Branches
+         * @description List a repository's branches.
+         *
+         *     Args:
+         *         owner: The repository's owner.
+         *         repo: The repository's name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The branches, as GitHub orders them.
+         */
+        get: operations["github_branches_api_integrations_github_repositories__owner___repo__branches_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/jobs": {
         parameters: {
             query?: never;
@@ -5304,7 +6003,9 @@ export interface paths {
          *
          *     Returns:
          *         202 with the queued job id; 200 when the delivery is authentic but
-         *         ignored (wrong branch, or a replayed delivery id).
+         *         ignored (wrong branch, a replayed delivery id, a ping); for a pull
+         *         request, what :func:`_deliver_pull_request` answers; 202 ``ignored``
+         *         for any other event.
          *
          *     Raises:
          *         HTTPException: A generic 404 when the domain has no webhook configured
@@ -5312,6 +6013,40 @@ export interface paths {
          *             401 with no details when no presented credential verifies.
          */
         post: operations["deliver_hooks_deploy__domain__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/hooks/github": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deliver
+         * @description Accept a delivery of this server's GitHub App.
+         *
+         *     Args:
+         *         request: The delivery.
+         *
+         *     Returns:
+         *         What was done: ``{"status": "queued", "jobs": [{"domain", "job_id"}]}``
+         *         (202) for a push that updates applications, ``{"status": "accepted",
+         *         "jobs": [...]}`` (202) for a pull request, ``{"status": "ignored",
+         *         "reason": ...}`` otherwise, ``{"status": "ok"}`` for a ping or an
+         *         installation change.
+         *
+         *     Raises:
+         *         HTTPException: 404 when this server has no App or its webhook has no
+         *             secret; 401 when the signature does not verify.
+         */
+        post: operations["deliver_hooks_github_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5516,15 +6251,36 @@ export interface components {
          *             both replaced by the fixed :data:`~wasm.core.config.REDACTED`
          *             placeholder, exactly as ``wasm env show`` does on the terminal.
          *         unmasked: Whether this response carries values in clear.
+         *         secrets: Every variable's classification, from
+         *             :func:`~wasm.core.secret_detection.classify` - present whether or
+         *             not ``unmasked`` is true, so the console can label a variable
+         *             (and let the operator override it) without asking to see its
+         *             value.
          */
         AppEnvResponse: {
             /** Domain */
             domain: string;
+            /** Secrets */
+            secrets?: {
+                [key: string]: components["schemas"]["EnvSecrecyOut"];
+            };
             /** Unmasked */
             unmasked: boolean;
             /** Variables */
             variables: {
                 [key: string]: string;
+            };
+        };
+        /**
+         * AppEnvSecretsResponse
+         * @description The secrecy classification of every variable of an application's environment.
+         */
+        AppEnvSecretsResponse: {
+            /** Domain */
+            domain: string;
+            /** Secrets */
+            secrets: {
+                [key: string]: components["schemas"]["EnvSecrecyOut"];
             };
         };
         /**
@@ -5775,6 +6531,56 @@ export interface components {
             next_before?: string | null;
         };
         /**
+         * BackendFieldInfo
+         * @description One field a backend's destination form asks for.
+         */
+        BackendFieldInfo: {
+            /** Choices */
+            choices?: string[];
+            /**
+             * Help
+             * @default
+             */
+            help: string;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * Placeholder
+             * @default
+             */
+            placeholder: string;
+            /**
+             * Required
+             * @default true
+             */
+            required: boolean;
+            /**
+             * Secret
+             * @default false
+             */
+            secret: boolean;
+        };
+        /**
+         * BackendInfo
+         * @description One backend WASM can build a destination for.
+         */
+        BackendInfo: {
+            /** Backend */
+            backend: string;
+            /** Fields */
+            fields: components["schemas"]["BackendFieldInfo"][];
+        };
+        /**
+         * BackendsResponse
+         * @description Response for the destination form catalogue.
+         */
+        BackendsResponse: {
+            /** Backends */
+            backends: components["schemas"]["BackendInfo"][];
+        };
+        /**
          * BackupActionResponse
          * @description Response for a backup action that completed immediately.
          */
@@ -5908,7 +6714,7 @@ export interface components {
         };
         /**
          * BackupScheduleInfo
-         * @description One backup schedule as systemd reports it.
+         * @description One backup schedule, merging what systemd reports with the store row.
          *
          *     Attributes:
          *         domain: Domain the schedule backs up.
@@ -5920,13 +6726,17 @@ export interface components {
          *         next_run: When the timer fires next, as systemd prints it, or
          *             ``pending`` when it cannot say.
          *         last_run: When the timer last fired, or ``never``.
-         *         retention_count: Backups to keep, when known. systemd keeps no record
-         *             of it, so listings report None.
-         *         retention_days: Maximum backup age in days, when known.
+         *         retention_count: Local backups to keep, from the store row; None for
+         *             the default.
+         *         retention_days: Maximum local backup age in days, from the store row;
+         *             None for no limit.
+         *         destinations: Remote destinations this schedule pushes to.
          */
         BackupScheduleInfo: {
             /** App Name */
             app_name: string;
+            /** Destinations */
+            destinations?: components["schemas"]["ScheduleDestination"][];
             /** Domain */
             domain: string;
             /** Last Run */
@@ -5986,6 +6796,31 @@ export interface components {
             total_size: number;
             /** Total Size Human */
             total_size_human: string;
+        };
+        /**
+         * BranchListOut
+         * @description A repository's branches.
+         */
+        BranchListOut: {
+            /** Items */
+            items: components["schemas"]["BranchOut"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * BranchOut
+         * @description A branch of a repository, with its head commit.
+         */
+        BranchOut: {
+            /** Commit */
+            commit?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Protected
+             * @default false
+             */
+            protected: boolean;
         };
         /**
          * CertActionResponse
@@ -6199,6 +7034,16 @@ export interface components {
             connection_string: string;
         };
         /**
+         * ConversionRequest
+         * @description The ``code`` and ``state`` GitHub's callback carried.
+         */
+        ConversionRequest: {
+            /** Code */
+            code: string;
+            /** State */
+            state: string;
+        };
+        /**
          * CpuInfo
          * @description CPU count, utilisation and load average.
          */
@@ -6264,6 +7109,11 @@ export interface components {
             env_vars?: {
                 [key: string]: string;
             };
+            /**
+             * Github Installation Id
+             * @description GitHub App installation that clones this application's repository, as the repository list returned it; kept for every later update
+             */
+            github_installation_id?: number | null;
             /**
              * Include Www
              * @description Also answer on www.<domain>, as a redirect to it
@@ -6435,10 +7285,44 @@ export interface components {
             owner?: string | null;
         };
         /**
+         * CreateDestinationRequest
+         * @description Request to create a backup destination.
+         */
+        CreateDestinationRequest: {
+            /**
+             * Backend
+             * @description One of the backends from GET /backends
+             */
+            backend: string;
+            /**
+             * Encrypted
+             * @description Wrap the remote in an rclone crypt backend
+             * @default false
+             */
+            encrypted: boolean;
+            /**
+             * Fields
+             * @description Field values by key
+             */
+            fields?: {
+                [key: string]: string;
+            };
+            /**
+             * Name
+             * @description Destination name; also its rclone remote name
+             */
+            name: string;
+        };
+        /**
          * CreateScheduleRequest
          * @description Request to schedule automatic backups for an application.
          */
         CreateScheduleRequest: {
+            /**
+             * Destinations
+             * @description Remote destinations to push each backup to
+             */
+            destinations?: components["schemas"]["ScheduleDestination"][];
             /**
              * Domain
              * @description Domain of the app to back up
@@ -6877,6 +7761,60 @@ export interface components {
          */
         DeploymentTrigger: "panel" | "cli" | "webhook";
         /**
+         * DestinationActionResponse
+         * @description Response for a destination action that completed immediately.
+         */
+        DestinationActionResponse: {
+            destination?: components["schemas"]["DestinationInfo"] | null;
+            /** Message */
+            message: string;
+            /** Success */
+            success: boolean;
+        };
+        /**
+         * DestinationInfo
+         * @description One backup destination, with its secrets redacted.
+         *
+         *     Attributes:
+         *         configured_secret_fields: Which of the backend's secret fields have a
+         *             stored value. Never the value itself.
+         *         encryption_configured: Whether the crypt passphrases exist, when the
+         *             destination is encrypted.
+         */
+        DestinationInfo: {
+            /** Backend */
+            backend: string;
+            /** Configured Secret Fields */
+            configured_secret_fields?: string[];
+            /** Created At */
+            created_at?: string | null;
+            /** Encrypted */
+            encrypted: boolean;
+            /**
+             * Encryption Configured
+             * @default false
+             */
+            encryption_configured: boolean;
+            /** Name */
+            name: string;
+            /** Settings */
+            settings: {
+                [key: string]: string;
+            };
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /**
+         * DestinationListResponse
+         * @description Response for listing backup destinations.
+         */
+        DestinationListResponse: {
+            /** Destinations */
+            destinations: components["schemas"]["DestinationInfo"][];
+            /** Total */
+            total: number;
+        };
+        /**
          * DiagnoseCheck
          * @description One diagnostic probe's result.
          *
@@ -7098,6 +8036,60 @@ export interface components {
             secret: boolean;
         };
         /**
+         * EnvSecrecyOut
+         * @description Why one environment variable is, or is not, treated as a secret.
+         *
+         *     Attributes:
+         *         secret: Whether the value must not be shown or logged in clear.
+         *         reason: One of ``"marked secret"``, ``"marked not secret"``,
+         *             ``"name"``, ``"value: <kind>"``, ``"url credentials"`` or
+         *             ``"plain"`` - see :class:`~wasm.core.secret_detection.Secrecy`.
+         *         marked: Whether this came from an operator's own mark rather than
+         *             from the variable's name or value.
+         */
+        EnvSecrecyOut: {
+            /** Marked */
+            marked: boolean;
+            /** Reason */
+            reason: string;
+            /** Secret */
+            secret: boolean;
+        };
+        /**
+         * GitHubStatusOut
+         * @description The GitHub integration of this server.
+         */
+        GitHubStatusOut: {
+            /** App Id */
+            app_id?: number | null;
+            /** Configured */
+            configured: boolean;
+            /**
+             * Hooks Active
+             * @default false
+             */
+            hooks_active: boolean;
+            /** Hooks Url */
+            hooks_url?: string | null;
+            /** Html Url */
+            html_url?: string | null;
+            /** Install Url */
+            install_url?: string | null;
+            /**
+             * Installations
+             * @default []
+             */
+            installations: components["schemas"]["InstallationOut"][];
+            /** Name */
+            name?: string | null;
+            /** Owner */
+            owner?: string | null;
+            /** Settings Url */
+            settings_url?: string | null;
+            /** Slug */
+            slug?: string | null;
+        };
+        /**
          * GrantPrivilegesRequest
          * @description Request to grant or revoke privileges.
          */
@@ -7187,10 +8179,49 @@ export interface components {
              */
             branch?: string | null;
             /**
+             * Github Installation Id
+             * @description GitHub App installation to read a private github.com repository with, as the repository list returned it. Omitted: the installation on the owner's account
+             */
+            github_installation_id?: number | null;
+            /**
              * Source
              * @description Git URL, archive URL or local path
              */
             source: string;
+        };
+        /**
+         * InstallationListOut
+         * @description The App's installations.
+         */
+        InstallationListOut: {
+            /** Items */
+            items: components["schemas"]["InstallationOut"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * InstallationOut
+         * @description An account the App is installed on.
+         */
+        InstallationOut: {
+            /** Account */
+            account: string;
+            /** Account Type */
+            account_type?: string | null;
+            /** Installation Id */
+            installation_id: number;
+            /** Repository Selection */
+            repository_selection?: string | null;
+            /** Settings Url */
+            settings_url?: string | null;
+        };
+        /**
+         * InstallationRequest
+         * @description The ``installation_id`` GitHub's setup callback carried.
+         */
+        InstallationRequest: {
+            /** Installation Id */
+            installation_id: number;
         };
         /**
          * InterfaceAddress
@@ -7532,6 +8563,41 @@ export interface components {
             stopped: number;
         };
         /**
+         * ManifestOut
+         * @description What the console posts to GitHub.
+         *
+         *     Attributes:
+         *         manifest: Send as the form field ``manifest``, JSON-encoded.
+         *         post_url: The form's action (``state`` included).
+         *         state: Handed back by GitHub with the code.
+         */
+        ManifestOut: {
+            /** Manifest */
+            manifest: {
+                [key: string]: unknown;
+            };
+            /** Post Url */
+            post_url: string;
+            /** State */
+            state: string;
+        };
+        /**
+         * ManifestRequest
+         * @description Start creating the App.
+         *
+         *     Attributes:
+         *         origin: The console's origin as the browser sees it
+         *             (``location.origin``), which GitHub sends the browser back to.
+         *         organization: Create the App owned by this organisation; omitted for
+         *             the operator's personal account.
+         */
+        ManifestRequest: {
+            /** Organization */
+            organization?: string | null;
+            /** Origin */
+            origin: string;
+        };
+        /**
          * MemoryInfo
          * @description Memory and swap usage.
          */
@@ -7864,6 +8930,141 @@ export interface components {
             } | null;
         };
         /**
+         * PreviewOut
+         * @description One pull request's preview.
+         *
+         *     Attributes:
+         *         domain: The preview's own application domain.
+         *         url: Where it answers.
+         *         number: The pull (merge) request number.
+         *         branch: The branch it deploys.
+         *         head_sha: The commit last deployed or asked for.
+         *         provider: ``github``, ``gitlab`` or ``gitea``.
+         *         repository: ``owner/repo``.
+         *         status: ``pending``, ``deploying``, ``ready``, ``failed`` or
+         *             ``removing``.
+         *         error: Why the last build failed.
+         *         expires_at: When it is removed unless pushed to again.
+         */
+        PreviewOut: {
+            /** Branch */
+            branch: string;
+            /** Created At */
+            created_at?: string | null;
+            /** Domain */
+            domain: string;
+            /** Error */
+            error?: string | null;
+            /** Expires At */
+            expires_at: string;
+            /** Head Sha */
+            head_sha?: string | null;
+            /** Number */
+            number: number;
+            /** Provider */
+            provider: string;
+            /** Repository */
+            repository?: string | null;
+            /** Status */
+            status: string;
+            /** Updated At */
+            updated_at?: string | null;
+            /** Url */
+            url: string;
+        };
+        /**
+         * PreviewSettingsOut
+         * @description The previews an application allows.
+         *
+         *     Attributes:
+         *         base_domain: Previews answer at ``pr-<n>-<app>.<base_domain>``; a
+         *             wildcard record for it must point at this server.
+         *         max_previews: How many may exist at once (1 to 20).
+         *         ttl_hours: Hours a preview lives without a push (1 to 2160).
+         */
+        PreviewSettingsOut: {
+            /** Base Domain */
+            base_domain: string;
+            /** Created At */
+            created_at?: string | null;
+            /** Max Previews */
+            max_previews: number;
+            /** Ttl Hours */
+            ttl_hours: number;
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /**
+         * PreviewSettingsRequest
+         * @description Turn previews on, or change their settings.
+         *
+         *     Attributes:
+         *         base_domain: The domain a wildcard record points at this server
+         *             (``previews.example.com`` for ``*.previews.example.com``).
+         *         max_previews: How many at once, 1 to 20.
+         *         ttl_hours: Hours one lives without a push, 1 to 2160 (90 days).
+         */
+        PreviewSettingsRequest: {
+            /** Base Domain */
+            base_domain: string;
+            /**
+             * Max Previews
+             * @default 3
+             */
+            max_previews: number;
+            /**
+             * Ttl Hours
+             * @default 168
+             */
+            ttl_hours: number;
+        };
+        /**
+         * PreviewsDisabledResponse
+         * @description Previews turned off.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         enabled: Always false.
+         *         removing: Domains of the previews being removed.
+         *         job_id: The job removing them; None when there were none.
+         */
+        PreviewsDisabledResponse: {
+            /** Domain */
+            domain: string;
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /** Job Id */
+            job_id?: string | null;
+            /** Removing */
+            removing: string[];
+        };
+        /**
+         * PreviewsResponse
+         * @description An application's preview settings and previews.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         enabled: Whether it allows previews.
+         *         settings: Its settings, when enabled.
+         *         previews: Its previews, oldest first. Some may remain after previews
+         *             were turned off, while their removal runs or when it failed.
+         *         total: How many.
+         */
+        PreviewsResponse: {
+            /** Domain */
+            domain: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Previews */
+            previews: components["schemas"]["PreviewOut"][];
+            settings?: components["schemas"]["PreviewSettingsOut"] | null;
+            /** Total */
+            total: number;
+        };
+        /**
          * PrivilegesResponse
          * @description Response for ``GET /api/databases/engines/{engine}/privileges``.
          */
@@ -7929,6 +9130,17 @@ export interface components {
             status: string;
             /** User */
             user: string;
+        };
+        /**
+         * PushBackupRequest
+         * @description Request to upload a local backup to a remote destination.
+         */
+        PushBackupRequest: {
+            /**
+             * Destination
+             * @description Name of a destination under /api/backup-destinations
+             */
+            destination: string;
         };
         /**
          * QueryRequest
@@ -8104,6 +9316,53 @@ export interface components {
             webserver: string;
         };
         /**
+         * RemoteBackupInfo
+         * @description One backup found on a destination.
+         */
+        RemoteBackupInfo: {
+            /** App Name */
+            app_name: string;
+            /** Backup Id */
+            backup_id: string;
+            /**
+             * Has Metadata
+             * @default false
+             */
+            has_metadata: boolean;
+            /** Modified */
+            modified?: string | null;
+            /** Size */
+            size?: number | null;
+        };
+        /**
+         * RemoteBackupsResponse
+         * @description Response for browsing a destination.
+         *
+         *     ``apps`` is populated when the request did not name one (the top-level
+         *     directories found on the destination); ``backups`` when it did.
+         */
+        RemoteBackupsResponse: {
+            /** Apps */
+            apps?: string[];
+            /** Backups */
+            backups?: components["schemas"]["RemoteBackupInfo"][];
+        };
+        /**
+         * RemovalOut
+         * @description What removing the integration did.
+         *
+         *     Attributes:
+         *         removed: Whether there was an App to forget.
+         *         settings_url: The App's page on GitHub, where it is uninstalled and
+         *             deleted; WASM cannot do that itself.
+         */
+        RemovalOut: {
+            /** Removed */
+            removed: boolean;
+            /** Settings Url */
+            settings_url?: string | null;
+        };
+        /**
          * RenewCertRequest
          * @description Request to renew certificates.
          */
@@ -8113,6 +9372,59 @@ export interface components {
              * @default false
              */
             force: boolean;
+        };
+        /**
+         * RepositoryListOut
+         * @description Every repository the App reaches.
+         */
+        RepositoryListOut: {
+            /** Items */
+            items: components["schemas"]["RepositoryOut"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * RepositoryOut
+         * @description A repository the App's installations cover.
+         *
+         *     Attributes:
+         *         source: What to deploy it as (``github:owner/repo``).
+         */
+        RepositoryOut: {
+            /** Clone Url */
+            clone_url?: string | null;
+            /** Default Branch */
+            default_branch?: string | null;
+            /** Full Name */
+            full_name: string;
+            /** Installation Id */
+            installation_id: number;
+            /** Private */
+            private: boolean;
+            /** Source */
+            source: string;
+        };
+        /**
+         * RestoreFromDestinationRequest
+         * @description Request to restore a backup found on a remote destination.
+         */
+        RestoreFromDestinationRequest: {
+            /**
+             * App Name
+             * @description Application the backup belongs to; derived from the backup id when omitted
+             */
+            app_name?: string | null;
+            /**
+             * Restore Env
+             * @description Restore the .env files from the archive
+             * @default true
+             */
+            restore_env: boolean;
+            /**
+             * Target Domain
+             * @description Domain to restore into
+             */
+            target_domain?: string | null;
         };
         /**
          * RetentionResponse
@@ -8348,6 +9660,21 @@ export interface components {
             success: boolean;
         };
         /**
+         * ScheduleDestination
+         * @description One remote destination a schedule pushes its backups to.
+         */
+        ScheduleDestination: {
+            /**
+             * Name
+             * @description A backup destination created under /api/backup-destinations
+             */
+            name: string;
+            /** Retention Count */
+            retention_count?: number | null;
+            /** Retention Days */
+            retention_days?: number | null;
+        };
+        /**
          * ScheduleListResponse
          * @description Response for listing backup schedules.
          */
@@ -8550,6 +9877,16 @@ export interface components {
             current_session: string | null;
             /** Sessions */
             sessions: components["schemas"]["SessionEntry"][];
+        };
+        /**
+         * ShowKeyResponse
+         * @description A destination's encryption passphrases, for safekeeping.
+         */
+        ShowKeyResponse: {
+            /** Password */
+            password: string;
+            /** Password2 */
+            password2: string;
         };
         /**
          * SiteActionResponse
@@ -8820,6 +10157,16 @@ export interface components {
             chat_id: string;
         };
         /**
+         * TestDestinationResponse
+         * @description Response for testing a destination.
+         */
+        TestDestinationResponse: {
+            /** Entries */
+            entries?: string[];
+            /** Ok */
+            ok: boolean;
+        };
+        /**
          * TestSiteConfigRequest
          * @description Request to try a candidate configuration without saving it.
          */
@@ -8912,6 +10259,37 @@ export interface components {
              */
             variables?: {
                 [key: string]: string;
+            };
+        };
+        /**
+         * UpdateDestinationRequest
+         * @description Request to change a backup destination. A blank secret field keeps its stored value.
+         */
+        UpdateDestinationRequest: {
+            /** Encrypted */
+            encrypted?: boolean | null;
+            /** Fields */
+            fields?: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * UpdateEnvMarksRequest
+         * @description Request to set or clear operator overrides on an application's environment.
+         *
+         *     Attributes:
+         *         marks: Variable name to ``true`` (always treat as a secret),
+         *             ``false`` (never treat as a secret) or ``null`` (remove any
+         *             existing mark and judge the variable by its name and value
+         *             again).
+         */
+        UpdateEnvMarksRequest: {
+            /**
+             * Marks
+             * @description Variable name to true (secret), false (not secret), or null to clear
+             */
+            marks?: {
+                [key: string]: boolean | null;
             };
         };
         /**
@@ -9253,6 +10631,100 @@ export interface components {
             message: string;
             /** Webserver */
             webserver: string;
+        };
+        /**
+         * ZeroDowntimeInstance
+         * @description One instance of an application in zero-downtime mode.
+         */
+        ZeroDowntimeInstance: {
+            /**
+             * Color
+             * @description blue or green
+             */
+            color: string;
+            /**
+             * Port
+             * @description The port it listens on
+             */
+            port: number;
+            /**
+             * Release
+             * @description The release it runs
+             */
+            release?: string | null;
+            /**
+             * Serving
+             * @description Whether nginx sends it the traffic
+             */
+            serving: boolean;
+            /**
+             * State
+             * @description systemd's ActiveState, or unknown
+             */
+            state: string;
+            /**
+             * Unit
+             * @description Its systemd unit, without .service
+             */
+            unit: string;
+        };
+        /**
+         * ZeroDowntimeRequest
+         * @description The mode an application must be in.
+         */
+        ZeroDowntimeRequest: {
+            /**
+             * Drain Seconds
+             * @description Seconds the old instance keeps running after a switch, 0 to 300. Omitted: what the application has, or 10
+             */
+            drain_seconds?: number | null;
+            /**
+             * Enabled
+             * @description True for blue/green activation, false for a restart
+             */
+            enabled: boolean;
+        };
+        /**
+         * ZeroDowntimeResponse
+         * @description Whether an application activates without a cut, and how.
+         */
+        ZeroDowntimeResponse: {
+            /**
+             * Active Color
+             * @description The instance that serves
+             */
+            active_color?: string | null;
+            /** Domain */
+            domain: string;
+            /**
+             * Drain Seconds
+             * @description Seconds the old instance keeps running after traffic moved
+             */
+            drain_seconds: number;
+            /**
+             * Eligible
+             * @description Whether the mode can be turned on
+             */
+            eligible: boolean;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Hint
+             * @description What to do about it
+             */
+            hint?: string | null;
+            /** Instances */
+            instances?: components["schemas"]["ZeroDowntimeInstance"][];
+            /**
+             * Reason
+             * @description Why it cannot, when it cannot
+             */
+            reason?: string | null;
+            /**
+             * Upstream Port
+             * @description The port nginx's upstream names, when the mode is on
+             */
+            upstream_port?: number | null;
         };
         /**
          * BackupListResponse
@@ -9914,6 +11386,41 @@ export interface operations {
             };
         };
     };
+    update_app_env_marks_api_apps__domain__env_marks_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateEnvMarksRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppEnvSecretsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     update_app_health_api_apps__domain__health_patch: {
         parameters: {
             query?: never;
@@ -10072,6 +11579,135 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MigrationPlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_previews_api_apps__domain__previews_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_preview_settings_api_apps__domain__previews_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewSettingsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_preview_settings_api_apps__domain__previews_settings_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewsDisabledResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_preview_api_apps__domain__previews__number__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -10387,6 +12023,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WebhookDeliveriesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_zero_downtime_api_apps__domain__zero_downtime_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ZeroDowntimeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_zero_downtime_api_apps__domain__zero_downtime_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ZeroDowntimeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -10886,6 +12588,280 @@ export interface operations {
             };
         };
     };
+    list_destinations_api_backup_destinations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DestinationListResponse"];
+                };
+            };
+        };
+    };
+    create_destination_api_backup_destinations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDestinationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DestinationActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_backends_api_backup_destinations_backends_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackendsResponse"];
+                };
+            };
+        };
+    };
+    update_destination_api_backup_destinations__name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateDestinationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DestinationActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_destination_api_backup_destinations__name__delete: {
+        parameters: {
+            query?: {
+                /** @description Remove it even if a schedule references it */
+                force?: boolean;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DestinationActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_remote_backups_api_backup_destinations__name__backups_get: {
+        parameters: {
+            query?: {
+                /** @description Application name to list backups for */
+                app?: string | null;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemoteBackupsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_from_destination_api_backup_destinations__name__backups__backup_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                backup_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RestoreFromDestinationRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    show_key_api_backup_destinations__name__show_key_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShowKeyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_destination_api_backup_destinations__name__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestDestinationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_schedules_api_backup_schedules_get: {
         parameters: {
             query?: never;
@@ -10921,6 +12897,41 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_schedule_api_backup_schedules__domain__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateScheduleRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11105,6 +13116,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BackupActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    push_backup_api_backups__backup_id__push_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                backup_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushBackupRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -13064,6 +15110,217 @@ export interface operations {
             };
         };
     };
+    github_status_api_integrations_github_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubStatusOut"];
+                };
+            };
+        };
+    };
+    github_remove_api_integrations_github_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemovalOut"];
+                };
+            };
+        };
+    };
+    github_add_installation_api_integrations_github_installations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstallationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstallationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    github_sync_installations_api_integrations_github_installations_sync_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstallationListOut"];
+                };
+            };
+        };
+    };
+    github_manifest_api_integrations_github_manifest_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManifestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManifestOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    github_manifest_conversion_api_integrations_github_manifest_conversions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConversionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubStatusOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    github_repositories_api_integrations_github_repositories_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepositoryListOut"];
+                };
+            };
+        };
+    };
+    github_branches_api_integrations_github_repositories__owner___repo__branches_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                owner: string;
+                repo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BranchListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_jobs_api_jobs_get: {
         parameters: {
             query?: {
@@ -14775,6 +17032,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deliver_hooks_github_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

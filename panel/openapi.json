@@ -320,11 +320,18 @@
         "type": "object"
       },
       "AppEnvResponse": {
-        "description": "An application's environment, as recorded in its ``.env`` file.\n\nAttributes:\n    domain: Domain of the application.\n    variables: Name to value mapping. Unless ``unmasked`` is true, a\n        secret-looking name and a URL credential embedded in a value are\n        both replaced by the fixed :data:`~wasm.core.config.REDACTED`\n        placeholder, exactly as ``wasm env show`` does on the terminal.\n    unmasked: Whether this response carries values in clear.",
+        "description": "An application's environment, as recorded in its ``.env`` file.\n\nAttributes:\n    domain: Domain of the application.\n    variables: Name to value mapping. Unless ``unmasked`` is true, a\n        secret-looking name and a URL credential embedded in a value are\n        both replaced by the fixed :data:`~wasm.core.config.REDACTED`\n        placeholder, exactly as ``wasm env show`` does on the terminal.\n    unmasked: Whether this response carries values in clear.\n    secrets: Every variable's classification, from\n        :func:`~wasm.core.secret_detection.classify` - present whether or\n        not ``unmasked`` is true, so the console can label a variable\n        (and let the operator override it) without asking to see its\n        value.",
         "properties": {
           "domain": {
             "title": "Domain",
             "type": "string"
+          },
+          "secrets": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/EnvSecrecyOut"
+            },
+            "title": "Secrets",
+            "type": "object"
           },
           "unmasked": {
             "title": "Unmasked",
@@ -344,6 +351,28 @@
           "unmasked"
         ],
         "title": "AppEnvResponse",
+        "type": "object"
+      },
+      "AppEnvSecretsResponse": {
+        "description": "The secrecy classification of every variable of an application's environment.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "secrets": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/EnvSecrecyOut"
+            },
+            "title": "Secrets",
+            "type": "object"
+          }
+        },
+        "required": [
+          "domain",
+          "secrets"
+        ],
+        "title": "AppEnvSecretsResponse",
         "type": "object"
       },
       "AppEnvUpdateResponse": {
@@ -832,6 +861,91 @@
         "title": "AuditListResponse",
         "type": "object"
       },
+      "BackendFieldInfo": {
+        "description": "One field a backend's destination form asks for.",
+        "properties": {
+          "choices": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "help": {
+            "default": "",
+            "title": "Help",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "placeholder": {
+            "default": "",
+            "title": "Placeholder",
+            "type": "string"
+          },
+          "required": {
+            "default": true,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "secret": {
+            "default": false,
+            "title": "Secret",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "label"
+        ],
+        "title": "BackendFieldInfo",
+        "type": "object"
+      },
+      "BackendInfo": {
+        "description": "One backend WASM can build a destination for.",
+        "properties": {
+          "backend": {
+            "title": "Backend",
+            "type": "string"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/BackendFieldInfo"
+            },
+            "title": "Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "backend",
+          "fields"
+        ],
+        "title": "BackendInfo",
+        "type": "object"
+      },
+      "BackendsResponse": {
+        "description": "Response for the destination form catalogue.",
+        "properties": {
+          "backends": {
+            "items": {
+              "$ref": "#/components/schemas/BackendInfo"
+            },
+            "title": "Backends",
+            "type": "array"
+          }
+        },
+        "required": [
+          "backends"
+        ],
+        "title": "BackendsResponse",
+        "type": "object"
+      },
       "BackupActionResponse": {
         "description": "Response for a backup action that completed immediately.",
         "properties": {
@@ -1083,11 +1197,18 @@
         "type": "object"
       },
       "BackupScheduleInfo": {
-        "description": "One backup schedule as systemd reports it.\n\nAttributes:\n    domain: Domain the schedule backs up.\n    app_name: Application name the unit names are built from.\n    timer: Timer unit name, without its ``.timer`` suffix.\n    schedule: The schedule in words: an alias such as ``daily`` when the\n        expression matches one, ``custom`` otherwise.\n    on_calendar: The systemd ``OnCalendar`` expression, verbatim.\n    next_run: When the timer fires next, as systemd prints it, or\n        ``pending`` when it cannot say.\n    last_run: When the timer last fired, or ``never``.\n    retention_count: Backups to keep, when known. systemd keeps no record\n        of it, so listings report None.\n    retention_days: Maximum backup age in days, when known.",
+        "description": "One backup schedule, merging what systemd reports with the store row.\n\nAttributes:\n    domain: Domain the schedule backs up.\n    app_name: Application name the unit names are built from.\n    timer: Timer unit name, without its ``.timer`` suffix.\n    schedule: The schedule in words: an alias such as ``daily`` when the\n        expression matches one, ``custom`` otherwise.\n    on_calendar: The systemd ``OnCalendar`` expression, verbatim.\n    next_run: When the timer fires next, as systemd prints it, or\n        ``pending`` when it cannot say.\n    last_run: When the timer last fired, or ``never``.\n    retention_count: Local backups to keep, from the store row; None for\n        the default.\n    retention_days: Maximum local backup age in days, from the store row;\n        None for no limit.\n    destinations: Remote destinations this schedule pushes to.",
         "properties": {
           "app_name": {
             "title": "App Name",
             "type": "string"
+          },
+          "destinations": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleDestination"
+            },
+            "title": "Destinations",
+            "type": "array"
           },
           "domain": {
             "title": "Domain",
@@ -1231,6 +1352,58 @@
           "domains"
         ],
         "title": "BackupStorageResponse",
+        "type": "object"
+      },
+      "BranchListOut": {
+        "description": "A repository's branches.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BranchOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "BranchListOut",
+        "type": "object"
+      },
+      "BranchOut": {
+        "description": "A branch of a repository, with its head commit.",
+        "properties": {
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "protected": {
+            "default": false,
+            "title": "Protected",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "BranchOut",
         "type": "object"
       },
       "CertActionResponse": {
@@ -1606,6 +1779,25 @@
         "title": "ConnectionStringResponse",
         "type": "object"
       },
+      "ConversionRequest": {
+        "description": "The ``code`` and ``state`` GitHub's callback carried.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "state"
+        ],
+        "title": "ConversionRequest",
+        "type": "object"
+      },
       "CpuInfo": {
         "description": "CPU count, utilisation and load average.",
         "properties": {
@@ -1712,6 +1904,18 @@
             "description": "Environment variables",
             "title": "Env Vars",
             "type": "object"
+          },
+          "github_installation_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "GitHub App installation that clones this application's repository, as the repository list returned it; kept for every later update",
+            "title": "Github Installation Id"
           },
           "include_www": {
             "default": false,
@@ -2020,9 +2224,52 @@
         "title": "CreateDatabaseRequest",
         "type": "object"
       },
+      "CreateDestinationRequest": {
+        "description": "Request to create a backup destination.",
+        "properties": {
+          "backend": {
+            "description": "One of the backends from GET /backends",
+            "title": "Backend",
+            "type": "string"
+          },
+          "encrypted": {
+            "default": false,
+            "description": "Wrap the remote in an rclone crypt backend",
+            "title": "Encrypted",
+            "type": "boolean"
+          },
+          "fields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Field values by key",
+            "title": "Fields",
+            "type": "object"
+          },
+          "name": {
+            "description": "Destination name; also its rclone remote name",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "backend"
+        ],
+        "title": "CreateDestinationRequest",
+        "type": "object"
+      },
       "CreateScheduleRequest": {
         "description": "Request to schedule automatic backups for an application.",
         "properties": {
+          "destinations": {
+            "description": "Remote destinations to push each backup to",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleDestination"
+            },
+            "title": "Destinations",
+            "type": "array"
+          },
           "domain": {
             "description": "Domain of the app to back up",
             "title": "Domain",
@@ -2837,6 +3084,123 @@
         "title": "DeploymentTrigger",
         "type": "string"
       },
+      "DestinationActionResponse": {
+        "description": "Response for a destination action that completed immediately.",
+        "properties": {
+          "destination": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DestinationInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success",
+          "message"
+        ],
+        "title": "DestinationActionResponse",
+        "type": "object"
+      },
+      "DestinationInfo": {
+        "description": "One backup destination, with its secrets redacted.\n\nAttributes:\n    configured_secret_fields: Which of the backend's secret fields have a\n        stored value. Never the value itself.\n    encryption_configured: Whether the crypt passphrases exist, when the\n        destination is encrypted.",
+        "properties": {
+          "backend": {
+            "title": "Backend",
+            "type": "string"
+          },
+          "configured_secret_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Configured Secret Fields",
+            "type": "array"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "encrypted": {
+            "title": "Encrypted",
+            "type": "boolean"
+          },
+          "encryption_configured": {
+            "default": false,
+            "title": "Encryption Configured",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "settings": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Settings",
+            "type": "object"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "name",
+          "backend",
+          "encrypted",
+          "settings"
+        ],
+        "title": "DestinationInfo",
+        "type": "object"
+      },
+      "DestinationListResponse": {
+        "description": "Response for listing backup destinations.",
+        "properties": {
+          "destinations": {
+            "items": {
+              "$ref": "#/components/schemas/DestinationInfo"
+            },
+            "title": "Destinations",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "destinations",
+          "total"
+        ],
+        "title": "DestinationListResponse",
+        "type": "object"
+      },
       "DiagnoseCheck": {
         "description": "One diagnostic probe's result.\n\nMirrors :class:`wasm.managers.diagnose.Check` field for field: this module\nonly translates it to HTTP, it does not reinterpret it.\n\nAttributes:\n    name: Stable identifier for the probe, such as ``\"unit\"`` or ``\"port\"``.\n    status: ``\"ok\"``, ``\"warn\"``, ``\"fail\"`` or ``\"skip\"``.\n    summary: One line, in WASM's own words.\n    evidence: Raw output the probe collected, verbatim.",
         "properties": {
@@ -3242,6 +3606,145 @@
         "title": "EnvKeyResponse",
         "type": "object"
       },
+      "EnvSecrecyOut": {
+        "description": "Why one environment variable is, or is not, treated as a secret.\n\nAttributes:\n    secret: Whether the value must not be shown or logged in clear.\n    reason: One of ``\"marked secret\"``, ``\"marked not secret\"``,\n        ``\"name\"``, ``\"value: <kind>\"``, ``\"url credentials\"`` or\n        ``\"plain\"`` - see :class:`~wasm.core.secret_detection.Secrecy`.\n    marked: Whether this came from an operator's own mark rather than\n        from the variable's name or value.",
+        "properties": {
+          "marked": {
+            "title": "Marked",
+            "type": "boolean"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "secret": {
+            "title": "Secret",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "secret",
+          "reason",
+          "marked"
+        ],
+        "title": "EnvSecrecyOut",
+        "type": "object"
+      },
+      "GitHubStatusOut": {
+        "description": "The GitHub integration of this server.",
+        "properties": {
+          "app_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Id"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "hooks_active": {
+            "default": false,
+            "title": "Hooks Active",
+            "type": "boolean"
+          },
+          "hooks_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hooks Url"
+          },
+          "html_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Html Url"
+          },
+          "install_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Install Url"
+          },
+          "installations": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/InstallationOut"
+            },
+            "title": "Installations",
+            "type": "array"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "settings_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settings Url"
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slug"
+          }
+        },
+        "required": [
+          "configured"
+        ],
+        "title": "GitHubStatusOut",
+        "type": "object"
+      },
       "GrantPrivilegesRequest": {
         "description": "Request to grant or revoke privileges.",
         "properties": {
@@ -3404,6 +3907,18 @@
             "description": "Git branch to inspect",
             "title": "Branch"
           },
+          "github_installation_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "GitHub App installation to read a private github.com repository with, as the repository list returned it. Omitted: the installation on the owner's account",
+            "title": "Github Installation Id"
+          },
           "source": {
             "description": "Git URL, archive URL or local path",
             "title": "Source",
@@ -3414,6 +3929,94 @@
           "source"
         ],
         "title": "InspectSourceRequest",
+        "type": "object"
+      },
+      "InstallationListOut": {
+        "description": "The App's installations.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/InstallationOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "InstallationListOut",
+        "type": "object"
+      },
+      "InstallationOut": {
+        "description": "An account the App is installed on.",
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "account_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Type"
+          },
+          "installation_id": {
+            "title": "Installation Id",
+            "type": "integer"
+          },
+          "repository_selection": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repository Selection"
+          },
+          "settings_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settings Url"
+          }
+        },
+        "required": [
+          "installation_id",
+          "account"
+        ],
+        "title": "InstallationOut",
+        "type": "object"
+      },
+      "InstallationRequest": {
+        "description": "The ``installation_id`` GitHub's setup callback carried.",
+        "properties": {
+          "installation_id": {
+            "title": "Installation Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "installation_id"
+        ],
+        "title": "InstallationRequest",
         "type": "object"
       },
       "InterfaceAddress": {
@@ -4087,6 +4690,56 @@
         "title": "MachineUnits",
         "type": "object"
       },
+      "ManifestOut": {
+        "description": "What the console posts to GitHub.\n\nAttributes:\n    manifest: Send as the form field ``manifest``, JSON-encoded.\n    post_url: The form's action (``state`` included).\n    state: Handed back by GitHub with the code.",
+        "properties": {
+          "manifest": {
+            "additionalProperties": true,
+            "title": "Manifest",
+            "type": "object"
+          },
+          "post_url": {
+            "title": "Post Url",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "manifest",
+          "post_url",
+          "state"
+        ],
+        "title": "ManifestOut",
+        "type": "object"
+      },
+      "ManifestRequest": {
+        "description": "Start creating the App.\n\nAttributes:\n    origin: The console's origin as the browser sees it\n        (``location.origin``), which GitHub sends the browser back to.\n    organization: Create the App owned by this organisation; omitted for\n        the operator's personal account.",
+        "properties": {
+          "organization": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization"
+          },
+          "origin": {
+            "title": "Origin",
+            "type": "string"
+          }
+        },
+        "required": [
+          "origin"
+        ],
+        "title": "ManifestRequest",
+        "type": "object"
+      },
       "MemoryInfo": {
         "description": "Memory and swap usage.",
         "properties": {
@@ -4743,6 +5396,255 @@
         "title": "ObservationListResponse",
         "type": "object"
       },
+      "PreviewOut": {
+        "description": "One pull request's preview.\n\nAttributes:\n    domain: The preview's own application domain.\n    url: Where it answers.\n    number: The pull (merge) request number.\n    branch: The branch it deploys.\n    head_sha: The commit last deployed or asked for.\n    provider: ``github``, ``gitlab`` or ``gitea``.\n    repository: ``owner/repo``.\n    status: ``pending``, ``deploying``, ``ready``, ``failed`` or\n        ``removing``.\n    error: Why the last build failed.\n    expires_at: When it is removed unless pushed to again.",
+        "properties": {
+          "branch": {
+            "title": "Branch",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "head_sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Head Sha"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "repository": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repository"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "url",
+          "number",
+          "branch",
+          "provider",
+          "status",
+          "expires_at"
+        ],
+        "title": "PreviewOut",
+        "type": "object"
+      },
+      "PreviewSettingsOut": {
+        "description": "The previews an application allows.\n\nAttributes:\n    base_domain: Previews answer at ``pr-<n>-<app>.<base_domain>``; a\n        wildcard record for it must point at this server.\n    max_previews: How many may exist at once (1 to 20).\n    ttl_hours: Hours a preview lives without a push (1 to 2160).",
+        "properties": {
+          "base_domain": {
+            "title": "Base Domain",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "max_previews": {
+            "title": "Max Previews",
+            "type": "integer"
+          },
+          "ttl_hours": {
+            "title": "Ttl Hours",
+            "type": "integer"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "base_domain",
+          "max_previews",
+          "ttl_hours"
+        ],
+        "title": "PreviewSettingsOut",
+        "type": "object"
+      },
+      "PreviewSettingsRequest": {
+        "description": "Turn previews on, or change their settings.\n\nAttributes:\n    base_domain: The domain a wildcard record points at this server\n        (``previews.example.com`` for ``*.previews.example.com``).\n    max_previews: How many at once, 1 to 20.\n    ttl_hours: Hours one lives without a push, 1 to 2160 (90 days).",
+        "properties": {
+          "base_domain": {
+            "title": "Base Domain",
+            "type": "string"
+          },
+          "max_previews": {
+            "default": 3,
+            "title": "Max Previews",
+            "type": "integer"
+          },
+          "ttl_hours": {
+            "default": 168,
+            "title": "Ttl Hours",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "base_domain"
+        ],
+        "title": "PreviewSettingsRequest",
+        "type": "object"
+      },
+      "PreviewsDisabledResponse": {
+        "description": "Previews turned off.\n\nAttributes:\n    domain: The application.\n    enabled: Always false.\n    removing: Domains of the previews being removed.\n    job_id: The job removing them; None when there were none.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "removing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Removing",
+            "type": "array"
+          }
+        },
+        "required": [
+          "domain",
+          "removing"
+        ],
+        "title": "PreviewsDisabledResponse",
+        "type": "object"
+      },
+      "PreviewsResponse": {
+        "description": "An application's preview settings and previews.\n\nAttributes:\n    domain: The application.\n    enabled: Whether it allows previews.\n    settings: Its settings, when enabled.\n    previews: Its previews, oldest first. Some may remain after previews\n        were turned off, while their removal runs or when it failed.\n    total: How many.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "previews": {
+            "items": {
+              "$ref": "#/components/schemas/PreviewOut"
+            },
+            "title": "Previews",
+            "type": "array"
+          },
+          "settings": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PreviewSettingsOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "domain",
+          "enabled",
+          "previews",
+          "total"
+        ],
+        "title": "PreviewsResponse",
+        "type": "object"
+      },
       "PrivilegesResponse": {
         "description": "Response for ``GET /api/databases/engines/{engine}/privileges``.",
         "properties": {
@@ -4862,6 +5764,21 @@
           "user"
         ],
         "title": "ProcessInfo",
+        "type": "object"
+      },
+      "PushBackupRequest": {
+        "description": "Request to upload a local backup to a remote destination.",
+        "properties": {
+          "destination": {
+            "description": "Name of a destination under /api/backup-destinations",
+            "title": "Destination",
+            "type": "string"
+          }
+        },
+        "required": [
+          "destination"
+        ],
+        "title": "PushBackupRequest",
         "type": "object"
       },
       "QueryRequest": {
@@ -5128,6 +6045,98 @@
         "title": "ReloadResponse",
         "type": "object"
       },
+      "RemoteBackupInfo": {
+        "description": "One backup found on a destination.",
+        "properties": {
+          "app_name": {
+            "title": "App Name",
+            "type": "string"
+          },
+          "backup_id": {
+            "title": "Backup Id",
+            "type": "string"
+          },
+          "has_metadata": {
+            "default": false,
+            "title": "Has Metadata",
+            "type": "boolean"
+          },
+          "modified": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modified"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size"
+          }
+        },
+        "required": [
+          "backup_id",
+          "app_name"
+        ],
+        "title": "RemoteBackupInfo",
+        "type": "object"
+      },
+      "RemoteBackupsResponse": {
+        "description": "Response for browsing a destination.\n\n``apps`` is populated when the request did not name one (the top-level\ndirectories found on the destination); ``backups`` when it did.",
+        "properties": {
+          "apps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "backups": {
+            "items": {
+              "$ref": "#/components/schemas/RemoteBackupInfo"
+            },
+            "title": "Backups",
+            "type": "array"
+          }
+        },
+        "title": "RemoteBackupsResponse",
+        "type": "object"
+      },
+      "RemovalOut": {
+        "description": "What removing the integration did.\n\nAttributes:\n    removed: Whether there was an App to forget.\n    settings_url: The App's page on GitHub, where it is uninstalled and\n        deleted; WASM cannot do that itself.",
+        "properties": {
+          "removed": {
+            "title": "Removed",
+            "type": "boolean"
+          },
+          "settings_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settings Url"
+          }
+        },
+        "required": [
+          "removed"
+        ],
+        "title": "RemovalOut",
+        "type": "object"
+      },
       "RenewCertRequest": {
         "description": "Request to renew certificates.",
         "properties": {
@@ -5138,6 +6147,116 @@
           }
         },
         "title": "RenewCertRequest",
+        "type": "object"
+      },
+      "RepositoryListOut": {
+        "description": "Every repository the App reaches.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RepositoryOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "RepositoryListOut",
+        "type": "object"
+      },
+      "RepositoryOut": {
+        "description": "A repository the App's installations cover.\n\nAttributes:\n    source: What to deploy it as (``github:owner/repo``).",
+        "properties": {
+          "clone_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clone Url"
+          },
+          "default_branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Branch"
+          },
+          "full_name": {
+            "title": "Full Name",
+            "type": "string"
+          },
+          "installation_id": {
+            "title": "Installation Id",
+            "type": "integer"
+          },
+          "private": {
+            "title": "Private",
+            "type": "boolean"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "full_name",
+          "private",
+          "source",
+          "installation_id"
+        ],
+        "title": "RepositoryOut",
+        "type": "object"
+      },
+      "RestoreFromDestinationRequest": {
+        "description": "Request to restore a backup found on a remote destination.",
+        "properties": {
+          "app_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Application the backup belongs to; derived from the backup id when omitted",
+            "title": "App Name"
+          },
+          "restore_env": {
+            "default": true,
+            "description": "Restore the .env files from the archive",
+            "title": "Restore Env",
+            "type": "boolean"
+          },
+          "target_domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Domain to restore into",
+            "title": "Target Domain"
+          }
+        },
+        "title": "RestoreFromDestinationRequest",
         "type": "object"
       },
       "RetentionResponse": {
@@ -5497,6 +6616,47 @@
           "message"
         ],
         "title": "ScheduleActionResponse",
+        "type": "object"
+      },
+      "ScheduleDestination": {
+        "description": "One remote destination a schedule pushes its backups to.",
+        "properties": {
+          "name": {
+            "description": "A backup destination created under /api/backup-destinations",
+            "title": "Name",
+            "type": "string"
+          },
+          "retention_count": {
+            "anyOf": [
+              {
+                "maximum": 365.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Count"
+          },
+          "retention_days": {
+            "anyOf": [
+              {
+                "maximum": 3650.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Days"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ScheduleDestination",
         "type": "object"
       },
       "ScheduleListResponse": {
@@ -5869,6 +7029,25 @@
           "sessions"
         ],
         "title": "SessionsListResponse",
+        "type": "object"
+      },
+      "ShowKeyResponse": {
+        "description": "A destination's encryption passphrases, for safekeeping.",
+        "properties": {
+          "password": {
+            "title": "Password",
+            "type": "string"
+          },
+          "password2": {
+            "title": "Password2",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password",
+          "password2"
+        ],
+        "title": "ShowKeyResponse",
         "type": "object"
       },
       "SiteActionResponse": {
@@ -6346,6 +7525,27 @@
         "title": "TelegramSettingsResponse",
         "type": "object"
       },
+      "TestDestinationResponse": {
+        "description": "Response for testing a destination.",
+        "properties": {
+          "entries": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "title": "TestDestinationResponse",
+        "type": "object"
+      },
       "TestSiteConfigRequest": {
         "description": "Request to try a candidate configuration without saving it.",
         "properties": {
@@ -6488,6 +7688,53 @@
           }
         },
         "title": "UpdateAppEnvRequest",
+        "type": "object"
+      },
+      "UpdateDestinationRequest": {
+        "description": "Request to change a backup destination. A blank secret field keeps its stored value.",
+        "properties": {
+          "encrypted": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Encrypted"
+          },
+          "fields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "object"
+          }
+        },
+        "title": "UpdateDestinationRequest",
+        "type": "object"
+      },
+      "UpdateEnvMarksRequest": {
+        "description": "Request to set or clear operator overrides on an application's environment.\n\nAttributes:\n    marks: Variable name to ``true`` (always treat as a secret),\n        ``false`` (never treat as a secret) or ``null`` (remove any\n        existing mark and judge the variable by its name and value\n        again).",
+        "properties": {
+          "marks": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "description": "Variable name to true (secret), false (not secret), or null to clear",
+            "title": "Marks",
+            "type": "object"
+          }
+        },
+        "title": "UpdateEnvMarksRequest",
         "type": "object"
       },
       "UpdateHealthRequest": {
@@ -7114,6 +8361,172 @@
           "webserver"
         ],
         "title": "WebserverUpdateResponse",
+        "type": "object"
+      },
+      "ZeroDowntimeInstance": {
+        "description": "One instance of an application in zero-downtime mode.",
+        "properties": {
+          "color": {
+            "description": "blue or green",
+            "title": "Color",
+            "type": "string"
+          },
+          "port": {
+            "description": "The port it listens on",
+            "title": "Port",
+            "type": "integer"
+          },
+          "release": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The release it runs",
+            "title": "Release"
+          },
+          "serving": {
+            "description": "Whether nginx sends it the traffic",
+            "title": "Serving",
+            "type": "boolean"
+          },
+          "state": {
+            "description": "systemd's ActiveState, or unknown",
+            "title": "State",
+            "type": "string"
+          },
+          "unit": {
+            "description": "Its systemd unit, without .service",
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "color",
+          "unit",
+          "port",
+          "serving",
+          "state"
+        ],
+        "title": "ZeroDowntimeInstance",
+        "type": "object"
+      },
+      "ZeroDowntimeRequest": {
+        "description": "The mode an application must be in.",
+        "properties": {
+          "drain_seconds": {
+            "anyOf": [
+              {
+                "maximum": 300.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Seconds the old instance keeps running after a switch, 0 to 300. Omitted: what the application has, or 10",
+            "title": "Drain Seconds"
+          },
+          "enabled": {
+            "description": "True for blue/green activation, false for a restart",
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "ZeroDowntimeRequest",
+        "type": "object"
+      },
+      "ZeroDowntimeResponse": {
+        "description": "Whether an application activates without a cut, and how.",
+        "properties": {
+          "active_color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The instance that serves",
+            "title": "Active Color"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "drain_seconds": {
+            "description": "Seconds the old instance keeps running after traffic moved",
+            "title": "Drain Seconds",
+            "type": "integer"
+          },
+          "eligible": {
+            "description": "Whether the mode can be turned on",
+            "title": "Eligible",
+            "type": "boolean"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What to do about it",
+            "title": "Hint"
+          },
+          "instances": {
+            "items": {
+              "$ref": "#/components/schemas/ZeroDowntimeInstance"
+            },
+            "title": "Instances",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it cannot, when it cannot",
+            "title": "Reason"
+          },
+          "upstream_port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The port nginx's upstream names, when the mode is on",
+            "title": "Upstream Port"
+          }
+        },
+        "required": [
+          "domain",
+          "enabled",
+          "drain_seconds",
+          "eligible"
+        ],
+        "title": "ZeroDowntimeResponse",
         "type": "object"
       },
       "wasm__web__api__backups__BackupListResponse": {
@@ -8056,6 +9469,59 @@
         ]
       }
     },
+    "/api/apps/{domain}/env/marks": {
+      "put": {
+        "description": "Set or clear operator overrides on an application's environment variables.\n\nA mark always wins over the automatic classification, in both\ndirections: it is how an operator corrects a false positive (``KEYBOARD_LAYOUT``\nis not a secret) or a false negative (``SESSION`` holding a value nothing\nabout its name suggests is one). Marks merge with what is already\nstored - a request need only name the variables it changes - and a\n``null`` removes a mark rather than setting one, going back to the\nautomatic classification. Needs sudo mode, like writing the environment\nitself: it changes what the console and the audit log will treat as\nsafe to display.\n\nArgs:\n    domain: Domain of the application.\n    body: The marks to set or clear.\n    request: The incoming request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The application's full secrecy classification after the change.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: A variable name is not a valid environment variable\n        name (400).",
+        "operationId": "update_app_env_marks_api_apps__domain__env_marks_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEnvMarksRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppEnvSecretsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update App Env Marks",
+        "tags": [
+          "Applications"
+        ]
+      }
+    },
     "/api/apps/{domain}/health": {
       "patch": {
         "description": "Set the path, the accepted statuses and the timeout of an application's health check.\n\nThe health gate decides which release may serve, so changing what it\nasks needs sudo mode, like the limits. The values are validated where\nthey are stored; nothing restarts.\n\nArgs:\n    domain: Domain of the application.\n    body: The three settings.\n    session: The authenticated, elevated session.\n\nReturns:\n    The settings the application has now, and what the gate asks.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: A value is not one the gate can use (400).\n    DeploymentError: It is a static site, checked by its files.",
@@ -8329,6 +9795,195 @@
         "summary": "Get Migration Plan",
         "tags": [
           "Applications"
+        ]
+      }
+    },
+    "/api/apps/{domain}/previews": {
+      "get": {
+        "description": "Read an application's preview settings and its previews.\n\nArgs:\n    domain: The application.\n    session: The authenticated session.\n\nReturns:\n    Settings (None when previews are off) and previews.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "list_previews_api_apps__domain__previews_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Previews",
+        "tags": [
+          "Previews"
+        ]
+      }
+    },
+    "/api/apps/{domain}/previews/settings": {
+      "delete": {
+        "description": "Turn previews off for an application and queue the removal of the ones it has.\n\nPreviews stop at once: a pull request opened from now on gets none. The\nexisting ones are removed by one job.\n\nArgs:\n    domain: The application.\n    request: The request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    What is being removed, and the job doing it.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "delete_preview_settings_api_apps__domain__previews_settings_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewsDisabledResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Preview Settings",
+        "tags": [
+          "Previews"
+        ]
+      },
+      "put": {
+        "description": "Turn previews on for an application, or change their settings.\n\nInstalls ``wasm-previews.timer`` the first time any application turns\npreviews on.\n\nArgs:\n    domain: The application.\n    body: The settings.\n    request: The request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The settings as stored.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: A value is refused (400, with the reason).\n    ServiceError: The sweep timer could not be installed.",
+        "operationId": "put_preview_settings_api_apps__domain__previews_settings_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Preview Settings",
+        "tags": [
+          "Previews"
+        ]
+      }
+    },
+    "/api/apps/{domain}/previews/{number}": {
+      "delete": {
+        "description": "Queue the removal of one preview: its application, certificate and record.\n\nArgs:\n    domain: The application previewed.\n    number: The pull request number.\n    request: The request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 when the application or the preview is unknown.",
+        "operationId": "delete_preview_api_apps__domain__previews__number__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "number",
+            "required": true,
+            "schema": {
+              "title": "Number",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Preview",
+        "tags": [
+          "Previews"
         ]
       }
     },
@@ -8776,6 +10431,100 @@
         "summary": "Webhook Deliveries",
         "tags": [
           "Webhooks"
+        ]
+      }
+    },
+    "/api/apps/{domain}/zero-downtime": {
+      "get": {
+        "description": "Show whether an application activates without a cut. Changes nothing.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The mode, both instances when it is on, and whether it could be\n    turned on when it is off.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "get_zero_downtime_api_apps__domain__zero_downtime_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZeroDowntimeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Zero Downtime",
+        "tags": [
+          "Applications"
+        ]
+      },
+      "put": {
+        "description": "Queue turning an application's blue/green activation on or off.\n\nIt rewrites units and the site and starts and stops processes, so it\nneeds sudo mode. An application that cannot use the mode is refused\nhere, before a job is queued; the job checks again when it runs. With\nthe mode already as asked, the job only records a new drain.\n\nArgs:\n    domain: Domain of the application.\n    body: The mode, and optionally the drain.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: It cannot run as two instances (400, with why).",
+        "operationId": "put_zero_downtime_api_apps__domain__zero_downtime_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ZeroDowntimeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Zero Downtime",
+        "tags": [
+          "Applications"
         ]
       }
     },
@@ -9433,9 +11182,415 @@
         ]
       }
     },
+    "/api/backup-destinations": {
+      "get": {
+        "description": "List every configured backup destination.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The destinations, with every secret redacted.",
+        "operationId": "list_destinations_api_backup_destinations_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DestinationListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Destinations",
+        "tags": [
+          "Backup Destinations"
+        ]
+      },
+      "post": {
+        "description": "Create a backup destination.\n\nArgs:\n    data: The destination to create.\n    session: The authenticated, elevated session.\n\nReturns:\n    The action outcome, carrying the destination as created.",
+        "operationId": "create_destination_api_backup_destinations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDestinationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DestinationActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Destination",
+        "tags": [
+          "Backup Destinations"
+        ]
+      }
+    },
+    "/api/backup-destinations/backends": {
+      "get": {
+        "description": "Describe every backend's destination form.\n\nDeclared before ``/{name}`` so the literal path wins.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Every backend WASM can build a destination for, with its fields.",
+        "operationId": "list_backends_api_backup_destinations_backends_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackendsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Backends",
+        "tags": [
+          "Backup Destinations"
+        ]
+      }
+    },
+    "/api/backup-destinations/{name}": {
+      "delete": {
+        "description": "Remove a backup destination and its secrets.\n\nArgs:\n    name: Destination name.\n    force: Remove it even when a schedule references it, dropping the\n        reference from those schedules.\n    session: The authenticated, elevated session.\n\nReturns:\n    The action outcome.\n\nRaises:\n    BackupError: When a schedule references it and ``force`` was not given.",
+        "operationId": "delete_destination_api_backup_destinations__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Remove it even if a schedule references it",
+            "in": "query",
+            "name": "force",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Remove it even if a schedule references it",
+              "title": "Force",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DestinationActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Destination",
+        "tags": [
+          "Backup Destinations"
+        ]
+      },
+      "put": {
+        "description": "Change a backup destination's fields.\n\nArgs:\n    name: Destination name.\n    data: Fields to change; a blank secret field keeps its stored value.\n    session: The authenticated, elevated session.\n\nReturns:\n    The action outcome, carrying the destination as it now stands.",
+        "operationId": "update_destination_api_backup_destinations__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDestinationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DestinationActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Destination",
+        "tags": [
+          "Backup Destinations"
+        ]
+      }
+    },
+    "/api/backup-destinations/{name}/backups": {
+      "get": {
+        "description": "Browse what a destination holds.\n\nArgs:\n    name: Destination name.\n    app: Application to list backups for; without it, the application\n        directories found at the destination's own path.\n    session: The authenticated session.\n\nReturns:\n    The applications found, or that application's backups, newest first.",
+        "operationId": "list_remote_backups_api_backup_destinations__name__backups_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Application name to list backups for",
+            "in": "query",
+            "name": "app",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Application name to list backups for",
+              "title": "App"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteBackupsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Remote Backups",
+        "tags": [
+          "Backup Destinations"
+        ]
+      }
+    },
+    "/api/backup-destinations/{name}/backups/{backup_id}/restore": {
+      "post": {
+        "description": "Queue a restore of a backup downloaded from a remote destination.\n\nArgs:\n    name: Destination to download from.\n    backup_id: Backup identifier.\n    data: Restore options.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 400 when the application cannot be determined from\n        the backup id and ``app_name`` was not given.",
+        "operationId": "restore_from_destination_api_backup_destinations__name__backups__backup_id__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "backup_id",
+            "required": true,
+            "schema": {
+              "title": "Backup Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RestoreFromDestinationRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Data"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore From Destination",
+        "tags": [
+          "Backup Destinations"
+        ]
+      }
+    },
+    "/api/backup-destinations/{name}/show-key": {
+      "post": {
+        "description": "Reveal a destination's encryption passphrases, for safekeeping.\n\nSudo mode: printing these makes every backup encrypted with them\nrecoverable by whoever reads the response, same as revealing any other\nstored credential.\n\nArgs:\n    name: Destination name.\n    session: The authenticated, elevated session.\n\nReturns:\n    The passphrases.\n\nRaises:\n    BackupError: When the destination is not encrypted, or its keys are\n        missing.",
+        "operationId": "show_key_api_backup_destinations__name__show_key_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShowKeyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Show Key",
+        "tags": [
+          "Backup Destinations"
+        ]
+      }
+    },
+    "/api/backup-destinations/{name}/test": {
+      "post": {
+        "description": "Check that a destination can be reached.\n\nArgs:\n    name: Destination name.\n    session: The authenticated session.\n\nReturns:\n    The top-level entries found there.",
+        "operationId": "test_destination_api_backup_destinations__name__test_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestDestinationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Test Destination",
+        "tags": [
+          "Backup Destinations"
+        ]
+      }
+    },
     "/api/backup-schedules": {
       "get": {
-        "description": "List every scheduled backup on this machine, with its next run.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The schedules as systemd reports them.",
+        "description": "List every scheduled backup on this machine, with its next run.\n\nListing is also when a timer that predates schema v10 is adopted into\nthe store - see :meth:`BackupScheduler.list_schedules`.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The schedules, merging what systemd reports with each one's store row.",
         "operationId": "list_schedules_api_backup_schedules_get",
         "responses": {
           "200": {
@@ -9455,7 +11610,7 @@
         ]
       },
       "post": {
-        "description": "Schedule automatic backups of an application on a systemd timer.\n\nScheduling the same domain again rewrites its unit pair, so this is also\nhow a schedule is changed. Sudo mode, like deleting one: a schedule is a\nroot timer, and its retention decides which backups are thrown away.\n\nArgs:\n    data: The schedule request. Its calendar expression was already\n        checked against the scheduler's own rules by the request model.\n    session: The authenticated session, elevated.\n\nReturns:\n    The action outcome, carrying the schedule as created.\n\nRaises:\n    BackupError: When a unit cannot be written or the timer cannot be\n        enabled.",
+        "description": "Schedule automatic backups of an application on a systemd timer.\n\nScheduling the same domain again rewrites its unit pair, so this is also\nhow a schedule is changed - ``PUT /{domain}`` calls the same\nimplementation. Sudo mode, like deleting one: a schedule is a root timer,\nand its retention decides which backups are thrown away.\n\nArgs:\n    data: The schedule request. Its calendar expression was already\n        checked against the scheduler's own rules by the request model.\n    session: The authenticated session, elevated.\n\nReturns:\n    The action outcome, carrying the schedule as created.\n\nRaises:\n    BackupError: When a unit cannot be written or the timer cannot be\n        enabled.",
         "operationId": "create_schedule_api_backup_schedules_post",
         "requestBody": {
           "content": {
@@ -9533,6 +11688,57 @@
           }
         },
         "summary": "Delete Schedule",
+        "tags": [
+          "Backup Schedules"
+        ]
+      },
+      "put": {
+        "description": "Change an application's backup schedule.\n\nArgs:\n    domain: Domain whose schedule is changed; must match ``data.domain``.\n    data: The new schedule.\n    session: The authenticated session, elevated.\n\nReturns:\n    The action outcome, carrying the schedule as it now stands.\n\nRaises:\n    HTTPException: 400 when ``domain`` and ``data.domain`` disagree.\n    BackupError: When a unit cannot be written or the timer cannot be\n        enabled.",
+        "operationId": "update_schedule_api_backup_schedules__domain__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateScheduleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Schedule",
         "tags": [
           "Backup Schedules"
         ]
@@ -9743,6 +11949,59 @@
           }
         },
         "summary": "Get Backup",
+        "tags": [
+          "Backups"
+        ]
+      }
+    },
+    "/api/backups/{backup_id}/push": {
+      "post": {
+        "description": "Queue an upload of a local backup to a remote destination.\n\nSudo mode: this sends application data, potentially including its\ndatabase dump, to a remote WASM does not control past the point of\nupload.\n\nArgs:\n    backup_id: Backup identifier.\n    data: Which destination to upload to.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.",
+        "operationId": "push_backup_api_backups__backup_id__push_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "backup_id",
+            "required": true,
+            "schema": {
+              "title": "Backup Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushBackupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Push Backup",
         "tags": [
           "Backups"
         ]
@@ -12476,6 +14735,270 @@
         ]
       }
     },
+    "/api/integrations/github": {
+      "delete": {
+        "description": "Forget the App's credentials and installations on this server.\n\nGitHub offers no API for this, so the App itself stays on GitHub until\nthe operator deletes it at ``settings_url``.\n\nArgs:\n    session: An elevated session.\n\nReturns:\n    Whether there was one, and where to delete it on GitHub.",
+        "operationId": "github_remove_api_integrations_github_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemovalOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Github Remove",
+        "tags": [
+          "Integrations"
+        ]
+      },
+      "get": {
+        "description": "Describe this server's GitHub App, its installations and its webhook.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The status; ``configured`` false when there is no App yet.",
+        "operationId": "github_status_api_integrations_github_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubStatusOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Github Status",
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
+    "/api/integrations/github/installations": {
+      "post": {
+        "description": "Record an installation after GitHub confirms it is the App's.\n\nArgs:\n    data: The setup callback's installation id.\n    session: An elevated session.\n\nReturns:\n    The installation.",
+        "operationId": "github_add_installation_api_integrations_github_installations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InstallationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstallationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Github Add Installation",
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
+    "/api/integrations/github/installations/sync": {
+      "post": {
+        "description": "Make the stored installations exactly those GitHub lists for the App.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The installations.",
+        "operationId": "github_sync_installations_api_integrations_github_installations_sync_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstallationListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Github Sync Installations",
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
+    "/api/integrations/github/manifest": {
+      "post": {
+        "description": "Start creating the App: its manifest, and where to post it.\n\nArgs:\n    data: The console's origin and, optionally, the organisation.\n    session: An elevated session.\n\nReturns:\n    The manifest, the form's action and its state (valid ten minutes).",
+        "operationId": "github_manifest_api_integrations_github_manifest_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManifestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManifestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Github Manifest",
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
+    "/api/integrations/github/manifest/conversions": {
+      "post": {
+        "description": "Finish creating the App: exchange GitHub's code for its credentials.\n\nArgs:\n    data: The callback's code and state.\n    session: An elevated session.\n\nReturns:\n    The integration's status, now configured.",
+        "operationId": "github_manifest_conversion_api_integrations_github_manifest_conversions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubStatusOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Github Manifest Conversion",
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
+    "/api/integrations/github/repositories": {
+      "get": {
+        "description": "List every repository the App's installations cover, for the new-app wizard.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The repositories, by name.",
+        "operationId": "github_repositories_api_integrations_github_repositories_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepositoryListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Github Repositories",
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
+    "/api/integrations/github/repositories/{owner}/{repo}/branches": {
+      "get": {
+        "description": "List a repository's branches.\n\nArgs:\n    owner: The repository's owner.\n    repo: The repository's name.\n    session: The authenticated session.\n\nReturns:\n    The branches, as GitHub orders them.",
+        "operationId": "github_branches_api_integrations_github_repositories__owner___repo__branches_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "owner",
+            "required": true,
+            "schema": {
+              "title": "Owner",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "repo",
+            "required": true,
+            "schema": {
+              "title": "Repo",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BranchListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Github Branches",
+        "tags": [
+          "Integrations"
+        ]
+      }
+    },
     "/api/jobs": {
       "get": {
         "description": "List recent jobs, from the store, so a panel restart does not erase history.\n\nArgs:\n    limit: Maximum number of jobs to return.\n    status: Status to filter by.\n    domain: Domain to filter by.\n    session: The authenticated session.\n\nReturns:\n    The jobs, newest first.\n\nRaises:\n    ValidationError: When the status filter is not a known status.",
@@ -14770,7 +17293,7 @@
     },
     "/hooks/deploy/{domain}": {
       "post": {
-        "description": "Accept a signed push notification and queue the update it asks for.\n\nAsync because the raw body has to be awaited before anything can be\nverified: the HMAC covers the bytes on the wire, not a parsed view of\nthem.\n\nArgs:\n    domain: Domain of the application to update.\n    request: The incoming delivery.\n\nReturns:\n    202 with the queued job id; 200 when the delivery is authentic but\n    ignored (wrong branch, or a replayed delivery id).\n\nRaises:\n    HTTPException: A generic 404 when the domain has no webhook configured\n        or does not exist - the two are indistinguishable on purpose - and\n        401 with no details when no presented credential verifies.",
+        "description": "Accept a signed push notification and queue the update it asks for.\n\nAsync because the raw body has to be awaited before anything can be\nverified: the HMAC covers the bytes on the wire, not a parsed view of\nthem.\n\nArgs:\n    domain: Domain of the application to update.\n    request: The incoming delivery.\n\nReturns:\n    202 with the queued job id; 200 when the delivery is authentic but\n    ignored (wrong branch, a replayed delivery id, a ping); for a pull\n    request, what :func:`_deliver_pull_request` answers; 202 ``ignored``\n    for any other event.\n\nRaises:\n    HTTPException: A generic 404 when the domain has no webhook configured\n        or does not exist - the two are indistinguishable on purpose - and\n        401 with no details when no presented credential verifies.",
         "operationId": "deliver_hooks_deploy__domain__post",
         "parameters": [
           {
@@ -14801,6 +17324,26 @@
               }
             },
             "description": "Validation Error"
+          }
+        },
+        "summary": "Deliver",
+        "tags": [
+          "Webhooks"
+        ]
+      }
+    },
+    "/hooks/github": {
+      "post": {
+        "description": "Accept a delivery of this server's GitHub App.\n\nArgs:\n    request: The delivery.\n\nReturns:\n    What was done: ``{\"status\": \"queued\", \"jobs\": [{\"domain\", \"job_id\"}]}``\n    (202) for a push that updates applications, ``{\"status\": \"accepted\",\n    \"jobs\": [...]}`` (202) for a pull request, ``{\"status\": \"ignored\",\n    \"reason\": ...}`` otherwise, ``{\"status\": \"ok\"}`` for a ping or an\n    installation change.\n\nRaises:\n    HTTPException: 404 when this server has no App or its webhook has no\n        secret; 401 when the signature does not verify.",
+        "operationId": "deliver_hooks_github_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
           }
         },
         "summary": "Deliver",
