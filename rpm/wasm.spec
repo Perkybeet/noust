@@ -5,7 +5,7 @@
 #
 
 Name:           wasm-cli
-Version:        2.2.0
+Version:        2.2.1
 Release:        1%{?dist}
 Summary:        Web App System Management CLI Tool
 License:        AGPL-3.0-or-later
@@ -296,6 +296,8 @@ if [ -f /etc/systemd/system/wasm-web.service ]; then
 fi
 
 %changelog
+* Mon Sep 28 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 2.2.1-1
+- GitHub App creation works on a server without a public hooks URL: the App is created without events, which are switched on once hooks are exposed
 * Mon Sep 28 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 2.2.0-1
 - Blue/green activation per application: two instances behind an nginx upstream, a switch only after the health gate, no failed request
 - Pull request previews for GitHub, GitLab and Gitea, with quota, expiry and removal on close; forks, outside authors and bots refused

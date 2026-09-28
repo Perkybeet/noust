@@ -211,6 +211,9 @@ def test_the_github_webhook_follows(
     assert pointed == ["https://hooks.example.com/hooks/github"]
     assert result.github_webhook == "inactive"
     assert any("Active" in note for note in result.notes)
+    # An App created without a hooks URL has no events either (GitHub refuses
+    # events without a webhook), so the note names them too.
+    assert any("Push and Pull request" in note for note in result.notes)
 
 
 def test_removal(nginx: WebServerManager, saved: list[str | None]) -> None:

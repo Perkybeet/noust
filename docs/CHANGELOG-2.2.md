@@ -1,5 +1,16 @@
 # WASM 2.2 changelog
 
+## 2.2.1
+
+- Creating the GitHub App on a server without a public hooks URL failed on GitHub with
+  "Hook url cannot be blank": the manifest subscribed to events with nowhere to deliver them.
+  The App is now created without events; `wasm web expose-hooks` points its webhook at the
+  new URL later, and the console says to switch it on and subscribe to Push and Pull request.
+  The hooks domain can be any name pointing at the server, the provider's host name included:
+  it serves only `/hooks/`, not an application.
+
+## 2.2.0
+
 Changes since 2.1.0. Upgrade notes are in [UPGRADING-2.0.md](UPGRADING-2.0.md#22).
 
 ## Deploys without a gap

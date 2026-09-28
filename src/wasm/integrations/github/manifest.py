@@ -197,7 +197,8 @@ def build_manifest(
         origin: The console's origin.
         hooks_url: The public URL of ``/hooks/github``, or None when this
             server has none yet (``wasm web expose-hooks``): the App is then
-            created without a webhook, and one is added when it gets one.
+            created without a webhook and without events, and both are added
+            when it gets one.
         name: The App's name; :func:`app_name` by default.
 
     Returns:
@@ -215,10 +216,15 @@ def build_manifest(
         "setup_on_update": True,
         "public": False,
         "default_permissions": dict(PERMISSIONS),
-        "default_events": list(EVENTS),
     }
+    # Events only with somewhere to deliver them: GitHub refuses a manifest
+    # that subscribes to events without a webhook URL ("Hook url cannot be
+    # blank"). Without one the App is created for cloning and statuses; once
+    # the server exposes /hooks, the webhook is pointed there and the
+    # operator switches it on and subscribes to push and pull_request.
     if hooks_url:
         manifest["hook_attributes"] = {"url": hooks_url, "active": True}
+        manifest["default_events"] = list(EVENTS)
     return manifest
 
 

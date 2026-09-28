@@ -1,3 +1,9 @@
+wasm (2.2.1-1) unstable; urgency=medium
+
+  * GitHub App creation works on a server without a public hooks URL: the App is created without events, which are switched on once hooks are exposed
+
+ -- Yago Lopez Prado <yago.lopez.adeje@gmail.com>  Mon, 28 Sep 2026 15:53:12 +0000
+
 wasm (2.2.0-1) unstable; urgency=medium
 
   * Blue/green activation per application: two instances behind an nginx upstream, a switch only after the health gate, no failed request

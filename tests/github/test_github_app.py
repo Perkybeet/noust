@@ -271,7 +271,8 @@ def test_manifest_without_a_public_hooks_url_has_no_webhook(store: WASMStore) ->
         "statuses": "write",
         "pull_requests": "write",
     }
-    assert body["default_events"] == ["push", "pull_request"]
+    # GitHub refuses events without a webhook URL ("Hook url cannot be blank").
+    assert "default_events" not in body
     assert "hook_attributes" not in body
     assert started.post_url == f"https://github.com/settings/apps/new?state={started.state}"
 
@@ -288,6 +289,7 @@ def test_manifest_for_an_organisation_with_hooks(store: WASMStore) -> None:
         "url": "https://h.example.com/hooks/github",
         "active": True,
     }
+    assert started.manifest["default_events"] == ["push", "pull_request"]
 
 
 @pytest.mark.parametrize(
