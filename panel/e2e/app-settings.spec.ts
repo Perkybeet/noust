@@ -46,7 +46,9 @@ async function factsOf(page: Page, domain: string): Promise<AppFacts> {
   return (await (await page.request.get(`/api/apps/${domain}`)).json()) as AppFacts;
 }
 
-test("the webhook lists its deliveries and shows a new secret once", async ({ page, consoleServer }, testInfo) => {
+test("the webhook lists its deliveries and shows a new secret once", async ({ page, consoleServer, problems }, testInfo) => {
+  // Minting a secret is sudo mode: the first attempt is refused until the operator confirms.
+  problems.expect(new RegExp(`status of 403 .* /api/apps/${RELEASE_APP.replace(/\./g, "\\.")}/webhook-secret$`));
   await page.setViewportSize({ width: 1440, height: 1000 });
   await signIn(page, consoleServer, `/apps/${RELEASE_APP}/settings`);
   const webhook = region(page, "Deploy webhook");
@@ -58,8 +60,11 @@ test("the webhook lists its deliveries and shows a new secret once", async ({ pa
   await webhook.getByRole("button", { name: "Regenerate secret" }).click();
   const confirm = page.getByRole("dialog", { name: "Regenerate the secret?" });
   await expect(confirm).toBeVisible();
-  const minted = page.waitForResponse((r) => r.url().endsWith(`/api/apps/${RELEASE_APP}/webhook-secret`) && r.request().method() === "POST");
+  const minted = page.waitForResponse(
+    (r) => r.url().endsWith(`/api/apps/${RELEASE_APP}/webhook-secret`) && r.request().method() === "POST" && r.status() !== 403,
+  );
   await confirm.getByRole("button", { name: "Regenerate secret" }).click();
+  await confirmItsYou(page, consoleServer);
   const body = (await (await minted).json()) as { secret: string; hook_url: string };
 
   const shown = webhook.getByRole("region", { name: "Copy the secret now" });

@@ -164,7 +164,8 @@ test("the storage bar and schedules read from the API", async ({ page, consoleSe
   // Nothing is outside the backup directory on the seeded machine, so there is no notice.
   await expect(page.getByRole("region", { name: /outside the backup directory/ })).toHaveCount(0);
 
-  const schedules = page.getByRole("region", { name: "Schedules" });
+  // Exact: the seeded schedule's table is a region too, named "Backup schedules".
+  const schedules = page.getByRole("region", { name: "Schedules", exact: true });
   await expect(schedules).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the schedules section");

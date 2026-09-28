@@ -31,12 +31,26 @@ export async function wizardSource(page: Page, name: WizardSource): Promise<stri
 }
 
 /**
+ * The wizard's typed source field. The seeded machine has a GitHub App, so the wizard opens on
+ * "From GitHub" once it knows; this waits for that choice to appear and switches to "URL or
+ * path", so the field returned is the one that stays.
+ */
+export async function typedSource(page: Page) {
+  const typed = page.getByRole("radiogroup", { name: "Where the code is" }).getByRole("radio", { name: "URL or path" });
+  await expect(typed).toBeVisible();
+  if ((await typed.getAttribute("aria-checked")) !== "true") await typed.click();
+  const field = page.getByLabel("Repository or directory");
+  await expect(field).toBeVisible();
+  return field;
+}
+
+/**
  * Inspects a source from the wizard's first step and waits for the Review step, confirming
  * it's the operator when the session is not in sudo mode yet.
  */
 export async function inspectSource(page: Page, server: ConsoleServer, problems: PageProblems, source: string): Promise<void> {
   problems.expect(INSPECT_NEEDS_SUDO);
-  await page.getByLabel("Repository or directory").fill(source);
+  await (await typedSource(page)).fill(source);
   await page.getByRole("button", { name: "Inspect source" }).click();
   const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
   const review = page.getByRole("heading", { level: 2, name: "Review" });

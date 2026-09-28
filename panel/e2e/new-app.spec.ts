@@ -9,7 +9,7 @@ import type { Page } from "@playwright/test";
 
 import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, stillness, test } from "./fixtures";
 import type { ConsoleServer } from "./fixtures";
-import { inspectSource, wizardSource } from "./wizard-sources";
+import { inspectSource, typedSource, wizardSource } from "./wizard-sources";
 
 /** The CSRF header every write through `page.request` carries, mirrored from its cookie. */
 async function csrf(page: Page): Promise<Record<string, string>> {
@@ -129,7 +129,7 @@ test("a directory that does not exist is refused on its field, in the server's w
   // Reading a directory on the server needs sudo mode first, which is a 403 of its own.
   problems.expect(/status of 40[03] .* \/api\/apps\/inspect$/);
   await signIn(page, consoleServer, "/apps/new");
-  await page.getByLabel("Repository or directory").fill("/var/www/src/does-not-exist");
+  await (await typedSource(page)).fill("/var/www/src/does-not-exist");
   const inspected = page.waitForResponse((response) => response.url().endsWith("/api/apps/inspect") && response.status() !== 403);
   await page.getByRole("button", { name: "Inspect source" }).click();
   const refusal = page.getByText("Source path does not exist: /var/www/src/does-not-exist");
@@ -210,7 +210,7 @@ test("a source WASM cannot deploy as it is gets the inspection's verdict and the
   problems.expect(/status of 403 .* \/api\/apps\/inspect$/);
   await signIn(page, consoleServer, "/apps/new");
   const source = await wizardSource(page, "container-api");
-  await page.getByLabel("Repository or directory").fill(source);
+  await (await typedSource(page)).fill(source);
   await page.getByRole("button", { name: "Inspect source" }).click();
   const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
   const verdict = page.getByRole("alert").filter({ hasText: `WASM cannot deploy ${source} as it is` });

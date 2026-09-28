@@ -16,7 +16,7 @@ import path from "node:path";
 
 import { confirmItsYou, expect, settle, signIn, stillness, test } from "./fixtures";
 import type { ConsoleServer, PageProblems } from "./fixtures";
-import { inspectSource, wizardSource } from "./wizard-sources";
+import { inspectSource, typedSource, wizardSource } from "./wizard-sources";
 
 const OUT = process.env.WASM_WIZARD_SCREENS ?? "/tmp/console-wizard";
 
@@ -58,7 +58,7 @@ const SCREENS: readonly Screen[] = [
     // Chromium still logs as a failed resource.
     expect: /status of 40[03] .* \/api\/apps\/inspect$/,
     act: async (page, server) => {
-      await page.getByLabel("Repository or directory").fill("/var/www/src/does-not-exist");
+      await (await typedSource(page)).fill("/var/www/src/does-not-exist");
       await page.getByRole("button", { name: "Inspect source" }).click();
       const refusal = page.getByText("Source path does not exist");
       const confirm = page.getByRole("dialog", { name: "Confirm it's you" });

@@ -2,7 +2,7 @@ import { screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { renderConsole } from "../test/console";
-import { fakeBackend, signedInRoutes } from "../test/fakes";
+import { fakeBackend, json, signedInRoutes } from "../test/fakes";
 
 /**
  * The route tree is the contract with the CLI's deep links (src/wasm/cli/panel_links.py):
@@ -35,11 +35,15 @@ const PAGES: [path: string, heading: string, content: string][] = [
   ["/settings/notifications", "Settings", "Where alerts go"],
   ["/settings/tokens", "Settings", "Tokens for automation"],
   ["/settings/about", "Settings", "Version and updates"],
+  ["/settings/integrations", "Settings", "GitHub"],
 ];
+
+/** A server with no GitHub App yet: Settings > Integrations and the wizard read it. */
+const NO_GITHUB_APP = { configured: false, installations: [], hooks_url: null, hooks_active: false };
 
 describe("the route tree", () => {
   it.each(PAGES)("%s is %s", async (path, heading, content) => {
-    fakeBackend(signedInRoutes());
+    fakeBackend(signedInRoutes()).on("GET /api/integrations/github", () => json(200, NO_GITHUB_APP));
     renderConsole(path);
     expect(await screen.findByRole("heading", { level: 1, name: heading })).toBeInTheDocument();
     // A section heading, or for a page that is one table, the table's region.
@@ -48,6 +52,15 @@ describe("the route tree", () => {
         screen.queryByRole("heading", { level: 2, name: content }) ?? screen.queryByRole("region", { name: content }),
       ).toBeInTheDocument();
     });
+  });
+
+  it("/integrations/github/callback is where GitHub sends the browser back", async () => {
+    // The App's redirect and setup URL (manifest.CALLBACK_PATH): opened without what GitHub
+    // adds to it, it says there is nothing to finish rather than showing a blank page.
+    fakeBackend(signedInRoutes());
+    renderConsole("/integrations/github/callback");
+    expect(await screen.findByRole("heading", { level: 1, name: "Connecting GitHub" })).toBeInTheDocument();
+    expect(await screen.findByText("Nothing to finish here")).toBeInTheDocument();
   });
 
   it("names the page in the browser tab, most specific first", async () => {

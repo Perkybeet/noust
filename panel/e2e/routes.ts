@@ -35,6 +35,9 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "app-domains", path: "/apps/picconia.com/domains" },
   { name: "app-diagnose", path: "/apps/clientes.arennalabs.com/diagnose" },
   { name: "app-settings", path: "/apps/picconia.com/settings" },
+  // 2.2: an application in blue/green mode, and one with pull request previews.
+  { name: "app-settings-zero-downtime", path: "/apps/pagos.cittek.es/settings" },
+  { name: "app-settings-previews", path: "/apps/portal.cittek.es/settings" },
   { name: "databases", path: "/databases" },
   { name: "database", path: "/databases/postgresql/arennalabs_production" },
   { name: "services", path: "/services" },
@@ -50,6 +53,12 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "settings-security", path: "/settings/security" },
   { name: "settings-notifications", path: "/settings/notifications" },
   { name: "settings-tokens", path: "/settings/tokens" },
+  { name: "settings-integrations", path: "/settings/integrations" },
+  // Where GitHub sends the browser back. The states that change nothing: an installation an
+  // organization owner has yet to approve, and an address that carries nothing to finish.
+  // Creating and installing ask "Confirm it's you" first (integrations.spec.ts covers them).
+  { name: "github-callback-requested", path: "/integrations/github/callback?setup_action=request" },
+  { name: "github-callback-invalid", path: "/integrations/github/callback" },
   { name: "settings-about", path: "/settings/about" },
 ];
 

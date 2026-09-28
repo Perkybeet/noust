@@ -165,6 +165,11 @@ describe("DestinationsSection", () => {
             : json(200, { apps: ["shop-example-com"] }),
         "POST /api/backup-destinations/offsite/backups/shop-example-com_20260101_000000/restore": () =>
           json(202, { job_id: "j1", status: "pending", message: "Restore queued", job: {} }),
+        "GET /api/apps": () =>
+          json(200, {
+            apps: [{ domain: "shop.example.com", name: "shop.example.com", status: "running", active: true, enabled: true, layout: "releases", webhook_enabled: false, keep_releases: 5, zero_downtime: false }],
+            total: 1,
+          }),
       }),
     );
     const { user } = renderConsole("/backups");
@@ -181,14 +186,17 @@ describe("DestinationsSection", () => {
     await user.click(within(restoreRow.closest("tr") ?? browse).getByRole("button", { name: "Restore" }));
 
     const confirm = await screen.findByRole("alertdialog", { name: "Restore shop-example-com_20260101_000000" });
+    // The folder is named after the application; the target offered is its domain.
     const target = within(confirm).getByLabelText("Restore into");
-    expect(target).toHaveValue("shop-example-com");
-    await user.type(within(confirm).getByLabelText(/Type/), "shop-example-com");
+    await waitFor(() => expect(target).toHaveValue("shop.example.com"));
+    await user.type(within(confirm).getByLabelText(/Type/), "shop.example.com");
     await user.click(within(confirm).getByRole("button", { name: "Restore" }));
 
     await waitFor(() => {
       expect(backend.callsTo("POST /api/backup-destinations/offsite/backups/shop-example-com_20260101_000000/restore")).toHaveLength(1);
     });
+    const [call] = backend.callsTo("POST /api/backup-destinations/offsite/backups/shop-example-com_20260101_000000/restore");
+    expect(call?.body).not.toHaveProperty("target_domain", "shop-example-com");
   });
   it("adds an encrypted destination with a key the operator already has, and shows no new key", async () => {
     const backend = fakeBackend(

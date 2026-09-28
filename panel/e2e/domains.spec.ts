@@ -245,13 +245,14 @@ test("a site's own page lists every name it serves, and a template is offered fr
 test("deleting a certificate needs the operator to confirm it's them", async ({ page, consoleServer, problems }) => {
   await signIn(page, consoleServer, "/domains");
 
-  // Other tests here rely on arennalabs.com, cittek.es, qrboda.com and bodas.arennalabs.com
-  // keeping their certificates; picked from the API so whichever other seeded certificate
+  // Other tests rely on arennalabs.com, cittek.es, qrboda.com and bodas.arennalabs.com keeping
+  // their certificates, and health-reasons.spec.ts on picconia.com's being close to expiry
+  // (the two may share a worker's server); picked from the API so whichever other seeded certificate
   // exists works, rather than assuming one by name. Revoking is not exercised on top of this:
   // CertManager.revoke() asks certbot for --delete-after-revoke, so a revoked certificate is
   // already gone - the two are not independently sequenceable on one lineage, and this is the
   // one every "Revoke" ends as anyway.
-  const reserved = new Set(["arennalabs.com", "cittek.es", "qrboda.com", "bodas.arennalabs.com"]);
+  const reserved = new Set(["arennalabs.com", "picconia.com", "cittek.es", "qrboda.com", "bodas.arennalabs.com"]);
   const certs = (await (await page.request.get("/api/certs")).json()) as { certificates: { domain: string }[] };
   const target = certs.certificates.find((cert) => !reserved.has(cert.domain));
   if (!target) throw new Error("No certificate free of other tests' use was seeded to delete.");

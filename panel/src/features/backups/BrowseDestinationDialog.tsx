@@ -6,6 +6,7 @@ import type { SyntheticEvent } from "react";
 
 import type { Destination, RemoteBackup, RemoteBackups } from "../../api/queries/backupDestinations";
 import { remoteBackupsQuery } from "../../api/queries/backupDestinations";
+import { appsQuery } from "../../api/queries/apps";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Button } from "../../components/ui/Button";
@@ -20,6 +21,7 @@ import { Select } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { cx } from "../../lib/cx";
 import { formatBytes } from "../../lib/format";
+import { appNameOf } from "../apps/data";
 import { useDestinationActions } from "./useDestinationActions";
 
 /**
@@ -39,7 +41,13 @@ function RestoreFromDestinationDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [targetDomain, setTargetDomain] = useState(backup.app_name);
+  // A destination's folders are named after the application (dots as dashes), not its
+  // domain: the application deployed here under that name is the natural target. None on
+  // a replacement server that has not deployed it yet: the operator types the domain.
+  const { data: apps } = useQuery(appsQuery());
+  const knownDomain = apps?.apps.find((app) => appNameOf(app.domain) === backup.app_name)?.domain;
+  const [edited, setTargetDomain] = useState<string | null>(null);
+  const targetDomain = edited ?? knownDomain ?? "";
   const [typed, setTyped] = useState("");
   const [restoreEnv, setRestoreEnv] = useState(true);
   const { restoreFromDestination } = useDestinationActions();
@@ -50,7 +58,7 @@ function RestoreFromDestinationDialog({
     if (!next && restoreFromDestination.isPending) return;
     onOpenChange(next);
     if (!next) {
-      setTargetDomain(backup.app_name);
+      setTargetDomain(null);
       setTyped("");
       setRestoreEnv(true);
       restoreFromDestination.reset();
@@ -65,7 +73,9 @@ function RestoreFromDestinationDialog({
         destination,
         backupId: backup.backup_id,
         appName: backup.app_name,
-        targetDomain: targetDomain === backup.app_name ? undefined : targetDomain,
+        // The backup's own domain needs no target; the sidecar says it, and the server checks
+        // that it belongs to this folder.
+        targetDomain: targetDomain === knownDomain ? undefined : targetDomain,
         restoreEnv,
       },
       { onSuccess: () => close(false) },
@@ -82,8 +92,8 @@ function RestoreFromDestinationDialog({
               <DialogFrame
                 title={`Restore ${backup.backup_id}`}
                 description={
-                  targetDomain === backup.app_name
-                    ? `Downloads this backup from ${destination} first, then replaces the files of the application ${backup.app_name} (and its database, if this backup includes one) with what it holds. Anything written since is lost.`
+                  targetDomain === knownDomain
+                    ? `Downloads this backup from ${destination} first, then replaces the files of ${targetDomain} (and its database, if this backup includes one) with what it holds. Anything written since is lost.`
                     : `Downloads this backup from ${destination} first, then replaces the files of ${targetDomain || "the domain you type"} (and its database, if this backup includes one) with what it holds. Anything written since is lost.`
                 }
                 Title={AlertDialog.Title}

@@ -428,3 +428,308 @@ def seed_console_state(store: WASMStore) -> SeededState:
         )
 
     return state
+
+
+# ---------------------------------------------------------------------------
+# Console 2.2: store records for the screens 2.2 added. Called from
+# scripts/console_server.py (seed_release_22), which also lays out the files
+# and answers the commands and network calls they lead to.
+# ---------------------------------------------------------------------------
+
+# --- 2.2: zero downtime ------------------------------------------------------
+
+
+def seed_zero_downtime_history(store: WASMStore, domain: str) -> str:
+    """
+    Record the job that turned an application's blue/green activation on.
+
+    Worded the way ``PUT /api/apps/{domain}/zero-downtime`` words it
+    (``web/api/zero_downtime.py``), started from the console an hour ago and
+    finished once the green instance answered and the drain ran out.
+
+    Args:
+        store: The store to write to.
+        domain: The application in zero-downtime mode.
+
+    Returns:
+        The job's id: hexadecimal, as every job id that can be opened is.
+    """
+    started = datetime.now() - timedelta(hours=1, minutes=12)
+    job = store.create_job(
+        JobRecord(
+            id="b1e9a2e0",
+            type="zero_downtime",
+            name=f"Zero downtime on for {domain}",
+            description=f"Turning blue/green activation on for {domain}",
+            actor="master",
+            status="completed",
+            progress=100,
+            domain=domain,
+            created_at=started.isoformat(),
+            started_at=started.isoformat(),
+            finished_at=(started + timedelta(seconds=17)).isoformat(),
+        )
+    )
+    return job.id
+
+
+# --- 2.2: pull request previews ----------------------------------------------
+
+#: Where the seeded previews answer: ``*.previews.cittek.es`` points at the machine.
+PREVIEWS_BASE_DOMAIN = "previews.cittek.es"
+
+#: The output a preview's failed build leaves, as npm prints it.
+PREVIEW_FAILED_ERROR = (
+    "npm ERR! code ELIFECYCLE\n"
+    "npm ERR! errno 1\n"
+    "npm ERR! portal@0.9.0 build: `next build`\n"
+    "npm ERR! Type error: Property 'total' does not exist on type 'Cart'.\n"
+    "npm ERR! Exit status 1"
+)
+
+
+@dataclass(frozen=True)
+class SeededPreview:
+    """
+    One pull request preview :func:`seed_previews_records` recorded.
+
+    Attributes:
+        number: The pull request number.
+        domain: The preview's own domain.
+        status: ``ready``, ``deploying`` or ``failed``.
+    """
+
+    number: int
+    domain: str
+    status: str
+
+
+def seed_previews_records(
+    store: WASMStore, parent: str, *, now: datetime | None = None
+) -> list[SeededPreview]:
+    """
+    Turn previews on for an application and record three pull requests' previews.
+
+    One is ready, one is building and one failed with npm's own words, so the
+    settings page draws every state a preview has. The ready one's application
+    (created by the caller, with its tree) is marked as the parent's preview,
+    which is what the applications list reads. Previews are named the way the
+    previews manager names them.
+
+    Args:
+        store: The store.
+        parent: The application previewed; it must be deployed from git.
+        now: The moment the expiries count from; now by default.
+
+    Returns:
+        The previews recorded, the ready one first.
+    """
+    from datetime import timezone
+
+    from wasm.core.store import PreviewRecord, PreviewSettings
+    from wasm.managers.previews import preview_domain_for
+
+    moment = now or datetime.now().astimezone()
+    store.save_preview_settings(
+        PreviewSettings(
+            app_domain=parent, base_domain=PREVIEWS_BASE_DOMAIN, max_previews=5, ttl_hours=168
+        )
+    )
+    seeded: list[SeededPreview] = []
+    for number, branch, sha, status, error, days in (
+        (
+            42,
+            "feature/checkout-redesign",
+            "8c1f2e7a9b4d3c6e5f0a1b2c3d4e5f6a7b8c9d0e",
+            "ready",
+            None,
+            5,
+        ),
+        (
+            57,
+            "fix/invoice-rounding",
+            "3e9a0b1c2d4f5e6a7b8c9d0e1f2a3b4c5d6e7f80",
+            "deploying",
+            None,
+            7,
+        ),
+        (
+            61,
+            "chore/next-15",
+            "b7d2c4e6f8a0b1c3d5e7f9a1b3c5d7e9f0a2b4c6",
+            "failed",
+            PREVIEW_FAILED_ERROR,
+            2,
+        ),
+    ):
+        domain = preview_domain_for(parent, number, PREVIEWS_BASE_DOMAIN)
+        store.save_preview(
+            PreviewRecord(
+                parent_domain=parent,
+                domain=domain,
+                number=number,
+                branch=branch,
+                provider="github",
+                repository="cittek/portal",
+                head_sha=sha,
+                status=status,
+                error=error,
+                expires_at=(moment + timedelta(days=days))
+                .astimezone(timezone.utc)
+                .isoformat(timespec="seconds"),
+            )
+        )
+        if store.get_app(domain) is not None:
+            store.set_preview_parent(domain, parent)
+        seeded.append(SeededPreview(number=number, domain=domain, status=status))
+    return seeded
+
+
+# --- 2.2: the GitHub App -----------------------------------------------------
+
+#: This server's GitHub App, as GitHub's manifest conversion describes it.
+GITHUB_APP: dict[str, object] = {
+    "app_id": 1043871,
+    "slug": "wasm-arenna",
+    "name": "wasm-arenna",
+    "owner": "arennalabs",
+    "owner_type": "Organization",
+    "html_url": "https://github.com/apps/wasm-arenna",
+    "client_id": "Iv23liC0nsoleSandbox",
+}
+
+#: Where the App is installed: the organisation, every repository; a personal
+#: account, a chosen few. (installation id, account, account type, selection)
+GITHUB_INSTALLATIONS: tuple[tuple[int, str, str, str], ...] = (
+    (61000001, "arennalabs", "Organization", "all"),
+    (61000002, "yago-lopez", "User", "selected"),
+)
+
+#: What each installation lets the App read: (name, private, default branch).
+GITHUB_REPOSITORIES: dict[int, tuple[tuple[str, bool, str], ...]] = {
+    61000001: (
+        ("arennalabs/clientes", True, "main"),
+        ("arennalabs/landing", False, "main"),
+        ("arennalabs/tienda-api", True, "develop"),
+        ("arennalabs/status-page", False, "main"),
+    ),
+    61000002: (("yago-lopez/portfolio", False, "main"),),
+}
+
+#: The branches every repository answers with: (name, protected, head commit).
+GITHUB_BRANCHES: tuple[tuple[str, bool, str], ...] = (
+    ("main", True, "9f2c41a8e0b14c7d2a6e5f3b1c0d9e8f7a6b5c4d"),
+    ("develop", False, "c07d5e3b2a19f8e7d6c5b4a3928170f6e5d4c3b2"),
+    ("feature/checkout-v2", False, "4b1e8d2c7a6f5e4d3c2b1a09f8e7d6c5b4a39281"),
+)
+
+
+def seed_github_app(store: WASMStore) -> None:
+    """
+    Record this server's GitHub App and the accounts it is installed on.
+
+    The App's secrets (private key, webhook secret, client secret) are files,
+    not rows: whoever serves the console writes them where
+    :class:`wasm.core.secrets.SecretStore` keeps them.
+
+    Args:
+        store: The store.
+    """
+    from wasm.core.store import GitHubAppRecord, GitHubInstallationRecord
+
+    store.save_github_app(
+        GitHubAppRecord(
+            app_id=int(str(GITHUB_APP["app_id"])),
+            slug=str(GITHUB_APP["slug"]),
+            name=str(GITHUB_APP["name"]),
+            owner=str(GITHUB_APP["owner"]),
+            html_url=str(GITHUB_APP["html_url"]),
+            client_id=str(GITHUB_APP["client_id"]),
+        )
+    )
+    for installation_id, account, account_type, selection in GITHUB_INSTALLATIONS:
+        store.save_github_installation(
+            GitHubInstallationRecord(
+                installation_id=installation_id,
+                account=account,
+                account_type=account_type,
+                repository_selection=selection,
+            )
+        )
+
+
+# --- 2.2: backup destinations ------------------------------------------------
+
+#: The plain destination: an SFTP server holding copies of the seeded backups.
+DESTINATION_SFTP = "offsite-sftp"
+
+#: The encrypted one: S3-compatible storage behind an rclone crypt layer.
+DESTINATION_ENCRYPTED = "vault-r2"
+
+
+def seed_push_job(
+    store: WASMStore, *, backup_id: str, domain: str, destination: str, age_minutes: int = 90
+) -> str:
+    """
+    Record a finished copy of a backup to a destination, as the push job records it.
+
+    Args:
+        store: The store.
+        backup_id: The backup copied.
+        domain: Its application.
+        destination: Where it was copied.
+        age_minutes: How long ago it ran.
+
+    Returns:
+        The job's id.
+    """
+    started = datetime.now() - timedelta(minutes=age_minutes)
+    job_id = "de57a001"
+    # Worded the way POST /api/backups/{id}/push words it (web/api/backups.py).
+    store.create_job(
+        JobRecord(
+            id=job_id,
+            type="push",
+            name=f"Push {backup_id}",
+            description=f"Uploading {backup_id} to {destination}",
+            actor="master",
+            status="completed",
+            progress=100,
+            domain=domain,
+            created_at=started.isoformat(),
+            started_at=started.isoformat(),
+            finished_at=(started + timedelta(seconds=21)).isoformat(),
+        )
+    )
+    return job_id
+
+
+# --- 2.2: environment variable marks -----------------------------------------
+
+#: The application whose ``.env`` carries an operator's own marks. Its file is
+#: never replaced by the E2E suite (only read, and moved into ``shared/`` by a
+#: migration, which keeps every name), so the marks always name variables it holds.
+ENV_MARKS_APP = "blog.cittek.es"
+
+#: An analytics site id: ``TOKEN`` in its name hides it, the operator knows it is
+#: printed in every page's HTML. Added to the file by the console server.
+ENV_MARKS_PUBLIC = ("ANALYTICS_TOKEN", "G-8XK2M4PQ7L")
+
+#: The operator's marks: the analytics id shown whatever its name says, and an
+#: internal host nothing about which looks secret, hidden anyway.
+ENV_MARKS: dict[str, bool] = {ENV_MARKS_PUBLIC[0]: False, "SMTP_HOST": True}
+
+
+def seed_env_marks(store: WASMStore, domain: str = ENV_MARKS_APP) -> dict[str, bool]:
+    """
+    Record an operator's secret / not secret marks on an application.
+
+    Args:
+        store: The store.
+        domain: The application marked.
+
+    Returns:
+        The marks recorded.
+    """
+    store.set_env_secret_marks(domain, dict(ENV_MARKS))
+    return dict(ENV_MARKS)

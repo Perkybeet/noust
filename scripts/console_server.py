@@ -324,6 +324,10 @@ def redirect_system_paths(sandbox: Sandbox) -> None:
                 backend,
                 sites_available=etc / server / "sites-available",
                 sites_enabled=etc / server / "sites-enabled",
+                # Blue/green upstream files: nginx has a directory for them, Apache none.
+                upstreams_dir=(
+                    etc / server / "wasm-upstreams" if backend.upstreams_dir is not None else None
+                ),
             ),
         )
 
@@ -351,6 +355,7 @@ def redirect_system_paths(sandbox: Sandbox) -> None:
     for directory in (
         etc / "nginx" / "sites-available",
         etc / "nginx" / "sites-enabled",
+        etc / "nginx" / "wasm-upstreams",
         var / "log" / "nginx",
     ):
         directory.mkdir(parents=True, exist_ok=True)
@@ -571,6 +576,8 @@ INSTALLED_PROGRAMS = (
     "mysqldump",
     "redis-cli",
     "tar",
+    # Backup destinations copy over rclone; the model answers it from a directory per remote.
+    "rclone",
 )
 
 #: What each database client prints for ``--version``.
@@ -754,6 +761,36 @@ def make_runner(
         """The unit's name stripped of `.service` or `.timer`, for tracking that applies to both."""
         return name.removesuffix(".service").removesuffix(".timer")
 
+    def template_of(name: str) -> Path | None:
+        """
+        The template file an instance (``shop@green``) is loaded from, when it is installed.
+
+        systemd loads an instance from ``<prefix>@.service``; with no template on disk the
+        instance does not exist, whatever it was before.
+        """
+        prefix, at, instance = name.partition("@")
+        if not at or not prefix or not instance:
+            return None
+        template = systemd_dir / f"{prefix}@.service"
+        return template if template.is_file() else None
+
+    def instance_port(template: Path, instance: str) -> int | None:
+        """
+        The port an instance listens on: PORT in ``<colors dir>/<instance>.env``.
+
+        The template names that file (``EnvironmentFile=<colors>/%i.env``); systemd expands
+        ``%i`` to the instance, and the application reads PORT from it.
+        """
+        for line in template.read_text(encoding="utf-8").splitlines():
+            if line.startswith("EnvironmentFile=") and line.endswith("/%i.env"):
+                env_file = Path(line.split("=", 1)[1].lstrip("-").replace("%i", instance))
+                try:
+                    match = re.search(r"^PORT=(\d+)", env_file.read_text(encoding="utf-8"), re.M)
+                except OSError:
+                    return None
+                return int(match.group(1)) if match else None
+        return None
+
     # Enable/disable of a unit `_systemctl` does not otherwise model (a cron timer, or a
     # service created through the API this run rather than seeded into `units`): systemctl
     # enable/disable always succeeds against a real unit file, and `list-unit-files` and
@@ -772,6 +809,11 @@ def make_runner(
         def __init__(self) -> None:
             """Start with a bounded call history."""
             super().__init__()
+            # The model itself, for the fakes installed beside the runner (a health probe,
+            # a port check) that must agree with it about what runs and where.
+            self.model_units = units
+            self.model_ports = ports
+            self.model_domains = domains
             self.calls = deque(maxlen=CALL_HISTORY)  # type: ignore[assignment]
             self.inputs = deque(maxlen=CALL_HISTORY)  # type: ignore[assignment]
             self._stdin = threading.local()
@@ -863,6 +905,23 @@ def make_runner(
                 return ok(args, self._list_units(targets))
             name = unit_of(targets[-1]) if targets else ""
             unit = units.get(name)
+            template = template_of(name)
+            if unit is None and template is not None and verb in ("start", "restart"):
+                # A blue/green instance comes to exist when it is first started: loaded from
+                # its template, listening on the port its own environment file gives it.
+                instance = name.partition("@")[2]
+                unit = units[name] = Unit(active="inactive", enabled=False)
+                base = name.partition("@")[0]
+                domains[name] = domains.get(base, base)
+                port = instance_port(template, instance)
+                if port is not None:
+                    ports[name] = port
+            if unit is not None and verb in ("start", "restart") and "@" in name:
+                # Its port may have moved since it last ran (a switch rewrites the file).
+                if template is not None:
+                    port = instance_port(template, name.partition("@")[2])
+                    if port is not None:
+                        ports[name] = port
             if verb == "is-active":
                 state = unit.active if unit else "inactive"
                 return ok(args, f"{state}\n", 0 if state == "active" else 3)
@@ -908,6 +967,9 @@ def make_runner(
 
         @staticmethod
         def _show(name: str, unit: Unit | None) -> str:
+            if unit is None and template_of(name) is not None:
+                # An instance of an installed template nothing has started yet.
+                return "LoadState=loaded\nActiveState=inactive\nSubState=dead\nMainPID=0\nMemoryCurrent=0\nResult=success\n"
             if unit is None:
                 # A unit written to disk but never given live state here (created through the
                 # API this run, or a cron timer) is loaded and inactive, the way systemd
@@ -1145,6 +1207,11 @@ def make_runner(
             for name, unit in sorted(units.items()):
                 if not unit.managed:
                     continue
+                if template_of(name) is None and not (systemd_dir / f"{name}.service").exists():
+                    # A unit whose file was removed (an instance: its template) is no longer
+                    # loaded: blue/green retires an application's own unit, and removes the
+                    # instances' template when it is turned off.
+                    continue
                 if patterns and not any(
                     fnmatch(f"{name}.service", p) or fnmatch(name, p) for p in patterns
                 ):
@@ -1277,6 +1344,7 @@ def seed_machine(
     seed_domains_and_sources(
         sandbox, store, units, list(state.cert_domains), expired_certificate=expired_certificate
     )
+    seed_release_22(sandbox, store, units, ports, domains)
     return units, ports, domains, list(state.cert_domains)
 
 
@@ -3939,6 +4007,1037 @@ def model_telegram_bot_api() -> None:
 
     notifier_module._require_public_destination = require_public_destination  # type: ignore[assignment]
     config_api._build_notifier = build_notifier
+
+
+# ---------------------------------------------------------------------------
+# Console 2.2: blue/green, pull request previews, the GitHub App, backup
+# destinations and why an environment variable is hidden. Each screen gets the
+# states it draws; every network call they make is answered here, offline.
+# ---------------------------------------------------------------------------
+
+
+def seed_release_22(
+    sandbox: Sandbox,
+    store: Any,
+    units: dict[str, Unit],
+    ports: dict[str, int],
+    domains: dict[str, str],
+) -> None:
+    """
+    Seed what the 2.2 screens need beyond the machine seeded before them.
+
+    Args:
+        sandbox: The sandbox.
+        store: The seeded store.
+        units: The modelled units, mutated in place.
+        ports: Each unit's port, mutated in place.
+        domains: Each unit's domain, mutated in place.
+    """
+    seed_zero_downtime(sandbox, store, units, ports, domains)
+    seed_previews(sandbox, store, units, ports, domains)
+    seed_github_app(sandbox, store)
+    seed_backup_destinations(sandbox, store)
+    seed_env_marks(sandbox, store)
+
+
+# --- 2.2: zero downtime ------------------------------------------------------
+
+
+def seed_zero_downtime(
+    sandbox: Sandbox,
+    store: Any,
+    units: dict[str, Unit],
+    ports: dict[str, int],
+    domains: dict[str, str],
+) -> None:
+    """
+    Seed an application in blue/green mode, turned on by the real engine.
+
+    ``pagos.cittek.es`` is deployed on releases like the tabs' release app,
+    then :func:`wasm.deployers.bluegreen.set_zero_downtime` turns the mode on
+    exactly as ``wasm app zero-downtime`` would: the template written, green
+    started and probed, the upstream and the site switched, the old unit
+    retired. So what the console reads is what the engine leaves, and turning
+    it off and on again from the console runs the same code on the same model.
+
+    Its unit, instances and ports live in the runner's own model rather than
+    the maps passed in (see :func:`_zd_model`), because the instances only
+    come to exist as the runner starts them. Nothing listens on the instances'
+    ports: the health probe and the port check the engine uses answer from
+    the model, as :func:`_tabs_port_model` does for an application's state.
+
+    Args:
+        sandbox: The sandbox.
+        store: The seeded store.
+        units: The modelled units (unused: see above).
+        ports: Each unit's port (unused).
+        domains: Each unit's domain (unused).
+    """
+    from tests.panel_factory import seed_zero_downtime_history
+    from wasm.core.store import App, ReleaseRecord
+    from wasm.core.utils import domain_to_app_name
+    from wasm.deployers.bluegreen import BlueGreen, set_zero_downtime
+
+    model_units, model_ports, model_domains = _zd_model()
+    _zd_probe_model(model_units, model_ports)
+
+    domain = ZD_APP
+    root = sandbox.apps_dir / domain_to_app_name(domain)
+    port = _zd_free_port_pair()
+    shared = root / "shared"
+    shared.mkdir(parents=True, exist_ok=True)
+    (shared / ".env").write_text(
+        "NODE_ENV=production\n"
+        "DATABASE_URL=postgres://pagos:Q7m2vK9xLp@127.0.0.1:5432/pagos\n"
+        "STRIPE_SECRET_KEY=sk_live_51Hx8cittekPagosSeeded\n"
+        "NEXT_PUBLIC_SITE_URL=https://pagos.cittek.es\n",
+        encoding="utf-8",
+    )
+    (shared / ".env").chmod(0o600)
+    (root / "repo").mkdir(parents=True, exist_ok=True)
+
+    app = App(
+        domain=domain,
+        app_type="nextjs",
+        source="https://github.com/cittek/pagos.git",
+        branch="main",
+        port=port,
+        app_path=str(root),
+        status="running",
+        ssl_enabled=True,
+        layout="releases",
+        keep_releases=5,
+    )
+    _tabs_register(
+        sandbox,
+        store,
+        model_units,
+        model_ports,
+        model_domains,
+        app,
+        working_directory=root / "current",
+    )
+    stored = store.get_app(domain)
+    if stored is None or stored.id is None:
+        raise RuntimeError(f"{domain} was not recorded")
+
+    now = datetime.now()
+    serving = ""
+    for age_hours, commit, message in _ZD_RELEASES:
+        started = now - timedelta(hours=age_hours)
+        release_id = _tabs_release_id(started, commit)
+        release_dir = root / "releases" / release_id
+        (release_dir / ".next").mkdir(parents=True, exist_ok=True)
+        (release_dir / "package.json").write_text(
+            json.dumps({"name": "pagos", "version": "1.8.0"}) + "\n", encoding="utf-8"
+        )
+        (release_dir / ".next" / "BUILD_ID").write_text(commit + "\n", encoding="utf-8")
+        (release_dir / ".env").symlink_to("../../shared/.env")
+        store.record_release(
+            ReleaseRecord(
+                id=release_id,
+                app_id=stored.id,
+                git_commit=commit,
+                created_at=started.astimezone(timezone.utc).isoformat(),
+                activated_at=(started + timedelta(minutes=1)).astimezone(timezone.utc).isoformat(),
+                status="superseded",
+                path=str(release_dir),
+            )
+        )
+        deployment = store.record_deployment_start(
+            domain, "webhook", git_commit=commit, git_branch="main"
+        )
+        store.annotate_deployment(deployment, commit_message=message, release_id=release_id)
+        store.finish_deployment(deployment, "success")
+        serving = release_id
+    (root / "current").symlink_to(Path("releases") / serving)
+    store.mark_release_active(stored.id, serving)
+
+    # The engine drains for real on the console's own switches; here nothing is
+    # serving yet, so there is nothing to wait for.
+    set_zero_downtime(
+        domain,
+        True,
+        drain_seconds=ZD_DRAIN_SECONDS,
+        engine=lambda row, out: BlueGreen(row, logger=out, sleep=lambda _seconds: None),
+    )
+    seed_zero_downtime_history(store, domain)
+
+
+#: In blue/green mode: green serves, blue is stopped, the upstream names green.
+ZD_APP = "pagos.cittek.es"
+
+#: Seconds the old instance keeps running after a switch: short, so a test that
+#: turns the mode off and on again does not wait long for either.
+ZD_DRAIN_SECONDS = 2
+
+#: The releases of the blue/green application: hours ago, commit, subject.
+_ZD_RELEASES = (
+    (50.0, "4be21c7", "Accept SEPA direct debits"),
+    (26.0, "8c03f5a", "Retry webhooks from the payment provider"),
+    (2.5, "d7a91e4", "Show the refund status on receipts"),
+)
+
+
+def _zd_model() -> tuple[dict[str, Unit], dict[str, int], dict[str, str]]:
+    """
+    The runner's own model: its units, their ports and their domains.
+
+    Seeding fills maps of its own that :func:`serve` merges into the runner's
+    afterwards; a unit the runner creates while seeding (a blue/green
+    instance it is asked to start) lands in the runner's maps directly, so
+    the application that has instances is registered there too.
+
+    Returns:
+        The maps the runner answers from.
+    """
+    from wasm.core.runner import get_runner
+
+    runner: Any = get_runner()
+    return runner.model_units, runner.model_ports, runner.model_domains
+
+
+def _zd_free_port_pair() -> int:
+    """
+    Find a port whose next one is free too: blue listens on it, green on the one after.
+
+    The engine checks that green's port is free on this machine before it
+    starts green, and the seeded applications' ports are picked around it.
+
+    Returns:
+        A port P with P and P + 1 both free on loopback.
+    """
+    for _attempt in range(64):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            probe.bind(("127.0.0.1", 0))
+            candidate = int(probe.getsockname()[1])
+        if candidate >= 65535:
+            continue
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as first:
+                first.bind(("127.0.0.1", candidate))
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as second:
+                    second.bind(("127.0.0.1", candidate + 1))
+        except OSError:
+            continue
+        return candidate
+    raise RuntimeError("no two consecutive free ports on loopback")
+
+
+def _zd_probe_model(units: dict[str, Unit], ports: dict[str, int]) -> None:
+    """
+    Answer the engine's health probe and port check from the modelled units.
+
+    A modelled unit that is active answers on its port, and holds it; any
+    other port is asked of the machine for real, so a probe of something
+    that genuinely listens (the tabs' health servers) still reaches it. The
+    application's state reads its port through
+    :func:`wasm.core.app_state.port_answers`, answered the same way.
+
+    Args:
+        units: The runner's units.
+        ports: Their ports.
+    """
+    from urllib.parse import urlsplit
+
+    import wasm.core.app_state as app_state_module
+    import wasm.deployers.bluegreen as bluegreen_module
+
+    def held(port: int | None) -> bool:
+        return port is not None and any(
+            unit.active == "active" and ports.get(name) == port for name, unit in units.items()
+        )
+
+    real_probe = bluegreen_module.wait_until_healthy
+    real_free = bluegreen_module.is_port_available
+    real_answers = app_state_module.port_answers
+
+    def probe(url: str, **kwargs: Any) -> bool:
+        return held(urlsplit(url).port) or real_probe(url, **kwargs)
+
+    def port_free(port: int) -> bool:
+        return not held(port) and real_free(port)
+
+    def port_answers(port: int, *args: Any, **kwargs: Any) -> bool:
+        return held(port) or real_answers(port, *args, **kwargs)
+
+    bluegreen_module.wait_until_healthy = probe  # type: ignore[assignment]
+    bluegreen_module.is_port_available = port_free  # type: ignore[assignment]
+    app_state_module.port_answers = port_answers  # type: ignore[assignment]
+
+
+# --- 2.2: pull request previews ----------------------------------------------
+
+
+def seed_previews(
+    sandbox: Sandbox,
+    store: Any,
+    units: dict[str, Unit],
+    ports: dict[str, int],
+    domains: dict[str, str],
+) -> None:
+    """
+    Seed an application with pull request previews, and one preview deployed beside it.
+
+    ``portal.cittek.es`` is deployed from GitHub on releases, with previews on
+    under ``previews.cittek.es``: #42 ready (its own application, on releases
+    too, marked as the portal's preview), #57 building and #61 failed. The
+    sweep timer's units go to the sandboxed systemd directory, so saving the
+    settings writes them there; removing a preview deletes its application
+    through the fake runner and the sandbox filesystem.
+
+    Args:
+        sandbox: The sandbox.
+        store: The seeded store.
+        units: The modelled units, mutated in place.
+        ports: Each unit's port, mutated in place.
+        domains: Each unit's domain, mutated in place.
+    """
+    import wasm.managers.previews as previews_module
+    from tests.panel_factory import PREVIEWS_BASE_DOMAIN, seed_previews_records
+
+    # Written when the settings are saved: into the sandbox, like every other unit.
+    previews_module.SYSTEMD_DIR = sandbox.systemd_dir
+
+    parent = PREVIEWS_APP
+    _previews_release_app(
+        sandbox, store, units, ports, domains, parent, commit="4d2a9c1", branch="main"
+    )
+    # Built from the pull request's branch, as a preview deploy records it.
+    _previews_release_app(
+        sandbox,
+        store,
+        units,
+        ports,
+        domains,
+        previews_module.preview_domain_for(parent, 42, PREVIEWS_BASE_DOMAIN),
+        commit="8c1f2e7",
+        branch="feature/checkout-redesign",
+    )
+    seed_previews_records(store, parent)
+
+
+#: The application with pull request previews.
+PREVIEWS_APP = "portal.cittek.es"
+
+
+def _previews_release_app(
+    sandbox: Sandbox,
+    store: Any,
+    units: dict[str, Unit],
+    ports: dict[str, int],
+    domains: dict[str, str],
+    domain: str,
+    *,
+    commit: str,
+    branch: str,
+) -> Path:
+    """
+    Record a Next.js application on releases with one release on disk, serving.
+
+    Args:
+        sandbox: The sandbox.
+        store: The seeded store.
+        units: The modelled units, mutated in place.
+        ports: Each unit's port, mutated in place.
+        domains: Each unit's domain, mutated in place.
+        domain: The application.
+        commit: The commit its one release was built from.
+        branch: The branch it deploys.
+
+    Returns:
+        Its directory.
+    """
+    from wasm.core.store import App, ReleaseRecord
+    from wasm.core.utils import domain_to_app_name
+
+    root = sandbox.apps_dir / domain_to_app_name(domain)
+    port = _tabs_serve_ok()
+    shared = root / "shared"
+    shared.mkdir(parents=True, exist_ok=True)
+    (shared / ".env").write_text(
+        "NODE_ENV=production\n"
+        f"PORT={port}\n"
+        "DATABASE_URL=postgres://portal:Q3n8wLz5@127.0.0.1:5432/portal\n"
+        f"NEXT_PUBLIC_SITE_URL=https://{domain}\n",
+        encoding="utf-8",
+    )
+    (shared / ".env").chmod(0o600)
+    (root / "repo").mkdir(parents=True, exist_ok=True)
+    started = datetime.now(timezone.utc) - timedelta(days=1, hours=3)
+    release_id = _tabs_release_id(started, commit)
+    release = root / "releases" / release_id
+    (release / ".next").mkdir(parents=True, exist_ok=True)
+    (release / "package.json").write_text(
+        json.dumps({"name": "portal", "version": "0.9.0", "private": True}) + "\n",
+        encoding="utf-8",
+    )
+    (release / ".next" / "BUILD_ID").write_text(commit + "\n", encoding="utf-8")
+    (release / ".env").symlink_to("../../shared/.env")
+    (root / "current").symlink_to(Path("releases") / release_id)
+
+    app = App(
+        domain=domain,
+        app_type="nextjs",
+        source="https://github.com/cittek/portal.git",
+        branch=branch,
+        port=port,
+        app_path=str(root),
+        status="running",
+        ssl_enabled=True,
+        layout="releases",
+        keep_releases=5,
+    )
+    _tabs_register(sandbox, store, units, ports, domains, app, working_directory=root / "current")
+    stored = store.get_app(domain)
+    if stored is not None and stored.id is not None:
+        store.record_release(
+            ReleaseRecord(
+                id=release_id,
+                app_id=stored.id,
+                git_commit=commit,
+                created_at=started.isoformat(),
+                activated_at=(started + timedelta(minutes=2)).isoformat(),
+                status="superseded",
+                path=str(release),
+            )
+        )
+        store.mark_release_active(stored.id, release_id)
+    return root
+
+
+# --- 2.2: the GitHub App -----------------------------------------------------
+
+
+#: Where this machine receives code hosts' events (``wasm web expose-hooks``).
+GITHUB_HOOKS_URL = "https://hooks.arennalabs.com/hooks"
+
+#: The one-time code GitHub's manifest flow hands back that it no longer honours
+#: (codes last an hour and work once): the conversion is refused with GitHub's 404.
+GITHUB_SPENT_CODE = "spent-manifest-code"
+
+_GITHUB_PEM = (
+    "-----BEGIN RSA PRIVATE KEY-----\n"
+    "Y29uc29sZS1zYW5kYm94LWdpdGh1Yi1hcHAta2V5LW5vdC1hLXJlYWwta2V5\n"
+    "-----END RSA PRIVATE KEY-----\n"
+)
+
+
+def seed_github_app(sandbox: Sandbox, store: Any) -> None:
+    """
+    Connect the machine to its own GitHub App, and answer GitHub from the sandbox.
+
+    The App and its installations are store rows
+    (:func:`tests.panel_factory.seed_github_app`); its private key, webhook
+    secret and client secret are written where the real secret store keeps
+    them, the hooks are exposed at :data:`GITHUB_HOOKS_URL` and the App's
+    webhook is recorded active there, so Settings > Integrations shows a
+    connected, receiving App. Every call to GitHub - the App's token
+    exchange, installations, repositories, branches, the manifest
+    conversion - is answered by :func:`_github_opener` instead of
+    api.github.com, the JWT is "signed" without openssl, and a clone of one
+    of the App's repositories checks out the seeded storefront project, so
+    the wizard's "From GitHub" path inspects and deploys offline.
+
+    Args:
+        sandbox: The sandbox.
+        store: The seeded store.
+    """
+    from tests.panel_factory import GITHUB_APP
+    from tests.panel_factory import seed_github_app as record_github_app
+    from wasm.core.config import Config
+    from wasm.core.secrets import SecretStore
+    from wasm.integrations.github.app import (
+        CLIENT_SECRET,
+        PRIVATE_KEY_SECRET,
+        WEBHOOK_SECRET,
+        write_meta,
+    )
+    from wasm.integrations.github.client import GitHubClient, set_client
+    from wasm.integrations.hooks_site import HOOKS_URL_KEY
+
+    record_github_app(store)
+    secrets = SecretStore()
+    secrets.write(PRIVATE_KEY_SECRET, _GITHUB_PEM)
+    secrets.write(WEBHOOK_SECRET, "console-sandbox-webhook-secret")
+    secrets.write(CLIENT_SECRET, "console-sandbox-client-secret")
+    config = Config()
+    config.set(HOOKS_URL_KEY, GITHUB_HOOKS_URL)
+    config.save()
+    write_meta(
+        owner_type=GITHUB_APP["owner_type"],
+        webhook_url=f"{GITHUB_HOOKS_URL}/github",
+        webhook_active=True,
+    )
+    set_client(GitHubClient(opener=_github_opener))
+    _github_git_and_openssl(sandbox)
+
+
+def _github_json(value: Any, status: int = 200) -> Any:
+    """
+    Answer a GitHub API request the way urllib hands back a response.
+
+    Args:
+        value: The JSON body.
+        status: The status; anything but 2xx is raised as urllib raises it.
+
+    Returns:
+        A readable, closable body.
+
+    Raises:
+        HTTPError: For an error status, carrying GitHub's own ``message``.
+    """
+    import io
+    from email.message import Message
+    from urllib.error import HTTPError
+
+    body = json.dumps(value).encode("utf-8")
+    if status >= 400:
+        raise HTTPError("https://api.github.com", status, "error", Message(), io.BytesIO(body))
+    return io.BytesIO(body)
+
+
+def _github_installation(installation_id: int) -> dict[str, Any] | None:
+    """
+    Describe one installation as GitHub's API does.
+
+    Args:
+        installation_id: The installation.
+
+    Returns:
+        GitHub's installation object, or None for one the App does not have.
+    """
+    from tests.panel_factory import GITHUB_INSTALLATIONS
+
+    for known, account, account_type, selection in GITHUB_INSTALLATIONS:
+        if known == installation_id:
+            return {
+                "id": known,
+                "account": {"login": account, "type": account_type},
+                "repository_selection": selection,
+                "target_type": account_type,
+            }
+    return None
+
+
+def _github_opener(request: Any, timeout: float | None = None) -> Any:
+    """
+    Answer the GitHub REST API from the seeded App, installations and repositories.
+
+    Args:
+        request: The ``urllib.request.Request`` the client built.
+        timeout: Ignored: nothing is dialled.
+
+    Returns:
+        The response body.
+
+    Raises:
+        HTTPError: Where GitHub would answer an error.
+    """
+    from urllib.parse import urlsplit
+
+    from tests.panel_factory import (
+        GITHUB_APP,
+        GITHUB_BRANCHES,
+        GITHUB_INSTALLATIONS,
+        GITHUB_REPOSITORIES,
+    )
+
+    method = request.get_method()
+    parts = urlsplit(str(request.full_url))
+    path = parts.path
+    page = 1
+    for pair in parts.query.split("&"):
+        key, _, value = pair.partition("=")
+        if key == "page" and value.isdigit():
+            page = int(value)
+    token = str(request.get_header("Authorization") or "")
+    not_found = {"message": "Not Found", "documentation_url": "https://docs.github.com/rest"}
+
+    if method == "POST" and (
+        match := re.fullmatch(r"/app/installations/(\d+)/access_tokens", path)
+    ):
+        if _github_installation(int(match.group(1))) is None:
+            return _github_json(not_found, 404)
+        expires = (datetime.now(timezone.utc) + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return _github_json({"token": f"ghs_console{match.group(1)}", "expires_at": expires}, 201)
+    if method == "GET" and path == "/app/installations":
+        items = [_github_installation(known) for known, *_ in GITHUB_INSTALLATIONS]
+        return _github_json(items if page == 1 else [])
+    if method == "GET" and (match := re.fullmatch(r"/app/installations/(\d+)", path)):
+        found = _github_installation(int(match.group(1)))
+        return _github_json(found if found is not None else not_found, 200 if found else 404)
+    if method == "GET" and path == "/installation/repositories":
+        installation = int(token.removeprefix("token ghs_console") or 0)
+        repositories = [
+            {
+                "full_name": name,
+                "name": name.split("/")[1],
+                "private": private,
+                "default_branch": branch,
+                "clone_url": f"https://github.com/{name}.git",
+            }
+            for name, private, branch in GITHUB_REPOSITORIES.get(installation, ())
+        ]
+        listed = repositories if page == 1 else []
+        return _github_json({"total_count": len(repositories), "repositories": listed})
+    if method == "GET" and (match := re.fullmatch(r"/repos/([^/]+)/([^/]+)/branches", path)):
+        full_name = f"{match.group(1)}/{match.group(2)}"
+        known = {name for names in GITHUB_REPOSITORIES.values() for name, *_ in names}
+        if full_name not in known:
+            return _github_json(not_found, 404)
+        branches = [
+            {"name": name, "protected": protected, "commit": {"sha": sha}}
+            for name, protected, sha in GITHUB_BRANCHES
+        ]
+        return _github_json(branches if page == 1 else [])
+    if method == "POST" and (match := re.fullmatch(r"/app-manifests/([^/]+)/conversions", path)):
+        if match.group(1) == GITHUB_SPENT_CODE:
+            return _github_json(not_found, 404)
+        return _github_json(
+            {
+                "id": GITHUB_APP["app_id"],
+                "slug": GITHUB_APP["slug"],
+                "name": GITHUB_APP["name"],
+                "owner": {"login": GITHUB_APP["owner"], "type": GITHUB_APP["owner_type"]},
+                "html_url": GITHUB_APP["html_url"],
+                "client_id": GITHUB_APP["client_id"],
+                "client_secret": "console-sandbox-client-secret",
+                "webhook_secret": "console-sandbox-webhook-secret",
+                "pem": _GITHUB_PEM,
+            },
+            201,
+        )
+    if method == "PATCH" and path == "/app/hook/config":
+        return _github_json(json.loads(request.data or b"{}"))
+    # What a deploy or a preview reports back: a pull request's comment, kept updated, and
+    # the deployments and commit statuses GitHub shows. Accepted as GitHub accepts them.
+    if method == "POST" and re.fullmatch(r"/repos/[^/]+/[^/]+/issues/\d+/comments", path):
+        return _github_json(
+            {"id": 7700001, "body": json.loads(request.data or b"{}").get("body")}, 201
+        )
+    if method in ("PATCH", "DELETE") and re.fullmatch(
+        r"/repos/[^/]+/[^/]+/issues/comments/\d+", path
+    ):
+        return _github_json({"id": int(path.rsplit("/", 1)[1])} if method == "PATCH" else None)
+    if method == "POST" and re.fullmatch(
+        r"/repos/[^/]+/[^/]+/(deployments(/\d+/statuses)?|statuses/[0-9a-f]{7,40})", path
+    ):
+        return _github_json({"id": 7800001, "state": "success"}, 201)
+    return _github_json(not_found, 404)
+
+
+def _github_git_and_openssl(sandbox: Sandbox) -> None:
+    """
+    Answer the two commands the App's work runs besides HTTP.
+
+    ``openssl dgst -sign`` signs the App's JWT: answered with a fixed
+    signature, since the fake GitHub checks none. ``git clone`` of one of the
+    App's repositories checks out the seeded storefront project (a Next.js
+    app), and ``git ls-tree`` in such a checkout lists its files, which is
+    what the wizard's inspection reads; every other command goes on to the
+    runner as before.
+
+    Args:
+        sandbox: The sandbox, whose ``/var/www/src/storefront`` is checked out.
+    """
+    from tests.panel_factory import GITHUB_REPOSITORIES
+    from wasm.core.runner import CommandResult, get_runner
+
+    runner = get_runner()
+    original = runner.run
+    project = sandbox.apps_dir.parent / "src" / "storefront"
+    repositories = {name.lower() for names in GITHUB_REPOSITORIES.values() for name, *_ in names}
+    checkouts: set[str] = set()
+
+    def repository_of(url: str) -> str | None:
+        match = re.fullmatch(r"https://github\.com/([^/]+/[^/]+?)(?:\.git)?/?", url)
+        return match.group(1).lower() if match and match.group(1).lower() in repositories else None
+
+    def git_verb(args: tuple[str, ...]) -> tuple[str, ...]:
+        """The git command without the ``-c key=value`` pairs every WASM git call starts with."""
+        rest = args[1:]
+        while rest[:1] == ("-c",):
+            rest = rest[2:]
+        return rest
+
+    def run(argv: Sequence[str], **kwargs: Any) -> Any:
+        args = tuple(str(a) for a in argv)
+        if args[:2] == ("openssl", "dgst") and "-sign" in args:
+            runner.calls.append(args)
+            return CommandResult(args, 0, "SHA2-256(stdin)= " + "5a" * 256 + "\n", "")
+        verb = git_verb(args) if args[:1] == ("git",) else ()
+        if verb[:1] == ("clone",) and "--" in verb:
+            url, destination = verb[verb.index("--") + 1 :][:2]
+            if repository_of(url) is not None:
+                runner.calls.append(args)
+                shutil.copytree(project, destination, dirs_exist_ok=True)
+                checkouts.add(os.path.abspath(destination))
+                return CommandResult(args, 0, "", f"Cloning into '{destination}'...\n")
+        cwd = kwargs.get("cwd")
+        if verb[:1] == ("ls-tree",) and cwd is not None:
+            root = os.path.abspath(cwd)
+            if root in checkouts:
+                runner.calls.append(args)
+                names = sorted(
+                    str(path.relative_to(root))
+                    for path in Path(root).rglob("*")
+                    if path.is_file() and ".git" not in path.parts
+                )
+                return CommandResult(args, 0, "\0".join(names) + "\0", "")
+        return original(argv, **kwargs)
+
+    runner.run = run  # type: ignore[method-assign]
+
+
+# --- 2.2: backup destinations ------------------------------------------------
+
+
+#: The folder the SFTP destination writes into, as its operator typed it.
+DESTINATIONS_SFTP_PATH = "/srv/backups/web-01"
+
+#: Applications whose local backups the SFTP destination already holds copies of.
+DESTINATIONS_SFTP_APPS = ("picconia.com", "arennalabs.com")
+
+#: The application whose backups the encrypted destination holds.
+DESTINATIONS_ENCRYPTED_APP = "pedidos.cittek.es"
+
+#: The application with a schedule that copies to both destinations.
+DESTINATIONS_SCHEDULED_APP = "picconia.com"
+
+#: A host suffix no resolver answers (RFC 6761): a destination pointed at one is
+#: unreachable, and rclone's own words say so.
+DESTINATIONS_UNREACHABLE = ".invalid"
+
+
+def seed_backup_destinations(sandbox: Sandbox, store: Any) -> None:
+    """
+    Add two backup destinations, copies of backups on them, and a schedule using both.
+
+    The destinations are created through
+    :class:`~wasm.managers.backup_destinations.BackupDestinationManager`, so their
+    secrets are where the manager reads them (the sandboxed secret store beside the
+    database) and the encrypted one has real crypt passphrases to show. rclone is
+    answered from a directory per remote inside the sandbox (see
+    :func:`_destinations_rclone_model`): a copy, a listing, a test and a restore all
+    move real files, so an uploaded archive verifies and a downloaded one restores.
+
+    Args:
+        sandbox: The sandbox, its local backups already seeded.
+        store: The seeded store.
+    """
+    from tests.panel_factory import DESTINATION_ENCRYPTED, DESTINATION_SFTP, seed_push_job
+    from wasm.core.utils import domain_to_app_name
+    from wasm.managers.backup_destinations import BackupDestinationManager
+    from wasm.managers.backup_scheduler import BackupSchedule, BackupScheduler
+
+    remotes = sandbox.root / "remotes"
+    _destinations_rclone_model(sandbox, remotes)
+
+    manager = BackupDestinationManager()
+    manager.add(
+        DESTINATION_SFTP,
+        "sftp",
+        {
+            "host": "backup.cittek.es",
+            "user": "wasm",
+            "port": "22",
+            "pass": "Kd82-sftp-seeded-password",
+            "path": DESTINATIONS_SFTP_PATH,
+        },
+    )
+    manager.add(
+        DESTINATION_ENCRYPTED,
+        "s3",
+        {
+            "provider": "Cloudflare",
+            "access_key_id": "4f1c0e9a7b2d6e8f",
+            "secret_access_key": "r2-seeded-secret-access-key-not-shown",
+            "region": "auto",
+            "endpoint": "https://2b7c9e.r2.cloudflarestorage.com",
+            "path": "wasm-backups",
+        },
+        encrypted=True,
+    )
+
+    sftp_root = remotes / DESTINATION_SFTP / DESTINATIONS_SFTP_PATH.lstrip("/")
+    for domain in DESTINATIONS_SFTP_APPS:
+        _destinations_copy_backups(sandbox, domain, sftp_root)
+    # One backup only the destination still has: older than anything kept locally.
+    _destinations_copy_backups(sandbox, "picconia.com", sftp_root, remote_only_days=41)
+    # rclone's crypt remote carries the wrapped path itself (`vault-r2crypt:`).
+    _destinations_copy_backups(
+        sandbox, DESTINATIONS_ENCRYPTED_APP, remotes / f"{DESTINATION_ENCRYPTED}crypt"
+    )
+
+    BackupScheduler(verbose=False).create_schedule(
+        BackupSchedule(
+            domain=DESTINATIONS_SCHEDULED_APP,
+            app_name=domain_to_app_name(DESTINATIONS_SCHEDULED_APP),
+            schedule="daily",
+            retention_count=7,
+            retention_days=30,
+            destinations=[
+                {"name": DESTINATION_SFTP, "retention_count": 14, "retention_days": 90},
+                {"name": DESTINATION_ENCRYPTED, "retention_count": 30, "retention_days": None},
+            ],
+        )
+    )
+
+    newest = sorted(
+        (sandbox.backup_dir / domain_to_app_name(DESTINATIONS_SCHEDULED_APP)).glob("*.json")
+    )[-1]
+    seed_push_job(
+        store,
+        backup_id=newest.stem,
+        domain=DESTINATIONS_SCHEDULED_APP,
+        destination=DESTINATION_SFTP,
+    )
+
+
+def _destinations_copy_backups(
+    sandbox: Sandbox, domain: str, root: Path, *, remote_only_days: int | None = None
+) -> None:
+    """
+    Put copies of an application's local backups on a modelled remote.
+
+    Args:
+        sandbox: The sandbox holding the local backups.
+        domain: The application.
+        root: The remote folder; the application's directory goes under it.
+        remote_only_days: Instead of copying every local backup, write one more,
+            this many days old, that exists nowhere but on the remote.
+    """
+    from wasm.core.utils import domain_to_app_name
+
+    app_name = domain_to_app_name(domain)
+    local = sandbox.backup_dir / app_name
+    target = root / app_name
+    target.mkdir(parents=True, exist_ok=True)
+    for metadata_file in sorted(local.glob("*.json")):
+        metadata = json.loads(metadata_file.read_text(encoding="utf-8"))
+        archive = local / f"{metadata_file.stem}.tar.gz"
+        created = datetime.fromisoformat(str(metadata["created_at"]))
+        backup_id = metadata_file.stem
+        if remote_only_days is not None:
+            created = datetime.now() - timedelta(days=remote_only_days, hours=3)
+            backup_id = f"{app_name}_{created.strftime('%Y%m%d_%H%M%S')}"
+            metadata = {**metadata, "id": backup_id, "created_at": created.isoformat()}
+            metadata["description"] = "Nightly backup"
+        shutil.copyfile(archive, target / f"{backup_id}.tar.gz")
+        (target / f"{backup_id}.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+        stamp = created.timestamp()
+        for name in (f"{backup_id}.tar.gz", f"{backup_id}.json"):
+            os.utime(target / name, (stamp, stamp))
+        if remote_only_days is not None:
+            return
+
+
+def _destinations_rclone_model(sandbox: Sandbox, remotes: Path) -> None:
+    """
+    Answer rclone, and the backup timers' systemctl questions, from the sandbox.
+
+    Every remote is a directory under ``remotes`` named after the remote
+    (``offsite-sftp``, or ``vault-r2crypt`` for an encrypted destination's crypt
+    layer), so ``copyto``, ``lsjson``, ``lsf``, ``mkdir`` and ``deletefile``
+    act on real files. A destination whose host or endpoint ends in
+    :data:`DESTINATIONS_UNREACHABLE` fails the way rclone fails on a name no
+    resolver knows. ``systemctl list-timers wasm-backup-*`` and ``show`` of
+    such a timer are answered from the unit files the scheduler wrote, so the
+    Schedules section lists what is scheduled.
+
+    Args:
+        sandbox: The sandbox.
+        remotes: Where the remotes' directories live.
+    """
+    import hashlib
+
+    from wasm.core.runner import CommandResult, get_runner
+
+    remotes.mkdir(parents=True, exist_ok=True)
+    runner = get_runner()
+    original = runner.run
+    remote_ref = re.compile(r"^([a-z0-9][a-z0-9-]*):(.*)$")
+
+    def stamp(moment: float) -> str:
+        return datetime.fromtimestamp(moment, timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f000Z")
+
+    def resolve(reference: str) -> tuple[str, Path] | None:
+        match = remote_ref.match(reference)
+        if match is None:
+            return None
+        remote, path = match.groups()
+        return remote, remotes / remote / path.strip("/")
+
+    def unreachable(remote: str, env: Mapping[str, str]) -> str | None:
+        """The name rclone could not resolve, when the remote points at one."""
+        base = remote.removesuffix("crypt") if remote.endswith("crypt") else remote
+        prefix = f"RCLONE_CONFIG_{base.upper()}_"
+        for key in ("HOST", "ENDPOINT", "URL"):
+            value = env.get(prefix + key, "")
+            host = re.sub(r"^https?://", "", value).split("/")[0]
+            if host.endswith(DESTINATIONS_UNREACHABLE):
+                return host
+        return None
+
+    def failed(args: tuple[str, ...], stderr: str, code: int = 1) -> Any:
+        moment = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+        return CommandResult(args, code, "", f"{moment} {stderr}\n")
+
+    def entry(path: Path, *, hashes: bool) -> dict[str, Any]:
+        info = path.stat()
+        listed: dict[str, Any] = {
+            "Path": path.name,
+            "Name": path.name,
+            "Size": -1 if path.is_dir() else info.st_size,
+            "MimeType": "inode/directory"
+            if path.is_dir()
+            else ("application/json" if path.suffix == ".json" else "application/gzip"),
+            "ModTime": stamp(info.st_mtime),
+            "IsDir": path.is_dir(),
+        }
+        if hashes and path.is_file():
+            listed["Hashes"] = {"md5": hashlib.md5(path.read_bytes()).hexdigest()}  # noqa: S324
+        return listed
+
+    def rclone(args: tuple[str, ...], env: Mapping[str, str], stdin: str) -> Any:
+        verb = args[1] if len(args) > 1 else ""
+        operands: list[str] = []
+        skip = False
+        for arg in args[2:]:
+            if skip:
+                skip = False
+            elif arg == "--max-depth":
+                skip = True  # its value is not an operand
+            elif not arg.startswith("-"):
+                operands.append(arg)
+        if verb in ("version", "--version"):
+            return CommandResult(args, 0, "rclone v1.68.2\n- os/version: ubuntu 24.04\n", "")
+        if verb == "obscure":
+            digest = hashlib.sha256(stdin.encode("utf-8")).hexdigest()[:32]
+            return CommandResult(args, 0, f"{digest}\n", "")
+        resolved = [resolve(operand) for operand in operands]
+        for reference, found in zip(operands, resolved, strict=True):
+            if found is None:
+                continue
+            host = unreachable(found[0], env)
+            if host is not None:
+                return failed(
+                    args,
+                    f'CRITICAL: Failed to create file system for "{reference}": NewFs: '
+                    f"couldn't connect SSH: dial tcp: lookup {host}: no such host",
+                )
+        target = resolved[0] if resolved else None
+        if verb == "mkdir" and target is not None:
+            target[1].mkdir(parents=True, exist_ok=True)
+            return CommandResult(args, 0, "", "")
+        if verb in ("lsf", "lsjson") and target is not None:
+            directory = target[1]
+            if not directory.is_dir():
+                return failed(
+                    args, f"ERROR : : error listing: directory not found: {operands[0]}", 3
+                )
+            children = sorted(directory.iterdir())
+            if verb == "lsf":
+                lines = [f"{child.name}/" if child.is_dir() else child.name for child in children]
+                return CommandResult(args, 0, "".join(f"{line}\n" for line in lines), "")
+            # rclone's crypt layer cannot report the hash of what it encrypted.
+            hashes = "--hash" in args and not target[0].endswith("crypt")
+            listing = [entry(child, hashes=hashes) for child in children]
+            return CommandResult(args, 0, json.dumps(listing), "")
+        if verb == "copyto" and len(operands) == 2:
+            source = resolved[0][1] if resolved[0] is not None else Path(operands[0])
+            destination = resolved[1][1] if resolved[1] is not None else Path(operands[1])
+            if not source.is_file():
+                return failed(
+                    args, f"ERROR : {operands[0]}: error reading source: object not found", 3
+                )
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, destination)
+            return CommandResult(args, 0, "", "")
+        if verb == "deletefile" and target is not None:
+            if not target[1].is_file():
+                return failed(args, f"ERROR : {operands[0]}: object not found", 4)
+            target[1].unlink()
+            return CommandResult(args, 0, "", "")
+        return failed(args, f"Fatal error: unknown command {verb!r} in the console model", 2)
+
+    def timers(args: tuple[str, ...]) -> Any:
+        now = datetime.now(timezone.utc)
+        lines = []
+        for timer in sorted(sandbox.systemd_dir.glob("wasm-backup-*.timer")):
+            next_run = (now + timedelta(hours=15)).strftime("%a %Y-%m-%d %H:%M:%S UTC")
+            last_run = (now - timedelta(hours=9)).strftime("%a %Y-%m-%d %H:%M:%S UTC")
+            service = timer.name.removesuffix(".timer") + ".service"
+            lines.append(f"{next_run} 15h left {last_run} 9h ago {timer.name} {service}")
+        return CommandResult(args, 0, "".join(f"{line}\n" for line in lines), "")
+
+    def timer_properties(args: tuple[str, ...], unit: str) -> Any:
+        now = datetime.now(timezone.utc)
+        text = (sandbox.systemd_dir / unit).read_text(encoding="utf-8")
+        values = dict(
+            line.split("=", 1) for line in text.splitlines() if "=" in line and line[0] != "#"
+        )
+        calendar = values.get("OnCalendar", "daily")
+        shown = "%a %Y-%m-%d %H:%M:%S UTC"
+        return CommandResult(
+            args,
+            0,
+            f"Description={values.get('Description', '')}\n"
+            f"TimersCalendar={{ OnCalendar={calendar} ; next_elapse=n/a }}\n"
+            f"LastTriggerUSec={(now - timedelta(hours=9)).strftime(shown)}\n"
+            f"NextElapseUSecRealtime={(now + timedelta(hours=15)).strftime(shown)}\n",
+            "",
+        )
+
+    def run(argv: Sequence[str], **kwargs: Any) -> Any:
+        args = tuple(str(a) for a in argv)
+        program = args[0] if args else ""
+        if program == "rclone":
+            runner.calls.append(args)
+            return rclone(args, kwargs.get("env") or {}, kwargs.get("input") or "")
+        if program == "systemctl" and "list-timers" in args and "wasm-backup-*" in args:
+            runner.calls.append(args)
+            return timers(args)
+        if program == "systemctl" and args[1:2] == ("show",) and len(args) > 2:
+            unit = args[2]
+            if (
+                unit.startswith("wasm-backup-")
+                and unit.endswith(".timer")
+                and (sandbox.systemd_dir / unit).is_file()
+            ):
+                runner.calls.append(args)
+                return timer_properties(args, unit)
+        return original(argv, **kwargs)
+
+    runner.run = run  # type: ignore[method-assign]
+
+
+# --- 2.2: environment variable marks -----------------------------------------
+
+
+def seed_env_marks(sandbox: Sandbox, store: Any) -> None:
+    """
+    Give one application's variables an operator's own secret / not secret marks.
+
+    The Environment tab says why each value is hidden or shown; with only the
+    classifier's verdicts it never shows "marked ... by you". The application
+    is one whose ``.env`` the suite never replaces, and the variable marked not
+    secret is added to that file first, so both marks name a line it holds.
+
+    Args:
+        sandbox: The sandbox.
+        store: The seeded store.
+    """
+    from tests.panel_factory import ENV_MARKS_APP, ENV_MARKS_PUBLIC
+    from tests.panel_factory import seed_env_marks as mark
+    from wasm.core.utils import domain_to_app_name
+
+    env_file = sandbox.apps_dir / domain_to_app_name(ENV_MARKS_APP) / ".env"
+    name, value = ENV_MARKS_PUBLIC
+    with env_file.open("a", encoding="utf-8") as handle:
+        handle.write(f"{name}={value}\n")
+    mark(store, ENV_MARKS_APP)
 
 
 # ---------------------------------------------------------------------------
