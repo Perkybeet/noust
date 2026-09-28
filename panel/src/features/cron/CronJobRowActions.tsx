@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { IconButton } from "../../components/ui/IconButton";
 import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
+import { useT } from "../../i18n";
 import type { CronJob } from "./data";
 import { useCronActions } from "./useCronActions";
 
@@ -15,45 +16,46 @@ export interface CronJobRowActionsProps {
 
 /** The menu at the end of a cron job's row: run it now, edit, enable/disable, its history, delete. */
 export function CronJobRowActions({ job, onEdit, onViewRuns }: CronJobRowActionsProps) {
+  const t = useT();
   const { run, enable, disable, remove } = useCronActions();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const name = job.name;
 
   return (
     <>
-      <Menu align="end" trigger={<IconButton label={`Actions for ${name}`} icon={<MoreHorizontal />} size="sm" tooltip={false} />}>
+      <Menu align="end" trigger={<IconButton label={t("cron.table.actionsFor", { name })} icon={<MoreHorizontal />} size="sm" tooltip={false} />}>
         <MenuItem icon={<Play />} disabled={run.isPending} onClick={() => run.mutate(name)}>
-          Run now
+          {t("cron.actions.runNow")}
         </MenuItem>
         <MenuItem icon={<History />} onClick={() => onViewRuns(name)}>
-          View runs
+          {t("cron.actions.viewRuns")}
         </MenuItem>
         <MenuItem icon={<Pencil />} onClick={() => onEdit(job)}>
-          Edit
+          {t("cron.common.edit")}
         </MenuItem>
         <MenuSeparator />
         {job.enabled ? (
           <MenuItem icon={<ToggleLeft />} disabled={disable.isPending} onClick={() => disable.mutate(name)}>
-            Disable
+            {t("cron.actions.disable")}
           </MenuItem>
         ) : (
           <MenuItem icon={<ToggleRight />} disabled={enable.isPending} onClick={() => enable.mutate(name)}>
-            Enable
+            {t("cron.actions.enable")}
           </MenuItem>
         )}
         <MenuSeparator />
         <MenuItem icon={<Trash2 />} destructive onClick={() => setDeleteOpen(true)}>
-          Delete job
+          {t("cron.actions.deleteJob")}
         </MenuItem>
       </Menu>
 
       <ConfirmDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        title={`Delete ${name}`}
-        description="Removes the timer and its service unit. This cannot be undone."
+        title={t("cron.deleteDialog.title", { name })}
+        description={t("cron.deleteDialog.description")}
         confirmText={name}
-        actionLabel="Delete job"
+        actionLabel={t("cron.actions.deleteJob")}
         onConfirm={async () => {
           await remove.mutateAsync(name);
         }}

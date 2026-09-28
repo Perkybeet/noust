@@ -14,24 +14,23 @@ import { Input } from "../../components/ui/Input";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusGlyph } from "../../components/ui/StatusPill";
 import { toast } from "../../components/ui/toast";
+import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { ChannelHeader, DirtyActions, SecretInput, TestButton, TestOutcome, useChannelTest, useRefreshConfig } from "./channelParts";
 import { splitConfigErrors } from "./formErrors";
 import {
   SMTP_CONFIG_KEYS,
   SMTP_FIELDS,
-  SMTP_SECURITY,
   looksLikeEmail,
   portForSecurity,
   refusedRecipients,
   smtpBody,
   smtpFormDirty,
   smtpFormFrom,
+  smtpSecurityOptions,
   splitAddresses,
 } from "./notifications";
 import type { SmtpField, SmtpForm, SmtpSecurity } from "./notifications";
-
-const DESCRIPTION = "Sent through your SMTP server to the recipients below. The resource monitor's own reports use the same account.";
 
 /**
  * The addresses email goes to: each one on its own row with a way to remove it, and a box that
@@ -50,6 +49,7 @@ function RecipientsEditor({
   error: string | undefined;
   disabled: boolean;
 }) {
+  const t = useT();
   const [typed, setTyped] = useState("");
   const [problem, setProblem] = useState<string | null>(null);
   const legendId = useId();
@@ -62,8 +62,8 @@ function RecipientsEditor({
     if (invalid.length > 0) {
       setProblem(
         invalid.length === 1
-          ? `${invalid[0] ?? ""} is not an email address. Use one such as ops@example.com.`
-          : `${invalid.join(", ")} are not email addresses. Use addresses such as ops@example.com.`,
+          ? t("settings.notifications.email.recipients.invalidOne", { address: invalid[0] ?? "" })
+          : t("settings.notifications.email.recipients.invalidMany", { addresses: invalid.join(", ") }),
       );
       return;
     }
@@ -82,10 +82,10 @@ function RecipientsEditor({
   return (
     <div role="group" aria-labelledby={legendId} className="flex min-w-0 flex-col gap-1.5">
       <span id={legendId} className="text-13 font-medium text-fg">
-        Recipients
+        {t("settings.notifications.email.recipients.legend")}
       </span>
       {recipients.length > 0 ? (
-        <ul aria-label="Recipients" className="flex min-w-0 flex-col divide-y divide-border rounded-control border border-border bg-bg-sunken">
+        <ul aria-label={t("settings.notifications.email.recipients.listLabel")} className="flex min-w-0 flex-col divide-y divide-border rounded-control border border-border bg-bg-sunken">
           {recipients.map((address) => {
             const bad = refused.has(address);
             return (
@@ -94,10 +94,10 @@ function RecipientsEditor({
                 <span translate="no" className={cx("mono min-w-0 flex-1 truncate text-12", bad ? "text-fail" : "text-fg")} title={address}>
                   {address}
                 </span>
-                {bad ? <span className="shrink-0 text-12 text-fail">Refused</span> : null}
+                {bad ? <span className="shrink-0 text-12 text-fail">{t("settings.notifications.email.recipients.refused")}</span> : null}
                 <IconButton
                   size="sm"
-                  label={`Remove ${address}`}
+                  label={t("settings.notifications.email.recipients.removeLabel", { address })}
                   icon={<X />}
                   disabled={disabled}
                   onClick={() => {
@@ -110,10 +110,10 @@ function RecipientsEditor({
         </ul>
       ) : (
         <p className="rounded-control border border-dashed border-border px-3 py-2 text-13 text-fg-muted">
-          No recipients yet: nothing is sent by email until there is one.
+          {t("settings.notifications.email.recipients.empty")}
         </p>
       )}
-      <Field label="Add a recipient" error={problem ?? error} description="Several at once, separated by commas, are fine.">
+      <Field label={t("settings.notifications.email.recipients.addLabel")} error={problem ?? error} description={t("settings.notifications.email.recipients.addDescription")}>
         <div className="flex min-w-0 items-center gap-2">
           <Input
             mono
@@ -138,7 +138,7 @@ function RecipientsEditor({
             }}
           />
           <Button size="md" icon={<Plus aria-hidden="true" />} disabled={disabled || typed.trim() === ""} onClick={add}>
-            Add
+            {t("settings.notifications.email.recipients.add")}
           </Button>
         </div>
       </Field>
@@ -152,6 +152,7 @@ function RecipientsEditor({
  * a one-line help text is a fixed-height row holding a line.
  */
 export function EmailFormSkeleton() {
+  const t = useT();
   const helpLine = (width: string) => (
     <div className="flex h-4 items-center">
       <Skeleton className={width} />
@@ -170,23 +171,23 @@ export function EmailFormSkeleton() {
         <Skeleton className="w-48" />
       </div>
       <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
-        {field("SMTP server", false)}
-        {field("Port", false)}
+        {field(t("settings.notifications.email.serverLabel"), false)}
+        {field(t("settings.notifications.email.portLabel"), false)}
       </div>
       <div className="flex min-w-0 flex-col gap-1.5">
-        <span className="text-13 font-medium text-fg">Encryption</span>
+        <span className="text-13 font-medium text-fg">{t("settings.notifications.email.encryptionLabel")}</span>
         <Skeleton className="h-[1.875rem] w-56" />
         {helpLine("w-80 max-w-full")}
       </div>
       <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-        {field("Username", true)}
-        {field("Password", true)}
+        {field(t("settings.notifications.email.usernameLabel"), true)}
+        {field(t("settings.notifications.email.passwordLabel"), true)}
       </div>
-      {field("From address", true)}
+      {field(t("settings.notifications.email.fromAddressLabel"), true)}
       <div className="flex min-w-0 flex-col gap-1.5">
-        <span className="text-13 font-medium text-fg">Recipients</span>
+        <span className="text-13 font-medium text-fg">{t("settings.notifications.email.recipients.listLabel")}</span>
         <Skeleton className="h-[2.375rem] rounded-control" />
-        {field("Add a recipient", true)}
+        {field(t("settings.notifications.email.recipients.addLabel"), true)}
       </div>
     </div>
   );
@@ -198,6 +199,7 @@ export function EmailFormSkeleton() {
  * a field left empty keeps it.
  */
 export function EmailChannel({ enabledStored }: { enabledStored: boolean }) {
+  const t = useT();
   const smtp = useQuery(smtpSettingsQuery());
   const refresh = useRefreshConfig();
   const headingId = useId();
@@ -225,7 +227,7 @@ export function EmailChannel({ enabledStored }: { enabledStored: boolean }) {
       setDraft({});
       setEnabled(null);
       test.reset();
-      toast.success("Saved the email settings");
+      toast.success(t("settings.notifications.email.savedToast"));
     },
     onSettled: () => {
       setEdited(new Set());
@@ -244,11 +246,11 @@ export function EmailChannel({ enabledStored }: { enabledStored: boolean }) {
     smtp.data === undefined
       ? undefined
       : !configured
-        ? "Set up the SMTP server and a recipient to test it."
+        ? t("settings.notifications.email.testReasonNotConfigured")
         : dirty
-          ? "Save your changes first."
+          ? t("settings.notifications.channels.testReasonDirty")
           : !enabledStored
-            ? "Turn on email notifications to test them."
+            ? t("settings.notifications.email.testReasonDisabled")
             : undefined;
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
@@ -257,26 +259,27 @@ export function EmailChannel({ enabledStored }: { enabledStored: boolean }) {
     save.mutate({ values: smtpDirty ? form : null, turnOn: enabledDirty ? enabledValue : null });
   };
 
-  const security = SMTP_SECURITY.find((option) => option.value === form?.security) ?? SMTP_SECURITY[0];
+  const options = smtpSecurityOptions(t);
+  const security = options.find((option) => option.value === form?.security) ?? options[0];
 
   return (
     <article aria-labelledby={headingId} className="flex min-w-0 flex-col gap-3 px-5 py-4">
       <ChannelHeader
         id={headingId}
-        label="Email"
-        description={DESCRIPTION}
+        label={t("settings.notifications.email.label")}
+        description={t("settings.notifications.email.description")}
         configured={configured}
         actions={<TestButton test={test} disabled={testReason !== undefined || smtp.data === undefined} reason={testReason} />}
       />
       {smtp.isError && smtp.data === undefined ? (
-        <ErrorBlock compact error={smtp.error} title="Could not read the SMTP settings" onRetry={() => void smtp.refetch()} />
+        <ErrorBlock compact error={smtp.error} title={t("settings.notifications.email.loadFailed")} onRetry={() => void smtp.refetch()} />
       ) : form === undefined ? (
         <EmailFormSkeleton />
       ) : (
         <form noValidate onSubmit={submit} className="flex min-w-0 flex-col gap-3">
-          {split.form !== null ? <ErrorBlock live compact error={split.form} title="Could not save email" /> : null}
+          {split.form !== null ? <ErrorBlock live compact error={split.form} title={t("settings.notifications.email.saveErrorTitle")} /> : null}
           <Checkbox
-            label="Send notifications by email"
+            label={t("settings.notifications.email.sendByEmail")}
             checked={enabledValue}
             disabled={save.isPending}
             onCheckedChange={(next) => {
@@ -284,7 +287,7 @@ export function EmailChannel({ enabledStored }: { enabledStored: boolean }) {
             }}
           />
           <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
-            <Field label="SMTP server" error={errorOf("host")}>
+            <Field label={t("settings.notifications.email.serverLabel")} error={errorOf("host")}>
               <Input
                 mono
                 autoComplete="off"
@@ -297,7 +300,7 @@ export function EmailChannel({ enabledStored }: { enabledStored: boolean }) {
                 }}
               />
             </Field>
-            <Field label="Port" error={errorOf("port")}>
+            <Field label={t("settings.notifications.email.portLabel")} error={errorOf("port")}>
               <Input
                 mono
                 inputMode="numeric"
@@ -313,11 +316,11 @@ export function EmailChannel({ enabledStored }: { enabledStored: boolean }) {
           <div className="flex min-w-0 flex-col gap-1.5">
             {/* The radio group is named by its own label; this is the same word, for sight. */}
             <span aria-hidden="true" className="text-13 font-medium text-fg">
-              Encryption
+              {t("settings.notifications.email.encryptionLabel")}
             </span>
             <SegmentedControl<SmtpSecurity>
-              label="Encryption"
-              options={SMTP_SECURITY}
+              label={t("settings.notifications.email.encryptionLabel")}
+              options={options}
               value={form.security}
               onValueChange={(next) => {
                 if (save.isPending) return;
@@ -330,7 +333,7 @@ export function EmailChannel({ enabledStored }: { enabledStored: boolean }) {
             {errorOf("security") !== undefined ? <p className="text-13 text-fail">{errorOf("security")}</p> : null}
           </div>
           <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-            <Field label="Username" optional error={errorOf("username")} description="Empty for a relay that takes mail without signing in.">
+            <Field label={t("settings.notifications.email.usernameLabel")} optional error={errorOf("username")} description={t("settings.notifications.email.usernameDescription")}>
               <Input
                 mono
                 autoComplete="off"
@@ -342,9 +345,9 @@ export function EmailChannel({ enabledStored }: { enabledStored: boolean }) {
                 }}
               />
             </Field>
-            <Field label="Password" optional error={errorOf("password")} description="Write-only: once saved it is never shown again.">
+            <Field label={t("settings.notifications.email.passwordLabel")} optional error={errorOf("password")} description={t("settings.notifications.email.passwordDescription")}>
               <SecretInput
-                label="Password"
+                label={t("settings.notifications.email.passwordLabel")}
                 placeholder=""
                 value={form.password}
                 configured={smtp.data?.password_set === true}
@@ -355,7 +358,7 @@ export function EmailChannel({ enabledStored }: { enabledStored: boolean }) {
               />
             </Field>
           </div>
-          <Field label="From address" optional error={errorOf("from_address")} description="The sender recipients see. The username is used when it is empty.">
+          <Field label={t("settings.notifications.email.fromAddressLabel")} optional error={errorOf("from_address")} description={t("settings.notifications.email.fromAddressDescription")}>
             <Input
               mono
               type="email"
@@ -386,12 +389,12 @@ export function EmailChannel({ enabledStored }: { enabledStored: boolean }) {
               setEdited(new Set());
               save.reset();
             }}
-            note="A test goes to what is saved."
+            note={t("settings.notifications.channels.testNote")}
           />
         </form>
       )}
       <div role="status" className="min-w-0 empty:hidden">
-        <TestOutcome result={test.data} error={test.error} source="the SMTP server" />
+        <TestOutcome result={test.data} error={test.error} source={t("settings.notifications.email.testSourceLabel")} />
       </div>
     </article>
   );

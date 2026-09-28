@@ -1,6 +1,7 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { FakeEventSource, SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
@@ -316,6 +317,23 @@ describe("a job that ends before its queueing answer arrives", () => {
     });
     expect(await screen.findByText(`Update of ${DOMAIN} failed`)).toBeInTheDocument();
     expect(within(header()).queryByText("Updating")).not.toBeInTheDocument();
+  });
+});
+
+describe("in Spanish", () => {
+  it("renders the header, actions and overview in Spanish", async () => {
+    await act(() => setLocale("es"));
+    await appAt();
+    const top = header();
+    // The state word itself comes from a shared, not-yet-translated helper (components/page/status.ts).
+    await within(top).findByText("Running");
+    expect(within(top).getByText("Puerto")).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Secciones de la aplicación" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Actualizar" })).toBeInTheDocument();
+    expect(await screen.findByText("Quedan 29 días")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Dominios" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Tiempo de ejecución" })).toBeInTheDocument();
+    await expectNoAxeViolations(screen.getByRole("main"));
   });
 });
 

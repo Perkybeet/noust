@@ -14,9 +14,11 @@ import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
 import { toast } from "../../components/ui/toast";
+import { useT } from "../../i18n";
+import type { T } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { splitErrors } from "./formErrors";
-import { DEFAULT_EXPIRY, EXPIRY_OPTIONS, SCOPES, expiryPhrase } from "./tokens";
+import { DEFAULT_EXPIRY, expiryOptions, expiryPhrase, scopes } from "./tokens";
 import type { TokenScope } from "./tokens";
 
 export interface CreateTokenDialogProps {
@@ -27,12 +29,12 @@ export interface CreateTokenDialogProps {
 const FIELDS = ["name", "scope", "expires_hours"] as const;
 
 /** The scope choice: one card per scope, each saying what a token of that scope can do. */
-function ScopePicker({ value, onChange, error }: { value: TokenScope; onChange: (scope: TokenScope) => void; error?: string | undefined }) {
+function ScopePicker({ t, value, onChange, error }: { t: T; value: TokenScope; onChange: (scope: TokenScope) => void; error?: string | undefined }) {
   const name = useId();
   return (
     <fieldset className="flex flex-col gap-2">
-      <legend className="mb-1.5 text-13 font-medium text-fg">Scope</legend>
-      {SCOPES.map((scope) => (
+      <legend className="mb-1.5 text-13 font-medium text-fg">{t("settings.tokens.create.scopeLegend")}</legend>
+      {scopes(t).map((scope) => (
         <label
           key={scope.value}
           className={cx(
@@ -67,20 +69,17 @@ function ScopePicker({ value, onChange, error }: { value: TokenScope; onChange: 
 }
 
 /** The token, once: copy it now, because only its hash is kept. */
-function TokenOnce({ token }: { token: CreatedToken }) {
+function TokenOnce({ t, token }: { t: T; token: CreatedToken }) {
   const labelId = useId();
   const example = `curl -H "Authorization: Bearer ${token.token}" ${window.location.origin}/api/apps`;
   return (
     <div className="flex flex-col gap-4">
       <div role="alert" className="flex items-start gap-2.5 rounded-control border border-warn/40 bg-warn-soft px-3 py-2.5">
         <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warn" />
-        <p className="text-13 text-fg">
-          This is the only time the token is shown. Put it in your CI's secret store now: WASM keeps only a hash of it, and
-          a lost token can only be revoked and replaced.
-        </p>
+        <p className="text-13 text-fg">{t("settings.tokens.once.warning")}</p>
       </div>
       <div className="flex flex-col gap-1.5">
-        <span id={labelId} className="text-13 font-medium text-fg">{`Token for ${token.name}`}</span>
+        <span id={labelId} className="text-13 font-medium text-fg">{t("settings.tokens.once.tokenLabel", { name: token.name })}</span>
         {/* All of it, wrapped: a token cut off by a narrow field cannot be checked by eye. */}
         <code
           aria-labelledby={labelId}
@@ -93,16 +92,17 @@ function TokenOnce({ token }: { token: CreatedToken }) {
       </div>
       <div>
         <CopyTextButton value={token.token} variant="primary">
-          Copy token
+          {t("settings.tokens.once.copyToken")}
         </CopyTextButton>
       </div>
-      <CommandHint label="Try it" command={example} />
+      <CommandHint label={t("settings.tokens.once.tryIt")} command={example} />
     </div>
   );
 }
 
 /** Issuing an API token: a name, a scope and an expiry, then the token itself, once. */
 export function CreateTokenDialog({ open, onClose }: CreateTokenDialogProps) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [scope, setScope] = useState<TokenScope>("read");
@@ -116,7 +116,7 @@ export function CreateTokenDialog({ open, onClose }: CreateTokenDialogProps) {
       createApiToken({
         name: name.trim(),
         scope,
-        expires_hours: EXPIRY_OPTIONS.find((option) => option.value === expiry)?.hours ?? null,
+        expires_hours: expiryOptions(t).find((option) => option.value === expiry)?.hours ?? null,
       }),
     onSuccess: (token) => {
       setCreated(token);
@@ -137,7 +137,7 @@ export function CreateTokenDialog({ open, onClose }: CreateTokenDialogProps) {
     // Pending includes "Confirm it's you", which opens over this dialog; a press inside it is
     // outside this one and must not close it.
     if (next || create.isPending) return;
-    if (created !== null) toast.success(`Created token ${created.name}`);
+    if (created !== null) toast.success(t("settings.tokens.create.createdToast", { name: created.name }));
     onClose();
     reset();
   };
@@ -149,24 +149,29 @@ export function CreateTokenDialog({ open, onClose }: CreateTokenDialogProps) {
   };
 
   if (created !== null) {
+    const scopeLabel = scopes(t).find((option) => option.value === created.scope)?.label ?? created.scope;
     return (
       <Dialog
         open={open}
         onOpenChange={onOpenChange}
         size="md"
-        title="Copy your new token"
-        description={`${created.name}, ${created.scope} scope, ${expiryPhrase(created.expires_at ?? null)}.`}
+        title={t("settings.tokens.once.title")}
+        description={t("settings.tokens.once.description", {
+          name: created.name,
+          scope: scopeLabel,
+          expiry: expiryPhrase(t, created.expires_at ?? null),
+        })}
         footer={
           <Button
             onClick={() => {
               onOpenChange(false);
             }}
           >
-            Done
+            {t("settings.shared.done")}
           </Button>
         }
       >
-        <TokenOnce token={created} />
+        <TokenOnce t={t} token={created} />
       </Dialog>
     );
   }
@@ -177,8 +182,8 @@ export function CreateTokenDialog({ open, onClose }: CreateTokenDialogProps) {
       onOpenChange={onOpenChange}
       size="md"
       initialFocus={nameRef}
-      title="Create an API token"
-      description="For CI and scripts: sent as a Bearer token, it acts with its scope and nothing more."
+      title={t("settings.tokens.create.title")}
+      description={t("settings.tokens.create.description")}
       footer={
         <>
           <Button
@@ -187,17 +192,17 @@ export function CreateTokenDialog({ open, onClose }: CreateTokenDialogProps) {
               onOpenChange(false);
             }}
           >
-            Cancel
+            {t("settings.shared.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={create.isPending} disabled={name.trim() === ""}>
-            Create token
+            {t("settings.tokens.createToken")}
           </Button>
         </>
       }
     >
       <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-5">
-        {errors.form !== null ? <ErrorBlock live compact error={errors.form} title="Could not create the token" /> : null}
-        <Field label="Name" description="After what will hold it, such as ci-deploy. Names are never reused." error={errors.fields.name}>
+        {errors.form !== null ? <ErrorBlock live compact error={errors.form} title={t("settings.tokens.create.errorTitle")} /> : null}
+        <Field label={t("settings.tokens.create.nameLabel")} description={t("settings.tokens.create.nameDescription")} error={errors.fields.name}>
           <Input
             ref={nameRef}
             mono
@@ -211,10 +216,10 @@ export function CreateTokenDialog({ open, onClose }: CreateTokenDialogProps) {
             }}
           />
         </Field>
-        <ScopePicker value={scope} onChange={setScope} error={errors.fields.scope} />
-        <Field label="Expires" nativeLabel={false} error={errors.fields.expires_hours}>
+        <ScopePicker t={t} value={scope} onChange={setScope} error={errors.fields.scope} />
+        <Field label={t("settings.tokens.create.expiresLabel")} nativeLabel={false} error={errors.fields.expires_hours}>
           <Select
-            options={EXPIRY_OPTIONS}
+            options={expiryOptions(t)}
             value={expiry}
             onValueChange={(value) => {
               setExpiry(value);

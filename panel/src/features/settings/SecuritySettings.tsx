@@ -7,6 +7,8 @@ import { KeyValueList, KeyValueListSkeleton } from "../../components/page/KeyVal
 import type { KeyValueItem } from "../../components/page/KeyValueList";
 import { QueryState } from "../../components/page/QueryState";
 import { Sections } from "../../components/page/Section";
+import { useT } from "../../i18n";
+import type { T } from "../../i18n";
 import { formatCount } from "../../lib/format";
 import { perWindow, readLockoutPolicy, spokenDuration } from "./security";
 import type { LockoutPolicy } from "./security";
@@ -14,43 +16,46 @@ import { SessionsSection } from "./SessionsSection";
 import { SettingsSection } from "./SettingsForm";
 import { TwoFactorSection } from "./TwoFactorSection";
 
-function policyItems(policy: LockoutPolicy): KeyValueItem[] {
-  const unknown = "Not set";
+function policyItems(t: T, policy: LockoutPolicy): KeyValueItem[] {
+  const unknown = t("settings.security.lockout.notSet");
   return [
     {
-      label: "Failed sign-ins before lockout",
-      value: policy.maxFailedAttempts === null ? unknown : formatCount(policy.maxFailedAttempts),
+      label: t("settings.security.lockout.maxFailedAttemptsLabel"),
+      value: policy.maxFailedAttempts === null ? unknown : formatCount(policy.maxFailedAttempts, t.locale),
       copy: false,
       mono: false,
-      hint: "Per client address. Wrong codes when turning two-factor off count too.",
+      hint: t("settings.security.lockout.maxFailedAttemptsHint"),
     },
     {
-      label: "Lockout lasts",
-      value: policy.lockoutSeconds === null ? unknown : spokenDuration(policy.lockoutSeconds),
+      label: t("settings.security.lockout.lockoutLastsLabel"),
+      value: policy.lockoutSeconds === null ? unknown : spokenDuration(policy.lockoutSeconds, t.locale),
       copy: false,
       mono: false,
     },
     {
-      label: "Request limit",
+      label: t("settings.security.lockout.requestLimitLabel"),
       value: !policy.rateLimitEnabled
-        ? "Off"
+        ? t("settings.security.lockout.requestLimitOff")
         : policy.rateLimitRequests === null || policy.rateLimitWindowSeconds === null
           ? unknown
-          : `${formatCount(policy.rateLimitRequests)} requests ${perWindow(policy.rateLimitWindowSeconds)}`,
+          : t("settings.security.lockout.requestLimitValue", {
+              count: formatCount(policy.rateLimitRequests, t.locale),
+              window: perWindow(policy.rateLimitWindowSeconds, t.locale),
+            }),
       copy: false,
       mono: false,
-      ...(policy.rateLimitEnabled ? { hint: "Counted per client address." } : {}),
+      ...(policy.rateLimitEnabled ? { hint: t("settings.security.lockout.requestLimitHint") } : {}),
     },
     {
-      label: "Session lifetime",
-      value: policy.sessionHours === null ? unknown : spokenDuration(policy.sessionHours * 3600),
+      label: t("settings.security.lockout.sessionLifetimeLabel"),
+      value: policy.sessionHours === null ? unknown : spokenDuration(policy.sessionHours * 3600, t.locale),
       copy: false,
       mono: false,
-      hint: "Renewed while the session is in use.",
+      hint: t("settings.security.lockout.sessionLifetimeHint"),
     },
     {
-      label: "Allowed addresses",
-      value: policy.ipAllowlist.length === 0 ? "Any address" : policy.ipAllowlist.join(", "),
+      label: t("settings.security.lockout.allowedAddressesLabel"),
+      value: policy.ipAllowlist.length === 0 ? t("settings.security.lockout.anyAddress") : policy.ipAllowlist.join(", "),
       mono: policy.ipAllowlist.length > 0,
       copy: policy.ipAllowlist.length === 0 ? false : policy.ipAllowlist.join(", "),
     },
@@ -59,14 +64,15 @@ function policyItems(policy: LockoutPolicy): KeyValueItem[] {
 
 /** The lockout and rate limits, as configured. Read-only: they are edited in config.yaml. */
 function LockoutSection() {
+  const t = useT();
   const query = useQuery(configQuery());
   return (
     <SettingsSection
-      title="Lockout policy"
-      description="How the console answers repeated failed sign-ins. Set under web in config.yaml and read when the console starts, so a change applies after a restart."
+      title={t("settings.security.lockout.title")}
+      description={t("settings.security.lockout.description")}
       commands={["wasm config get web", "wasm web restart"]}
     >
-      <QueryState query={query} label="the lockout policy" skeleton={
+      <QueryState query={query} label={t("settings.security.lockout.loadingLabel")} skeleton={
           <div className="rounded-card border border-border bg-surface px-5 py-2 shadow-raised">
             <KeyValueListSkeleton rows={5} hints={[0, 2, 3]} />
           </div>
@@ -74,7 +80,7 @@ function LockoutSection() {
       >
         {(data) => (
           <div className="rounded-card border border-border bg-surface px-5 py-2 shadow-raised">
-            <KeyValueList items={policyItems(readLockoutPolicy(data.config))} />
+            <KeyValueList items={policyItems(t, readLockoutPolicy(data.config))} />
           </div>
         )}
       </QueryState>
@@ -84,7 +90,8 @@ function LockoutSection() {
 
 /** Settings > Security: the second factor, who is signed in, and the lockout policy. */
 export function SecuritySettings() {
-  useDocumentTitle("Security settings", 1);
+  const t = useT();
+  useDocumentTitle(t("settings.security.documentTitle"), 1);
   const sessions = useQuery(sessionsQuery());
   return (
     <Sections>

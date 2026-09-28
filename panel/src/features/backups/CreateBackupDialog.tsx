@@ -10,6 +10,7 @@ import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
+import { useT } from "../../i18n";
 import { useBackupActions } from "./useBackupActions";
 
 export interface CreateBackupDialogProps {
@@ -18,13 +19,13 @@ export interface CreateBackupDialogProps {
   domain?: string;
 }
 
-const REDIS_METHODS = [
-  { value: "rdb", label: "RDB snapshot" },
-  { value: "aof", label: "AOF log" },
-];
-
 /** Creates a backup of an application with the full option set `CreateBackupRequest` takes. */
 export function CreateBackupDialog({ trigger, domain: fixedDomain }: CreateBackupDialogProps) {
+  const t = useT();
+  const REDIS_METHODS = [
+    { value: "rdb", label: t("backups.createDialog.redisRdb") },
+    { value: "aof", label: t("backups.createDialog.redisAof") },
+  ];
   const formId = useId();
   const [open, setOpen] = useState(false);
   const apps = useQuery({ ...appsQuery(), enabled: open && fixedDomain === undefined });
@@ -88,15 +89,15 @@ export function CreateBackupDialog({ trigger, domain: fixedDomain }: CreateBacku
       onOpenChange={close}
       trigger={trigger}
       size="lg"
-      title="Create backup"
-      description="Archives the application's files, and anything else checked below, in one backup."
+      title={t("backups.createDialog.title")}
+      description={t("backups.createDialog.description")}
       footer={
         <>
           <Button disabled={create.isPending} onClick={() => close(false)}>
-            Cancel
+            {t("backups.common.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={create.isPending} disabled={domain.trim() === ""}>
-            Create backup
+            {t("backups.createDialog.title")}
           </Button>
         </>
       }
@@ -104,45 +105,70 @@ export function CreateBackupDialog({ trigger, domain: fixedDomain }: CreateBacku
       <form id={formId} onSubmit={submit} className="flex flex-col gap-4">
         <div className="grid gap-4 sm:grid-cols-2">
           {fixedDomain === undefined ? (
-            <Field label="Application" nativeLabel={false}>
+            <Field label={t("backups.fields.application")} nativeLabel={false}>
               <Select
-                aria-label="Application"
+                aria-label={t("backups.fields.application")}
                 value={domain}
                 onValueChange={setDomain}
-                placeholder={apps.isPending ? "Loading applications..." : "Choose an application"}
+                placeholder={apps.isPending ? t("backups.fields.loadingApplications") : t("backups.fields.chooseApplication")}
                 options={domainOptions}
                 disabled={apps.isPending || domainOptions.length === 0}
               />
             </Field>
           ) : null}
-          <Field label="Description" optional>
-            <Input value={description} onValueChange={setDescription} placeholder="Before the v2 migration" autoComplete="off" />
+          <Field label={t("backups.createDialog.descriptionLabel")} optional>
+            <Input value={description} onValueChange={setDescription} placeholder={t("backups.createDialog.descriptionPlaceholder")} autoComplete="off" />
           </Field>
         </div>
 
         <fieldset className="flex flex-col gap-2.5">
-          <legend className="mb-1 text-13 font-medium text-fg">Include</legend>
+          <legend className="mb-1 text-13 font-medium text-fg">{t("backups.createDialog.includeLegend")}</legend>
           <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-            <Checkbox checked={includeEnv} onCheckedChange={setIncludeEnv} label=".env files" description="On by default." />
-            <Checkbox checked={includeDatabase} onCheckedChange={setIncludeDatabase} label="Databases" description="Every database it uses." />
-            <Checkbox checked={includeDockerVolumes} onCheckedChange={setIncludeDockerVolumes} label="Docker volumes" description="Its own named volumes." />
-            <Checkbox checked={includeNodeModules} onCheckedChange={setIncludeNodeModules} label="node_modules" description="Large; usually reinstalled." />
-            <Checkbox checked={includeBuild} onCheckedChange={setIncludeBuild} label="Build artefacts" description="The compiled output." />
+            <Checkbox
+              checked={includeEnv}
+              onCheckedChange={setIncludeEnv}
+              label={t("backups.createDialog.envFiles.label")}
+              description={t("backups.createDialog.envFiles.description")}
+            />
+            <Checkbox
+              checked={includeDatabase}
+              onCheckedChange={setIncludeDatabase}
+              label={t("backups.createDialog.databases.label")}
+              description={t("backups.createDialog.databases.description")}
+            />
+            <Checkbox
+              checked={includeDockerVolumes}
+              onCheckedChange={setIncludeDockerVolumes}
+              label={t("backups.createDialog.dockerVolumes.label")}
+              description={t("backups.createDialog.dockerVolumes.description")}
+            />
+            <Checkbox
+              checked={includeNodeModules}
+              onCheckedChange={setIncludeNodeModules}
+              label={t("backups.createDialog.nodeModules.label")}
+              description={t("backups.createDialog.nodeModules.description")}
+            />
+            <Checkbox
+              checked={includeBuild}
+              onCheckedChange={setIncludeBuild}
+              label={t("backups.createDialog.buildArtefacts.label")}
+              description={t("backups.createDialog.buildArtefacts.description")}
+            />
           </div>
         </fieldset>
 
         <div className="grid gap-4 sm:grid-cols-2">
           {includeDatabase ? (
-            <Field label="Redis capture method" nativeLabel={false} description="Only for a Redis database included above.">
-              <Select aria-label="Redis capture method" value={redisMethod} onValueChange={setRedisMethod} options={REDIS_METHODS} />
+            <Field label={t("backups.createDialog.redisMethodLabel")} nativeLabel={false} description={t("backups.createDialog.redisMethodDescription")}>
+              <Select aria-label={t("backups.createDialog.redisMethodLabel")} value={redisMethod} onValueChange={setRedisMethod} options={REDIS_METHODS} />
             </Field>
           ) : null}
-          <Field label="Tags" optional description="Comma-separated, for filtering later.">
-            <Input value={tags} onValueChange={setTags} placeholder="pre-deploy, manual" autoComplete="off" />
+          <Field label={t("backups.createDialog.tagsLabel")} optional description={t("backups.createDialog.tagsDescription")}>
+            <Input value={tags} onValueChange={setTags} placeholder={t("backups.createDialog.tagsPlaceholder")} autoComplete="off" />
           </Field>
         </div>
 
-        {create.isError ? <ErrorBlock live compact error={create.error} title="The backup was not queued" /> : null}
+        {create.isError ? <ErrorBlock live compact error={create.error} title={t("backups.createDialog.error")} /> : null}
       </form>
     </Dialog>
   );

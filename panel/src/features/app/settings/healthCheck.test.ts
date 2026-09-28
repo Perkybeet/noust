@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../../app/locale";
 import { effectiveHealth, healthFieldOf, parseHealth, parseRetention } from "./healthCheck";
 
 describe("parseHealth", () => {
@@ -61,5 +62,18 @@ describe("parseRetention", () => {
     expect(parseRetention("51").keep).toBeNull();
     expect(parseRetention("").error).toMatch(/whole number/);
     expect(parseRetention("3.5").error).toMatch(/whole number/);
+  });
+});
+
+describe("in Spanish", () => {
+  it("holds the same rules, in Spanish words", async () => {
+    await setLocale("es");
+    expect(parseHealth({ path: "https://example.com/health", expect: "", timeout: "" }, "es").errors.path).toMatch(/No se acepta un esquema/);
+    expect(parseHealth({ path: "", expect: "2xx", timeout: "" }, "es").errors.expect).toMatch(/Usa estados y rangos/);
+    expect(parseHealth({ path: "", expect: "", timeout: "4" }, "es").errors.timeout).toMatch(/Indica de 5 a 600 segundos/);
+    expect(effectiveHealth({ health_path: "/up", health_expect: null, health_timeout: null }, "es")).toMatchObject({
+      expect: "cualquier estado por debajo de 500",
+    });
+    expect(parseRetention("0", "es").error).toBe("Mantén de 1 a 50 releases.");
   });
 });

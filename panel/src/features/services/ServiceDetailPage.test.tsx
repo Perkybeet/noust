@@ -1,7 +1,8 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { Service, ServiceList } from "../../api/queries/services";
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { FakeWebSocket, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
@@ -156,5 +157,50 @@ describe("a name nothing on the machine answers to", () => {
     });
     renderConsole("/services/ghost");
     expect(await screen.findByText("No service by this name")).toBeInTheDocument();
+  });
+});
+
+describe("the service detail page, in Spanish", () => {
+  it("shows the overview, actions and unit editor translated", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    await serviceDetailAt();
+    expect(await screen.findByRole("heading", { level: 2, name: "Resumen" })).toBeInTheDocument();
+    expect(screen.getByText("PID principal")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Detener" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reiniciar" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Archivo de unidad" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Eliminar servicio" })).toBeInTheDocument();
+  });
+
+  it("says a unit WASM did not create is foreign, in Spanish", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    const FOREIGN_NAME = "postgresql";
+    const ALL_SERVICES: ServiceList["services"] = [
+      SERVICE,
+      { ...SERVICE, name: FOREIGN_NAME, managed: false, description: null, pid: 908, memory: "31457280" },
+    ];
+    fakeBackend({
+      ...signedInRoutes(),
+      [`GET /api/services/${FOREIGN_NAME}`]: () => problem(404, "not_found", `Service not found: ${FOREIGN_NAME}`),
+      "GET /api/services": (call) =>
+        call.search.get("wasm_only") === "false"
+          ? json(200, { services: ALL_SERVICES, total: ALL_SERVICES.length })
+          : json(200, { services: [SERVICE], total: 1 }),
+    });
+    renderConsole(`/services/${FOREIGN_NAME}`);
+    await screen.findByRole("heading", { level: 1, name: FOREIGN_NAME });
+    expect(await screen.findByText("WASM no creó esta unidad")).toBeInTheDocument();
+  });
+
+  it("has no accessibility violations", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    await serviceDetailAt();
+    await expectNoAxeViolations(screen.getByRole("main"));
   });
 });

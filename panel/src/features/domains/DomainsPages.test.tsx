@@ -1,6 +1,7 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
@@ -261,6 +262,55 @@ describe("a site's configuration editor", () => {
     expect(backend.callsTo(`PUT /api/sites/${APP}/config`)).toHaveLength(0);
     expect(backend.callsTo(`POST /api/sites/${APP}/config/test`).length).toBeGreaterThan(0);
     await expectNoAxeViolations(document.body);
+  });
+});
+
+describe("in Spanish", () => {
+  it("shows an application's Domains tab in Spanish", async () => {
+    fakeBackend({
+      ...signedInRoutes(),
+      "GET /api/certs": () => json(200, CERTS),
+      "GET /api/jobs/active": () => json(200, { jobs: [], total: 0, active: 0 }),
+      [`GET /api/apps/${APP}/domains`]: () => json(200, { app: APP, domains: [{ domain: APP, kind: "primary", created_at: "2026-09-20T10:00:00+00:00" }] }),
+    });
+    await act(() => setLocale("es"));
+    renderConsole(`/apps/${APP}/domains`);
+    const table = await screen.findByRole("region", { name: `Dominios de ${APP}` });
+    expect(within(table).getByText("Principal")).toBeInTheDocument();
+    expect(within(table).getByText("Caduca en 12 días")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Añadir dominio" })).toBeInTheDocument();
+    await expectNoAxeViolations(document.body, { page: true });
+  });
+
+  it("shows the Domains and certificates page in Spanish", async () => {
+    fakeBackend({
+      ...signedInRoutes(),
+      "GET /api/certs": () => json(200, CERTS),
+      "GET /api/jobs/active": () => json(200, { jobs: [], total: 0, active: 0 }),
+      "GET /api/sites": () => json(200, { sites: [], total: 0, webserver: "nginx" }),
+    });
+    await act(() => setLocale("es"));
+    renderConsole("/domains");
+    expect(await screen.findByRole("heading", { level: 1, name: "Dominios y certificados" })).toBeInTheDocument();
+    const table = await screen.findByRole("region", { name: "Certificados" });
+    await within(table).findByText("later.example.com");
+    expect(within(table).getAllByRole("row")[1]).toHaveTextContent("Caduca en 12 días");
+    await expectNoAxeViolations(document.body, { page: true });
+  });
+
+  it("shows a site's configuration editor in Spanish", async () => {
+    const config = "server {\n    listen 80;\n}\n";
+    fakeBackend({
+      ...signedInRoutes(),
+      [`GET /api/sites/${APP}`]: () =>
+        json(200, { name: APP, webserver: "nginx", enabled: true, config_path: `/etc/nginx/sites-available/${APP}`, has_ssl: false, server_names: [APP] }),
+      [`GET /api/sites/${APP}/config`]: () => json(200, { site: APP, webserver: "nginx", config, path: `/etc/nginx/sites-available/${APP}` }),
+    });
+    await act(() => setLocale("es"));
+    renderConsole(`/domains/sites/${APP}`);
+    expect(await screen.findByRole("textbox", { name: `Configuración de ${APP}` })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Probar y guardar" })).toBeInTheDocument();
+    await expectNoAxeViolations(document.body, { page: true });
   });
 });
 

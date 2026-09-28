@@ -2,19 +2,46 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { request } from "../../api/client";
 import { monitorKeys } from "../../api/queries/monitor";
+import { useT } from "../../i18n";
+import type { T } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
 import { toast } from "../../components/ui/toast";
 
 type ServiceVerb = "install" | "uninstall" | "enable" | "disable" | "start" | "stop";
 
-const WORDS: Record<ServiceVerb, string> = {
-  install: "Installed",
-  uninstall: "Removed",
-  enable: "Enabled",
-  disable: "Disabled",
-  start: "Started",
-  stop: "Stopped",
-};
+function toastText(t: T, verb: ServiceVerb): string {
+  switch (verb) {
+    case "install":
+      return t("server.monitor.toastInstalled");
+    case "uninstall":
+      return t("server.monitor.toastUninstalled");
+    case "enable":
+      return t("server.monitor.toastEnabled");
+    case "disable":
+      return t("server.monitor.toastDisabled");
+    case "start":
+      return t("server.monitor.toastStarted");
+    case "stop":
+      return t("server.monitor.toastStopped");
+  }
+}
+
+function errorText(t: T, verb: ServiceVerb): string {
+  switch (verb) {
+    case "install":
+      return t("server.monitor.errorInstall");
+    case "uninstall":
+      return t("server.monitor.errorUninstall");
+    case "enable":
+      return t("server.monitor.errorEnable");
+    case "disable":
+      return t("server.monitor.errorDisable");
+    case "start":
+      return t("server.monitor.errorStart");
+    case "stop":
+      return t("server.monitor.errorStop");
+  }
+}
 
 function callVerb(verb: ServiceVerb) {
   switch (verb) {
@@ -35,6 +62,7 @@ function callVerb(verb: ServiceVerb) {
 
 /** The resource monitor's own actions: its systemd unit, its observations, a test email. */
 export function useMonitorActions() {
+  const t = useT();
   const queryClient = useQueryClient();
 
   const refresh = (): void => {
@@ -45,11 +73,11 @@ export function useMonitorActions() {
     useMutation({
       mutationFn: () => callVerb(verb),
       onSuccess: () => {
-        toast.success(`${WORDS[verb]} the resource monitor`);
+        toast.success(toastText(t, verb));
         refresh();
       },
       onError: (error) => {
-        reportActionError(`Could not ${verb} the resource monitor`, error);
+        reportActionError(errorText(t, verb), error);
         refresh();
       },
     });
@@ -64,10 +92,10 @@ export function useMonitorActions() {
   const testEmail = useMutation({
     mutationFn: () => request("post", "/api/monitor/test-email"),
     onSuccess: () => {
-      toast.success("Test email sent");
+      toast.success(t("server.monitor.testEmailSent"));
     },
     onError: (error) => {
-      reportActionError("The test email could not be sent", error);
+      reportActionError(t("server.monitor.testEmailFailed"), error);
     },
   });
 
@@ -77,7 +105,7 @@ export function useMonitorActions() {
       void queryClient.invalidateQueries({ queryKey: monitorKeys.all });
     },
     onError: (error) => {
-      reportActionError("Could not acknowledge the observation", error);
+      reportActionError(t("server.monitor.acknowledgeFailed"), error);
     },
   });
 

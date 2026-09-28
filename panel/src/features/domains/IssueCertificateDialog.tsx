@@ -3,6 +3,7 @@ import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
 import { isApiError, request } from "../../api/client";
+import { getLocale } from "../../app/locale";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
@@ -12,17 +13,21 @@ import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
 import { Textarea } from "../../components/ui/Textarea";
+import { translate, useT } from "../../i18n";
+import type { Locale, T } from "../../i18n";
 import { domainProblem, normalizeDomain, parseNames, wwwOf } from "./names";
 
 export type CertMethod = "auto" | "nginx" | "apache" | "webroot" | "standalone";
 
-export const CERT_METHODS: readonly { value: CertMethod; label: string; hint: string }[] = [
-  { value: "auto", label: "Automatic", hint: "The plugin of the web server that is running" },
-  { value: "nginx", label: "nginx plugin", hint: "certbot --nginx" },
-  { value: "apache", label: "Apache plugin", hint: "certbot --apache" },
-  { value: "webroot", label: "Webroot", hint: "Challenge files in a directory the site serves" },
-  { value: "standalone", label: "Standalone", hint: "certbot answers on port 80 itself" },
-];
+export function certMethods(t: T): readonly { value: CertMethod; label: string; hint: string }[] {
+  return [
+    { value: "auto", label: t("domains.issueCertificateDialog.methodAutomaticLabel"), hint: t("domains.issueCertificateDialog.methodAutomaticHint") },
+    { value: "nginx", label: t("domains.issueCertificateDialog.methodNginxLabel"), hint: "certbot --nginx" },
+    { value: "apache", label: t("domains.issueCertificateDialog.methodApacheLabel"), hint: "certbot --apache" },
+    { value: "webroot", label: t("domains.issueCertificateDialog.methodWebrootLabel"), hint: t("domains.issueCertificateDialog.methodWebrootHint") },
+    { value: "standalone", label: t("domains.issueCertificateDialog.methodStandaloneLabel"), hint: t("domains.issueCertificateDialog.methodStandaloneHint") },
+  ];
+}
 
 export interface IssueRequest {
   domain: string;
@@ -50,18 +55,18 @@ export type IssueErrors = Partial<Record<"domain" | "names" | "webroot" | "email
  * The form as the API takes it, or what is wrong with it. Pure, so the translation from what
  * the operator typed to the request is tested on its own.
  */
-export function issueRequest(form: IssueForm): { request: IssueRequest } | { errors: IssueErrors } {
+export function issueRequest(form: IssueForm, locale: Locale = getLocale()): { request: IssueRequest } | { errors: IssueErrors } {
   const errors: IssueErrors = {};
   const domain = normalizeDomain(form.domain);
-  const primaryProblem = domainProblem(domain);
+  const primaryProblem = domainProblem(domain, locale);
   if (primaryProblem !== null) errors.domain = primaryProblem;
   const names = parseNames(form.names).filter((name) => name !== domain);
-  const bad = names.find((name) => domainProblem(name) !== null);
-  if (bad !== undefined) errors.names = `${bad}: ${domainProblem(bad) ?? ""}`;
-  if (form.method === "webroot" && form.webroot.trim() === "") errors.webroot = "Enter the directory the site serves, such as /var/www/html.";
-  else if (form.method === "webroot" && !form.webroot.trim().startsWith("/")) errors.webroot = "Enter an absolute path, starting with /.";
+  const bad = names.find((name) => domainProblem(name, locale) !== null);
+  if (bad !== undefined) errors.names = `${bad}: ${domainProblem(bad, locale) ?? ""}`;
+  if (form.method === "webroot" && form.webroot.trim() === "") errors.webroot = translate(locale, "domains.issueCertificateDialog.webrootRequiredError");
+  else if (form.method === "webroot" && !form.webroot.trim().startsWith("/")) errors.webroot = translate(locale, "domains.issueCertificateDialog.webrootAbsoluteError");
   const email = form.email.trim();
-  if (email !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = "Enter an address such as ops@example.com, or leave it empty.";
+  if (email !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = translate(locale, "domains.issueCertificateDialog.emailFormatError");
   if (Object.keys(errors).length > 0) return { errors };
   const www = wwwOf(domain);
   return {
@@ -88,6 +93,8 @@ export interface IssueCertificateDialogProps {
 
 /** Orders a certificate from Let's Encrypt for a name and any others, as a job. */
 export function IssueCertificateDialog({ open, onOpenChange, onQueued }: IssueCertificateDialogProps) {
+  const t = useT();
+  const CERT_METHODS = certMethods(t);
   const [form, setForm] = useState<IssueForm>(EMPTY);
   const [errors, setErrors] = useState<IssueErrors>({});
   const formId = useId();
@@ -122,7 +129,7 @@ export function IssueCertificateDialog({ open, onOpenChange, onQueued }: IssueCe
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    const result = issueRequest(form);
+    const result = issueRequest(form, t.locale);
     if ("errors" in result) {
       setErrors(result.errors);
       return;
@@ -140,22 +147,22 @@ export function IssueCertificateDialog({ open, onOpenChange, onQueued }: IssueCe
       open={open}
       onOpenChange={close}
       size="lg"
-      title="Issue a certificate"
-      description="Let's Encrypt checks that every name points to this server before it signs. Issuing runs as a job; the certificate appears here when it ends."
+      title={t("domains.issueCertificateDialog.dialogTitle")}
+      description={t("domains.issueCertificateDialog.dialogDescription")}
       footer={
         <>
           <Button disabled={issue.isPending} onClick={() => close(false)}>
-            Cancel
+            {t("domains.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={issue.isPending}>
-            Issue certificate
+            {t("domains.issueCertificate")}
           </Button>
         </>
       }
     >
       <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-5">
         <div className="flex flex-col gap-2">
-          <Field label="Domain" error={fieldError("domain")}>
+          <Field label={t("domains.domainFieldLabel")} error={fieldError("domain")}>
             <Input
               mono
               value={form.domain}
@@ -168,17 +175,17 @@ export function IssueCertificateDialog({ open, onOpenChange, onQueued }: IssueCe
           </Field>
           {www !== null ? (
             <Checkbox
-              label={`Also cover ${normalizeDomain(form.domain) === "" ? "the www name" : www}`}
+              label={t("domains.issueCertificateDialog.alsoCover", { name: normalizeDomain(form.domain) === "" ? t("domains.issueCertificateDialog.theWwwName") : www })}
               checked={form.includeWww}
               onCheckedChange={(checked) => set({ includeWww: checked })}
             />
           ) : null}
         </div>
         <Field
-          label="Other names"
+          label={t("domains.issueCertificateDialog.otherNamesLabel")}
           optional
           error={fieldError("names", "domains")}
-          description="Separated by spaces, commas or new lines. Each must point to this server too."
+          description={t("domains.issueCertificateDialog.otherNamesDescription")}
         >
           <Textarea
             mono
@@ -190,10 +197,10 @@ export function IssueCertificateDialog({ open, onOpenChange, onQueued }: IssueCe
           />
         </Field>
         {extra.length > 0 ? (
-          <ul aria-label="Other names on the certificate" className="-mt-3 flex flex-wrap gap-1.5">
+          <ul aria-label={t("domains.issueCertificateDialog.otherNamesOnCertAriaLabel")} className="-mt-3 flex flex-wrap gap-1.5">
             {extra.map((name) => (
               <li key={name}>
-                <Badge mono tone={domainProblem(name) === null ? "neutral" : "fail"}>
+                <Badge mono tone={domainProblem(name, t.locale) === null ? "neutral" : "fail"}>
                   {name}
                 </Badge>
               </li>
@@ -202,7 +209,7 @@ export function IssueCertificateDialog({ open, onOpenChange, onQueued }: IssueCe
         ) : null}
         <div className="grid gap-5 sm:grid-cols-2">
           <Field
-            label="How to prove control"
+            label={t("domains.issueCertificateDialog.howToProveControlLabel")}
             nativeLabel={false}
             description={CERT_METHODS.find((method) => method.value === form.method)?.hint}
           >
@@ -213,7 +220,7 @@ export function IssueCertificateDialog({ open, onOpenChange, onQueued }: IssueCe
               className="w-full"
             />
           </Field>
-          <Field label="Email" optional error={fieldError("email")} description="For expiry warnings. Empty uses Settings.">
+          <Field label={t("domains.issueCertificateDialog.emailFieldLabel")} optional error={fieldError("email")} description={t("domains.issueCertificateDialog.emailFieldDescription")}>
             <Input
               type="email"
               value={form.email}
@@ -224,7 +231,7 @@ export function IssueCertificateDialog({ open, onOpenChange, onQueued }: IssueCe
           </Field>
         </div>
         {form.method === "webroot" ? (
-          <Field label="Webroot" error={fieldError("webroot")} description="Certbot writes its challenge files here.">
+          <Field label={t("domains.issueCertificateDialog.webrootFieldLabel")} error={fieldError("webroot")} description={t("domains.issueCertificateDialog.webrootFieldDescription")}>
             <Input
               mono
               value={form.webroot}
@@ -236,13 +243,13 @@ export function IssueCertificateDialog({ open, onOpenChange, onQueued }: IssueCe
           </Field>
         ) : null}
         <Checkbox
-          label="Order again even if a certificate already covers these names"
-          description="Certbot's --expand: reissued under the same name."
+          label={t("domains.issueCertificateDialog.orderAgainCheckboxLabel")}
+          description={t("domains.issueCertificateDialog.orderAgainCheckboxDescription")}
           checked={form.expand}
           onCheckedChange={(checked) => set({ expand: checked })}
         />
         {issue.isError && Object.keys(serverFields).length === 0 ? (
-          <ErrorBlock live compact error={issue.error} title="Issuing was not queued" />
+          <ErrorBlock live compact error={issue.error} title={t("domains.issueCertificateDialog.notQueuedError")} />
         ) : null}
       </form>
     </Dialog>

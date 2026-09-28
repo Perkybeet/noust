@@ -1,6 +1,7 @@
 import { Monitor, Moon, Sun } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import { useT } from "../i18n";
 import { cx } from "../lib/cx";
 import { THEME_CHOICES } from "./theme";
 import type { ThemeChoice } from "./theme";
@@ -17,8 +18,13 @@ export interface ThemeSwitchProps {
 
 /** System, light or dark, as three pressed-or-not buttons. */
 export function ThemeSwitch({ value, onChange, compact = false, className }: ThemeSwitchProps) {
+  const t = useT();
   return (
-    <div role="group" aria-label="Theme" className={cx("flex rounded-control border border-border bg-bg-sunken p-0.5", className)}>
+    <div
+      role="group"
+      aria-label={t("shell.session.theme")}
+      className={cx("flex rounded-control border border-border bg-bg-sunken p-0.5", className)}
+    >
       {THEME_CHOICES.map(({ value: choice, label }) => {
         const Icon = ICONS[choice];
         return (
@@ -36,7 +42,7 @@ export function ThemeSwitch({ value, onChange, compact = false, className }: The
             )}
           >
             <Icon aria-hidden="true" className="size-3.5" />
-            <span className={cx(compact && "max-sm:sr-only")}>{label}</span>
+            <span className={cx(compact && "max-sm:sr-only")}>{t(label)}</span>
           </button>
         );
       })}

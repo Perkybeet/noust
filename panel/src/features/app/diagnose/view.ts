@@ -6,6 +6,9 @@
  */
 
 import type { Diagnosis } from "../../../api/queries/apps";
+import { getLocale } from "../../../app/locale";
+import type { Locale } from "../../../app/locale";
+import { translate } from "../../../i18n";
 
 export type Tone = "ok" | "warn" | "fail" | "idle";
 
@@ -22,56 +25,73 @@ function capitalise(text: string): string {
   return clean.charAt(0).toUpperCase() + clean.slice(1);
 }
 
-const VERDICTS: Readonly<Record<string, StatusWord>> = {
-  healthy: { tone: "ok", word: "Healthy" },
-  degraded: { tone: "warn", word: "Degraded" },
-  down: { tone: "fail", word: "Down" },
-};
-
 /** The verdict as the console draws it. */
-export function verdictView(verdict: string): StatusWord {
-  return VERDICTS[verdict.trim().toLowerCase()] ?? { tone: "idle", word: capitalise(verdict) || "Unknown" };
+export function verdictView(verdict: string, locale: Locale = getLocale()): StatusWord {
+  switch (verdict.trim().toLowerCase()) {
+    case "healthy":
+      return { tone: "ok", word: translate(locale, "appPages.diagnose.verdict.healthy") };
+    case "degraded":
+      return { tone: "warn", word: translate(locale, "appPages.diagnose.verdict.degraded") };
+    case "down":
+      return { tone: "fail", word: translate(locale, "appPages.diagnose.verdict.down") };
+    default:
+      return { tone: "idle", word: capitalise(verdict) || "Unknown" };
+  }
 }
 
-const CHECK_STATUSES: Readonly<Record<string, StatusWord>> = {
-  ok: { tone: "ok", word: "Passed" },
-  warn: { tone: "warn", word: "Warning" },
-  fail: { tone: "fail", word: "Failed" },
-  skip: { tone: "idle", word: "Skipped" },
-};
-
 /** One check's status as the console draws it. */
-export function checkStatus(status: string): StatusWord {
-  return CHECK_STATUSES[status.trim().toLowerCase()] ?? { tone: "idle", word: capitalise(status) || "Unknown" };
+export function checkStatus(status: string, locale: Locale = getLocale()): StatusWord {
+  switch (status.trim().toLowerCase()) {
+    case "ok":
+      return { tone: "ok", word: translate(locale, "appPages.diagnose.status.ok") };
+    case "warn":
+      return { tone: "warn", word: translate(locale, "appPages.diagnose.status.warn") };
+    case "fail":
+      return { tone: "fail", word: translate(locale, "appPages.diagnose.status.fail") };
+    case "skip":
+      return { tone: "idle", word: translate(locale, "appPages.diagnose.status.skip") };
+    default:
+      return { tone: "idle", word: capitalise(status) || "Unknown" };
+  }
 }
 
 /** What each probe looks at, in the interface's words. */
-const CHECK_LABELS: Readonly<Record<string, string>> = {
-  unit: "Service unit",
-  port: "Listening port",
-  http_direct: "HTTP, direct",
-  http_nginx: "HTTP, through nginx",
-  journal: "Journal",
-  nginx_log: "Web server error log",
-  certificate: "Certificate",
-  last_deployment: "Last deploy",
-  oom: "Out-of-memory kills",
-  disk: "Disk space",
-};
-
-export function checkLabel(name: string): string {
-  return CHECK_LABELS[name] ?? capitalise(name);
+export function checkLabel(name: string, locale: Locale = getLocale()): string {
+  switch (name) {
+    case "unit":
+      return translate(locale, "appPages.diagnose.check.unit");
+    case "port":
+      return translate(locale, "appPages.diagnose.check.port");
+    case "http_direct":
+      return translate(locale, "appPages.diagnose.check.httpDirect");
+    case "http_nginx":
+      return translate(locale, "appPages.diagnose.check.httpNginx");
+    case "journal":
+      return translate(locale, "appPages.diagnose.check.journal");
+    case "nginx_log":
+      return translate(locale, "appPages.diagnose.check.nginxLog");
+    case "certificate":
+      return translate(locale, "appPages.diagnose.check.certificate");
+    case "last_deployment":
+      return translate(locale, "appPages.diagnose.check.lastDeployment");
+    case "oom":
+      return translate(locale, "appPages.diagnose.check.oom");
+    case "disk":
+      return translate(locale, "appPages.diagnose.check.disk");
+    default:
+      return capitalise(name);
+  }
 }
 
 /** The sentence under the verdict when the checks name no single cause. */
-export function causeFallback(verdict: string): string {
+export function causeFallback(verdict: string, locale: Locale = getLocale()): string {
   switch (verdict.trim().toLowerCase()) {
     case "healthy":
-      return "Everything WASM can check about this app answers as it should.";
+      return translate(locale, "appPages.diagnose.causeFallback.healthy");
     case "down":
-      return "The app is down, and the checks do not point to one cause. Start with the failed ones below.";
+      return translate(locale, "appPages.diagnose.causeFallback.down");
     default:
-      return "Some checks did not pass, and they do not point to one cause. Start with the failed ones below.";
+      return translate(locale, "appPages.diagnose.causeFallback.default");
   }
 }
 
@@ -100,8 +120,8 @@ export function opensByDefault(check: Check): boolean {
 }
 
 /** What an operator says after a re-run, for the live region. */
-export function verdictAnnouncement(domain: string, diagnosis: Diagnosis): string {
-  const verdict = verdictView(diagnosis.verdict).word;
-  const cause = diagnosis.probable_cause ?? causeFallback(diagnosis.verdict);
-  return `${domain}: ${verdict}. ${cause}`;
+export function verdictAnnouncement(domain: string, diagnosis: Diagnosis, locale: Locale = getLocale()): string {
+  const verdict = verdictView(diagnosis.verdict, locale).word;
+  const cause = diagnosis.probable_cause ?? causeFallback(diagnosis.verdict, locale);
+  return translate(locale, "appPages.diagnose.announcement", { domain, verdict, cause });
 }

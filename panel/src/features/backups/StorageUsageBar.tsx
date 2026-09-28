@@ -2,10 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 
 import { backupStorageQuery } from "../../api/queries/backups";
 import type { BackupStorage } from "../../api/queries/backups";
+import { getLocale } from "../../app/locale";
+import type { Locale } from "../../app/locale";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Meter } from "../../components/ui/Progress";
 import { Skeleton } from "../../components/ui/Skeleton";
-import { formatBytes, formatCount } from "../../lib/format";
+import { translate, useT } from "../../i18n";
+import { formatBytes } from "../../lib/format";
 
 /** The filesystem the backup directory is on, when the server could read it. */
 export function backupFilesystem(storage: BackupStorage): { total: number; free: number; used: number } | null {
@@ -16,10 +19,10 @@ export function backupFilesystem(storage: BackupStorage): { total: number; free:
 }
 
 /** What the backups add up to, where they are kept, and how many of them there are. */
-export function backupSummary(storage: BackupStorage): string {
-  const backups = `${formatCount(storage.backup_count)} ${storage.backup_count === 1 ? "backup" : "backups"}`;
-  const apps = `${formatCount(storage.domains.length)} ${storage.domains.length === 1 ? "application" : "applications"}`;
-  return `${storage.total_size_human} in ${backups} of ${apps}, kept at `;
+export function backupSummary(storage: BackupStorage, locale: Locale = getLocale()): string {
+  const backups = translate(locale, "backups.storage.backupsCount", { count: storage.backup_count });
+  const apps = translate(locale, "backups.storage.applicationsCount", { count: storage.domains.length });
+  return translate(locale, "backups.storage.summary", { size: storage.total_size_human, backups, apps });
 }
 
 /**
@@ -29,10 +32,11 @@ export function backupSummary(storage: BackupStorage): string {
  * whether it is worth pruning old ones.
  */
 export function StorageUsageBar() {
+  const t = useT();
   const storage = useQuery(backupStorageQuery());
 
   if (storage.isError && storage.data === undefined) {
-    return <ErrorBlock compact error={storage.error} title="Could not read backup storage usage" onRetry={() => void storage.refetch()} />;
+    return <ErrorBlock compact error={storage.error} title={t("backups.storage.loadError")} onRetry={() => void storage.refetch()} />;
   }
   if (storage.data === undefined) {
     return (
@@ -64,15 +68,19 @@ export function StorageUsageBar() {
     <div className="flex flex-col gap-3 rounded-card border border-border bg-surface px-4 py-3.5 shadow-raised">
       {filesystem !== null ? (
         <Meter
-          label="Disk holding the backups"
+          label={t("backups.storage.diskLabel")}
           value={filesystem.used}
           max={filesystem.total}
-          valueText={`${formatBytes(filesystem.used)} used, ${formatBytes(filesystem.free)} free of ${formatBytes(filesystem.total)}`}
+          valueText={t("backups.storage.diskValueText", {
+            used: formatBytes(filesystem.used),
+            free: formatBytes(filesystem.free),
+            total: formatBytes(filesystem.total),
+          })}
         />
       ) : (
         <div className="flex h-5 items-baseline justify-between gap-3">
-          <span className="text-13 text-fg-muted">Disk holding the backups</span>
-          <span className="text-13 text-fg-faint">Its size and free space could not be read</span>
+          <span className="text-13 text-fg-muted">{t("backups.storage.diskLabel")}</span>
+          <span className="text-13 text-fg-faint">{t("backups.storage.diskUnknown")}</span>
         </div>
       )}
       <p className="text-12 text-fg-faint">

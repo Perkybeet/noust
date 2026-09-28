@@ -11,6 +11,7 @@ import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Select } from "../../components/ui/Select";
+import { useT } from "../../i18n";
 import { BackupsTable } from "./BackupsTable";
 import { CreateBackupDialog } from "./CreateBackupDialog";
 import { DestinationsSection } from "./DestinationsSection";
@@ -34,6 +35,7 @@ export interface BackupsPageProps {
 
 /** Every backup on the machine, its storage footprint, and the schedules that create more of them. */
 export function BackupsPage({ search, onSearchChange }: BackupsPageProps) {
+  const t = useT();
   useBackupRefresh();
   const backups = useQuery(backupsQuery(search.domain ?? null));
   const all = useMemo(() => backups.data?.backups ?? [], [backups.data]);
@@ -58,13 +60,13 @@ export function BackupsPage({ search, onSearchChange }: BackupsPageProps) {
   return (
     <>
       <PageHeader
-        title="Backups"
-        description="Snapshots of your applications, their schedules and the storage they use."
+        title={t("backups.page.title")}
+        description={t("backups.page.description")}
         actions={
           <CreateBackupDialog
             trigger={
               <Button variant="primary" icon={<Plus aria-hidden="true" />}>
-                New backup
+                {t("backups.page.newBackup")}
               </Button>
             }
           />
@@ -74,19 +76,19 @@ export function BackupsPage({ search, onSearchChange }: BackupsPageProps) {
         <StorageUsageBar />
         <MisplacedBackupsNotice />
 
-        <Section title="Backups">
+        <Section title={t("backups.page.title")}>
           {backups.isError && backups.data === undefined ? (
-            <ErrorBlock error={backups.error} title="Could not load backups" onRetry={() => void backups.refetch()} retrying={backups.isRefetching} />
+            <ErrorBlock error={backups.error} title={t("backups.page.loadError")} onRetry={() => void backups.refetch()} retrying={backups.isRefetching} />
           ) : backups.data !== undefined && all.length === 0 ? (
             <EmptyState
               icon={<Archive />}
-              title="No backups yet"
-              description="A backup is a snapshot of an application's files - and, if you ask for it, its databases too."
+              title={t("backups.page.empty.title")}
+              description={t("backups.page.empty.description")}
               action={
                 <CreateBackupDialog
                   trigger={
                     <Button variant="primary" icon={<Plus aria-hidden="true" />}>
-                      New backup
+                      {t("backups.page.newBackup")}
                     </Button>
                   }
                 />
@@ -96,44 +98,44 @@ export function BackupsPage({ search, onSearchChange }: BackupsPageProps) {
             />
           ) : (
             <div className="flex flex-col gap-4">
-              <div role="search" aria-label="Filter backups" className="flex flex-wrap items-center gap-2">
+              <div role="search" aria-label={t("backups.page.filterAria")} className="flex flex-wrap items-center gap-2">
                 <Select
-                  aria-label="Application"
+                  aria-label={t("backups.fields.application")}
                   size="sm"
                   value={search.domain ?? ALL}
                   onValueChange={(value) => set({ domain: value === ALL ? undefined : value })}
-                  options={[{ value: ALL, label: "Every application" }, ...domains.map((domain) => ({ value: domain, label: domain }))]}
+                  options={[{ value: ALL, label: t("backups.page.everyApplication") }, ...domains.map((domain) => ({ value: domain, label: domain }))]}
                 />
                 <Checkbox
                   checked={search.database === true}
                   onCheckedChange={(checked) => set({ database: checked ? true : undefined })}
-                  label="Includes a database"
+                  label={t("backups.page.includesDatabaseFilter")}
                 />
                 {filtered ? (
                   <Button size="sm" variant="ghost" icon={<X aria-hidden="true" />} onClick={() => onSearchChange({})}>
-                    Clear filters
+                    {t("backups.common.clearFilters")}
                   </Button>
                 ) : null}
               </div>
               <BackupsTable
                 backups={shown}
-                caption={filtered ? "Backups matching the filters" : "Every backup"}
+                caption={filtered ? t("backups.table.captionFiltered") : t("backups.table.captionAll")}
                 loading={backups.isPending}
                 {...(expected !== undefined && expected > 0 ? { skeletonRows: Math.min(expected, MAX_SKELETON_ROWS) } : {})}
                 empty={
                   <EmptyState
-                    title="No backup matches"
-                    description="Nothing matches these filters."
+                    title={t("backups.page.noMatch.title")}
+                    description={t("backups.page.noMatch.description")}
                     action={
                       <Button icon={<X aria-hidden="true" />} onClick={() => onSearchChange({})}>
-                        Clear filters
+                        {t("backups.common.clearFilters")}
                       </Button>
                     }
                     className="border-0 py-8"
                   />
                 }
               />
-              <CommandHint command="wasm backup list" label="From a terminal" />
+              <CommandHint command="wasm backup list" label={t("backups.common.fromTerminal")} />
             </div>
           )}
         </Section>

@@ -18,6 +18,8 @@ import { Menu, MenuItem } from "../../components/ui/Menu";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { toast } from "../../components/ui/toast";
+import { useT } from "../../i18n";
+import type { T } from "../../i18n";
 import { describeError } from "../../lib/errors";
 import { backendLabel } from "./backendCatalog";
 import { BrowseDestinationDialog } from "./BrowseDestinationDialog";
@@ -31,14 +33,14 @@ interface TestState {
 }
 
 /** One row's "Reachable" verdict, from a test run this session; nothing until one runs. */
-function TestCell({ state }: { state: TestState | undefined }) {
-  if (state === undefined) return <span className="text-13 text-fg-faint">Not tested</span>;
-  if (state.checking) return <StatusPill state="deploying" label="Testing" appearance="inline" size="sm" />;
-  if (state.ok === undefined) return <span className="text-13 text-fg-faint">Not tested</span>;
+function TestCell({ state, t }: { state: TestState | undefined; t: T }) {
+  if (state === undefined) return <span className="text-13 text-fg-faint">{t("backups.destinations.test.notTested")}</span>;
+  if (state.checking) return <StatusPill state="deploying" label={t("backups.destinations.test.testing")} appearance="inline" size="sm" />;
+  if (state.ok === undefined) return <span className="text-13 text-fg-faint">{t("backups.destinations.test.notTested")}</span>;
   return state.ok ? (
-    <StatusPill state="running" label="Reachable" appearance="inline" size="sm" />
+    <StatusPill state="running" label={t("backups.destinations.test.reachable")} appearance="inline" size="sm" />
   ) : (
-    <StatusPill state="failed" label="Unreachable" appearance="inline" size="sm" />
+    <StatusPill state="failed" label={t("backups.destinations.test.unreachable")} appearance="inline" size="sm" />
   );
 }
 
@@ -60,11 +62,10 @@ function RemoveDestinationDialog({
   onOpenChange: (open: boolean) => void;
   keySaved: boolean;
 }) {
+  const t = useT();
   const { remove } = useDestinationActions();
   const [force, setForce] = useState(false);
-  const leftBehind = keySaved
-    ? "Backups already copied here are kept, readable only with the key you saved."
-    : "Backups already copied here are kept.";
+  const leftBehind = keySaved ? t("backups.destinations.removeDialog.leftBehindKeyed") : t("backups.destinations.removeDialog.leftBehind");
 
   return (
     <ConfirmDialog
@@ -73,14 +74,14 @@ function RemoveDestinationDialog({
         if (!next) setForce(false);
         onOpenChange(next);
       }}
-      title={`Remove ${destination.name}`}
+      title={t("backups.destinations.removeDialog.title", { name: destination.name })}
       description={
         force
-          ? `A schedule still pushes backups here. Removing it anyway drops the reference from those schedules. ${leftBehind} Type the name again to remove it.`
-          : `${leftBehind} Nothing more will be sent to it. Refused while a schedule still pushes to it.`
+          ? t("backups.destinations.removeDialog.descriptionForce", { leftBehind })
+          : t("backups.destinations.removeDialog.descriptionRefused", { leftBehind })
       }
       confirmText={destination.name}
-      actionLabel={force ? "Remove anyway" : "Remove destination"}
+      actionLabel={force ? t("backups.destinations.removeDialog.actionForce") : t("backups.destinations.removeDialog.actionDefault")}
       onConfirm={async () => {
         try {
           await remove.mutateAsync({ name: destination.name, force, keySaved });
@@ -106,6 +107,7 @@ function DestinationActions({
   onTest: () => void;
   onBrowse: () => void;
 }) {
+  const t = useT();
   const [editOpen, setEditOpen] = useState(false);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [keyOpen, setKeyOpen] = useState(false);
@@ -115,23 +117,26 @@ function DestinationActions({
 
   return (
     <>
-      <Menu align="end" trigger={<IconButton label={`Actions for ${destination.name}`} icon={<MoreHorizontal />} size="sm" tooltip={false} />}>
+      <Menu
+        align="end"
+        trigger={<IconButton label={t("backups.destinations.actionsFor", { name: destination.name })} icon={<MoreHorizontal />} size="sm" tooltip={false} />}
+      >
         <MenuItem icon={<Wifi />} disabled={testState?.checking === true} onClick={onTest}>
-          Test
+          {t("backups.destinations.test.label")}
         </MenuItem>
         <MenuItem icon={<FolderOpen />} onClick={onBrowse}>
-          Browse
+          {t("backups.destinations.browse")}
         </MenuItem>
         <MenuItem icon={<Pencil />} onClick={() => setEditOpen(true)}>
-          Edit
+          {t("backups.common.edit")}
         </MenuItem>
         {destination.encrypted ? (
           <MenuItem icon={<KeyRound />} onClick={() => setKeyOpen(true)}>
-            Show encryption key
+            {t("backups.destinations.showKey")}
           </MenuItem>
         ) : null}
         <MenuItem icon={<Trash2 />} destructive onClick={() => (keyed ? setRemoveKeyOpen(true) : setRemoveOpen(true))}>
-          Remove
+          {t("backups.destinations.remove")}
         </MenuItem>
       </Menu>
       <DestinationDialog existing={destination} open={editOpen} onOpenChange={setEditOpen} />
@@ -157,6 +162,7 @@ function DestinationActions({
  * since nothing else on the server changes it.
  */
 export function DestinationsSection() {
+  const t = useT();
   const destinations = useQuery(backupDestinationsQuery());
   const { test } = useDestinationActions();
   const [addOpen, setAddOpen] = useState(false);
@@ -170,13 +176,16 @@ export function DestinationsSection() {
       onSuccess: (result) => {
         setTestStates((current) => ({ ...current, [name]: { checking: false, ok: result.ok } }));
         const entries = result.entries?.join(", ") ?? "";
-        if (result.ok) toast.success(`${name} is reachable`, entries !== "" ? { detail: entries } : {});
-        else toast.error(`${name} could not be reached`);
+        if (result.ok) toast.success(t("backups.destinations.toast.reachable", { name }), entries !== "" ? { detail: entries } : {});
+        else toast.error(t("backups.destinations.toast.unreachable", { name }));
       },
       onError: (error) => {
         setTestStates((current) => ({ ...current, [name]: { checking: false, ok: false } }));
         const described = describeError(error);
-        toast.error(`${name} could not be reached`, { detail: described.detail, ...(described.hint !== null ? { description: described.hint } : {}) });
+        toast.error(t("backups.destinations.toast.unreachable", { name }), {
+          detail: described.detail,
+          ...(described.hint !== null ? { description: described.hint } : {}),
+        });
       },
     });
   };
@@ -187,40 +196,45 @@ export function DestinationsSection() {
   };
 
   const columns: Column<Destination>[] = [
-    { id: "name", header: "Name", mono: true, cell: (row) => row.name, sortValue: (row) => row.name },
-    { id: "backend", header: "Backend", cell: (row) => backendLabel(row.backend), sortValue: (row) => backendLabel(row.backend) },
+    { id: "name", header: t("backups.destinations.columns.name"), mono: true, cell: (row) => row.name, sortValue: (row) => row.name },
+    {
+      id: "backend",
+      header: t("backups.destinations.columns.backend"),
+      cell: (row) => backendLabel(row.backend),
+      sortValue: (row) => backendLabel(row.backend),
+    },
     {
       id: "encrypted",
-      header: "Encrypted",
+      header: t("backups.destinations.encrypted"),
       cell: (row) =>
         row.encrypted ? (
           <span className="flex items-center gap-1.5 text-13 text-fg">
             <Lock aria-hidden="true" className="size-3.5 shrink-0 text-fg-muted" />
-            Encrypted
+            {t("backups.destinations.encrypted")}
           </span>
         ) : (
           <span className="flex items-center gap-1.5 text-13 text-fg-faint">
             <ShieldOff aria-hidden="true" className="size-3.5 shrink-0" />
-            Not encrypted
+            {t("backups.destinations.notEncrypted")}
           </span>
         ),
     },
     {
       id: "path",
-      header: "Path",
+      header: t("backups.destinations.columns.path"),
       hideBelow: "md",
       mono: true,
       cell: (row) => row.settings["path"] ?? "/",
     },
     {
       id: "test",
-      header: "Last test",
+      header: t("backups.destinations.columns.lastTest"),
       hideBelow: "sm",
-      cell: (row) => <TestCell state={testStates[row.name]} />,
+      cell: (row) => <TestCell state={testStates[row.name]} t={t} />,
     },
     {
       id: "updated",
-      header: "Updated",
+      header: t("backups.destinations.columns.updated"),
       hideBelow: "lg",
       cell: (row) => <RelativeTime value={row.updated_at} />,
       sortValue: (row) => row.updated_at ?? "",
@@ -229,16 +243,16 @@ export function DestinationsSection() {
 
   return (
     <Section
-      title="Destinations"
-      description="Remote places a backup can be copied to, by hand or on a schedule, over rclone."
+      title={t("backups.destinations.sectionTitle")}
+      description={t("backups.destinations.sectionDescription")}
       actions={
         destinations.data !== undefined && destinations.data.destinations.length > 0 ? (
           <>
             <Button size="sm" icon={<FolderOpen aria-hidden="true" />} onClick={() => openBrowse(undefined)}>
-              Browse
+              {t("backups.destinations.browse")}
             </Button>
             <Button size="sm" icon={<Plus aria-hidden="true" />} onClick={() => setAddOpen(true)}>
-              Add destination
+              {t("backups.destinations.add")}
             </Button>
           </>
         ) : undefined
@@ -258,11 +272,11 @@ export function DestinationsSection() {
         empty={
           <EmptyState
             icon={<Cloud />}
-            title="No destinations yet"
-            description="Add one to copy backups off this machine: an SFTP server, S3-compatible storage, Backblaze B2, or a cloud drive."
+            title={t("backups.destinations.empty.title")}
+            description={t("backups.destinations.empty.description")}
             action={
               <Button icon={<Plus aria-hidden="true" />} onClick={() => setAddOpen(true)}>
-                Add destination
+                {t("backups.destinations.add")}
               </Button>
             }
             command="wasm backup destination add <name> --type <backend>"
@@ -274,7 +288,7 @@ export function DestinationsSection() {
             columns={columns}
             rows={data.destinations}
             getRowId={(row) => row.name}
-            caption="Backup destinations"
+            caption={t("backups.destinations.caption")}
             rowActions={(row) => (
               <DestinationActions
                 destination={row}

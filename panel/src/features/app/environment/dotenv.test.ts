@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../../app/locale";
 import {
   nameProblem,
   parseDotenv,
@@ -99,5 +100,15 @@ describe("what the API accepts", () => {
     expect(valueProblem("caf\xe9")).toBeNull();
     expect(valueProblem("a\tb")).toMatch(/a tab/);
     expect(valueProblem("a\x7fb")).toMatch(/U\+007F/);
+  });
+});
+
+describe("in Spanish", () => {
+  it("names the same problems, in Spanish", async () => {
+    await setLocale("es");
+    expect(nameProblem("MY VAR", "es")).toMatch(/no es un nombre de variable válido/);
+    expect(nameProblem("", "es")).toMatch(/ningún nombre/);
+    expect(valueProblem("a\tb", "es")).toMatch(/un tabulador/);
+    expect(valueProblem("a\x7fb", "es")).toMatch(/U\+007F/);
   });
 });

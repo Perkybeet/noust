@@ -1,7 +1,8 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
@@ -89,5 +90,34 @@ describe("the grant dialog's privilege list", () => {
     expect(within(dialog).getByText("connection to the database refused")).toBeInTheDocument();
     expect(within(dialog).getByRole("combobox", { name: "Database" })).toBeInTheDocument();
     await expectNoAxeViolations(dialog);
+  });
+
+  describe("in Spanish", () => {
+    it("translates the dialog's title, fields and buttons", async () => {
+      await act(() => setLocale("es"));
+      const backend = fakeBackend({
+        ...signedInRoutes(),
+        "GET /api/databases/engines": () => json(200, ENGINES),
+        "GET /api/databases/databases": () => json(200, DATABASES),
+        "GET /api/databases/users/postgresql": () => json(200, USERS),
+        "GET /api/databases/engines/postgresql/privileges": () =>
+          json(200, { engine: "postgresql", privileges: ["ALL PRIVILEGES", "INSERT", "SELECT"] }),
+      });
+      renderConsole("/databases");
+      await screen.findByRole("heading", { level: 1, name: "Bases de datos" });
+      const users = await screen.findByRole("region", { name: "Usuarios" });
+      const user = userEvent.setup();
+      await user.click(await within(users).findByRole("button", { name: "Acciones para wasm_app" }));
+      await user.click(await screen.findByRole("menuitem", { name: "Conceder privilegios" }));
+      const dialog = await screen.findByRole("dialog", { name: "Conceder privilegios a wasm_app" });
+
+      expect(within(dialog).getByRole("combobox", { name: "Base de datos" })).toBeInTheDocument();
+      expect(within(dialog).getByText("Privilegios")).toBeInTheDocument();
+      expect(await within(dialog).findByRole("checkbox", { name: "SELECT" })).toBeInTheDocument();
+      expect(within(dialog).getByRole("button", { name: "Cancelar" })).toBeInTheDocument();
+      expect(within(dialog).getByRole("button", { name: "Conceder" })).toBeInTheDocument();
+      await expectNoAxeViolations(dialog);
+      expect(backend.callsTo("GET /api/databases/engines/postgresql/privileges")).toHaveLength(1);
+    });
   });
 });

@@ -11,6 +11,9 @@
  */
 
 import type { ConsoleConfig, SmtpBody, SmtpSettings, TelegramChat } from "../../api/queries/config";
+import { getLocale } from "../../app/locale";
+import { translate } from "../../i18n";
+import type { Locale, T } from "../../i18n";
 
 /** What the server sends in place of a secret, and accepts back as "keep the stored one". */
 export const REDACTED = "***";
@@ -38,10 +41,10 @@ export interface ChannelField {
  * warns before saving instead of after the first message never arrives. 13+ digits is a
  * supergroup's own id range with the sign stripped; a personal chat's id is far shorter.
  */
-export function telegramChatIdWarning(value: string): string | null {
+export function telegramChatIdWarning(value: string, locale: Locale = getLocale()): string | null {
   const trimmed = value.trim();
   if (!/^\d{13,}$/.test(trimmed)) return null;
-  return `This looks like a group's chat ID without its minus sign. Groups and supergroups use a negative ID (a supergroup's starts with -100); try -${trimmed}.`;
+  return translate(locale, "settings.notifications.telegram.idWarning", { value: trimmed });
 }
 
 export interface ChannelSpec {
@@ -51,49 +54,83 @@ export interface ChannelSpec {
   fields: readonly ChannelField[];
 }
 
-/** In the notifier's delivery order (wasm.core.notifier.CHANNELS). */
-export const CHANNELS: readonly ChannelSpec[] = [
-  {
-    id: "webhook",
-    label: "Webhook",
-    description: "Your own endpoint receives a JSON POST with the event, a title, a body, the domain and the time.",
-    fields: [{ key: "webhook_url", label: "Endpoint URL", secret: true, placeholder: "https://hooks.example.com/wasm" }],
-  },
-  {
-    id: "slack",
-    label: "Slack",
-    description: "Posts to a channel through a Slack incoming webhook.",
-    fields: [{ key: "webhook_url", label: "Incoming webhook URL", secret: true, placeholder: "https://hooks.slack.com/services/..." }],
-  },
-  {
-    id: "discord",
-    label: "Discord",
-    description: "Posts to a channel through a Discord webhook.",
-    fields: [{ key: "webhook_url", label: "Webhook URL", secret: true, placeholder: "https://discord.com/api/webhooks/..." }],
-  },
-  {
-    id: "telegram",
-    label: "Telegram",
-    description: "Your bot sends the message to one chat.",
-    fields: [
-      { key: "bot_token", label: "Bot token", secret: true, placeholder: "123456789:AAH..." },
-      {
-        key: "chat_id",
-        label: "Chat ID",
-        secret: false,
-        placeholder: "-1001234567890",
-        description: "A group or supergroup's chat ID is negative, and a supergroup's starts with -100. A personal chat's is a smaller positive number.",
-        warn: telegramChatIdWarning,
-      },
-    ],
-  },
-  {
-    id: "email",
-    label: "Email",
-    description: "Sent through your SMTP server to the recipients below. The resource monitor's own reports use the same account.",
-    fields: [],
-  },
-];
+/** The channel ids and their field keys, in the notifier's delivery order (wasm.core.notifier.CHANNELS). */
+export const CHANNEL_IDS: readonly ChannelId[] = ["webhook", "slack", "discord", "telegram", "email"];
+
+const CHANNEL_FIELD_KEYS: Readonly<Record<ChannelId, readonly string[]>> = {
+  webhook: ["webhook_url"],
+  slack: ["webhook_url"],
+  discord: ["webhook_url"],
+  telegram: ["bot_token", "chat_id"],
+  email: [],
+};
+
+/** The channels, translated, in the notifier's delivery order. */
+export function channels(t: T): readonly ChannelSpec[] {
+  return [
+    {
+      id: "webhook",
+      label: t("settings.notifications.channels.webhook.label"),
+      description: t("settings.notifications.channels.webhook.description"),
+      fields: [
+        {
+          key: "webhook_url",
+          label: t("settings.notifications.channels.webhook.endpointUrlLabel"),
+          secret: true,
+          placeholder: "https://hooks.example.com/wasm",
+        },
+      ],
+    },
+    {
+      id: "slack",
+      label: t("settings.notifications.channels.slack.label"),
+      description: t("settings.notifications.channels.slack.description"),
+      fields: [
+        {
+          key: "webhook_url",
+          label: t("settings.notifications.channels.slack.webhookUrlLabel"),
+          secret: true,
+          placeholder: "https://hooks.slack.com/services/...",
+        },
+      ],
+    },
+    {
+      id: "discord",
+      label: t("settings.notifications.channels.discord.label"),
+      description: t("settings.notifications.channels.discord.description"),
+      fields: [
+        {
+          key: "webhook_url",
+          label: t("settings.notifications.channels.discord.webhookUrlLabel"),
+          secret: true,
+          placeholder: "https://discord.com/api/webhooks/...",
+        },
+      ],
+    },
+    {
+      id: "telegram",
+      label: t("settings.notifications.telegram.label"),
+      description: t("settings.notifications.telegram.description"),
+      fields: [
+        { key: "bot_token", label: t("settings.notifications.telegram.botTokenLabel"), secret: true, placeholder: "123456789:AAH..." },
+        {
+          key: "chat_id",
+          label: t("settings.notifications.telegram.chatIdLabel"),
+          secret: false,
+          placeholder: "-1001234567890",
+          description: t("settings.notifications.telegram.chatIdDescription"),
+          warn: (value: string) => telegramChatIdWarning(value, t.locale),
+        },
+      ],
+    },
+    {
+      id: "email",
+      label: t("settings.notifications.email.label"),
+      description: t("settings.notifications.email.description"),
+      fields: [],
+    },
+  ];
+}
 
 export interface EventSpec {
   kind: string;
@@ -103,30 +140,34 @@ export interface EventSpec {
   unsent?: true;
 }
 
-/** In the notifier's order (wasm.core.notifier.EVENT_KINDS), described by who sends them. */
-export const EVENTS: readonly EventSpec[] = [
-  {
-    kind: "deploy_started",
-    label: "Deployment started",
-    description: "A deploy, update or rollback began. Noisy: one message per attempt, whatever it goes on to do.",
-  },
-  { kind: "deploy_success", label: "Deploy finished", description: "A deploy, update or rollback completed." },
-  { kind: "deploy_failed", label: "Deploy failed", description: "A deploy, update or rollback failed, with the tool's own error." },
-  {
-    kind: "deploy_rolled_back",
-    label: "Deployment rolled back",
-    description: "A new version failed its health check, and the previous one is serving again.",
-  },
-  {
-    kind: "cert_expiring",
-    label: "Certificate expiring",
-    description: "A certificate is close to its expiry date.",
-    unsent: true,
-  },
-  { kind: "unit_failed", label: "Service down", description: "A watched service stopped running. Sent by the monitor." },
-  { kind: "disk_threshold", label: "Disk almost full", description: "A disk passed 90% usage. Sent by the monitor." },
-  { kind: "backup_failed", label: "Backup failed", description: "A backup job failed." },
+/** The event kinds, in the notifier's order (wasm.core.notifier.EVENT_KINDS). */
+export const EVENT_KINDS: readonly string[] = [
+  "deploy_started",
+  "deploy_success",
+  "deploy_failed",
+  "deploy_rolled_back",
+  "cert_expiring",
+  "unit_failed",
+  "disk_threshold",
+  "backup_failed",
 ];
+
+const UNSENT_EVENTS: ReadonlySet<string> = new Set(["cert_expiring"]);
+
+/** The events, translated, in the notifier's order, described by who sends them. */
+export function events(t: T): readonly EventSpec[] {
+  const specs: readonly Omit<EventSpec, "unsent">[] = [
+    { kind: "deploy_started", label: t("settings.notifications.events.deployStarted.label"), description: t("settings.notifications.events.deployStarted.description") },
+    { kind: "deploy_success", label: t("settings.notifications.events.deploySuccess.label"), description: t("settings.notifications.events.deploySuccess.description") },
+    { kind: "deploy_failed", label: t("settings.notifications.events.deployFailed.label"), description: t("settings.notifications.events.deployFailed.description") },
+    { kind: "deploy_rolled_back", label: t("settings.notifications.events.deployRolledBack.label"), description: t("settings.notifications.events.deployRolledBack.description") },
+    { kind: "cert_expiring", label: t("settings.notifications.events.certExpiring.label"), description: t("settings.notifications.events.certExpiring.description") },
+    { kind: "unit_failed", label: t("settings.notifications.events.unitFailed.label"), description: t("settings.notifications.events.unitFailed.description") },
+    { kind: "disk_threshold", label: t("settings.notifications.events.diskThreshold.label"), description: t("settings.notifications.events.diskThreshold.description") },
+    { kind: "backup_failed", label: t("settings.notifications.events.backupFailed.label"), description: t("settings.notifications.events.backupFailed.description") },
+  ];
+  return specs.map((spec) => (UNSENT_EVENTS.has(spec.kind) ? { ...spec, unsent: true } : spec));
+}
 
 export interface SmtpFacts {
   host: string;
@@ -143,6 +184,8 @@ export interface NotificationSettings {
   emailEnabled: boolean;
   allowPrivateHosts: readonly string[];
   smtp: SmtpFacts;
+  /** The language WASM writes its own notification text in ("en" or "es"). */
+  language: Locale;
 }
 
 type Tree = Record<string, unknown>;
@@ -174,21 +217,22 @@ export function readNotificationSettings(config: ConsoleConfig["config"]): Notif
   const monitor = branch(config, "monitor");
   const smtp = branch(monitor, "smtp");
 
-  const channels = {} as Record<ChannelId, Record<string, string>>;
-  for (const spec of CHANNELS) {
-    const stored = branch(channelsBlock, spec.id);
-    channels[spec.id] = Object.fromEntries(spec.fields.map((field) => [field.key, text(stored, field.key)]));
+  const channelValues = {} as Record<ChannelId, Record<string, string>>;
+  for (const id of CHANNEL_IDS) {
+    const stored = branch(channelsBlock, id);
+    channelValues[id] = Object.fromEntries(CHANNEL_FIELD_KEYS[id].map((key) => [key, text(stored, key)]));
   }
-  const events: Record<string, boolean> = {};
-  for (const spec of EVENTS) {
+  const eventValues: Record<string, boolean> = {};
+  for (const kind of EVENT_KINDS) {
     // The notifier treats an event missing from the file as on (events.get(kind, True)).
-    events[spec.kind] = eventsBlock[spec.kind] !== false;
+    eventValues[kind] = eventsBlock[kind] !== false;
   }
   const port = smtp["port"];
+  const language = text(block, "language");
   return {
     enabled: block["enabled"] === true,
-    events,
-    channels,
+    events: eventValues,
+    channels: channelValues,
     emailEnabled: branch(channelsBlock, "email")["enabled"] === true,
     allowPrivateHosts: strings(block["allow_private_hosts"]),
     smtp: {
@@ -197,6 +241,7 @@ export function readNotificationSettings(config: ConsoleConfig["config"]): Notif
       from: text(smtp, "from_address"),
       recipients: strings(monitor["email_recipients"]),
     },
+    language: language === "es" ? "es" : "en",
   };
 }
 
@@ -264,16 +309,38 @@ export function parseHostList(value: string): string[] {
  */
 export type SmtpSecurity = "ssl" | "starttls" | "none";
 
-export const SMTP_SECURITY: readonly { value: SmtpSecurity; label: string; port: number; description: string }[] = [
-  { value: "ssl", label: "SSL/TLS", port: 465, description: "Encrypted from the first byte (implicit TLS), usually on port 465." },
-  { value: "starttls", label: "STARTTLS", port: 587, description: "Connects in the clear and upgrades to TLS before anything is sent, usually on port 587." },
-  {
-    value: "none",
-    label: "None",
-    port: 25,
-    description: "Unencrypted, for an anonymous relay on this machine or a private network. A username or password is never sent this way.",
-  },
-];
+const SMTP_SECURITY_PORTS: Readonly<Record<SmtpSecurity, number>> = { ssl: 465, starttls: 587, none: 25 };
+
+export interface SmtpSecurityOption {
+  value: SmtpSecurity;
+  label: string;
+  port: number;
+  description: string;
+}
+
+/** The three TLS combinations, translated, each naming its usual port. */
+export function smtpSecurityOptions(t: T): readonly SmtpSecurityOption[] {
+  return [
+    {
+      value: "ssl",
+      label: t("settings.notifications.email.security.ssl.label"),
+      port: SMTP_SECURITY_PORTS.ssl,
+      description: t("settings.notifications.email.security.ssl.description"),
+    },
+    {
+      value: "starttls",
+      label: t("settings.notifications.email.security.starttls.label"),
+      port: SMTP_SECURITY_PORTS.starttls,
+      description: t("settings.notifications.email.security.starttls.description"),
+    },
+    {
+      value: "none",
+      label: t("settings.notifications.email.security.none.label"),
+      port: SMTP_SECURITY_PORTS.none,
+      description: t("settings.notifications.email.security.none.description"),
+    },
+  ];
+}
 
 export interface SmtpForm {
   host: string;
@@ -366,9 +433,9 @@ export function smtpBody(form: SmtpForm): SmtpBody {
  * choice's usual port; otherwise the port as it is, since the operator chose it on purpose.
  */
 export function portForSecurity(port: string, from: SmtpSecurity, to: SmtpSecurity): string {
-  const previous = SMTP_SECURITY.find((option) => option.value === from)?.port;
-  const next = SMTP_SECURITY.find((option) => option.value === to)?.port;
-  return next !== undefined && port.trim() === String(previous) ? String(next) : port;
+  const previous = SMTP_SECURITY_PORTS[from];
+  const next = SMTP_SECURITY_PORTS[to];
+  return port.trim() === String(previous) ? String(next) : port;
 }
 
 /** The same shape `wasm.core.config._EMAIL_PATTERN` accepts: something@something.tld, no spaces. */
@@ -402,21 +469,25 @@ export function refusedRecipients(message: string | undefined, recipients: reado
 // ---------------------------------------------------------------------------------------
 // Telegram: the chats the bot has seen
 
-const CHAT_TYPES: Readonly<Record<string, string>> = {
-  private: "Private chat",
-  group: "Group",
-  supergroup: "Supergroup",
-  channel: "Channel",
-};
-
 /** A chat's type in words. */
-export function telegramChatType(type: string): string {
-  return CHAT_TYPES[type] ?? type;
+export function telegramChatType(type: string, locale: Locale = getLocale()): string {
+  switch (type) {
+    case "private":
+      return translate(locale, "settings.notifications.telegram.chatType.private");
+    case "group":
+      return translate(locale, "settings.notifications.telegram.chatType.group");
+    case "supergroup":
+      return translate(locale, "settings.notifications.telegram.chatType.supergroup");
+    case "channel":
+      return translate(locale, "settings.notifications.telegram.chatType.channel");
+    default:
+      return type;
+  }
 }
 
 /** What a chat is called: its title, else its @username, else its type. */
-export function telegramChatName(chat: TelegramChat): string {
+export function telegramChatName(chat: TelegramChat, locale: Locale = getLocale()): string {
   if (chat.title) return chat.title;
   if (chat.username) return `@${chat.username}`;
-  return telegramChatType(chat.type);
+  return telegramChatType(chat.type, locale);
 }

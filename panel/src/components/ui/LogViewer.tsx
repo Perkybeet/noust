@@ -3,6 +3,7 @@ import { ArrowDown, ArrowDownToLine, ChevronDown, ChevronUp, Download, Search, W
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 
+import { useT } from "../../i18n";
 import type { AnsiSegment, AnsiStyle } from "../../lib/ansi";
 import { ansiClassName, parseAnsi } from "../../lib/ansi";
 import { downloadText } from "../../lib/clipboard";
@@ -190,11 +191,12 @@ export function LogViewer({
   pageSearch = false,
   wrap: initialWrap,
   onLoadMore,
-  label = "Log output",
+  label,
   filename = "wasm.log",
-  emptyMessage = "No output yet.",
+  emptyMessage,
   className,
 }: LogViewerProps) {
+  const t = useT();
   const scrollRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const lastTop = useRef(0);
@@ -373,8 +375,8 @@ export function LogViewer({
               ref={searchRef}
               size="sm"
               type="search"
-              aria-label="Search output"
-              placeholder="Search output"
+              aria-label={t("common.logViewer.searchLabel")}
+              placeholder={t("common.logViewer.searchLabel")}
               icon={<Search />}
               value={query}
               onValueChange={onQueryChange}
@@ -384,13 +386,17 @@ export function LogViewer({
               {...(pageSearch ? { "data-page-search": "" } : {})}
             />
             <span role="status" className="mono shrink-0 text-12 whitespace-nowrap text-fg-muted">
-              {needle === "" ? "" : matches.length === 0 ? "No matches" : `${String(current + 1)} of ${String(matches.length)}`}
+              {needle === ""
+                ? ""
+                : matches.length === 0
+                  ? t("common.logViewer.noMatches")
+                  : t("common.logViewer.matchPosition", { current: current + 1, total: matches.length })}
             </span>
             {needle !== "" ? (
               <span className="flex shrink-0">
                 <IconButton
                   size="sm"
-                  label="Previous match"
+                  label={t("common.logViewer.previousMatch")}
                   icon={<ChevronUp />}
                   shortcut={["Shift", "Enter"]}
                   disabled={matches.length === 0}
@@ -398,7 +404,7 @@ export function LogViewer({
                 />
                 <IconButton
                   size="sm"
-                  label="Next match"
+                  label={t("common.logViewer.nextMatch")}
                   icon={<ChevronDown />}
                   shortcut={["Enter"]}
                   disabled={matches.length === 0}
@@ -419,13 +425,19 @@ export function LogViewer({
             onClick={() => (following ? pause() : jumpToLatest())}
             className="mr-1 aria-pressed:bg-surface-active aria-pressed:text-fg"
           >
-            <span className="max-sm:sr-only">Follow</span>
+            <span className="max-sm:sr-only">{t("common.logViewer.follow")}</span>
           </Button>
-          <IconButton size="sm" label="Wrap lines" icon={<WrapText />} pressed={wrap} onClick={() => setWrap((v) => !v)} />
-          <CopyButton value={plainText} label="Copy output" aria-describedby={fullLogHintId} />
           <IconButton
             size="sm"
-            label="Download output"
+            label={t("common.logViewer.wrapLines")}
+            icon={<WrapText />}
+            pressed={wrap}
+            onClick={() => setWrap((v) => !v)}
+          />
+          <CopyButton value={plainText} label={t("common.copyButton.copyOutput")} aria-describedby={fullLogHintId} />
+          <IconButton
+            size="sm"
+            label={t("common.logViewer.downloadOutput")}
             icon={<Download />}
             disabled={lines.length === 0}
             onClick={() => downloadText(filename, `${plainText()}\n`)}
@@ -435,7 +447,7 @@ export function LogViewer({
               reader reading the region finds just those, so it has to be told that Copy and
               Download act on the whole log, not only what happens to be rendered. */}
           <span id={fullLogHintId} className="sr-only">
-            Copies or downloads the entire log, not only the lines currently shown.
+            {t("common.logViewer.fullLogHint")}
           </span>
         </div>
       </div>
@@ -444,13 +456,13 @@ export function LogViewer({
         <div
           ref={scrollRef}
           role="region"
-          aria-label={label}
+          aria-label={label ?? t("common.logViewer.label")}
           tabIndex={0}
           onScroll={onScroll}
           className="mono h-full overflow-auto py-1.5 text-12 leading-5 text-fg scroll-thin focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus"
         >
           {lines.length === 0 ? (
-            <p className="px-4 py-3 font-sans text-13 text-fg-faint">{emptyMessage}</p>
+            <p className="px-4 py-3 font-sans text-13 text-fg-faint">{emptyMessage ?? t("common.logViewer.empty")}</p>
           ) : (
             <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
               {virtualizer.getVirtualItems().map((item) => {
@@ -501,11 +513,11 @@ export function LogViewer({
             )}
           >
             <ArrowDown aria-hidden="true" className="size-3.5" />
-            Jump to latest
+            {t("common.logViewer.jumpToLatest")}
             {newLines > 0 ? (
               <span className="mono text-12 text-accent-fg">
                 +{newLines}
-                <span className="sr-only"> new lines</span>
+                <span className="sr-only"> {t("common.logViewer.newLines")}</span>
               </span>
             ) : null}
           </button>

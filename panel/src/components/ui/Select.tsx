@@ -1,7 +1,7 @@
 import { Select as BaseSelect } from "@base-ui/react/select";
 import { Check, ChevronsUpDown } from "lucide-react";
 
-
+import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { CONTROL_FRAME } from "./Input";
 import { POPUP_MOTION } from "./Tooltip";
@@ -37,7 +37,7 @@ export function Select<V extends string = string>({
   value,
   defaultValue,
   onValueChange,
-  placeholder = "Select",
+  placeholder,
   label,
   "aria-label": ariaLabel,
   name,
@@ -46,6 +46,7 @@ export function Select<V extends string = string>({
   mono = false,
   className,
 }: SelectProps<V>) {
+  const t = useT();
   const items = options.map((o) => ({ value: o.value, label: o.label }));
   return (
     <BaseSelect.Root<V>
@@ -78,7 +79,7 @@ export function Select<V extends string = string>({
         )}
       >
         <BaseSelect.Value
-          placeholder={placeholder}
+          placeholder={placeholder ?? t("common.select.placeholder")}
           className={cx("truncate data-placeholder:text-fg-faint", mono && "mono")}
         />
         <BaseSelect.Icon className="flex text-fg-faint">

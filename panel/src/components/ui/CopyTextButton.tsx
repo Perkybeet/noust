@@ -1,5 +1,6 @@
 import { Check, Copy } from "lucide-react";
 
+import { useT } from "../../i18n";
 import { Button } from "./Button";
 import type { ButtonSize, ButtonVariant } from "./Button";
 import { useCopyState } from "./useCopyState";
@@ -19,6 +20,7 @@ export interface CopyTextButtonProps {
  * codes): the words stay, the icon confirms, and the outcome is announced.
  */
 export function CopyTextButton({ value, children, variant = "secondary", size = "md", className }: CopyTextButtonProps) {
+  const t = useT();
   const { state, copy } = useCopyState(2000);
   return (
     <>
@@ -32,7 +34,7 @@ export function CopyTextButton({ value, children, variant = "secondary", size = 
         {children}
       </Button>
       <span role="status" className="sr-only">
-        {state === "copied" ? "Copied to clipboard" : state === "failed" ? "Copy failed. Select the text and copy it by hand." : ""}
+        {state === "copied" ? t("common.copyButton.copied") : state === "failed" ? t("common.copyTextButton.failed") : ""}
       </span>
     </>
   );

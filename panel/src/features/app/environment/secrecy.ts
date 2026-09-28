@@ -10,6 +10,10 @@
  */
 
 import type { AppEnv } from "../../../api/queries/apps";
+import { getLocale } from "../../../app/locale";
+import type { Locale } from "../../../app/locale";
+import { translate } from "../../../i18n/translate";
+import type { MessageKey } from "../../../i18n/types";
 
 export type EnvSecrecy = NonNullable<AppEnv["secrets"]>[string];
 
@@ -35,38 +39,41 @@ export function markFor(choice: SecrecyChoice): boolean | null {
  * `wasm.core.secret_detection._value_pattern_kind` returns, sent over the wire as
  * `"value: <kind>"`.
  */
-const VALUE_KIND_PHRASES: Readonly<Record<string, string>> = {
-  stripe: "a Stripe key",
-  "github token": "a GitHub token",
-  "gitlab token": "a GitLab token",
-  "slack token": "a Slack token",
-  "aws access key": "an AWS access key",
-  "google api key": "a Google API key",
-  "sendgrid api key": "a SendGrid API key",
-  "twilio credential": "a Twilio credential",
-  "api key": "an API key",
-  "private key": "a private key",
-  jwt: "a JSON Web Token",
-  "high entropy": "a random secret",
+const VALUE_KIND_KEYS: Readonly<Record<string, MessageKey>> = {
+  stripe: "environment.secrecy.valueKindStripe",
+  "github token": "environment.secrecy.valueKindGithubToken",
+  "gitlab token": "environment.secrecy.valueKindGitlabToken",
+  "slack token": "environment.secrecy.valueKindSlackToken",
+  "aws access key": "environment.secrecy.valueKindAwsAccessKey",
+  "google api key": "environment.secrecy.valueKindGoogleApiKey",
+  "sendgrid api key": "environment.secrecy.valueKindSendgridApiKey",
+  "twilio credential": "environment.secrecy.valueKindTwilioCredential",
+  "api key": "environment.secrecy.valueKindApiKey",
+  "private key": "environment.secrecy.valueKindPrivateKey",
+  jwt: "environment.secrecy.valueKindJwt",
+  "high entropy": "environment.secrecy.valueKindHighEntropy",
 };
 
 /** The second half of `secrecyLine`: `classify`'s `reason`, decoded to plain words. */
-function secrecyWhy(reason: string): string {
+function secrecyWhy(reason: string, locale: Locale): string {
   switch (reason) {
     case "marked secret":
-      return "marked secret by you";
+      return translate(locale, "environment.secrecy.reasonMarkedSecret");
     case "marked not secret":
-      return "marked not secret by you";
+      return translate(locale, "environment.secrecy.reasonMarkedNotSecret");
     case "name":
-      return "its name suggests a secret";
+      return translate(locale, "environment.secrecy.reasonName");
     case "url credentials":
-      return "the URL carries credentials";
+      return translate(locale, "environment.secrecy.reasonUrlCredentials");
     case "plain":
-      return "nothing about it looks like a secret";
+      return translate(locale, "environment.secrecy.reasonPlain");
     default:
       if (reason.startsWith("value: ")) {
         const kind = reason.slice("value: ".length);
-        return `its value looks like ${VALUE_KIND_PHRASES[kind] ?? "a secret"}`;
+        const key = VALUE_KIND_KEYS[kind];
+        return translate(locale, "environment.secrecy.reasonValue", {
+          kind: key ? translate(locale, key) : translate(locale, "environment.secrecy.valueKindFallback"),
+        });
       }
       // An unrecognised reason is shown verbatim rather than guessed at.
       return reason;
@@ -74,35 +81,29 @@ function secrecyWhy(reason: string): string {
 }
 
 /** "Hidden: its value looks like a Stripe key" - whether a value is hidden, and why. */
-export function secrecyLine(verdict: EnvSecrecy): string {
-  return `${verdict.secret ? "Hidden" : "Shown"}: ${secrecyWhy(verdict.reason)}`;
+export function secrecyLine(verdict: EnvSecrecy, locale: Locale = getLocale()): string {
+  return translate(locale, verdict.secret ? "environment.secrecy.lineHidden" : "environment.secrecy.lineShown", {
+    why: secrecyWhy(verdict.reason, locale),
+  });
 }
-
-const STATE_LABEL: Readonly<Record<SecrecyChoice, string>> = {
-  secret: "always hidden",
-  "not-secret": "always shown",
-  auto: "decided automatically",
-};
 
 /** How a choice reads as the current state: "always hidden", for a trigger's own label. */
-export function secrecyStateLabel(choice: SecrecyChoice): string {
-  return STATE_LABEL[choice];
+export function secrecyStateLabel(choice: SecrecyChoice, locale: Locale = getLocale()): string {
+  if (choice === "secret") return translate(locale, "environment.secrecy.stateSecret");
+  if (choice === "not-secret") return translate(locale, "environment.secrecy.stateNotSecret");
+  return translate(locale, "environment.secrecy.stateAuto");
 }
 
-const ACTION_LABEL: Readonly<Record<SecrecyChoice, string>> = {
-  secret: "Treat as secret",
-  "not-secret": "Treat as not secret",
-  auto: "Decide automatically",
-};
-
 /** What choosing an option does, as a menu item's own words. */
-export function secrecyActionLabel(choice: SecrecyChoice): string {
-  return ACTION_LABEL[choice];
+export function secrecyActionLabel(choice: SecrecyChoice, locale: Locale = getLocale()): string {
+  if (choice === "secret") return translate(locale, "environment.secrecy.actionSecret");
+  if (choice === "not-secret") return translate(locale, "environment.secrecy.actionNotSecret");
+  return translate(locale, "environment.secrecy.actionAuto");
 }
 
 /** What changed, once a mark is saved - for the tab's live region. */
-export function secrecyMarkAnnouncement(name: string, mark: boolean | null): string {
-  if (mark === true) return `${name} is now always hidden`;
-  if (mark === false) return `${name} is now always shown`;
-  return `${name} is now classified automatically`;
+export function secrecyMarkAnnouncement(name: string, mark: boolean | null, locale: Locale = getLocale()): string {
+  if (mark === true) return translate(locale, "environment.secrecy.announceHidden", { name });
+  if (mark === false) return translate(locale, "environment.secrecy.announceShown", { name });
+  return translate(locale, "environment.secrecy.announceAuto", { name });
 }

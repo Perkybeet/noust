@@ -1,6 +1,7 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../../app/locale";
 import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { APPS, FakeEventSource, SESSION, fakeBackend, json, problem, signedInRoutes } from "../../../test/fakes";
@@ -218,6 +219,16 @@ describe("zero downtime", () => {
     await user.click(await within(panel).findByRole("button", { name: "Turn on zero downtime" }));
     await expectNoAxeViolations(await screen.findByRole("dialog"));
   });
+
+  it("renders in Spanish, with no accessibility violations", async () => {
+    const { panel } = await settingsWith(() => ON);
+    await act(() => setLocale("es"));
+    await within(panel).findByRole("list", { name: "Instancias" });
+    expect(within(panel).getByText("Activado")).toBeInTheDocument();
+    expect(within(panel).getByText("Azul")).toBeInTheDocument();
+    expect(within(panel).getByText("Sirviendo")).toBeInTheDocument();
+    await expectNoAxeViolations(panel);
+  });
 });
 
 describe("the drain and the instances' names", () => {
@@ -232,5 +243,14 @@ describe("the drain and the instances' names", () => {
   it("names an instance by its colour, as a word", () => {
     expect(instanceName("blue")).toBe("Blue");
     expect(instanceName("green")).toBe("Green");
+  });
+
+  it("holds the same rules and names, in Spanish", async () => {
+    await setLocale("es");
+    expect(parseDrain("301", "es").error).toBe("El vaciado va de 0 a 300 segundos, no 301.");
+    expect(parseDrain("1.5", "es").error).toBe("Indica un número entero de segundos de 0 a 300.");
+    expect(instanceName("blue", "es")).toBe("Azul");
+    expect(instanceName("green", "es")).toBe("Verde");
+    expect(instanceName("", "es")).toBe("Instancia");
   });
 });

@@ -23,6 +23,8 @@ import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { toast } from "../../components/ui/toast";
+import { useT } from "../../i18n";
+import type { T } from "../../i18n";
 import { downloadText } from "../../lib/clipboard";
 import { cx } from "../../lib/cx";
 import { reportActionError } from "../apps/useAppActions";
@@ -65,9 +67,10 @@ export interface EnrollDialogProps {
  * own key-based reset.
  */
 export function EnrollDialog({ open, enrollment, onClose }: EnrollDialogProps) {
+  const t = useT();
   const refresh = useRefreshTwoFactor();
   const { data: session } = useQuery(sessionQuery());
-  const hostname = session?.hostname ?? "this server";
+  const hostname = session?.hostname ?? t("settings.security.twoFactor.thisServer");
   const [codes, setCodes] = useState<readonly string[] | null>(null);
   const [code, setCode] = useState("");
   const [saved, setSaved] = useState(false);
@@ -96,7 +99,7 @@ export function EnrollDialog({ open, enrollment, onClose }: EnrollDialogProps) {
       savedRef.current?.querySelector<HTMLElement>("[role=checkbox]")?.focus();
       return;
     }
-    if (codes !== null) toast.success("Turned on two-factor authentication");
+    if (codes !== null) toast.success(t("settings.security.twoFactor.enroll.turnedOn"));
     // The secret, its QR URI and the backup codes are plaintext in state only while this
     // dialog is open; closing it - cancelled, confirmed, or dismissed however it closes -
     // wipes them, rather than leaving them sitting in memory for as long as this settings
@@ -121,7 +124,7 @@ export function EnrollDialog({ open, enrollment, onClose }: EnrollDialogProps) {
         open={open}
         codes={codes}
         hostname={hostname}
-        description="Two-factor authentication is on. Each backup code signs in once if your authenticator is lost. WASM keeps only their hashes, so this is the only time they are shown."
+        description={t("settings.security.twoFactor.backupCodes.enabledDescription")}
         saved={saved}
         nudge={nudge}
         savedRef={savedRef}
@@ -140,8 +143,8 @@ export function EnrollDialog({ open, enrollment, onClose }: EnrollDialogProps) {
       onOpenChange={onOpenChange}
       size="lg"
       initialFocus={codeRef}
-      title="Set up two-factor authentication"
-      description="Sign-in and destructive actions will ask for a code from an authenticator app, such as 1Password, Google Authenticator or Aegis."
+      title={t("settings.security.twoFactor.enroll.title")}
+      description={t("settings.security.twoFactor.enroll.description")}
       footer={
         <>
           <Button
@@ -150,10 +153,10 @@ export function EnrollDialog({ open, enrollment, onClose }: EnrollDialogProps) {
               onOpenChange(false);
             }}
           >
-            Cancel
+            {t("settings.shared.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={confirm.isPending} disabled={code.trim() === ""}>
-            Turn on
+            {t("settings.security.twoFactor.enroll.turnOn")}
           </Button>
         </>
       }
@@ -161,34 +164,34 @@ export function EnrollDialog({ open, enrollment, onClose }: EnrollDialogProps) {
       {enrollment !== null ? (
         <ol className="flex flex-col gap-6">
           <li className="flex flex-col gap-3">
-            <p className="text-14 font-medium text-fg">1. Scan this code with the app</p>
+            <p className="text-14 font-medium text-fg">{t("settings.security.twoFactor.enroll.step1")}</p>
             <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-              <QrCode value={enrollment.uri} label={`QR code to add WASM (${hostname}) to an authenticator app`} />
+              <QrCode value={enrollment.uri} label={t("settings.security.twoFactor.enroll.qrLabel", { hostname })} />
               <div className="flex min-w-0 flex-col gap-3">
                 <div className="flex min-w-0 flex-col gap-1">
-                  <span className="text-13 text-fg-muted">Cannot scan it? Type this key instead.</span>
+                  <span className="text-13 text-fg-muted">{t("settings.security.twoFactor.enroll.cannotScan")}</span>
                   <div className="flex min-w-0 items-center gap-1 rounded-control border border-border bg-bg-sunken py-1 pr-1 pl-3">
                     <code translate="no" data-testid="totp-secret" className="min-w-0 flex-1 text-14 tracking-wide break-words text-fg select-all">
                       {groupSecret(enrollment.secret)}
                     </code>
-                    <CopyButton value={enrollment.secret} label="Copy the key" />
+                    <CopyButton value={enrollment.secret} label={t("settings.security.twoFactor.enroll.copyKey")} />
                   </div>
                 </div>
                 <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-13">
-                  <dt className="text-fg-muted">Account</dt>
+                  <dt className="text-fg-muted">{t("settings.security.twoFactor.enroll.account")}</dt>
                   <dd translate="no" className="mono text-12 text-fg">
                     WASM:{hostname}
                   </dd>
-                  <dt className="text-fg-muted">Type</dt>
-                  <dd className="text-fg">Time-based, 6 digits, every 30 seconds</dd>
+                  <dt className="text-fg-muted">{t("settings.security.twoFactor.enroll.type")}</dt>
+                  <dd className="text-fg">{t("settings.security.twoFactor.enroll.typeValue")}</dd>
                 </dl>
               </div>
             </div>
           </li>
           <li className="flex flex-col gap-3">
-            <p className="text-14 font-medium text-fg">2. Enter the code the app shows</p>
+            <p className="text-14 font-medium text-fg">{t("settings.security.twoFactor.enroll.step2")}</p>
             <form id={formId} noValidate onSubmit={submit}>
-              <Field label="Authentication code" error={codeError.fields.code}>
+              <Field label={t("settings.security.twoFactor.enroll.codeLabel")} error={codeError.fields.code}>
                 <Input
                   ref={codeRef}
                   mono
@@ -196,7 +199,7 @@ export function EnrollDialog({ open, enrollment, onClose }: EnrollDialogProps) {
                   autoComplete="one-time-code"
                   spellCheck={false}
                   maxLength={8}
-                  placeholder="123456"
+                  placeholder={t("settings.security.twoFactor.enroll.codePlaceholder")}
                   value={code}
                   onValueChange={(value: string) => {
                     setCode(value);
@@ -207,7 +210,7 @@ export function EnrollDialog({ open, enrollment, onClose }: EnrollDialogProps) {
               </Field>
             </form>
             {codeError.form !== null ? (
-              <ErrorBlock live compact error={codeError.form} title="Could not turn on two-factor authentication" />
+              <ErrorBlock live compact error={codeError.form} title={t("settings.security.twoFactor.enroll.codeErrorTitle")} />
             ) : null}
           </li>
         </ol>
@@ -238,12 +241,13 @@ interface BackupCodesDialogProps {
  * on and when a new set replaces the old one.
  */
 function BackupCodesDialog({ open, codes, hostname, description, saved, nudge, savedRef, onSavedChange, onOpenChange }: BackupCodesDialogProps) {
+  const t = useT();
   return (
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
       size="md"
-      title="Save your backup codes"
+      title={t("settings.security.twoFactor.backupCodes.title")}
       description={description}
       footer={
         <Button
@@ -253,12 +257,12 @@ function BackupCodesDialog({ open, codes, hostname, description, saved, nudge, s
             onOpenChange(false);
           }}
         >
-          Done
+          {t("settings.shared.done")}
         </Button>
       }
     >
       <div className="flex flex-col gap-4">
-        <ul aria-label="Backup codes" className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-control border border-border bg-bg-sunken px-4 py-3">
+        <ul aria-label={t("settings.security.twoFactor.backupCodes.listLabel")} className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-control border border-border bg-bg-sunken px-4 py-3">
           {codes.map((backup) => (
             <li key={backup} translate="no" className="mono text-14 tracking-wide text-fg select-all">
               {backup}
@@ -267,24 +271,24 @@ function BackupCodesDialog({ open, codes, hostname, description, saved, nudge, s
         </ul>
         <div className="flex flex-wrap items-center gap-2">
           <CopyTextButton value={codes.join("\n")} size="sm">
-            Copy codes
+            {t("settings.security.twoFactor.backupCodes.copyCodes")}
           </CopyTextButton>
           <Button
             size="sm"
             icon={<Download aria-hidden="true" />}
             onClick={() => {
-              downloadText(`wasm-backup-codes-${hostname}.txt`, backupCodesFile(codes, hostname));
+              downloadText(`wasm-backup-codes-${hostname}.txt`, backupCodesFile(codes, hostname, t.locale));
             }}
           >
-            Download as text
+            {t("settings.security.twoFactor.backupCodes.downloadAsText")}
           </Button>
         </div>
         <div ref={savedRef} className={cx("rounded-control border p-3", nudge ? "border-warn/50 bg-warn-soft" : "border-transparent")}>
-          <Checkbox label="I have saved these codes somewhere safe" checked={saved} onCheckedChange={onSavedChange} />
+          <Checkbox label={t("settings.security.twoFactor.backupCodes.savedCheckbox")} checked={saved} onCheckedChange={onSavedChange} />
           {nudge ? (
             <p role="alert" className="mt-2 flex items-start gap-2 text-13 text-fg">
               <TriangleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-warn" />
-              Save the codes and tick the box first. They cannot be shown again.
+              {t("settings.security.twoFactor.backupCodes.nudge")}
             </p>
           ) : null}
         </div>
@@ -298,9 +302,10 @@ function BackupCodesDialog({ open, codes, hostname, description, saved, nudge, s
  * asks for "Confirm it's you" if the session is not elevated, then the new set, shown once.
  */
 function RegenerateCodesDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const t = useT();
   const refresh = useRefreshTwoFactor();
   const { data: session } = useQuery(sessionQuery());
-  const hostname = session?.hostname ?? "this server";
+  const hostname = session?.hostname ?? t("settings.security.twoFactor.thisServer");
   const [codes, setCodes] = useState<readonly string[] | null>(null);
   const [saved, setSaved] = useState(false);
   const [nudge, setNudge] = useState(false);
@@ -321,7 +326,7 @@ function RegenerateCodesDialog({ open, onClose }: { open: boolean; onClose: () =
       savedRef.current?.querySelector<HTMLElement>("[role=checkbox]")?.focus();
       return;
     }
-    if (codes !== null) toast.success("Replaced the backup codes");
+    if (codes !== null) toast.success(t("settings.security.twoFactor.regenerate.replaced"));
     onClose();
   };
 
@@ -331,7 +336,7 @@ function RegenerateCodesDialog({ open, onClose }: { open: boolean; onClose: () =
         open={open}
         codes={codes}
         hostname={hostname}
-        description="The old codes no longer work. Each of these signs in once if your authenticator is lost; this is the only time they are shown."
+        description={t("settings.security.twoFactor.backupCodes.regeneratedDescription")}
         saved={saved}
         nudge={nudge}
         savedRef={savedRef}
@@ -349,8 +354,8 @@ function RegenerateCodesDialog({ open, onClose }: { open: boolean; onClose: () =
       open={open}
       onOpenChange={onOpenChange}
       size="sm"
-      title="Replace your backup codes?"
-      description="A new set of backup codes is made and the old ones stop working, used or not. Keep the new set somewhere safe."
+      title={t("settings.security.twoFactor.regenerate.title")}
+      description={t("settings.security.twoFactor.regenerate.description")}
       footer={
         <>
           <Button
@@ -359,7 +364,7 @@ function RegenerateCodesDialog({ open, onClose }: { open: boolean; onClose: () =
               onOpenChange(false);
             }}
           >
-            Cancel
+            {t("settings.shared.cancel")}
           </Button>
           <Button
             variant="primary"
@@ -368,12 +373,12 @@ function RegenerateCodesDialog({ open, onClose }: { open: boolean; onClose: () =
               regenerate.mutate();
             }}
           >
-            Replace backup codes
+            {t("settings.security.twoFactor.regenerate.action")}
           </Button>
         </>
       }
     >
-      {regenerate.isError ? <ErrorBlock live compact error={regenerate.error} title="The backup codes were not replaced" /> : null}
+      {regenerate.isError ? <ErrorBlock live compact error={regenerate.error} title={t("settings.security.twoFactor.regenerate.failed")} /> : null}
     </Dialog>
   );
 }
@@ -382,6 +387,7 @@ function RegenerateCodesDialog({ open, onClose }: { open: boolean; onClose: () =
 // Turning it off
 
 function DisableDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const t = useT();
   const refresh = useRefreshTwoFactor();
   const [code, setCode] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -390,7 +396,7 @@ function DisableDialog({ open, onClose }: { open: boolean; onClose: () => void }
     mutationFn: (value: string) => disableTwoFactor(value),
     onSuccess: () => {
       refresh();
-      toast.success("Turned off two-factor authentication");
+      toast.success(t("settings.security.twoFactor.disable.turnedOff"));
       setCode("");
       onClose();
     },
@@ -415,8 +421,8 @@ function DisableDialog({ open, onClose }: { open: boolean; onClose: () => void }
       onOpenChange={onOpenChange}
       size="sm"
       initialFocus={inputRef}
-      title="Turn off two-factor authentication"
-      description="Sign-in will ask only for the access token. Enter a code from your authenticator app, or one of your backup codes, to confirm."
+      title={t("settings.security.twoFactor.disable.title")}
+      description={t("settings.security.twoFactor.disable.description")}
       footer={
         <>
           <Button
@@ -425,10 +431,10 @@ function DisableDialog({ open, onClose }: { open: boolean; onClose: () => void }
               onOpenChange(false);
             }}
           >
-            Cancel
+            {t("settings.shared.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="danger" loading={disable.isPending} disabled={code.trim() === ""}>
-            Turn off
+            {t("settings.security.twoFactor.turnOff")}
           </Button>
         </>
       }
@@ -443,7 +449,7 @@ function DisableDialog({ open, onClose }: { open: boolean; onClose: () => void }
         }}
         className="flex flex-col gap-4"
       >
-        <Field label="Authentication or backup code" error={errors.fields.code}>
+        <Field label={t("settings.security.twoFactor.disable.codeLabel")} error={errors.fields.code}>
           <Input
             ref={inputRef}
             mono
@@ -457,7 +463,7 @@ function DisableDialog({ open, onClose }: { open: boolean; onClose: () => void }
             className="w-48"
           />
         </Field>
-        {errors.form !== null ? <ErrorBlock live compact error={errors.form} title="Two-factor authentication is still on" /> : null}
+        {errors.form !== null ? <ErrorBlock live compact error={errors.form} title={t("settings.security.twoFactor.disable.errorTitle")} /> : null}
       </form>
     </Dialog>
   );
@@ -465,22 +471,25 @@ function DisableDialog({ open, onClose }: { open: boolean; onClose: () => void }
 
 // ---------------------------------------------------------------------------------------
 
-function Status({ status }: { status: TwoFactorStatus }) {
+function Status({ t, status }: { t: T; status: TwoFactorStatus }) {
   if (status.enabled) {
     const few = status.backup_codes_remaining <= FEW_CODES;
     return (
       <div className="flex min-w-0 items-start gap-3">
         <ShieldCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-ok" />
         <div className="flex min-w-0 flex-col gap-0.5">
-          <p className="text-14 font-medium text-fg">On</p>
-          <p className="text-13 text-fg-muted">Sign-in asks for a code from your authenticator app after the access token.</p>
+          <p className="text-14 font-medium text-fg">{t("settings.security.twoFactor.status.onTitle")}</p>
+          <p className="text-13 text-fg-muted">{t("settings.security.twoFactor.status.onDescription")}</p>
           <p className={cx("mt-1 flex items-center gap-1.5 text-13", few ? "text-warn" : "text-fg-muted")}>
             {few ? <TriangleAlert aria-hidden="true" className="size-3.5" /> : null}
             <span className="tabular-nums">
-              {`${String(status.backup_codes_remaining)} of ${String(BACKUP_CODES)} backup codes left`}
+              {t("settings.security.twoFactor.status.codesLeft", {
+                left: String(status.backup_codes_remaining),
+                total: String(BACKUP_CODES),
+              })}
             </span>
           </p>
-          {few ? <p className="text-13 text-fg-muted">Replace them with a new set before they run out.</p> : null}
+          {few ? <p className="text-13 text-fg-muted">{t("settings.security.twoFactor.status.codesLow")}</p> : null}
         </div>
       </div>
     );
@@ -489,10 +498,10 @@ function Status({ status }: { status: TwoFactorStatus }) {
     <div className="flex min-w-0 items-start gap-3">
       <ShieldOff aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-idle" />
       <div className="flex min-w-0 flex-col gap-0.5">
-        <p className="text-14 font-medium text-fg">Off</p>
-        <p className="text-13 text-fg-muted">Anyone holding the access token can sign in and act as root on this server.</p>
+        <p className="text-14 font-medium text-fg">{t("settings.security.twoFactor.status.offTitle")}</p>
+        <p className="text-13 text-fg-muted">{t("settings.security.twoFactor.status.offDescription")}</p>
         {status.pending ? (
-          <p className="mt-1 text-13 text-fg-muted">A setup was started and not finished. Setting up again makes a new key.</p>
+          <p className="mt-1 text-13 text-fg-muted">{t("settings.security.twoFactor.status.pending")}</p>
         ) : null}
       </div>
     </div>
@@ -501,6 +510,7 @@ function Status({ status }: { status: TwoFactorStatus }) {
 
 /** Two-factor authentication: its state, and turning it on or off. */
 export function TwoFactorSection() {
+  const t = useT();
   const query = useQuery(twoFactorQuery());
   const [enrollment, setEnrollment] = useState<TwoFactorEnrollment | null>(null);
   const [enrolling, setEnrolling] = useState(false);
@@ -513,7 +523,7 @@ export function TwoFactorSection() {
       setEnrolling(true);
     },
     onError: (error) => {
-      reportActionError("Could not start the setup", error);
+      reportActionError(t("settings.security.twoFactor.startFailed"), error);
     },
   });
 
@@ -522,7 +532,7 @@ export function TwoFactorSection() {
   if (status !== undefined) {
     body = (
       <div className="flex flex-col gap-4 rounded-card border border-border bg-surface p-5 shadow-raised sm:flex-row sm:items-start sm:justify-between">
-        <Status status={status} />
+        <Status t={t} status={status} />
         <div className="flex shrink-0 flex-wrap gap-2">
           {status.enabled ? (
             <>
@@ -531,14 +541,14 @@ export function TwoFactorSection() {
                   setRegenerating(true);
                 }}
               >
-                New backup codes
+                {t("settings.security.twoFactor.newBackupCodes")}
               </Button>
               <Button
                 onClick={() => {
                   setDisabling(true);
                 }}
               >
-                Turn off
+                {t("settings.security.twoFactor.turnOff")}
               </Button>
             </>
           ) : (
@@ -549,7 +559,7 @@ export function TwoFactorSection() {
                 enroll.mutate();
               }}
             >
-              Set up two-factor authentication
+              {t("settings.security.twoFactor.setUp")}
             </Button>
           )}
         </div>
@@ -559,7 +569,7 @@ export function TwoFactorSection() {
     body = (
       <ErrorBlock
         error={query.error}
-        title="Could not load the two-factor state"
+        title={t("settings.security.twoFactor.loadFailed")}
         onRetry={() => void query.refetch()}
         retrying={query.isRefetching}
       />
@@ -567,7 +577,7 @@ export function TwoFactorSection() {
   } else {
     body = (
       <div aria-busy="true" className="flex gap-3 rounded-card border border-border bg-surface p-5 shadow-raised">
-        <span className="sr-only">Loading the two-factor state</span>
+        <span className="sr-only">{t("settings.shared.loading", { label: t("settings.security.twoFactor.loadingLabel") })}</span>
         {/* The "On" state's lines, the one a hardened console shows: state, meaning, codes left. */}
         <Skeleton className="mt-0.5 size-5" />
         <div aria-hidden="true" className="flex flex-1 flex-col gap-0.5">
@@ -587,8 +597,8 @@ export function TwoFactorSection() {
 
   return (
     <SettingsSection
-      title="Two-factor authentication"
-      description="A code from an authenticator app at every sign-in and whenever an action needs you to confirm it's you."
+      title={t("settings.security.twoFactor.title")}
+      description={t("settings.security.twoFactor.description")}
     >
       {body}
       <EnrollDialog

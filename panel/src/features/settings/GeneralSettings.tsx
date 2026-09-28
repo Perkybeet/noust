@@ -29,6 +29,7 @@ import type { SelectOption } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
+import type { T } from "../../i18n";
 import { configGetCommand, configSetCommand } from "./shell";
 import { SettingsFormCard, SettingsFormSkeleton, SettingsSection } from "./SettingsForm";
 import type { SkeletonField } from "./SettingsForm";
@@ -52,13 +53,16 @@ function commandsFor<V extends FormValues>(form: SettingsForm<V>, keys: Record<k
 }
 
 /** A section's form once its settings are loaded; the skeleton or the failure until then. */
-function Loaded<T>({
+function Loaded<D>({
+  t,
   query,
   label,
   fields,
   children,
 }: {
-  query: UseQueryResult<T>;
+  t: T;
+  query: UseQueryResult<D>;
+  /** What is loading, already translated: "the applications directory". */
   label: string;
   /** The form's fields, for a placeholder of the same height. */
   fields: readonly SkeletonField[];
@@ -69,7 +73,7 @@ function Loaded<T>({
     return (
       <ErrorBlock
         error={query.error}
-        title={`Could not load ${label}`}
+        title={t("settings.shared.loadFailed", { label })}
         onRetry={() => void query.refetch()}
         retrying={query.isRefetching}
       />
@@ -77,7 +81,7 @@ function Loaded<T>({
   }
   return (
     <div aria-busy="true">
-      <span className="sr-only">{`Loading ${label}`}</span>
+      <span className="sr-only">{t("settings.shared.loading", { label })}</span>
       <SettingsFormSkeleton fields={fields} />
     </div>
   );
@@ -96,6 +100,7 @@ function useSaved() {
 // ---------------------------------------------------------------------------------------
 
 function AppsDirectorySection() {
+  const t = useT();
   const query = useQuery(appsDirectoryQuery());
   const saved = useSaved();
   const form = useSettingsForm({
@@ -104,18 +109,22 @@ function AppsDirectorySection() {
     soleField: "apps_directory",
     save: async ({ apps_directory }) => {
       const result = await saveAppsDirectory({ apps_directory: apps_directory.trim() });
-      saved("apps-directory", { apps_directory: result.apps_directory }, "Saved the applications directory");
+      saved("apps-directory", { apps_directory: result.apps_directory }, t("settings.general.appsDirectory.saved"));
     },
   });
   return (
     <SettingsSection
-      title="Applications directory"
-      description="Where new applications are cloned, built and run from. Applications that already exist keep their own path."
+      title={t("settings.general.appsDirectory.title")}
+      description={t("settings.general.appsDirectory.description")}
       commands={commandsFor(form, { apps_directory: "apps_directory" }, "apps_directory")}
     >
-      <Loaded query={query} label="the applications directory" fields={[{ description: 1 }]}>
-        <SettingsFormCard {...cardProps(form, "Could not save the applications directory")}>
-          <Field label="Directory" description="An absolute path, such as /var/www/apps." error={form.fieldErrors.apps_directory}>
+      <Loaded t={t} query={query} label={t("settings.general.appsDirectory.loadingLabel")} fields={[{ description: 1 }]}>
+        <SettingsFormCard {...cardProps(form, t("settings.general.appsDirectory.errorTitle"))}>
+          <Field
+            label={t("settings.general.appsDirectory.fieldLabel")}
+            description={t("settings.general.appsDirectory.fieldDescription")}
+            error={form.fieldErrors.apps_directory}
+          >
             <Input
               mono
               autoComplete="off"
@@ -140,6 +149,7 @@ const WEBSERVERS: readonly SelectOption[] = [
 ];
 
 function WebserverSection() {
+  const t = useT();
   const query = useQuery(webserverQuery());
   const saved = useSaved();
   const form = useSettingsForm({
@@ -148,18 +158,18 @@ function WebserverSection() {
     soleField: "webserver",
     save: async ({ webserver }) => {
       const result = await saveWebserver({ webserver });
-      saved("webserver", { webserver: result.webserver }, "Saved the web server");
+      saved("webserver", { webserver: result.webserver }, t("settings.general.webserver.saved"));
     },
   });
   return (
     <SettingsSection
-      title="Web server"
-      description="Serves the sites WASM creates and terminates their HTTPS. Sites that already exist stay on the server they were created for."
+      title={t("settings.general.webserver.title")}
+      description={t("settings.general.webserver.description")}
       commands={commandsFor(form, { webserver: "webserver" }, "webserver")}
     >
-      <Loaded query={query} label="the web server" fields={[{}]}>
-        <SettingsFormCard {...cardProps(form, "Could not save the web server")}>
-          <Field label="Web server for new sites" nativeLabel={false} error={form.fieldErrors.webserver}>
+      <Loaded t={t} query={query} label={t("settings.general.webserver.loadingLabel")} fields={[{}]}>
+        <SettingsFormCard {...cardProps(form, t("settings.general.webserver.errorTitle"))}>
+          <Field label={t("settings.general.webserver.fieldLabel")} nativeLabel={false} error={form.fieldErrors.webserver}>
             <Select
               options={WEBSERVERS}
               value={form.values?.webserver ?? null}
@@ -176,6 +186,7 @@ function WebserverSection() {
 }
 
 function CertificatesSection() {
+  const t = useT();
   const query = useQuery(sslSettingsQuery());
   const saved = useSaved();
   const form = useSettingsForm({
@@ -188,26 +199,23 @@ function CertificatesSection() {
       const current = query.data ?? { enabled: true, provider: "certbot", email: "" };
       const body = { enabled: current.enabled, provider: current.provider, email: email.trim() };
       await saveSslSettings(body);
-      saved("ssl", body, "Saved the certificate email");
+      saved("ssl", body, t("settings.general.certificates.saved"));
     },
   });
   return (
     <SettingsSection
-      title="Certificates"
-      description={
-        <>
-          HTTPS certificates are requested from Let's Encrypt with <span className="mono text-12">{query.data?.provider ?? "certbot"}</span>
-          . The account they are issued under is registered with this email.
-        </>
-      }
+      title={t("settings.general.certificates.title")}
+      description={t.rich("settings.general.certificates.description", {
+        provider: <span className="mono text-12">{query.data?.provider ?? "certbot"}</span>,
+      })}
       commands={commandsFor(form, { email: "ssl.email" }, "ssl.email")}
     >
-      <Loaded query={query} label="the certificate settings" fields={[{ description: 2 }]}>
-        <SettingsFormCard {...cardProps(form, "Could not save the certificate email")}>
+      <Loaded t={t} query={query} label={t("settings.general.certificates.loadingLabel")} fields={[{ description: 2 }]}>
+        <SettingsFormCard {...cardProps(form, t("settings.general.certificates.errorTitle"))}>
           <Field
-            label="Email for certificate notices"
+            label={t("settings.general.certificates.fieldLabel")}
             optional
-            description="Let's Encrypt writes here about certificates about to expire and problems with the account. Empty registers without an email."
+            description={t("settings.general.certificates.fieldDescription")}
             error={form.fieldErrors.email}
           >
             <Input
@@ -230,6 +238,7 @@ function CertificatesSection() {
 
 function BackupsSection() {
   const query = useQuery(backupSettingsQuery());
+  const t = useT();
   const saved = useSaved();
   const form = useSettingsForm({
     server: query.data ? { directory: query.data.directory, max_per_app: String(query.data.max_per_app) } : undefined,
@@ -237,18 +246,18 @@ function BackupsSection() {
     save: async ({ directory, max_per_app }) => {
       const body = { directory: directory.trim(), max_per_app: wholeNumber(max_per_app) };
       await saveBackupSettings(body);
-      saved("backup", body, "Saved the backup settings");
+      saved("backup", body, t("settings.general.backups.saved"));
     },
   });
   return (
     <SettingsSection
-      title="Backups"
-      description="Where backups of applications are written and how many are kept. After each backup, the oldest ones past the limit are deleted."
+      title={t("settings.general.backups.title")}
+      description={t("settings.general.backups.description")}
       commands={commandsFor(form, { directory: "backup.directory", max_per_app: "backup.max_per_app" }, "backup")}
     >
-      <Loaded query={query} label="the backup settings" fields={[{}, { description: 1 }]}>
-        <SettingsFormCard {...cardProps(form, "Could not save the backup settings")}>
-          <Field label="Backup directory" error={form.fieldErrors.directory}>
+      <Loaded t={t} query={query} label={t("settings.general.backups.loadingLabel")} fields={[{}, { description: 1 }]}>
+        <SettingsFormCard {...cardProps(form, t("settings.general.backups.errorTitle"))}>
+          <Field label={t("settings.general.backups.directoryLabel")} error={form.fieldErrors.directory}>
             <Input
               mono
               autoComplete="off"
@@ -262,8 +271,8 @@ function BackupsSection() {
             />
           </Field>
           <Field
-            label="Backups kept per application"
-            description="From 1 to 100."
+            label={t("settings.general.backups.countLabel")}
+            description={t("settings.general.backups.countDescription")}
             error={form.fieldErrors.max_per_app}
           >
             <Input
@@ -284,6 +293,7 @@ function BackupsSection() {
 }
 
 function ConsoleAddressSection() {
+  const t = useT();
   const query = useQuery(webSettingsQuery());
   const saved = useSaved();
   const form = useSettingsForm({
@@ -293,25 +303,22 @@ function ConsoleAddressSection() {
       // session_timeout rides along unchanged: the endpoint replaces the three together.
       const body = { host: host.trim(), port: wholeNumber(port), session_timeout: query.data?.session_timeout ?? 3600 };
       await saveWebSettings(body);
-      saved("web", body, "Saved the console address");
+      saved("web", body, t("settings.general.consoleAddress.saved"));
     },
   });
   return (
     <SettingsSection
-      title="Console address"
-      description={
-        <>
-          The address commands such as <span className="mono text-12">wasm status --open</span> print when they link to
-          this console. It does not move the console: <span className="mono text-12">wasm web start --host --port</span>{" "}
-          decides where it listens.
-        </>
-      }
+      title={t("settings.general.consoleAddress.title")}
+      description={t.rich("settings.general.consoleAddress.description", {
+        statusCommand: <span className="mono text-12">wasm status --open</span>,
+        webCommand: <span className="mono text-12">wasm web start --host --port</span>,
+      })}
       commands={commandsFor(form, { host: "web.host", port: "web.port" }, "web.host")}
     >
-      <Loaded query={query} label="the console address" fields={[{ inline: 2 }]}>
-        <SettingsFormCard {...cardProps(form, "Could not save the console address")}>
+      <Loaded t={t} query={query} label={t("settings.general.consoleAddress.loadingLabel")} fields={[{ inline: 2 }]}>
+        <SettingsFormCard {...cardProps(form, t("settings.general.consoleAddress.errorTitle"))}>
           <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_8rem]">
-            <Field label="Host" error={form.fieldErrors.host}>
+            <Field label={t("settings.general.consoleAddress.hostLabel")} error={form.fieldErrors.host}>
               <Input
                 mono
                 autoComplete="off"
@@ -323,7 +330,7 @@ function ConsoleAddressSection() {
                 }}
               />
             </Field>
-            <Field label="Port" error={form.fieldErrors.port}>
+            <Field label={t("settings.general.consoleAddress.portLabel")} error={form.fieldErrors.port}>
               <Input
                 type="number"
                 inputMode="numeric"
@@ -364,6 +371,7 @@ function cardProps<V extends FormValues>(form: SettingsForm<V>, errorTitle: stri
 
 /** Where the settings live on disk, and whether the console can write them. */
 function ConfigFileLine() {
+  const t = useT();
   const { data } = useQuery(configQuery());
   if (data === undefined) {
     return (
@@ -377,13 +385,13 @@ function ConfigFileLine() {
       <span className="flex min-w-0 items-start gap-2">
         <FileCog aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fg-faint" />
         <span className="min-w-0">
-          Saved to <span className="mono text-12 break-all text-fg">{data.path}</span>
+          {t.rich("settings.general.configFile.savedTo", { path: <span className="mono text-12 break-all text-fg">{data.path}</span> })}
         </span>
       </span>
       {data.writable ? null : (
         <span className="flex items-center gap-1.5 text-fail">
           <CircleAlert aria-hidden="true" className="size-3.5" />
-          The console cannot write this file, so saving will fail. Check its owner and permissions.
+          {t("settings.general.configFile.notWritable")}
         </span>
       )}
     </div>
@@ -392,7 +400,8 @@ function ConfigFileLine() {
 
 /** Settings > General: how WASM lays out, serves, secures and backs up applications. */
 export function GeneralSettings() {
-  useDocumentTitle("General settings", 1);
+  const t = useT();
+  useDocumentTitle(t("settings.general.documentTitle"), 1);
   return (
     <Sections>
       <ConfigFileLine />

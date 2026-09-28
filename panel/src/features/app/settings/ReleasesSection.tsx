@@ -9,6 +9,8 @@ import { appKeys, migrationPlanQuery, releasesQuery } from "../../../api/queries
 import type { App, MigrationPlan } from "../../../api/queries/apps";
 import { isJobFinished, useFollowedJob } from "../../../api/queries/jobs";
 import type { Job } from "../../../api/queries/jobs";
+import { getLocale } from "../../../app/locale";
+import type { Locale } from "../../../app/locale";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList, KeyValueListSkeleton } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
@@ -18,6 +20,8 @@ import { Button } from "../../../components/ui/Button";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { toast } from "../../../components/ui/toast";
+import { useT } from "../../../i18n";
+import { translate } from "../../../i18n/translate";
 import { formatBytes, formatCount } from "../../../lib/format";
 import { hasUnit } from "../../apps/AppRowActions";
 import { reportActionError } from "../../apps/useAppActions";
@@ -50,12 +54,13 @@ interface MigrationSummary {
 
 /** What the app has on the release layout: the release serving, how many are on disk, how many are kept. */
 function ReleasesFacts({ domain, keepReleases }: { domain: string; keepReleases: number }) {
+  const t = useT();
   const releases = useQuery(releasesQuery(domain));
   if (releases.isPending) return <KeyValueListSkeleton rows={4} />;
   if (releases.isError) {
     return (
       <div className="py-3">
-        <ErrorBlock compact error={releases.error} title="Could not list the releases" onRetry={() => void releases.refetch()} />
+        <ErrorBlock compact error={releases.error} title={t("appSettings.releases.listFailed")} onRetry={() => void releases.refetch()} />
       </div>
     );
   }
@@ -65,31 +70,35 @@ function ReleasesFacts({ domain, keepReleases }: { domain: string; keepReleases:
   const removed = items.length - onDisk;
   return (
     <KeyValueList
-      empty="None"
+      empty={t("appSettings.releases.none")}
       items={[
         {
-          label: "Serving",
+          label: t("appSettings.releases.serving"),
           value: active ? active.id : null,
           hint: active ? (
-            <>
-              {active.commit ? `Commit ${active.commit}, activated ` : "Activated "}
-              <RelativeTime value={active.activated_at ?? active.created_at} />
-            </>
+            active.commit ? (
+              t.rich("appSettings.releases.servingHintWithCommit", {
+                commit: active.commit,
+                time: <RelativeTime value={active.activated_at ?? active.created_at} />,
+              })
+            ) : (
+              t.rich("appSettings.releases.servingHintNoCommit", { time: <RelativeTime value={active.activated_at ?? active.created_at} /> })
+            )
           ) : undefined,
         },
         {
-          label: "On disk",
-          value: `${formatCount(onDisk)} ${onDisk === 1 ? "release" : "releases"}`,
+          label: t("appSettings.releases.onDisk"),
+          value: t("appSettings.releases.releaseCount", { count: onDisk }),
           mono: false,
           copy: false,
-          hint: removed > 0 ? `${formatCount(removed)} more listed whose build failed and was removed` : "Each one can be activated in seconds",
+          hint: removed > 0 ? t("appSettings.releases.removedCount", { count: removed }) : t("appSettings.releases.onDiskHint"),
         },
         {
-          label: "Kept",
-          value: `${formatCount(keepReleases)} ${keepReleases === 1 ? "release" : "releases"}`,
+          label: t("appSettings.releases.kept"),
+          value: t("appSettings.releases.releaseCount", { count: keepReleases }),
           mono: false,
           copy: false,
-          hint: "Older releases are removed once a new one activates",
+          hint: t("appSettings.releases.keptHint"),
         },
       ]}
     />
@@ -97,20 +106,27 @@ function ReleasesFacts({ domain, keepReleases }: { domain: string; keepReleases:
 }
 
 function MigrationDone({ result }: { result: MigrationSummary }) {
+  const t = useT();
   return (
     <div role="status" className="flex items-start gap-2.5 rounded-control border border-ok/40 bg-ok-soft px-3 py-2.5">
       <CircleCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-ok" />
       <div className="flex min-w-0 flex-col gap-0.5 text-13 text-fg">
         <p className="font-medium">
-          {"Migrated to releases. Release "}
-          <span translate="no" className="mono text-12">
-            {result.release_id}
-          </span>
-          {" is serving."}
+          {t.rich("appSettings.releases.migrated", {
+            release: (
+              <span translate="no" className="mono text-12">
+                {result.release_id}
+              </span>
+            ),
+          })}
         </p>
         <p className="text-fg-muted">
-          {`${formatCount(result.files_before)} files before, ${formatCount(result.files_after)} after (${formatBytes(result.bytes_after)}): nothing was deleted.`}
-          {result.persistent.length > 0 ? ` Kept in shared/: ${result.persistent.join(", ")}.` : ""}
+          {t("appSettings.releases.migratedFiles", {
+            filesBefore: formatCount(result.files_before),
+            filesAfter: formatCount(result.files_after),
+            bytes: formatBytes(result.bytes_after),
+          })}
+          {result.persistent.length > 0 ? ` ${t("appSettings.releases.migratedKept", { list: result.persistent.join(", ") })}` : ""}
         </p>
       </div>
     </div>
@@ -118,17 +134,19 @@ function MigrationDone({ result }: { result: MigrationSummary }) {
 }
 
 /** What the confirmation says the migration will do, from the plan being confirmed. */
-export function confirmation(plan: MigrationPlan): string {
-  const rewritten =
+export function confirmation(plan: MigrationPlan, locale: Locale = getLocale()): string {
+  const rewritten = translate(
+    locale,
     plan.unit_rewrite && plan.site_rewrite
-      ? "the unit and the site are rewritten to run from current"
+      ? "appSettings.releases.confirmRewriteBoth"
       : plan.unit_rewrite
-        ? "the unit is rewritten to run from current"
+        ? "appSettings.releases.confirmRewriteUnit"
         : plan.site_rewrite
-          ? "the site is rewritten to serve current"
-          : "current points at it";
-  const kept = plan.persistent.length > 0 ? `, ${plan.persistent.join(", ")} move to shared/` : "";
-  return `The live tree becomes the first release${kept}, and ${rewritten}. The app restarts and must pass a health check; if it does not, everything is put back as it was. Nothing is deleted.`;
+          ? "appSettings.releases.confirmRewriteSite"
+          : "appSettings.releases.confirmRewriteNone",
+  );
+  const kept = plan.persistent.length > 0 ? translate(locale, "appSettings.releases.confirmKept", { list: plan.persistent.join(", ") }) : "";
+  return translate(locale, "appSettings.releases.confirmation", { kept, rewritten });
 }
 
 /**
@@ -137,6 +155,7 @@ export function confirmation(plan: MigrationPlan): string {
  * undone by the backend if the app does not come up on the new layout.
  */
 function MigrationCard({ app, onMigrated }: { app: App; onMigrated: (result: MigrationSummary) => void }) {
+  const t = useT();
   const domain = app.domain;
   const queryClient = useQueryClient();
   const confirmItsYou = useConfirmItsYou();
@@ -182,8 +201,8 @@ function MigrationCard({ app, onMigrated }: { app: App; onMigrated: (result: Mig
     void queryClient.invalidateQueries({ queryKey: appKeys.rollbackPoints(domain) });
     void queryClient.invalidateQueries({ queryKey: appKeys.list, exact: true });
     // The toast is announced; saying it again would read it twice.
-    toast.success(`Migrated ${domain} to releases`);
-  }, [followed.job, domain, onMigrated, queryClient]);
+    toast.success(t("appSettings.releases.migrate.toastSuccess", { domain }));
+  }, [followed.job, domain, onMigrated, queryClient, t]);
 
   const openConfirm = (): void => {
     migrate.reset();
@@ -193,7 +212,7 @@ function MigrationCard({ app, onMigrated }: { app: App; onMigrated: (result: Mig
         setConfirming(true);
       },
       (error: unknown) => {
-        if (!(error instanceof ElevationCancelledError)) reportActionError("The migration could not start", error);
+        if (!(error instanceof ElevationCancelledError)) reportActionError(t("appSettings.releases.migrate.startFailed"), error);
       },
     );
   };
@@ -208,32 +227,29 @@ function MigrationCard({ app, onMigrated }: { app: App; onMigrated: (result: Mig
       <div className="flex items-start gap-3">
         <Layers aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fg-faint" />
         <div className="flex min-w-0 flex-col gap-1">
-          <h3 className="text-14 font-medium text-fg">Enable releases</h3>
-          <p className="max-w-[64ch] text-13 text-pretty text-fg-muted">
-            This app is updated in place: builds run inside the directory the live process reads, and a rollback restores a backup.
-            On releases every deploy builds in its own directory behind a health check, and going back takes seconds.
-          </p>
+          <h3 className="text-14 font-medium text-fg">{t("appSettings.releases.migrate.title")}</h3>
+          <p className="max-w-[64ch] text-13 text-pretty text-fg-muted">{t("appSettings.releases.migrate.description")}</p>
         </div>
       </div>
 
       {!requested ? (
         <div className="pl-7">
-          <Button onClick={() => setRequested(true)}>Plan the migration</Button>
+          <Button onClick={() => setRequested(true)}>{t("appSettings.releases.migrate.planButton")}</Button>
         </div>
       ) : plan.isPending ? (
         <div aria-busy="true" className="flex flex-col gap-2 pl-7">
-          <span className="text-13 text-fg-muted">Reading the app's directory…</span>
+          <span className="text-13 text-fg-muted">{t("appSettings.releases.migrate.reading")}</span>
           <Skeleton className="h-10 w-full rounded-control" />
           <KeyValueListSkeleton rows={4} />
         </div>
       ) : plan.isError ? (
         <div className="pl-7">
-          <ErrorBlock error={plan.error} title="Could not plan the migration" onRetry={() => void plan.refetch()} retrying={plan.isRefetching} />
+          <ErrorBlock error={plan.error} title={t("appSettings.releases.migrate.planFailed")} onRetry={() => void plan.refetch()} retrying={plan.isRefetching} />
         </div>
       ) : plan.data === null ? (
         // Already on releases (a 409): the app's own detail is stale for a moment too, and
         // this section switches to ReleasesFacts as soon as it catches up.
-        <p className="pl-7 text-13 text-fg-muted">This app is on the release layout already.</p>
+        <p className="pl-7 text-13 text-fg-muted">{t("appSettings.releases.migrate.alreadyOnReleases")}</p>
       ) : (
         <div className="flex min-w-0 flex-col gap-4 sm:pl-7">
           <MigrationPlanView plan={plan.data} />
@@ -241,23 +257,23 @@ function MigrationCard({ app, onMigrated }: { app: App; onMigrated: (result: Mig
             <ErrorBlock
               live
               error={migrate.error}
-              title="The migration could not be queued"
-              hint="WASM put everything back as it was: the app still runs in place, from the same directory."
+              title={t("appSettings.releases.migrate.queueFailed")}
+              hint={t("appSettings.releases.migrate.revertedHint")}
             />
           ) : jobFailed ? (
             <ErrorBlock
               live
-              error={{ detail: followed.job?.error ?? "The job failed without saying why. Its log is on the Activity page." }}
-              title="The migration did not complete"
-              hint="WASM put everything back as it was: the app still runs in place, from the same directory."
+              error={{ detail: followed.job?.error ?? t("appSettings.jobFailedSilently") }}
+              title={t("appSettings.releases.migrate.notCompleted")}
+              hint={t("appSettings.releases.migrate.revertedHint")}
             />
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="primary" onClick={openConfirm}>
-              Migrate to releases
+              {t("appSettings.releases.migrate.migrateButton")}
             </Button>
             <Button variant="ghost" loading={plan.isRefetching} onClick={() => void plan.refetch()}>
-              Plan again
+              {t("appSettings.releases.migrate.planAgain")}
             </Button>
           </div>
         </div>
@@ -266,41 +282,41 @@ function MigrationCard({ app, onMigrated }: { app: App; onMigrated: (result: Mig
       <Dialog
         open={confirming}
         onOpenChange={close}
-        title={`Migrate ${domain} to releases?`}
-        description={plan.data ? confirmation(plan.data) : undefined}
+        title={t("appSettings.releases.migrate.confirmTitle", { domain })}
+        description={plan.data ? confirmation(plan.data, t.locale) : undefined}
         footer={
           <>
             <Button disabled={migrating} onClick={() => close(false)}>
-              Cancel
+              {t("appSettings.cancel")}
             </Button>
             <Button variant="primary" loading={migrating} onClick={() => plan.data && migrate.mutate(plan.data)}>
-              Migrate to releases
+              {t("appSettings.releases.migrate.migrateButton")}
             </Button>
           </>
         }
       >
         {migrating ? (
-          <p className="text-13 text-fg-muted">Moving the tree, rewriting the unit and waiting for the health check. This takes a few seconds.</p>
+          <p className="text-13 text-fg-muted">{t("appSettings.releases.migrate.migrating")}</p>
         ) : migrate.isError ? (
           <ErrorBlock
             live
             compact
             error={migrate.error}
-            title="The migration could not be queued"
-            hint="WASM put everything back as it was: the app still runs in place, from the same directory."
+            title={t("appSettings.releases.migrate.queueFailed")}
+            hint={t("appSettings.releases.migrate.revertedHint")}
           />
         ) : jobFailed ? (
           <ErrorBlock
             live
             compact
-            error={{ detail: followed.job?.error ?? "The job failed without saying why. Its log is on the Activity page." }}
-            title="The migration did not complete"
-            hint="WASM put everything back as it was: the app still runs in place, from the same directory."
+            error={{ detail: followed.job?.error ?? t("appSettings.jobFailedSilently") }}
+            title={t("appSettings.releases.migrate.notCompleted")}
+            hint={t("appSettings.releases.migrate.revertedHint")}
           />
         ) : undefined}
       </Dialog>
       <div className="sm:pl-7">
-        <CommandHint command={`wasm app migrate ${domain}`} label="From a terminal" />
+        <CommandHint command={`wasm app migrate ${domain}`} label={t("appSettings.fromTerminal")} />
       </div>
     </div>
   );
@@ -313,13 +329,14 @@ function MigrationCard({ app, onMigrated }: { app: App; onMigrated: (result: Mig
  * or a restart, and the health check every activation passes.
  */
 export function ReleasesSection({ app }: { app: App }) {
+  const t = useT();
   const [migrated, setMigrated] = useState<MigrationSummary | null>(null);
   const onReleases = app.layout === "releases";
 
   return (
     <Section
-      title="Releases"
-      description={onReleases ? "Every deploy builds a release of its own; the one serving can be switched in seconds." : "How each deploy lands on disk."}
+      title={t("appSettings.releases.title")}
+      description={onReleases ? t("appSettings.releases.descriptionOnReleases") : t("appSettings.releases.descriptionInPlace")}
     >
       {migrated !== null ? <MigrationDone result={migrated} /> : null}
       <div className={PANEL}>
@@ -333,9 +350,9 @@ export function ReleasesSection({ app }: { app: App }) {
       </div>
       {onReleases ? (
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <CommandHint command={`wasm releases list ${app.domain}`} label="From a terminal" />
+          <CommandHint command={`wasm releases list ${app.domain}`} label={t("appSettings.fromTerminal")} />
           <Link to="/apps/$domain/deployments" params={{ domain: app.domain }} className={LINK}>
-            Roll back from the Deployments tab
+            {t("appSettings.releases.rollbackLink")}
           </Link>
         </div>
       ) : null}

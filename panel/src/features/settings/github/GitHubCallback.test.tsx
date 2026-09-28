@@ -1,7 +1,8 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import type { GitHubStatus } from "../../../api/queries/github";
+import { setLocale } from "../../../app/locale";
 import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../../test/fakes";
@@ -145,5 +146,17 @@ describe("the GitHub callback", () => {
     renderConsole("/integrations/github/callback");
     expect(await screen.findByText("Nothing to finish here")).toBeInTheDocument();
     expect(backend.calls.filter((call) => call.method === "POST" && call.path.startsWith("/api/integrations"))).toHaveLength(0);
+  });
+});
+
+describe("the GitHub callback in Spanish", () => {
+  it("explains an installation waiting for an organization owner, in Spanish, with no accessibility violations", async () => {
+    await act(() => setLocale("es"));
+    callbackBackend();
+    const { container } = renderConsole("/integrations/github/callback?setup_action=request");
+    expect(await screen.findByRole("heading", { level: 1, name: "Conectando GitHub" })).toBeInTheDocument();
+    expect(screen.getByText("Esperando a un propietario de la organización")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Volver a integraciones" })).toHaveAttribute("href", "/settings/integrations");
+    await expectNoAxeViolations(container);
   });
 });

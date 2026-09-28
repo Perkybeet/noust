@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import type { Status } from "./StatusPill";
 import { STATUS, StatusPill } from "./StatusPill";
@@ -61,5 +62,13 @@ describe("StatusPill", () => {
       </div>,
     );
     await expectNoAxeViolations(container);
+  });
+
+  it("says its default word in Spanish", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    render(<StatusPill state="running" />);
+    expect(screen.getByText("En ejecución")).toBeInTheDocument();
   });
 });

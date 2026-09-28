@@ -8,6 +8,7 @@ import type { Column } from "../../components/ui/DataTable";
 import { IconButton } from "../../components/ui/IconButton";
 import { Mono } from "../../components/ui/Mono";
 import { StatusPill } from "../../components/ui/StatusPill";
+import { useT } from "../../i18n";
 import { parseTimestamp } from "../../lib/format";
 import { actionWords, actorWords, detailOf, resourceOf, resultView, rowActor } from "./data";
 import type { ActivityJob, ActivityRow } from "./data";
@@ -32,31 +33,32 @@ export interface ActivityTableProps {
  * words each column uses.
  */
 export function ActivityTable({ rows, caption, loading = false, empty, onOpenJobLog, className }: ActivityTableProps) {
+  const t = useT();
   const columns: Column<ActivityRow>[] = [
     {
       id: "result",
-      header: "Result",
+      header: t("activity.columnResult"),
       width: "w-32",
       cell: (row) => {
-        const view = resultView(row);
+        const view = resultView(t, row);
         return <StatusPill state={view.state} label={view.label} appearance="inline" size="sm" />;
       },
-      sortValue: (row) => STATE_RANK[resultView(row).state],
+      sortValue: (row) => STATE_RANK[resultView(t, row).state],
     },
     {
       id: "time",
-      header: "Time",
+      header: t("activity.columnTime"),
       width: "w-36",
       cell: (row) => <RelativeTime value={row.timestamp} />,
       sortValue: (row) => parseTimestamp(row.timestamp)?.getTime() ?? null,
     },
     {
       id: "actor",
-      header: "Actor",
+      header: t("activity.columnActor"),
       width: "w-44",
       hideBelow: "sm",
       cell: (row) => {
-        const words = actorWords(row);
+        const words = actorWords(t, row);
         // A job queued before jobs carried an actor: said quietly, with no raw value to show.
         if (rowActor(row) === null) return <span className="text-fg-muted">{words.label}</span>;
         return (
@@ -68,13 +70,13 @@ export function ActivityTable({ rows, caption, loading = false, empty, onOpenJob
           </span>
         );
       },
-      sortValue: (row) => actorWords(row).label,
+      sortValue: (row) => actorWords(t, row).label,
     },
     {
       id: "action",
-      header: "Action",
+      header: t("activity.columnAction"),
       cell: (row) => {
-        const words = actionWords(row);
+        const words = actionWords(t, row);
         return (
           <span className="flex max-w-56 min-w-0 flex-col">
             <span className="truncate text-fg">{words.label}</span>
@@ -84,11 +86,11 @@ export function ActivityTable({ rows, caption, loading = false, empty, onOpenJob
           </span>
         );
       },
-      sortValue: (row) => actionWords(row).label,
+      sortValue: (row) => actionWords(t, row).label,
     },
     {
       id: "resource",
-      header: "Resource",
+      header: t("activity.columnResource"),
       hideBelow: "md",
       cell: (row) => {
         const resource = resourceOf(row);
@@ -104,7 +106,7 @@ export function ActivityTable({ rows, caption, loading = false, empty, onOpenJob
     },
     {
       id: "detail",
-      header: "Detail",
+      header: t("activity.columnDetail"),
       hideBelow: "lg",
       cell: (row) => {
         const detail = detailOf(row);
@@ -128,7 +130,7 @@ export function ActivityTable({ rows, caption, loading = false, empty, onOpenJob
       loading={loading}
       rowActions={(row) =>
         row.kind === "job" ? (
-          <IconButton label={`View log of ${row.job.name}`} icon={<ScrollText />} size="sm" onClick={() => onOpenJobLog(row.job)} />
+          <IconButton label={t("activity.viewLogAria", { name: row.job.name })} icon={<ScrollText />} size="sm" onClick={() => onOpenJobLog(row.job)} />
         ) : null
       }
       {...(empty !== undefined ? { empty } : {})}

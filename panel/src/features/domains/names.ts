@@ -4,6 +4,10 @@
  * same terms.
  */
 
+import { getLocale } from "../../app/locale";
+import { translate } from "../../i18n";
+import type { Locale } from "../../i18n";
+
 const LABEL = /^(?!-)[a-z0-9-]{1,63}(?<!-)$/;
 const TLD = /^(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})$/;
 
@@ -16,19 +20,19 @@ export function normalizeDomain(value: string): string {
  * Why a name is not a domain the server would take, or null when it looks like one.
  * Schemes, ports and paths are refused rather than stripped: the server refuses them too.
  */
-export function domainProblem(value: string): string | null {
+export function domainProblem(value: string, locale: Locale = getLocale()): string | null {
   const name = normalizeDomain(value);
-  if (name === "") return "Enter a domain, such as app.example.com.";
-  if (/^[a-z][a-z0-9+.-]*:\/\//.test(name)) return "Enter the bare domain, without http:// or https://.";
-  if (/[/:?#@\s]/.test(name)) return "Enter the bare domain: no path, port or spaces.";
-  if (name.length > 253) return "A domain is at most 253 characters long.";
+  if (name === "") return translate(locale, "domains.domainValidation.enterADomain");
+  if (/^[a-z][a-z0-9+.-]*:\/\//.test(name)) return translate(locale, "domains.domainValidation.noScheme");
+  if (/[/:?#@\s]/.test(name)) return translate(locale, "domains.domainValidation.noPath");
+  if (name.length > 253) return translate(locale, "domains.domainValidation.tooLong");
   const labels = name.split(".");
-  if (labels.length < 2) return "A domain has at least two parts, such as example.com.";
-  if (labels.some((label) => label === "")) return "A domain cannot have empty parts or start or end with a dot.";
+  if (labels.length < 2) return translate(locale, "domains.domainValidation.twoParts");
+  if (labels.some((label) => label === "")) return translate(locale, "domains.domainValidation.emptyParts");
   if (!labels.every((label) => LABEL.test(label))) {
-    return "Each part of a domain uses letters, digits and hyphens, and cannot start or end with a hyphen.";
+    return translate(locale, "domains.domainValidation.badCharacters");
   }
-  if (!TLD.test(labels.at(-1) ?? "")) return "The last part of a domain is letters only, such as .com or .es.";
+  if (!TLD.test(labels.at(-1) ?? "")) return translate(locale, "domains.domainValidation.badTld");
   return null;
 }
 

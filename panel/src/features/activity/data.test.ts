@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { bindT } from "../../i18n/useT";
 import type { AuditEntry, ActivityJob } from "./data";
 import {
   actionWords,
@@ -16,6 +17,8 @@ import {
   rowActor,
   validateActivitySearch,
 } from "./data";
+
+const t = bindT("en");
 
 function job(overrides: Partial<ActivityJob> = {}): ActivityJob {
   return {
@@ -61,50 +64,50 @@ function entry(overrides: Partial<AuditEntry> = {}): AuditEntry {
 
 describe("jobActionLabel", () => {
   it("translates every JobType to a sentence-case word", () => {
-    expect(jobActionLabel("deploy")).toBe("Deploy");
-    expect(jobActionLabel("cert_renew")).toBe("Renew certificate");
-    expect(jobActionLabel("migrate")).toBe("Migrate to releases");
-    expect(jobActionLabel("push")).toBe("Copy backup to destination");
-    expect(jobActionLabel("zero_downtime")).toBe("Zero-downtime mode");
+    expect(jobActionLabel(t, "deploy")).toBe("Deploy");
+    expect(jobActionLabel(t, "cert_renew")).toBe("Renew certificate");
+    expect(jobActionLabel(t, "migrate")).toBe("Migrate to releases");
+    expect(jobActionLabel(t, "push")).toBe("Copy backup to destination");
+    expect(jobActionLabel(t, "zero_downtime")).toBe("Zero-downtime mode");
   });
 
   it("shows an unrecognised type verbatim rather than guessing", () => {
-    expect(jobActionLabel("mystery")).toBe("mystery");
+    expect(jobActionLabel(t, "mystery")).toBe("mystery");
   });
 });
 
 describe("auditActionLabel", () => {
   it("translates a known action", () => {
-    expect(auditActionLabel("auth.login")).toBe("Sign-in attempt");
-    expect(auditActionLabel("auth.scope")).toBe("Failed a scope check");
+    expect(auditActionLabel(t, "auth.login")).toBe("Sign-in attempt");
+    expect(auditActionLabel(t, "auth.scope")).toBe("Failed a scope check");
   });
 
   it("words the security middleware's generic per-request entry by its method", () => {
-    expect(auditActionLabel("api.post")).toBe("POST request");
-    expect(auditActionLabel("api.delete")).toBe("DELETE request");
+    expect(auditActionLabel(t, "api.post")).toBe("POST request");
+    expect(auditActionLabel(t, "api.delete")).toBe("DELETE request");
   });
 
   it("shows an unrecognised action verbatim rather than guessing", () => {
-    expect(auditActionLabel("something.new")).toBe("something.new");
+    expect(auditActionLabel(t, "something.new")).toBe("something.new");
   });
 });
 
 describe("auditResultStatus", () => {
   it("maps every result the backend writes", () => {
-    expect(auditResultStatus("success").state).toBe("running");
-    expect(auditResultStatus("denied").state).toBe("failed");
-    expect(auditResultStatus("denied").attention).toBe(true);
-    expect(auditResultStatus("locked").label).toBe("Locked out");
+    expect(auditResultStatus(t, "success").state).toBe("running");
+    expect(auditResultStatus(t, "denied").state).toBe("failed");
+    expect(auditResultStatus(t, "denied").attention).toBe(true);
+    expect(auditResultStatus(t, "locked").label).toBe("Locked out");
   });
 
   it("humanises an unrecognised result instead of guessing its state", () => {
-    const view = auditResultStatus("weird_thing");
+    const view = auditResultStatus(t, "weird_thing");
     expect(view.state).toBe("unknown");
     expect(view.label).toBe("Weird thing");
   });
 
   it("treats the security middleware's generic error:<status> as a failure", () => {
-    const view = auditResultStatus("error:401");
+    const view = auditResultStatus(t, "error:401");
     expect(view.state).toBe("failed");
     expect(view.label).toBe("Error 401");
     expect(view.attention).toBe(true);
@@ -113,23 +116,23 @@ describe("auditResultStatus", () => {
 
 describe("describeActor", () => {
   it("names the master token", () => {
-    expect(describeActor("master")).toEqual({ label: "The master token", raw: "master" });
+    expect(describeActor(t, "master")).toEqual({ label: "The master token", raw: "master" });
   });
 
   it("names an API token by its own name, keeping the raw value", () => {
-    expect(describeActor("token:ci-deploy")).toEqual({ label: 'Token "ci-deploy"', raw: "token:ci-deploy" });
+    expect(describeActor(t, "token:ci-deploy")).toEqual({ label: 'Token "ci-deploy"', raw: "token:ci-deploy" });
   });
 
   it("names a webhook delivery", () => {
-    expect(describeActor("webhook").label).toBe("A webhook delivery");
+    expect(describeActor(t, "webhook").label).toBe("A webhook delivery");
   });
 
   it("names an anonymous, unauthenticated attempt", () => {
-    expect(describeActor("anonymous").label).toBe("Anonymous");
+    expect(describeActor(t, "anonymous").label).toBe("Anonymous");
   });
 
   it("names a browser session by a short id, keeping the full raw value", () => {
-    const words = describeActor("a1b2c3d4e5f6g7h8");
+    const words = describeActor(t, "a1b2c3d4e5f6g7h8");
     expect(words.label).toBe("Session a1b2c3d4");
     expect(words.raw).toBe("a1b2c3d4e5f6g7h8");
   });
@@ -139,12 +142,12 @@ describe("actorWords / rowActor", () => {
   it("reads a job row's actor", () => {
     const row = only(mergeActivity({ jobs: [job({ actor: "master" })], jobsComplete: true, entries: [], auditComplete: true }).rows);
     expect(rowActor(row)).toBe("master");
-    expect(actorWords(row).label).toBe("The master token");
+    expect(actorWords(t, row).label).toBe("The master token");
   });
 
   it("says a job with no recorded actor is not recorded, rather than guessing", () => {
     const row = only(mergeActivity({ jobs: [job({ actor: null })], jobsComplete: true, entries: [], auditComplete: true }).rows);
-    expect(actorWords(row)).toEqual({ label: "Not recorded", raw: "-" });
+    expect(actorWords(t, row)).toEqual({ label: "Not recorded", raw: "-" });
   });
 
   it("reads an audit row's actor", () => {
@@ -163,7 +166,7 @@ describe("actionWords / resourceOf", () => {
         auditComplete: true,
       }).rows,
     );
-    expect(actionWords(row)).toEqual({ label: "Deploy", raw: "deploy" });
+    expect(actionWords(t, row)).toEqual({ label: "Deploy", raw: "deploy" });
     expect(resourceOf(row)).toBe("shop.example.com");
   });
 
@@ -176,7 +179,7 @@ describe("actionWords / resourceOf", () => {
         auditComplete: true,
       }).rows,
     );
-    expect(actionWords(row)).toEqual({ label: "Failed a scope check", raw: "auth.scope" });
+    expect(actionWords(t, row)).toEqual({ label: "Failed a scope check", raw: "auth.scope" });
     expect(resourceOf(row)).toBe("/api/apps/shop.example.com");
   });
 });
@@ -259,12 +262,12 @@ describe("resultValidFor / resultOptions", () => {
   });
 
   it("offers only the relevant vocabulary once kind narrows it", () => {
-    expect(resultOptions("jobs").map((o) => o.value)).not.toContain("denied");
-    expect(resultOptions("audit").map((o) => o.value)).not.toContain("failed");
+    expect(resultOptions(t, "jobs").map((o) => o.value)).not.toContain("denied");
+    expect(resultOptions(t, "audit").map((o) => o.value)).not.toContain("failed");
   });
 
   it("prefixes both vocabularies when everything is shown, so the same word is not offered twice unlabelled", () => {
-    const options = resultOptions(undefined);
+    const options = resultOptions(t, undefined);
     expect(options.find((o) => o.value === "failed")?.label).toBe("Job: Failed");
     expect(options.find((o) => o.value === "failure")?.label).toBe("Action: Failed");
   });

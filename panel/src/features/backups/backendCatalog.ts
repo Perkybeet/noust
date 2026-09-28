@@ -6,23 +6,9 @@
  * build does not know about yet) still renders, under its own raw name.
  */
 
-interface BackendMeta {
-  label: string;
-  description: string;
-}
-
-const BACKEND_META: Readonly<Record<string, BackendMeta>> = {
-  sftp: { label: "SFTP server", description: "Any server reachable over SSH." },
-  smb: { label: "SMB / CIFS share", description: "A Windows share or a NAS." },
-  webdav: { label: "WebDAV", description: "Nextcloud, ownCloud, SharePoint and other WebDAV servers." },
-  s3: { label: "S3-compatible storage", description: "AWS S3, Cloudflare R2, Backblaze, Wasabi, MinIO, Hetzner, Scaleway and others, by provider." },
-  b2: { label: "Backblaze B2 (native)", description: "Backblaze's own API, rather than its S3-compatible one." },
-  drive: { label: "Google Drive", description: "Signed in once from your own computer." },
-  onedrive: { label: "Microsoft OneDrive", description: "Signed in once from your own computer." },
-  dropbox: { label: "Dropbox", description: "Signed in once from your own computer." },
-  pcloud: { label: "pCloud", description: "Signed in once from your own computer." },
-  local: { label: "Local path", description: "Another directory or mounted filesystem on this machine." },
-};
+import { getLocale } from "../../app/locale";
+import type { Locale } from "../../app/locale";
+import { translate } from "../../i18n";
 
 /**
  * Backends that authenticate through a token pasted from `rclone authorize "<backend>"`, run
@@ -30,10 +16,56 @@ const BACKEND_META: Readonly<Record<string, BackendMeta>> = {
  */
 export const OAUTH_BACKENDS: ReadonlySet<string> = new Set(["drive", "onedrive", "dropbox", "pcloud"]);
 
-export function backendLabel(backend: string): string {
-  return BACKEND_META[backend]?.label ?? backend;
+export function backendLabel(backend: string, locale: Locale = getLocale()): string {
+  switch (backend) {
+    case "sftp":
+      return translate(locale, "backups.backends.sftp.label");
+    case "smb":
+      return translate(locale, "backups.backends.smb.label");
+    case "webdav":
+      return translate(locale, "backups.backends.webdav.label");
+    case "s3":
+      return translate(locale, "backups.backends.s3.label");
+    case "b2":
+      return translate(locale, "backups.backends.b2.label");
+    case "drive":
+      return translate(locale, "backups.backends.drive.label");
+    case "onedrive":
+      return translate(locale, "backups.backends.onedrive.label");
+    case "dropbox":
+      return translate(locale, "backups.backends.dropbox.label");
+    case "pcloud":
+      return translate(locale, "backups.backends.pcloud.label");
+    case "local":
+      return translate(locale, "backups.backends.local.label");
+    default:
+      return backend;
+  }
 }
 
-export function backendDescription(backend: string): string | undefined {
-  return BACKEND_META[backend]?.description;
+export function backendDescription(backend: string, locale: Locale = getLocale()): string | undefined {
+  switch (backend) {
+    case "sftp":
+      return translate(locale, "backups.backends.sftp.description");
+    case "smb":
+      return translate(locale, "backups.backends.smb.description");
+    case "webdav":
+      return translate(locale, "backups.backends.webdav.description");
+    case "s3":
+      return translate(locale, "backups.backends.s3.description");
+    case "b2":
+      return translate(locale, "backups.backends.b2.description");
+    case "drive":
+      return translate(locale, "backups.backends.drive.description");
+    case "onedrive":
+      return translate(locale, "backups.backends.onedrive.description");
+    case "dropbox":
+      return translate(locale, "backups.backends.dropbox.description");
+    case "pcloud":
+      return translate(locale, "backups.backends.pcloud.description");
+    case "local":
+      return translate(locale, "backups.backends.local.description");
+    default:
+      return undefined;
+  }
 }

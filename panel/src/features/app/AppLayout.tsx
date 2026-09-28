@@ -20,12 +20,11 @@ import { Spinner } from "../../components/ui/Spinner";
 import { StatusPill } from "../../components/ui/StatusPill";
 import type { StatusView } from "../../components/page/status";
 import { useT } from "../../i18n";
+import type { T } from "../../i18n";
 import { AppActions } from "./AppActions";
 import { findCertificate } from "./lookups";
 import { jobStep, jobWords, useAppJob } from "./useAppJob";
 import type { AppJob } from "./useAppJob";
-
-const BREADCRUMBS = [{ label: "Applications", to: "/apps" }] as const;
 
 /**
  * Where the app answers: HTTPS unless the certificate list shows none covers it (while the
@@ -36,7 +35,7 @@ function liveUrl(domain: string, hasCertificate: boolean): string {
 }
 
 /** The header's facts line: state, type, port, and the live site. Phrasing content only: it sits in a paragraph. */
-function Facts({ app, view, hasCertificate }: { app: App; view: StatusView; hasCertificate: boolean }) {
+function Facts({ app, view, hasCertificate, t }: { app: App; view: StatusView; hasCertificate: boolean; t: T }) {
   const url = liveUrl(app.domain, hasCertificate);
   return (
     <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
@@ -48,7 +47,7 @@ function Facts({ app, view, hasCertificate }: { app: App; view: StatusView; hasC
       ) : null}
       {app.port ? (
         <span className="text-13 text-fg-muted">
-          Port{" "}
+          {t("appPages.common.port")}{" "}
           <span translate="no" className="mono text-12 text-fg">
             {app.port}
           </span>
@@ -62,7 +61,7 @@ function Facts({ app, view, hasCertificate }: { app: App; view: StatusView; hasC
       >
         <span translate="no">{url.replace(/^https?:\/\//, "")}</span>
         <ExternalLink aria-hidden="true" className="size-3.5" />
-        <span className="sr-only"> (opens the live site in a new tab)</span>
+        <span className="sr-only"> {t("appPages.layout.opensLiveSite")}</span>
       </a>
     </span>
   );
@@ -79,9 +78,9 @@ function FactsSkeleton() {
 }
 
 /** What is being done to the app, under its header: the running job's step, or how the last one failed. */
-function JobStatus({ job, domain }: { job: AppJob; domain: string }) {
+function JobStatus({ job, domain, t }: { job: AppJob; domain: string; t: T }) {
   if (job.running) {
-    const words = jobWords(job.running.type);
+    const words = jobWords(job.running.type, domain, t.locale);
     const step = jobStep(job.running);
     return (
       <div className="flex min-w-0 items-center gap-2.5 rounded-control border border-border bg-surface px-3 py-2 text-13 shadow-raised">
@@ -96,34 +95,30 @@ function JobStatus({ job, domain }: { job: AppJob; domain: string }) {
     );
   }
   if (job.failed) {
-    const words = jobWords(job.failed.type);
+    const words = jobWords(job.failed.type, domain, t.locale);
     return (
       <div className="relative">
         {/* Not live: the job's failure is already announced by its notice toast. */}
-        <ErrorBlock
-          error={{ detail: job.failed.error ?? "The job failed without saying why. Its log is on the Activity page." }}
-          title={`${words.noun} of ${domain} failed`}
-          className="pr-12"
-        />
-        <IconButton label="Dismiss" icon={<X />} size="sm" onClick={job.dismiss} className="absolute top-2.5 right-2.5" />
+        <ErrorBlock error={{ detail: job.failed.error ?? t("appPages.job.noReason") }} title={words.failed} className="pr-12" />
+        <IconButton label={t("appPages.layout.dismiss")} icon={<X />} size="sm" onClick={job.dismiss} className="absolute top-2.5 right-2.5" />
       </div>
     );
   }
   return null;
 }
 
-function NotFound({ domain }: { domain: string }) {
+function NotFound({ domain, t }: { domain: string; t: T }) {
   return (
     <>
-      <PageHeader title={domain} breadcrumbs={BREADCRUMBS} />
+      <PageHeader title={domain} breadcrumbs={[{ label: t("nav.apps.label"), to: "/apps" }]} />
       <EmptyState
         level={2}
         icon={<Boxes />}
-        title="No application at this domain"
-        description="It may have been deleted, or the address has a typo. Every app on this machine is in the applications list."
+        title={t("appPages.layout.notFoundTitle")}
+        description={t("appPages.layout.notFoundDescription")}
         action={
           <Link to="/apps" className={buttonClassName("secondary")}>
-            All applications
+            {t("appPages.layout.allApplications")}
           </Link>
         }
         command="wasm list"
@@ -146,7 +141,9 @@ export function AppLayout({ domain }: { domain: string }) {
 
   const base = appStatus(app.data?.status);
   // A job running on the app is its state, whatever systemd says about the unit meanwhile.
-  const view: StatusView = job.running ? { state: "deploying", label: jobWords(job.running.type).running, attention: false } : base;
+  const view: StatusView = job.running
+    ? { state: "deploying", label: jobWords(job.running.type, domain, t.locale).running, attention: false }
+    : base;
 
   useAnnounceChange(
     app.data ? view.label : null,
@@ -154,23 +151,23 @@ export function AppLayout({ domain }: { domain: string }) {
     view.state === "failed" ? "assertive" : "polite",
   );
 
-  if (app.isError && isApiError(app.error) && app.error.status === 404) return <NotFound domain={domain} />;
+  if (app.isError && isApiError(app.error) && app.error.status === 404) return <NotFound domain={domain} t={t} />;
 
   return (
     <>
       <PageHeader
         title={domain}
-        breadcrumbs={BREADCRUMBS}
+        breadcrumbs={[{ label: t("nav.apps.label"), to: "/apps" }]}
         description={
-          app.data ? <Facts app={app.data} view={view} hasCertificate={cert !== null} /> : <FactsSkeleton />
+          app.data ? <Facts app={app.data} view={view} hasCertificate={cert !== null} t={t} /> : <FactsSkeleton />
         }
         actions={app.data ? <AppActions app={app.data} busy={job.running !== null} onJobQueued={job.track} /> : undefined}
       />
       <div className="-mt-4 mb-8 flex flex-col gap-4">
         {app.isError && app.data === undefined ? (
-          <ErrorBlock error={app.error} title={`Could not load ${domain}`} onRetry={() => void app.refetch()} retrying={app.isRefetching} />
+          <ErrorBlock error={app.error} title={t("appPages.layout.loadError", { domain })} onRetry={() => void app.refetch()} retrying={app.isRefetching} />
         ) : null}
-        <JobStatus job={job} domain={domain} />
+        <JobStatus job={job} domain={domain} t={t} />
         <LinkTabs label={t("nav.landmarks.appSections")} tabs={APP_TABS.map((tab) => ({ ...tab, params: { domain } }))} />
       </div>
       <Outlet />

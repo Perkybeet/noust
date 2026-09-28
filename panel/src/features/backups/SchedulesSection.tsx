@@ -16,31 +16,36 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { IconButton } from "../../components/ui/IconButton";
 import { Menu, MenuItem } from "../../components/ui/Menu";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { useT } from "../../i18n";
 import { ScheduleDialog } from "./ScheduleDialog";
 import { useBackupActions } from "./useBackupActions";
 
 function ScheduleActions({ schedule }: { schedule: BackupSchedule }) {
+  const t = useT();
   const { deleteSchedule } = useBackupActions();
   const [editOpen, setEditOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   return (
     <>
-      <Menu align="end" trigger={<IconButton label={`Actions for the schedule on ${schedule.domain}`} icon={<MoreHorizontal />} size="sm" tooltip={false} />}>
+      <Menu
+        align="end"
+        trigger={<IconButton label={t("backups.schedules.actionsFor", { domain: schedule.domain })} icon={<MoreHorizontal />} size="sm" tooltip={false} />}
+      >
         <MenuItem icon={<CalendarClock />} onClick={() => setEditOpen(true)}>
-          Edit
+          {t("backups.common.edit")}
         </MenuItem>
         <MenuItem icon={<Trash2 />} destructive onClick={() => setConfirmOpen(true)}>
-          Remove schedule
+          {t("backups.schedules.removeAction")}
         </MenuItem>
       </Menu>
       <ScheduleDialog existing={schedule} open={editOpen} onOpenChange={setEditOpen} />
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title={`Remove the schedule for ${schedule.domain}`}
-        description="Stops automatic backups of this application. Backups already taken are kept."
+        title={t("backups.schedules.removeDialog.title", { domain: schedule.domain })}
+        description={t("backups.schedules.removeDialog.description")}
         confirmText={schedule.domain}
-        actionLabel="Remove schedule"
+        actionLabel={t("backups.schedules.removeAction")}
         destructive
         onConfirm={async () => {
           await deleteSchedule.mutateAsync(schedule.domain);
@@ -52,14 +57,15 @@ function ScheduleActions({ schedule }: { schedule: BackupSchedule }) {
 
 /** Automatic backups on a systemd timer, one per application, with the next run systemd reports. */
 export function SchedulesSection() {
+  const t = useT();
   const schedules = useQuery(backupSchedulesQuery());
   const [createOpen, setCreateOpen] = useState(false);
 
   const columns: Column<BackupSchedule>[] = [
-    { id: "domain", header: "Application", cell: (row) => row.domain, sortValue: (row) => row.domain },
+    { id: "domain", header: t("backups.fields.application"), cell: (row) => row.domain, sortValue: (row) => row.domain },
     {
       id: "schedule",
-      header: "Schedule",
+      header: t("backups.schedules.columns.schedule"),
       cell: (row) => (
         <span className="flex flex-col">
           <span className="capitalize text-fg">{row.schedule}</span>
@@ -71,34 +77,38 @@ export function SchedulesSection() {
     },
     {
       id: "next_run",
-      header: "Next run",
-      cell: (row) => (row.next_run === "pending" ? <span className="text-fg-faint">Pending</span> : <RelativeTime value={row.next_run} />),
+      header: t("backups.schedules.columns.nextRun"),
+      cell: (row) => (row.next_run === "pending" ? <span className="text-fg-faint">{t("backups.schedules.pending")}</span> : <RelativeTime value={row.next_run} />),
     },
     {
       id: "last_run",
-      header: "Last run",
+      header: t("backups.schedules.columns.lastRun"),
       hideBelow: "sm",
-      cell: (row) => (row.last_run === "never" ? <span className="text-fg-faint">Never</span> : <RelativeTime value={row.last_run} />),
+      cell: (row) => (row.last_run === "never" ? <span className="text-fg-faint">{t("time.never")}</span> : <RelativeTime value={row.last_run} />),
     },
     {
       id: "retention",
-      header: "Retention",
+      header: t("backups.schedules.columns.retention"),
       hideBelow: "md",
       // Null is not unknown: it is backup.max_per_app over every backup, what an adopted 2.1
       // timer has and what the operator chose when they left it on the server default.
       cell: (row) =>
         (row.retention_count ?? null) === null && (row.retention_days ?? null) === null ? (
-          <span className="text-fg-muted">Server default</span>
+          <span className="text-fg-muted">{t("backups.schedules.serverDefault")}</span>
         ) : (
           <span className="flex flex-wrap gap-1">
-            {row.retention_count !== null && row.retention_count !== undefined ? <Badge mono>{`${String(row.retention_count)} backups`}</Badge> : null}
-            {row.retention_days !== null && row.retention_days !== undefined ? <Badge mono>{`${String(row.retention_days)} days`}</Badge> : null}
+            {row.retention_count !== null && row.retention_count !== undefined ? (
+              <Badge mono>{t("backups.schedules.retentionBackupsBadge", { count: row.retention_count })}</Badge>
+            ) : null}
+            {row.retention_days !== null && row.retention_days !== undefined ? (
+              <Badge mono>{t("backups.schedules.retentionDaysBadge", { count: row.retention_days })}</Badge>
+            ) : null}
           </span>
         ),
     },
     {
       id: "destinations",
-      header: "Destinations",
+      header: t("backups.schedules.columns.destinations"),
       hideBelow: "lg",
       cell: (row) =>
         row.destinations !== undefined && row.destinations.length > 0 ? (
@@ -110,20 +120,20 @@ export function SchedulesSection() {
             ))}
           </span>
         ) : (
-          <span className="text-fg-faint">Local only</span>
+          <span className="text-fg-faint">{t("backups.schedules.localOnly")}</span>
         ),
     },
   ];
 
   return (
     <Section
-      title="Schedules"
-      description="Automatic backups, one per application, on a systemd timer."
+      title={t("backups.schedules.sectionTitle")}
+      description={t("backups.schedules.sectionDescription")}
       // Secondary: the page's primary is New backup. Hidden while the empty state offers it.
       actions={
         schedules.data !== undefined && schedules.data.schedules.length > 0 ? (
           <Button size="sm" icon={<Plus aria-hidden="true" />} onClick={() => setCreateOpen(true)}>
-            New schedule
+            {t("backups.schedules.newSchedule")}
           </Button>
         ) : undefined
       }
@@ -142,11 +152,11 @@ export function SchedulesSection() {
         empty={
           <EmptyState
             icon={<CalendarClock />}
-            title="No scheduled backups"
-            description="Set an application to back itself up on a schedule, without anyone starting it by hand."
+            title={t("backups.schedules.empty.title")}
+            description={t("backups.schedules.empty.description")}
             action={
               <Button icon={<Plus aria-hidden="true" />} onClick={() => setCreateOpen(true)}>
-                New schedule
+                {t("backups.schedules.newSchedule")}
               </Button>
             }
             command="wasm backup schedule <domain> --schedule daily"
@@ -158,7 +168,7 @@ export function SchedulesSection() {
             columns={columns}
             rows={data.schedules}
             getRowId={(row) => row.domain}
-            caption="Backup schedules"
+            caption={t("backups.schedules.caption")}
             rowActions={(row) => <ScheduleActions schedule={row} />}
             defaultSort={{ column: "domain", direction: "ascending" }}
           />

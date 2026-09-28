@@ -2,6 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { Link, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 
 import { useDocumentTitle } from "../app/documentTitle";
+import { useT } from "../i18n";
 
 export interface RouterContext {
   queryClient: QueryClient;
@@ -13,16 +14,19 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 });
 
 function NotFound() {
-  useDocumentTitle("Page not found");
+  const t = useT();
+  useDocumentTitle(t("shell.notFound.title"));
   return (
     <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center gap-2 px-6">
-      <h1 className="title text-24">Page not found</h1>
+      <h1 className="title text-24">{t("shell.notFound.title")}</h1>
       <p className="text-14 text-fg-muted">
-        Nothing lives at this address. Check the link, or go back to the{" "}
-        <Link to="/" className="font-medium text-accent-fg underline underline-offset-2">
-          overview
-        </Link>
-        .
+        {t.rich("shell.notFound.body", {
+          overview: (
+            <Link to="/" className="font-medium text-accent-fg underline underline-offset-2">
+              {t("shell.notFound.overviewLink")}
+            </Link>
+          ),
+        })}
       </p>
     </main>
   );

@@ -19,6 +19,8 @@ import type { Column } from "../../../components/ui/DataTable";
 import { Dialog } from "../../../components/ui/Dialog";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { toast } from "../../../components/ui/toast";
+import { useT } from "../../../i18n";
+import type { T } from "../../../i18n";
 import { formatCount } from "../../../lib/format";
 import { LINK, PANEL } from "./panel";
 
@@ -38,6 +40,7 @@ export function firstLine(text: string | null | undefined): string | null {
 
 /** A value the operator copies into the forge: in full, never truncated, with its copy button. */
 function CopyRow({ label, value }: { label: string; value: string }) {
+  const t = useT();
   return (
     <div className="grid min-w-0 gap-1 sm:grid-cols-[7rem_minmax(0,1fr)] sm:items-center sm:gap-4">
       <span className="text-13 text-fg-muted">{label}</span>
@@ -45,7 +48,7 @@ function CopyRow({ label, value }: { label: string; value: string }) {
         <code translate="no" className="min-w-0 flex-1 text-12 break-all text-fg">
           {value}
         </code>
-        <CopyButton value={value} label={`Copy ${label.charAt(0).toLowerCase()}${label.slice(1)}`} />
+        <CopyButton value={value} label={t("appSettings.webhook.copyLabel", { label: `${label.charAt(0).toLowerCase()}${label.slice(1)}` })} />
       </div>
     </div>
   );
@@ -53,6 +56,7 @@ function CopyRow({ label, value }: { label: string; value: string }) {
 
 /** The secret just created, shown this once, with what to paste where in each forge. */
 function NewSecret({ secret, onDone }: { secret: WebhookSecret; onDone: () => void }) {
+  const t = useT();
   const titleId = useId();
   return (
     <div role="region" aria-labelledby={titleId} className="flex flex-col gap-4 rounded-control border border-border-strong bg-surface-raised p-4">
@@ -60,72 +64,68 @@ function NewSecret({ secret, onDone }: { secret: WebhookSecret; onDone: () => vo
         <KeyRound aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fg-muted" />
         <div className="flex flex-col gap-0.5">
           <h3 id={titleId} className="text-14 font-medium text-fg">
-            Copy the secret now
+            {t("appSettings.webhook.copySecretNow")}
           </h3>
-          <p className="text-13 text-pretty text-fg-muted">
-            It is shown this once. WASM keeps it only to check the signature of each delivery.
-          </p>
+          <p className="text-13 text-pretty text-fg-muted">{t("appSettings.webhook.copySecretNowDescription")}</p>
         </div>
       </div>
       <div className="flex flex-col gap-2.5">
-        <CopyRow label="Payload URL" value={secret.hook_url} />
-        <CopyRow label="Secret" value={secret.secret} />
+        <CopyRow label={t("appSettings.webhook.payloadUrlLabel")} value={secret.hook_url} />
+        <CopyRow label={t("appSettings.webhook.secretLabel")} value={secret.secret} />
       </div>
       <div className="grid gap-4 border-t border-border pt-4 text-13 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
-          <h4 className="font-medium text-fg">GitHub or Gitea</h4>
+          <h4 className="font-medium text-fg">{t("appSettings.webhook.githubGitea")}</h4>
           <p className="text-pretty text-fg-muted">
-            In the repository settings, add a webhook: the payload URL and the secret above, content type{" "}
-            <code className="text-12 text-fg">application/json</code>, only the push event.
+            {t.rich("appSettings.webhook.githubGiteaBody", { code: <code className="text-12 text-fg">application/json</code> })}
           </p>
         </div>
         <div className="flex flex-col gap-1">
-          <h4 className="font-medium text-fg">GitLab</h4>
-          <p className="text-pretty text-fg-muted">
-            In the project settings, add a webhook: the URL above, the secret as its secret token, push events.
-          </p>
+          <h4 className="font-medium text-fg">{t("appSettings.webhook.gitlab")}</h4>
+          <p className="text-pretty text-fg-muted">{t("appSettings.webhook.gitlabBody")}</p>
         </div>
       </div>
       <div>
-        <Button onClick={onDone}>Hide the secret</Button>
+        <Button onClick={onDone}>{t("appSettings.webhook.hideSecret")}</Button>
       </div>
     </div>
   );
 }
 
 /** What a delivery without an error came to, by its deployment's status. */
-const OUTCOME: Readonly<Record<string, string>> = {
-  success: "Deployed",
-  rolled_back: "Deployed, later rolled back",
-  running: "Deploying now",
-  queued: "Waiting to deploy",
-};
+function outcomeOf(t: T, status: string): string {
+  if (status === "success") return t("appSettings.webhook.outcomeDeployed");
+  if (status === "rolled_back") return t("appSettings.webhook.outcomeRolledBack");
+  if (status === "running") return t("appSettings.webhook.outcomeDeploying");
+  if (status === "queued") return t("appSettings.webhook.outcomeQueued");
+  return t("appSettings.webhook.noErrorRecorded");
+}
 
-function deliveryColumns(domain: string): Column<WebhookDelivery>[] {
+function deliveryColumns(domain: string, t: T): Column<WebhookDelivery>[] {
   return [
     {
       id: "status",
-      header: "Status",
+      header: t("appSettings.webhook.statusHeader"),
       cell: (row) => <DeployStatePill status={row.status} appearance="inline" size="sm" />,
       width: "w-32",
     },
     {
       id: "commit",
-      header: "Commit",
+      header: t("appSettings.webhook.commitHeader"),
       mono: true,
       cell: (row) => (row.git_commit ? <span translate="no">{row.git_commit.slice(0, 7)}</span> : <span className="text-fg-faint">-</span>),
       width: "w-24",
     },
     {
       id: "started",
-      header: "Started",
+      header: t("appSettings.webhook.startedHeader"),
       cell: (row) => <RelativeTime value={row.started_at} className="text-fg-muted" />,
       width: "w-28",
       hideBelow: "sm",
     },
     {
       id: "outcome",
-      header: "Outcome",
+      header: t("appSettings.webhook.outcomeHeader"),
       cell: (row) => {
         const line = firstLine(row.error);
         return line !== null ? (
@@ -133,18 +133,18 @@ function deliveryColumns(domain: string): Column<WebhookDelivery>[] {
             {line}
           </code>
         ) : (
-          <span className="text-fg-muted">{OUTCOME[row.status] ?? "No error recorded"}</span>
+          <span className="text-fg-muted">{outcomeOf(t, row.status)}</span>
         );
       },
       hideBelow: "md",
     },
     {
       id: "deployment",
-      header: "Deployment",
+      header: t("appSettings.webhook.deploymentHeader"),
       align: "end",
       cell: (row) => (
         <Link to="/apps/$domain/deployments/$id" params={{ domain, id: String(row.deployment_id) }} className={LINK}>
-          {`Deploy ${String(row.deployment_id)}`}
+          {t("appSettings.webhook.deployLink", { id: row.deployment_id })}
         </Link>
       ),
       width: "w-32",
@@ -158,6 +158,7 @@ function deliveryColumns(domain: string): Column<WebhookDelivery>[] {
  * first.
  */
 export function WebhookSection({ app }: { app: App }) {
+  const t = useT();
   const domain = app.domain;
   const queryClient = useQueryClient();
   const deliveries = useQuery(webhookDeliveriesQuery(domain));
@@ -176,7 +177,7 @@ export function WebhookSection({ app }: { app: App }) {
       setSecret(result);
       setConfirm(null);
       settle(true);
-      announce("Webhook secret created. Copy it now: it is shown this once.");
+      announce(t("appSettings.webhook.secretCreatedAnnounce"));
     },
   });
   const disable = useMutation({
@@ -185,7 +186,7 @@ export function WebhookSection({ app }: { app: App }) {
       setSecret(null);
       setConfirm(null);
       settle(false);
-      toast.success(`Webhook of ${domain} disabled`);
+      toast.success(t("appSettings.webhook.disabledToast", { domain }));
     },
   });
 
@@ -193,15 +194,19 @@ export function WebhookSection({ app }: { app: App }) {
   const total = deliveries.data?.total ?? 0;
   const latest = items[0];
 
-  const status = enabled ? <StatusPill state="running" label="Enabled" size="sm" /> : <StatusPill state="stopped" label="Disabled" size="sm" />;
+  const status = enabled ? (
+    <StatusPill state="running" label={t("appSettings.webhook.enabled")} size="sm" />
+  ) : (
+    <StatusPill state="stopped" label={t("appSettings.webhook.disabled")} size="sm" />
+  );
 
   const summary = !enabled
-    ? "Deliveries are refused until a secret is created."
+    ? t("appSettings.webhook.refusedUntilSecret")
     : latest
       ? null
       : deliveries.isPending
-        ? "Reading the deliveries…"
-        : "No push has deployed this app yet.";
+        ? t("appSettings.webhook.readingDeliveries")
+        : t("appSettings.webhook.noDeployYet");
 
   const closeConfirm = (next: boolean): void => {
     if (!next && (create.isPending || disable.isPending)) return;
@@ -213,7 +218,7 @@ export function WebhookSection({ app }: { app: App }) {
   };
 
   return (
-    <Section title="Deploy webhook" description="A push to the repository deploys the app. The forge signs each delivery with a secret WASM checks.">
+    <Section title={t("appSettings.webhook.title")} description={t("appSettings.webhook.description")}>
       <div className={`${PANEL} flex flex-col gap-4 px-4 py-4`}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
@@ -223,9 +228,10 @@ export function WebhookSection({ app }: { app: App }) {
               <p className="text-13 text-fg-muted">{summary}</p>
             ) : latest ? (
               <p className="text-13 text-fg-muted">
-                {"Last delivery "}
-                <RelativeTime value={latest.started_at} className="text-fg" />
-                {`. ${formatCount(total)} ${total === 1 ? "delivery" : "deliveries"} in total.`}
+                {t.rich("appSettings.webhook.lastDelivery", {
+                  time: <RelativeTime value={latest.started_at} className="text-fg" />,
+                  deliveries: t("appSettings.webhook.deliveryCount", { count: total }),
+                })}
               </p>
             ) : null}
           </div>
@@ -233,42 +239,44 @@ export function WebhookSection({ app }: { app: App }) {
             {enabled ? (
               <>
                 <Button variant="ghost" onClick={() => setConfirm("disable")}>
-                  Disable webhook
+                  {t("appSettings.webhook.disableWebhook")}
                 </Button>
-                <Button onClick={() => setConfirm("regenerate")}>Regenerate secret</Button>
+                <Button onClick={() => setConfirm("regenerate")}>{t("appSettings.webhook.regenerateSecret")}</Button>
               </>
             ) : (
               // Secondary, like every action inside a tab: the page's one primary is Update.
               <Button loading={create.isPending} onClick={() => create.mutate()}>
-                Enable webhook
+                {t("appSettings.webhook.enableWebhook")}
               </Button>
             )}
           </div>
         </div>
-        {create.isError && confirm === null ? <ErrorBlock live compact error={create.error} title="The secret was not created" /> : null}
+        {create.isError && confirm === null ? (
+          <ErrorBlock live compact error={create.error} title={t("appSettings.webhook.secretNotCreated")} />
+        ) : null}
         {secret !== null ? <NewSecret secret={secret} onDone={() => setSecret(null)} /> : null}
       </div>
 
       <div className="flex min-w-0 flex-col gap-3">
-        <h3 className="text-14 font-medium text-fg">Recent deliveries</h3>
+        <h3 className="text-14 font-medium text-fg">{t("appSettings.webhook.recentDeliveries")}</h3>
         {deliveries.isError && deliveries.data === undefined ? (
-          <ErrorBlock compact error={deliveries.error} title="Could not load the deliveries" onRetry={() => void deliveries.refetch()} />
+          <ErrorBlock compact error={deliveries.error} title={t("appSettings.webhook.couldNotLoadDeliveries")} onRetry={() => void deliveries.refetch()} />
         ) : (
           <DataTable
-            caption={`Deploys started by a push to ${domain}, newest first`}
-            columns={deliveryColumns(domain)}
+            caption={t("appSettings.webhook.tableCaption", { domain })}
+            columns={deliveryColumns(domain, t)}
             rows={items.slice(0, DELIVERIES_SHOWN)}
             getRowId={(row) => String(row.deployment_id)}
             loading={deliveries.isPending}
             density="compact"
-            empty={<p className="text-13 text-fg-muted">No push has deployed this app yet. Deliveries appear here once the forge sends one.</p>}
+            empty={<p className="text-13 text-fg-muted">{t("appSettings.webhook.noDeliveriesYet")}</p>}
           />
         )}
         {total > DELIVERIES_SHOWN ? (
           <p className="text-12 text-fg-muted">
-            {`The newest ${String(DELIVERIES_SHOWN)} of ${formatCount(total)}. `}
+            {t("appSettings.webhook.newestOf", { shown: DELIVERIES_SHOWN, total: formatCount(total) })}
             <Link to="/apps/$domain/deployments" params={{ domain }} className={LINK}>
-              Every deploy is on the Deployments tab
+              {t("appSettings.webhook.everyDeployLink")}
             </Link>
           </p>
         ) : null}
@@ -278,33 +286,31 @@ export function WebhookSection({ app }: { app: App }) {
         open={confirm !== null}
         onOpenChange={closeConfirm}
         size="sm"
-        title={confirm === "disable" ? `Disable the webhook of ${domain}?` : "Regenerate the secret?"}
+        title={confirm === "disable" ? t("appSettings.webhook.disableConfirmTitle", { domain }) : t("appSettings.webhook.regenerateConfirmTitle")}
         description={
-          confirm === "disable"
-            ? "The secret is discarded and every delivery is refused until a new one is created. Nothing else changes."
-            : "The new secret replaces the current one at once: deliveries signed with the old secret are refused until the forge has the new one."
+          confirm === "disable" ? t("appSettings.webhook.disableConfirmDescription") : t("appSettings.webhook.regenerateConfirmDescription")
         }
         footer={
           <>
             <Button disabled={create.isPending || disable.isPending} onClick={() => closeConfirm(false)}>
-              Cancel
+              {t("appSettings.cancel")}
             </Button>
             {confirm === "disable" ? (
               <Button variant="danger" loading={disable.isPending} onClick={() => disable.mutate()}>
-                Disable webhook
+                {t("appSettings.webhook.disableWebhook")}
               </Button>
             ) : (
               <Button variant="primary" loading={create.isPending} onClick={() => create.mutate()}>
-                Regenerate secret
+                {t("appSettings.webhook.regenerateSecret")}
               </Button>
             )}
           </>
         }
       >
         {confirm === "disable" && disable.isError ? (
-          <ErrorBlock live compact error={disable.error} title="The webhook was not disabled" />
+          <ErrorBlock live compact error={disable.error} title={t("appSettings.webhook.webhookNotDisabled")} />
         ) : confirm === "regenerate" && create.isError ? (
-          <ErrorBlock live compact error={create.error} title="The secret was not created" />
+          <ErrorBlock live compact error={create.error} title={t("appSettings.webhook.secretNotCreated")} />
         ) : undefined}
       </Dialog>
     </Section>

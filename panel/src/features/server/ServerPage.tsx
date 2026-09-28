@@ -13,9 +13,11 @@ import type { Column } from "../../components/ui/DataTable";
 import { Select } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusGlyph, StatusPill, stateTextClass } from "../../components/ui/StatusPill";
+import { useT } from "../../i18n";
+import type { T } from "../../i18n";
 import { formatBytes, formatPercent } from "../../lib/format";
 import { MonitorCard } from "./MonitorCard";
-import { checkName, checkView, healthReasons, verdictView } from "./data";
+import { checkName, checkView, healthReasons, verdictText, verdictView } from "./data";
 import type { HealthCheck, HealthReason } from "./data";
 
 /** The checks `wasm health` runs on a typical machine, for the placeholder's height. */
@@ -53,24 +55,24 @@ function ReasonText({ reason }: { reason: HealthReason }) {
  * Why the verdict is what it is: every issue (what fails the check) and warning (what only
  * needs attention) the report gives, each with its level as colour, shape and word.
  */
-function HealthReasons({ reasons }: { reasons: readonly HealthReason[] }) {
+function HealthReasons({ t, reasons }: { t: T; reasons: readonly HealthReason[] }) {
   const headingId = useId();
   return (
     // Live, so a reason that appears while the page is open (a refresh after a certificate
     // expired) is read out with the verdict it changed; the first render is not announced.
     <div aria-labelledby={headingId} role="group" aria-live="polite" className="flex min-w-0 flex-col py-2">
       <h3 id={headingId} className="py-1 text-12 font-medium text-fg-muted">
-        Reasons
+        {t("server.health.reasonsLabel")}
       </h3>
       {reasons.length === 0 ? (
-        <p className="py-1 text-13 text-fg-muted">Nothing needs attention.</p>
+        <p className="py-1 text-13 text-fg-muted">{t("server.health.reasonsEmpty")}</p>
       ) : (
         <ul className="flex flex-col">
           {reasons.map((reason, index) => (
             <li key={`${reason.level}-${String(index)}`} className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-baseline gap-x-2 py-1">
               <StatusPill
                 state={reason.level === "issue" ? "failed" : "warning"}
-                label={reason.level === "issue" ? "Critical" : "Warning"}
+                label={reason.level === "issue" ? t("server.health.critical") : t("server.health.warning")}
                 appearance="inline"
                 size="sm"
               />
@@ -85,16 +87,16 @@ function HealthReasons({ reasons }: { reasons: readonly HealthReason[] }) {
   );
 }
 
-function HealthChecks({ checks }: { checks: readonly HealthCheck[] }) {
+function HealthChecks({ t, checks }: { t: T; checks: readonly HealthCheck[] }) {
   return (
-    <ul aria-label="Checks" className="flex flex-col divide-y divide-border">
+    <ul aria-label={t("server.health.checksLabel")} className="flex flex-col divide-y divide-border">
       {checks.map((check) => {
         const view = checkView(check.status);
         return (
           <li key={check.name} className="flex items-start justify-between gap-3 py-2">
             <span className="flex shrink-0 items-center gap-2 text-13 whitespace-nowrap text-fg">
               <StatusGlyph state={view.state} size={10} className={stateTextClass(view.state)} />
-              {checkName(check.name)}
+              {checkName(t, check.name)}
             </span>
             <span className="min-w-0 text-right text-13 text-pretty text-fg-muted">{check.value}</span>
           </li>
@@ -105,10 +107,10 @@ function HealthChecks({ checks }: { checks: readonly HealthCheck[] }) {
 }
 
 /** The loaded card's shape: the verdict's pill, then one row per check. */
-function HealthSkeleton() {
+function HealthSkeleton({ t }: { t: T }) {
   return (
     <div aria-busy="true" className="rounded-card border border-border bg-surface px-4 shadow-raised">
-      <span className="sr-only">Running the health check</span>
+      <span className="sr-only">{t("server.health.running")}</span>
       <div aria-hidden="true">
         <div className="flex h-12 items-center border-b border-border">
           <Skeleton className="h-6 w-20 rounded-pill" />
@@ -141,38 +143,40 @@ function HealthSkeleton() {
 }
 
 function Health() {
+  const t = useT();
   const health = useQuery(systemHealthQuery());
   return (
-    <Section title="Health" description="The same checks `wasm health` runs.">
+    <Section title={t("server.health.title")} description={t("server.health.description")}>
       {health.isError && health.data === undefined ? (
-        <ErrorBlock compact error={health.error} title="Could not run the health check" onRetry={() => void health.refetch()} />
+        <ErrorBlock compact error={health.error} title={t("server.health.couldNotRun")} onRetry={() => void health.refetch()} />
       ) : health.data === undefined ? (
-        <HealthSkeleton />
+        <HealthSkeleton t={t} />
       ) : (
         <div className="rounded-card border border-border bg-surface px-4 shadow-raised">
           {/* A status region like the overview's announcements: the report refreshes in place,
               and a verdict that turns critical meanwhile must be heard, not only seen. */}
-          <div role="status" aria-label="Health verdict" aria-atomic="true" className="flex items-center gap-2 border-b border-border py-3">
-            <StatusPill state={verdictView(health.data.verdict).state} label={verdictView(health.data.verdict).label} />
+          <div role="status" aria-label={t("server.health.verdictLabel")} aria-atomic="true" className="flex items-center gap-2 border-b border-border py-3">
+            <StatusPill state={verdictView(health.data.verdict).state} label={verdictText(t, verdictView(health.data.verdict).label)} />
           </div>
           {/* The reasons beside the checks on a wide screen, so a verdict never stands without them. */}
           <div className="grid min-w-0 gap-x-6 max-lg:divide-y max-lg:divide-border lg:grid-cols-2">
-            <HealthReasons reasons={healthReasons(health.data)} />
+            <HealthReasons t={t} reasons={healthReasons(health.data)} />
             <div className="min-w-0 lg:border-l lg:border-border lg:pl-6">
-              <HealthChecks checks={health.data.checks} />
+              <HealthChecks t={t} checks={health.data.checks} />
             </div>
           </div>
         </div>
       )}
-      <CommandHint command="wasm health" label="From a terminal" />
+      <CommandHint command="wasm health" label={t("server.fromTerminal")} />
     </Section>
   );
 }
 
 /** The installed version, and the one released if a check found a newer one. */
 function VersionTile() {
+  const t = useT();
   const version = useQuery(versionQuery());
-  if (version.data === undefined) return <StatTile label="Version" value={<Skeleton className="h-5 w-16" />} />;
+  if (version.data === undefined) return <StatTile label={t("server.system.version")} value={<Skeleton className="h-5 w-16" />} />;
   const { current_version, has_update, latest_version } = version.data;
   // New in 2.3; read loosely until the generated schema carries them.
   const { update_state, published_version } = version.data as {
@@ -181,19 +185,20 @@ function VersionTile() {
   };
   const detail =
     has_update && latest_version
-      ? `Update available: v${latest_version}`
+      ? t("server.system.updateAvailable", { version: latest_version })
       : update_state === "on_the_way" && published_version
-        ? `v${published_version} on the way`
-        : "Up to date";
-  return <StatTile label="Version" value={current_version} mono detail={detail} />;
+        ? t("server.system.onTheWay", { version: published_version })
+        : t("server.system.upToDate");
+  return <StatTile label={t("server.system.version")} value={current_version} mono detail={detail} />;
 }
 
 function SystemInfo() {
+  const t = useT();
   const info = useQuery(systemInfoQuery());
   if (info.isError && info.data === undefined) {
     return (
-      <Section title="System">
-        <ErrorBlock compact error={info.error} title="Could not read system information" onRetry={() => void info.refetch()} />
+      <Section title={t("server.system.title")}>
+        <ErrorBlock compact error={info.error} title={t("server.system.couldNotRead")} onRetry={() => void info.refetch()} />
       </Section>
     );
   }
@@ -201,13 +206,19 @@ function SystemInfo() {
     // The tiles themselves with placeholder readings, and the disks table's own placeholder:
     // the loaded section's shape, so what follows it does not move when the answer lands.
     const pending = <Skeleton className="h-4 w-20" />;
+    const labels = [t("server.system.kernel"), t("server.system.cpu"), t("server.system.memory"), t("server.system.version")];
     return (
-      <Section title="System">
+      <Section title={t("server.system.title")}>
         <div aria-busy="true" className="flex flex-col gap-4">
-          <span className="sr-only">Loading system information</span>
+          <span className="sr-only">{t("server.system.loading")}</span>
           <div aria-hidden="true" className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
-            <StatTile label="Host" value={pending} detail={<Skeleton className="my-0.5 h-3 w-24" />} className="col-span-2 lg:col-span-1" />
-            {["Kernel", "CPU", "Memory", "Version"].map((label) => (
+            <StatTile
+              label={t("server.system.host")}
+              value={pending}
+              detail={<Skeleton className="my-0.5 h-3 w-24" />}
+              className="col-span-2 lg:col-span-1"
+            />
+            {labels.map((label) => (
               <StatTile key={label} label={label} value={pending} detail={<Skeleton className="my-0.5 h-3 w-24" />} />
             ))}
           </div>
@@ -218,20 +229,28 @@ function SystemInfo() {
   }
   const { hostname, os, kernel, uptime, cpu, memory, disks } = info.data;
   return (
-    <Section title="System">
+    <Section title={t("server.system.title")}>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
         {/* Two columns on a phone make five tiles an orphan: the host takes a row of its own. */}
-        <StatTile label="Host" value={hostname} mono detail={os} className="col-span-2 lg:col-span-1" />
-        <StatTile label="Kernel" value={kernel} mono detail={`Up ${uptime}`} />
+        <StatTile label={t("server.system.host")} value={hostname} mono detail={os} className="col-span-2 lg:col-span-1" />
+        <StatTile label={t("server.system.kernel")} value={kernel} mono detail={t("server.system.upSince", { uptime })} />
         <StatTile
-          label="CPU"
+          label={t("server.system.cpu")}
           value={formatPercent(cpu.percent)}
-          detail={`${String(cpu.cores)} cores, load ${cpu.load_1min.toFixed(2)} ${cpu.load_5min.toFixed(2)} ${cpu.load_15min.toFixed(2)}`}
+          detail={t("server.system.cpuDetail", {
+            cores: cpu.cores,
+            load1: cpu.load_1min.toFixed(2),
+            load5: cpu.load_5min.toFixed(2),
+            load15: cpu.load_15min.toFixed(2),
+          })}
         />
         <StatTile
-          label="Memory"
+          label={t("server.system.memory")}
           value={formatPercent(memory.percent_used)}
-          detail={`${formatBytes(memory.used_gb * 1024 ** 3)} of ${formatBytes(memory.total_gb * 1024 ** 3)}`}
+          detail={t("server.system.memoryDetail", {
+            used: formatBytes(memory.used_gb * 1024 ** 3),
+            total: formatBytes(memory.total_gb * 1024 ** 3),
+          })}
         />
         <VersionTile />
       </div>
@@ -247,10 +266,11 @@ function Disks({
   disks: readonly { device: string; mount_point: string; total_gb: number; used_gb: number; percent_used: number }[];
   loading?: boolean;
 }) {
+  const t = useT();
   const columns: Column<(typeof disks)[number]>[] = [
     {
       id: "mount",
-      header: "Mount",
+      header: t("server.system.columnMount"),
       mono: true,
       // Container runtimes mount paths a hundred characters long; the row keeps its numbers in
       // view and the whole path stays in the text (and on hover).
@@ -261,10 +281,10 @@ function Disks({
       ),
       sortValue: (row) => row.mount_point,
     },
-    { id: "device", header: "Device", mono: true, hideBelow: "sm", cell: (row) => row.device, sortValue: (row) => row.device },
+    { id: "device", header: t("server.system.columnDevice"), mono: true, hideBelow: "sm", cell: (row) => row.device, sortValue: (row) => row.device },
     {
       id: "used",
-      header: "Used",
+      header: t("server.system.columnUsed"),
       align: "end",
       mono: true,
       cell: (row) => formatBytes(row.used_gb * 1024 ** 3),
@@ -272,7 +292,7 @@ function Disks({
     },
     {
       id: "total",
-      header: "Total",
+      header: t("server.system.columnTotal"),
       align: "end",
       mono: true,
       hideBelow: "sm",
@@ -281,7 +301,7 @@ function Disks({
     },
     {
       id: "percent",
-      header: "Use",
+      header: t("server.system.columnUse"),
       align: "end",
       mono: true,
       cell: (row) => formatPercent(row.percent_used),
@@ -293,22 +313,23 @@ function Disks({
       columns={columns}
       rows={disks}
       getRowId={(row) => row.mount_point}
-      caption="Disks"
+      caption={t("server.system.disksCaption")}
       loading={loading}
       skeletonRows={TYPICAL_DISKS}
       defaultSort={{ column: "mount", direction: "ascending" }}
-      empty={<p className="p-4 text-13 text-fg-muted">No mounted filesystem could be read.</p>}
+      empty={<p className="p-4 text-13 text-fg-muted">{t("server.system.disksEmpty")}</p>}
     />
   );
 }
 
 function Network() {
+  const t = useT();
   const network = useQuery(networkQuery());
   const interfaces = network.data?.interfaces ?? [];
   const columns: Column<(typeof interfaces)[number]>[] = [
     {
       id: "name",
-      header: "Interface",
+      header: t("server.network.columnInterface"),
       mono: true,
       cell: (row) => (
         <span className="flex items-center gap-2">
@@ -320,28 +341,44 @@ function Network() {
     },
     {
       id: "addresses",
-      header: "Addresses",
+      header: t("server.network.columnAddresses"),
       mono: true,
       hideBelow: "sm",
       cell: (row) => ((row.addresses?.length ?? 0) > 0 ? (row.addresses ?? []).map((a) => a.address).join(", ") : "-"),
     },
-    { id: "sent", header: "Sent", align: "end", mono: true, hideBelow: "md", cell: (row) => formatBytes(row.bytes_sent), sortValue: (row) => row.bytes_sent },
-    { id: "recv", header: "Received", align: "end", mono: true, hideBelow: "md", cell: (row) => formatBytes(row.bytes_recv), sortValue: (row) => row.bytes_recv },
+    {
+      id: "sent",
+      header: t("server.network.columnSent"),
+      align: "end",
+      mono: true,
+      hideBelow: "md",
+      cell: (row) => formatBytes(row.bytes_sent),
+      sortValue: (row) => row.bytes_sent,
+    },
+    {
+      id: "recv",
+      header: t("server.network.columnReceived"),
+      align: "end",
+      mono: true,
+      hideBelow: "md",
+      cell: (row) => formatBytes(row.bytes_recv),
+      sortValue: (row) => row.bytes_recv,
+    },
   ];
   return (
-    <Section title="Network">
+    <Section title={t("server.network.title")}>
       {network.isError && network.data === undefined ? (
-        <ErrorBlock compact error={network.error} title="Could not read network interfaces" onRetry={() => void network.refetch()} />
+        <ErrorBlock compact error={network.error} title={t("server.network.couldNotRead")} onRetry={() => void network.refetch()} />
       ) : (
         <DataTable
           columns={columns}
           rows={interfaces}
           getRowId={(row) => row.name}
-          caption="Network interfaces"
+          caption={t("server.network.caption")}
           loading={network.isPending}
           skeletonRows={TYPICAL_INTERFACES}
           defaultSort={{ column: "name", direction: "ascending" }}
-          empty={<p className="p-4 text-13 text-fg-muted">No network interface was reported.</p>}
+          empty={<p className="p-4 text-13 text-fg-muted">{t("server.network.empty")}</p>}
         />
       )}
     </Section>
@@ -350,25 +387,28 @@ function Network() {
 
 type SortBy = "cpu" | "memory" | "pid" | "name";
 
-const SORT_OPTIONS: readonly { value: SortBy; label: string }[] = [
-  { value: "cpu", label: "By CPU" },
-  { value: "memory", label: "By memory" },
-  { value: "pid", label: "By PID" },
-  { value: "name", label: "By name" },
-];
+function sortOptions(t: T): readonly { value: SortBy; label: string }[] {
+  return [
+    { value: "cpu", label: t("server.processes.sortByCpu") },
+    { value: "memory", label: t("server.processes.sortByMemory") },
+    { value: "pid", label: t("server.processes.sortByPid") },
+    { value: "name", label: t("server.processes.sortByName") },
+  ];
+}
 
 function Processes() {
+  const t = useT();
   const [sortBy, setSortBy] = useState<SortBy>("cpu");
   const processes = useQuery(processesQuery(sortBy, PROCESS_LIMIT));
   const rows = processes.data?.processes ?? [];
   const columns: Column<(typeof rows)[number]>[] = [
-    { id: "pid", header: "PID", mono: true, width: "w-16", cell: (row) => row.pid },
-    { id: "name", header: "Process", mono: true, cell: (row) => row.name },
-    { id: "user", header: "User", mono: true, hideBelow: "sm", cell: (row) => row.user },
-    { id: "cpu", header: "CPU", align: "end", mono: true, cell: (row) => formatPercent(row.cpu_percent) },
+    { id: "pid", header: t("server.processes.columnPid"), mono: true, width: "w-16", cell: (row) => row.pid },
+    { id: "name", header: t("server.processes.columnProcess"), mono: true, cell: (row) => row.name },
+    { id: "user", header: t("server.processes.columnUser"), mono: true, hideBelow: "sm", cell: (row) => row.user },
+    { id: "cpu", header: t("server.processes.columnCpu"), align: "end", mono: true, cell: (row) => formatPercent(row.cpu_percent) },
     {
       id: "memory",
-      header: "Memory",
+      header: t("server.processes.columnMemory"),
       align: "end",
       mono: true,
       hideBelow: "sm",
@@ -381,20 +421,20 @@ function Processes() {
   ];
   return (
     <Section
-      title="Top processes"
-      description="Read-only: the panel does not signal a process."
+      title={t("server.processes.title")}
+      description={t("server.processes.description")}
       actions={
         <Select
-          aria-label="Sort processes by"
+          aria-label={t("server.processes.sortLabel")}
           size="sm"
           value={sortBy}
           onValueChange={setSortBy}
-          options={SORT_OPTIONS}
+          options={sortOptions(t)}
         />
       }
     >
       {processes.isError && processes.data === undefined ? (
-        <ErrorBlock compact error={processes.error} title="Could not list processes" onRetry={() => void processes.refetch()} />
+        <ErrorBlock compact error={processes.error} title={t("server.processes.couldNotList")} onRetry={() => void processes.refetch()} />
       ) : (
         <DataTable
           columns={columns}
@@ -403,10 +443,10 @@ function Processes() {
           // Distinct from the Section's own title: a <section> with an accessible name and a
           // region inside it named identically are two landmarks of the same name, which axe's
           // landmark-unique rule (and a screen reader's landmarks list) flags as a duplicate.
-          caption="Processes by resource use"
+          caption={t("server.processes.caption")}
           loading={processes.isPending}
           skeletonRows={PROCESS_LIMIT}
-          empty={<p className="p-4 text-13 text-fg-muted">No process was reported.</p>}
+          empty={<p className="p-4 text-13 text-fg-muted">{t("server.processes.empty")}</p>}
         />
       )}
     </Section>
@@ -415,9 +455,10 @@ function Processes() {
 
 /** Health, hardware and processes of this machine, and the resource monitor's own controls. */
 export function ServerPage() {
+  const t = useT();
   return (
     <>
-      <PageHeader title="Server" description="Health, hardware and processes of this machine." />
+      <PageHeader title={t("server.title")} description={t("server.description")} />
       <div className="flex flex-col gap-8">
         <Health />
         <SystemInfo />

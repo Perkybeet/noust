@@ -22,6 +22,7 @@ import { Input } from "../../../components/ui/Input";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { toast } from "../../../components/ui/toast";
+import { useT } from "../../../i18n";
 import { reportActionError } from "../../apps/useAppActions";
 import { splitErrors } from "../../settings/formErrors";
 import { useConfirmItsYou } from "../useDeleteApp";
@@ -38,26 +39,31 @@ interface ChangeRequest {
 
 /** Both copies of the app, which one nginx sends the traffic to, and each unit's own state. */
 function Instances({ status }: { status: ZeroDowntime }) {
+  const t = useT();
   const instances = status.instances ?? [];
-  if (instances.length === 0) return <p className="text-13 text-fg-muted">No instance is recorded yet.</p>;
+  if (instances.length === 0) return <p className="text-13 text-fg-muted">{t("appSettings.zeroDowntime.noInstances")}</p>;
   return (
-    <ul aria-label="Instances" className="flex flex-col divide-y divide-border rounded-control border border-border">
+    <ul aria-label={t("appSettings.zeroDowntime.instancesLabel")} className="flex flex-col divide-y divide-border rounded-control border border-border">
       {instances.map((instance: ZeroDowntimeInstance) => (
         <li key={instance.color} className="flex min-w-0 flex-col gap-1 px-3 py-2.5">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="text-13 font-medium text-fg">{instanceName(instance.color)}</span>
+            <span className="text-13 font-medium text-fg">{instanceName(instance.color, t.locale)}</span>
             {instance.serving ? (
               <Badge>
                 <Radio aria-hidden="true" className="size-3" />
-                Serving
+                {t("appSettings.zeroDowntime.serving")}
               </Badge>
             ) : (
-              <span className="text-12 text-fg-muted">Idle</span>
+              <span className="text-12 text-fg-muted">{t("appSettings.zeroDowntime.idle")}</span>
             )}
             <AppStatePill status={instance.state} appearance="inline" size="sm" />
           </div>
           <p translate="no" className="mono text-12 break-all text-fg-muted">
-            {`Port ${String(instance.port)} · Release ${instance.release ?? "none"} · ${instance.unit}.service`}
+            {t("appSettings.zeroDowntime.instanceLine", {
+              port: instance.port,
+              release: instance.release ?? t("appSettings.zeroDowntime.noRelease"),
+              unit: instance.unit,
+            })}
           </p>
         </li>
       ))}
@@ -67,11 +73,12 @@ function Instances({ status }: { status: ZeroDowntime }) {
 
 /** Why the app cannot run as two instances, in the backend's words, with its fix. */
 function NotEligible({ status }: { status: ZeroDowntime }) {
+  const t = useT();
   return (
     <div className="flex items-start gap-2.5 rounded-control border border-border bg-bg-sunken px-3 py-2.5">
       <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fg-faint" />
       <div className="flex min-w-0 flex-col gap-1 text-13">
-        <p className="text-fg">{status.reason ?? "This app cannot run as two instances."}</p>
+        <p className="text-fg">{status.reason ?? t("appSettings.zeroDowntime.notEligibleDefault")}</p>
         {status.hint ? <p className="text-pretty text-fg-muted">{status.hint}</p> : null}
       </div>
     </div>
@@ -80,15 +87,13 @@ function NotEligible({ status }: { status: ZeroDowntime }) {
 
 /** What turning the mode on asks of the app, said before it is confirmed. */
 function TwoCopiesWarning() {
+  const t = useT();
   return (
     <div className="flex items-start gap-2.5 rounded-control border border-warn/40 bg-warn-soft px-3 py-2.5">
       <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warn" />
       <div className="flex min-w-0 flex-col gap-1 text-13 text-pretty">
-        <p className="font-medium text-fg">Two copies of the app run at once for a few seconds.</p>
-        <p className="text-fg">
-          Only turn this on if the app tolerates that. These do not: a SQLite database both copies write to, a queue that must
-          have a single consumer, and a scheduler inside the process, whose jobs would run twice.
-        </p>
+        <p className="font-medium text-fg">{t("appSettings.zeroDowntime.twoCopiesTitle")}</p>
+        <p className="text-fg">{t("appSettings.zeroDowntime.twoCopiesBody")}</p>
       </div>
     </div>
   );
@@ -102,6 +107,7 @@ function TwoCopiesWarning() {
  * rewrites units and the site, so it runs as a job, followed here like a migration.
  */
 export function ZeroDowntimePanel({ app }: { app: App }) {
+  const t = useT();
   const domain = app.domain;
   const headingId = useId();
   const queryClient = useQueryClient();
@@ -121,7 +127,7 @@ export function ZeroDowntimePanel({ app }: { app: App }) {
     setBaseline(current);
     if (draft.trim() === baseline) setDraft(current);
   }
-  const parsed = parseDrain(draft);
+  const parsed = parseDrain(draft, t.locale);
 
   const change = useMutation({
     mutationFn: ({ change: kind, drain }: ChangeRequest) =>
@@ -149,17 +155,17 @@ export function ZeroDowntimePanel({ app }: { app: App }) {
     // The toast is announced; saying it again would read it twice.
     toast.success(
       pending?.change === "drain"
-        ? `Saved the drain of ${domain}`
+        ? t("appSettings.zeroDowntime.savedDrain", { domain })
         : pending?.change === "off"
-          ? `Zero downtime is off for ${domain}`
-          : `Zero downtime is on for ${domain}`,
+          ? t("appSettings.zeroDowntime.turnedOff", { domain })
+          : t("appSettings.zeroDowntime.turnedOn", { domain }),
     );
-  }, [job, domain, pending, queryClient]);
+  }, [job, domain, pending, queryClient, t]);
 
   // A refusal of the drain goes under the field; anything else is shown whole.
   const split = splitErrors(change.error, ["drain_seconds"] as const);
   const drainError = (submitted ? parsed.error : null) ?? split.fields.drain_seconds;
-  const jobError = jobFailed ? { detail: job.error ?? "The job failed without saying why. Its log is on the Activity page." } : null;
+  const jobError = jobFailed ? { detail: job.error ?? t("appSettings.jobFailedSilently") } : null;
   const failure = change.isError && split.form !== null ? change.error : jobError;
   // In the dialog nothing is left out: the field it would go under is behind it.
   const dialogFailure = change.isError ? change.error : jobError;
@@ -168,7 +174,7 @@ export function ZeroDowntimePanel({ app }: { app: App }) {
     change.reset();
     followed.dismiss();
     confirmItsYou().then(then, (error: unknown) => {
-      if (!(error instanceof ElevationCancelledError)) reportActionError(`Zero downtime of ${domain} was not changed`, error);
+      if (!(error instanceof ElevationCancelledError)) reportActionError(t("appSettings.zeroDowntime.notChangedFor", { domain }), error);
     });
     setPending(next);
   };
@@ -203,32 +209,46 @@ export function ZeroDowntimePanel({ app }: { app: App }) {
   };
 
   const data = status.data;
-  const failureTitle = pending?.change === "drain" ? "The drain was not saved" : pending?.change === "off" ? "Zero downtime was not turned off" : "Zero downtime was not turned on";
+  const failureTitle =
+    pending?.change === "drain"
+      ? t("appSettings.zeroDowntime.drainFailedTitle")
+      : pending?.change === "off"
+        ? t("appSettings.zeroDowntime.offFailedTitle")
+        : t("appSettings.zeroDowntime.onFailedTitle");
   // A refusal is before anything ran; a job that failed was undone whole.
-  const failureHint = jobFailed ? "WASM put back what served before: the app serves as it did." : "Nothing was changed.";
+  const failureHint = jobFailed ? t("appSettings.zeroDowntime.revertedHint") : t("appSettings.zeroDowntime.nothingChangedHint");
 
   return (
     <section aria-labelledby={headingId} className={`${PANEL} flex flex-col gap-4 px-4 py-4 sm:px-5`}>
       <header className="flex flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
           <h3 id={headingId} className="text-14 font-medium text-fg">
-            Zero downtime
+            {t("appSettings.zeroDowntime.title")}
           </h3>
-          {data ? data.enabled ? <StatusPill state="running" label="On" size="sm" /> : <StatusPill state="stopped" label="Off" size="sm" /> : null}
+          {data ? (
+            data.enabled ? (
+              <StatusPill state="running" label={t("appSettings.zeroDowntime.on")} size="sm" />
+            ) : (
+              <StatusPill state="stopped" label={t("appSettings.zeroDowntime.off")} size="sm" />
+            )
+          ) : null}
         </div>
-        <p className="text-13 text-pretty text-fg-muted">
-          Blue/green activation: a new release starts as a second instance on its own port, and traffic moves to it once it passes
-          the health check. Off, an activation restarts the one unit, which drops connections for a moment.
-        </p>
+        <p className="text-13 text-pretty text-fg-muted">{t("appSettings.zeroDowntime.description")}</p>
       </header>
 
       {status.isPending ? (
         <div aria-busy="true" className="flex flex-col gap-2">
-          <span className="sr-only">Loading zero downtime</span>
+          <span className="sr-only">{t("appSettings.zeroDowntime.loading")}</span>
           <Skeleton className="h-14 w-full rounded-control" />
         </div>
       ) : status.isError ? (
-        <ErrorBlock compact error={status.error} title="Could not read zero downtime" onRetry={() => void status.refetch()} retrying={status.isRefetching} />
+        <ErrorBlock
+          compact
+          error={status.error}
+          title={t("appSettings.zeroDowntime.readFailed")}
+          onRetry={() => void status.refetch()}
+          retrying={status.isRefetching}
+        />
       ) : data !== undefined && !data.enabled && !data.eligible ? (
         <NotEligible status={data} />
       ) : data !== undefined ? (
@@ -238,19 +258,21 @@ export function ZeroDowntimePanel({ app }: { app: App }) {
               <Instances status={data} />
               {data.upstream_port !== null && data.upstream_port !== undefined ? (
                 <p className="text-12 text-fg-muted">
-                  {"nginx's upstream names port "}
-                  <span translate="no" className="mono text-fg">
-                    {String(data.upstream_port)}
-                  </span>
-                  .
+                  {t.rich("appSettings.zeroDowntime.upstreamNames", {
+                    port: (
+                      <span translate="no" className="mono text-fg">
+                        {String(data.upstream_port)}
+                      </span>
+                    ),
+                  })}
                 </p>
               ) : null}
             </>
           ) : null}
           <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
             <Field
-              label="Drain"
-              description={`Seconds the old instance keeps running after traffic moves, ${String(DRAIN_MIN)} to ${String(DRAIN_MAX)}.`}
+              label={t("appSettings.zeroDowntime.drainLabel")}
+              description={t("appSettings.zeroDowntime.drainDescription", { min: DRAIN_MIN, max: DRAIN_MAX })}
               error={drainError}
               className="w-44"
             >
@@ -268,7 +290,7 @@ export function ZeroDowntimePanel({ app }: { app: App }) {
             </Field>
             {data.enabled ? (
               <Button type="submit" variant="primary" disabled={draft.trim() === current} loading={working && pending?.change === "drain"} className="sm:mt-6">
-                Save
+                {t("appSettings.save")}
               </Button>
             ) : null}
           </div>
@@ -276,40 +298,44 @@ export function ZeroDowntimePanel({ app }: { app: App }) {
           <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
             {data.enabled ? (
               <Button variant="ghost" disabled={working} onClick={turnOff}>
-                Turn off zero downtime
+                {t("appSettings.zeroDowntime.turnOff")}
               </Button>
             ) : (
               <Button type="submit" disabled={working}>
-                Turn on zero downtime
+                {t("appSettings.zeroDowntime.turnOn")}
               </Button>
             )}
           </div>
         </form>
       ) : null}
 
-      <CommandHint command={`wasm app zero-downtime ${domain} on --drain 10`} label="From a terminal" />
+      <CommandHint command={`wasm app zero-downtime ${domain} on --drain 10`} label={t("appSettings.fromTerminal")} />
 
       <Dialog
         open={confirming !== null}
         onOpenChange={close}
-        title={confirming === "off" ? `Turn off zero downtime for ${domain}?` : `Turn on zero downtime for ${domain}?`}
+        title={
+          confirming === "off"
+            ? t("appSettings.zeroDowntime.confirmTurnOffTitle", { domain })
+            : t("appSettings.zeroDowntime.confirmTurnOnTitle", { domain })
+        }
         description={
           confirming === "off"
-            ? "Activations go back to restarting a single unit, which drops connections for a moment. Switching back happens without a cut."
-            : `Every activation will start the new release next to the one serving, move traffic once it passes the health check, and stop the old one ${String(pending?.drain ?? data?.drain_seconds ?? 0)} seconds later.`
+            ? t("appSettings.zeroDowntime.confirmTurnOffDescription")
+            : t("appSettings.zeroDowntime.confirmTurnOnDescription", { seconds: pending?.drain ?? data?.drain_seconds ?? 0 })
         }
         footer={
           <>
             <Button disabled={working} onClick={() => close(false)}>
-              Cancel
+              {t("appSettings.cancel")}
             </Button>
             {confirming === "off" ? (
               <Button variant="danger" loading={working} onClick={() => change.mutate({ change: "off", drain: null })}>
-                Turn off zero downtime
+                {t("appSettings.zeroDowntime.turnOff")}
               </Button>
             ) : (
               <Button variant="primary" loading={working} onClick={() => change.mutate({ change: "on", drain: pending?.drain ?? null })}>
-                Turn on zero downtime
+                {t("appSettings.zeroDowntime.turnOn")}
               </Button>
             )}
           </>
@@ -319,9 +345,7 @@ export function ZeroDowntimePanel({ app }: { app: App }) {
           {confirming === "on" ? <TwoCopiesWarning /> : null}
           {working ? (
             <p role="status" className="text-13 text-fg-muted">
-              {confirming === "off"
-                ? "Going back to one unit. This takes a few seconds."
-                : "Starting the second instance and switching nginx. This takes a few seconds."}
+              {confirming === "off" ? t("appSettings.zeroDowntime.turningOff") : t("appSettings.zeroDowntime.turningOn")}
             </p>
           ) : dialogFailure !== null ? (
             <ErrorBlock live compact error={dialogFailure} title={failureTitle} hint={failureHint} />

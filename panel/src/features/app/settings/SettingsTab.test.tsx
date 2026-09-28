@@ -1,6 +1,8 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import { setLocale } from "../../../app/locale";
+import { downloadText } from "../../../lib/clipboard";
 import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { APPS, FakeEventSource, SESSION, fakeBackend, json, problem, signedInRoutes } from "../../../test/fakes";
@@ -9,6 +11,13 @@ import { deletionSummary } from "./DangerSection";
 import { planItems } from "./MigrationPlanView";
 import { confirmation } from "./ReleasesSection";
 import { retentionOutcome } from "./RetentionForm";
+
+// The real implementation still runs (so the export test below exercises the actual blob and
+// anchor dance), wrapped so the exact file name and text handed to it can be asserted.
+vi.mock("../../../lib/clipboard", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../lib/clipboard")>();
+  return { ...actual, downloadText: vi.fn(actual.downloadText) };
+});
 
 const DOMAIN = "shop.example.com";
 const BASE = APPS[0];
@@ -610,6 +619,54 @@ describe("deleting the app", () => {
   });
 });
 
+describe("exporting the application", () => {
+  const DOCUMENT = {
+    format: "wasm-app",
+    version: 1,
+    secrets_included: false,
+    app: { domain: DOMAIN, app_type: "nextjs" },
+    env: { NODE_ENV: { value: "production", secret: false } },
+  };
+
+  it("downloads the export without secrets by default", async () => {
+    Object.assign(URL, { createObjectURL: vi.fn(() => "blob:export"), revokeObjectURL: vi.fn() });
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    const { user, backend } = await settingsOf(RELEASE_APP, {
+      [`GET /api/apps/${DOMAIN}/export`]: () => json(200, DOCUMENT),
+    });
+    const zone = section("Export this application");
+    await user.click(within(zone).getByRole("button", { name: "Export application" }));
+
+    await waitFor(() => {
+      expect(downloadText).toHaveBeenCalledWith(`${DOMAIN}.wasm-app.json`, JSON.stringify(DOCUMENT, null, 2), "application/json");
+    });
+    const call = backend.callsTo(`GET /api/apps/${DOMAIN}/export`)[0];
+    expect(call?.search.get("with_secrets")).toBeNull();
+  });
+
+  it("asks for secrets when the checkbox is on", async () => {
+    Object.assign(URL, { createObjectURL: vi.fn(() => "blob:export"), revokeObjectURL: vi.fn() });
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    const { user, backend } = await settingsOf(RELEASE_APP, {
+      [`GET /api/apps/${DOMAIN}/export`]: () => json(200, { ...DOCUMENT, secrets_included: true }),
+    });
+    const zone = section("Export this application");
+    await user.click(within(zone).getByRole("checkbox", { name: "Include secret values" }));
+    await user.click(within(zone).getByRole("button", { name: "Export application" }));
+
+    await waitFor(() => {
+      expect(backend.callsTo(`GET /api/apps/${DOMAIN}/export`)).toHaveLength(1);
+    });
+    const call = backend.callsTo(`GET /api/apps/${DOMAIN}/export`)[0];
+    expect(call?.search.get("with_secrets")).toBe("true");
+  });
+
+  it("has no accessibility violations", async () => {
+    await settingsOf(RELEASE_APP);
+    await expectNoAxeViolations(section("Export this application"));
+  });
+});
+
 describe("what the dialogs say", () => {
   it("says a save that pruned nothing removed nothing", () => {
     expect(retentionOutcome({ keep_releases: 10, pruned: [] })).toBe("Saved. It keeps 10 releases; nothing was removed.");
@@ -629,5 +686,46 @@ describe("what the dialogs say", () => {
       "The live tree becomes the first release, uploads, storage move to shared/, and the unit is rewritten to run from current. The app restarts and must pass a health check; if it does not, everything is put back as it was. Nothing is deleted.",
     );
     expect(planItems({ ...PLAN, untracked_files: ["a.txt", "b.txt"] }).at(-1)).toMatchObject({ label: "Only in the first release", value: "2 untracked files" });
+  });
+
+  it("says the same things in Spanish", async () => {
+    await setLocale("es");
+    expect(retentionOutcome({ keep_releases: 10, pruned: [] }, "es")).toBe("Guardado. Mantiene 10 releases; no se eliminó nada.");
+    expect(deletionSummary({ path: "/srv/a" }, true, true, "es")).toBe(
+      "Detiene la app y elimina el servicio, el sitio del servidor web, el certificado y los archivos en /srv/a. Mantiene: las copias de seguridad. Esto no se puede deshacer.",
+    );
+    expect(confirmation(PLAN, "es")).toBe(
+      "El árbol activo se convierte en la primera release, uploads, storage se mueven a shared/, y la unidad se reescribe para ejecutarse desde current. La app se reinicia y debe pasar una comprobación de salud; si no la pasa, todo se restaura como estaba. No se elimina nada.",
+    );
+    expect(planItems({ ...PLAN, untracked_files: ["a.txt", "b.txt"] }, "es").at(-1)).toMatchObject({
+      label: "Solo en la primera release",
+      value: "2 archivos sin seguimiento",
+    });
+  });
+});
+
+describe("the Settings tab in Spanish", () => {
+  it("translates the source, releases and danger zone sections, with no accessibility violations", async () => {
+    await settingsOf(RELEASE_APP);
+    await act(() => setLocale("es"));
+
+    const source = section("Origen y ejecución");
+    expect(within(source).getByText("Rama")).toBeInTheDocument();
+    expect(within(source).getByText("main")).toBeInTheDocument();
+
+    const releases = section("Releases");
+    await within(releases).findByText("20260925-184247-2a8b7c4");
+    expect(within(releases).getByText("Sirviendo")).toBeInTheDocument();
+    expect(within(releases).getByRole("link", { name: "Revertir desde la pestaña Despliegues" })).toBeInTheDocument();
+
+    expect(section("Límites de recursos")).toBeInTheDocument();
+    expect(section("Webhook de despliegue")).toBeInTheDocument();
+    expect(section("Vistas previas de pull requests")).toBeInTheDocument();
+    expect(section("Exportar esta aplicación")).toBeInTheDocument();
+    expect(within(section("Exportar esta aplicación")).getByRole("button", { name: "Exportar aplicación" })).toBeInTheDocument();
+    expect(section("Zona de peligro")).toBeInTheDocument();
+    expect(within(section("Zona de peligro")).getByRole("button", { name: "Eliminar aplicación" })).toBeInTheDocument();
+
+    await expectNoAxeViolations(screen.getByRole("main"));
   });
 });

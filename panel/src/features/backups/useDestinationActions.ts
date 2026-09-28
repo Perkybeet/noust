@@ -11,6 +11,7 @@ import { backupDestinationKeys } from "../../api/queries/backupDestinations";
 import { jobKeys } from "../../api/queries/jobs";
 import type { Job } from "../../api/queries/jobs";
 import { toast } from "../../components/ui/toast";
+import { useT } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
 
 export interface SaveDestinationInput {
@@ -34,6 +35,7 @@ export interface RestoreFromDestinationInput {
 }
 
 export function useDestinationActions() {
+  const t = useT();
   const queryClient = useQueryClient();
 
   const refreshList = (): void => {
@@ -77,7 +79,7 @@ export function useDestinationActions() {
       refreshList();
     },
     onError: (error) => {
-      reportActionError("Could not remove the destination", error);
+      reportActionError(t("backups.toast.removeDestinationError"), error);
     },
   });
 
@@ -98,10 +100,10 @@ export function useDestinationActions() {
     onSuccess: (result) => {
       queryClient.setQueryData<Job>(jobKeys.detail(result.job_id), (current) => current ?? (result.job as Job));
       void queryClient.invalidateQueries({ queryKey: jobKeys.active });
-      toast.info(result.message, { description: "You will be told when the restore finishes." });
+      toast.info(result.message, { description: t("backups.toast.restoreQueuedDescription") });
     },
     onError: (error) => {
-      reportActionError("Could not queue the restore", error);
+      reportActionError(t("backups.toast.restoreQueueError"), error);
     },
   });
 

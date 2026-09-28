@@ -16,11 +16,48 @@ import { useAnnounceChange } from "../../components/page/useAnnounceChange";
 import { Badge } from "../../components/ui/Badge";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusGlyph } from "../../components/ui/StatusPill";
+import { useT } from "../../i18n";
+import type { T } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { describeError } from "../../lib/errors";
+import { formatDate, parseTimestamp } from "../../lib/format";
 import { recentDeploysQuery } from "../apps/data";
 import { collectAttention } from "./attention";
-import type { AttentionItem, Severity } from "./attention";
+import type { AttentionItem, AttentionSummary, Severity } from "./attention";
+
+/** Turns a pure `AttentionSummary` into the sentence it stands for, in the active language. */
+function summaryText(t: T, summary: AttentionSummary): string {
+  switch (summary.key) {
+    case "serviceFailed":
+      return t("overview.attention.serviceFailed");
+    case "serviceState":
+      return t("overview.attention.serviceState", { label: summary.label });
+    case "deployFailed":
+      return t("overview.attention.deployFailed");
+    case "deployRolledBack":
+      return t("overview.attention.deployRolledBack");
+    case "certExpired":
+      return t("overview.attention.certExpired");
+    case "certExpiresToday":
+      return t("overview.attention.certExpiresToday");
+    case "certExpiresIn":
+      return t("overview.attention.certExpiresIn", { count: summary.days });
+    case "unitFailed":
+      return t("overview.attention.unitFailed");
+    case "unitRestarting":
+      return t("overview.attention.unitRestarting");
+    case "unitsFailedCount":
+      return t("overview.attention.unitsFailedCount", { count: summary.count });
+    case "monitorFinding":
+      return t("overview.attention.monitorFinding", { severity: summary.severity, signal: summary.signal });
+  }
+}
+
+/** A certificate's expiry, translated and in the console's date format. */
+function validUntilText(t: T, value: string): string {
+  const date = parseTimestamp(value);
+  return t("overview.attention.certValidUntil", { date: date ? formatDate(date, {}, t.locale) : value });
+}
 
 const LINK =
   "rounded-[4px] font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus";
@@ -30,7 +67,7 @@ function SeverityGlyph({ severity }: { severity: Severity }) {
 }
 
 /** The page the item's title opens: the app, or the page that owns what it is about. */
-function SubjectLink({ item }: { item: AttentionItem }) {
+function SubjectLink({ t, item }: { t: T; item: AttentionItem }) {
   const className =
     "min-w-0 truncate rounded-[4px] text-14 font-medium text-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus";
   const label = <span translate="no">{item.title}</span>;
@@ -50,7 +87,7 @@ function SubjectLink({ item }: { item: AttentionItem }) {
     case "units":
       return (
         <Link to="/services" className={className}>
-          {item.title}
+          {t("overview.attention.services")}
         </Link>
       );
     case "unit":
@@ -70,7 +107,7 @@ function SubjectLink({ item }: { item: AttentionItem }) {
 }
 
 /** Where each problem of an app is dealt with: its deploy's log, its diagnosis, its domains. */
-function ItemActions({ item }: { item: AttentionItem }) {
+function ItemActions({ t, item }: { t: T; item: AttentionItem }) {
   if (item.subject.kind !== "app") return null;
   const domain = item.subject.domain;
   const kinds = new Set(item.reasons.map((reason) => reason.kind));
@@ -81,27 +118,27 @@ function ItemActions({ item }: { item: AttentionItem }) {
         <Link
           to="/apps/$domain/deployments/$id"
           params={{ domain, id: String(deploymentId) }}
-          aria-label={`View log of the deploy of ${domain}`}
+          aria-label={t("overview.attention.viewLogAria", { domain })}
           className={LINK}
         >
-          View log
+          {t("overview.attention.viewLog")}
         </Link>
       ) : null}
       {kinds.has("state") || kinds.has("deploy") ? (
-        <Link to="/apps/$domain/diagnose" params={{ domain }} aria-label={`Diagnose ${domain}`} className={LINK}>
-          Diagnose
+        <Link to="/apps/$domain/diagnose" params={{ domain }} aria-label={t("overview.attention.diagnoseAria", { domain })} className={LINK}>
+          {t("overview.attention.diagnose")}
         </Link>
       ) : null}
       {kinds.has("certificate") ? (
-        <Link to="/apps/$domain/domains" params={{ domain }} aria-label={`Certificate of ${domain}`} className={LINK}>
-          Certificate
+        <Link to="/apps/$domain/domains" params={{ domain }} aria-label={t("overview.attention.certificateAria", { domain })} className={LINK}>
+          {t("overview.attention.certificate")}
         </Link>
       ) : null}
     </div>
   );
 }
 
-function Item({ item }: { item: AttentionItem }) {
+function Item({ t, item }: { t: T; item: AttentionItem }) {
   const when = item.reasons.find((reason) => reason.when)?.when ?? null;
   return (
     <li
@@ -110,28 +147,31 @@ function Item({ item }: { item: AttentionItem }) {
     >
       <span className="flex h-5 items-center">
         <SeverityGlyph severity={item.severity} />
-        <span className="sr-only">{item.severity === "fail" ? "Failure: " : "Warning: "}</span>
+        <span className="sr-only">{item.severity === "fail" ? t("overview.attention.srFailure") : t("overview.attention.srWarning")}</span>
       </span>
       <div className="flex min-w-0 flex-col gap-1">
         <div className="flex min-w-0 items-baseline gap-2">
-          <SubjectLink item={item} />
+          <SubjectLink t={t} item={item} />
           {when ? <RelativeTime value={when} className="shrink-0 text-12 text-fg-faint" /> : null}
         </div>
         <ul className="flex min-w-0 flex-col gap-1">
-          {item.reasons.map((reason, index) => (
-            <li key={`${reason.summary}-${String(index)}`} className="flex min-w-0 flex-col">
-              <span className={cx("text-13", reason.severity === "fail" ? "text-fg" : "text-fg-muted")}>{reason.summary}</span>
-              {reason.detail !== undefined ? (
-                <code translate="no" title={reason.detail} className="truncate text-12 text-fg-muted">
-                  {reason.detail}
-                </code>
-              ) : null}
-            </li>
-          ))}
+          {item.reasons.map((reason, index) => {
+            const detail = reason.detail ?? (reason.validUntil !== undefined ? validUntilText(t, reason.validUntil) : undefined);
+            return (
+              <li key={`${reason.summary.key}-${String(index)}`} className="flex min-w-0 flex-col">
+                <span className={cx("text-13", reason.severity === "fail" ? "text-fg" : "text-fg-muted")}>{summaryText(t, reason.summary)}</span>
+                {detail !== undefined ? (
+                  <code translate="no" title={detail} className="truncate text-12 text-fg-muted">
+                    {detail}
+                  </code>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       </div>
       <div className="col-start-2 sm:col-start-3 sm:row-start-1 sm:self-center">
-        <ItemActions item={item} />
+        <ItemActions t={t} item={item} />
       </div>
     </li>
   );
@@ -178,13 +218,13 @@ function SkeletonRows({ count }: { count: number }) {
 }
 
 /** A source that could not be checked: said plainly, with its own words, never silently skipped. */
-function Unchecked({ what, error }: { what: string; error: unknown }) {
+function Unchecked({ t, source, error }: { t: T; source: "certs" | "monitor"; error: unknown }) {
   const { detail } = describeError(error);
   return (
     <p className="flex min-w-0 items-baseline gap-2 text-12 text-fg-muted">
       <TriangleAlert aria-hidden="true" className="size-3 shrink-0 translate-y-0.5 text-warn" />
       <span className="min-w-0">
-        {`${what} could not be checked: `}
+        {t(source === "certs" ? "overview.attention.certsUnchecked" : "overview.attention.monitorUnchecked")}
         <code className="break-words text-fg">{detail}</code>
       </span>
     </p>
@@ -201,6 +241,7 @@ export interface NeedsAttentionProps {
 }
 
 export function NeedsAttention({ onSettled }: NeedsAttentionProps = {}) {
+  const t = useT();
   const apps = useQuery(appsQuery());
   const deploys = useQuery(recentDeploysQuery());
   const certs = useQuery(certsQuery());
@@ -247,22 +288,29 @@ export function NeedsAttention({ onSettled }: NeedsAttentionProps = {}) {
   }, [loading]);
   useAnnounceChange(
     count === null ? null : String(count),
-    count === null ? null : count === 0 ? "Nothing needs attention" : `${String(count)} ${count === 1 ? "item needs" : "items need"} attention`,
+    count === null ? null : count === 0 ? t("overview.attention.announceEmpty") : t("overview.attention.announceCount", { count }),
     items.some((item) => item.severity === "fail") ? "assertive" : "polite",
   );
 
-  const unchecked: { what: string; error: unknown }[] = [
-    ...(certs.isError ? [{ what: "Certificates", error: certs.error }] : []),
-    ...(observations.isError ? [{ what: "Monitor findings", error: observations.error }] : []),
+  const unchecked: { source: "certs" | "monitor"; error: unknown }[] = [
+    ...(certs.isError ? [{ source: "certs" as const, error: certs.error }] : []),
+    ...(observations.isError ? [{ source: "monitor" as const, error: observations.error }] : []),
   ];
 
   let body: ReactNode;
   if (apps.isError && apps.data === undefined) {
-    body = <ErrorBlock error={apps.error} title="Could not check the applications" onRetry={() => void apps.refetch()} retrying={apps.isRefetching} />;
+    body = (
+      <ErrorBlock
+        error={apps.error}
+        title={t("overview.attention.couldNotCheck")}
+        onRetry={() => void apps.refetch()}
+        retrying={apps.isRefetching}
+      />
+    );
   } else if (loading) {
     body = (
       <div aria-busy="true">
-        <span className="sr-only">Checking the machine</span>
+        <span className="sr-only">{t("overview.attention.checking")}</span>
         <SkeletonRows count={reserved === null ? 2 : Math.max(1, Math.round(reserved / SKELETON_ROW))} />
       </div>
     );
@@ -273,8 +321,7 @@ export function NeedsAttention({ onSettled }: NeedsAttentionProps = {}) {
           <StatusGlyph state="running" size={14} className="text-ok" />
         </span>
         <p className="text-13 text-fg-muted">
-          <span className="font-medium text-fg">Nothing needs attention.</span> No failed deploys or units, no certificate
-          expiring within three weeks, no open monitor findings.
+          <span className="font-medium text-fg">{t("overview.attention.emptyTitle")}</span> {t("overview.attention.emptyDescription")}
         </p>
       </div>
     );
@@ -282,7 +329,7 @@ export function NeedsAttention({ onSettled }: NeedsAttentionProps = {}) {
     body = (
       <ul className="divide-y divide-border rounded-card border border-border bg-surface shadow-raised">
         {items.map((item) => (
-          <Item key={item.id} item={item} />
+          <Item key={item.id} t={t} item={item} />
         ))}
       </ul>
     );
@@ -291,11 +338,11 @@ export function NeedsAttention({ onSettled }: NeedsAttentionProps = {}) {
   const worst = items[0]?.severity;
   return (
     <Section
-      title="Needs attention"
+      title={t("overview.attention.title")}
       badge={
         count !== null && count > 0 ? (
           <Badge tone={worst === "fail" ? "fail" : "warn"}>
-            <span className="sr-only">Items: </span>
+            <span className="sr-only">{t("overview.attention.itemsSr")}</span>
             {count}
           </Badge>
         ) : undefined
@@ -307,8 +354,8 @@ export function NeedsAttention({ onSettled }: NeedsAttentionProps = {}) {
       {unchecked.length > 0 ? (
         <div className="-mt-1 flex flex-col gap-1">
           {unchecked.map((source) => (
-            <Fragment key={source.what}>
-              <Unchecked what={source.what} error={source.error} />
+            <Fragment key={source.source}>
+              <Unchecked t={t} source={source.source} error={source.error} />
             </Fragment>
           ))}
         </div>

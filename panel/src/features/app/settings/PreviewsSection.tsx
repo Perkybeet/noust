@@ -27,6 +27,7 @@ import { Input } from "../../../components/ui/Input";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { toast } from "../../../components/ui/toast";
+import { useT } from "../../../i18n";
 import { formatCount, parseTimestamp } from "../../../lib/format";
 import { appNameOf, previewParentOf } from "../../apps/data";
 import { reportActionError } from "../../apps/useAppActions";
@@ -48,17 +49,6 @@ import type { PreviewDraft, PreviewErrors, PreviewField, TtlUnit } from "./previ
 
 type Disabled = ResponseOf<"/api/apps/{domain}/previews/settings", "delete">;
 
-const TTL_UNITS = [
-  { value: "hours", label: "Hours" },
-  { value: "days", label: "Days" },
-] as const;
-
-const JOB_SILENT = "The job failed without saying why. Its log is on the Activity page.";
-
-function previewCount(count: number): string {
-  return `${formatCount(count)} ${count === 1 ? "preview" : "previews"}`;
-}
-
 /** One thing previews need, with what it is for. */
 function Need({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
@@ -79,26 +69,25 @@ function Need({ icon, title, children }: { icon: ReactNode; title: string; child
  * must know about before turning them on: the app's own secrets and databases.
  */
 function Needs({ domain, base }: { domain: string; base: string | null }) {
+  const t = useT();
   const example = `pr-12-${appNameOf(domain)}.${base ?? "<base domain>"}`;
   return (
     <div className="flex flex-col gap-3">
-      <ul aria-label="What previews need" className="flex flex-col gap-3">
-        <Need icon={<Globe />} title="A wildcard DNS record">
+      <ul aria-label={t("appSettings.previews.needsLabel")} className="flex flex-col gap-3">
+        <Need icon={<Globe />} title={t("appSettings.previews.needWildcardTitle")}>
           <p>
-            <code translate="no" className="text-12 text-fg">{`*.${base ?? "<base domain>"}`}</code>
-            {" pointing at this server. Each preview answers at its own name, such as "}
-            <code translate="no" className="text-12 break-all text-fg">
-              {example}
-            </code>
-            , with a certificate of its own.
+            {t.rich("appSettings.previews.needWildcardBody", {
+              record: <code translate="no" className="text-12 text-fg">{`*.${base ?? "<base domain>"}`}</code>,
+              example: (
+                <code translate="no" className="text-12 break-all text-fg">
+                  {example}
+                </code>
+              ),
+            })}
           </p>
         </Need>
-        <Need icon={<Webhook />} title="Pull request events">
-          <p>
-            The app's deploy webhook with pull request events turned on as well as pushes (Pull requests on GitHub and Gitea, Merge
-            request events on GitLab), or this server's GitHub App installed on the repository. A pull request from a fork never gets
-            a preview.
-          </p>
+        <Need icon={<Webhook />} title={t("appSettings.previews.needPrTitle")}>
+          <p>{t("appSettings.previews.needPrBody")}</p>
         </Need>
       </ul>
       <div className="flex items-start gap-2.5 rounded-control border border-warn/40 bg-warn-soft px-3 py-2.5">
@@ -106,17 +95,10 @@ function Needs({ domain, base }: { domain: string; base: string | null }) {
         <div className="flex min-w-0 flex-col gap-1 text-13 text-pretty">
           <p className="flex items-center gap-1.5 font-medium text-fg">
             <KeyRound aria-hidden="true" className="size-3.5 shrink-0 text-fg-muted" />
-            Previews get this app's production secrets
+            {t("appSettings.previews.secretsWarningTitle")}
           </p>
-          <p className="text-fg">
-            A preview is built as root, like every deploy, from the pull request's branch. It runs with the app's environment variables,
-            except those never copied to previews, and connects to its databases. Anyone who can push a branch to the repository and
-            open a pull request runs code with them on this server.
-          </p>
-          <p className="text-fg">
-            Pull requests from forks never get a preview. On GitHub, only pull requests by the repository's owners, members and
-            collaborators do. Bot accounts, such as Dependabot and Renovate, are refused unless bots are allowed below.
-          </p>
+          <p className="text-fg">{t("appSettings.previews.secretsWarningBody1")}</p>
+          <p className="text-fg">{t("appSettings.previews.secretsWarningBody2")}</p>
         </div>
       </div>
     </div>
@@ -129,6 +111,7 @@ function Needs({ domain, base }: { domain: string; base: string | null }) {
  * is a separate, confirmed action, because it removes every preview there is.
  */
 function PreviewSettingsForm({ domain, settings, previews }: { domain: string; settings: PreviewSettings | null; previews: readonly Preview[] }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const confirmItsYou = useConfirmItsYou();
   const followed = useFollowedJob();
@@ -148,7 +131,7 @@ function PreviewSettingsForm({ domain, settings, previews }: { domain: string; s
     if (samePreviewDraft(draft, baseline)) setDraft(current);
   }
 
-  const parsed = parsePreviewDraft(draft);
+  const parsed = parsePreviewDraft(draft, t.locale);
   const dirty = !enabled || !samePreviewDraft(draft, current);
 
   const save = useMutation({
@@ -164,7 +147,7 @@ function PreviewSettingsForm({ domain, settings, previews }: { domain: string; s
       queryClient.setQueryData<Previews>(previewsKey(domain), (known) => (known ? { ...known, enabled: true, settings: result } : known));
       void queryClient.invalidateQueries({ queryKey: previewsKey(domain) });
       // The toast is announced; saying it again would read it twice.
-      toast.success(enabled ? `Saved the preview settings of ${domain}` : `Previews are on for ${domain}`);
+      toast.success(enabled ? t("appSettings.previews.savedSettingsToast", { domain }) : t("appSettings.previews.turnedOnToast", { domain }));
     },
   });
 
@@ -176,8 +159,15 @@ function PreviewSettingsForm({ domain, settings, previews }: { domain: string; s
       queryClient.setQueryData<Previews>(previewsKey(domain), (known) => (known ? { ...known, enabled: false, settings: null } : known));
       void queryClient.invalidateQueries({ queryKey: previewsKey(domain) });
       toast.success(
-        `Previews are off for ${domain}`,
-        result.removing.length > 0 ? { description: `Removing ${previewCount(result.removing.length)}: ${result.removing.join(", ")}.` } : undefined,
+        t("appSettings.previews.turnedOffToast", { domain }),
+        result.removing.length > 0
+          ? {
+              description: t("appSettings.previews.removingList", {
+                count: t("appSettings.previews.previewCount", { count: result.removing.length }),
+                list: result.removing.join(", "),
+              }),
+            }
+          : undefined,
       );
     },
   });
@@ -224,7 +214,7 @@ function PreviewSettingsForm({ domain, settings, previews }: { domain: string; s
         save.mutate();
       },
       (error: unknown) => {
-        if (!(error instanceof ElevationCancelledError)) reportActionError(`The preview settings of ${domain} were not saved`, error);
+        if (!(error instanceof ElevationCancelledError)) reportActionError(t("appSettings.previews.notSavedFor", { domain }), error);
       },
     );
   };
@@ -236,26 +226,28 @@ function PreviewSettingsForm({ domain, settings, previews }: { domain: string; s
         setConfirmOff(true);
       },
       (error: unknown) => {
-        if (!(error instanceof ElevationCancelledError)) reportActionError(`Previews of ${domain} were not turned off`, error);
+        if (!(error instanceof ElevationCancelledError)) reportActionError(t("appSettings.previews.turnOffNotStarted", { domain }), error);
       },
     );
   };
 
   const live = previews.filter((preview) => preview.status !== "removing");
+  const ttlUnits: readonly { value: TtlUnit; label: string }[] = [
+    { value: "hours", label: t("appSettings.previews.hoursOption") },
+    { value: "days", label: t("appSettings.previews.daysOption") },
+  ];
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-4">
       <Field
-        label="Base domain"
+        label={t("appSettings.previews.baseDomainLabel")}
         description={
           draft.base_domain.trim() !== "" ? (
-            <>
-              {"A wildcard record "}
-              <code translate="no" className="text-12">{`*.${draft.base_domain.trim().replace(/^\*\./, "")}`}</code>
-              {" must point at this server."}
-            </>
+            t.rich("appSettings.previews.baseDomainWildcardHint", {
+              record: <code translate="no" className="text-12">{`*.${draft.base_domain.trim().replace(/^\*\./, "")}`}</code>,
+            })
           ) : (
-            "The domain a wildcard record points at this server, such as previews.example.com."
+            t("appSettings.previews.baseDomainDescription")
           )
         }
         error={errorOf("base_domain")}
@@ -265,7 +257,7 @@ function PreviewSettingsForm({ domain, settings, previews }: { domain: string; s
           autoComplete="off"
           autoCapitalize="off"
           spellCheck={false}
-          placeholder="previews.example.com"
+          placeholder={t("appSettings.previews.baseDomainPlaceholder")}
           value={draft.base_domain}
           onValueChange={edit("base_domain")}
           onBlur={blur("base_domain")}
@@ -273,15 +265,15 @@ function PreviewSettingsForm({ domain, settings, previews }: { domain: string; s
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field
-          label="At most"
-          description={`${String(MAX_PREVIEWS_MIN)} to ${String(MAX_PREVIEWS_MAX)} at once. Each is a running copy of the app with its own certificate.`}
+          label={t("appSettings.previews.atMostLabel")}
+          description={t("appSettings.previews.atMostDescription", { min: MAX_PREVIEWS_MIN, max: MAX_PREVIEWS_MAX })}
           error={errorOf("max_previews")}
         >
           <Input
             mono
             inputMode="numeric"
             autoComplete="off"
-            suffix="previews"
+            suffix={t("appSettings.previews.previewsSuffix")}
             value={draft.max_previews}
             onValueChange={edit("max_previews")}
             onBlur={blur("max_previews")}
@@ -289,8 +281,8 @@ function PreviewSettingsForm({ domain, settings, previews }: { domain: string; s
         </Field>
         <div className="flex min-w-0 items-start gap-2">
           <Field
-            label="Removed after"
-            description="Without a push to the pull request. Up to 90 days."
+            label={t("appSettings.previews.removedAfterLabel")}
+            description={t("appSettings.previews.removedAfterDescription")}
             error={errorOf("ttl_hours")}
             className="min-w-0 flex-1"
           >
@@ -304,8 +296,8 @@ function PreviewSettingsForm({ domain, settings, previews }: { domain: string; s
             />
           </Field>
           <SegmentedControl<TtlUnit>
-            label="Unit of the time a preview lives"
-            options={TTL_UNITS}
+            label={t("appSettings.previews.ttlUnitLabel")}
+            options={ttlUnits}
             value={draft.unit}
             onValueChange={(unit) => {
               setDraft((previous) => ({ ...previous, unit }));
@@ -317,8 +309,8 @@ function PreviewSettingsForm({ domain, settings, previews }: { domain: string; s
       </div>
 
       <Field
-        label="Never copied to previews"
-        description="Variable names, separated by commas or spaces, such as live payment keys. Every other variable of the app is copied; a preview that has one of these loses it at its next push."
+        label={t("appSettings.previews.neverCopiedLabel")}
+        description={t("appSettings.previews.neverCopiedDescription")}
         error={errorOf("exclude_env")}
       >
         <Input
@@ -326,15 +318,15 @@ function PreviewSettingsForm({ domain, settings, previews }: { domain: string; s
           autoComplete="off"
           autoCapitalize="off"
           spellCheck={false}
-          placeholder="STRIPE_SECRET_KEY, SMTP_PASSWORD"
+          placeholder={t("appSettings.previews.neverCopiedPlaceholder")}
           value={draft.exclude_env}
           onValueChange={edit("exclude_env")}
           onBlur={blur("exclude_env")}
         />
       </Field>
       <Checkbox
-        label="Allow pull requests from bots"
-        description="Dependabot, Renovate and other bot accounts. Their pull requests run code nobody has reviewed yet, with this app's secrets."
+        label={t("appSettings.previews.allowBotsLabel")}
+        description={t("appSettings.previews.allowBotsDescription")}
         checked={draft.allow_bots}
         onCheckedChange={(allow_bots) => {
           setDraft((previous) => ({ ...previous, allow_bots }));
@@ -342,47 +334,59 @@ function PreviewSettingsForm({ domain, settings, previews }: { domain: string; s
         }}
       />
 
-      {save.isError && formError !== null ? <ErrorBlock live compact error={formError} title="The preview settings were not saved" /> : null}
+      {save.isError && formError !== null ? <ErrorBlock live compact error={formError} title={t("appSettings.previews.saveFailed")} /> : null}
       {removalFailed ? (
         <ErrorBlock
           live
           compact
-          error={{ detail: job.error ?? JOB_SILENT }}
-          title="Some previews were not removed"
-          hint="Previews are off: no pull request gets a new one. Remove what is left from the list below."
+          error={{ detail: job.error ?? t("appSettings.jobFailedSilently") }}
+          title={t("appSettings.previews.someNotRemoved")}
+          hint={t("appSettings.previews.someNotRemovedHint")}
         />
       ) : null}
 
       <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
         {settings !== null ? (
           <div className="flex min-w-0 flex-col gap-0.5 text-12 text-fg-muted">
-            <p>{`Now: at most ${previewCount(settings.max_previews)} under ${settings.base_domain}, each removed after ${lifetime(settings.ttl_hours)} without a push.`}</p>
+            <p>
+              {t("appSettings.previews.nowSummary", {
+                count: t("appSettings.previews.previewCount", { count: settings.max_previews }),
+                domain: settings.base_domain,
+                lifetime: lifetime(settings.ttl_hours, t.locale),
+              })}
+            </p>
             <p>
               {settings.exclude_env.length > 0 ? (
                 <>
-                  {"Never copied: "}
-                  <span translate="no" className="mono break-all text-fg">
-                    {settings.exclude_env.join(", ")}
-                  </span>
-                  {". "}
+                  {t.rich("appSettings.previews.neverCopiedNow", {
+                    list: (
+                      <span translate="no" className="mono break-all text-fg">
+                        {settings.exclude_env.join(", ")}
+                      </span>
+                    ),
+                  })}
+                  {" "}
                 </>
               ) : (
-                "Every variable is copied. "
+                <>
+                  {t("appSettings.previews.everyVariableCopied")}
+                  {" "}
+                </>
               )}
-              {settings.allow_bots ? "Bots get previews." : "Bots get none."}
+              {settings.allow_bots ? t("appSettings.previews.botsGetPreviews") : t("appSettings.previews.botsGetNone")}
             </p>
           </div>
         ) : (
-          <p className="text-12 text-fg-muted">Pull requests get no preview.</p>
+          <p className="text-12 text-fg-muted">{t("appSettings.previews.noPreviewsAtAll")}</p>
         )}
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {enabled ? (
             <Button variant="ghost" onClick={turnOff}>
-              Turn off previews
+              {t("appSettings.previews.turnOff")}
             </Button>
           ) : null}
           <Button type="submit" variant="primary" disabled={!dirty} loading={save.isPending}>
-            {enabled ? "Save" : "Turn on previews"}
+            {enabled ? t("appSettings.save") : t("appSettings.previews.turnOn")}
           </Button>
         </div>
       </div>
@@ -393,27 +397,27 @@ function PreviewSettingsForm({ domain, settings, previews }: { domain: string; s
           if (!next && !disable.isPending) setConfirmOff(false);
         }}
         size="sm"
-        title={`Turn off previews for ${domain}?`}
+        title={t("appSettings.previews.turnOffConfirmTitle", { domain })}
         description={
           live.length > 0
-            ? `Pull requests get no new preview, and the ${previewCount(live.length)} there are now are removed: their apps, certificates and records.`
-            : "Pull requests opened from now on get no preview. There is none to remove."
+            ? t("appSettings.previews.turnOffConfirmWithLive", { count: t("appSettings.previews.previewCount", { count: live.length }) })
+            : t("appSettings.previews.turnOffConfirmNoLive")
         }
         footer={
           <>
             <Button disabled={disable.isPending} onClick={() => setConfirmOff(false)}>
-              Cancel
+              {t("appSettings.cancel")}
             </Button>
             <Button variant="danger" loading={disable.isPending} onClick={() => disable.mutate()}>
-              Turn off previews
+              {t("appSettings.previews.turnOff")}
             </Button>
           </>
         }
       >
         {disable.isError ? (
-          <ErrorBlock live compact error={disable.error} title="Previews were not turned off" />
+          <ErrorBlock live compact error={disable.error} title={t("appSettings.previews.notTurnedOff")} />
         ) : live.length > 0 ? (
-          <ul aria-label="Previews that are removed" className="flex flex-col gap-1">
+          <ul aria-label={t("appSettings.previews.previewsRemovedList")} className="flex flex-col gap-1">
             {live.map((preview) => (
               <li key={preview.number} translate="no" className="mono text-12 break-all text-fg">
                 {preview.domain}
@@ -428,13 +432,14 @@ function PreviewSettingsForm({ domain, settings, previews }: { domain: string; s
 
 /** When a preview goes: "Expires in 5d", or "Expired 2h ago" while its removal is pending. */
 function Expiry({ value }: { value: string }) {
+  const t = useT();
   const date = parseTimestamp(value);
   // The clock every time label shares, stepping each minute: enough to flip the word on time.
   const now = useNow(() => 60_000);
   const past = date !== null && date.getTime() <= now;
   return (
     <span>
-      {past ? "Expired " : "Expires "}
+      {past ? t("appSettings.previews.expired") : t("appSettings.previews.expires")}
       <RelativeTime value={value} className="text-fg" />
     </span>
   );
@@ -442,6 +447,7 @@ function Expiry({ value }: { value: string }) {
 
 /** One pull request's preview: where it answers, its state, when it goes, and removing it now. */
 function PreviewRow({ domain, preview }: { domain: string; preview: Preview }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const confirmItsYou = useConfirmItsYou();
   const followed = useFollowedJob();
@@ -467,10 +473,10 @@ function PreviewRow({ domain, preview }: { domain: string; preview: Preview }) {
     notifiedRef.current = job.id;
     void queryClient.invalidateQueries({ queryKey: previewsKey(domain) });
     void queryClient.invalidateQueries({ queryKey: appKeys.list, exact: true });
-    if (job.status === "completed") toast.success(`Removed the preview of pull request #${number}`);
-  }, [job, domain, number, queryClient]);
+    if (job.status === "completed") toast.success(t("appSettings.previews.removedOfPr", { number }));
+  }, [job, domain, number, queryClient, t]);
 
-  const view = removing && preview.status !== "removing" ? previewStatus("removing") : previewStatus(preview.status);
+  const view = removing && preview.status !== "removing" ? previewStatus("removing", t.locale) : previewStatus(preview.status, t.locale);
 
   const start = (): void => {
     remove.reset();
@@ -480,7 +486,7 @@ function PreviewRow({ domain, preview }: { domain: string; preview: Preview }) {
         setConfirming(true);
       },
       (error: unknown) => {
-        if (!(error instanceof ElevationCancelledError)) reportActionError(`The preview of pull request #${number} was not removed`, error);
+        if (!(error instanceof ElevationCancelledError)) reportActionError(t("appSettings.previews.notRemovedFor", { number }), error);
       },
     );
   };
@@ -507,17 +513,17 @@ function PreviewRow({ domain, preview }: { domain: string; preview: Preview }) {
               href={preview.url}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label={`Open preview of pull request #${number} (opens in a new tab)`}
+              aria-label={t("appSettings.previews.openPreviewAria", { number })}
               className="inline-flex items-center gap-1 rounded-[4px] text-13 font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus"
             >
-              Open preview
+              {t("appSettings.previews.openPreview")}
               <ExternalLink aria-hidden="true" className="size-3.5 shrink-0" />
             </a>
           </div>
           <p className="flex flex-wrap gap-x-3 gap-y-0.5 text-12 text-fg-muted">
             {preview.head_sha ? (
               <span>
-                {"Commit "}
+                {t("appSettings.previews.commitLabel")}
                 <span translate="no" className="mono text-fg">
                   {preview.head_sha.slice(0, 7)}
                 </span>
@@ -532,8 +538,8 @@ function PreviewRow({ domain, preview }: { domain: string; preview: Preview }) {
           </p>
         </div>
         <div className="shrink-0">
-          <Button size="sm" variant="ghost" disabled={removing} aria-label={`Remove the preview of pull request #${number}`} onClick={start}>
-            Remove
+          <Button size="sm" variant="ghost" disabled={removing} aria-label={t("appSettings.previews.removeAria", { number })} onClick={start}>
+            {t("appSettings.previews.remove")}
           </Button>
         </div>
       </div>
@@ -541,13 +547,13 @@ function PreviewRow({ domain, preview }: { domain: string; preview: Preview }) {
       {preview.status === "failed" ? (
         <ErrorBlock
           compact
-          error={{ detail: preview.error ?? "The build failed without saying why. The preview's own page has the deployment's log." }}
-          title={`The last build of #${number} failed`}
-          hint="Push to the pull request to build it again. The preview's own page has the deployment's log."
+          error={{ detail: preview.error ?? t("appSettings.previews.buildFailedDefault") }}
+          title={t("appSettings.previews.lastBuildFailed", { number })}
+          hint={t("appSettings.previews.pushAgainHint")}
         />
       ) : null}
       {removalFailed ? (
-        <ErrorBlock live compact error={{ detail: job.error ?? JOB_SILENT }} title={`The preview of #${number} was not removed`} />
+        <ErrorBlock live compact error={{ detail: job.error ?? t("appSettings.jobFailedSilently") }} title={t("appSettings.previews.previewNotRemoved", { number })} />
       ) : null}
 
       <Dialog
@@ -556,43 +562,44 @@ function PreviewRow({ domain, preview }: { domain: string; preview: Preview }) {
           if (!next && !remove.isPending) setConfirming(false);
         }}
         size="sm"
-        title={`Remove the preview of pull request #${number}?`}
-        description={`Its app, certificate and record are removed: ${preview.domain} stops answering. The pull request itself is not touched.`}
+        title={t("appSettings.previews.removeConfirmTitle", { number })}
+        description={t("appSettings.previews.removeConfirmDescription", { domain: preview.domain })}
         footer={
           <>
             <Button disabled={remove.isPending} onClick={() => setConfirming(false)}>
-              Cancel
+              {t("appSettings.cancel")}
             </Button>
             <Button variant="danger" loading={remove.isPending} onClick={() => remove.mutate()}>
-              Remove preview
+              {t("appSettings.previews.removePreview")}
             </Button>
           </>
         }
       >
-        {remove.isError ? <ErrorBlock live compact error={remove.error} title="The preview was not removed" /> : undefined}
+        {remove.isError ? <ErrorBlock live compact error={remove.error} title={t("appSettings.previews.previewNotRemovedGeneric")} /> : undefined}
       </Dialog>
     </li>
   );
 }
 
 function PreviewList({ domain, data }: { domain: string; data: Previews }) {
+  const t = useT();
   const headingId = useId();
   const max = data.settings?.max_previews ?? null;
   return (
     <section aria-labelledby={headingId} className="flex min-w-0 flex-col gap-3">
       <div className="flex flex-wrap items-baseline gap-x-2">
         <h3 id={headingId} className="text-14 font-medium text-fg">
-          Previews
+          {t("appSettings.previews.previewsHeading")}
         </h3>
         <span className="text-12 text-fg-muted">
-          {max !== null ? `${formatCount(data.total)} of at most ${formatCount(max)}` : previewCount(data.total)}
+          {max !== null
+            ? t("appSettings.previews.ofAtMost", { count: formatCount(data.total), max: formatCount(max) })
+            : t("appSettings.previews.previewCount", { count: data.total })}
         </span>
       </div>
       {data.previews.length === 0 ? (
         <p className={`${PANEL} px-4 py-4 text-13 text-fg-muted`}>
-          {data.enabled
-            ? "No pull request has a preview yet. One appears here when a pull request is opened against the repository."
-            : "No previews."}
+          {data.enabled ? t("appSettings.previews.noPreviewsAtAllOn") : t("appSettings.previews.noPreviewsAtAllOff")}
         </p>
       ) : (
         <ul aria-labelledby={headingId} className={`${PANEL} flex flex-col divide-y divide-border`}>
@@ -612,22 +619,25 @@ function PreviewList({ domain, data }: { domain: string; data: Previews }) {
  * (the app's secrets and databases) is said before they can be turned on.
  */
 export function PreviewsSection({ app }: { app: App }) {
+  const t = useT();
   const domain = app.domain;
   const parent = previewParentOf(app);
   const previews = useQuery({ ...previewsQuery(domain), enabled: parent === null });
 
   if (parent !== null) {
     return (
-      <Section title="Pull request previews">
+      <Section title={t("appSettings.previews.title")}>
         <div className={`${PANEL} flex flex-col gap-1 px-4 py-4 text-13`}>
           <p className="text-fg">
-            {"This app is a preview of "}
-            <Link to="/apps/$domain/settings" params={{ domain: parent }} translate="no" className={LINK}>
-              {parent}
-            </Link>
-            .
+            {t.rich("appSettings.previews.previewOfParent", {
+              parent: (
+                <Link to="/apps/$domain/settings" params={{ domain: parent }} translate="no" className={LINK}>
+                  {parent}
+                </Link>
+              ),
+            })}
           </p>
-          <p className="text-pretty text-fg-muted">Previews are set on the application itself; a preview cannot have previews of its own.</p>
+          <p className="text-pretty text-fg-muted">{t("appSettings.previews.noOwnPreviews")}</p>
         </div>
       </Section>
     );
@@ -637,27 +647,32 @@ export function PreviewsSection({ app }: { app: App }) {
   const settings = data?.settings ?? null;
 
   return (
-    <Section
-      title="Pull request previews"
-      description="Each pull request opened against the repository gets a copy of the app of its own, removed when the pull request closes or goes quiet."
-    >
+    <Section title={t("appSettings.previews.title")} description={t("appSettings.previews.description")}>
       <div className={`${PANEL} flex flex-col gap-5 px-4 py-4 sm:px-5`}>
         {previews.isPending ? (
           <div aria-busy="true" className="flex flex-col gap-3">
-            <span className="sr-only">Loading the preview settings</span>
+            <span className="sr-only">{t("appSettings.previews.loading")}</span>
             <Skeleton className="h-4 w-48" />
             <Skeleton className="h-24 w-full rounded-control" />
           </div>
         ) : previews.isError || data === undefined ? (
-          <ErrorBlock compact error={previews.error} title="Could not read the previews" onRetry={() => void previews.refetch()} retrying={previews.isRefetching} />
+          <ErrorBlock
+            compact
+            error={previews.error}
+            title={t("appSettings.previews.readFailed")}
+            onRetry={() => void previews.refetch()}
+            retrying={previews.isRefetching}
+          />
         ) : (
           <>
             <div className="flex items-center gap-3">
               <GitPullRequest aria-hidden="true" className="size-4 shrink-0 text-fg-faint" />
-              {data.enabled ? <StatusPill state="running" label="On" size="sm" /> : <StatusPill state="stopped" label="Off" size="sm" />}
-              <p className="text-13 text-fg-muted">
-                {data.enabled ? "Pull requests get a preview." : "Pull requests get no preview until previews are turned on."}
-              </p>
+              {data.enabled ? (
+                <StatusPill state="running" label={t("appSettings.previews.on")} size="sm" />
+              ) : (
+                <StatusPill state="stopped" label={t("appSettings.previews.off")} size="sm" />
+              )}
+              <p className="text-13 text-fg-muted">{data.enabled ? t("appSettings.previews.getsPreview") : t("appSettings.previews.getsNoPreview")}</p>
             </div>
             <Needs domain={domain} base={settings?.base_domain ?? null} />
             <PreviewSettingsForm domain={domain} settings={settings} previews={data.previews} />
@@ -665,7 +680,7 @@ export function PreviewsSection({ app }: { app: App }) {
         )}
       </div>
       {data !== undefined && (data.enabled || data.previews.length > 0) ? <PreviewList domain={domain} data={data} /> : null}
-      <CommandHint command={`wasm preview enable ${domain} --domain previews.example.com --max 3 --ttl 7d`} label="From a terminal" />
+      <CommandHint command={`wasm preview enable ${domain} --domain previews.example.com --max 3 --ttl 7d`} label={t("appSettings.fromTerminal")} />
     </Section>
   );
 }

@@ -16,13 +16,15 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { Switch } from "../../components/ui/Switch";
 import { Textarea } from "../../components/ui/Textarea";
 import { toast } from "../../components/ui/toast";
+import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { reportActionError } from "../apps/useAppActions";
 import { ChannelHeader, DirtyActions, SecretInput, TestButton, TestOutcome, useChannelTest, useRefreshConfig } from "./channelParts";
 import { EmailChannel, EmailFormSkeleton } from "./EmailChannel";
 import { splitErrors } from "./formErrors";
-import { CHANNELS, EVENTS, REDACTED, channelValue, isChannelConfigured, parseHostList, publicUrlOf, readNotificationSettings } from "./notifications";
+import { EVENT_KINDS, REDACTED, channelValue, channels, events, isChannelConfigured, parseHostList, publicUrlOf, readNotificationSettings } from "./notifications";
 import type { ChannelSpec, NotificationSettings as Settings } from "./notifications";
+import { NotificationLanguageSection } from "./NotificationLanguage";
 import { configSetCommand } from "./shell";
 import { SettingsFormCard, SettingsFormSkeleton, SettingsSection } from "./SettingsForm";
 import { TelegramChannel } from "./TelegramChannel";
@@ -34,15 +36,19 @@ const SURFACE = "rounded-card border border-border bg-surface shadow-raised";
 // The master switch
 
 function DeliverySection({ query }: { query: ConfigQuery }) {
+  const t = useT();
   const refresh = useRefreshConfig();
   const toggle = useMutation({
     mutationFn: (next: boolean) => patchConfig("notifications.enabled", next),
     onSuccess: async (_, next) => {
       await refresh();
-      toast.success(next ? "Turned notifications on" : "Turned notifications off");
+      toast.success(next ? t("settings.notifications.delivery.turnedOn") : t("settings.notifications.delivery.turnedOff"));
     },
     onError: (error, next) => {
-      reportActionError(next ? "Could not turn notifications on" : "Could not turn notifications off", error);
+      reportActionError(
+        next ? t("settings.notifications.delivery.turnOnFailed") : t("settings.notifications.delivery.turnOffFailed"),
+        error,
+      );
     },
   });
   const enabled = query.data === undefined ? undefined : readNotificationSettings(query.data.config).enabled;
@@ -50,16 +56,20 @@ function DeliverySection({ query }: { query: ConfigQuery }) {
   const checked = toggle.isPending ? toggle.variables : (enabled ?? false);
   return (
     <SettingsSection
-      title="Delivery"
-      description="The one switch for every channel. Test messages are sent whether it is on or off, so a channel can be tried first."
+      title={t("settings.notifications.delivery.title")}
+      description={t("settings.notifications.delivery.description")}
       commands={[configSetCommand("notifications.enabled", !checked)]}
     >
       <WithSettings query={query} skeleton={<DeliverySkeleton />}>
         {() => (
           <div className={cx(SURFACE, "px-5 py-4")}>
             <Switch
-              label="Send notifications"
-              description={checked ? "Events turned on below go to every channel with a destination." : "Nothing is sent."}
+              label={t("settings.notifications.delivery.switchLabel")}
+              description={
+                checked
+                  ? t("settings.notifications.delivery.switchOnDescription")
+                  : t("settings.notifications.delivery.switchOffDescription")
+              }
               checked={checked}
               disabled={toggle.isPending}
               onCheckedChange={(next) => {
@@ -78,6 +88,7 @@ function DeliverySection({ query }: { query: ConfigQuery }) {
 
 /** One webhook-style channel: its destination, saved on its own, and a test. */
 function HttpChannel({ spec, stored }: { spec: ChannelSpec; stored: Readonly<Record<string, string>> }) {
+  const t = useT();
   const refresh = useRefreshConfig();
   const headingId = useId();
   const [draft, setDraft] = useState<Record<string, string>>({});
@@ -96,7 +107,11 @@ function HttpChannel({ spec, stored }: { spec: ChannelSpec; stored: Readonly<Rec
       setDraft({});
       test.reset();
       await refresh();
-      toast.success(cleared.size > 0 ? `Removed the ${spec.label} destination` : `Saved the ${spec.label} destination`);
+      toast.success(
+        cleared.size > 0
+          ? t("settings.notifications.channels.removedToast", { label: spec.label })
+          : t("settings.notifications.channels.savedToast", { label: spec.label }),
+      );
     },
   });
   const removing = save.isPending && save.variables.size > 0;
@@ -107,7 +122,11 @@ function HttpChannel({ spec, stored }: { spec: ChannelSpec; stored: Readonly<Rec
     if (dirty && !save.isPending) save.mutate(new Set());
   };
 
-  const testReason = !configured ? "Add a destination to test it." : dirty ? "Save your changes first." : undefined;
+  const testReason = !configured
+    ? t("settings.notifications.channels.testReasonNotConfigured")
+    : dirty
+      ? t("settings.notifications.channels.testReasonDirty")
+      : undefined;
 
   return (
     <article aria-labelledby={headingId} className="flex min-w-0 flex-col gap-3 px-5 py-4">
@@ -129,7 +148,7 @@ function HttpChannel({ spec, stored }: { spec: ChannelSpec; stored: Readonly<Rec
                   save.mutate(new Set(secretKeys));
                 }}
               >
-                Remove destination
+                {t("settings.notifications.channels.removeDestination")}
               </Button>
             ) : null}
             <TestButton test={test} disabled={dirty || !configured} {...(testReason !== undefined ? { reason: testReason } : {})} />
@@ -137,7 +156,9 @@ function HttpChannel({ spec, stored }: { spec: ChannelSpec; stored: Readonly<Rec
         }
       />
       <form noValidate onSubmit={submit} className="flex min-w-0 flex-col gap-3">
-        {errors.form !== null ? <ErrorBlock live compact error={errors.form} title={`Could not save ${spec.label}`} /> : null}
+        {errors.form !== null ? (
+          <ErrorBlock live compact error={errors.form} title={t("settings.notifications.channels.saveErrorTitle", { label: spec.label })} />
+        ) : null}
         <div className={cx("grid min-w-0 gap-3", spec.fields.length > 1 && "sm:grid-cols-2")}>
           {spec.fields.map((field) => {
             const value = draft[field.key] ?? stored[field.key] ?? "";
@@ -184,7 +205,7 @@ function HttpChannel({ spec, stored }: { spec: ChannelSpec; stored: Readonly<Rec
           onDiscard={() => {
             setDraft({});
           }}
-          note="A test goes to what is saved."
+          note={t("settings.notifications.channels.testNote")}
         />
       </form>
       <div role="status" className="min-w-0 empty:hidden">
@@ -195,15 +216,16 @@ function HttpChannel({ spec, stored }: { spec: ChannelSpec; stored: Readonly<Rec
 }
 
 function ChannelsSection({ query }: { query: ConfigQuery }) {
+  const t = useT();
   return (
     <SettingsSection
-      title="Where alerts go"
-      description="Every channel with a destination receives the events turned on below. Webhook URLs, the bot token and the SMTP password are write-only: once saved they are never shown again, and a field left empty keeps what is stored. Send a test to find out what a channel does."
+      title={t("settings.notifications.channels.title")}
+      description={t("settings.notifications.channels.description")}
     >
       <WithSettings query={query} skeleton={<ChannelsSkeleton />}>
         {(settings) => (
           <div className={cx(SURFACE, "flex min-w-0 flex-col divide-y divide-border")}>
-            {CHANNELS.map((spec) =>
+            {channels(t).map((spec) =>
               spec.id === "email" ? (
                 <EmailChannel key={spec.id} enabledStored={settings.emailEnabled} />
               ) : spec.id === "telegram" ? (
@@ -222,24 +244,23 @@ function ChannelsSection({ query }: { query: ConfigQuery }) {
 // ---------------------------------------------------------------------------------------
 // Events
 
-const EVENT_NAMES = EVENTS.map((event) => event.kind);
-
 function EventsSection({ query }: { query: ConfigQuery }) {
+  const t = useT();
   const refresh = useRefreshConfig();
   const form = useSettingsForm<Record<string, boolean>>({
     server: query.data === undefined ? undefined : readNotificationSettings(query.data.config).events,
-    names: EVENT_NAMES,
+    names: EVENT_KINDS,
     save: async (values) => {
-      await patchConfig("notifications.events", Object.fromEntries(EVENT_NAMES.map((kind) => [kind, values[kind] === true])));
+      await patchConfig("notifications.events", Object.fromEntries(EVENT_KINDS.map((kind) => [kind, values[kind] === true])));
       await refresh();
-      toast.success("Saved the notification events");
+      toast.success(t("settings.notifications.events.saved"));
     },
   });
   const values = form.values ?? {};
   return (
     <SettingsSection
-      title="Events"
-      description="Which events are sent. Each one goes to every channel with a destination; choosing per channel is not supported yet."
+      title={t("settings.notifications.events.title")}
+      description={t("settings.notifications.events.description")}
       commands={
         form.dirty
           ? form.changed.map((kind) => configSetCommand(`notifications.events.${kind}`, values[kind] === true))
@@ -252,17 +273,21 @@ function EventsSection({ query }: { query: ConfigQuery }) {
             dirty={form.dirty}
             pending={form.pending}
             formError={form.formError}
-            errorTitle="Could not save the events"
+            errorTitle={t("settings.notifications.events.errorTitle")}
             onSubmit={form.submit}
             onDiscard={form.discard}
           >
             <fieldset className="flex flex-col gap-3.5">
-              <legend className="sr-only">Events to send</legend>
-              {EVENTS.map((event) => (
+              <legend className="sr-only">{t("settings.notifications.events.legend")}</legend>
+              {events(t).map((event) => (
                 <Checkbox
                   key={event.kind}
                   label={event.label}
-                  description={event.unsent ? `${event.description} Not sent by this version of WASM yet.` : event.description}
+                  description={
+                    event.unsent
+                      ? t("settings.notifications.events.unsentSuffix", { description: event.description })
+                      : event.description
+                  }
                   checked={values[event.kind] === true}
                   onCheckedChange={(next) => {
                     form.set(event.kind, next);
@@ -281,6 +306,7 @@ function EventsSection({ query }: { query: ConfigQuery }) {
 // Private destinations
 
 function PrivateHostsSection({ query }: { query: ConfigQuery }) {
+  const t = useT();
   const refresh = useRefreshConfig();
   const form = useSettingsForm({
     server:
@@ -292,14 +318,14 @@ function PrivateHostsSection({ query }: { query: ConfigQuery }) {
     save: async ({ allow_private_hosts }) => {
       await patchConfig("notifications.allow_private_hosts", parseHostList(allow_private_hosts));
       await refresh();
-      toast.success("Saved the private destinations");
+      toast.success(t("settings.notifications.privateHosts.saved"));
     },
   });
   const typed = form.values?.allow_private_hosts ?? "";
   return (
     <SettingsSection
-      title="Private destinations"
-      description="A destination on this machine or a private network is refused, so a notification cannot be aimed at the console itself or a cloud metadata service. List a host here to allow it anyway."
+      title={t("settings.notifications.privateHosts.title")}
+      description={t("settings.notifications.privateHosts.description")}
       // `wasm config set` stores a list as one string, so reading is the only honest command.
       commands={["wasm config get notifications.allow_private_hosts"]}
     >
@@ -309,14 +335,14 @@ function PrivateHostsSection({ query }: { query: ConfigQuery }) {
             dirty={form.dirty}
             pending={form.pending}
             formError={form.formError}
-            errorTitle="Could not save the private destinations"
+            errorTitle={t("settings.notifications.privateHosts.errorTitle")}
             onSubmit={form.submit}
             onDiscard={form.discard}
           >
             <Field
-              label="Allowed private hosts"
+              label={t("settings.notifications.privateHosts.fieldLabel")}
               optional
-              description="One host name or address per line, exactly as it appears in the destination URL."
+              description={t("settings.notifications.privateHosts.fieldDescription")}
               error={form.fieldErrors.allow_private_hosts}
             >
               <Textarea
@@ -340,6 +366,7 @@ function PrivateHostsSection({ query }: { query: ConfigQuery }) {
 // The console's own address, for the link a deployment notification carries back to it.
 
 function ConsoleLinkSection({ query }: { query: ConfigQuery }) {
+  const t = useT();
   const refresh = useRefreshConfig();
   const form = useSettingsForm({
     server: query.data === undefined ? undefined : { public_url: publicUrlOf(query.data.config) },
@@ -348,33 +375,33 @@ function ConsoleLinkSection({ query }: { query: ConfigQuery }) {
     save: async ({ public_url }) => {
       await patchConfig("web.public_url", public_url.trim());
       await refresh();
-      toast.success("Saved the console's address");
+      toast.success(t("settings.notifications.consoleLink.saved"));
     },
   });
   return (
     <SettingsSection
-      title="Link in notifications"
-      description="Used only to build the link a deployment notification carries back to its page in the console. It does not move the console or change how it is reached - that is Console address, in General settings."
+      title={t("settings.notifications.consoleLink.title")}
+      description={t("settings.notifications.consoleLink.description")}
       commands={
         form.dirty
           ? [configSetCommand("web.public_url", form.values?.public_url ?? "")]
           : ["wasm config get web.public_url"]
       }
     >
-      <QueryState query={query} label="the console's address" skeleton={<SettingsFormSkeleton fields={[{ description: 1 }]} />}>
+      <QueryState query={query} label={t("settings.notifications.consoleLink.loadingLabel")} skeleton={<SettingsFormSkeleton fields={[{ description: 1 }]} />}>
         {() => (
           <SettingsFormCard
             dirty={form.dirty}
             pending={form.pending}
             formError={form.formError}
-            errorTitle="Could not save the console's address"
+            errorTitle={t("settings.notifications.consoleLink.errorTitle")}
             onSubmit={form.submit}
             onDiscard={form.discard}
           >
             <Field
-              label="Console address"
+              label={t("settings.notifications.consoleLink.fieldLabel")}
               optional
-              description="An absolute https:// address, such as https://console.example.com. Left empty, notifications carry no link."
+              description={t("settings.notifications.consoleLink.fieldDescription")}
               error={form.fieldErrors.public_url}
             >
               <Input
@@ -411,8 +438,9 @@ function WithSettings({
   skeleton: ReactNode;
   children: (settings: Settings) => ReactNode;
 }) {
+  const t = useT();
   return (
-    <QueryState query={query} label="the notification settings" skeleton={skeleton}>
+    <QueryState query={query} label={t("settings.notifications.channels.loadingLabel")} skeleton={skeleton}>
       {(data) => children(readNotificationSettings(data.config))}
     </QueryState>
   );
@@ -439,9 +467,10 @@ function DeliverySkeleton() {
  * holds - whether a channel is set up, its fields' values - is a placeholder.
  */
 function ChannelsSkeleton() {
+  const t = useT();
   return (
     <div aria-hidden="true" className={cx(SURFACE, "flex min-w-0 flex-col divide-y divide-border")}>
-      {CHANNELS.map((spec) => (
+      {channels(t).map((spec) => (
         <div key={spec.id} className="flex min-w-0 flex-col gap-3 px-5 py-4">
           <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
             <div className="min-w-0 flex-1 basis-60">
@@ -483,15 +512,18 @@ function ChannelsSkeleton() {
 
 /** The events' card: one checkbox with its description per event, and the form's footer. */
 function EventsSkeleton() {
+  const t = useT();
   return (
     <div aria-hidden="true" className={cx(SURFACE, "flex min-w-0 flex-col")}>
       <div className="flex flex-col gap-3.5 p-5">
-        {EVENTS.map((event) => (
+        {events(t).map((event) => (
           <div key={event.kind} className="flex items-start gap-2.5 text-14">
             <Skeleton className="mt-0.5 size-4 shrink-0" />
             <div className="flex min-w-0 flex-col">
               <span className="text-fg">{event.label}</span>
-              <span className="text-13 text-fg-muted">{event.unsent ? `${event.description} Not sent by this version of WASM yet.` : event.description}</span>
+              <span className="text-13 text-fg-muted">
+                {event.unsent ? t("settings.notifications.events.unsentSuffix", { description: event.description }) : event.description}
+              </span>
             </div>
           </div>
         ))}
@@ -505,13 +537,15 @@ function EventsSkeleton() {
 
 /** Settings > Notifications: the channels alerts go to, what is sent, and a test per channel. */
 export function NotificationSettings() {
-  useDocumentTitle("Notifications settings", 1);
+  const t = useT();
+  useDocumentTitle(t("settings.notifications.documentTitle"), 1);
   const query = useQuery(configQuery());
   return (
     <Sections>
       <DeliverySection query={query} />
       <ChannelsSection query={query} />
       <EventsSection query={query} />
+      <NotificationLanguageSection query={query} />
       <PrivateHostsSection query={query} />
       <ConsoleLinkSection query={query} />
     </Sections>

@@ -1,11 +1,14 @@
 import { Check, TriangleAlert, X } from "lucide-react";
+import type { ReactNode } from "react";
 
 import type { DnsCheck } from "../../api/queries/domains";
 import { StatusGlyph } from "../../components/ui/StatusPill";
+import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { dnsVerdict, isPrivateAddress, recordsToCreate } from "./dns";
 
 function AddressList({ label, addresses, matches, empty }: { label: string; addresses: readonly string[]; matches?: ReadonlySet<string>; empty: string }) {
+  const t = useT();
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       <p className="text-12 text-fg-muted">{label}</p>
@@ -26,7 +29,7 @@ function AddressList({ label, addresses, matches, empty }: { label: string; addr
                   {address}
                 </code>
                 {matches === undefined ? null : (
-                  <span className="sr-only">{matched ? " (this server)" : " (not this server)"}</span>
+                  <span className="sr-only">{matched ? t("domains.dnsVerdict.thisServerSr") : t("domains.dnsVerdict.notThisServerSr")}</span>
                 )}
               </li>
             );
@@ -42,16 +45,35 @@ function AddressList({ label, addresses, matches, empty }: { label: string; addr
  * addresses beside the ones the name resolves to, and the records to create when it does not.
  */
 export function DnsVerdict({ check, className }: { check: DnsCheck; className?: string }) {
+  const t = useT();
   const verdict = dnsVerdict(check);
   const expected = new Set(check.expected_addresses);
   const records = recordsToCreate(check.expected_addresses);
   const onlyPrivate = check.expected_addresses.length > 0 && check.expected_addresses.every(isPrivateAddress);
   const heading =
     verdict === "here"
-      ? `${check.domain} points here`
+      ? t("domains.dnsVerdict.pointsHere", { domain: check.domain })
       : verdict === "missing"
-        ? `${check.domain} has no DNS record yet`
-        : `${check.domain} points somewhere else`;
+        ? t("domains.dnsVerdict.hasNoRecord", { domain: check.domain })
+        : t("domains.dnsVerdict.pointsElsewhere", { domain: check.domain });
+
+  const recordList: ReactNode = (
+    <>
+      {records.map((record, index) => (
+        <span key={record.value}>
+          {index > 0 ? (index === records.length - 1 ? ` ${t("domains.dnsVerdict.and")} ` : ", ") : null}
+          {t.rich("domains.dnsVerdict.recordPhrase", {
+            type: record.type,
+            value: (
+              <code translate="no" className="text-12 text-fg">
+                {record.value}
+              </code>
+            ),
+          })}
+        </span>
+      ))}
+    </>
+  );
 
   return (
     <div
@@ -71,36 +93,20 @@ export function DnsVerdict({ check, className }: { check: DnsCheck; className?: 
         <span className="min-w-0 break-words">{heading}</span>
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
-        <AddressList label="This server" addresses={check.expected_addresses} empty="No public address found" />
+        <AddressList label={t("domains.dnsVerdict.thisServerLabel")} addresses={check.expected_addresses} empty={t("domains.dnsVerdict.noPublicAddress")} />
         <AddressList
-          label={`${check.domain} resolves to`}
+          label={t("domains.dnsVerdict.resolvesToLabel", { domain: check.domain })}
           addresses={check.resolved_addresses}
           matches={expected}
-          empty="Nothing: no A or AAAA record"
+          empty={t("domains.dnsVerdict.nothingNoRecord")}
         />
       </div>
       {verdict !== "here" ? (
         <p className="text-13 text-pretty text-fg-muted">
-          {records.length > 0 ? (
-            <>
-              {`At your DNS provider, point ${check.domain} here with `}
-              {records.map((record, index) => (
-                <span key={record.value}>
-                  {index > 0 ? " and " : null}
-                  {`an ${record.type} record to `}
-                  <code translate="no" className="text-12 text-fg">
-                    {record.value}
-                  </code>
-                </span>
-              ))}
-              {", then check again. DNS changes can take a while to reach everyone."}
-            </>
-          ) : (
-            "DNS changes can take a while to reach everyone."
-          )}
-          {onlyPrivate
-            ? " This server only sees private addresses: behind NAT, a record pointing at its public address still reads as elsewhere, and the certificate order is what proves it."
-            : null}
+          {records.length > 0
+            ? t.rich("domains.dnsVerdict.pointHere", { domain: check.domain, records: recordList })
+            : t("domains.dnsVerdict.dnsChangesTakeAWhile")}
+          {onlyPrivate ? ` ${t("domains.dnsVerdict.onlyPrivateNote")}` : null}
         </p>
       ) : null}
     </div>

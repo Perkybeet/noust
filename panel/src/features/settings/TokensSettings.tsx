@@ -17,15 +17,21 @@ import type { Column } from "../../components/ui/DataTable";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { StatusGlyph } from "../../components/ui/StatusPill";
 import { toast } from "../../components/ui/toast";
+import { useT } from "../../i18n";
+import type { T } from "../../i18n";
 import { CreateTokenDialog } from "./CreateTokenDialog";
 import { RowAction } from "./RowAction";
 import { sortTokens, tokenState } from "./tokens";
 import type { TokenState } from "./tokens";
 
-const STATE_LABEL: Record<TokenState, string> = { active: "Active", expired: "Expired", revoked: "Revoked" };
-
 /** A token's state told three ways: colour, shape and word. */
-function TokenStateLabel({ state }: { state: TokenState }) {
+function TokenStateLabel({ t, state }: { t: T; state: TokenState }) {
+  const label =
+    state === "active"
+      ? t("settings.tokens.state.active")
+      : state === "expired"
+        ? t("settings.tokens.state.expired")
+        : t("settings.tokens.state.revoked");
   return (
     <span className="flex items-center gap-1.5">
       {state === "active" ? (
@@ -35,67 +41,71 @@ function TokenStateLabel({ state }: { state: TokenState }) {
       ) : (
         <Ban aria-hidden="true" className="size-3 text-idle" />
       )}
-      <span className={state === "active" ? "text-fg" : "text-fg-muted"}>{STATE_LABEL[state]}</span>
+      <span className={state === "active" ? "text-fg" : "text-fg-muted"}>{label}</span>
     </span>
   );
 }
 
-const COLUMNS: readonly Column<ApiToken>[] = [
-  {
-    id: "name",
-    header: "Name",
-    cell: (token) => (
-      <span className="flex flex-col items-start gap-1">
-        <span translate="no" className="mono text-12">
-          {token.name}
+function columnsFor(t: T): readonly Column<ApiToken>[] {
+  return [
+    {
+      id: "name",
+      header: t("settings.tokens.columnName"),
+      cell: (token) => (
+        <span className="flex flex-col items-start gap-1">
+          <span translate="no" className="mono text-12">
+            {token.name}
+          </span>
+          {/* On a phone the scope column is hidden; the scope rides under the name. */}
+          <Badge mono className="sm:hidden">
+            {token.scope}
+          </Badge>
         </span>
-        {/* On a phone the scope column is hidden; the scope rides under the name. */}
-        <Badge mono className="sm:hidden">
-          {token.scope}
-        </Badge>
-      </span>
-    ),
-  },
-  {
-    id: "scope",
-    header: "Scope",
-    hideBelow: "sm",
-    cell: (token) => <Badge mono>{token.scope}</Badge>,
-  },
-  { id: "state", header: "State", cell: (token) => <TokenStateLabel state={tokenState(token)} /> },
-  {
-    id: "created",
-    header: "Created",
-    hideBelow: "md",
-    cell: (token) => <RelativeTime value={token.created_at} />,
-  },
-  {
-    id: "expires",
-    header: "Expires",
-    hideBelow: "sm",
-    cell: (token) =>
-      token.revoked_at !== null && token.revoked_at !== undefined ? (
-        <span className="sr-only">Does not apply to a revoked token</span>
-      ) : (
-        <RelativeTime value={token.expires_at} fallback="Never" />
       ),
-  },
-  {
-    id: "last-used",
-    header: "Last used",
-    hideBelow: "lg",
-    cell: (token) => <RelativeTime value={token.last_used_at} fallback="Never" />,
-  },
-];
+    },
+    {
+      id: "scope",
+      header: t("settings.tokens.columnScope"),
+      hideBelow: "sm",
+      cell: (token) => <Badge mono>{token.scope}</Badge>,
+    },
+    { id: "state", header: t("settings.tokens.columnState"), cell: (token) => <TokenStateLabel t={t} state={tokenState(token)} /> },
+    {
+      id: "created",
+      header: t("settings.tokens.columnCreated"),
+      hideBelow: "md",
+      cell: (token) => <RelativeTime value={token.created_at} />,
+    },
+    {
+      id: "expires",
+      header: t("settings.tokens.columnExpires"),
+      hideBelow: "sm",
+      cell: (token) =>
+        token.revoked_at !== null && token.revoked_at !== undefined ? (
+          <span className="sr-only">{t("settings.tokens.revokedNotApplicable")}</span>
+        ) : (
+          <RelativeTime value={token.expires_at} fallback={t("settings.tokens.never")} />
+        ),
+    },
+    {
+      id: "last-used",
+      header: t("settings.tokens.columnLastUsed"),
+      hideBelow: "lg",
+      cell: (token) => <RelativeTime value={token.last_used_at} fallback={t("settings.tokens.never")} />,
+    },
+  ];
+}
 
 /** Settings > API tokens: named, scoped credentials for CI and scripts. */
 export function TokensSettings() {
-  useDocumentTitle("API tokens", 1);
+  const t = useT();
+  useDocumentTitle(t("settings.tokens.documentTitle"), 1);
   const queryClient = useQueryClient();
   const query = useQuery(apiTokensQuery());
   const [creating, setCreating] = useState(false);
   const [revoking, setRevoking] = useState<ApiToken | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const columns = columnsFor(t);
 
   const create = (
     <Button
@@ -105,42 +115,42 @@ export function TokensSettings() {
         setCreating(true);
       }}
     >
-      Create token
+      {t("settings.tokens.createToken")}
     </Button>
   );
 
   return (
     <Sections>
       <Section
-        title="Tokens for automation"
-        description="Named tokens for CI and scripts, each with a scope and an optional expiry. A token is shown once, when it is created; after that only its name and scope remain."
+        title={t("settings.tokens.sectionTitle")}
+        description={t("settings.tokens.sectionDescription")}
         actions={query.data !== undefined && query.data.tokens.length > 0 ? create : undefined}
       >
         <QueryState
           query={query}
-          label="API tokens"
-          skeleton={<DataTable caption="API tokens" columns={COLUMNS} rows={[]} getRowId={(token) => String(token.id)} loading />}
+          label={t("settings.tokens.loadingLabel")}
+          skeleton={<DataTable caption={t("settings.tokens.tableCaption")} columns={columns} rows={[]} getRowId={(token) => String(token.id)} loading />}
           isEmpty={(data) => data.tokens.length === 0}
           empty={
             <EmptyState
               icon={<KeyRound />}
-              title="No API tokens yet"
-              description="Create one for a CI pipeline or a script. It acts with the scope you choose, and you can revoke it at any time."
+              title={t("settings.tokens.emptyTitle")}
+              description={t("settings.tokens.emptyDescription")}
               action={create}
             />
           }
         >
           {(data) => (
             <DataTable
-              caption="API tokens"
-              columns={COLUMNS}
+              caption={t("settings.tokens.tableCaption")}
+              columns={columns}
               rows={sortTokens(data.tokens)}
               getRowId={(token) => String(token.id)}
               rowActions={(token) =>
                 tokenState(token) === "active" ? (
                   <RowAction
-                    label={`Revoke ${token.name}`}
-                    text="Revoke"
+                    label={t("settings.tokens.revokeLabel", { name: token.name })}
+                    text={t("settings.tokens.revokeText")}
                     icon={<Trash2 />}
                     onClick={() => {
                       setRevoking(token);
@@ -156,8 +166,8 @@ export function TokensSettings() {
       {/* Under a list of unknown length: drawn with it, never pushed down the page by it. */}
       {query.data !== undefined || query.isError ? (
         <Section
-          title="Using a token"
-          description="Send it in the Authorization header. A token cannot open the console in a browser; it is for the API only."
+          title={t("settings.tokens.usingTitle")}
+          description={t("settings.tokens.usingDescription")}
         >
           <CommandHint command={`curl -H "Authorization: Bearer wasm_tok_..." ${window.location.origin}/api/apps`} />
         </Section>
@@ -173,13 +183,13 @@ export function TokensSettings() {
         <ConfirmDialog
           open={confirming}
           onOpenChange={setConfirming}
-          title={`Revoke ${revoking.name}`}
-          description="Requests that present this token stop working at once. It cannot be turned back on, and its name stays taken so the audit log always names one token."
+          title={t("settings.tokens.revokeDialogTitle", { name: revoking.name })}
+          description={t("settings.tokens.revokeDialogDescription")}
           confirmText={revoking.name}
-          actionLabel="Revoke token"
+          actionLabel={t("settings.tokens.revokeAction")}
           onConfirm={async () => {
             const result = await revokeApiToken(revoking.id);
-            toast.success(`Revoked token ${result.revoked}`);
+            toast.success(t("settings.tokens.revokedToast", { name: result.revoked }));
             void queryClient.invalidateQueries({ queryKey: authKeys.tokens });
           }}
         />

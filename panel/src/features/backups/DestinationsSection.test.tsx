@@ -1,6 +1,7 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
@@ -288,5 +289,43 @@ describe("DestinationsSection", () => {
     });
     expect(screen.queryByRole("alertdialog", { name: "Remove offsite" })).not.toBeInTheDocument();
     expect(backend.callsTo("DELETE /api/backup-destinations/offsite")).toHaveLength(0);
+  });
+});
+
+describe("DestinationsSection in Spanish", () => {
+  it("lists destinations, opens the add dialog and shows the encryption key dialog in Spanish, with no accessibility violations", async () => {
+    fakeBackend(baseRoutes([destination({ encrypted: true, encryption_configured: true })], {
+      "POST /api/backup-destinations/offsite/show-key": () => json(200, { password: "first-passphrase", password2: "second-salt" }),
+    }));
+    await act(() => setLocale("es"));
+    const { container, user } = renderConsole("/backups");
+    await screen.findByRole("heading", { level: 1, name: "Copias de seguridad" });
+    const region = await screen.findByRole("region", { name: "Destinos de copias de seguridad" });
+    const offsiteRow = (await within(region).findByText("offsite")).closest("tr");
+    if (!offsiteRow) throw new Error("no row");
+    expect(within(offsiteRow).getByText("Cifrado")).toBeInTheDocument();
+    await expectNoAxeViolations(container);
+
+    await user.click(within(region).getByRole("button", { name: "Acciones de offsite" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Mostrar clave de cifrado" }));
+    const keyDialog = await screen.findByRole("dialog", { name: "Clave de cifrado de offsite" });
+    expect(await within(keyDialog).findByText("first-passphrase")).toBeInTheDocument();
+    expect(within(keyDialog).getByRole("checkbox", { name: /He guardado esta clave/ })).toBeInTheDocument();
+  });
+
+  it("adds a destination through the dialog in Spanish", async () => {
+    fakeBackend(
+      baseRoutes([], {
+        "POST /api/backup-destinations": () =>
+          json(201, { success: true, message: "Backup destination created: offsite", destination: destination() }),
+      }),
+    );
+    await act(() => setLocale("es"));
+    const { user } = renderConsole("/backups");
+    await screen.findByRole("heading", { level: 1, name: "Copias de seguridad" });
+    await user.click(await screen.findByRole("button", { name: "Añadir destino" }));
+    const dialog = await screen.findByRole("dialog", { name: "Añadir destino de copias de seguridad" });
+    expect(within(dialog).getByText("Nombre")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
   });
 });

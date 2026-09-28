@@ -1,6 +1,7 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../../app/locale";
 import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../../test/fakes";
@@ -278,4 +279,38 @@ describe("the environment tab", () => {
     await user.click(screen.getByRole("button", { name: "Reveal the value of NODE_ENV" }));
     await expectNoAxeViolations(screen.getByRole("main"));
   });
+
+  it(
+    "translates the table, the paste dialog and the review dialog, with no accessibility violations",
+    { timeout: 20_000 },
+    async () => {
+      const { user, backend } = await environmentTab({
+        [`PUT ${ENV_PATH}`]: () => json(200, { domain: DOMAIN, restart_required: true }),
+      });
+      await act(() => setLocale("es"));
+
+      const table = screen.getByRole("table", { name: `Variables de entorno de ${DOMAIN}` });
+      expect(within(table).getAllByText("Oculto")).toHaveLength(3);
+      expect(screen.getByRole("button", { name: "Pegar .env" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Añadir variable" })).toBeInTheDocument();
+      await expectNoAxeViolations(screen.getByRole("main"));
+
+      await user.click(screen.getByRole("button", { name: "Pegar .env" }));
+      const paste = await screen.findByRole("dialog", { name: "Pegar un archivo .env" });
+      await user.click(within(paste).getByLabelText("Contenido del .env"));
+      await user.paste("PORT=3000\n");
+      expect(within(paste).getByText("1 variable encontrada")).toBeInTheDocument();
+      await user.click(within(paste).getByRole("button", { name: "Preparar 1 variable" }));
+
+      expect(await screen.findByText("1 cambio sin guardar")).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Revisar y guardar" }));
+      const review = await screen.findByRole("dialog", { name: "Revisar cambios" });
+      await user.click(within(review).getByRole("button", { name: "Guardar cambios" }));
+      await waitFor(() => {
+        expect(backend.callsTo(`PUT ${ENV_PATH}`)).toHaveLength(1);
+      });
+      const saved = await screen.findByRole("dialog", { name: "Entorno guardado" });
+      await expectNoAxeViolations(saved);
+    },
+  );
 });

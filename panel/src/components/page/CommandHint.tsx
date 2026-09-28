@@ -1,3 +1,4 @@
+import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { CopyButton } from "../ui/CopyButton";
 
@@ -14,6 +15,7 @@ export interface CommandHintProps {
  * terminal: set in mono behind a prompt the copy button leaves out.
  */
 export function CommandHint({ command, label, className }: CommandHintProps) {
+  const t = useT();
   return (
     <div className={cx("flex max-w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1", className)}>
       {label !== undefined ? <span className="text-12 text-fg-faint">{label}</span> : null}
@@ -24,7 +26,7 @@ export function CommandHint({ command, label, className }: CommandHintProps) {
           </span>
           {command}
         </code>
-        <CopyButton value={command} label="Copy command" />
+        <CopyButton value={command} label={t("common.copyButton.copyCommand")} />
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { loadCatalog } from "../../i18n";
 import { OAUTH_BACKENDS, backendDescription, backendLabel } from "./backendCatalog";
 
 describe("backendCatalog", () => {
@@ -20,5 +21,13 @@ describe("backendCatalog", () => {
     expect(OAUTH_BACKENDS.has("pcloud")).toBe(true);
     expect(OAUTH_BACKENDS.has("s3")).toBe(false);
     expect(OAUTH_BACKENDS.has("sftp")).toBe(false);
+  });
+
+  it("gives every known backend a Spanish label too", async () => {
+    await loadCatalog("es");
+    expect(backendLabel("s3", "es")).toBe("Almacenamiento compatible con S3");
+    expect(backendLabel("sftp", "es")).toBe("Servidor SFTP");
+    expect(backendLabel("some-new-backend", "es")).toBe("some-new-backend");
+    expect(backendDescription("some-new-backend", "es")).toBeUndefined();
   });
 });

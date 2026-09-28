@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { expectNoAxeViolations } from "../test/axe";
 import { renderConsole } from "../test/console";
 import { ANONYMOUS, FakeEventSource, MACHINE, fakeBackend, json, signedInRoutes } from "../test/fakes";
+import { setLocale } from "./locale";
 import { THEME_STORAGE_KEY } from "./theme";
 
 async function shellAt(path: string) {
@@ -151,5 +152,38 @@ describe("preferences", () => {
     expect(dark).toHaveAttribute("aria-pressed", "true");
     expect(document.documentElement.dataset["theme"]).toBe("dark");
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe("dark");
+  });
+});
+
+describe("language", () => {
+  it("shows the machine strip and search chrome in Spanish", async () => {
+    await shellAt("/apps");
+    await act(async () => {
+      await setLocale("es");
+    });
+    expect(screen.getByRole("group", { name: "Esta máquina" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Buscar" }).length).toBeGreaterThan(0);
+    await expectNoAxeViolations(document.body, { page: true });
+  });
+
+  it("shows the session popover in Spanish", async () => {
+    const { user } = await shellAt("/apps");
+    await act(async () => {
+      await setLocale("es");
+    });
+    await user.click(screen.getByRole("button", { name: "Sesión y preferencias" }));
+    expect(await screen.findByRole("button", { name: "Cerrar sesión" })).toBeInTheDocument();
+  });
+
+  it("shows the shortcuts dialog in Spanish", async () => {
+    await shellAt("/apps");
+    await act(async () => {
+      await setLocale("es");
+    });
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "?", bubbles: true }));
+    });
+    const dialog = await screen.findByRole("dialog", { name: "Atajos de teclado" });
+    expect(within(dialog).getByText("Ir a aplicaciones")).toBeInTheDocument();
   });
 });

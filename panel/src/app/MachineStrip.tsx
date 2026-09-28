@@ -4,6 +4,8 @@ import { Link } from "@tanstack/react-router";
 import { sessionQuery } from "../api/queries/auth";
 import { machineQuery } from "../api/queries/system";
 import type { Machine } from "../api/queries/system";
+import { useT } from "../i18n";
+import type { T } from "../i18n";
 import { Meter } from "../components/ui/Progress";
 import { Skeleton } from "../components/ui/Skeleton";
 import { StatusGlyph, StatusPill } from "../components/ui/StatusPill";
@@ -13,8 +15,8 @@ import { formatDuration } from "../lib/format";
 import { useStreamStatus } from "../realtime/events";
 
 /** The one sentence that says what the unit tally means, for the tooltip and the link's accessible name alike. */
-export function unitTallySummary(units: Machine["units"]): string {
-  return `WASM units: ${String(units.running)} running, ${String(units.failed)} failed, ${String(units.stopped)} stopped`;
+export function unitTallySummary(units: Machine["units"], t: T): string {
+  return t("shell.machine.unitsSummary", { running: units.running, failed: units.failed, stopped: units.stopped });
 }
 
 /** The recent one-minute load as a line, scaled to its own peak (at least 1). */
@@ -36,20 +38,27 @@ function Divider({ className }: { className?: string }) {
 }
 
 function Load({ machine }: { machine: Machine }) {
+  const t = useT();
   const [one, five, fifteen] = machine.load;
   return (
-    <div className="flex items-center gap-2" title={`Load average: ${one.toFixed(2)} ${five.toFixed(2)} ${fifteen.toFixed(2)}`}>
-      <span className="text-12 text-fg-muted">Load</span>{" "}
+    <div
+      className="flex items-center gap-2"
+      title={t("shell.machine.loadAverage", { one: one.toFixed(2), five: five.toFixed(2), fifteen: fifteen.toFixed(2) })}
+    >
+      <span className="text-12 text-fg-muted">{t("shell.machine.load")}</span>{" "}
       <svg width="48" height="18" viewBox="0 0 48 18" aria-hidden="true" className="shrink-0 text-fg-muted">
         <path d={sparklinePath(machine.load_history, 48, 18)} fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" />
       </svg>
       <span className="mono text-13 text-fg">{one.toFixed(2)}</span>{" "}
-      <span className="sr-only">{`over one minute, ${five.toFixed(2)} over five, ${fifteen.toFixed(2)} over fifteen`}</span>
+      <span className="sr-only">
+        {t("shell.machine.loadDetail", { five: five.toFixed(2), fifteen: fifteen.toFixed(2) })}
+      </span>
     </div>
   );
 }
 
 function UnitTally({ units }: { units: Machine["units"] }) {
+  const t = useT();
   const parts = [
     { state: "running" as const, count: units.running, tone: units.running > 0 ? "text-ok" : "text-fg-faint" },
     { state: "failed" as const, count: units.failed, tone: units.failed > 0 ? "text-fail" : "text-fg-faint" },
@@ -57,7 +66,7 @@ function UnitTally({ units }: { units: Machine["units"] }) {
   ];
   // One sentence, not two: the tooltip (hover and keyboard focus) and the accessible name say
   // the same thing, so the symbols next to it are never the only place the meaning lives.
-  const summary = unitTallySummary(units);
+  const summary = unitTallySummary(units, t);
   return (
     <Tooltip content={summary}>
       <Link
@@ -66,7 +75,7 @@ function UnitTally({ units }: { units: Machine["units"] }) {
         className="flex items-center gap-2.5 rounded-control px-1.5 py-1 hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-focus"
       >
         <span aria-hidden="true" className="text-12 text-fg-muted">
-          Units
+          {t("shell.machine.units")}
         </span>
         {parts.map((part) => (
           <span key={part.state} aria-hidden="true" className={cx("inline-flex items-center gap-1", part.tone)}>
@@ -93,6 +102,7 @@ function UnitTally({ units }: { units: Machine["units"] }) {
  * then the meters.
  */
 export function MachineStrip({ className }: { className?: string }) {
+  const t = useT();
   const stream = useStreamStatus();
   // While the stream is down (a restarting panel, a proxy that buffers it) the strip polls,
   // so it never shows numbers from minutes ago as if they were current.
@@ -101,7 +111,7 @@ export function MachineStrip({ className }: { className?: string }) {
   const name = machine?.hostname ?? hostname;
 
   return (
-    <div role="group" aria-label="This machine" className={cx("@container min-w-0", className)}>
+    <div role="group" aria-label={t("shell.machine.landmark")} className={cx("@container min-w-0", className)}>
       <div className="flex items-center gap-2 @min-[26rem]:gap-4">
         <Link
           to="/server"
@@ -117,7 +127,7 @@ export function MachineStrip({ className }: { className?: string }) {
           {machine ? " " : null}
           {machine ? (
             <span className="mono hidden shrink-0 text-12 text-fg-faint @min-[42rem]:inline">
-              up {formatDuration(machine.uptime_s)}
+              {t("shell.machine.upFor", { duration: formatDuration(machine.uptime_s) })}
             </span>
           ) : null}
         </Link>
@@ -131,8 +141,8 @@ export function MachineStrip({ className }: { className?: string }) {
             <div className="hidden shrink-0 items-center gap-4 @min-[30rem]:flex">
               <Divider />
               <Meter size="sm" label="CPU" value={machine.cpu_percent} className="w-20" />
-              <Meter size="sm" label="Memory" value={machine.memory.percent} className="w-20" />
-              <Meter size="sm" label="Disk" value={machine.disk.percent} className="w-20" />
+              <Meter size="sm" label={t("shell.machine.memory")} value={machine.memory.percent} className="w-20" />
+              <Meter size="sm" label={t("shell.machine.disk")} value={machine.disk.percent} className="w-20" />
             </div>
             <div className="hidden shrink-0 items-center gap-4 @min-[36rem]:flex">
               <Divider />
@@ -141,16 +151,18 @@ export function MachineStrip({ className }: { className?: string }) {
             {machine.units.failed > 0 ? (
               <Link
                 to="/services"
+                aria-label={t("shell.machine.failedUnits", { count: machine.units.failed })}
                 className="inline-flex shrink-0 items-center gap-1 rounded-control px-1.5 py-1 text-12 font-medium text-fail hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-focus @min-[36rem]:hidden"
               >
                 <StatusGlyph state="failed" size={10} />
-                <span className="mono">{machine.units.failed}</span> <span>failed</span>{" "}
-                <span className="sr-only">units</span>
+                <span aria-hidden="true" className="mono">
+                  {machine.units.failed}
+                </span>
               </Link>
             ) : null}
           </>
         ) : isError ? (
-          <span className="hidden truncate text-12 text-fg-faint @min-[26rem]:inline">Machine readings unavailable</span>
+          <span className="hidden truncate text-12 text-fg-faint @min-[26rem]:inline">{t("shell.machine.unavailable")}</span>
         ) : (
           <div aria-hidden="true" className="hidden items-center gap-4 @min-[30rem]:flex">
             <Skeleton className="h-6 w-20" />
@@ -160,7 +172,13 @@ export function MachineStrip({ className }: { className?: string }) {
         )}
 
         {stream === "reconnecting" ? (
-          <StatusPill state="deploying" label="Reconnecting" appearance="inline" size="sm" className="shrink-0" />
+          <StatusPill
+            state="deploying"
+            label={t("shell.machine.reconnecting")}
+            appearance="inline"
+            size="sm"
+            className="shrink-0"
+          />
         ) : null}
       </div>
     </div>

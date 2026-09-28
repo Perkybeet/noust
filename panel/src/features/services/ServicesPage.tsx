@@ -11,6 +11,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { Input } from "../../components/ui/Input";
 import { Kbd } from "../../components/ui/Kbd";
 import { Switch } from "../../components/ui/Switch";
+import { useT } from "../../i18n";
 import { CreateServiceDialog } from "./CreateServiceDialog";
 import { ServiceRowActions } from "./ServiceRowActions";
 import { ServicesTable } from "./ServicesTable";
@@ -31,6 +32,7 @@ export interface ServicesPageProps {
  * appears too, marked "Foreign" and read-only (see `ServiceRowActions`).
  */
 export function ServicesPage({ search, onSearchChange }: ServicesPageProps) {
+  const t = useT();
   const showAll = search.all === true;
   const services = useQuery(servicesQuery(!showAll));
   const [createOpen, setCreateOpen] = useState(false);
@@ -51,20 +53,15 @@ export function ServicesPage({ search, onSearchChange }: ServicesPageProps) {
   const clearTextFilter = (): void => onSearchChange(showAll ? { all: true } : {});
 
   const filtered = isFiltered(search);
-  const count = services.data
-    ? filtered
-      ? `${String(shown.length)} of ${String(fetched.length)}`
-      : String(fetched.length)
-    : null;
 
   return (
     <>
       <PageHeader
-        title="Services"
-        description={'Every systemd unit WASM manages on this machine. Turn on "Show all units" to see what other packages created too, read-only.'}
+        title={t("nav.services.label")}
+        description={t("services.page.description")}
         actions={
           <Button variant="primary" icon={<Plus aria-hidden="true" />} onClick={() => setCreateOpen(true)}>
-            New service
+            {t("services.page.newService")}
           </Button>
         }
       />
@@ -72,7 +69,7 @@ export function ServicesPage({ search, onSearchChange }: ServicesPageProps) {
       {services.isError && services.data === undefined ? (
         <ErrorBlock
           error={services.error}
-          title="Could not load services"
+          title={t("services.page.loadFailed")}
           onRetry={() => void services.refetch()}
           retrying={services.isRefetching}
         />
@@ -80,11 +77,11 @@ export function ServicesPage({ search, onSearchChange }: ServicesPageProps) {
         <EmptyState
           level={2}
           icon={<Cog />}
-          title="Create your first service"
-          description="A systemd unit run under this machine's service user, restarted automatically and started at boot."
+          title={t("services.page.emptyTitle")}
+          description={t("services.page.emptyDescription")}
           action={
             <Button variant="primary" icon={<Plus aria-hidden="true" />} onClick={() => setCreateOpen(true)}>
-              New service
+              {t("services.page.newService")}
             </Button>
           }
           command="wasm service create --name worker --command '/usr/bin/node worker.js' --directory /var/www/worker"
@@ -92,11 +89,11 @@ export function ServicesPage({ search, onSearchChange }: ServicesPageProps) {
         />
       ) : (
         <div className="flex flex-col gap-4">
-          <div role="search" aria-label="Filter services" className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div role="search" aria-label={t("services.page.filterLabel")} className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <Input
               type="search"
-              aria-label="Search services"
-              placeholder="Search by unit name or command"
+              aria-label={t("services.page.searchLabel")}
+              placeholder={t("services.page.searchPlaceholder")}
               data-page-search=""
               value={search.q ?? ""}
               onValueChange={(value: string) => set({ q: value }, true)}
@@ -107,32 +104,36 @@ export function ServicesPage({ search, onSearchChange }: ServicesPageProps) {
               spellCheck={false}
             />
             <Switch
-              label="Show all units"
+              label={t("services.page.showAllUnits")}
               checked={showAll}
               onCheckedChange={(checked) => set({ all: checked ? true : undefined }, true)}
             />
             {filtered ? (
               <Button variant="ghost" icon={<X aria-hidden="true" />} onClick={clearTextFilter}>
-                Clear filters
+                {t("services.page.clearFilters")}
               </Button>
             ) : null}
             <p role="status" className="ml-auto self-center text-13 text-fg-muted">
-              {count === null ? "" : `${count} ${fetched.length === 1 && !filtered ? "service" : "services"}`}
+              {services.data === undefined
+                ? ""
+                : filtered
+                  ? t("services.page.countFiltered", { shown: shown.length, total: fetched.length })
+                  : t("services.page.count", { count: fetched.length })}
             </p>
           </div>
 
           <ServicesTable
             services={shown}
-            caption={filtered ? "Services matching the filters" : "Services"}
+            caption={filtered ? t("services.page.tableCaptionFiltered") : t("services.page.tableCaption")}
             loading={services.isPending}
             rowActions={(service) => <ServiceRowActions service={service} />}
             empty={
               <EmptyState
-                title="No service matches"
-                description="Nothing on this machine matches these filters."
+                title={t("services.page.noMatchTitle")}
+                description={t("services.page.noMatchDescription")}
                 action={
                   <Button icon={<X aria-hidden="true" />} onClick={clearTextFilter}>
-                    Clear filters
+                    {t("services.page.clearFilters")}
                   </Button>
                 }
                 className="border-0 py-8"
@@ -141,7 +142,7 @@ export function ServicesPage({ search, onSearchChange }: ServicesPageProps) {
           />
           {/* Drawn with the rows, not before: under a list of unknown length it would only be
               pushed down the page when they arrive. */}
-          {services.isPending ? null : <CommandHint command="wasm service list" label="From a terminal" />}
+          {services.isPending ? null : <CommandHint command="wasm service list" label={t("services.fromTerminal")} />}
         </div>
       )}
 

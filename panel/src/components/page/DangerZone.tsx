@@ -1,6 +1,7 @@
 import { useId } from "react";
 import type { ReactNode } from "react";
 
+import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 
 export interface DangerZoneProps {
@@ -17,14 +18,16 @@ export interface DangerZoneProps {
  * Where the actions that cannot be undone live, apart from everything else and last on the
  * page, each one explaining what it destroys before its button does it.
  */
-export function DangerZone({ children, title = "Danger zone", description, level = 2, className }: DangerZoneProps) {
+export function DangerZone({ children, title, description, level = 2, className }: DangerZoneProps) {
+  const t = useT();
   const headingId = useId();
+  const heading = title ?? t("common.dangerZone.title");
   const Heading = `h${level}` as const;
   return (
     <section aria-labelledby={headingId} className={cx("flex min-w-0 flex-col gap-4", className)}>
       <header>
         <Heading id={headingId} className="title text-16 text-fg">
-          {title}
+          {heading}
         </Heading>
         {description !== undefined ? <p className="mt-0.5 text-13 text-fg-muted">{description}</p> : null}
       </header>

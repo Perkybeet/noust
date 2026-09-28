@@ -6,6 +6,7 @@ import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { Mono } from "../../components/ui/Mono";
 import { StatusPill } from "../../components/ui/StatusPill";
+import { useT } from "../../i18n";
 import { parseTimestamp } from "../../lib/format";
 import type { CronJob } from "./data";
 import { runStatus, scheduleWords } from "./data";
@@ -33,19 +34,22 @@ export interface CronJobsTableProps {
 
 /** Every cron job: its schedule in words and as written, its next run and its last result. */
 export function CronJobsTable({ jobs, caption, loading = false, empty, onRowActivate, rowActions, className }: CronJobsTableProps) {
+  const t = useT();
   const columns: Column<CronJob>[] = [
     {
       id: "enabled",
-      header: "State",
+      header: t("cron.table.columns.state"),
       width: "w-24",
       // On a phone the next run says it instead ("Disabled" when there is none).
       hideBelow: "sm",
-      cell: (row) => <StatusPill state={row.enabled ? "running" : "stopped"} label={row.enabled ? "Enabled" : "Disabled"} appearance="inline" size="sm" />,
+      cell: (row) => (
+        <StatusPill state={row.enabled ? "running" : "stopped"} label={row.enabled ? t("cron.table.enabled") : t("cron.table.disabled")} appearance="inline" size="sm" />
+      ),
       sortValue: (row) => (row.enabled ? 0 : 1),
     },
     {
       id: "name",
-      header: "Job",
+      header: t("cron.table.columns.job"),
       cell: (row) => (
         <span translate="no" className="mono font-medium text-fg">
           {row.name}
@@ -55,7 +59,7 @@ export function CronJobsTable({ jobs, caption, loading = false, empty, onRowActi
     },
     {
       id: "schedule",
-      header: "Schedule",
+      header: t("cron.table.columns.schedule"),
       hideBelow: "sm",
       cell: (row) => (
         <span className="flex flex-col">
@@ -69,15 +73,15 @@ export function CronJobsTable({ jobs, caption, loading = false, empty, onRowActi
     },
     {
       id: "next_run",
-      header: "Next run",
+      header: t("cron.table.columns.nextRun"),
       width: "w-40",
       cell: (row) =>
-        row.enabled ? <RelativeTime value={row.next_run} fallback={row.next_run} /> : <Nothing reason="Disabled" />,
+        row.enabled ? <RelativeTime value={row.next_run} fallback={row.next_run} /> : <Nothing reason={t("cron.table.disabledReason")} />,
       sortValue: (row) => parseTimestamp(row.next_run)?.getTime() ?? null,
     },
     {
       id: "last_result",
-      header: "Last result",
+      header: t("cron.table.columns.lastResult"),
       width: "w-36",
       cell: (row) => {
         const view = runStatus(row.last_result);

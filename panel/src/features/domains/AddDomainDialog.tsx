@@ -12,6 +12,8 @@ import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { useT } from "../../i18n";
+import type { T } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { DnsVerdict } from "./DnsVerdict";
 import { dnsVerdict } from "./dns";
@@ -19,20 +21,20 @@ import { domainProblem, normalizeDomain } from "./names";
 
 type AddableKind = "alias" | "redirect";
 
-const KINDS: readonly { value: AddableKind; label: string; description: (app: string) => string }[] = [
-  { value: "alias", label: "Alias", description: (app) => `Serves ${app} on this name too.` },
-  {
-    value: "redirect",
-    label: "Redirect",
-    description: (app) => `Sends visitors to ${app} with a permanent redirect (301).`,
-  },
-];
+function kinds(t: T): readonly { value: AddableKind; label: string; description: (app: string) => string }[] {
+  return [
+    { value: "alias", label: t("domains.kindAlias"), description: (app) => t("domains.addDomainDialog.aliasDescription", { app }) },
+    { value: "redirect", label: t("domains.kindRedirect"), description: (app) => t("domains.addDomainDialog.redirectDescription", { app }) },
+  ];
+}
 
 function KindChoice({ app, value, onChange }: { app: string; value: AddableKind; onChange: (kind: AddableKind) => void }) {
+  const t = useT();
   const name = useId();
+  const KINDS = kinds(t);
   return (
     <fieldset className="flex flex-col gap-2">
-      <legend className="mb-1.5 text-13 font-medium text-fg">Role</legend>
+      <legend className="mb-1.5 text-13 font-medium text-fg">{t("domains.addDomainDialog.roleLegend")}</legend>
       <div className="grid gap-2 sm:grid-cols-2">
         {KINDS.map((kind) => (
           <label
@@ -61,9 +63,10 @@ function KindChoice({ app, value, onChange }: { app: string; value: AddableKind;
 }
 
 function VerdictSkeleton() {
+  const t = useT();
   return (
     <div aria-busy="true" className="flex flex-col gap-3 rounded-card border border-border p-3">
-      <span className="sr-only">Checking DNS</span>
+      <span className="sr-only">{t("domains.checkingDns")}</span>
       <Skeleton className="h-4 w-56" />
       <div className="grid gap-3 sm:grid-cols-2">
         <Skeleton className="h-10" />
@@ -89,6 +92,7 @@ export interface AddDomainDialogProps {
  * does) before the operator decides.
  */
 export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainDialogProps) {
+  const t = useT();
   const [name, setName] = useState("");
   const [kind, setKind] = useState<AddableKind>("alias");
   const [checked, setChecked] = useState<string | null>(null);
@@ -124,13 +128,13 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    const invalid = domainProblem(name);
+    const invalid = domainProblem(name, t.locale);
     if (invalid !== null) {
       setProblem(invalid);
       return;
     }
     if (normalized === app) {
-      setProblem(`${app} is this application's primary domain already.`);
+      setProblem(t("domains.addDomainDialog.alreadyPrimaryError", { app }));
       return;
     }
     setProblem(null);
@@ -143,19 +147,19 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
   };
 
   const fieldError = problem ?? (add.error && isApiError(add.error) ? (add.error.fields?.["domain"] ?? null) : null);
-  const primaryLabel = !isChecked ? "Check DNS" : verdict === null || verdict === "here" ? "Add domain" : "Add anyway";
+  const primaryLabel = !isChecked ? t("domains.checkDns") : verdict === null || verdict === "here" ? t("domains.addDomain") : t("domains.addDomainDialog.addAnyway");
   const formId = useId();
 
   return (
     <Dialog
       open={open}
       onOpenChange={close}
-      title={`Add a domain to ${app}`}
-      description="The site is rewritten and reloaded at once. When the app serves HTTPS, its certificate is extended to the new name."
+      title={t("domains.addDomainDialog.addDialogTitle", { app })}
+      description={t("domains.addDomainDialog.addDialogDescription")}
       footer={
         <>
           <Button disabled={add.isPending} onClick={() => close(false)}>
-            Cancel
+            {t("domains.cancel")}
           </Button>
           <Button
             type="submit"
@@ -169,7 +173,7 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
       }
     >
       <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-5">
-        <Field label="Domain" error={fieldError} description="The bare name, such as shop.example.com.">
+        <Field label={t("domains.domainFieldLabel")} error={fieldError} description={t("domains.addDomainDialog.domainFieldDescription")}>
           <Input
             mono
             value={name}
@@ -191,16 +195,14 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
             {dns.data ? (
               <DnsVerdict check={dns.data} />
             ) : dns.isError ? (
-              <ErrorBlock compact error={dns.error} title={`Could not resolve ${normalized}`} />
+              <ErrorBlock compact error={dns.error} title={t("domains.couldNotResolve", { name: normalized })} />
             ) : (
               <VerdictSkeleton />
             )}
             {dns.data || dns.isError ? (
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-12 text-pretty text-fg-muted">
-                  {verdict === "here"
-                    ? "Adding it extends the certificate to it right away."
-                    : "Added now, it is served at once, but its certificate fails until DNS points here. Adding it again retries."}
+                  {verdict === "here" ? t("domains.addDomainDialog.addingExtendsCertHint") : t("domains.addDomainDialog.addedNowHint")}
                 </p>
                 <Button
                   size="sm"
@@ -209,7 +211,7 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
                   loading={dns.isFetching}
                   onClick={() => void dns.refetch()}
                 >
-                  Check again
+                  {t("domains.checkAgain")}
                 </Button>
               </div>
             ) : null}
@@ -217,7 +219,7 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
         ) : null}
 
         {add.isError && fieldError === null ? (
-          <ErrorBlock live compact error={add.error} title={`${normalized} was not added`} />
+          <ErrorBlock live compact error={add.error} title={t("domains.addDomainDialog.notAddedError", { name: normalized })} />
         ) : null}
       </form>
     </Dialog>

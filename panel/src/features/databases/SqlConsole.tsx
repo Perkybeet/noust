@@ -7,6 +7,7 @@ import { Section } from "../../components/page/Section";
 import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { Button } from "../../components/ui/Button";
 import { Textarea } from "../../components/ui/Textarea";
+import { useT } from "../../i18n";
 import { engineLabel, supportsReadMode } from "./data";
 import { ResultGrid } from "./ResultGrid";
 import type { QueryResult } from "./ResultGrid";
@@ -20,6 +21,7 @@ import { useDatabaseActions } from "./useDatabaseActions";
  * parsed server-side; the console does no parsing of its own.
  */
 export function SqlConsole({ engine, database }: { engine: string; database: string }) {
+  const t = useT();
   const readAllowed = supportsReadMode(engine);
   const [query, setQuery] = useState("");
   const [mode, setMode] = useState<"read" | "write">(readAllowed ? "read" : "write");
@@ -54,26 +56,21 @@ export function SqlConsole({ engine, database }: { engine: string; database: str
   };
 
   return (
-    <Section
-      title="SQL console"
-      description="One statement at a time. Read mode runs it as a least-privilege role, in a transaction that refuses writes; write mode runs it as this engine's own superuser."
-    >
+    <Section title={t("databases.sqlConsole.title")} description={t("databases.sqlConsole.description")}>
       <div className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4 shadow-raised">
         <div className="flex flex-wrap items-center justify-between gap-3">
           {readAllowed ? (
             <SegmentedControl
-              label="Mode"
+              label={t("databases.sqlConsole.modeLabel")}
               value={mode}
               onValueChange={setMode}
               options={[
-                { value: "read", label: "Read" },
-                { value: "write", label: "Write" },
+                { value: "read", label: t("databases.sqlConsole.readMode") },
+                { value: "write", label: t("databases.sqlConsole.writeMode") },
               ]}
             />
           ) : (
-            <p className="text-12 text-fg-faint">
-              {engineLabel(engine)} has no read-only grammar WASM enforces here; every statement runs in write mode.
-            </p>
+            <p className="text-12 text-fg-faint">{t("databases.sqlConsole.noReadOnlyGrammar", { engine: engineLabel(engine) })}</p>
           )}
         </div>
         <Textarea
@@ -89,12 +86,12 @@ export function SqlConsole({ engine, database }: { engine: string; database: str
           autoCapitalize="off"
         />
         <div className="flex items-center justify-between gap-3">
-          <p className="text-12 text-fg-faint">Ctrl+Enter runs.</p>
+          <p className="text-12 text-fg-faint">{t("databases.sqlConsole.ctrlEnterHint")}</p>
           <Button variant="primary" icon={<Play aria-hidden="true" />} loading={runQuery.isPending} disabled={query.trim() === ""} onClick={run}>
-            Run
+            {t("databases.sqlConsole.run")}
           </Button>
         </div>
-        {runQuery.isError ? <ErrorBlock live error={runQuery.error} title="The statement failed" /> : null}
+        {runQuery.isError ? <ErrorBlock live error={runQuery.error} title={t("databases.sqlConsole.statementFailed")} /> : null}
         {result !== null ? <ResultGrid result={result} /> : null}
       </div>
     </Section>

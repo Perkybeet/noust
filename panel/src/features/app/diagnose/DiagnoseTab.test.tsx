@@ -1,6 +1,7 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../../app/locale";
 import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../../test/fakes";
@@ -114,6 +115,21 @@ describe("the Diagnose tab", () => {
   it("has no accessibility violations", async () => {
     await diagnoseTab(() => json(200, DOWN));
     await screen.findByText(DOWN.probable_cause);
+    await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
+  it("puts the verdict and the checks in Spanish", async () => {
+    await act(() => setLocale("es"));
+    await diagnoseTab(() => json(200, DOWN));
+    const verdict = await screen.findByRole("heading", { level: 2, name: "Veredicto: Caída" });
+    expect(verdict.querySelector("[data-verdict]")).toHaveAttribute("data-verdict", "down");
+    expect(screen.getByText("Causa probable")).toBeInTheDocument();
+    expect(screen.getByText(/^5 comprobaciones:/)).toBeInTheDocument();
+    const checks = await screen.findByRole("region", { name: "Comprobaciones" });
+    const rows = within(checks).getAllByRole("listitem");
+    expect(within(at(rows, 1)).getByText("Fallida")).toBeInTheDocument();
+    expect(within(at(rows, 1)).getByText("Puerto a la escucha")).toBeInTheDocument();
+    expect(within(at(rows, 4)).getByText("Omitida")).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 });

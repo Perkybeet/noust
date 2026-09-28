@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { formatBytes, formatPercent } from "../../lib/format";
 import { expectNoAxeViolations } from "../../test/axe";
 import { ResourceMeter } from "./ResourceMeter";
@@ -42,5 +43,15 @@ describe("ResourceMeter", () => {
       </div>,
     );
     await expectNoAxeViolations(container);
+  });
+
+  it("speaks Spanish once the language switches", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    const { rerender } = render(<ResourceMeter label="Memory" value={96 * MB} limit={512 * MB} format={formatBytes} />);
+    expect(screen.getByRole("meter", { name: "Memory" })).toHaveAttribute("aria-valuetext", "96 MB de 512 MB");
+    rerender(<ResourceMeter label="CPU" value={null} format={formatPercent} />);
+    expect(screen.getByText("Sin límite establecido")).toBeInTheDocument();
   });
 });

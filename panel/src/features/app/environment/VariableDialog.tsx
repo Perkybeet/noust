@@ -5,6 +5,7 @@ import { Button } from "../../../components/ui/Button";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
+import { useT } from "../../../i18n";
 import { nameProblem, valueProblem } from "./dotenv";
 
 export type VariableTarget = { mode: "add" } | { mode: "edit"; name: string; value: string };
@@ -26,29 +27,30 @@ interface FormProps {
 
 /** Mounted fresh for every opening, so it starts from the target's values. */
 function VariableForm({ formId, target, existing, onSubmit }: FormProps) {
+  const t = useT();
   const editing = target.mode === "edit";
   const [name, setName] = useState(editing ? target.name : "");
   const [value, setValue] = useState(editing ? target.value : "");
   const [submitted, setSubmitted] = useState(false);
 
   const trimmedName = name.trim();
-  const duplicate = !editing && existing.has(trimmedName) ? `${trimmedName} is already set. Edit its row instead.` : null;
-  const nameError = trimmedName === "" && !submitted ? null : (nameProblem(trimmedName) ?? duplicate);
-  const valueError = valueProblem(value);
+  const duplicate = !editing && existing.has(trimmedName) ? t("environment.variableDialog.duplicate", { name: trimmedName }) : null;
+  const nameError = trimmedName === "" && !submitted ? null : (nameProblem(trimmedName, t.locale) ?? duplicate);
+  const valueError = valueProblem(value, t.locale);
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
     setSubmitted(true);
-    if (nameProblem(trimmedName) !== null || duplicate !== null || valueError !== null) return;
+    if (nameProblem(trimmedName, t.locale) !== null || duplicate !== null || valueError !== null) return;
     onSubmit(trimmedName, value);
   };
 
   return (
     <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-4">
       <Field
-        label="Name"
+        label={t("environment.variableDialog.nameLabel")}
         error={nameError}
-        {...(editing ? {} : { description: "Letters, digits and underscores, starting with a letter or underscore." })}
+        {...(editing ? {} : { description: t("environment.variableDialog.nameDescription") })}
       >
         <Input
           mono
@@ -63,11 +65,7 @@ function VariableForm({ formId, target, existing, onSubmit }: FormProps) {
           }}
         />
       </Field>
-      <Field
-        label="Value"
-        error={valueError}
-        description="Stored exactly as typed, spaces and quotes included. Leave it empty for an empty value."
-      >
+      <Field label={t("environment.variableDialog.valueLabel")} error={valueError} description={t("environment.variableDialog.valueDescription")}>
         <Input
           mono
           autoComplete="off"
@@ -88,6 +86,7 @@ function VariableForm({ formId, target, existing, onSubmit }: FormProps) {
  * what the API accepts before it is staged, so a draft can always be saved.
  */
 export function VariableDialog({ target, existing, onClose, onSubmit }: VariableDialogProps) {
+  const t = useT();
   const formId = useId();
   // The last target stays on screen while the dialog animates closed; each opening mounts a
   // fresh form, so an abandoned entry is not there the next time.
@@ -102,13 +101,13 @@ export function VariableDialog({ target, existing, onClose, onSubmit }: Variable
         if (!open) onClose();
       }}
       size="sm"
-      title={current?.mode === "edit" ? `Edit ${current.name}` : "Add a variable"}
-      description="The change waits with any others until you review and save them."
+      title={current?.mode === "edit" ? t("environment.variableDialog.editTitle", { name: current.name }) : t("environment.variableDialog.addTitle")}
+      description={t("environment.variableDialog.description")}
       footer={
         <>
-          <Button onClick={onClose}>Cancel</Button>
+          <Button onClick={onClose}>{t("environment.cancel")}</Button>
           <Button type="submit" form={formId} variant="primary">
-            {editing ? "Update variable" : "Add variable"}
+            {editing ? t("environment.variableDialog.updateButton") : t("environment.addVariable")}
           </Button>
         </>
       }

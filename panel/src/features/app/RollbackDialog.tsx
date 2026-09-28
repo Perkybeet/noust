@@ -8,6 +8,7 @@ import { RelativeTime } from "../../components/page/RelativeTime";
 import { Button } from "../../components/ui/Button";
 import { Dialog } from "../../components/ui/Dialog";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { formatBytes } from "../../lib/format";
 import { useAppActions } from "../apps/useAppActions";
@@ -84,6 +85,7 @@ export interface RollbackDialogProps {
  * in seconds; an app deployed in place is restored from one of its backups, as a job.
  */
 export function RollbackDialog({ domain, layout, open, onOpenChange, onJobQueued, preselect = null }: RollbackDialogProps) {
+  const t = useT();
   const name = useId();
   const [choice, setChoice] = useState<string | null>(preselect);
   // Opening again starts from the preselected target, adjusted while rendering.
@@ -106,7 +108,7 @@ export function RollbackDialog({ domain, layout, open, onOpenChange, onJobQueued
         title: point.id,
         commit: point.git_commit ?? null,
         when: point.created_at,
-        note: `${point.description}, ${formatBytes(point.size_bytes)}`,
+        note: `${point.description}, ${formatBytes(point.size_bytes, t.locale)}`,
       }))
     : releases.data?.items
         .filter((release) => !release.active && release.on_disk)
@@ -141,24 +143,18 @@ export function RollbackDialog({ domain, layout, open, onOpenChange, onJobQueued
 
   let body;
   if (loadError !== null) {
-    body = <ErrorBlock compact error={loadError} title="Could not list what this app can roll back to" />;
+    body = <ErrorBlock compact error={loadError} title={t("appPages.rollback.listError")} />;
   } else if (loading || targets === undefined) {
     body = (
       <div aria-busy="true" className="flex flex-col gap-2">
-        <span className="sr-only">Loading rollback targets</span>
+        <span className="sr-only">{t("appPages.rollback.loading")}</span>
         {[0, 1].map((i) => (
           <Skeleton key={i} className="h-14 rounded-control" />
         ))}
       </div>
     );
   } else if (targets.length === 0) {
-    body = (
-      <p className="text-14 text-fg-muted">
-        {inPlace
-          ? "There is no backup of this app to roll back to. Backups are taken before every deploy and on the schedule set in Backups."
-          : "There is no earlier release on disk. Every deploy keeps the previous releases, up to the retention limit."}
-      </p>
-    );
+    body = <p className="text-14 text-fg-muted">{inPlace ? t("appPages.rollback.noBackups") : t("appPages.rollback.noReleases")}</p>;
   } else {
     body = (
       <Options
@@ -166,7 +162,7 @@ export function RollbackDialog({ domain, layout, open, onOpenChange, onJobQueued
         targets={targets}
         value={choice}
         onChange={setChoice}
-        legend={inPlace ? "Restore the app's files from a backup:" : "Switch back to an earlier release:"}
+        legend={inPlace ? t("appPages.rollback.restoreFromBackupLegend") : t("appPages.rollback.switchToReleaseLegend")}
       />
     );
   }
@@ -175,26 +171,22 @@ export function RollbackDialog({ domain, layout, open, onOpenChange, onJobQueued
     <Dialog
       open={open}
       onOpenChange={close}
-      title={`Roll back ${domain}`}
-      description={
-        inPlace
-          ? "This app is deployed in place, so a rollback restores a backup and restarts it. Anything written since the backup is replaced."
-          : "The app switches to the chosen release and restarts; if it fails its health check it is switched back."
-      }
+      title={t("appPages.rollback.title", { domain })}
+      description={inPlace ? t("appPages.rollback.inPlaceDescription") : t("appPages.rollback.releasesDescription")}
       footer={
         <>
           <Button disabled={action.isPending} onClick={() => close(false)}>
-            Cancel
+            {t("appPages.common.cancel")}
           </Button>
           <Button variant="primary" disabled={choice === null} loading={action.isPending} onClick={confirm}>
-            Roll back
+            {t("appPages.common.rollBack")}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-4">
         {body}
-        {action.isError ? <ErrorBlock live compact error={action.error} title="The rollback did not start" /> : null}
+        {action.isError ? <ErrorBlock live compact error={action.error} title={t("appPages.rollback.notStarted")} /> : null}
       </div>
     </Dialog>
   );

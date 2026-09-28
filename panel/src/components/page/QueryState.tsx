@@ -1,6 +1,7 @@
 import { CircleAlert, RotateCw } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { describeError } from "../../lib/errors";
 import { Button } from "../ui/Button";
@@ -28,6 +29,7 @@ export interface ErrorBlockProps {
  * system's own words below in mono, verbatim, never paraphrased.
  */
 export function ErrorBlock({ error, title, hint, onRetry, retrying = false, live = false, compact = false, className }: ErrorBlockProps) {
+  const t = useT();
   const described = describeError(error);
   const fix = described.hint ?? hint;
   // A failing tool (psql, git, nginx) prints its own report on top of the one-line detail;
@@ -52,12 +54,15 @@ export function ErrorBlock({ error, title, hint, onRetry, retrying = false, live
           {fix !== undefined ? <p className="text-13 text-pretty text-fg-muted">{fix}</p> : null}
         </div>
       </div>
-      <SystemOutput label={`${title}: what the system said`} className="rounded-control border border-border bg-surface px-3 py-2">
+      <SystemOutput
+        label={t("common.errorBlock.systemSaidLabel", { title })}
+        className="rounded-control border border-border bg-surface px-3 py-2"
+      >
         {described.detail}
       </SystemOutput>
       {output !== null ? (
         <SystemOutput
-          label={`${title}: the command's own output`}
+          label={t("common.errorBlock.commandOutputLabel", { title })}
           maxHeight="max-h-48"
           className="rounded-control border border-border bg-surface px-3 py-2"
         >
@@ -67,7 +72,7 @@ export function ErrorBlock({ error, title, hint, onRetry, retrying = false, live
       {onRetry !== undefined ? (
         <div>
           <Button size="sm" icon={<RotateCw aria-hidden="true" />} loading={retrying} onClick={onRetry}>
-            Try again
+            {t("common.errorBlock.tryAgain")}
           </Button>
         </div>
       ) : null}
@@ -116,6 +121,7 @@ export function QueryState<T>({
   children,
   className,
 }: QueryStateProps<T>) {
+  const t = useT();
   const retry = query.refetch ? () => void query.refetch?.() : undefined;
 
   if (query.data === undefined) {
@@ -123,7 +129,7 @@ export function QueryState<T>({
       return (
         <ErrorBlock
           error={query.error}
-          title={`Could not load ${label}`}
+          title={t("common.queryState.couldNotLoad", { label })}
           {...(errorHint !== undefined ? { hint: errorHint } : {})}
           {...(retry ? { onRetry: retry } : {})}
           retrying={query.isRefetching ?? false}
@@ -133,7 +139,7 @@ export function QueryState<T>({
     }
     return (
       <div aria-busy="true" className={className}>
-        <span className="sr-only">{`Loading ${label}`}</span>
+        <span className="sr-only">{t("common.queryState.loading", { label })}</span>
         {skeleton}
       </div>
     );
@@ -148,7 +154,7 @@ export function QueryState<T>({
       <ErrorBlock
         compact
         error={query.error}
-        title={`Could not refresh ${label}. What follows is the last answer.`}
+        title={t("common.queryState.couldNotRefresh", { label })}
         {...(errorHint !== undefined ? { hint: errorHint } : {})}
         {...(retry ? { onRetry: retry } : {})}
         retrying={query.isRefetching ?? false}

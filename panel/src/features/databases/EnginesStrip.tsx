@@ -11,6 +11,8 @@ import { Button } from "../../components/ui/Button";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusGlyph } from "../../components/ui/StatusPill";
 import type { Status } from "../../components/ui/StatusPill";
+import { useT } from "../../i18n";
+import type { T } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { useEngineActions, useEngineJob } from "./useEngineActions";
 
@@ -20,19 +22,20 @@ interface EngineView {
   tone: string;
 }
 
-function viewOf(engine: Engine, installing: boolean): EngineView {
-  if (installing) return { state: "deploying", label: "Installing", tone: "text-warn" };
-  if (!engine.installed) return { state: "unknown", label: "Not installed", tone: "text-fg-faint" };
+function viewOf(engine: Engine, installing: boolean, t: T): EngineView {
+  if (installing) return { state: "deploying", label: t("databases.engines.installing"), tone: "text-warn" };
+  if (!engine.installed) return { state: "unknown", label: t("databases.engines.notInstalled"), tone: "text-fg-faint" };
   return engine.running
-    ? { state: "running", label: "Running", tone: "text-ok" }
-    : { state: "stopped", label: "Stopped", tone: "text-idle" };
+    ? { state: "running", label: t("databases.engines.running"), tone: "text-ok" }
+    : { state: "stopped", label: t("databases.engines.stopped"), tone: "text-idle" };
 }
 
 function EngineTile({ engine }: { engine: Engine }) {
+  const t = useT();
   const { install, start, stop, restart } = useEngineActions();
   const job = useEngineJob(engine.name);
   const installing = job.running !== null;
-  const view = viewOf(engine, installing);
+  const view = viewOf(engine, installing, t);
 
   let actions: ReactNode;
   if (installing) {
@@ -51,24 +54,24 @@ function EngineTile({ engine }: { engine: Engine }) {
           })
         }
       >
-        Install
+        {t("databases.engines.install")}
       </Button>
     );
   } else if (engine.running) {
     actions = (
       <>
         <Button size="sm" icon={<Square aria-hidden="true" />} loading={stop.isPending} onClick={() => stop.mutate(engine.name)}>
-          Stop
+          {t("databases.engines.stop")}
         </Button>
         <Button size="sm" icon={<RotateCw aria-hidden="true" />} loading={restart.isPending} onClick={() => restart.mutate(engine.name)}>
-          Restart
+          {t("databases.engines.restart")}
         </Button>
       </>
     );
   } else {
     actions = (
       <Button size="sm" icon={<Play aria-hidden="true" />} loading={start.isPending} onClick={() => start.mutate(engine.name)}>
-        Start
+        {t("databases.engines.start")}
       </Button>
     );
   }
@@ -84,13 +87,13 @@ function EngineTile({ engine }: { engine: Engine }) {
       </div>
       <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-12">
         <div className="flex flex-col gap-0.5">
-          <dt className="text-fg-faint">Version</dt>
+          <dt className="text-fg-faint">{t("databases.engines.version")}</dt>
           <dd translate="no" className="mono truncate text-fg">
-            {engine.installed ? (engine.version ?? "Unknown") : "-"}
+            {engine.installed ? (engine.version ?? t("databases.engines.unknownVersion")) : "-"}
           </dd>
         </div>
         <div className="flex flex-col gap-0.5">
-          <dt className="text-fg-faint">Port</dt>
+          <dt className="text-fg-faint">{t("databases.engines.port")}</dt>
           <dd translate="no" className="mono text-fg">
             {engine.port}
           </dd>
@@ -138,9 +141,10 @@ function EnginesSkeleton() {
 
 /** Every engine WASM can manage, installed or not, with what its unit can be told to do. */
 export function EnginesStrip() {
+  const t = useT();
   const engines = useQuery(enginesQuery());
   return (
-    <Section title="Engines" description="Database servers WASM can install and control on this machine.">
+    <Section title={t("databases.engines.title")} description={t("databases.engines.description")}>
       <QueryState query={engines} label="engines" skeleton={<EnginesSkeleton />}>
         {(data) => (
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

@@ -8,20 +8,22 @@ import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Switch } from "../../../components/ui/Switch";
+import { useT } from "../../../i18n";
+import type { T } from "../../../i18n";
 import { cx } from "../../../lib/cx";
-import { formatCount } from "../../../lib/format";
 import { useAppActions } from "../../apps/useAppActions";
 import type { EnvChange, EnvDiff } from "./draft";
 import { describeCounts } from "./draft";
 import { nameProblem } from "./dotenv";
 
-const KIND: Record<EnvChange["kind"], { label: string; icon: ReactNode }> = {
-  added: { label: "Added", icon: <Plus aria-hidden="true" className="size-3.5" /> },
-  changed: { label: "Changed", icon: <Pencil aria-hidden="true" className="size-3.5" /> },
-  removed: { label: "Removed", icon: <Minus aria-hidden="true" className="size-3.5" /> },
-};
+function kindOf(t: T, kind: EnvChange["kind"]): { label: string; icon: ReactNode } {
+  if (kind === "added") return { label: t("environment.added"), icon: <Plus aria-hidden="true" className="size-3.5" /> };
+  if (kind === "changed") return { label: t("environment.changed"), icon: <Pencil aria-hidden="true" className="size-3.5" /> };
+  return { label: t("environment.removed"), icon: <Minus aria-hidden="true" className="size-3.5" /> };
+}
 
 function Value({ value, shown, struck = false }: { value: string | null; shown: boolean; struck?: boolean }) {
+  const t = useT();
   if (value === null) return null;
   if (!shown) {
     return (
@@ -29,11 +31,11 @@ function Value({ value, shown, struck = false }: { value: string | null; shown: 
         <span aria-hidden="true" className="text-13 leading-none tracking-[0.08em]">
           ••••••••
         </span>
-        <span className="sr-only">hidden</span>
+        <span className="sr-only">{t("environment.reviewDialog.hiddenSrOnly")}</span>
       </span>
     );
   }
-  if (value === "") return <span className="text-fg-faint">Empty</span>;
+  if (value === "") return <span className="text-fg-faint">{t("environment.empty")}</span>;
   return (
     <span translate="no" title={value} className={cx("mono min-w-0 truncate", struck ? "text-fg-muted line-through" : "text-fg")}>
       {value}
@@ -42,7 +44,8 @@ function Value({ value, shown, struck = false }: { value: string | null; shown: 
 }
 
 function ChangeRow({ change, shown }: { change: EnvChange; shown: boolean }) {
-  const kind = KIND[change.kind];
+  const t = useT();
+  const kind = kindOf(t, change.kind);
   return (
     <li className="flex flex-col gap-1 px-3 py-2">
       <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-1 sm:grid-cols-[6.5rem_minmax(0,14rem)_minmax(0,1fr)]">
@@ -60,7 +63,7 @@ function ChangeRow({ change, shown }: { change: EnvChange; shown: boolean }) {
               <span aria-hidden="true" className="text-fg-faint">
                 →
               </span>
-              <span className="sr-only">becomes</span>
+              <span className="sr-only">{t("environment.reviewDialog.becomesSrOnly")}</span>
               <Value value={change.after} shown={shown} />
             </>
           ) : change.kind === "removed" ? (
@@ -93,6 +96,7 @@ export interface ReviewDialogProps {
  * a restart, since its process keeps the environment it started with.
  */
 export function ReviewDialog({ domain, file, isStatic, diff, onClose, onSaved }: ReviewDialogProps) {
+  const t = useT();
   const [shown, setShown] = useState(false);
   const [saved, setSaved] = useState(false);
   const { restart } = useAppActions(domain);
@@ -131,21 +135,19 @@ export function ReviewDialog({ domain, file, isStatic, diff, onClose, onSaved }:
           if (!open) close();
         }}
         size="sm"
-        title="Environment saved"
+        title={t("environment.reviewDialog.savedTitle")}
         description={
-          isStatic
-            ? `${file} is written. A static site has no process to restart; the next deploy builds with it.`
-            : `${file} is written. ${domain} keeps the environment it started with until it restarts.`
+          isStatic ? t("environment.reviewDialog.savedStatic", { file }) : t("environment.reviewDialog.savedDynamic", { file, domain })
         }
         footer={
           isStatic ? (
             <Button variant="primary" onClick={close}>
-              Done
+              {t("environment.reviewDialog.done")}
             </Button>
           ) : (
             <>
               <Button disabled={restart.isPending} onClick={close}>
-                Restart later
+                {t("environment.reviewDialog.restartLater")}
               </Button>
               <Button
                 variant="primary"
@@ -154,7 +156,7 @@ export function ReviewDialog({ domain, file, isStatic, diff, onClose, onSaved }:
                   restart.mutate(undefined, { onSuccess: close });
                 }}
               >
-                Restart now
+                {t("environment.reviewDialog.restartNow")}
               </Button>
             </>
           )
@@ -162,7 +164,7 @@ export function ReviewDialog({ domain, file, isStatic, diff, onClose, onSaved }:
       >
         <p className="flex items-center gap-2 text-13 text-fg">
           <CircleCheck aria-hidden="true" className="size-4 shrink-0 text-ok" />
-          {`${describeCounts(counts)}.`}
+          {`${describeCounts(counts, t.locale)}.`}
         </p>
       </Dialog>
     );
@@ -175,20 +177,18 @@ export function ReviewDialog({ domain, file, isStatic, diff, onClose, onSaved }:
         if (!open) close();
       }}
       size="lg"
-      title="Review changes"
-      description={
-        <>
-          {"Saving rewrites "}
+      title={t("environment.reviewDialog.title")}
+      description={t.rich("environment.reviewDialog.description", {
+        file: (
           <code translate="no" className="text-13 break-all">
             {file}
           </code>
-          {" with the variables below and the ones that stay."}
-        </>
-      }
+        ),
+      })}
       footer={
         <>
           <Button disabled={save.isPending} onClick={close}>
-            Cancel
+            {t("environment.cancel")}
           </Button>
           <Button
             variant="primary"
@@ -198,7 +198,7 @@ export function ReviewDialog({ domain, file, isStatic, diff, onClose, onSaved }:
               if (diff !== null) save.mutate(diff.next);
             }}
           >
-            Save changes
+            {t("environment.reviewDialog.saveChanges")}
           </Button>
         </>
       }
@@ -207,18 +207,18 @@ export function ReviewDialog({ domain, file, isStatic, diff, onClose, onSaved }:
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-13 text-fg">
             {changes.length === 0
-              ? "Nothing changes: the file already holds these values."
-              : `${describeCounts(counts)}. ${formatCount(diff?.unchanged ?? 0)} ${diff?.unchanged === 1 ? "variable stays" : "variables stay"} as ${diff?.unchanged === 1 ? "it is" : "they are"}.`}
+              ? t("environment.reviewDialog.nothingChanges")
+              : `${describeCounts(counts, t.locale)}. ${t("environment.reviewDialog.staySummary", { count: diff?.unchanged ?? 0 })}`}
           </p>
-          {changes.length > 0 ? <Switch label="Show values" checked={shown} onCheckedChange={setShown} /> : null}
+          {changes.length > 0 ? <Switch label={t("environment.reviewDialog.showValues")} checked={shown} onCheckedChange={setShown} /> : null}
         </div>
 
         {invalid.length > 0 ? (
           <ErrorBlock
             compact
-            title="The file has names the API refuses to write"
-            hint="Saving rewrites the whole file, so remove or rename these first."
-            error={{ detail: invalid.map((name) => nameProblem(name)).join("\n") }}
+            title={t("environment.reviewDialog.invalidNamesTitle")}
+            hint={t("environment.reviewDialog.invalidNamesHint")}
+            error={{ detail: invalid.map((name) => nameProblem(name, t.locale)).join("\n") }}
           />
         ) : null}
 
@@ -226,7 +226,7 @@ export function ReviewDialog({ domain, file, isStatic, diff, onClose, onSaved }:
           // Scrolls on its own so a long review never pushes Save below the window.
           <div
             role="region"
-            aria-label="Changes"
+            aria-label={t("environment.reviewDialog.changesRegionAria")}
             tabIndex={0}
             className="max-h-[min(22rem,38vh)] overflow-y-auto rounded-control border border-border bg-bg-sunken scroll-thin focus-visible:outline-2 focus-visible:outline-focus"
           >
@@ -238,7 +238,7 @@ export function ReviewDialog({ domain, file, isStatic, diff, onClose, onSaved }:
           </div>
         ) : null}
 
-        {save.isError ? <ErrorBlock live compact error={save.error} title="The environment was not saved" /> : null}
+        {save.isError ? <ErrorBlock live compact error={save.error} title={t("environment.reviewDialog.saveFailed")} /> : null}
       </div>
     </Dialog>
   );

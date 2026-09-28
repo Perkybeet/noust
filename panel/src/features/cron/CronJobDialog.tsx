@@ -10,8 +10,9 @@ import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { SystemOutput } from "../../components/ui/SystemOutput";
+import { useT } from "../../i18n";
 import type { CronJob, Schedule } from "./data";
-import { SCHEDULE_PRESETS, absoluteWithOffset } from "./data";
+import { absoluteWithOffset, schedulePresets } from "./data";
 import type { CreateCronJobBody } from "./useCronActions";
 import { useCronActions } from "./useCronActions";
 import { useCronPreview } from "./useCronPreview";
@@ -40,17 +41,18 @@ function schedulePreviewError(error: unknown): { message: string; output: string
 
 /** The calendar and next runs `POST /api/cron/preview` answered, or why it refused to. */
 function SchedulePreview({ schedule }: { schedule: string }) {
+  const t = useT();
   const preview = useCronPreview(schedule);
 
   if (schedule.trim() === "") return null;
 
   if (preview.isError) {
-    const refusal = schedulePreviewError(preview.error) ?? { message: "The schedule could not be checked.", output: null };
+    const refusal = schedulePreviewError(preview.error) ?? { message: t("cron.dialog.previewCheckError"), output: null };
     return (
       <div role="alert" className="flex flex-col gap-1.5">
         <p className="text-13 text-fail">{refusal.message}</p>
         {refusal.output !== null && refusal.output.trim() !== "" ? (
-          <SystemOutput label="What systemd said" maxHeight="max-h-28">
+          <SystemOutput label={t("cron.dialog.systemdOutputLabel")} maxHeight="max-h-28">
             {refusal.output}
           </SystemOutput>
         ) : null}
@@ -61,7 +63,7 @@ function SchedulePreview({ schedule }: { schedule: string }) {
   if (preview.data === undefined) {
     return (
       <div aria-busy="true" className="flex flex-col gap-1.5">
-        <span className="sr-only">Checking the schedule</span>
+        <span className="sr-only">{t("cron.dialog.checkingSchedule")}</span>
         <Skeleton className="h-3.5 w-48" />
         <Skeleton className="h-3.5 w-64" />
         <Skeleton className="h-3.5 w-56" />
@@ -73,7 +75,7 @@ function SchedulePreview({ schedule }: { schedule: string }) {
     <div className="flex flex-col gap-2 rounded-control border border-border bg-bg-sunken p-3">
       <p className="mono text-12 text-fg-muted">{preview.data.calendar}</p>
       {preview.data.next_runs.length === 0 ? (
-        <p className="text-13 text-fg-muted">This schedule has no future run.</p>
+        <p className="text-13 text-fg-muted">{t("cron.dialog.noFutureRun")}</p>
       ) : (
         <ul className="flex flex-col gap-1">
           {preview.data.next_runs.map((run) => (
@@ -95,6 +97,7 @@ function SchedulePreview({ schedule }: { schedule: string }) {
  * runs when it validates, systemd's own refusal when it does not.
  */
 export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
+  const t = useT();
   const editing = job !== undefined;
   const { create } = useCronActions();
   const [name, setName] = useState(job?.name ?? "");
@@ -135,21 +138,21 @@ export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
       open={open}
       onOpenChange={close}
       size="md"
-      title={editing ? `Edit ${job.name}` : "New cron job"}
-      description="Runs a command on a schedule, as a systemd timer."
+      title={editing ? t("cron.dialog.titleEdit", { name: job.name }) : t("cron.dialog.titleNew")}
+      description={t("cron.dialog.description")}
       footer={
         <>
           <Button disabled={create.isPending} onClick={() => close(false)}>
-            Cancel
+            {t("cron.common.cancel")}
           </Button>
           <Button variant="primary" disabled={!valid} loading={create.isPending} onClick={submit}>
-            {editing ? "Save job" : "Create job"}
+            {editing ? t("cron.dialog.saveJob") : t("cron.dialog.createJob")}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-4">
-        <Field label="Name" name="name">
+        <Field label={t("cron.fields.name")} name="name">
           <Input
             value={name}
             onValueChange={setName}
@@ -160,7 +163,7 @@ export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
             spellCheck={false}
           />
         </Field>
-        <Field label="Command" name="command" description="Run as an argv, without a shell.">
+        <Field label={t("cron.fields.command")} name="command" description={t("cron.fields.commandDescription")}>
           <Input
             value={command}
             onValueChange={setCommand}
@@ -170,11 +173,11 @@ export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
             spellCheck={false}
           />
         </Field>
-        <Field label="Schedule" name="schedule" nativeLabel={false}>
-          <Select value={preset} onValueChange={setPreset} options={SCHEDULE_PRESETS} />
+        <Field label={t("cron.fields.schedule")} name="schedule" nativeLabel={false}>
+          <Select value={preset} onValueChange={setPreset} options={schedulePresets(t.locale)} />
         </Field>
         {preset === "custom" ? (
-          <Field label="Calendar expression" name="calendar" description="A systemd OnCalendar expression.">
+          <Field label={t("cron.fields.calendarLabel")} name="calendar" description={t("cron.fields.calendarDescription")}>
             <Input
               value={calendar}
               onValueChange={setCalendar}
@@ -187,15 +190,15 @@ export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
         ) : null}
         <SchedulePreview schedule={schedule} />
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="User" name="user" optional description="Defaults to the configured service user.">
+          <Field label={t("cron.fields.user")} name="user" optional description={t("cron.fields.userDescription")}>
             <Input value={user} onValueChange={setUser} mono autoComplete="off" spellCheck={false} />
           </Field>
-          <Field label="Working directory" name="working_directory" optional>
+          <Field label={t("cron.fields.workingDirectory")} name="working_directory" optional>
             <Input value={workingDirectory} onValueChange={setWorkingDirectory} mono autoComplete="off" spellCheck={false} />
           </Field>
         </div>
         {create.isError ? (
-          <ErrorBlock live compact error={create.error} title={editing ? "The job was not saved" : "The job was not created"} />
+          <ErrorBlock live compact error={create.error} title={editing ? t("cron.dialog.errorSave") : t("cron.dialog.errorCreate")} />
         ) : null}
       </div>
     </Dialog>

@@ -1,6 +1,7 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
@@ -253,5 +254,31 @@ describe("the new job dialog's schedule preview", () => {
     const dialog = await screen.findByRole("dialog", { name: "New cron job" });
     await within(dialog).findByText("*-*-* 02:00:00", {}, { timeout: 2000 });
     await expectNoAxeViolations(dialog);
+  });
+});
+
+describe("the cron jobs list in Spanish", () => {
+  it("lists jobs, opens the new job dialog and shows the run history in Spanish, with no accessibility violations", async () => {
+    await act(() => setLocale("es"));
+    fakeBackend({ ...signedInRoutes(), "GET /api/cron": () => json(200, { jobs: JOBS, total: JOBS.length }), "POST /api/cron/preview": previewRoute });
+    const { user, container } = renderConsole("/cron");
+    await screen.findByRole("heading", { level: 1, name: "Cron" });
+    const table = await screen.findByRole("region", { name: /Tareas programadas/ });
+    const enabledRow = (await within(table).findByText("nightly-backup")).closest("tr");
+    if (!enabledRow) throw new Error("no row");
+    expect(within(enabledRow).getByText("Activada")).toBeInTheDocument();
+    expect(within(enabledRow).getByText("Correcta")).toBeInTheDocument();
+    await expectNoAxeViolations(screen.getByRole("main"));
+
+    await user.click(screen.getByRole("button", { name: "Nueva tarea" }));
+    const dialog = await screen.findByRole("dialog", { name: "Nueva tarea programada" });
+    expect(within(dialog).getByRole("button", { name: "Crear tarea" })).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+
+    await user.click(within(enabledRow).getByRole("button", { name: "Acciones de nightly-backup" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Ver ejecuciones" }));
+    const drawer = await screen.findByRole("dialog", { name: "Ejecuciones de nightly-backup" });
+    expect(drawer).toBeInTheDocument();
+    await expectNoAxeViolations(container);
   });
 });

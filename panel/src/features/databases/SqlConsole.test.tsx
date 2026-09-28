@@ -1,6 +1,7 @@
-import { screen } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
@@ -40,5 +41,28 @@ describe("SqlConsole", () => {
     expect(await screen.findByText('ERROR: syntax error at or near "SELCT"')).toBeInTheDocument();
     expect(screen.getByText(/LINE 1: SELCT \* FROM apps;/)).toBeInTheDocument();
     await expectNoAxeViolations(container);
+  });
+
+  describe("in Spanish", () => {
+    it("translates the console's own labels, keeping the query and the system output verbatim", async () => {
+      await act(() => setLocale("es"));
+      databasePage().on("POST /api/databases/query", () =>
+        problem(400, "query_failed", 'ERROR: syntax error at or near "SELCT"', {
+          output: 'psql:query.sql:1: ERROR:  syntax error at or near "SELCT"\nLINE 1: SELCT * FROM apps;\n        ^',
+        }),
+      );
+      const { user, container } = renderConsole("/databases/postgresql/acme_shop");
+      await screen.findByRole("heading", { level: 1, name: "acme_shop" });
+      const sql = screen.getByRole("region", { name: "Consola SQL" });
+      expect(within(sql).getByRole("radio", { name: "Lectura" })).toBeInTheDocument();
+      expect(within(sql).getByRole("radio", { name: "Escritura" })).toBeInTheDocument();
+      const editor = sql.querySelector("textarea");
+      if (!editor) throw new Error("No SQL editor");
+      await user.type(editor, "SELCT * FROM apps;");
+      await user.click(within(sql).getByRole("button", { name: "Ejecutar" }));
+      expect(await screen.findByText('ERROR: syntax error at or near "SELCT"')).toBeInTheDocument();
+      expect(screen.getByText(/LINE 1: SELCT \* FROM apps;/)).toBeInTheDocument();
+      await expectNoAxeViolations(container);
+    });
   });
 });

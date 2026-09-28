@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { formatResultLine, ResultGrid } from "./ResultGrid";
 import type { QueryResult } from "./ResultGrid";
@@ -92,5 +93,21 @@ describe("ResultGrid", () => {
     await expectNoAxeViolations(container);
     rerender(<ResultGrid result={{ columns: [], rows: [], rowCount: 0, durationMs: 2, truncated: false, output: "OK" }} />);
     await expectNoAxeViolations(container);
+  });
+
+  describe("in Spanish", () => {
+    it("translates the result line, the NULL/empty markers and the truncation notice", async () => {
+      await act(() => setLocale("es"));
+      expect(formatResultLine({ columns: ["id"], rowCount: 1, durationMs: 4 })).toBe("1 fila en 4 ms");
+      expect(formatResultLine({ columns: [], rowCount: 0, durationMs: 1500 })).toBe("Se ejecutó en 1,5 s");
+
+      const withNulls: QueryResult = { ...TABULAR, rows: [["1026", "NULL", ""]], rowCount: 1, truncated: true };
+      const { container } = render(<ResultGrid result={withNulls} />);
+      expect(screen.getByRole("region", { name: "Resultado de la consulta" })).toBeInTheDocument();
+      expect(screen.getByLabelText("SQL NULL")).toHaveTextContent("NULL");
+      expect(screen.getByLabelText("Cadena vacía")).toHaveTextContent("vacío");
+      expect(screen.getByText(/Solo se muestra la primera 1 fila; la sentencia devolvió más\./)).toBeInTheDocument();
+      await expectNoAxeViolations(container);
+    });
   });
 });

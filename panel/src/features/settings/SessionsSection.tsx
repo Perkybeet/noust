@@ -14,13 +14,10 @@ import type { Column } from "../../components/ui/DataTable";
 import { Dialog } from "../../components/ui/Dialog";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { toast } from "../../components/ui/toast";
+import { useT } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
 import { RowAction } from "./RowAction";
 import { SettingsSection } from "./SettingsForm";
-
-function plural(count: number, one: string, many: string): string {
-  return `${String(count)} ${count === 1 ? one : many}`;
-}
 
 /** How many sessions the server reports revoked, from `POST /api/auth/sessions/revoke-others`'s own words. */
 function countRevoked(message: string): number | null {
@@ -30,6 +27,7 @@ function countRevoked(message: string): number | null {
 
 /** Everyone signed in to this console right now, and signing them out. */
 export function SessionsSection() {
+  const t = useT();
   const queryClient = useQueryClient();
   const query = useQuery(sessionsQuery());
   const refresh = (): void => {
@@ -39,11 +37,11 @@ export function SessionsSection() {
   const revokeOne = useMutation({
     mutationFn: (session: ActiveSession) => revokeSession(session.sid_prefix),
     onSuccess: (_, session) => {
-      toast.success(`Signed out session ${session.sid_prefix}`);
+      toast.success(t("settings.security.sessions.signedOutToast", { sid: session.sid_prefix }));
       refresh();
     },
     onError: (error, session) => {
-      reportActionError(`Could not sign out session ${session.sid_prefix}`, error);
+      reportActionError(t("settings.security.sessions.signOutFailed", { sid: session.sid_prefix }), error);
       refresh();
     },
   });
@@ -58,20 +56,20 @@ export function SessionsSection() {
       refresh();
       setConfirming(false);
       const count = countRevoked(result.message);
-      toast.success(count === null ? result.message : `Signed out ${plural(count, "other session", "other sessions")}`);
+      toast.success(count === null ? result.message : t("settings.security.sessions.signedOutCount", { count }));
     },
     onError: (error: unknown) => {
       // The one credential this cannot apply to: a Bearer or the master token, which never
       // had a browser tab of its own. The backend answers a bare 400 with no hint of its own.
       if (isApiError(error) && error.status === 400) {
         setFailure({
-          hint: "This console is signed in with an API token, not a browser session. Sign in through the browser to use this.",
+          hint: t("settings.security.sessions.tokenCredentialHint"),
           detail: error.detail,
         });
         return;
       }
       setConfirming(false);
-      reportActionError("Could not sign out other sessions", error);
+      reportActionError(t("settings.security.sessions.revokeOthersFailed"), error);
     },
   });
 
@@ -84,33 +82,33 @@ export function SessionsSection() {
   const columns: Column<ActiveSession>[] = [
     {
       id: "session",
-      header: "Session",
+      header: t("settings.security.sessions.columnSession"),
       cell: (session) => (
         <span className="flex items-center gap-2">
           <span translate="no" className="mono text-12">
             {session.sid_prefix}
           </span>
-          {session.is_current ? <Badge>This browser</Badge> : null}
+          {session.is_current ? <Badge>{t("settings.security.sessions.thisBrowser")}</Badge> : null}
         </span>
       ),
     },
-    { id: "address", header: "Address", mono: true, hideBelow: "sm", cell: (session) => session.client_ip },
+    { id: "address", header: t("settings.security.sessions.columnAddress"), mono: true, hideBelow: "sm", cell: (session) => session.client_ip },
     {
       id: "signed-in",
-      header: "Signed in",
+      header: t("settings.security.sessions.columnSignedIn"),
       hideBelow: "md",
       sortValue: (session) => session.created_at,
       cell: (session) => <RelativeTime value={session.created_at} />,
     },
     {
       id: "last-seen",
-      header: "Last active",
+      header: t("settings.security.sessions.columnLastActive"),
       sortValue: (session) => session.last_seen,
       cell: (session) => <RelativeTime value={session.last_seen} />,
     },
     {
       id: "expires",
-      header: "Expires",
+      header: t("settings.security.sessions.columnExpires"),
       hideBelow: "sm",
       sortValue: (session) => session.expires_at,
       cell: (session) => <RelativeTime value={session.expires_at} />,
@@ -119,19 +117,19 @@ export function SessionsSection() {
 
   return (
     <SettingsSection
-      title="Signed-in sessions"
-      description="Every browser and client signed in to this console. Signing one out ends it at its next request; your own ends with Sign out, in the menu at the top right."
+      title={t("settings.security.sessions.title")}
+      description={t("settings.security.sessions.description")}
     >
       <div className="flex min-w-0 flex-col gap-3">
         <QueryState
           query={query}
-          label="sessions"
+          label={t("settings.security.sessions.loadingLabel")}
           // One row, the least there can be (this one), compact like the loaded table; the line
           // under it has its place held too.
           skeleton={
             <div className="flex min-w-0 flex-col gap-3">
               <DataTable
-                caption="Active sessions"
+                caption={t("settings.security.sessions.tableCaption")}
                 columns={columns}
                 rows={[]}
                 getRowId={(s) => s.sid_prefix}
@@ -146,7 +144,7 @@ export function SessionsSection() {
         >
           {(data) => (
             <DataTable
-              caption="Active sessions"
+              caption={t("settings.security.sessions.tableCaption")}
               columns={columns}
               rows={data.sessions}
               getRowId={(session) => session.sid_prefix}
@@ -154,8 +152,8 @@ export function SessionsSection() {
               rowActions={(session) =>
                 session.is_current ? null : (
                   <RowAction
-                    label={`Sign out session ${session.sid_prefix}`}
-                    text="Sign out"
+                    label={t("settings.security.sessions.signOutLabel", { sid: session.sid_prefix })}
+                    text={t("settings.security.sessions.signOutText")}
                     icon={<LogOut />}
                     loading={revokeOne.isPending && revokeOne.variables.sid_prefix === session.sid_prefix}
                     onClick={() => {
@@ -170,7 +168,7 @@ export function SessionsSection() {
         {query.data !== undefined ? (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-13 text-fg-muted tabular-nums">
-              {plural(query.data.active_sessions, "active session", "active sessions")}
+              {t("settings.security.sessions.activeCount", { count: query.data.active_sessions })}
             </p>
             <Button
               icon={<LogOut aria-hidden="true" />}
@@ -180,7 +178,7 @@ export function SessionsSection() {
                 setConfirming(true);
               }}
             >
-              Sign out other sessions
+              {t("settings.security.sessions.signOutOthers")}
             </Button>
           </div>
         ) : null}
@@ -188,12 +186,18 @@ export function SessionsSection() {
           open={confirming}
           onOpenChange={closeConfirm}
           size="sm"
-          title="Sign out other sessions?"
-          description={`Ends every session but this one${others.length > 0 ? ` — ${plural(others.length, "session", "sessions")}` : ""}. Anyone using them will need to sign in again.`}
+          title={t("settings.security.sessions.confirmTitle")}
+          description={
+            others.length > 0
+              ? t("settings.security.sessions.confirmDescriptionWithCount", {
+                  count: t("settings.security.sessions.othersCount", { count: others.length }),
+                })
+              : t("settings.security.sessions.confirmDescriptionNoOthers")
+          }
           footer={
             <>
               <Button disabled={revokeOthers.isPending} onClick={() => closeConfirm(false)}>
-                Cancel
+                {t("settings.shared.cancel")}
               </Button>
               <Button
                 variant="primary"
@@ -202,7 +206,7 @@ export function SessionsSection() {
                   revokeOthers.mutate();
                 }}
               >
-                Sign out other sessions
+                {t("settings.security.sessions.signOutOthers")}
               </Button>
             </>
           }
@@ -210,7 +214,7 @@ export function SessionsSection() {
           {failure !== null ? (
             <div role="alert" className="flex flex-col gap-2 rounded-control border border-fail/30 bg-fail-soft p-3">
               <p className="text-13 font-medium text-fail">{failure.hint}</p>
-              <SystemOutput label="What the server said" maxHeight="max-h-40">
+              <SystemOutput label={t("settings.security.sessions.serverSaidLabel")} maxHeight="max-h-40">
                 {failure.detail}
               </SystemOutput>
             </div>

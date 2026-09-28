@@ -2,7 +2,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { request } from "../../api/client";
 import { siteKeys } from "../../api/queries/sites";
+import { getLocale } from "../../app/locale";
 import { toast } from "../../components/ui/toast";
+import { translate } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
 
 /**
@@ -19,11 +21,14 @@ export function useSiteActions() {
   const enable = useMutation({
     mutationFn: (site: string) => request("post", "/api/sites/{domain}/enable", { params: { domain: site } }),
     onSuccess: (result, site) => {
-      toast.success(`Enabled ${site}`, { description: "The web server reloaded with it." });
+      const locale = getLocale();
+      toast.success(translate(locale, "domains.siteActions.enabledToast", { site }), {
+        description: translate(locale, "domains.siteActions.enabledDescription"),
+      });
       refresh(result.site);
     },
     onError: (error, site) => {
-      reportActionError(`Could not enable ${site}`, error);
+      reportActionError(translate(getLocale(), "domains.siteActions.couldNotEnable", { site }), error);
       refresh(site);
     },
   });
@@ -31,11 +36,14 @@ export function useSiteActions() {
   const disable = useMutation({
     mutationFn: (site: string) => request("post", "/api/sites/{domain}/disable", { params: { domain: site } }),
     onSuccess: (result, site) => {
-      toast.success(`Disabled ${site}`, { description: "The web server reloaded without it." });
+      const locale = getLocale();
+      toast.success(translate(locale, "domains.siteActions.disabledToast", { site }), {
+        description: translate(locale, "domains.siteActions.disabledDescription"),
+      });
       refresh(result.site);
     },
     onError: (error, site) => {
-      reportActionError(`Could not disable ${site}`, error);
+      reportActionError(translate(getLocale(), "domains.siteActions.couldNotDisable", { site }), error);
       refresh(site);
     },
   });
@@ -43,10 +51,13 @@ export function useSiteActions() {
   const reload = useMutation({
     mutationFn: () => request("post", "/api/sites/reload"),
     onSuccess: (result) => {
-      toast.success(`Reloaded ${result.webserver}`, { description: "Its configuration test passed first." });
+      const locale = getLocale();
+      toast.success(translate(locale, "domains.siteActions.reloadedToast", { webserver: result.webserver }), {
+        description: translate(locale, "domains.siteActions.reloadedDescription"),
+      });
     },
     onError: (error) => {
-      reportActionError("The web server was not reloaded", error);
+      reportActionError(translate(getLocale(), "domains.siteActions.couldNotReloadWebserver"), error);
     },
   });
 

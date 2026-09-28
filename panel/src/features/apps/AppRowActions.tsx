@@ -4,6 +4,7 @@ import { CircleArrowUp, MoreHorizontal, PanelTop, RotateCw, ScrollText } from "l
 import { appStatus } from "../../components/page/status";
 import { IconButton } from "../../components/ui/IconButton";
 import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
+import { useT } from "../../i18n";
 import type { AppInfo } from "./data";
 import { NothingNewDialog } from "./NothingNewDialog";
 import { useAppActions } from "./useAppActions";
@@ -15,6 +16,7 @@ export function hasUnit(app: Pick<AppInfo, "status" | "app_type">): boolean {
 
 /** The menu at the end of an application's row: open it, read its logs, restart, update. */
 export function AppRowActions({ app }: { app: AppInfo }) {
+  const t = useT();
   const navigate = useNavigate();
   const { restart, update, rebuildAnyway, nothingNew, dismissNothingNew } = useAppActions(app.domain);
   const domain = app.domain;
@@ -23,21 +25,21 @@ export function AppRowActions({ app }: { app: AppInfo }) {
     <Menu
       align="end"
       trigger={
-<IconButton label={`Actions for ${domain}`} icon={<MoreHorizontal />} size="sm" tooltip={false} />
+<IconButton label={t("apps.rowActions.aria", { domain })} icon={<MoreHorizontal />} size="sm" tooltip={false} />
       }
     >
       <MenuItem icon={<PanelTop />} onClick={() => void navigate({ to: "/apps/$domain", params: { domain } })}>
-        Open
+        {t("apps.rowActions.open")}
       </MenuItem>
       <MenuItem icon={<ScrollText />} onClick={() => void navigate({ to: "/apps/$domain/logs", params: { domain } })}>
-        Logs
+        {t("apps.rowActions.logs")}
       </MenuItem>
       <MenuSeparator />
       <MenuItem icon={<RotateCw />} disabled={!hasUnit(app) || restart.isPending} onClick={() => restart.mutate()}>
-        Restart
+        {t("apps.rowActions.restart")}
       </MenuItem>
       <MenuItem icon={<CircleArrowUp />} disabled={update.isPending} onClick={() => update.mutate()}>
-        Update
+        {t("apps.rowActions.update")}
       </MenuItem>
     </Menu>
     <NothingNewDialog

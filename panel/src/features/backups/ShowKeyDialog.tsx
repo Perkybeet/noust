@@ -7,6 +7,7 @@ import { Checkbox } from "../../components/ui/Checkbox";
 import { CopyTextButton } from "../../components/ui/CopyTextButton";
 import { Dialog } from "../../components/ui/Dialog";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { useDestinationActions } from "./useDestinationActions";
 
@@ -30,6 +31,7 @@ export interface ShowKeyDialogProps {
  * because losing them makes every backup on that destination unrecoverable.
  */
 export function ShowKeyDialog({ name, open, onOpenChange, onContinueToRemove }: ShowKeyDialogProps) {
+  const t = useT();
   const removing = onContinueToRemove !== undefined;
   const { showKey } = useDestinationActions();
   const [saved, setSaved] = useState(false);
@@ -68,16 +70,12 @@ export function ShowKeyDialog({ name, open, onOpenChange, onContinueToRemove }: 
       open={open}
       onOpenChange={close}
       size="sm"
-      title={removing ? `Save the key before removing ${name}` : `Encryption key for ${name}`}
-      description={
-        removing
-          ? `Backups already sent to ${name} stay there, encrypted. Without this key nobody can read them, WASM included, and removing the destination deletes the only copy WASM has.`
-          : "Two passphrases wrap every backup sent to this destination. WASM keeps them, but printing them here is the only way to keep your own copy - and the only way to recover the backups if this server is ever lost."
-      }
+      title={removing ? t("backups.showKeyDialog.titleRemove", { name }) : t("backups.showKeyDialog.titleShow", { name })}
+      description={removing ? t("backups.showKeyDialog.descriptionRemove", { name }) : t("backups.showKeyDialog.descriptionShow")}
       footer={
         removing ? (
           <>
-            <Button onClick={() => close(false)}>Cancel</Button>
+            <Button onClick={() => close(false)}>{t("backups.common.cancel")}</Button>
             <Button
               variant="primary"
               disabled={showKey.data === undefined || !saved}
@@ -86,12 +84,12 @@ export function ShowKeyDialog({ name, open, onOpenChange, onContinueToRemove }: 
                 onContinueToRemove();
               }}
             >
-              Continue to remove
+              {t("backups.showKeyDialog.continueToRemove")}
             </Button>
           </>
         ) : (
           <Button variant="primary" disabled={showKey.data === undefined || !saved} onClick={() => close(false)}>
-            Done
+            {t("backups.showKeyDialog.done")}
           </Button>
         )
       }
@@ -103,18 +101,18 @@ export function ShowKeyDialog({ name, open, onOpenChange, onContinueToRemove }: 
             <Skeleton className="h-8 rounded-control" />
           </div>
         ) : showKey.isError ? (
-          <ErrorBlock compact error={showKey.error} title="The key could not be read" />
+          <ErrorBlock compact error={showKey.error} title={t("backups.showKeyDialog.error")} />
         ) : (
           <>
             <dl className="flex flex-col gap-2 rounded-control border border-border bg-bg-sunken px-4 py-3">
               <div className="flex flex-col gap-1">
-                <dt className="text-12 text-fg-muted">Password</dt>
+                <dt className="text-12 text-fg-muted">{t("backups.showKeyDialog.passwordLabel")}</dt>
                 <dd translate="no" className="mono text-13 break-all text-fg select-all">
                   {showKey.data.password}
                 </dd>
               </div>
               <div className="flex flex-col gap-1">
-                <dt className="text-12 text-fg-muted">Password 2 (salt)</dt>
+                <dt className="text-12 text-fg-muted">{t("backups.showKeyDialog.password2Label")}</dt>
                 <dd translate="no" className="mono text-13 break-all text-fg select-all">
                   {showKey.data.password2}
                 </dd>
@@ -122,15 +120,15 @@ export function ShowKeyDialog({ name, open, onOpenChange, onContinueToRemove }: 
             </dl>
             <div>
               <CopyTextButton value={`${showKey.data.password}\n${showKey.data.password2}`} size="sm">
-                Copy both
+                {t("backups.showKeyDialog.copyBoth")}
               </CopyTextButton>
             </div>
             <div ref={savedRef} className={cx("rounded-control border p-3", nudge ? "border-warn/50 bg-warn-soft" : "border-transparent")}>
-              <Checkbox label="I have saved this key somewhere safe" checked={saved} onCheckedChange={setSaved} />
+              <Checkbox label={t("backups.showKeyDialog.savedLabel")} checked={saved} onCheckedChange={setSaved} />
               {nudge ? (
                 <p role="alert" className="mt-2 flex items-start gap-2 text-13 text-fg">
                   <TriangleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-warn" />
-                  Save the key and tick the box first. Losing it makes every backup on this destination unrecoverable.
+                  {t("backups.showKeyDialog.nudge")}
                 </p>
               ) : null}
             </div>

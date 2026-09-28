@@ -5,6 +5,9 @@
  */
 
 import type { GitHubStatus } from "../../../api/queries/github";
+import { getLocale } from "../../../app/locale";
+import { translate } from "../../../i18n";
+import type { Locale } from "../../../i18n";
 
 /** Where GitHub sends the browser back: the App's redirect and setup URL (manifest.CALLBACK_PATH). */
 export const CALLBACK_PATH = "/integrations/github/callback";
@@ -39,17 +42,17 @@ export function parseCallback(search: string): CallbackRequest {
 }
 
 /** An installation's account kind, in words. */
-export function accountTypeWords(type: string | null | undefined): string {
-  if (type === "Organization") return "Organization";
-  if (type === "User") return "Personal account";
-  return type ?? "Account";
+export function accountTypeWords(type: string | null | undefined, locale: Locale = getLocale()): string {
+  if (type === "Organization") return translate(locale, "settings.integrations.github.installations.accountType.organization");
+  if (type === "User") return translate(locale, "settings.integrations.github.installations.accountType.user");
+  return type ?? translate(locale, "settings.integrations.github.installations.accountType.fallback");
 }
 
 /** Which repositories an installation lets the App read, in words. */
-export function repositorySelectionWords(selection: string | null | undefined): string {
-  if (selection === "all") return "All repositories";
-  if (selection === "selected") return "Selected repositories";
-  return "Repositories not reported";
+export function repositorySelectionWords(selection: string | null | undefined, locale: Locale = getLocale()): string {
+  if (selection === "all") return translate(locale, "settings.integrations.github.installations.repositorySelection.all");
+  if (selection === "selected") return translate(locale, "settings.integrations.github.installations.repositorySelection.selected");
+  return translate(locale, "settings.integrations.github.installations.repositorySelection.unknown");
 }
 
 export type HooksState =
@@ -73,11 +76,11 @@ export function hooksState(status: Pick<GitHubStatus, "configured" | "hooks_url"
  * not starting or ending with one), or why it is not. Empty is fine: the operator's own
  * account.
  */
-export function organizationProblem(value: string): string | null {
+export function organizationProblem(value: string, locale: Locale = getLocale()): string | null {
   const name = value.trim();
   if (name === "") return null;
   if (name.length > 39 || !/^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9]))*$/.test(name)) {
-    return "An organization's name on GitHub uses letters, digits and single hyphens, up to 39 characters, as in its URL: github.com/your-org.";
+    return translate(locale, "settings.integrations.github.create.organizationInvalid");
   }
   return null;
 }

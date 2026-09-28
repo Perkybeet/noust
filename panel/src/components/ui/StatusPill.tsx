@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import { useT } from "../../i18n";
+import type { PlainKey } from "../../i18n";
 import { cx } from "../../lib/cx";
 
 export type Status = "running" | "deploying" | "warning" | "failed" | "stopped" | "static" | "unknown";
@@ -27,6 +29,20 @@ export const STATUS: Record<Status, StatusSpec> = {
   stopped: { label: "Stopped", tone: "idle", glyph: "ring" },
   static: { label: "Static", tone: "ok", glyph: "square" },
   unknown: { label: "Unknown", tone: "idle", glyph: "question" },
+};
+
+/**
+ * The catalog key of each state's default word (its render, not `STATUS[state].label`, which
+ * other areas still read directly as English - see `common.statusPill` in the i18n README).
+ */
+const STATUS_LABEL_KEY: Record<Status, PlainKey> = {
+  running: "common.statusPill.running",
+  deploying: "common.statusPill.deploying",
+  warning: "common.statusPill.warning",
+  failed: "common.statusPill.failed",
+  stopped: "common.statusPill.stopped",
+  static: "common.statusPill.static",
+  unknown: "common.statusPill.unknown",
 };
 
 export const TONE_TEXT: Record<Tone, string> = {
@@ -104,6 +120,7 @@ export interface StatusPillProps {
 
 /** The state of an app, service, deployment or certificate. */
 export function StatusPill({ state, label, appearance = "pill", size = "md", className }: StatusPillProps) {
+  const t = useT();
   const spec = STATUS[state];
 
   // A change of state is the most important event on screen: it pulses once. The first render
@@ -130,7 +147,7 @@ export function StatusPill({ state, label, appearance = "pill", size = "md", cla
       )}
     >
       <StatusGlyph state={state} size={size === "sm" ? 10 : 12} />
-      {label ?? spec.label}
+      {label ?? t(STATUS_LABEL_KEY[state])}
     </span>
   );
 }

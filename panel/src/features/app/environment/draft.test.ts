@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../../app/locale";
 import { applyDraft, describeCounts, diffEnv, draftRows, isMasked, summarise } from "./draft";
 import type { DraftOp } from "./draft";
 
@@ -105,5 +106,10 @@ describe("helpers", () => {
 
   it("says the counts without the zeros", () => {
     expect(describeCounts({ added: 2, changed: 0, removed: 1 })).toBe("2 added, 1 removed");
+  });
+
+  it("says the counts in Spanish", async () => {
+    await setLocale("es");
+    expect(describeCounts({ added: 2, changed: 0, removed: 1 }, "es")).toBe("2 añadidas, 1 eliminadas");
   });
 });

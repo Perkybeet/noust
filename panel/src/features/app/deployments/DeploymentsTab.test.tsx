@@ -1,6 +1,7 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../../app/locale";
 import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { fakeBackend, json, problem } from "../../../test/fakes";
@@ -49,7 +50,8 @@ const RELEASES = {
 async function tabAt(app: Record<string, unknown>, extra: Record<string, RouteHandler> = {}) {
   const backend = fakeBackend(appRoutes(app, { "GET /api/deployments": history, ...extra }));
   const harness = renderConsole(`/apps/${TAB_DOMAIN}/deployments`);
-  await screen.findByRole("heading", { level: 2, name: "History" });
+  // "History" / "Historial", so this helper still works once the locale is switched to Spanish.
+  await screen.findByRole("heading", { level: 2, name: /^(History|Historial)$/ });
   return { ...harness, backend };
 }
 
@@ -161,6 +163,18 @@ describe("the deployments tab", { timeout: 20_000 }, () => {
     await tabAt({ layout: "releases" }, { [`GET /api/apps/${TAB_DOMAIN}/releases`]: () => json(200, RELEASES) });
     await screen.findByRole("list", { name: `Releases of ${TAB_DOMAIN}, newest first` });
     await screen.findByRole("link", { name: "Deployment 25" });
+    await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
+  it("lists the history and the releases in Spanish", async () => {
+    await act(() => setLocale("es"));
+    await tabAt({ layout: "releases" }, { [`GET /api/apps/${TAB_DOMAIN}/releases`]: () => json(200, RELEASES) });
+    const table = await screen.findByRole("region", { name: `Despliegues de ${TAB_DOMAIN}, los más recientes primero` });
+    await within(table).findByRole("link", { name: "Despliegue 25" });
+    expect(screen.getByText("Cargar despliegues anteriores")).toBeInTheDocument();
+    const releases = await screen.findByRole("list", { name: `Releases de ${TAB_DOMAIN}, las más recientes primero` });
+    expect(within(releases).getByText("Sirviendo")).toBeInTheDocument();
+    expect(within(releases).getByText("Eliminada del disco")).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 });

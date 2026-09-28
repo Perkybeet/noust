@@ -1,7 +1,8 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import type { ServiceList } from "../../api/queries/services";
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
@@ -200,6 +201,42 @@ describe("the services list", () => {
     await within(table).findByText("wasm-shop-example-com");
     await user.click(screen.getByRole("switch", { name: "Show all units" }));
     await within(table).findByText("postgresql");
+    await expectNoAxeViolations(screen.getByRole("main"));
+  });
+});
+
+describe("the services list, in Spanish", () => {
+  it("shows the state, boot setting and page chrome translated", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    fakeBackend({
+      ...signedInRoutes(),
+      "GET /api/services": () => json(200, { services: SERVICES, total: SERVICES.length }),
+    });
+    renderConsole("/services");
+    await screen.findByRole("heading", { level: 1, name: "Servicios" });
+    const table = await screen.findByRole("region", { name: /Servicios/ });
+    const running = await within(table).findByText("wasm-shop-example-com");
+    const row = running.closest("tr");
+    if (!row) throw new Error("no row");
+    expect(within(row).getByText("En ejecución")).toBeInTheDocument();
+    expect(within(row).getByText("Habilitado")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Nuevo servicio" })).toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: "Buscar servicios" })).toBeInTheDocument();
+  });
+
+  it("has no accessibility violations", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    fakeBackend({
+      ...signedInRoutes(),
+      "GET /api/services": () => json(200, { services: SERVICES, total: SERVICES.length }),
+    });
+    renderConsole("/services");
+    await screen.findByRole("heading", { level: 1, name: "Servicios" });
+    await screen.findByText("wasm-shop-example-com");
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 });

@@ -2,6 +2,7 @@ import { AlertDialog } from "@base-ui/react/alert-dialog";
 import { useId, useRef, useState } from "react";
 import type { ReactElement, ReactNode, SyntheticEvent } from "react";
 
+import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { describeError } from "../../lib/errors";
 import { Button } from "./Button";
@@ -40,6 +41,7 @@ export function ConfirmDialog({
   open,
   onOpenChange,
 }: ConfirmDialogProps) {
+  const t = useT();
   const [internalOpen, setInternalOpen] = useState(false);
   const [typed, setTyped] = useState("");
   const [pending, setPending] = useState(false);
@@ -93,7 +95,7 @@ export function ConfirmDialog({
                 Description={AlertDialog.Description}
                 footer={
                   <>
-                    <AlertDialog.Close render={<Button disabled={pending}>Cancel</Button>} />
+                    <AlertDialog.Close render={<Button disabled={pending}>{t("common.confirmDialog.cancel")}</Button>} />
                     <Button
                       type="submit"
                       variant={destructive ? "danger" : "primary"}
@@ -107,11 +109,13 @@ export function ConfirmDialog({
               >
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor={inputId} className="text-13 text-fg-muted">
-                    Type{" "}
-                    <span translate="no" className="mono rounded-[4px] bg-bg-sunken px-1 py-0.5 text-fg select-all">
-                      {confirmText}
-                    </span>{" "}
-                    to confirm
+                    {t.rich("common.confirmDialog.typeToConfirm", {
+                      value: (
+                        <span translate="no" className="mono rounded-[4px] bg-bg-sunken px-1 py-0.5 text-fg select-all">
+                          {confirmText}
+                        </span>
+                      ),
+                    })}
                   </label>
                   <Input
                     id={inputId}
@@ -127,8 +131,8 @@ export function ConfirmDialog({
                 </div>
                 {failure !== null ? (
                   <div role="alert" className="mt-4 flex flex-col gap-2 rounded-control border border-fail/30 bg-fail-soft p-3">
-                    <p className="text-13 font-medium text-fail">{failure.hint ?? "The action failed. The system said:"}</p>
-                    <SystemOutput label="What the system said" maxHeight="max-h-40">
+                    <p className="text-13 font-medium text-fail">{failure.hint ?? t("common.confirmDialog.failed")}</p>
+                    <SystemOutput label={t("common.confirmDialog.whatSystemSaid")} maxHeight="max-h-40">
                       {failure.detail}
                     </SystemOutput>
                   </div>

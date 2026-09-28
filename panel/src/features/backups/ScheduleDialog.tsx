@@ -15,16 +15,20 @@ import { Field } from "../../components/ui/Field";
 import { IconButton } from "../../components/ui/IconButton";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
+import { useT } from "../../i18n";
+import type { T } from "../../i18n";
 import type { ScheduleDestinationInput } from "./useBackupActions";
 import { useBackupActions } from "./useBackupActions";
 
-const PRESETS = [
-  { value: "hourly", label: "Hourly" },
-  { value: "daily", label: "Daily, 02:00" },
-  { value: "weekly", label: "Weekly, Monday 02:00" },
-  { value: "monthly", label: "Monthly, 1st at 02:00" },
-  { value: "custom", label: "Custom (systemd OnCalendar)" },
-];
+function presets(t: T): { value: string; label: string }[] {
+  return [
+    { value: "hourly", label: t("backups.scheduleDialog.presets.hourly") },
+    { value: "daily", label: t("backups.scheduleDialog.presets.daily") },
+    { value: "weekly", label: t("backups.scheduleDialog.presets.weekly") },
+    { value: "monthly", label: t("backups.scheduleDialog.presets.monthly") },
+    { value: "custom", label: t("backups.scheduleDialog.presets.custom") },
+  ];
+}
 
 const KNOWN = new Set(["hourly", "daily", "weekly", "monthly"]);
 
@@ -64,6 +68,7 @@ function DestinationRow({
   onRemove: () => void;
   disabled: boolean;
 }) {
+  const t = useT();
   const keepId = useId();
   const maxAgeId = useId();
   return (
@@ -73,11 +78,11 @@ function DestinationRow({
       </span>
       <div className="flex w-20 shrink-0 flex-col gap-1">
         <label htmlFor={keepId} className="text-12 text-fg-muted">
-          Keep
+          {t("backups.scheduleDialog.keepLabel")}
         </label>
         <Input
           id={keepId}
-          aria-label={`Keep on ${entry.name}`}
+          aria-label={t("backups.scheduleDialog.keepOn", { name: entry.name })}
           size="sm"
           mono
           inputMode="numeric"
@@ -88,11 +93,11 @@ function DestinationRow({
       </div>
       <div className="flex w-20 shrink-0 flex-col gap-1">
         <label htmlFor={maxAgeId} className="text-12 text-fg-muted">
-          Max age
+          {t("backups.scheduleDialog.maxAgeLabel")}
         </label>
         <Input
           id={maxAgeId}
-          aria-label={`Max age on ${entry.name}`}
+          aria-label={t("backups.scheduleDialog.maxAgeOn", { name: entry.name })}
           size="sm"
           mono
           inputMode="numeric"
@@ -101,7 +106,13 @@ function DestinationRow({
           disabled={disabled}
         />
       </div>
-      <IconButton label={`Remove ${entry.name}`} icon={<X aria-hidden="true" />} size="sm" onClick={onRemove} disabled={disabled} />
+      <IconButton
+        label={t("backups.scheduleDialog.removeDestination", { name: entry.name })}
+        icon={<X aria-hidden="true" />}
+        size="sm"
+        onClick={onRemove}
+        disabled={disabled}
+      />
     </div>
   );
 }
@@ -119,6 +130,7 @@ export interface ScheduleDialogProps {
  * posts once; editing sends the same shape through `PUT /{domain}` instead of posting again.
  */
 export function ScheduleDialog({ existing, open, onOpenChange }: ScheduleDialogProps) {
+  const t = useT();
   const formId = useId();
   const apps = useQuery({ ...appsQuery(), enabled: open && existing === undefined });
   const destinations = useQuery({ ...backupDestinationsQuery(), enabled: open });
@@ -188,12 +200,12 @@ export function ScheduleDialog({ existing, open, onOpenChange }: ScheduleDialogP
       open={open}
       onOpenChange={close}
       size="lg"
-      title={existing ? `Edit the schedule for ${existing.domain}` : "New backup schedule"}
-      description="Backs this application up on a systemd timer, with its own retention."
+      title={existing ? t("backups.scheduleDialog.titleEdit", { domain: existing.domain }) : t("backups.scheduleDialog.titleNew")}
+      description={t("backups.scheduleDialog.description")}
       footer={
         <>
           <Button disabled={save.isPending} onClick={() => close(false)}>
-            Cancel
+            {t("backups.common.cancel")}
           </Button>
           <Button
             type="submit"
@@ -202,74 +214,71 @@ export function ScheduleDialog({ existing, open, onOpenChange }: ScheduleDialogP
             loading={save.isPending}
             disabled={(existing === undefined && domain.trim() === "") || (preset === "custom" && customCalendar.trim() === "")}
           >
-            {existing ? "Save" : "Create schedule"}
+            {existing ? t("backups.common.save") : t("backups.scheduleDialog.create")}
           </Button>
         </>
       }
     >
       <form id={formId} onSubmit={submit} className="flex flex-col gap-4">
         {existing === undefined ? (
-          <Field label="Application" nativeLabel={false}>
+          <Field label={t("backups.fields.application")} nativeLabel={false}>
             <Select
-              aria-label="Application"
+              aria-label={t("backups.fields.application")}
               value={domain}
               onValueChange={setDomain}
-              placeholder={apps.isPending ? "Loading applications..." : "Choose an application"}
+              placeholder={apps.isPending ? t("backups.fields.loadingApplications") : t("backups.fields.chooseApplication")}
               options={domainOptions}
               disabled={apps.isPending || domainOptions.length === 0}
             />
           </Field>
         ) : null}
-        <Field label="Schedule" name="schedule" nativeLabel={false}>
-          <Select aria-label="Schedule" value={preset} onValueChange={setPreset} options={PRESETS} />
+        <Field label={t("backups.scheduleDialog.scheduleLabel")} name="schedule" nativeLabel={false}>
+          <Select aria-label={t("backups.scheduleDialog.scheduleLabel")} value={preset} onValueChange={setPreset} options={presets(t)} />
         </Field>
         {preset === "custom" ? (
-          <Field label="OnCalendar expression" description="Systemd calendar syntax, e.g. *-*-* 03:30:00.">
+          <Field label={t("backups.scheduleDialog.calendarLabel")} description={t("backups.scheduleDialog.calendarDescription")}>
             <Input mono value={customCalendar} onValueChange={setCustomCalendar} placeholder="*-*-* 03:30:00" autoComplete="off" spellCheck={false} />
           </Field>
         ) : null}
         <Field
-          label="Local retention"
+          label={t("backups.scheduleDialog.retention.label")}
           nativeLabel={false}
           description={
             existing === undefined
-              ? `A new schedule keeps its own last ${String(NEW_SCHEDULE_KEEP)} backups for up to ${String(NEW_SCHEDULE_MAX_AGE)} days unless you change it. Retention only deletes backups this schedule made: manual, pre-deploy and rollback backups are never touched.`
+              ? t("backups.scheduleDialog.retention.newDescription", { keep: NEW_SCHEDULE_KEEP, days: NEW_SCHEDULE_MAX_AGE })
               : retentionMode === "server"
-                ? "The server default keeps the newest backups of the application, whatever made them, as 2.1 did."
-                : "Retention only deletes backups this schedule made: manual, pre-deploy and rollback backups are never touched."
+                ? t("backups.scheduleDialog.retention.serverDescription")
+                : t("backups.scheduleDialog.retention.ownDescription")
           }
         >
           <Select
-            aria-label="Local retention"
+            aria-label={t("backups.scheduleDialog.retention.label")}
             value={retentionMode}
             onValueChange={(next) => setRetentionMode(next === "server" ? "server" : "own")}
             options={[
               {
                 value: "server",
-                label: `Server default (backup.max_per_app${serverDefault !== undefined ? ` = ${String(serverDefault)}` : ""})`,
+                label: t("backups.scheduleDialog.retention.serverOption", { value: serverDefault !== undefined ? ` = ${String(serverDefault)}` : "" }),
               },
-              { value: "own", label: "This schedule's own limits" },
+              { value: "own", label: t("backups.scheduleDialog.retention.ownOption") },
             ]}
           />
         </Field>
         {retentionMode === "own" ? (
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Keep" description="Backups this schedule made to keep. Blank uses backup.max_per_app.">
+            <Field label={t("backups.scheduleDialog.keepLabel")} description={t("backups.scheduleDialog.keepDescription")}>
               <Input mono inputMode="numeric" value={retentionCount} onValueChange={setRetentionCount} />
             </Field>
-            <Field label="Max age" description="Days before a backup this schedule made is pruned. Blank for no limit.">
+            <Field label={t("backups.scheduleDialog.maxAgeLabel")} description={t("backups.scheduleDialog.maxAgeDescription")}>
               <Input mono inputMode="numeric" value={retentionDays} onValueChange={setRetentionDays} />
             </Field>
           </div>
         ) : null}
-        <Checkbox checked={includeDatabases} onCheckedChange={setIncludeDatabases} label="Dump databases too" />
+        <Checkbox checked={includeDatabases} onCheckedChange={setIncludeDatabases} label={t("backups.scheduleDialog.dumpDatabases")} />
 
         <fieldset className="flex flex-col gap-2">
-          <legend className="mb-1 text-13 font-medium text-fg">Destinations</legend>
-          <p className="text-12 text-fg-muted">
-            Push each backup on to one or more remote destinations too. Retention here is optional and per destination; leave it blank to
-            keep every copy sent there.
-          </p>
+          <legend className="mb-1 text-13 font-medium text-fg">{t("backups.scheduleDialog.destinationsLegend")}</legend>
+          <p className="text-12 text-fg-muted">{t("backups.scheduleDialog.destinationsHint")}</p>
           {scheduleDestinations.length > 0 ? (
             <div className="flex flex-col gap-2">
               {scheduleDestinations.map((entry) => (
@@ -289,10 +298,10 @@ export function ScheduleDialog({ existing, open, onOpenChange }: ScheduleDialogP
           ) : null}
           <div className="flex items-center gap-2">
             <Select
-              aria-label="Add a destination"
+              aria-label={t("backups.scheduleDialog.addDestinationAria")}
               value={destinationToAdd}
               onValueChange={setDestinationToAdd}
-              placeholder={destinations.isPending ? "Loading destinations..." : "Choose a destination to add"}
+              placeholder={destinations.isPending ? t("backups.fields.loadingDestinations") : t("backups.scheduleDialog.chooseDestinationToAdd")}
               options={addableOptions}
               disabled={save.isPending || destinations.isPending || addableOptions.length === 0}
               size="sm"
@@ -304,12 +313,12 @@ export function ScheduleDialog({ existing, open, onOpenChange }: ScheduleDialogP
               disabled={destinationToAdd === "" || save.isPending}
               onClick={addDestination}
             >
-              Add
+              {t("backups.common.add")}
             </Button>
           </div>
         </fieldset>
 
-        {save.isError ? <ErrorBlock live compact error={save.error} title="The schedule was not saved" /> : null}
+        {save.isError ? <ErrorBlock live compact error={save.error} title={t("backups.scheduleDialog.error")} /> : null}
       </form>
     </Dialog>
   );

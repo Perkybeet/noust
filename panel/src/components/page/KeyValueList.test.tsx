@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { KeyValueList, KeyValueListSkeleton } from "./KeyValueList";
 
@@ -67,5 +68,15 @@ describe("KeyValueList", () => {
   it("has no accessibility violations", async () => {
     const { container } = render(<KeyValueList items={[...ITEMS, { label: "Note", value: "x", hint: "Set by MemoryMax" }]} />);
     await expectNoAxeViolations(container);
+  });
+
+  it("says its own defaults in Spanish", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    render(<KeyValueList items={ITEMS} />);
+    expect(screen.getByText("Sin establecer")).toBeInTheDocument();
+    // The item's own label is caller-supplied data, not translated; only "Copy" is.
+    expect(screen.getByRole("button", { name: "Copiar directory" })).toBeInTheDocument();
   });
 });

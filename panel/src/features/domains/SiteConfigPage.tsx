@@ -19,6 +19,7 @@ import { Menu, MenuItem } from "../../components/ui/Menu";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { toast } from "../../components/ui/toast";
+import { useT } from "../../i18n";
 import { ConfigEditor } from "./ConfigEditor";
 import type { ConfigEditorHandle } from "./ConfigEditor";
 import { SiteState, Tls } from "./SitesTab";
@@ -26,7 +27,10 @@ import { configRejection, failingLine } from "./configErrors";
 import type { ConfigRejection } from "./configErrors";
 import { useSiteActions } from "./useSiteActions";
 
-const BREADCRUMBS = [{ label: "Domains and certificates", to: "/domains" }] as const;
+function useBreadcrumbs(): readonly { label: string; to: "/domains" }[] {
+  const t = useT();
+  return [{ label: t("nav.domains.label"), to: "/domains" }] as const;
+}
 
 type Outcome =
   | { kind: "saved"; webserver: string }
@@ -35,24 +39,23 @@ type Outcome =
   | null;
 
 function Rejected({ rejection, id, onGoToLine }: { rejection: ConfigRejection; id: string; onGoToLine: (line: number) => void }) {
+  const t = useT();
   return (
     <div id={id} role="alert" className="flex min-w-0 flex-col gap-2 rounded-card border border-fail/30 bg-fail-soft/50 p-4">
       <div className="flex items-start gap-2">
         <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fail" />
         <div className="flex min-w-0 flex-col gap-1">
-          <p className="text-13 font-medium text-fg">Nothing was saved: the configuration test failed.</p>
-          <p className="text-13 text-pretty text-fg-muted">
-            {`${rejection.summary}. The file on disk is unchanged and the web server keeps serving it. Fix the line it names and save again.`}
-          </p>
+          <p className="text-13 font-medium text-fg">{t("domains.siteConfigPage.nothingSavedTestFailed")}</p>
+          <p className="text-13 text-pretty text-fg-muted">{t("domains.siteConfigPage.fixLineNote", { summary: rejection.summary })}</p>
         </div>
       </div>
-      <SystemOutput label="What the configuration test said" maxHeight="max-h-56" className="rounded-control border border-border bg-surface px-3 py-2">
+      <SystemOutput label={t("domains.siteConfigPage.whatTestSaid")} maxHeight="max-h-56" className="rounded-control border border-border bg-surface px-3 py-2">
         {rejection.output.trim() === "" ? rejection.summary : rejection.output.trimEnd()}
       </SystemOutput>
       {rejection.line !== null ? (
         <div>
           <Button size="sm" icon={<CornerDownRight aria-hidden="true" />} onClick={() => onGoToLine(rejection.line ?? 1)}>
-            {`Go to line ${String(rejection.line)}`}
+            {t("domains.siteConfigPage.goToLine", { line: rejection.line })}
           </Button>
         </div>
       ) : null}
@@ -61,16 +64,15 @@ function Rejected({ rejection, id, onGoToLine }: { rejection: ConfigRejection; i
 }
 
 function Saved({ webserver, id, onReload, reloading }: { webserver: string; id: string; onReload: () => void; reloading: boolean }) {
+  const t = useT();
   return (
     <div id={id} role="status" className="flex flex-col gap-3 rounded-card border border-ok/30 bg-ok-soft/40 p-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-start gap-2">
         <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-ok" />
-        <p className="text-13 text-pretty text-fg">
-          {`Saved. It passed ${webserver}'s configuration test; ${webserver} serves the previous version until it reloads.`}
-        </p>
+        <p className="text-13 text-pretty text-fg">{t("domains.siteConfigPage.savedPassedTest", { webserver })}</p>
       </div>
       <Button icon={<RotateCw aria-hidden="true" />} loading={reloading} onClick={onReload} className="self-start sm:self-auto">
-        {`Reload ${webserver}`}
+        {t("domains.siteConfigPage.reloadWebserver", { webserver })}
       </Button>
     </div>
   );
@@ -80,14 +82,15 @@ function Saved({ webserver, id, onReload, reloading }: { webserver: string; id: 
  * configuration changed again between the two calls), but its output is shown verbatim, the
  * same as any other test failure. */
 function ReloadFailed({ webserver, output }: { webserver: string; output: string }) {
+  const t = useT();
   return (
     <div role="alert" className="flex flex-col gap-2 rounded-card border border-fail/30 bg-fail-soft/50 p-4">
       <div className="flex items-start gap-2">
         <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fail" />
-        <p className="text-13 text-pretty text-fg">{`${webserver} was not reloaded; it keeps serving the configuration from before this save.`}</p>
+        <p className="text-13 text-pretty text-fg">{t("domains.siteConfigPage.webserverNotReloaded", { webserver })}</p>
       </div>
-      <SystemOutput label={`What ${webserver}'s reload said`} maxHeight="max-h-56" className="rounded-control border border-border bg-surface px-3 py-2">
-        {output.trim() === "" ? `${webserver} printed nothing.` : output.trimEnd()}
+      <SystemOutput label={t("domains.siteConfigPage.whatReloadSaid", { webserver })} maxHeight="max-h-56" className="rounded-control border border-border bg-surface px-3 py-2">
+        {output.trim() === "" ? t("domains.siteConfigPage.printedNothing", { webserver }) : output.trimEnd()}
       </SystemOutput>
     </div>
   );
@@ -96,14 +99,15 @@ function ReloadFailed({ webserver, output }: { webserver: string; output: string
 /** A candidate configuration tested without saving it, and found acceptable. Nothing on disk
  * changed: the web server's own confirmation is shown so the operator knows it is safe to save. */
 function TestPassed({ webserver, output, id }: { webserver: string; output: string; id: string }) {
+  const t = useT();
   return (
     <div id={id} role="status" className="flex flex-col gap-2 rounded-card border border-ok/30 bg-ok-soft/40 p-4">
       <div className="flex items-start gap-2">
         <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-ok" />
-        <p className="text-13 text-pretty text-fg">{`This passed ${webserver}'s configuration test. Nothing was saved yet.`}</p>
+        <p className="text-13 text-pretty text-fg">{t("domains.siteConfigPage.testPassedNotSaved", { webserver })}</p>
       </div>
-      <SystemOutput label="What the configuration test said" maxHeight="max-h-56" className="rounded-control border border-border bg-surface px-3 py-2">
-        {output.trim() === "" ? `${webserver} printed nothing.` : output.trimEnd()}
+      <SystemOutput label={t("domains.siteConfigPage.whatTestSaid")} maxHeight="max-h-56" className="rounded-control border border-border bg-surface px-3 py-2">
+        {output.trim() === "" ? t("domains.siteConfigPage.printedNothing", { webserver }) : output.trimEnd()}
       </SystemOutput>
     </div>
   );
@@ -115,9 +119,10 @@ function TestPassed({ webserver, output, id }: { webserver: string; output: stri
  * the configuration arrived.
  */
 function EditorSkeleton() {
+  const t = useT();
   return (
     <div aria-busy="true" className="flex flex-col gap-3">
-      <span className="sr-only">Loading the configuration</span>
+      <span className="sr-only">{t("domains.siteConfigPage.loadingConfigurationSr")}</span>
       <div aria-hidden="true" className="flex flex-col gap-3">
         <div className="flex h-4 items-center">
           <Skeleton className="h-3 w-48" />
@@ -142,6 +147,8 @@ function EditorSkeleton() {
  * names is marked, and the file on disk is left as it was.
  */
 export function SiteConfigPage({ site }: { site: string }) {
+  const t = useT();
+  const BREADCRUMBS = useBreadcrumbs();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const info = useQuery(siteQuery(site));
@@ -213,11 +220,11 @@ export function SiteConfigPage({ site }: { site: string }) {
         <EmptyState
           level={2}
           icon={<FileX />}
-          title="No site with this name"
-          description="It may have been deleted, or the address has a typo. Every site on this machine is in the Sites tab."
+          title={t("domains.siteConfigPage.noSiteTitle")}
+          description={t("domains.siteConfigPage.noSiteDescription")}
           action={
             <Link to="/domains" search={{ tab: "sites" }} className={buttonClassName("secondary")}>
-              All sites
+              {t("domains.siteConfigPage.allSites")}
             </Link>
           }
           command="wasm site list"
@@ -249,16 +256,16 @@ export function SiteConfigPage({ site }: { site: string }) {
     <>
       {info.data.enabled ? (
         <Button icon={<Square aria-hidden="true" />} loading={disable.isPending} onClick={() => disable.mutate(site)}>
-          Disable
+          {t("domains.sitesTab.disableAction")}
         </Button>
       ) : (
         <Button icon={<Play aria-hidden="true" />} loading={enable.isPending} onClick={() => enable.mutate(site)}>
-          Enable
+          {t("domains.sitesTab.enableAction")}
         </Button>
       )}
-      <Menu align="end" trigger={<IconButton variant="secondary" label="More actions" icon={<MoreHorizontal />} tooltip={false} />}>
+      <Menu align="end" trigger={<IconButton variant="secondary" label={t("domains.siteConfigPage.moreActions")} icon={<MoreHorizontal />} tooltip={false} />}>
         <MenuItem icon={<Trash2 />} destructive onClick={() => setDeleting(true)}>
-          Delete site
+          {t("domains.deleteSite")}
         </MenuItem>
       </Menu>
     </>
@@ -271,31 +278,27 @@ export function SiteConfigPage({ site }: { site: string }) {
       <PageHeader title={site} breadcrumbs={BREADCRUMBS} description={facts} actions={actions} />
       <Sections>
         <Section
-          title="Configuration"
-          description={
-            <>
-              {"Saving tests it with "}
-              <code className="text-12">{webserver === "apache" ? "apache2ctl -t" : "nginx -t"}</code>
-              {" first. A configuration the web server rejects is not saved, and the live one keeps serving."}
-            </>
-          }
+          title={t("domains.siteConfigPage.configurationSectionTitle")}
+          description={t.rich("domains.siteConfigPage.configurationSectionDescription", {
+            command: <code className="text-12">{webserver === "apache" ? "apache2ctl -t" : "nginx -t"}</code>,
+          })}
         >
           {config.isError && config.data === undefined ? (
-            <ErrorBlock error={config.error} title={`Could not read the configuration of ${site}`} onRetry={() => void config.refetch()} retrying={config.isRefetching} />
+            <ErrorBlock error={config.error} title={t("domains.siteConfigPage.couldNotReadConfig", { site })} onRetry={() => void config.refetch()} retrying={config.isRefetching} />
           ) : config.data === undefined ? (
             <EditorSkeleton />
           ) : (
             <div className="flex flex-col gap-3">
               {info.data && info.data.server_names.length > 0 ? (
                 <p className="flex min-w-0 items-center gap-2 text-12 text-fg-muted">
-                  <span className="shrink-0">Serves</span>
+                  <span className="shrink-0">{t("domains.siteConfigPage.servesLabel")}</span>
                   <span translate="no" className="mono truncate text-fg" title={info.data.server_names.join(", ")}>
                     {info.data.server_names.join(", ")}
                   </span>
                 </p>
               ) : null}
               <p id={pathId} className="flex min-w-0 items-center gap-2 text-12 text-fg-muted">
-                <span className="shrink-0">File</span>
+                <span className="shrink-0">{t("domains.siteConfigPage.fileLabel")}</span>
                 <code translate="no" className="truncate text-fg" title={config.data.path}>
                   {config.data.path}
                 </code>
@@ -304,14 +307,14 @@ export function SiteConfigPage({ site }: { site: string }) {
                 ref={editor}
                 value={text}
                 onChange={onChange}
-                label={`Configuration of ${site}`}
+                label={t("domains.siteConfigPage.configurationOfAriaLabel", { site })}
                 describedBy={describedBy}
                 errorLine={outcome?.kind === "rejected" ? outcome.rejection.line : outcome?.kind === "tested" ? outcome.line : null}
                 disabled={save.isPending || test.isPending}
               />
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p role="status" className="text-13 text-fg-muted">
-                  {dirty ? "Unsaved changes" : outcome?.kind === "saved" ? "" : "No changes"}
+                  {dirty ? t("domains.siteConfigPage.unsavedChanges") : outcome?.kind === "saved" ? "" : t("domains.siteConfigPage.noChanges")}
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <Button
@@ -323,13 +326,13 @@ export function SiteConfigPage({ site }: { site: string }) {
                       setOutcome(null);
                     }}
                   >
-                    Discard changes
+                    {t("domains.discardChanges")}
                   </Button>
                   <Button variant="secondary" icon={<FlaskConical aria-hidden="true" />} disabled={save.isPending} loading={test.isPending} onClick={() => test.mutate(text)}>
-                    Test
+                    {t("domains.siteConfigPage.test")}
                   </Button>
                   <Button variant="primary" disabled={!dirty || test.isPending} loading={save.isPending} onClick={() => save.mutate(text)}>
-                    Test and save
+                    {t("domains.siteConfigPage.testAndSave")}
                   </Button>
                 </div>
               </div>
@@ -340,7 +343,7 @@ export function SiteConfigPage({ site }: { site: string }) {
                   <TestPassed webserver={webserver} output={outcome.output} id={outcomeId} />
                 ) : (
                   <Rejected
-                    rejection={{ summary: `${webserver} rejected this configuration`, output: outcome.output, line: outcome.line }}
+                    rejection={{ summary: t("domains.siteConfigPage.webserverRejectedThisConfiguration", { webserver }), output: outcome.output, line: outcome.line }}
                     id={outcomeId}
                     onGoToLine={(line) => editor.current?.goToLine(line)}
                   />
@@ -352,35 +355,35 @@ export function SiteConfigPage({ site }: { site: string }) {
                     isApiError(reload.error) && reload.error.output ? (
                       <ReloadFailed webserver={webserver} output={reload.error.output} />
                     ) : (
-                      <ErrorBlock live error={reload.error} title={`${webserver} was not reloaded`} />
+                      <ErrorBlock live error={reload.error} title={t("domains.siteConfigPage.reloadNotReloadedTitle", { webserver })} />
                     )
                   ) : null}
                 </>
               ) : save.isError && !(save.error instanceof ElevationCancelledError) ? (
-                <ErrorBlock live error={save.error} title="The configuration was not saved" />
+                <ErrorBlock live error={save.error} title={t("domains.siteConfigPage.configNotSaved")} />
               ) : save.error instanceof ElevationCancelledError ? (
                 <p role="status" className="text-13 text-fg-muted">{save.error.detail}</p>
               ) : test.isError ? (
-                <ErrorBlock live error={test.error} title="The configuration could not be tested" />
+                <ErrorBlock live error={test.error} title={t("domains.siteConfigPage.configNotTested")} />
               ) : null}
             </div>
           )}
         </Section>
-        <CommandHint command={`wasm site show ${site}`} label="From a terminal" />
+        <CommandHint command={`wasm site show ${site}`} label={t("domains.fromTerminal")} />
       </Sections>
 
       <ConfirmDialog
         open={deleting}
         onOpenChange={setDeleting}
-        title={`Delete ${site}`}
-        description="Its nginx and Apache configuration is removed, whichever exists, together with its certificate, and the web server reloads without it. An app behind it keeps running but is no longer reachable by this name."
+        title={t("domains.deleteNamedTitle", { name: site })}
+        description={t("domains.deleteSiteDescription")}
         confirmText={site}
-        actionLabel="Delete site"
+        actionLabel={t("domains.deleteSite")}
         onConfirm={async () => {
           await request("delete", "/api/sites/{domain}", { params: { domain: site } });
           gone.current = true;
           refresh(site);
-          toast.success(`Deleted ${site}`);
+          toast.success(t("domains.sitesTab.deletedToast", { site }));
           void navigate({ to: "/domains", search: { tab: "sites" } });
         }}
       />
@@ -390,13 +393,13 @@ export function SiteConfigPage({ site }: { site: string }) {
           if (!open) blocker.reset?.();
         }}
         size="sm"
-        title="Leave without saving?"
-        description={`Your changes to the configuration of ${site} have not been saved or tested. Leaving discards them.`}
+        title={t("domains.siteConfigPage.leaveDialogTitle")}
+        description={t("domains.siteConfigPage.leaveDialogDescription", { site })}
         footer={
           <>
-            <Button onClick={() => blocker.reset?.()}>Keep editing</Button>
+            <Button onClick={() => blocker.reset?.()}>{t("domains.siteConfigPage.keepEditing")}</Button>
             <Button variant="danger" onClick={() => blocker.proceed?.()}>
-              Discard changes
+              {t("domains.discardChanges")}
             </Button>
           </>
         }

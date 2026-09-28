@@ -1,6 +1,8 @@
 import { ExternalLink } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { getLocale } from "../../app/locale";
+import { translate } from "../../i18n";
 import { isHttpUrl } from "../../lib/url";
 
 /**
@@ -31,7 +33,7 @@ export function sourceLink(source: string | null): ReactNode {
     >
       <span className="truncate">{source}</span>
       <ExternalLink aria-hidden="true" className="size-3.5 shrink-0" />
-      <span className="sr-only"> (opens in a new tab)</span>
+      <span className="sr-only"> {translate(getLocale(), "appPages.sourceLink.opensInNewTab")}</span>
     </a>
   );
 }

@@ -5,7 +5,14 @@
  * The bounds and the words mirror `wasm.managers.service_manager.ResourceLimits.validate`,
  * which is the check that counts; this one only saves a round trip. An empty field removes the
  * limit, exactly as a null does in the request.
+ *
+ * `parseLimits` takes a trailing `locale`, defaulting to the active one: a test calls it
+ * directly and reads English, a component passes `t.locale`.
  */
+
+import { getLocale } from "../../../app/locale";
+import type { Locale } from "../../../app/locale";
+import { translate } from "../../../i18n/translate";
 
 /** MemoryMax below this does not leave a runtime room to start (MIN_MEMORY_MB). */
 export const MIN_MEMORY_MB = 64;
@@ -42,34 +49,39 @@ function whole(text: string): number | null | undefined {
   return Number.parseInt(trimmed, 10);
 }
 
-const NOT_A_NUMBER = "Enter a whole number, or leave it empty for no limit.";
-
 /**
  * Reads the form, with the backend's own wording for a value out of range.
  *
  * @param cores CPUs of the machine, when known; CPUQuota runs to 100% per CPU.
  */
-export function parseLimits(draft: LimitsDraft, cores: number | null): ParsedLimits {
+export function parseLimits(draft: LimitsDraft, cores: number | null, locale: Locale = getLocale()): ParsedLimits {
   const errors: LimitsErrors = {};
+  const notANumber = translate(locale, "appSettings.limits.notANumber");
 
   const memory = whole(draft.memory);
-  if (memory === undefined) errors.memory = NOT_A_NUMBER;
-  else if (memory !== null && memory < MIN_MEMORY_MB)
-    errors.memory = `A memory limit of ${String(memory)}M is too small. Allow at least ${String(MIN_MEMORY_MB)}M, or no limit.`;
+  if (memory === undefined) errors.memory = notANumber;
+  else if (memory !== null && memory < MIN_MEMORY_MB) {
+    errors.memory = translate(locale, "appSettings.limits.memoryTooSmall", { value: memory, min: MIN_MEMORY_MB });
+  }
 
   const cpu = whole(draft.cpu);
-  if (cpu === undefined) errors.cpu = NOT_A_NUMBER;
+  if (cpu === undefined) errors.cpu = notANumber;
   else if (cpu !== null && (cpu < 1 || (cores !== null && cpu > 100 * cores))) {
     errors.cpu =
       cores === null
-        ? `A CPU quota of ${String(cpu)}% is not possible. Use at least 1%.`
-        : `A CPU quota of ${String(cpu)}% is not possible here. This machine has ${String(cores)} CPU${cores === 1 ? "" : "s"}: use 1% to ${String(100 * cores)}%.`;
+        ? translate(locale, "appSettings.limits.cpuImpossibleUnknown", { value: cpu })
+        : translate(locale, "appSettings.limits.cpuImpossibleKnown", {
+            value: cpu,
+            cores: translate(locale, "appSettings.limits.cpuCores", { count: cores }),
+            max: 100 * cores,
+          });
   }
 
   const tasks = whole(draft.tasks);
-  if (tasks === undefined) errors.tasks = NOT_A_NUMBER;
-  else if (tasks !== null && tasks < MIN_TASKS)
-    errors.tasks = `A limit of ${String(tasks)} tasks is too small. Allow at least ${String(MIN_TASKS)}, or no limit.`;
+  if (tasks === undefined) errors.tasks = notANumber;
+  else if (tasks !== null && tasks < MIN_TASKS) {
+    errors.tasks = translate(locale, "appSettings.limits.tasksTooSmall", { value: tasks, min: MIN_TASKS });
+  }
 
   return {
     values: {

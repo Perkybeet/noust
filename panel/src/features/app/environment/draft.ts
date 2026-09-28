@@ -6,8 +6,14 @@
  * replaces the whole file, so a copy edited in the page would write the placeholders back.
  * Operations are replayed instead: over the masked map to draw the table, and over the
  * unmasked map, read fresh when the operator reviews, to build exactly what is saved.
+ *
+ * `describeCounts` takes a trailing `locale`, defaulting to the active one: a test calls it
+ * directly and reads English, a component passes `t.locale`.
  */
 
+import { getLocale } from "../../../app/locale";
+import type { Locale } from "../../../app/locale";
+import { translate } from "../../../i18n/translate";
 
 export type DraftOp =
   | { kind: "set"; name: string; value: string }
@@ -125,11 +131,11 @@ export function isMasked(value: string): boolean {
 }
 
 /** "1 added, 2 changed" from counts, leaving out the zeros. */
-export function describeCounts(counts: { added: number; changed: number; removed: number }): string {
+export function describeCounts(counts: { added: number; changed: number; removed: number }, locale: Locale = getLocale()): string {
   const parts = [
-    counts.added > 0 ? `${String(counts.added)} added` : null,
-    counts.changed > 0 ? `${String(counts.changed)} changed` : null,
-    counts.removed > 0 ? `${String(counts.removed)} removed` : null,
+    counts.added > 0 ? translate(locale, "environment.draft.countAdded", { count: counts.added }) : null,
+    counts.changed > 0 ? translate(locale, "environment.draft.countChanged", { count: counts.changed }) : null,
+    counts.removed > 0 ? translate(locale, "environment.draft.countRemoved", { count: counts.removed }) : null,
   ].filter((part): part is string => part !== null);
   return parts.join(", ");
 }

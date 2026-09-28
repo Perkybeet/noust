@@ -1,6 +1,7 @@
 import type { ApiError } from "../../api/errors";
 import { Button } from "../../components/ui/Button";
 import { Dialog } from "../../components/ui/Dialog";
+import { useT } from "../../i18n";
 
 export interface NothingNewDialogProps {
   domain: string;
@@ -20,6 +21,7 @@ export interface NothingNewDialogProps {
  * paraphrased.
  */
 export function NothingNewDialog({ domain, refusal, pending, onRebuild, onClose }: NothingNewDialogProps) {
+  const t = useT();
   return (
     <Dialog
       open={refusal !== null}
@@ -27,15 +29,15 @@ export function NothingNewDialog({ domain, refusal, pending, onRebuild, onClose 
         if (!open && !pending) onClose();
       }}
       size="sm"
-      title={`Nothing new to deploy to ${domain}`}
+      title={t("apps.nothingNew.title", { domain })}
       description={refusal?.detail}
       footer={
         <>
           <Button disabled={pending} onClick={onClose}>
-            Cancel
+            {t("apps.nothingNew.cancel")}
           </Button>
           <Button variant="primary" loading={pending} onClick={onRebuild}>
-            Rebuild anyway
+            {t("apps.nothingNew.rebuildAnyway")}
           </Button>
         </>
       }

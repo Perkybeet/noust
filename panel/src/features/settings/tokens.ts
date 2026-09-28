@@ -4,6 +4,7 @@
  */
 
 import type { ApiToken } from "../../api/queries/auth";
+import type { T } from "../../i18n";
 import { formatDate } from "../../lib/format";
 
 export type TokenScope = "read" | "deploy" | "admin";
@@ -19,23 +20,13 @@ export interface ScopeOption {
  * The scopes, weakest first. Each includes everything the one before it can do; the policy
  * itself is the backend's (wasm.web.auth.required_scope), this only says it in words.
  */
-export const SCOPES: readonly ScopeOption[] = [
-  {
-    value: "read",
-    label: "Read",
-    description: "Looks, never changes: applications, deployments, logs, metrics and the state of the machine.",
-  },
-  {
-    value: "deploy",
-    label: "Deploy",
-    description: "Read, plus create and update applications and roll them back. The one for CI.",
-  },
-  {
-    value: "admin",
-    label: "Admin",
-    description: "Everything the console can do, including deleting, editing configuration and managing tokens.",
-  },
-];
+export function scopes(t: T): readonly ScopeOption[] {
+  return [
+    { value: "read", label: t("settings.tokens.scopes.read.label"), description: t("settings.tokens.scopes.read.description") },
+    { value: "deploy", label: t("settings.tokens.scopes.deploy.label"), description: t("settings.tokens.scopes.deploy.description") },
+    { value: "admin", label: t("settings.tokens.scopes.admin.label"), description: t("settings.tokens.scopes.admin.description") },
+  ];
+}
 
 export interface ExpiryOption {
   value: string;
@@ -44,13 +35,15 @@ export interface ExpiryOption {
   hours: number | null;
 }
 
-export const EXPIRY_OPTIONS: readonly ExpiryOption[] = [
-  { value: "7", label: "7 days", hours: 7 * 24 },
-  { value: "30", label: "30 days", hours: 30 * 24 },
-  { value: "90", label: "90 days", hours: 90 * 24 },
-  { value: "365", label: "1 year", hours: 365 * 24 },
-  { value: "never", label: "No expiry", hours: null },
-];
+export function expiryOptions(t: T): readonly ExpiryOption[] {
+  return [
+    { value: "7", label: t("settings.tokens.expiry.7"), hours: 7 * 24 },
+    { value: "30", label: t("settings.tokens.expiry.30"), hours: 30 * 24 },
+    { value: "90", label: t("settings.tokens.expiry.90"), hours: 90 * 24 },
+    { value: "365", label: t("settings.tokens.expiry.365"), hours: 365 * 24 },
+    { value: "never", label: t("settings.tokens.expiry.never"), hours: null },
+  ];
+}
 
 export const DEFAULT_EXPIRY = "90";
 
@@ -72,9 +65,9 @@ export function sortTokens(tokens: readonly ApiToken[], now: number = Date.now()
   );
 }
 
-const DAY = { format: (date: Date): string => formatDate(date) };
-
 /** "expires Dec 24, 2026", or "never expires", for a Unix timestamp or null. */
-export function expiryPhrase(expiresAt: number | null): string {
-  return expiresAt === null ? "never expires" : `expires ${DAY.format(new Date(expiresAt * 1000))}`;
+export function expiryPhrase(t: T, expiresAt: number | null): string {
+  return expiresAt === null
+    ? t("settings.tokens.expiry.neverExpires")
+    : t("settings.tokens.expiry.expires", { date: formatDate(new Date(expiresAt * 1000), {}, t.locale) });
 }

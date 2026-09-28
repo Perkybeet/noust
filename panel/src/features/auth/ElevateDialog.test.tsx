@@ -1,9 +1,10 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { ElevationCancelledError, api } from "../../api/client";
 import { authKeys } from "../../api/queries/auth";
 import type { SessionInfo } from "../../api/queries/auth";
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
@@ -105,6 +106,20 @@ describe("Confirm it's you", () => {
     const dialog = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await expectNoAxeViolations(dialog);
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await deletion;
+  });
+
+  it("speaks Spanish once the language switches", async () => {
+    const { user } = await consoleOn(backendNeedingElevation());
+    const deletion = api("DELETE", "/api/apps/shop.example.com").catch(() => undefined);
+    await act(async () => {
+      await setLocale("es");
+    });
+    const dialog = await screen.findByRole("dialog", { name: "Confirma que eres tú" });
+    expect(within(dialog).getByLabelText("Código de autenticación")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Confirmar" })).toBeInTheDocument();
+    await expectNoAxeViolations(dialog);
+    await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
     await deletion;
   });
 });

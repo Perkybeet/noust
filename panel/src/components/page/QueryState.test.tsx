@@ -1,8 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "../../api/errors";
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { ErrorBlock, QueryState } from "./QueryState";
 import type { QueryLike } from "./QueryState";
@@ -89,6 +90,14 @@ describe("QueryState", () => {
     expect(screen.getByText(/Could not refresh applications/)).toBeInTheDocument();
   });
 
+  it("speaks Spanish once the language switches", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    renderState(query({ isPending: true }));
+    expect(screen.getByText("Cargando applications")).toHaveClass("sr-only");
+  });
+
   it("has no accessibility violations in any state", async () => {
     const { container, rerender } = renderState(query({ isPending: true }));
     await expectNoAxeViolations(container);
@@ -146,5 +155,16 @@ describe("ErrorBlock", () => {
   it("shows nothing extra when the error carries no output", () => {
     render(<ErrorBlock error={FAILURE} title="Restart failed" />);
     expect(screen.queryByText(": the command's own output", { exact: false })).not.toBeInTheDocument();
+  });
+
+  it("labels its retry button and system-output regions in Spanish", async () => {
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(192);
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(900);
+    await act(async () => {
+      await setLocale("es");
+    });
+    render(<ErrorBlock error={FAILURE} title="Restart failed" onRetry={() => undefined} />);
+    expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Restart failed: lo que dijo el sistema" })).toBeInTheDocument();
   });
 });

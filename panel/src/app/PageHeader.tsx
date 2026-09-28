@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { useT } from "../i18n";
 import { useDocumentTitle } from "./documentTitle";
 
 export interface Breadcrumb {
@@ -23,13 +24,14 @@ export interface PageHeaderProps {
  * The h1 takes focus after a navigation, so a screen reader hears the new page's name first.
  */
 export function PageHeader({ title, description, actions, breadcrumbs }: PageHeaderProps) {
+  const t = useT();
   useDocumentTitle(title);
   return (
     <header className="mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
       {/* 240px before the actions wrap under: a phone keeps a lone menu button beside the title. */}
       <div className="min-w-0 flex-1 basis-60">
         {breadcrumbs && breadcrumbs.length > 0 ? (
-          <nav aria-label="Breadcrumb" className="mb-2">
+          <nav aria-label={t("shell.pageHeader.breadcrumb")} className="mb-2">
             <ol className="flex flex-wrap items-center gap-1 text-13 text-fg-muted">
               {breadcrumbs.map((crumb) => (
                 <li key={crumb.to} className="flex items-center gap-1">

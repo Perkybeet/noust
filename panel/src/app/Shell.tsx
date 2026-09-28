@@ -18,6 +18,7 @@ import { useConsoleCommands } from "./useConsoleCommands";
 
 /** The first focusable element of every page: straight past the navigation to the content. */
 function SkipLink() {
+  const t = useT();
   const skip = (event: MouseEvent<HTMLAnchorElement>): void => {
     event.preventDefault();
     const main = document.getElementById("main");
@@ -30,7 +31,7 @@ function SkipLink() {
       onClick={skip}
       className="fixed top-2 left-2 z-[70] -translate-y-[200%] rounded-control bg-surface-raised px-3 py-2 text-13 font-medium text-fg opacity-0 shadow-overlay focus:translate-y-0 focus:opacity-100 focus-visible:outline-2 focus-visible:outline-focus"
     >
-      Skip to content
+      {t("shell.skipToContent")}
     </a>
   );
 }
@@ -105,7 +106,7 @@ export function Shell() {
       ...navShortcuts,
       {
         keys: ["g", "d"],
-        description: "Go to deployments, or activity outside an app",
+        description: t("shell.shortcuts.goToDeployments"),
         run: () => {
           const match = APP_PATH.exec(router.state.location.pathname);
           const domain = match?.[1];
@@ -118,14 +119,14 @@ export function Shell() {
       },
       {
         keys: ["/"],
-        description: "Search this page, or everything",
+        description: t("shell.shortcuts.searchPage"),
         run: () => {
           const search = document.querySelector<HTMLElement>("main [data-page-search]");
           if (search) search.focus();
           else openPalette();
         },
       },
-      { keys: ["?"], description: "Show keyboard shortcuts", run: openShortcuts },
+      { keys: ["?"], description: t("shell.shortcuts.showShortcuts"), run: openShortcuts },
     ];
   }, [navigate, router, openPalette, openShortcuts, t]);
 
@@ -166,7 +167,7 @@ export function Shell() {
       <Drawer
         open={navOpen}
         onOpenChange={setNavOpen}
-        title="Menu"
+        title={t("shell.menu.title")}
         finalFocus={!menuNavigated}
       >
         <div className="flex min-h-full flex-col justify-between gap-8">

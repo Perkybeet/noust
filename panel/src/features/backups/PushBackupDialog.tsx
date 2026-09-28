@@ -9,6 +9,7 @@ import { Button } from "../../components/ui/Button";
 import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
 import { Select } from "../../components/ui/Select";
+import { useT } from "../../i18n";
 import { useBackupActions } from "./useBackupActions";
 
 export interface PushBackupDialogProps {
@@ -19,6 +20,7 @@ export interface PushBackupDialogProps {
 
 /** Uploads a backup already on this machine to a remote destination, as a background job. */
 export function PushBackupDialog({ backup, open, onOpenChange }: PushBackupDialogProps) {
+  const t = useT();
   const formId = useId();
   const destinations = useQuery({ ...backupDestinationsQuery(), enabled: open });
   const [destination, setDestination] = useState("");
@@ -46,34 +48,34 @@ export function PushBackupDialog({ backup, open, onOpenChange }: PushBackupDialo
       open={open}
       onOpenChange={close}
       size="sm"
-      title={`Copy ${backup.backup_id}`}
-      description="Uploads this backup to a remote destination over rclone, as a background job."
+      title={t("backups.pushDialog.title", { id: backup.backup_id })}
+      description={t("backups.pushDialog.description")}
       footer={
         <>
           <Button disabled={push.isPending} onClick={() => close(false)}>
-            Cancel
+            {t("backups.common.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={push.isPending} disabled={destination === ""}>
-            Copy
+            {t("backups.pushDialog.submit")}
           </Button>
         </>
       }
     >
       <form id={formId} onSubmit={submit} className="flex flex-col gap-4">
-        <Field label="Destination" nativeLabel={false}>
+        <Field label={t("backups.fields.destination")} nativeLabel={false}>
           <Select
-            aria-label="Destination"
+            aria-label={t("backups.fields.destination")}
             value={destination}
             onValueChange={setDestination}
-            placeholder={destinations.isPending ? "Loading destinations..." : "Choose a destination"}
+            placeholder={destinations.isPending ? t("backups.fields.loadingDestinations") : t("backups.fields.chooseDestination")}
             options={options}
             disabled={destinations.isPending || options.length === 0}
           />
         </Field>
         {!destinations.isPending && options.length === 0 ? (
-          <p className="text-13 text-fg-muted">No destinations yet. Add one under Destinations, above.</p>
+          <p className="text-13 text-fg-muted">{t("backups.pushDialog.noDestinations")}</p>
         ) : null}
-        {push.isError ? <ErrorBlock live compact error={push.error} title="The copy was not queued" /> : null}
+        {push.isError ? <ErrorBlock live compact error={push.error} title={t("backups.pushDialog.error")} /> : null}
       </form>
     </Dialog>
   );

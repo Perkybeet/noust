@@ -1,7 +1,8 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -89,6 +90,17 @@ describe("ConfirmDialog", () => {
   it("has no accessibility violations when open", async () => {
     setup(() => Promise.resolve());
     await open();
+    await expectNoAxeViolations(document.body);
+  });
+
+  it("speaks Spanish once the language switches", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    setup(() => Promise.resolve());
+    await open();
+    expect(screen.getByRole("textbox", { name: /Escribe example.com para confirmar/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancelar" })).toBeInTheDocument();
     await expectNoAxeViolations(document.body);
   });
 });

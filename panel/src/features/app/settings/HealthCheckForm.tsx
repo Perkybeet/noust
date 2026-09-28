@@ -14,9 +14,10 @@ import { Button } from "../../../components/ui/Button";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { toast } from "../../../components/ui/toast";
+import { useT } from "../../../i18n";
 import { reportActionError } from "../../apps/useAppActions";
 import { useConfirmItsYou } from "../useDeleteApp";
-import { HEALTH_DEFAULTS, effectiveHealth, healthDraftOf, healthFieldOf, parseHealth, sameHealth } from "./healthCheck";
+import { HEALTH_DEFAULTS, HEALTH_TIMEOUT_MAX, HEALTH_TIMEOUT_MIN, effectiveHealth, healthDraftOf, healthFieldOf, parseHealth, sameHealth } from "./healthCheck";
 import type { HealthDraft, HealthErrors } from "./healthCheck";
 import { PANEL } from "./panel";
 
@@ -26,20 +27,31 @@ const EMPTY: HealthDraft = { path: "", expect: "", timeout: "" };
 
 /** What the gate asks now, each value marked when it is the default. */
 function Effective({ app }: { app: App }) {
-  const now = effectiveHealth(app);
-  const mark = (isDefault: boolean) => (isDefault ? <span className="text-fg-faint"> (default)</span> : null);
+  const t = useT();
+  const now = effectiveHealth(app, t.locale);
+  const mark = (isDefault: boolean) => (isDefault ? <span className="text-fg-faint"> ({t("appSettings.healthCheck.default")})</span> : null);
   return (
     <p className="text-12 text-pretty text-fg-muted">
-      {"Now: "}
-      <span translate="no" className="mono text-fg">{`GET ${now.path}`}</span>
-      {mark(now.defaults.path)}
-      {", passes on "}
-      <span className="text-fg">{now.expect}</span>
-      {mark(now.defaults.expect)}
-      {", within "}
-      <span className="mono text-fg">{`${String(now.timeout)}s`}</span>
-      {mark(now.defaults.timeout)}
-      .
+      {t.rich("appSettings.healthCheck.now", {
+        path: (
+          <>
+            <span translate="no" className="mono text-fg">{`GET ${now.path}`}</span>
+            {mark(now.defaults.path)}
+          </>
+        ),
+        expect: (
+          <>
+            <span className="text-fg">{now.expect}</span>
+            {mark(now.defaults.expect)}
+          </>
+        ),
+        timeout: (
+          <>
+            <span className="mono text-fg">{`${String(now.timeout)}s`}</span>
+            {mark(now.defaults.timeout)}
+          </>
+        ),
+      })}
     </p>
   );
 }
@@ -52,6 +64,7 @@ function Effective({ app }: { app: App }) {
  * the next activation uses them.
  */
 export function HealthCheckForm({ app }: { app: App }) {
+  const t = useT();
   const domain = app.domain;
   const headingId = useId();
   const queryClient = useQueryClient();
@@ -70,7 +83,7 @@ export function HealthCheckForm({ app }: { app: App }) {
     if (sameHealth(draft, baseline)) setDraft(current);
   }
 
-  const parsed = parseHealth(draft);
+  const parsed = parseHealth(draft, t.locale);
   const dirty = !sameHealth(draft, current);
 
   const save = useMutation({
@@ -84,7 +97,7 @@ export function HealthCheckForm({ app }: { app: App }) {
       );
       void queryClient.invalidateQueries({ queryKey: appKeys.detail(domain) });
       // The toast is announced; saying it again would read it twice.
-      toast.success(`Saved the health check of ${domain}`);
+      toast.success(t("appSettings.healthCheck.savedToast", { domain }));
     },
   });
 
@@ -125,7 +138,7 @@ export function HealthCheckForm({ app }: { app: App }) {
         save.mutate();
       },
       (error: unknown) => {
-        if (!(error instanceof ElevationCancelledError)) reportActionError(`The health check of ${domain} was not saved`, error);
+        if (!(error instanceof ElevationCancelledError)) reportActionError(t("appSettings.healthCheck.notSavedFor", { domain }), error);
       },
     );
   };
@@ -134,15 +147,16 @@ export function HealthCheckForm({ app }: { app: App }) {
     <section aria-labelledby={headingId} className={`${PANEL} flex flex-col gap-4 px-4 py-4 sm:px-5`}>
       <header className="flex flex-col gap-1">
         <h3 id={headingId} className="text-14 font-medium text-fg">
-          Health check
+          {t("appSettings.healthCheck.title")}
         </h3>
-        <p className="text-13 text-pretty text-fg-muted">
-          What a new version must answer before it serves. An empty field is the default. Nothing restarts: the next deploy, update or
-          rollback uses it.
-        </p>
+        <p className="text-13 text-pretty text-fg-muted">{t("appSettings.healthCheck.description")}</p>
       </header>
       <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-        <Field label="Path" description={`Requested on 127.0.0.1 at the app's port. Default ${HEALTH_DEFAULTS.path}.`} error={errorOf("path")}>
+        <Field
+          label={t("appSettings.healthCheck.pathLabel")}
+          description={t("appSettings.healthCheck.pathDescription", { default: HEALTH_DEFAULTS.path })}
+          error={errorOf("path")}
+        >
           <Input
             mono
             autoComplete="off"
@@ -155,21 +169,21 @@ export function HealthCheckForm({ app }: { app: App }) {
           />
         </Field>
         <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_9rem]">
-          <Field
-            label="Accepted statuses"
-            description="Such as 200-399 or 200,204. A redirect is not followed. Default: any status below 500."
-            error={errorOf("expect")}
-          >
+          <Field label={t("appSettings.healthCheck.expectLabel")} description={t("appSettings.healthCheck.expectDescription")} error={errorOf("expect")}>
             <Input
               mono
               autoComplete="off"
-              placeholder="Any below 500"
+              placeholder={t("appSettings.healthCheck.expectPlaceholder")}
               value={draft.expect}
               onValueChange={edit("expect")}
               onBlur={blur("expect")}
             />
           </Field>
-          <Field label="Timeout" description={`5 to 600. Default ${String(HEALTH_DEFAULTS.timeout)}.`} error={errorOf("timeout")}>
+          <Field
+            label={t("appSettings.healthCheck.timeoutLabel")}
+            description={t("appSettings.healthCheck.timeoutDescription", { min: HEALTH_TIMEOUT_MIN, max: HEALTH_TIMEOUT_MAX, default: HEALTH_DEFAULTS.timeout })}
+            error={errorOf("timeout")}
+          >
             <Input
               mono
               inputMode="numeric"
@@ -183,16 +197,20 @@ export function HealthCheckForm({ app }: { app: App }) {
           </Field>
         </div>
 
-        {unplaced ? <ErrorBlock live compact error={save.error} title="The health check was not saved" /> : null}
+        {unplaced ? <ErrorBlock live compact error={save.error} title={t("appSettings.healthCheck.saveFailed")} /> : null}
         {saved !== null ? (
           <p role="status" className="flex items-start gap-2 rounded-control border border-ok/40 bg-ok-soft px-3 py-2.5 text-13 text-fg">
             <CircleCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-ok" />
             <span>
-              {"Saved. The next activation requests "}
-              <span translate="no" className="mono text-12">
-                {saved.effective_path}
-              </span>
-              {` and passes on ${saved.effective_expect} within ${String(saved.effective_timeout)}s.`}
+              {t.rich("appSettings.healthCheck.saved", {
+                path: (
+                  <span translate="no" className="mono text-12">
+                    {saved.effective_path}
+                  </span>
+                ),
+                expect: saved.effective_expect,
+                timeout: `${String(saved.effective_timeout)}s`,
+              })}
             </span>
           </p>
         ) : null}
@@ -209,28 +227,26 @@ export function HealthCheckForm({ app }: { app: App }) {
                 save.reset();
               }}
             >
-              Use defaults
+              {t("appSettings.healthCheck.useDefaults")}
             </Button>
             <Button type="submit" variant="primary" disabled={!dirty} loading={save.isPending}>
-              Save
+              {t("appSettings.save")}
             </Button>
           </div>
         </div>
       </form>
-      <CommandHint command={`wasm app health ${domain} --path /healthz --expect 200-299 --timeout 60`} label="From a terminal" />
+      <CommandHint command={`wasm app health ${domain} --path /healthz --expect 200-299 --timeout 60`} label={t("appSettings.fromTerminal")} />
     </section>
   );
 }
 
 /** A static site's check is its files; there is nothing to configure. */
 export function StaticHealthNote() {
+  const t = useT();
   return (
     <div className={`${PANEL} flex flex-col gap-1 px-4 py-4`}>
-      <h3 className="text-14 font-medium text-fg">Health check</h3>
-      <p className="text-13 text-pretty text-fg-muted">
-        A static site is served as files by the web server, with no process of its own to ask. Its check is that the directory it
-        serves has an index.html, so there is nothing to configure here.
-      </p>
+      <h3 className="text-14 font-medium text-fg">{t("appSettings.healthCheck.title")}</h3>
+      <p className="text-13 text-pretty text-fg-muted">{t("appSettings.healthCheck.staticNote")}</p>
     </div>
   );
 }

@@ -7,6 +7,8 @@ import { BACKDROP, MODAL_POPUP } from "../components/ui/Dialog";
 import { Kbd } from "../components/ui/Kbd";
 import { StatusPill } from "../components/ui/StatusPill";
 import type { Status } from "../components/ui/StatusPill";
+import { useT } from "../i18n";
+import type { PlainKey } from "../i18n";
 import { cx } from "../lib/cx";
 
 export type CommandGroup = "Pages" | "Applications" | "Actions";
@@ -37,6 +39,13 @@ export interface CommandResults {
 }
 
 const GROUP_ORDER: readonly CommandGroup[] = ["Pages", "Applications", "Actions"];
+
+/** The group identifiers stay English (they are compared, not shown); this is what renders them. */
+const GROUP_LABEL: Record<CommandGroup, PlainKey> = {
+  Pages: "shell.commandGroups.pages",
+  Applications: "shell.commandGroups.applications",
+  Actions: "shell.commandGroups.actions",
+};
 
 /** With nothing typed, a long list of applications would push actions off screen. */
 const BROWSE_LIMIT: Partial<Record<CommandGroup, number>> = { Applications: 6 };
@@ -96,6 +105,7 @@ function PaletteBody({
   onRun: (command: Command) => void;
   inputRef: RefObject<HTMLInputElement | null>;
 }) {
+  const t = useT();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const base = useId().replace(/[^a-zA-Z0-9_-]/g, "");
@@ -135,7 +145,7 @@ function PaletteBody({
           ref={inputRef}
           type="text"
           role="combobox"
-          aria-label="Search pages, applications and actions"
+          aria-label={t("shell.search.placeholder")}
           aria-expanded={flat.length > 0}
           aria-controls={flat.length > 0 ? listId : undefined}
           aria-activedescendant={activeId}
@@ -143,7 +153,7 @@ function PaletteBody({
           autoComplete="off"
           autoCapitalize="off"
           spellCheck={false}
-          placeholder="Search pages, applications and actions"
+          placeholder={t("shell.search.placeholder")}
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
@@ -159,13 +169,13 @@ function PaletteBody({
         <div
           id={listId}
           role="listbox"
-          aria-label="Results"
+          aria-label={t("shell.search.results")}
           className="max-h-[min(60vh,26rem)] min-h-0 overflow-y-auto p-1.5 scroll-thin"
         >
           {results.map((result) => (
             <div key={result.group} role="group" aria-labelledby={`${base}-${result.group}`} className="pb-1">
               <div id={`${base}-${result.group}`} aria-hidden="true" className="px-2 pt-2 pb-1 text-12 font-medium text-fg-faint">
-                {result.group}
+                {t(GROUP_LABEL[result.group])}
               </div>
               {result.items.map((command) => {
                 const position = positions.get(command) ?? 0;
@@ -218,7 +228,7 @@ function PaletteBody({
         </div>
       ) : (
         <p role="status" className="px-4 py-10 text-center text-13 text-fg-muted">
-          {`Nothing matches "${query.trim()}".`}
+          {t("shell.search.noMatches", { query: query.trim() })}
         </p>
       )}
 
@@ -226,15 +236,15 @@ function PaletteBody({
         <span className="flex items-center gap-1.5">
           <Kbd>↑</Kbd>
           <Kbd>↓</Kbd>
-          to move
+          {t("shell.search.moveHint")}
         </span>
         <span className="flex items-center gap-1.5">
           <Kbd>↵</Kbd>
-          to open
+          {t("shell.search.openHint")}
         </span>
         <span className="flex items-center gap-1.5">
           <Kbd>Esc</Kbd>
-          to close
+          {t("shell.search.closeHint")}
         </span>
       </div>
     </>
@@ -255,6 +265,7 @@ export interface CommandPaletteProps {
  * is announced through aria-activedescendant.
  */
 export function CommandPalette({ open, onOpenChange, commands, returnFocus }: CommandPaletteProps) {
+  const t = useT();
   const inputRef = useRef<HTMLInputElement>(null);
   const lastRun = useRef<Command["kind"] | null>(null);
 
@@ -291,7 +302,7 @@ export function CommandPalette({ open, onOpenChange, commands, returnFocus }: Co
             }}
             className={cx(MODAL_POPUP, "sm:max-w-[640px]")}
           >
-            <BaseDialog.Title className="sr-only">Search the console</BaseDialog.Title>
+            <BaseDialog.Title className="sr-only">{t("shell.search.dialogTitle")}</BaseDialog.Title>
             <PaletteBody commands={commands} onRun={run} inputRef={inputRef} />
           </BaseDialog.Popup>
         </BaseDialog.Viewport>

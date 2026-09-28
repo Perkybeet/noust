@@ -5,6 +5,7 @@ import { CommandHint } from "../../components/page/CommandHint";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 
 export interface SettingsSectionProps {
@@ -25,6 +26,7 @@ export interface SettingsSectionProps {
  */
 export function SettingsSection({ title, description, commands = [], children, className }: SettingsSectionProps) {
   const headingId = useId();
+  const t = useT();
   return (
     <section
       aria-labelledby={headingId}
@@ -37,7 +39,7 @@ export function SettingsSection({ title, description, commands = [], children, c
         <p className="max-w-[52ch] text-13 text-pretty text-fg-muted">{description}</p>
         {commands.length > 0 ? (
           <div className="mt-2 flex min-w-0 flex-col gap-1.5">
-            <span className="text-12 text-fg-faint">From a terminal</span>
+            <span className="text-12 text-fg-faint">{t("settings.shared.fromTerminal")}</span>
             {commands.map((command) => (
               <CommandHint key={command} command={command} />
             ))}
@@ -76,8 +78,9 @@ export function SettingsFormCard({
   errorTitle,
   onSubmit,
   onDiscard,
-  saveLabel = "Save changes",
+  saveLabel,
 }: SettingsFormCardProps) {
+  const t = useT();
   return (
     <form
       noValidate
@@ -93,19 +96,19 @@ export function SettingsFormCard({
           {dirty ? (
             <>
               <span aria-hidden="true" className="size-1.5 rounded-pill bg-warn" />
-              Unsaved changes
+              {t("settings.shared.unsavedChanges")}
             </>
           ) : null}
         </p>
         {dirty && !pending ? (
           <Button variant="ghost" onClick={onDiscard}>
-            Discard
+            {t("settings.shared.discard")}
           </Button>
         ) : null}
         {/* Quiet until there is something to save: a disabled accent button on every section
             would put colour on screen that means nothing. */}
         <Button type="submit" variant={dirty ? "primary" : "secondary"} disabled={!dirty} loading={pending}>
-          {saveLabel}
+          {saveLabel ?? t("settings.shared.saveChanges")}
         </Button>
       </footer>
     </form>

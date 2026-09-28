@@ -1,8 +1,10 @@
 import { CircleCheck, FolderOpen, GitBranch, GitCommitHorizontal, TriangleAlert } from "lucide-react";
 
 import { Badge } from "../../components/ui/Badge";
+import { useT } from "../../i18n";
+import { formatCount } from "../../lib/format";
 import { Suggestion } from "./Suggestion";
-import { sourceKind, typeName } from "./wizard";
+import { joinList, sourceKind, typeName } from "./wizard";
 import type { AppTypeOption, Inspection } from "./wizard";
 
 function Command({ step, argv, none }: { step: string; argv: string | null; none: string }) {
@@ -31,6 +33,7 @@ function Command({ step, argv, none }: { step: string; argv: string | null; none
  * inspection that did not say (an older backend) shows nothing rather than a guess.
  */
 function Verdict({ inspection }: { inspection: Inspection }) {
+  const t = useT();
   const verdict = inspection.verdict ?? null;
   const suggestion = inspection.suggestion ?? null;
   if (verdict === null && suggestion === null) return null;
@@ -51,7 +54,7 @@ function Verdict({ inspection }: { inspection: Inspection }) {
       <div className="flex min-w-0 flex-col gap-1.5">
         {verdict !== null ? (
           <p className="text-13 text-pretty text-fg">
-            {blocked ? <span className="sr-only">Not deployable as it is: </span> : null}
+            {blocked ? <span className="sr-only">{`${t("newApp.readout.notDeployable")} `}</span> : null}
             {verdict}
           </p>
         ) : null}
@@ -66,6 +69,7 @@ function Verdict({ inspection }: { inspection: Inspection }) {
  * detected type's deployer would run, exactly as it would run them.
  */
 export function InspectionReadout({ inspection, types, source }: { inspection: Inspection; types: readonly AppTypeOption[]; source: string }) {
+  const t = useT();
   const local = sourceKind(source) === "local";
   const keys = inspection.env_keys;
   const required = keys.filter((key) => key.required).length;
@@ -73,7 +77,7 @@ export function InspectionReadout({ inspection, types, source }: { inspection: I
   const others = inspection.detected_types.slice(1);
 
   return (
-    <section aria-label="What WASM found" className="overflow-hidden rounded-card border border-border bg-surface shadow-raised">
+    <section aria-label={t("newApp.readout.label")} className="overflow-hidden rounded-card border border-border bg-surface shadow-raised">
       <header className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border px-4 py-3">
         <span className="flex min-w-0 flex-1 basis-64 items-center gap-2">
           {local ? (
@@ -89,53 +93,53 @@ export function InspectionReadout({ inspection, types, source }: { inspection: I
           {inspection.branch ? (
             <Badge mono>
               <GitBranch aria-hidden="true" className="size-3" />
-              <span className="sr-only">Branch </span>
-              {inspection.branch}
+              <span className="sr-only">{t("newApp.readout.branch", { branch: inspection.branch })}</span>
+              <span aria-hidden="true">{inspection.branch}</span>
             </Badge>
           ) : null}
           {inspection.commit ? (
             <Badge mono>
               <GitCommitHorizontal aria-hidden="true" className="size-3" />
-              <span className="sr-only">Commit </span>
-              {inspection.commit}
+              <span className="sr-only">{t("newApp.readout.commit", { commit: inspection.commit })}</span>
+              <span aria-hidden="true">{inspection.commit}</span>
             </Badge>
           ) : inspection.detected_types.length > 0 ? (
-            <span className="text-12 text-fg-faint">Not a Git checkout</span>
+            <span className="text-12 text-fg-faint">{t("newApp.readout.notGit")}</span>
           ) : null}
         </span>
       </header>
       {inspection.detected_types.length === 0 ? (
-        <p className="px-4 py-3 text-13 text-pretty text-fg">
-          No type recognised this source. Choose one below: its deployer decides the install, build and start
-          commands when it runs.
-        </p>
+        <p className="px-4 py-3 text-13 text-pretty text-fg">{t("newApp.readout.noType")}</p>
       ) : (
         <div className="flex flex-col gap-3 px-4 py-3">
           <Verdict inspection={inspection} />
           <p className="text-13 text-pretty text-fg">
-            {`Looks like a ${typeName(types, inspection.app_type)} app`}
-            {inspection.package_manager ? (
-              <>
-                {" using "}
-                <code className="text-12">{inspection.package_manager}</code>
-              </>
-            ) : null}
+            {inspection.package_manager
+              ? t.rich("newApp.readout.looksLikeUsing", {
+                  type: typeName(types, inspection.app_type),
+                  manager: (
+                    <code translate="no" className="text-12">
+                      {inspection.package_manager}
+                    </code>
+                  ),
+                })
+              : t("newApp.readout.looksLike", { type: typeName(types, inspection.app_type) })}
             {/* The verdict names the other types itself, with what choosing one would mean. */}
             {others.length > 0 && !inspection.verdict ? (
-              <span className="text-fg-muted">{`. It also matches ${others.map((type) => typeName(types, type)).join(", ")}.`}</span>
-            ) : (
-              "."
-            )}
+              <span className="text-fg-muted">
+                {` ${t("newApp.readout.alsoMatches", { types: joinList(others.map((type) => typeName(types, type)), t.locale) })}`}
+              </span>
+            ) : null}
           </p>
           <dl className="flex flex-col rounded-control border border-border bg-bg-sunken px-3 py-1.5">
-            <Command step="Install" argv={inspection.install_command.join(" ")} none="Nothing to install" />
-            <Command step="Build" argv={inspection.build_command.join(" ")} none="Nothing to build" />
-            <Command step="Start" argv={inspection.start_command} none="No process: the web server serves the files" />
+            <Command step={t("newApp.readout.install")} argv={inspection.install_command.join(" ")} none={t("newApp.readout.nothingToInstall")} />
+            <Command step={t("newApp.readout.build")} argv={inspection.build_command.join(" ")} none={t("newApp.readout.nothingToBuild")} />
+            <Command step={t("newApp.readout.start")} argv={inspection.start_command} none={t("newApp.readout.noProcess")} />
           </dl>
           <p className="text-12 text-fg-muted">
             {keys.length === 0
-              ? "No .env.example, so no variables were proposed."
-              : `${String(keys.length)} ${keys.length === 1 ? "variable" : "variables"} in .env.example, ${String(required)} without a default, ${String(secrets)} that look secret.`}
+              ? t("newApp.readout.noExample")
+              : t("newApp.readout.variables", { count: keys.length, required: formatCount(required, t.locale), secrets: formatCount(secrets, t.locale) })}
           </p>
         </div>
       )}

@@ -7,6 +7,7 @@ import { GitPullRequestArrow, MousePointerClick, SquareTerminal } from "lucide-r
 import type { LucideIcon } from "lucide-react";
 
 import type { BadgeTone } from "../../../components/ui/Badge";
+import type { T } from "../../../i18n";
 
 export interface TriggerWords {
   label: string;
@@ -16,14 +17,17 @@ export interface TriggerWords {
 }
 
 /** `DeploymentTrigger`: what started a deploy. */
-const TRIGGERS: Readonly<Record<string, TriggerWords>> = {
-  webhook: { label: "Push", by: "a push to the repository", icon: GitPullRequestArrow },
-  panel: { label: "Console", by: "the console", icon: MousePointerClick },
-  cli: { label: "CLI", by: "the command line", icon: SquareTerminal },
-};
-
-export function triggerWords(trigger: string): TriggerWords {
-  return TRIGGERS[trigger] ?? { label: trigger, by: trigger, icon: SquareTerminal };
+export function triggerWords(t: T, trigger: string): TriggerWords {
+  switch (trigger) {
+    case "webhook":
+      return { label: t("appPages.deployments.words.trigger.webhook.label"), by: t("appPages.deployments.words.trigger.webhook.by"), icon: GitPullRequestArrow };
+    case "panel":
+      return { label: t("appPages.deployments.words.trigger.panel.label"), by: t("appPages.deployments.words.trigger.panel.by"), icon: MousePointerClick };
+    case "cli":
+      return { label: t("appPages.deployments.words.trigger.cli.label"), by: t("appPages.deployments.words.trigger.cli.by"), icon: SquareTerminal };
+    default:
+      return { label: trigger, by: trigger, icon: SquareTerminal };
+  }
 }
 
 export interface ReleaseBadge {
@@ -35,16 +39,21 @@ export interface ReleaseBadge {
  * `ReleaseStatus`, as a badge. Only the one serving and the one that failed are coloured:
  * they are the two an operator acts on; the rest are history.
  */
-const RELEASE_BADGES: Readonly<Record<string, ReleaseBadge>> = {
-  active: { label: "Serving", tone: "ok" },
-  failed: { label: "Failed", tone: "fail" },
-  rolled_back: { label: "Rolled back", tone: "neutral" },
-  superseded: { label: "Previous", tone: "neutral" },
-  built: { label: "Built, never served", tone: "neutral" },
-};
-
-export function releaseBadge(status: string): ReleaseBadge {
-  return RELEASE_BADGES[status] ?? { label: status.replace(/_/g, " "), tone: "neutral" };
+export function releaseBadge(t: T, status: string): ReleaseBadge {
+  switch (status) {
+    case "active":
+      return { label: t("appPages.deployments.words.release.active"), tone: "ok" };
+    case "failed":
+      return { label: t("appPages.deployments.words.release.failed"), tone: "fail" };
+    case "rolled_back":
+      return { label: t("appPages.deployments.words.release.rolledBack"), tone: "neutral" };
+    case "superseded":
+      return { label: t("appPages.deployments.words.release.superseded"), tone: "neutral" };
+    case "built":
+      return { label: t("appPages.deployments.words.release.built"), tone: "neutral" };
+    default:
+      return { label: status.replace(/_/g, " "), tone: "neutral" };
+  }
 }
 
 /** The short form of a commit, as git prints it. */

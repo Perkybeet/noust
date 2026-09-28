@@ -1,6 +1,7 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
@@ -190,5 +191,26 @@ describe("BackupsTable", () => {
       expect(backend.callsTo("POST /api/backups/b-4/push")).toHaveLength(1);
     });
     expect(backend.callsTo("POST /api/backups/b-4/push")[0]?.body).toEqual({ destination: "offsite" });
+  });
+});
+
+describe("BackupsTable in Spanish", () => {
+  it("shows the table and its row actions in Spanish, with no accessibility violations", async () => {
+    fakeBackend(
+      backupsRoutes([
+        backup({ backup_id: "b-es", domain: "shop.example.com", verified_ok: true, last_verified_at: new Date().toISOString() }),
+      ]),
+    );
+    await act(() => setLocale("es"));
+    const { container, user } = renderConsole("/backups");
+    await screen.findByRole("heading", { level: 1, name: "Copias de seguridad" });
+    expect(within(await row("shop.example.com")).getByText("Verificada")).toBeInTheDocument();
+
+    await user.click(within(await row("shop.example.com")).getByRole("button", { name: /^Acciones de/ }));
+    expect(await screen.findByRole("menuitem", { name: "Verificar" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Restaurar" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Copiar a un destino…" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Eliminar" })).toBeInTheDocument();
+    await expectNoAxeViolations(container);
   });
 });

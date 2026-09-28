@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { ToastProvider } from "./Toast";
 import { toast } from "./toast";
@@ -190,5 +191,19 @@ describe("Toast", () => {
       expect(visibleToast()).toHaveTextContent("Deploy failed");
     });
     await expectNoAxeViolations(document.body);
+  });
+
+  it("dismisses in Spanish once the language switches", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    render(<ToastProvider>{null}</ToastProvider>);
+    act(() => {
+      toast.error("Deploy failed", { detail: "502" });
+    });
+    await waitFor(() => {
+      expect(visibleToast()).toHaveTextContent("Deploy failed");
+    });
+    expect(screen.getByRole("button", { name: "Descartar notificación" })).toBeInTheDocument();
   });
 });

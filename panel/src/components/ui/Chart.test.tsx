@@ -2,6 +2,8 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { setLocale } from "../../app/locale";
+import { bindT } from "../../i18n";
 import { expectNoAxeViolations } from "../../test/axe";
 import type { ChartMarker, MarkerPlot } from "./Chart";
 import {
@@ -177,6 +179,19 @@ describe("Chart", () => {
     await expectNoAxeViolations(container);
     await userEvent.click(screen.getByRole("button", { name: "View as table" }));
     await expectNoAxeViolations(container);
+  });
+
+  it("speaks Spanish once the language switches", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    render(<Example />);
+    expect(screen.getByRole("img")).toHaveAccessibleName(
+      "CPU, last 3 minutes. shop.example.com: último 30%, mínimo 12%, máximo 48%.",
+    );
+    const toggle = screen.getByRole("button", { name: "Ver como tabla" });
+    await userEvent.click(toggle);
+    expect(screen.getByRole("table", { name: "CPU, más recientes primero" })).toBeInTheDocument();
   });
 });
 
@@ -540,14 +555,16 @@ describe("Chart expanded", () => {
 });
 
 describe("readoutWords", () => {
+  const en = bindT("en");
+
   it("says the moment, then each series with its formatted value", () => {
     const local = new Date(2026, 8, 25, 14, 32).getTime() / 1000;
-    const words = readoutWords(local, false, [{ label: "CPU", values: [12.4] }], 0, (v) => `${String(v)}%`);
+    const words = readoutWords(local, false, [{ label: "CPU", values: [12.4] }], 0, (v) => `${String(v)}%`, en);
     expect(words).toBe("14:32, CPU 12.4%");
   });
 
   it("says a gap in words", () => {
-    expect(readoutWords(T0, false, [{ label: "In", values: [null] }], 0, String)).toMatch(/In no reading$/);
+    expect(readoutWords(T0, false, [{ label: "In", values: [null] }], 0, String, en)).toMatch(/In no reading$/);
   });
 });
 

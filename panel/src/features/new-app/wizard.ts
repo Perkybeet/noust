@@ -6,22 +6,32 @@
 
 import { isApiError } from "../../api/client";
 import type { BodyOf, ResponseOf } from "../../api/client";
+import { getLocale } from "../../app/locale";
+import { translate } from "../../i18n";
+import type { Locale, PlainKey } from "../../i18n";
 import { draftOf, parseLimits } from "../app/settings/limits";
 import type { LimitsDraft } from "../app/settings/limits";
 import { domainProblem, normalizeDomain } from "../domains/names";
+import { generateSecret } from "./secrets";
 
 export type Inspection = ResponseOf<"/api/apps/inspect", "post">;
 export type EnvKey = Inspection["env_keys"][number];
 export type CreateAppBody = BodyOf<"/api/apps", "post">;
 export type AppTypeOption = ResponseOf<"/api/apps/types", "get">["types"][number];
+export type PlatformProposal = NonNullable<Inspection["platform_proposal"]>;
 
 export type Step = "source" | "review" | "deploy";
 
-export const STEPS: readonly { id: Step; label: string }[] = [
-  { id: "source", label: "Source" },
-  { id: "review", label: "Review" },
-  { id: "deploy", label: "Deploy" },
+export const STEPS: readonly { id: Step; label: PlainKey }[] = [
+  { id: "source", label: "newApp.steps.source" },
+  { id: "review", label: "newApp.steps.review" },
+  { id: "deploy", label: "newApp.steps.deploy" },
 ];
+
+/** A list of names as the language joins them: "Node.js and Vite", "Node.js y Vite". */
+export function joinList(items: readonly string[], locale: Locale = getLocale()): string {
+  return new Intl.ListFormat(locale, { style: "long", type: "conjunction" }).format(items);
+}
 
 // ---------------------------------------------------------------------------------------
 // The source
@@ -58,12 +68,12 @@ export function shortSource(value: string): string {
   return parts.slice(-2).join("/") || source;
 }
 
-export const SOURCE_WORDS: Record<SourceKind, string> = {
-  github: "GitHub repository, cloned through this server's GitHub App at the branch below.",
-  git: "Git repository: cloned at the branch below, or its default branch.",
-  archive: "Archive: downloaded and unpacked.",
-  local: "Directory on this server: copied as it is, without .git, node_modules or virtualenvs.",
-  unknown: "A Git URL (https or ssh), an archive URL, or an absolute path on this server.",
+export const SOURCE_WORDS: Record<SourceKind, PlainKey> = {
+  github: "newApp.source.kinds.github",
+  git: "newApp.source.kinds.git",
+  archive: "newApp.source.kinds.archive",
+  local: "newApp.source.kinds.local",
+  unknown: "newApp.source.kinds.unknown",
 };
 
 export interface SourceForm {
@@ -97,10 +107,11 @@ export type SourceErrors = Partial<Record<"source" | "branch", string>>;
 
 export function sourceProblems(form: SourceForm): SourceErrors {
   const errors: SourceErrors = {};
-  if (form.source.trim() === "") errors.source = "Enter a Git URL or a path on this server.";
-  else if (sourceKind(form.source) === "unknown") errors.source = "This is neither a URL nor an absolute path. Paths on this server start with /.";
+  const locale = getLocale();
+  if (form.source.trim() === "") errors.source = translate(locale, "newApp.validation.sourceEmpty");
+  else if (sourceKind(form.source) === "unknown") errors.source = translate(locale, "newApp.validation.sourceUnknown");
   if (form.branch.trim() !== "" && !/^[\w./-]+$/.test(form.branch.trim())) {
-    errors.branch = "A branch name uses letters, digits, dots, slashes, hyphens and underscores.";
+    errors.branch = translate(locale, "newApp.validation.branch");
   }
   return errors;
 }
@@ -148,7 +159,7 @@ export function typeOptions(types: readonly AppTypeOption[], detected: readonly 
     ...detected.map((type, index) => ({
       value: type,
       label: typeName(types, type),
-      hint: index === 0 ? "Detected, the closest match" : "Also matches this repository",
+      hint: translate(getLocale(), index === 0 ? "newApp.review.typeDetected" : "newApp.review.typeAlso"),
     })),
     ...rest.map((entry) => ({ value: entry.type, label: entry.name })),
   ];
@@ -170,6 +181,11 @@ export interface EnvRow {
   declared: boolean;
   /** The value .env.example gave it, if any. */
   example: string | null;
+  /**
+   * Proposed by another platform's configuration (`platform_proposal`) rather than declared in
+   * .env.example; `generated` when that platform generates it, so one was generated here.
+   */
+  proposed?: { generated: boolean; note: string | null };
 }
 
 export type Layout = "releases" | "inplace";
@@ -194,6 +210,11 @@ export interface ReviewForm {
   persistentPaths: PathRow[];
   limits: LimitsDraft;
   env: EnvRow[];
+  /**
+   * Whether what another platform's configuration proposes (`platform_proposal`) is filled in
+   * when there is one. On until the operator turns it off.
+   */
+  useProposal: boolean;
 }
 
 /**
@@ -240,7 +261,7 @@ export function initialReview(
 ): ReviewForm {
   const env = envRowsFrom(inspection.env_keys);
   if (!previous) {
-    return {
+    const form: ReviewForm = {
       appType: inspection.app_type,
       domain: "",
       includeWww: false,
@@ -251,7 +272,9 @@ export function initialReview(
       persistentPaths: [],
       limits: draftOf({}),
       env,
+      useProposal: true,
     };
+    return withProposal(form, inspection, defaults.taken, true);
   }
   const typed = new Map(previous.env.map((row) => [row.name, row]));
   const kept = env.map((row) => {
@@ -259,11 +282,105 @@ export function initialReview(
     return before ? { ...row, value: before.value } : row;
   });
   const extra = previous.env.filter((row) => !row.declared && !env.some((declared) => declared.name === row.name));
-  return {
+  const proposed = previous.env.filter((row) => row.proposed !== undefined);
+  const again: ReviewForm = {
     ...previous,
     appType: inspection.detected_types.includes(previous.appType) ? previous.appType : inspection.app_type,
-    env: [...kept, ...extra],
+    env: [...kept, ...proposed, ...extra],
   };
+  // A proposal is used on the new inspection as the operator left it on the previous one.
+  return withProposal(again, inspection, defaults.taken, previous.useProposal);
+}
+
+// ---------------------------------------------------------------------------------------
+// Another platform's configuration
+
+const PLATFORM_NAMES: Readonly<Record<string, string>> = {
+  vercel: "Vercel",
+  railway: "Railway",
+  render: "Render",
+  heroku: "Heroku",
+};
+
+/** A platform's own name (a product name, never translated). */
+export function platformName(platform: string): string {
+  return PLATFORM_NAMES[platform] ?? platform;
+}
+
+/** The id of a row a proposal added, so turning the proposal off finds exactly those. */
+const PROPOSED = "proposed:";
+
+/** The port a proposal asks for, moved to the next free one when another app has it. */
+function proposalPort(proposal: PlatformProposal, taken: ReadonlyMap<number, string>): string | null {
+  return proposal.port !== null && proposal.port !== undefined ? String(proposedPort(proposal.port, taken)) : null;
+}
+
+/**
+ * Fills in, or takes back out, what another platform's configuration proposes: its type, its
+ * port, its variables (the ones .env.example does not already declare; a variable the platform
+ * generates gets a random value here), and its persistent paths. Commands and the health check
+ * are not part of the form: WASM runs the type's own commands, and the health check is set on
+ * the application once it exists. Taking it out keeps whatever the operator changed since.
+ */
+export function withProposal(form: ReviewForm, inspection: Inspection, taken: ReadonlyMap<number, string>, on: boolean): ReviewForm {
+  const proposal = inspection.platform_proposal ?? null;
+  const typed = new Map(form.env.filter((row) => row.proposed !== undefined).map((row) => [row.name, row.value]));
+  const env = form.env.filter((row) => row.proposed === undefined);
+  const persistentPaths = form.persistentPaths.filter((row) => !row.id.startsWith(PROPOSED));
+  if (proposal === null) return { ...form, env, persistentPaths, useProposal: on };
+
+  const port = proposalPort(proposal, taken);
+  const detectedPort = String(proposedPort(inspection.default_port, taken));
+  const proposedType = proposal.app_type ?? null;
+  if (!on) {
+    return {
+      ...form,
+      env,
+      persistentPaths,
+      useProposal: false,
+      port: port !== null && form.port === port ? detectedPort : form.port,
+      appType: proposedType !== null && form.appType === proposedType ? inspection.app_type : form.appType,
+    };
+  }
+
+  const declared = new Set(env.map((row) => row.name));
+  const added: EnvRow[] = (proposal.env ?? [])
+    .filter((variable) => !declared.has(variable.name))
+    .map((variable) => {
+      const given = variable.value ?? null;
+      return {
+        id: `${PROPOSED}${variable.name}`,
+        name: variable.name,
+        value: typed.get(variable.name) ?? given ?? (variable.generated ? generateSecret() : ""),
+        secret: variable.secret || variable.generated,
+        required: variable.required && !variable.generated,
+        declared: true,
+        example: given,
+        proposed: { generated: variable.generated, note: variable.note ?? null },
+      };
+    });
+  const kept = new Set(persistentPaths.map((row) => row.value.trim()));
+  const paths = (proposal.persistent_paths ?? []).filter((value) => !kept.has(value)).map((value) => ({ id: `${PROPOSED}${value}`, value }));
+  return {
+    ...form,
+    useProposal: true,
+    appType: proposedType ?? form.appType,
+    port: port ?? form.port,
+    env: [...env.filter((row) => row.declared), ...added, ...env.filter((row) => !row.declared)],
+    persistentPaths: [...persistentPaths, ...paths],
+  };
+}
+
+/**
+ * What is wrong with a domain for a new application, or null: not a domain the server takes,
+ * or one already deployed here. The same check for every way of starting an application.
+ */
+export function domainError(value: string, deployed: ReadonlySet<string>): string | null {
+  const domain = normalizeDomain(value);
+  const bad = domainProblem(domain);
+  if (bad !== null) return bad;
+  if (deployed.has(domain)) return translate(getLocale(), "newApp.validation.domainTaken", { domain });
+  return null;
 }
 
 export interface ReviewContext {
@@ -306,9 +423,9 @@ export function limitField(name: keyof LimitsDraft): string {
  */
 export function persistentPathProblem(raw: string): string | null {
   const value = raw.trim();
-  if (value === "") return "Enter a path, such as storage or public/uploads.";
+  if (value === "") return translate(getLocale(), "newApp.validation.pathEmpty");
   if (value.startsWith("/") || value.split("/").some((part) => part === "..")) {
-    return "A persistent path is relative to the application, such as storage or public/uploads, and cannot start with / or contain '..'.";
+    return translate(getLocale(), "newApp.validation.pathRelative");
   }
   return null;
 }
@@ -316,22 +433,22 @@ export function persistentPathProblem(raw: string): string | null {
 /** The port the operator typed, or why it is not one the server will take. */
 export function portProblem(value: string, taken: ReadonlyMap<number, string>): string | null {
   const text = value.trim();
-  if (!/^\d+$/.test(text)) return "Enter a port number, such as 3000.";
+  const locale = getLocale();
+  if (!/^\d+$/.test(text)) return translate(locale, "newApp.validation.portNumber");
   const port = Number(text);
-  if (port < 1 || port > 65535) return "A port is between 1 and 65535.";
-  if (port < 1024 && port !== 80 && port !== 443) return "Ports below 1024 are reserved for the system. Use 1024 or above.";
+  if (port < 1 || port > 65535) return translate(locale, "newApp.validation.portRange");
+  if (port < 1024 && port !== 80 && port !== 443) return translate(locale, "newApp.validation.portReserved");
   const owner = taken.get(port);
-  if (owner !== undefined) return `Port ${text} is used by ${owner}.`;
+  if (owner !== undefined) return translate(locale, "newApp.validation.portTaken", { port: text, owner });
   return null;
 }
 
 export function reviewProblems(form: ReviewForm, context: ReviewContext): ReviewErrors {
   const errors: ReviewErrors = {};
-  if (form.appType === "") errors["appType"] = "Choose how to deploy it: the type decides how it is installed, built and started.";
-  const domain = normalizeDomain(form.domain);
-  const bad = domainProblem(domain);
-  if (bad !== null) errors["domain"] = bad;
-  else if (context.domains.has(domain)) errors["domain"] = `${domain} is already deployed. Choose another domain, or update that app from its page.`;
+  const locale = getLocale();
+  if (form.appType === "") errors["appType"] = translate(locale, "newApp.validation.appType");
+  const domain = domainError(form.domain, context.domains);
+  if (domain !== null) errors["domain"] = domain;
 
   if (hasPort(form.appType)) {
     const port = portProblem(form.port, context.ports);
@@ -344,14 +461,14 @@ export function reviewProblems(form: ReviewForm, context: ReviewContext): Review
     if (!row.declared) {
       if (name === "" && row.value === "") continue;
       if (!ENV_NAME.test(name)) {
-        errors[envNameField(row)] = "A name uses letters, digits and underscores, and does not start with a digit.";
+        errors[envNameField(row)] = translate(locale, "newApp.validation.envName");
         continue;
       }
     }
-    if (names.has(name)) errors[envNameField(row)] = `${name} is set twice.`;
+    if (names.has(name)) errors[envNameField(row)] = translate(locale, "newApp.validation.envTwice", { name });
     names.add(name);
     if (row.required && row.value.trim() === "") {
-      errors[envField(row)] = ".env.example gives it no value, so the app expects one.";
+      errors[envField(row)] = translate(locale, row.proposed !== undefined ? "newApp.validation.envRequiredProposal" : "newApp.validation.envRequired");
     }
   }
 
@@ -366,7 +483,7 @@ export function reviewProblems(form: ReviewForm, context: ReviewContext): Review
         continue;
       }
       if (paths.has(value)) {
-        errors[pathField(row)] = `${value} is listed twice.`;
+        errors[pathField(row)] = translate(locale, "newApp.validation.pathTwice", { path: value });
         continue;
       }
       paths.add(value);

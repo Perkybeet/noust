@@ -1,8 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../test/axe";
+import { setLocale } from "./locale";
 import { CommandPalette, filterCommands } from "./CommandPalette";
 import type { Command } from "./CommandPalette";
 
@@ -76,6 +77,18 @@ describe("CommandPalette", () => {
   it("has no accessibility violations", async () => {
     render(<CommandPalette open onOpenChange={() => undefined} commands={commands()} />);
     await screen.findByRole("combobox");
+    await expectNoAxeViolations(document.body);
+  });
+
+  it("speaks Spanish once the language switches", async () => {
+    const user = userEvent.setup();
+    await act(async () => {
+      await setLocale("es");
+    });
+    render(<CommandPalette open onOpenChange={() => undefined} commands={commands()} />);
+    const input = await screen.findByRole("combobox", { name: "Buscar páginas, aplicaciones y acciones" });
+    await user.type(input, "algo que no existe");
+    expect(screen.getByText('Nada coincide con "algo que no existe".')).toBeInTheDocument();
     await expectNoAxeViolations(document.body);
   });
 });

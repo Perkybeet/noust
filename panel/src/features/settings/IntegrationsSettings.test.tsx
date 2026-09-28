@@ -1,7 +1,8 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { GitHubStatus } from "../../api/queries/github";
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
@@ -237,5 +238,30 @@ describe("Settings > Integrations", () => {
     expect(await screen.findByText(/It still exists on GitHub/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Delete the App on GitHub/ })).toHaveAttribute("href", CONFIGURED.settings_url);
     expect(await screen.findByRole("button", { name: "Create GitHub App" })).toBeInTheDocument();
+  });
+});
+
+describe("Settings > Integrations in Spanish", () => {
+  it("explains the App and the webhook state in Spanish, with no accessibility violations", { timeout: 20_000 }, async () => {
+    await act(() => setLocale("es"));
+    integrations(NOT_CONFIGURED);
+    const { container } = renderConsole("/settings/integrations");
+    expect(await screen.findByRole("button", { name: "Crear GitHub App" })).toBeInTheDocument();
+    expect(screen.getByText(/Repositorios privados, clonados con tokens de corta duración/)).toBeInTheDocument();
+    expect(screen.getByText("No accesible desde GitHub")).toBeInTheDocument();
+    expect(screen.getAllByText("wasm web expose-hooks hooks.example.com").length).toBeGreaterThan(0);
+    await expectNoAxeViolations(container);
+  });
+
+  it("describes the App's installations in Spanish", { timeout: 20_000 }, async () => {
+    await act(() => setLocale("es"));
+    integrations(CONFIGURED);
+    renderConsole("/settings/integrations");
+    const table = await screen.findByRole("region", { name: "Instalaciones de la GitHub App" });
+    const [acme] = within(table).getAllByRole("row").slice(1);
+    if (!acme) throw new Error("missing row");
+    expect(within(acme).getByText("Organización")).toBeInTheDocument();
+    expect(within(acme).getByText("Repositorios seleccionados")).toBeInTheDocument();
+    expect(screen.getByText("Recibiendo eventos")).toBeInTheDocument();
   });
 });

@@ -8,12 +8,15 @@ import type { ResponseOf } from "../../../api/client";
 import { ElevationCancelledError } from "../../../api/errors";
 import { appKeys } from "../../../api/queries/apps";
 import type { App } from "../../../api/queries/apps";
+import { getLocale } from "../../../app/locale";
+import type { Locale } from "../../../app/locale";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { toast } from "../../../components/ui/toast";
-import { formatCount } from "../../../lib/format";
+import { useT } from "../../../i18n";
+import { translate } from "../../../i18n/translate";
 import { reportActionError } from "../../apps/useAppActions";
 import { useConfirmItsYou } from "../useDeleteApp";
 import { RETENTION_MAX, RETENTION_MIN, parseRetention } from "./healthCheck";
@@ -21,15 +24,12 @@ import { PANEL } from "./panel";
 
 type RetentionResult = ResponseOf<"/api/apps/{domain}/releases/retention", "patch">;
 
-function releases(count: number): string {
-  return `${formatCount(count)} ${count === 1 ? "release" : "releases"}`;
-}
-
 /** What saving did: how many it keeps now and which releases it removed, by id. */
-export function retentionOutcome(result: Pick<RetentionResult, "keep_releases" | "pruned">): string {
-  const kept = `Saved. It keeps ${releases(result.keep_releases)}`;
-  if (result.pruned.length === 0) return `${kept}; nothing was removed.`;
-  return `${kept}; removed ${releases(result.pruned.length)}: ${result.pruned.join(", ")}.`;
+export function retentionOutcome(result: Pick<RetentionResult, "keep_releases" | "pruned">, locale: Locale = getLocale()): string {
+  const kept = translate(locale, "appSettings.releases.releaseCount", { count: result.keep_releases });
+  if (result.pruned.length === 0) return translate(locale, "appSettings.retention.outcomeNoneRemoved", { kept });
+  const removed = translate(locale, "appSettings.releases.releaseCount", { count: result.pruned.length });
+  return translate(locale, "appSettings.retention.outcomeRemoved", { kept, removed, list: result.pruned.join(", ") });
 }
 
 /**
@@ -38,6 +38,7 @@ export function retentionOutcome(result: Pick<RetentionResult, "keep_releases" |
  * and the one before it are always kept, whatever the number.
  */
 export function RetentionForm({ app }: { app: App }) {
+  const t = useT();
   const domain = app.domain;
   const headingId = useId();
   const queryClient = useQueryClient();
@@ -53,7 +54,7 @@ export function RetentionForm({ app }: { app: App }) {
     if (draft.trim() === baseline) setDraft(current);
   }
 
-  const parsed = parseRetention(draft);
+  const parsed = parseRetention(draft, t.locale);
   const dirty = draft.trim() !== current;
 
   const save = useMutation({
@@ -63,7 +64,7 @@ export function RetentionForm({ app }: { app: App }) {
       setSubmitted(false);
       queryClient.setQueryData<App>(appKeys.detail(domain), (known) => (known ? { ...known, keep_releases: result.keep_releases } : known));
       void queryClient.invalidateQueries({ queryKey: appKeys.detail(domain) });
-      toast.success(`Saved how many releases ${domain} keeps`);
+      toast.success(t("appSettings.retention.savedToast", { domain }));
     },
   });
 
@@ -86,7 +87,7 @@ export function RetentionForm({ app }: { app: App }) {
         save.mutate(keep);
       },
       (error: unknown) => {
-        if (!(error instanceof ElevationCancelledError)) reportActionError(`The retention of ${domain} was not saved`, error);
+        if (!(error instanceof ElevationCancelledError)) reportActionError(t("appSettings.retention.notSavedFor", { domain }), error);
       },
     );
   };
@@ -95,21 +96,23 @@ export function RetentionForm({ app }: { app: App }) {
     <section aria-labelledby={headingId} className={`${PANEL} flex flex-col gap-4 px-4 py-4 sm:px-5`}>
       <header className="flex flex-col gap-1">
         <h3 id={headingId} className="text-14 font-medium text-fg">
-          Retention
+          {t("appSettings.retention.title")}
         </h3>
-        <p className="text-13 text-pretty text-fg-muted">
-          Releases beyond this many are deleted, oldest first, and a lower number deletes them as soon as it is saved. The release
-          serving and the one before it are always kept.
-        </p>
+        <p className="text-13 text-pretty text-fg-muted">{t("appSettings.retention.description")}</p>
       </header>
       <form onSubmit={submit} noValidate className="flex flex-col gap-4">
         <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
-          <Field label="Keep" description={`${String(RETENTION_MIN)} to ${String(RETENTION_MAX)} releases.`} error={fieldError} className="w-36">
+          <Field
+            label={t("appSettings.retention.keepLabel")}
+            description={t("appSettings.retention.keepDescription", { min: RETENTION_MIN, max: RETENTION_MAX })}
+            error={fieldError}
+            className="w-36"
+          >
             <Input
               mono
               inputMode="numeric"
               autoComplete="off"
-              suffix="releases"
+              suffix={t("appSettings.retention.unitSuffix")}
               value={draft}
               onValueChange={(value: string) => {
                 setDraft(value);
@@ -119,14 +122,14 @@ export function RetentionForm({ app }: { app: App }) {
             />
           </Field>
           <Button type="submit" variant="primary" disabled={!dirty} loading={save.isPending} className="sm:mt-6">
-            Save
+            {t("appSettings.save")}
           </Button>
         </div>
-        {save.isError && fieldError === undefined ? <ErrorBlock live compact error={save.error} title="The retention was not saved" /> : null}
+        {save.isError && fieldError === undefined ? <ErrorBlock live compact error={save.error} title={t("appSettings.retention.saveFailed")} /> : null}
         {saved !== null ? (
           <p role="status" className="flex items-start gap-2 rounded-control border border-ok/40 bg-ok-soft px-3 py-2.5 text-13 text-pretty text-fg">
             <CircleCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-ok" />
-            <span>{retentionOutcome(saved)}</span>
+            <span>{retentionOutcome(saved, t.locale)}</span>
           </p>
         ) : null}
       </form>

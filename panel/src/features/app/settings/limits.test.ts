@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../../app/locale";
 import { changed, directives, draftOf, parseLimits } from "./limits";
 
 const EMPTY = { memory: "", cpu: "", tasks: "" };
@@ -72,5 +73,24 @@ describe("the form's text", () => {
       "TasksMax=256",
     ]);
     expect(directives({})).toEqual([]);
+  });
+});
+
+describe("in Spanish", () => {
+  it("holds the same bounds, in Spanish words", async () => {
+    await setLocale("es");
+    expect(parseLimits({ ...EMPTY, memory: "512M" }, 4, "es").errors.memory).toBe(
+      "Introduce un número entero, o déjalo vacío para no tener límite.",
+    );
+    expect(parseLimits({ ...EMPTY, memory: "63" }, 4, "es").errors.memory).toBe(
+      "Un límite de memoria de 63M es demasiado pequeño. Permite al menos 64M, o ningún límite.",
+    );
+    expect(parseLimits({ ...EMPTY, cpu: "401" }, 4, "es").errors.cpu).toBe(
+      "Una cuota de CPU del 401% no es posible aquí. Esta máquina tiene 4 CPUs: usa del 1% al 400%.",
+    );
+    expect(parseLimits({ ...EMPTY, cpu: "0" }, null, "es").errors.cpu).toBe("Una cuota de CPU del 0% no es posible. Usa al menos un 1%.");
+    expect(parseLimits({ ...EMPTY, tasks: "15" }, 4, "es").errors.tasks).toBe(
+      "Un límite de 15 tareas es demasiado pequeño. Permite al menos 16, o ningún límite.",
+    );
   });
 });

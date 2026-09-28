@@ -10,6 +10,7 @@ import { Button } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Input } from "../../components/ui/Input";
 import { Kbd } from "../../components/ui/Kbd";
+import { useT } from "../../i18n";
 import { CronJobDialog } from "./CronJobDialog";
 import { CronJobRowActions } from "./CronJobRowActions";
 import { CronJobsTable } from "./CronJobsTable";
@@ -24,6 +25,7 @@ export interface CronPageProps {
 
 /** Every scheduled job on this machine: its schedule, next run and last result. */
 export function CronPage({ search, onSearchChange }: CronPageProps) {
+  const t = useT();
   const jobs = useQuery(cronJobsQuery());
   const [dialogJob, setDialogJob] = useState<CronJob | "new" | null>(null);
   const [runsFor, setRunsFor] = useState<string | null>(null);
@@ -31,37 +33,42 @@ export function CronPage({ search, onSearchChange }: CronPageProps) {
   const all = useMemo(() => jobs.data?.jobs ?? [], [jobs.data]);
   const shown = useMemo(() => filterJobs(all, search), [all, search]);
   const filtered = isFiltered(search);
-  const count = jobs.data ? (filtered ? `${String(shown.length)} of ${String(all.length)}` : String(all.length)) : null;
+  const count =
+    jobs.data === undefined
+      ? null
+      : filtered
+        ? t("cron.page.jobsCountFiltered", { shown: shown.length, total: all.length })
+        : t("cron.page.jobsCount", { count: all.length });
 
   const newJobButton = (
     <Button variant="primary" icon={<Plus aria-hidden="true" />} onClick={() => setDialogJob("new")}>
-      New job
+      {t("cron.page.newJob")}
     </Button>
   );
 
   return (
     <>
-      <PageHeader title="Cron" description="Commands run on a schedule, as systemd timers." actions={newJobButton} />
+      <PageHeader title={t("cron.page.title")} description={t("cron.page.description")} actions={newJobButton} />
 
       {jobs.isError && jobs.data === undefined ? (
-        <ErrorBlock error={jobs.error} title="Could not load cron jobs" onRetry={() => void jobs.refetch()} retrying={jobs.isRefetching} />
+        <ErrorBlock error={jobs.error} title={t("cron.page.loadError")} onRetry={() => void jobs.refetch()} retrying={jobs.isRefetching} />
       ) : jobs.data !== undefined && all.length === 0 ? (
         <EmptyState
           level={2}
           icon={<Clock />}
-          title="Schedule your first job"
-          description="A cron job runs a command on a schedule: hourly, daily, weekly, monthly, or a systemd calendar expression."
+          title={t("cron.page.empty.title")}
+          description={t("cron.page.empty.description")}
           action={newJobButton}
           command="wasm cron create nightly-report --schedule daily --command '...'"
           className="py-16"
         />
       ) : (
         <div className="flex flex-col gap-4">
-          <div role="search" aria-label="Filter cron jobs" className="flex flex-wrap items-end gap-2">
+          <div role="search" aria-label={t("cron.page.filterAria")} className="flex flex-wrap items-end gap-2">
             <Input
               type="search"
-              aria-label="Search cron jobs"
-              placeholder="Search by name or command"
+              aria-label={t("cron.page.searchAria")}
+              placeholder={t("cron.page.searchPlaceholder")}
               data-page-search=""
               value={search.q ?? ""}
               onValueChange={(value: string) => onSearchChange(value === "" ? {} : { q: value }, { replace: true })}
@@ -73,33 +80,33 @@ export function CronPage({ search, onSearchChange }: CronPageProps) {
             />
             {filtered ? (
               <Button variant="ghost" icon={<X aria-hidden="true" />} onClick={() => onSearchChange({})}>
-                Clear filters
+                {t("cron.common.clearFilters")}
               </Button>
             ) : null}
             <p role="status" className="ml-auto self-center text-13 text-fg-muted">
-              {count === null ? "" : `${count} ${all.length === 1 && !filtered ? "job" : "jobs"}`}
+              {count ?? ""}
             </p>
           </div>
 
           <CronJobsTable
             jobs={shown}
-            caption={filtered ? "Cron jobs matching the filters" : "Cron jobs"}
+            caption={filtered ? t("cron.table.captionFiltered") : t("cron.table.captionAll")}
             loading={jobs.isPending}
             rowActions={(job) => <CronJobRowActions job={job} onEdit={setDialogJob} onViewRuns={setRunsFor} />}
             empty={
               <EmptyState
-                title="No job matches"
-                description="Nothing on this machine matches these filters."
+                title={t("cron.page.noMatch.title")}
+                description={t("cron.page.noMatch.description")}
                 action={
                   <Button icon={<X aria-hidden="true" />} onClick={() => onSearchChange({})}>
-                    Clear filters
+                    {t("cron.common.clearFilters")}
                   </Button>
                 }
                 className="border-0 py-8"
               />
             }
           />
-          <CommandHint command="wasm cron list" label="From a terminal" />
+          <CommandHint command="wasm cron list" label={t("cron.common.fromTerminal")} />
         </div>
       )}
 

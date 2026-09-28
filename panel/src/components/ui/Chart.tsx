@@ -3,6 +3,8 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, ReactElement, ReactNode } from "react";
 import uPlot from "uplot";
 
+import { useT } from "../../i18n";
+import type { T } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { isHttpUrl } from "../../lib/url";
 import { Button } from "./Button";
@@ -256,6 +258,7 @@ export function continuing(description: string): string {
 }
 
 function summarise(
+  t: T,
   title: string,
   description: string | undefined,
   series: readonly ChartSeries[],
@@ -264,13 +267,18 @@ function summarise(
 ): string {
   const parts = series.map((s) => {
     const values = s.values.filter((v): v is number => v !== null);
-    if (values.length === 0) return `${s.label}: no data`;
+    if (values.length === 0) return t("common.chart.noDataFor", { label: s.label });
     const latest = values.at(-1) ?? 0;
-    return `${s.label}: latest ${format(latest)}, low ${format(Math.min(...values))}, high ${format(Math.max(...values))}`;
+    return t("common.chart.seriesReading", {
+      label: s.label,
+      latest: format(latest),
+      low: format(Math.min(...values)),
+      high: format(Math.max(...values)),
+    });
   });
   const base = `${title}${description ? `, ${continuing(description)}` : ""}. ${parts.join("; ")}.`;
   if (markerCount === undefined) return base;
-  return `${base} ${String(markerCount)} marker${markerCount === 1 ? "" : "s"} in view.`;
+  return `${base} ${t("common.chart.markersInView", { count: markerCount })}`;
 }
 
 function SeriesSwatch({ index }: { index: number }) {
@@ -346,10 +354,11 @@ export function readoutWords(
   series: readonly ChartSeries[],
   index: number,
   format: (value: number) => string,
+  t: T,
 ): string {
   const values = series.map((s) => {
     const value = s.values[index];
-    return `${s.label} ${value === null || value === undefined ? "no reading" : format(value)}`;
+    return `${s.label} ${value === null || value === undefined ? t("common.chart.noReading") : format(value)}`;
   });
   return [formatChartTime(seconds, withDate), ...values].join(", ");
 }
@@ -413,6 +422,7 @@ function ChartBody({
   zoom,
   onZoom,
 }: ChartBodyProps) {
+  const t = useT();
   const [positions, setPositions] = useState<readonly MarkerPosition[]>([]);
   // The sample under the cursor (pointer or keyboard); null shows the latest values.
   const [cursor, setCursor] = useState<number | null>(null);
@@ -604,7 +614,7 @@ function ChartBody({
     }
     const at = timestamps[index];
     if (at === undefined) return;
-    setSpoken(readoutWords(at, withDate, series, index, formatValue));
+    setSpoken(readoutWords(at, withDate, series, index, formatValue, t));
     if (plot) {
       const value = series[0]?.values[index];
       const top = value === null || value === undefined ? plot.bbox.height / (2 * (uPlot.pxRatio || 1)) : plot.valToPos(value, "y");
@@ -654,7 +664,7 @@ function ChartBody({
         {/* The moment the values below were read: the hovered sample's, or the newest. */}
         <span className="mono shrink-0 text-fg-muted" style={{ minWidth: withDate ? "12ch" : "6ch" }} data-readout-time="">
           {shownAt === undefined ? (
-            "Latest"
+            t("common.chart.latest")
           ) : (
             <time dateTime={new Date(shownAt * 1000).toISOString()}>
               <span aria-hidden="true">{formatChartTime(shownAt, withDate)}</span>
@@ -662,7 +672,7 @@ function ChartBody({
             </time>
           )}
         </span>
-        <ul className="flex flex-wrap gap-x-4 gap-y-1" aria-label="Series">
+        <ul className="flex flex-wrap gap-x-4 gap-y-1" aria-label={t("common.chart.seriesLabel")}>
           {series.map((s, index) => {
             const value = readout[index];
             return (
@@ -686,17 +696,17 @@ function ChartBody({
           <div
             id={tableId}
             role="region"
-            aria-label={`${title} data`}
+            aria-label={t("common.chart.dataRegion", { title })}
             tabIndex={0}
             className="overflow-auto scroll-thin focus-visible:outline-2 focus-visible:outline-focus"
             style={{ maxHeight: height + 40 }}
           >
             <table className="w-full text-left text-12">
-              <caption className="sr-only">{`${title}, newest first`}</caption>
+              <caption className="sr-only">{t("common.chart.newestFirst", { title })}</caption>
               <thead className="sticky top-0 bg-bg-sunken">
                 <tr>
                   <th scope="col" className="px-3 py-1.5 font-medium text-fg-muted">
-                    Time
+                    {t("common.chart.time")}
                   </th>
                   {series.map((s) => (
                     <th key={s.label} scope="col" className="px-3 py-1.5 text-right font-medium text-fg-muted">
@@ -707,12 +717,12 @@ function ChartBody({
               </thead>
               <tbody>
                 {timestamps
-                  .map((t, i) => ({ t, i }))
+                  .map((moment, i) => ({ moment, i }))
                   .filter(({ i }) => bounds !== null && i >= bounds[0] && i <= bounds[1])
                   .reverse()
-                  .map(({ t, i }) => (
-                    <tr key={t} className="border-t border-border">
-                      <td className="mono px-3 py-1 text-fg-muted">{formatChartTime(t, withDate)}</td>
+                  .map(({ moment, i }) => (
+                    <tr key={moment} className="border-t border-border">
+                      <td className="mono px-3 py-1 text-fg-muted">{formatChartTime(moment, withDate)}</td>
                       {series.map((s) => {
                         const v = s.values[i];
                         return (
@@ -734,7 +744,7 @@ function ChartBody({
               {/* Not a heading: it would land at an arbitrary level inside whatever page
                   section holds this chart, skipping levels and failing axe's heading-order
                   rule. A caption reads the same to a screen reader without that risk. */}
-              <p className="mb-2 text-12 font-medium text-fg-muted">Markers</p>
+              <p className="mb-2 text-12 font-medium text-fg-muted">{t("common.chart.markersHeading")}</p>
               <ul className="flex flex-wrap gap-2">
                 {visibleMarkers.map((marker) => (
                   <li key={`${String(marker.at)}-${marker.label}`}>
@@ -775,7 +785,8 @@ function ChartBody({
             <div ref={hostRef} role="img" aria-label={summary} className="min-w-0" style={{ height }} />
           </div>
           <span id={hintId} className="sr-only">
-            {`Left and right arrow keys step through the samples, Home and End go to the first and last, Escape clears.${zoomable ? " Drag across the chart with a pointer to zoom, or use the zoom buttons." : ""}`}
+            {t("common.chart.keyboardHint")}
+            {zoomable ? t("common.chart.keyboardHintZoomable") : ""}
           </span>
           {positions.length > 0 ? (
             <div className="pointer-events-none absolute inset-0 z-10">
@@ -843,6 +854,7 @@ interface ChartDialogProps extends Omit<ChartBodyProps, "asTable" | "tableId" | 
 
 /** The chart enlarged: the page's range, zoom on the time axis, the readout and the table. */
 function ChartDialog({ open, onOpenChange, description, rangeSelector, ...body }: ChartDialogProps) {
+  const t = useT();
   const [asTable, setAsTable] = useState(false);
   // The zoom belongs to the range it was made in: a new range starts whole.
   const [zoom, setZoom] = useState<{ range: string; window: ChartWindow } | null>(null);
@@ -862,7 +874,7 @@ function ChartDialog({ open, onOpenChange, description, rangeSelector, ...body }
           <div>{rangeSelector?.control}</div>
           <div className="flex flex-wrap items-center gap-1">
             <IconButton
-              label="Zoom in"
+              label={t("common.chart.zoomIn")}
               icon={<ZoomIn />}
               size="sm"
               disabled={asTable}
@@ -871,7 +883,7 @@ function ChartDialog({ open, onOpenChange, description, rangeSelector, ...body }
               }}
             />
             <IconButton
-              label="Zoom out"
+              label={t("common.chart.zoomOut")}
               icon={<ZoomOut />}
               size="sm"
               disabled={asTable || active === null}
@@ -887,7 +899,7 @@ function ChartDialog({ open, onOpenChange, description, rangeSelector, ...body }
                 apply(null);
               }}
             >
-              Reset zoom
+              {t("common.chart.resetZoom")}
             </Button>
             <Button
               size="sm"
@@ -898,15 +910,18 @@ function ChartDialog({ open, onOpenChange, description, rangeSelector, ...body }
                 setAsTable((v) => !v);
               }}
             >
-              View as table
+              {t("common.chart.viewAsTable")}
             </Button>
           </div>
         </div>
         <ChartBody {...body} height={height} asTable={asTable} tableId={tableId} zoom={active} onZoom={apply} />
         <p className="text-12 text-pretty text-fg-faint">
           {active === null
-            ? "Drag across the chart to zoom into a stretch of time."
-            : `Showing ${formatChartTime(active[0], body.withDate)} to ${formatChartTime(active[1], body.withDate)}. Double-click the chart or reset the zoom to see all of it.`}
+            ? t("common.chart.dragToZoom")
+            : t("common.chart.zoomedRange", {
+                from: formatChartTime(active[0], body.withDate),
+                to: formatChartTime(active[1], body.withDate),
+              })}
         </p>
       </div>
     </Dialog>
@@ -933,6 +948,7 @@ export function Chart({
   rangeSelector,
   className,
 }: ChartProps) {
+  const t = useT();
   const [asTable, setAsTable] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const tableId = useId();
@@ -941,7 +957,7 @@ export function Chart({
   const from = timestamps[0];
   const to = timestamps.at(-1);
   const visibleMarkers = markers !== undefined && from !== undefined && to !== undefined ? markersInRange(markers, from, to) : [];
-  const summary = summarise(title, description, series, formatValue, markers !== undefined ? visibleMarkers.length : undefined);
+  const summary = summarise(t, title, description, series, formatValue, markers !== undefined ? visibleMarkers.length : undefined);
   const shared = { title, summary, timestamps, series, markers, formatValue, yRange, withDate };
 
   return (
@@ -953,7 +969,7 @@ export function Chart({
         </div>
         <div className="-mr-2 flex shrink-0 items-center gap-0.5">
           <IconButton
-            label={`Expand ${title}`}
+            label={t("common.chart.expand", { title })}
             icon={<Maximize2 />}
             size="sm"
             onClick={() => {
@@ -969,7 +985,7 @@ export function Chart({
               setAsTable((v) => !v);
             }}
           >
-            View as table
+            {t("common.chart.viewAsTable")}
           </Button>
         </div>
       </figcaption>

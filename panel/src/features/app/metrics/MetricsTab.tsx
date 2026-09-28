@@ -18,11 +18,13 @@ import type { ChartMarker } from "../../../components/ui/Chart";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { STATUS, StatusGlyph } from "../../../components/ui/StatusPill";
+import { useT } from "../../../i18n";
+import type { T } from "../../../i18n";
 import { cx } from "../../../lib/cx";
 import { formatBytes, formatPercent, parseTimestamp } from "../../../lib/format";
 import { appLimits } from "../../apps/data";
 import { alignSeries, resolutionWords } from "../../overview/series";
-import { RANGES, clip, momentWords, rangeSpec, sentence, summarise } from "./ranges";
+import { RANGES, clip, momentWords, rangeSpec, rangeWords, sentence, summarise } from "./ranges";
 import type { MetricRange, Points } from "./ranges";
 
 const CHART_HEIGHT = 180;
@@ -42,30 +44,35 @@ interface DeployMark {
 }
 
 interface ChartSpec {
+  key: "cpu" | "memory";
   title: string;
   metric: (domain: string) => string;
-  format: (value: number) => string;
+  format: (value: number, locale: T["locale"]) => string;
   limit: (app: App) => number | null;
   /** What the value is, beside the title. */
   unit: string;
 }
 
-const CHARTS: readonly ChartSpec[] = [
-  {
-    title: "CPU",
-    metric: (domain) => `app.${domain}.cpu.percent`,
-    format: formatPercent,
-    limit: (app) => appLimits(app).cpu,
-    unit: "Percent of one CPU",
-  },
-  {
-    title: "Memory",
-    metric: (domain) => `app.${domain}.mem.bytes`,
-    format: formatBytes,
-    limit: (app) => appLimits(app).memory,
-    unit: "Resident memory of the unit",
-  },
-];
+function charts(t: T): readonly ChartSpec[] {
+  return [
+    {
+      key: "cpu",
+      title: t("appPages.common.cpu"),
+      metric: (domain) => `app.${domain}.cpu.percent`,
+      format: formatPercent,
+      limit: (app) => appLimits(app).cpu,
+      unit: t("appPages.metrics.unitCpu"),
+    },
+    {
+      key: "memory",
+      title: t("appPages.common.memory"),
+      metric: (domain) => `app.${domain}.mem.bytes`,
+      format: formatBytes,
+      limit: (app) => appLimits(app).memory,
+      unit: t("appPages.metrics.unitMemory"),
+    },
+  ];
+}
 
 function Frame({ children }: { children: ReactNode }) {
   return <div className="min-w-0 rounded-card border border-border bg-surface p-4 shadow-raised">{children}</div>;
@@ -76,11 +83,11 @@ function Frame({ children }: { children: ReactNode }) {
  * (16px), the plot, and the summary sentence under its rule. The page below stays put when
  * the data lands.
  */
-function ChartSkeleton({ title }: { title: string }) {
+function ChartSkeleton({ title, t }: { title: string; t: T }) {
   return (
     <Frame>
       <div aria-busy="true">
-        <span className="sr-only">{`Loading the ${title.toLowerCase()} chart`}</span>
+        <span className="sr-only">{t("appPages.metrics.loadingChart", { title })}</span>
         <div aria-hidden="true" className="flex flex-col gap-3">
           <div className="flex h-9 flex-col justify-center gap-1.5">
             <Skeleton className="h-3.5 w-24" />
@@ -107,6 +114,7 @@ function MetricChart({
   markers,
   now,
   onRangeChange,
+  t,
 }: {
   spec: ChartSpec;
   app: App;
@@ -114,8 +122,10 @@ function MetricChart({
   markers: readonly ChartMarker[];
   now: number;
   onRangeChange: (range: MetricRange) => void;
+  t: T;
 }) {
   const detail = rangeSpec(range);
+  const words = rangeWords(range, t.locale);
   const series = useQuery({
     ...metricSeriesQuery(spec.metric(app.domain), detail.window),
     refetchInterval: range === "1h" ? 30_000 : 5 * 60_000,
@@ -127,11 +137,11 @@ function MetricChart({
   if (series.isError && series.data === undefined) {
     return (
       <Frame>
-        <ErrorBlock compact error={series.error} title={`Could not load the ${spec.title.toLowerCase()} history`} onRetry={() => void series.refetch()} />
+        <ErrorBlock compact error={series.error} title={t("appPages.metrics.chartLoadError", { title: spec.title })} onRetry={() => void series.refetch()} />
       </Frame>
     );
   }
-  if (series.data === undefined) return <ChartSkeleton title={spec.title} />;
+  if (series.data === undefined) return <ChartSkeleton title={spec.title} t={t} />;
 
   const points: Points = clip(series.data.points, range, now);
   const summary = summarise(points);
@@ -141,7 +151,7 @@ function MetricChart({
       <Frame>
         <div className="flex flex-col gap-1">
           <h3 className="text-13 font-medium text-fg">{spec.title}</h3>
-          <p className="text-13 text-fg-muted">{`No readings in the ${detail.words.toLowerCase()}.`}</p>
+          <p className="text-13 text-fg-muted">{t("appPages.metrics.noReadings", { range: words.toLowerCase() })}</p>
         </div>
       </Frame>
     );
@@ -154,25 +164,27 @@ function MetricChart({
   const drawLimit = limit !== null && summary.peak >= limit / 3;
   const lines = [
     { label: spec.title, values },
-    ...(drawLimit ? [{ label: "Limit", values: values.map(() => limit) }] : []),
+    ...(drawLimit ? [{ label: t("appPages.metrics.limitLabel"), values: values.map(() => limit) }] : []),
   ];
+
+  const format = (value: number) => spec.format(value, t.locale);
 
   return (
     <Frame>
       <div className="flex flex-col gap-3">
         <Chart
           title={spec.title}
-          description={`${[detail.words, resolutionWords(series.data.resolution)].filter((part) => part !== null).join(", ")}. ${spec.unit}.`}
+          description={`${[words, resolutionWords(series.data.resolution)].filter((part) => part !== null).join(", ")}. ${spec.unit}.`}
           timestamps={aligned.timestamps}
           series={lines}
-          formatValue={spec.format}
+          formatValue={format}
           height={CHART_HEIGHT}
           markers={markers}
-          rangeSelector={{ value: range, control: <RangeControl range={range} onRangeChange={onRangeChange} /> }}
+          rangeSelector={{ value: range, control: <RangeControl range={range} onRangeChange={onRangeChange} t={t} /> }}
         />
         <p className="border-t border-border pt-3 text-12 text-pretty text-fg-muted" data-summary="">
           <span className="sr-only">{`${spec.title}: `}</span>
-          {sentence(summary, range, spec.format, limit)}
+          {sentence(summary, range, format, limit, t.locale)}
         </p>
       </div>
     </Frame>
@@ -180,11 +192,11 @@ function MetricChart({
 }
 
 /** The deploys in the range, in words: what the marks on the charts are. */
-function DeployList({ domain, marks }: { domain: string; marks: readonly DeployMark[] }) {
+function DeployList({ domain, marks, t }: { domain: string; marks: readonly DeployMark[]; t: T }) {
   return (
-    <Section title="Deploys in this range" level={3}>
+    <Section title={t("appPages.metrics.deploysInRangeTitle")} level={3}>
       {marks.length === 0 ? (
-        <p className="text-13 text-fg-muted">None. A deploy restarts the app, which usually shows as a drop in memory.</p>
+        <p className="text-13 text-fg-muted">{t("appPages.metrics.noDeploysInRange")}</p>
       ) : (
         <ul className="flex flex-wrap gap-2">
           {marks.map((mark) => {
@@ -221,10 +233,10 @@ export interface MetricsTabProps {
 }
 
 /** The one range control, on the section and again in an enlarged chart. */
-function RangeControl({ range, onRangeChange }: Pick<MetricsTabProps, "range" | "onRangeChange">) {
+function RangeControl({ range, onRangeChange, t }: Pick<MetricsTabProps, "range" | "onRangeChange"> & { t: T }) {
   return (
     <SegmentedControl
-      label="Time range"
+      label={t("appPages.metrics.timeRangeLabel")}
       options={RANGES.map((spec) => ({ value: spec.value, label: spec.label }))}
       value={range}
       onValueChange={onRangeChange}
@@ -237,7 +249,8 @@ function RangeControl({ range, onRangeChange }: Pick<MetricsTabProps, "range" | 
  * deploys marked. Each chart has a sentence that says what it shows and a table of its numbers.
  */
 export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
-  useDocumentTitle(`Metrics - ${domain}`, 1);
+  const t = useT();
+  useDocumentTitle(t("appPages.metrics.documentTitle", { domain }), 1);
   const app = useQuery(appQuery(domain));
   const deploys = useQuery(deploymentsQuery({ domain, limit: 200 }));
   // One clock for both charts and the marks: the range ends at the same instant for all.
@@ -246,8 +259,8 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
   if (app.data === undefined) {
     return app.isError ? null : (
       <div className="grid gap-4 xl:grid-cols-2">
-        <ChartSkeleton title="CPU" />
-        <ChartSkeleton title="Memory" />
+        <ChartSkeleton title={t("appPages.common.cpu")} t={t} />
+        <ChartSkeleton title={t("appPages.common.memory")} t={t} />
       </div>
     );
   }
@@ -258,11 +271,11 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
       <EmptyState
         level={2}
         icon={<ChartLine />}
-        title="A static site has no process to measure"
-        description="The web server serves its files directly, so there is no unit whose CPU and memory could be charted. The machine's own charts are on the overview."
+        title={t("appPages.metrics.staticTitle")}
+        description={t("appPages.metrics.staticDescription")}
         action={
           <Link to="/" className="rounded-[4px] text-13 font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus">
-            Machine overview
+            {t("appPages.metrics.machineOverview")}
           </Link>
         }
         className="py-16"
@@ -277,11 +290,11 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
       <EmptyState
         level={2}
         icon={<ChartLine />}
-        title="Docker measures this application's containers"
-        description="The unit only starts the stack; the containers run in Docker's own cgroups, which WASM does not sample. Use docker stats on the server for their CPU and memory. The machine's own charts are on the overview."
+        title={t("appPages.metrics.dockerTitle")}
+        description={t("appPages.metrics.dockerDescription")}
         action={
           <Link to="/" className="rounded-[4px] text-13 font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus">
-            Machine overview
+            {t("appPages.metrics.machineOverview")}
           </Link>
         }
         className="py-16"
@@ -295,9 +308,9 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
     if (at === null) return [];
     const seconds = Math.floor(at.getTime() / 1000);
     if (seconds <= from || seconds > now) return [];
-    const word = deployStatus(deploy.status).label.toLowerCase();
-    const when = momentWords(seconds, range);
-    return [{ id: deploy.id, at: seconds, status: deploy.status, when, label: `Deploy ${String(deploy.id)}, ${word}, ${when}` }];
+    const status = deployStatus(deploy.status).label.toLowerCase();
+    const when = momentWords(seconds, range, t.locale);
+    return [{ id: deploy.id, at: seconds, status: deploy.status, when, label: t("appPages.metrics.deployMarkLabel", { id: String(deploy.id), status, when }) }];
   });
   marks.sort((a, b) => a.at - b.at);
 
@@ -322,24 +335,25 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
 
   return (
     <Section
-      title="CPU and memory"
-      description="Read from the app's unit every few seconds while the panel runs; older readings are kept as minute and hour averages."
-      actions={<RangeControl range={range} onRangeChange={onRangeChange} />}
+      title={t("appPages.metrics.mainTitle")}
+      description={t("appPages.metrics.mainDescription")}
+      actions={<RangeControl range={range} onRangeChange={onRangeChange} t={t} />}
     >
       <div className="grid min-w-0 gap-4 xl:grid-cols-2">
-        {CHARTS.map((spec) => (
+        {charts(t).map((spec) => (
           <MetricChart
-            key={spec.title}
+            key={spec.key}
             spec={spec}
             app={app.data}
             range={range}
             markers={chartMarkers}
             now={now}
             onRangeChange={onRangeChange}
+            t={t}
           />
         ))}
       </div>
-      <DeployList domain={domain} marks={marks} />
+      <DeployList domain={domain} marks={marks} t={t} />
     </Section>
   );
 }

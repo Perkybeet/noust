@@ -9,7 +9,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { request } from "../../api/client";
 import { databaseKeys } from "../../api/queries/databases";
+import { getLocale } from "../../app/locale";
 import { toast } from "../../components/ui/toast";
+import { translate } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
 
 export interface CreateDatabaseInput {
@@ -77,7 +79,7 @@ export function useDatabaseActions() {
         },
       }),
     onSuccess: (database) => {
-      toast.success(`Database '${database.name}' created`);
+      toast.success(translate(getLocale(), "databases.actions.databaseCreated", { name: database.name }));
       refreshList();
     },
   });
@@ -96,7 +98,7 @@ export function useDatabaseActions() {
       queryClient.removeQueries({ queryKey: databaseKeys.detail(engine, name), type: "inactive" });
     },
     onError: (error, { name }) => {
-      reportActionError(`Could not drop '${name}'`, error);
+      reportActionError(translate(getLocale(), "databases.actions.dropFailed", { name }), error);
     },
   });
 
@@ -124,7 +126,7 @@ export function useDatabaseActions() {
       void queryClient.invalidateQueries({ queryKey: databaseKeys.users(engine) });
     },
     onError: (error, { username }) => {
-      reportActionError(`Could not delete '${username}'`, error);
+      reportActionError(translate(getLocale(), "databases.actions.deleteUserFailed", { username }), error);
     },
   });
 
@@ -168,7 +170,7 @@ export function useDatabaseActions() {
         body: { engine: input.engine, database: input.database, compress: input.compress },
       }),
     onSuccess: (backup) => {
-      toast.success(`Backup of '${backup.database}' created`);
+      toast.success(translate(getLocale(), "databases.actions.backupCreated", { database: backup.database }));
       void queryClient.invalidateQueries({ queryKey: databaseKeys.backups(backup.engine, backup.database) });
       void queryClient.invalidateQueries({ queryKey: databaseKeys.backups(null, null) });
     },

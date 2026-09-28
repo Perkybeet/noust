@@ -17,6 +17,7 @@ import { Checkbox } from "../../../components/ui/Checkbox";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { toast } from "../../../components/ui/toast";
+import { useT } from "../../../i18n";
 import { ElevationCancelledError } from "../../../api/errors";
 import { reportActionError, useAppActions } from "../../apps/useAppActions";
 import { useConfirmItsYou } from "../useDeleteApp";
@@ -38,21 +39,22 @@ function sameDraft(a: LimitsDraft, b: LimitsDraft): boolean {
 }
 
 function Saved({ result, domain }: { result: LimitsResult; domain: string }) {
+  const t = useT();
   const { restart } = useAppActions(domain);
-  const units = result.units.join(", ");
+  const units = result.units.join(", ") || t("appSettings.limits.theUnit");
   return (
     <div role="status" className="flex flex-col gap-2 rounded-control border border-ok/40 bg-ok-soft px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
       <p className="flex items-start gap-2 text-13 text-fg">
         <CircleCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-ok" />
         <span>
           {result.restarted
-            ? `Saved. ${units || "The unit"} restarted under the new limits.`
-            : `Saved. ${units || "The unit"} was rewritten; the running process keeps its old limits until it restarts.`}
+            ? t("appSettings.limits.savedRestarted", { units })
+            : t("appSettings.limits.savedNotRestarted", { units })}
         </span>
       </p>
       {result.restart_required ? (
         <Button size="sm" icon={<RotateCw aria-hidden="true" />} loading={restart.isPending} onClick={() => restart.mutate()} className="self-start sm:self-auto">
-          Restart now
+          {t("appSettings.limits.restartNow")}
         </Button>
       ) : null}
     </div>
@@ -65,6 +67,7 @@ function Saved({ result, domain }: { result: LimitsResult; domain: string }) {
  * backend, whose refusal is shown verbatim.
  */
 export function LimitsSection({ app }: { app: App }) {
+  const t = useT();
   const domain = app.domain;
   const queryClient = useQueryClient();
   const confirmItsYou = useConfirmItsYou();
@@ -86,7 +89,7 @@ export function LimitsSection({ app }: { app: App }) {
     if (sameDraft(draft, baseline)) setDraft(current);
   }
 
-  const parsed = parseLimits(draft, cores);
+  const parsed = parseLimits(draft, cores, t.locale);
   const dirty = changed(draft, current);
 
   const save = useMutation({
@@ -113,7 +116,7 @@ export function LimitsSection({ app }: { app: App }) {
       void queryClient.invalidateQueries({ queryKey: appKeys.detail(domain) });
       void queryClient.invalidateQueries({ queryKey: appKeys.list, exact: true });
       // The toast is announced; saying it again would read it twice.
-      toast.success(`Saved the limits of ${domain}`);
+      toast.success(t("appSettings.limits.savedToast", { domain }));
     },
   });
 
@@ -146,7 +149,7 @@ export function LimitsSection({ app }: { app: App }) {
         save.mutate();
       },
       (error: unknown) => {
-        if (!(error instanceof ElevationCancelledError)) reportActionError(`The limits of ${domain} were not saved`, error);
+        if (!(error instanceof ElevationCancelledError)) reportActionError(t("appSettings.limits.notSavedFor", { domain }), error);
       },
     );
   };
@@ -155,36 +158,34 @@ export function LimitsSection({ app }: { app: App }) {
 
   if (staticSite) {
     return (
-      <Section title="Resource limits">
-        <p className={`${PANEL} px-4 py-4 text-13 text-fg-muted`}>
-          A static site is served by the web server: there is no process of its own to limit.
-        </p>
+      <Section title={t("appSettings.limits.title")}>
+        <p className={`${PANEL} px-4 py-4 text-13 text-fg-muted`}>{t("appSettings.limits.staticNote")}</p>
       </Section>
     );
   }
 
   return (
-    <Section title="Resource limits" description="What systemd lets the app's unit use. An empty field is no limit.">
+    <Section title={t("appSettings.limits.title")} description={t("appSettings.limits.description")}>
       <form onSubmit={submit} noValidate className={`${PANEL} flex flex-col gap-5 px-4 py-4 sm:px-5`}>
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Memory" description="MemoryMax. At least 64 MB." error={errorOf("memory")}>
+          <Field label={t("appSettings.limits.memoryLabel")} description={t("appSettings.limits.memoryDescription")} error={errorOf("memory")}>
             <Input
               mono
               inputMode="numeric"
               autoComplete="off"
-              placeholder="No limit"
-              suffix="MB"
+              placeholder={t("appSettings.limits.noLimitPlaceholder")}
+              suffix={t("appSettings.limits.memorySuffix")}
               value={draft.memory}
               onValueChange={edit("memory")}
               onBlur={blur("memory")}
             />
           </Field>
           <Field
-            label="CPU"
+            label={t("appSettings.limits.cpuLabel")}
             description={
               cores === null
-                ? "CPUQuota. 100 is one whole CPU, 200 two."
-                : `CPUQuota. 100 is one whole CPU; up to ${String(100 * cores)} here.`
+                ? t("appSettings.limits.cpuDescriptionUnknown")
+                : t("appSettings.limits.cpuDescriptionKnown", { max: 100 * cores })
             }
             error={errorOf("cpu")}
           >
@@ -192,19 +193,19 @@ export function LimitsSection({ app }: { app: App }) {
               mono
               inputMode="numeric"
               autoComplete="off"
-              placeholder="No limit"
-              suffix="%"
+              placeholder={t("appSettings.limits.noLimitPlaceholder")}
+              suffix={t("appSettings.limits.cpuSuffix")}
               value={draft.cpu}
               onValueChange={edit("cpu")}
               onBlur={blur("cpu")}
             />
           </Field>
-          <Field label="Tasks" description="TasksMax: processes and threads. At least 16." error={errorOf("tasks")}>
+          <Field label={t("appSettings.limits.tasksLabel")} description={t("appSettings.limits.tasksDescription")} error={errorOf("tasks")}>
             <Input
               mono
               inputMode="numeric"
               autoComplete="off"
-              placeholder="No limit"
+              placeholder={t("appSettings.limits.noLimitPlaceholder")}
               value={draft.tasks}
               onValueChange={edit("tasks")}
               onBlur={blur("tasks")}
@@ -213,26 +214,26 @@ export function LimitsSection({ app }: { app: App }) {
         </div>
 
         <Checkbox
-          label="Restart now so the limits apply"
-          description="Otherwise the running process keeps its current limits until the next restart or deploy."
+          label={t("appSettings.limits.restartLabel")}
+          description={t("appSettings.limits.restartDescription")}
           checked={restart}
           onCheckedChange={setRestart}
         />
 
         {save.isError && Object.keys(serverFields).length === 0 ? (
-          <ErrorBlock live compact error={save.error} title="The limits were not saved" />
+          <ErrorBlock live compact error={save.error} title={t("appSettings.limits.saveFailed")} />
         ) : null}
         {saved !== null ? <Saved result={saved} domain={domain} /> : null}
 
         <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-12 text-fg-muted">
-            {"Now: "}
+            {t("appSettings.limits.now")}
             {now.length > 0 ? (
               <span translate="no" className="mono text-fg">
                 {now.join(" ")}
               </span>
             ) : (
-              "no limits"
+              t("appSettings.limits.noLimits")
             )}
           </p>
           <div className="flex items-center gap-2">
@@ -246,15 +247,15 @@ export function LimitsSection({ app }: { app: App }) {
                 save.reset();
               }}
             >
-              Discard changes
+              {t("appSettings.limits.discard")}
             </Button>
             <Button type="submit" variant="primary" disabled={!dirty} loading={save.isPending}>
-              Save limits
+              {t("appSettings.limits.saveLimits")}
             </Button>
           </div>
         </div>
       </form>
-      <CommandHint command={`wasm app limits ${domain} --memory 512M --cpu 50% --tasks 256`} label="From a terminal" />
+      <CommandHint command={`wasm app limits ${domain} --memory 512M --cpu 50% --tasks 256`} label={t("appSettings.fromTerminal")} />
     </Section>
   );
 }

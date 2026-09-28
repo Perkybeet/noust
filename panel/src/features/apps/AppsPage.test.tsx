@@ -1,6 +1,7 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { APPS, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
@@ -175,6 +176,30 @@ describe("the applications list", () => {
   it("has no accessibility violations", async () => {
     const { table } = await appsAt();
     await within(table).findByRole("link", { name: "shop.example.com" });
+    await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
+  it("reads in Spanish", async () => {
+    await act(() => setLocale("es"));
+    fakeBackend({
+      ...signedInRoutes(),
+      "GET /api/deployments": () => json(200, { items: [], total: 0, next_before_id: null }),
+    });
+    renderConsole("/apps");
+    await screen.findByRole("heading", { level: 1, name: "Aplicaciones" });
+    const table = await screen.findByRole("region", { name: /Aplicaciones/ });
+    const shop = await within(table).findByRole("link", { name: "shop.example.com" });
+    expect(screen.getByRole("searchbox", { name: "Buscar aplicaciones" })).toBeInTheDocument();
+    expect(screen.getByText("2 aplicaciones")).toBeInTheDocument();
+    const menuButton = screen.getByRole("button", { name: "Acciones para shop.example.com" });
+    const user = (await import("@testing-library/user-event")).default.setup();
+    await user.click(menuButton);
+    expect(await screen.findByRole("menuitem", { name: "Abrir" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Registros" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Reiniciar" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Actualizar" })).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    expect(shop).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 });

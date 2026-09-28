@@ -4,6 +4,7 @@ import { sessionQuery } from "../../api/queries/auth";
 import { useDocumentTitle } from "../../app/documentTitle";
 import { LogoMark } from "../../components/ui/Logo";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { useT } from "../../i18n";
 import { LoginForm } from "./LoginForm";
 import type { LoginFormProps } from "./LoginForm";
 
@@ -12,7 +13,8 @@ import type { LoginFormProps } from "./LoginForm";
  * servers should never type a token into the wrong one.
  */
 export function LoginPage({ next, expired }: LoginFormProps) {
-  useDocumentTitle("Sign in");
+  const t = useT();
+  useDocumentTitle(t("auth.area"));
   const { data: session, isPending } = useQuery(sessionQuery());
 
   return (
@@ -32,12 +34,13 @@ export function LoginPage({ next, expired }: LoginFormProps) {
               <span className="text-13 font-medium text-fg">WASM</span>
             )}
             <span className="text-12 text-fg-faint">
-              WASM Console{session ? <span className="mono">{` ${session.version}`}</span> : null}
+              {t("shell.area")}
+              {session ? <span className="mono">{` ${session.version}`}</span> : null}
             </span>
           </div>
         </div>
-        <h1 className="title text-24 text-fg">Sign in</h1>
-        <p className="mt-1.5 mb-7 text-14 text-pretty text-fg-muted">Use this server's access token to open its console.</p>
+        <h1 className="title text-24 text-fg">{t("auth.area")}</h1>
+        <p className="mt-1.5 mb-7 text-14 text-pretty text-fg-muted">{t("auth.subtitle")}</p>
         <LoginForm next={next} expired={expired} />
       </div>
     </main>

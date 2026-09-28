@@ -5,6 +5,7 @@ import type { SyntheticEvent } from "react";
 import { isApiError, request } from "../../api/client";
 import type { BodyOf } from "../../api/client";
 import { siteTemplatesQuery } from "../../api/queries/sites";
+import { getLocale } from "../../app/locale";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { Button } from "../../components/ui/Button";
@@ -13,6 +14,8 @@ import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { translate, useT } from "../../i18n";
+import type { Locale, T } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { domainProblem, normalizeDomain } from "./names";
 
@@ -24,22 +27,24 @@ export type CreateSiteBody = BodyOf<"/api/sites", "post">;
  * of truth for which templates exist; this only dresses up the ones it recognises. A template
  * this machine offers but this map does not know yet still shows, titled from its own name.
  */
-const TEMPLATE_COPY: Readonly<Record<string, { label: string; description: (domain: string) => string }>> = {
-  proxy: { label: "Reverse proxy", description: () => "Passes every request to an app listening on a local port." },
-  static: {
-    label: "Static files",
-    description: (domain) => `Serves the files in /var/www/apps/${domain || "<domain>"} as they are.`,
-  },
-  advanced: { label: "Advanced proxy", description: () => "A reverse proxy with rate limiting and security headers, for more than one upstream." },
-  monorepo: { label: "Monorepo", description: () => "One certificate for the domain and a subdomain per workspace, each routed to its own port." },
-};
-
-function templateLabel(name: string): string {
-  return TEMPLATE_COPY[name]?.label ?? (name.charAt(0).toUpperCase() + name.slice(1));
+function templateCopy(t: T): Readonly<Record<string, { label: string; description: (domain: string) => string }>> {
+  return {
+    proxy: { label: t("domains.createSiteDialog.templateReverseProxyLabel"), description: () => t("domains.createSiteDialog.templateReverseProxyDescription") },
+    static: {
+      label: t("domains.createSiteDialog.templateStaticLabel"),
+      description: (domain) => t("domains.createSiteDialog.templateStaticDescription", { domain: domain || "<domain>" }),
+    },
+    advanced: { label: t("domains.createSiteDialog.templateAdvancedLabel"), description: () => t("domains.createSiteDialog.templateAdvancedDescription") },
+    monorepo: { label: t("domains.createSiteDialog.templateMonorepoLabel"), description: () => t("domains.createSiteDialog.templateMonorepoDescription") },
+  };
 }
 
-function templateDescription(name: string, domain: string): string {
-  return TEMPLATE_COPY[name]?.description(domain) ?? `Renders WASM's "${name}" template.`;
+function templateLabel(t: T, name: string): string {
+  return templateCopy(t)[name]?.label ?? (name.charAt(0).toUpperCase() + name.slice(1));
+}
+
+function templateDescription(t: T, name: string, domain: string): string {
+  return templateCopy(t)[name]?.description(domain) ?? t("domains.createSiteDialog.templateUnknownDescription", { name });
 }
 
 /** Every template but the static one names a port the request is proxied to. */
@@ -59,14 +64,14 @@ export interface CreateSiteForm {
 export type CreateSiteErrors = Partial<Record<"domain" | "port", string>>;
 
 /** The form as the API takes it, or what is wrong with it. */
-export function createSiteBody(form: CreateSiteForm): { body: CreateSiteBody } | { errors: CreateSiteErrors } {
+export function createSiteBody(form: CreateSiteForm, locale: Locale = getLocale()): { body: CreateSiteBody } | { errors: CreateSiteErrors } {
   const errors: CreateSiteErrors = {};
   const domain = normalizeDomain(form.domain);
-  const problem = domainProblem(domain);
+  const problem = domainProblem(domain, locale);
   if (problem !== null) errors.domain = problem;
   const port = Number(form.port);
   if (templateNeedsPort(form.template) && (!/^\d+$/.test(form.port.trim()) || port < 1 || port > 65535)) {
-    errors.port = "Enter the port the app listens on, between 1 and 65535.";
+    errors.port = translate(locale, "domains.createSiteDialog.portRequiredError");
   }
   if (Object.keys(errors).length > 0) return { errors };
   return {
@@ -95,6 +100,7 @@ export interface CreateSiteDialogProps {
  * is ordered first and the site is only rendered with TLS once it exists.
  */
 export function CreateSiteDialog({ open, onOpenChange, detected, onCreated }: CreateSiteDialogProps) {
+  const t = useT();
   const initial: CreateSiteForm = {
     domain: "",
     webserver: detected === "apache" ? "apache" : "nginx",
@@ -145,7 +151,7 @@ export function CreateSiteDialog({ open, onOpenChange, detected, onCreated }: Cr
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    const result = createSiteBody({ ...form, template });
+    const result = createSiteBody({ ...form, template }, t.locale);
     if ("errors" in result) {
       setErrors(result.errors);
       return;
@@ -161,21 +167,21 @@ export function CreateSiteDialog({ open, onOpenChange, detected, onCreated }: Cr
       open={open}
       onOpenChange={close}
       size="lg"
-      title="Create a site"
-      description="A server block for a name that is not an application of its own, written from WASM's templates."
+      title={t("domains.createSiteDialog.dialogTitle")}
+      description={t("domains.createSiteDialog.dialogDescription")}
       footer={
         <>
           <Button disabled={create.isPending} onClick={() => close(false)}>
-            Cancel
+            {t("domains.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={create.isPending} disabled={available.length === 0}>
-            {form.ssl ? "Create site and certificate" : "Create site"}
+            {form.ssl ? t("domains.createSiteDialog.createSiteAndCertificate") : t("domains.createSite")}
           </Button>
         </>
       }
     >
       <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-5">
-        <Field label="Domain" error={errors.domain ?? server["domain"]}>
+        <Field label={t("domains.domainFieldLabel")} error={errors.domain ?? server["domain"]}>
           <Input
             mono
             value={form.domain}
@@ -188,10 +194,10 @@ export function CreateSiteDialog({ open, onOpenChange, detected, onCreated }: Cr
         </Field>
         <div className="flex flex-col gap-1.5">
           <span aria-hidden="true" className="text-13 font-medium text-fg">
-            Web server
+            {t("domains.webServerLabel")}
           </span>
           <SegmentedControl<WebServer>
-            label="Web server"
+            label={t("domains.webServerLabel")}
             options={[
               { value: "nginx", label: "nginx" },
               { value: "apache", label: "Apache" },
@@ -200,12 +206,12 @@ export function CreateSiteDialog({ open, onOpenChange, detected, onCreated }: Cr
             onValueChange={(webserver) => set({ webserver })}
             className="self-start"
           />
-          <span className="text-12 text-fg-muted">{`This machine runs ${detected}.`}</span>
+          <span className="text-12 text-fg-muted">{t("domains.createSiteDialog.thisMachineRuns", { webserver: detected })}</span>
         </div>
         <fieldset className="flex flex-col gap-2">
-          <legend className="mb-1.5 text-13 font-medium text-fg">Template</legend>
+          <legend className="mb-1.5 text-13 font-medium text-fg">{t("domains.createSiteDialog.templateLegend")}</legend>
           {templates.isError && available.length === 0 ? (
-            <ErrorBlock compact error={templates.error} title="Could not list this machine's templates" onRetry={() => void templates.refetch()} retrying={templates.isRefetching} />
+            <ErrorBlock compact error={templates.error} title={t("domains.createSiteDialog.couldNotListTemplates")} onRetry={() => void templates.refetch()} retrying={templates.isRefetching} />
           ) : available.length === 0 ? (
             <div aria-hidden="true" className="grid gap-2 sm:grid-cols-2">
               <Skeleton className="h-16 rounded-control" />
@@ -231,35 +237,35 @@ export function CreateSiteDialog({ open, onOpenChange, detected, onCreated }: Cr
                     className="row-span-2 mt-0.5 size-4 shrink-0 accent-accent"
                   />
                   <span translate="no" className="text-13 font-medium text-fg">
-                    {templateLabel(name)}
+                    {templateLabel(t, name)}
                   </span>
-                  <span className="col-start-2 text-12 text-pretty text-fg-muted">{templateDescription(name, domain)}</span>
+                  <span className="col-start-2 text-12 text-pretty text-fg-muted">{templateDescription(t, name, domain)}</span>
                 </label>
               ))}
             </div>
           )}
         </fieldset>
         {templateNeedsPort(template) ? (
-          <Field label="Port" error={errors.port ?? server["port"]} description="Where the app listens on this machine." className="sm:max-w-40">
+          <Field label={t("domains.createSiteDialog.portFieldLabel")} error={errors.port ?? server["port"]} description={t("domains.createSiteDialog.portFieldDescription")} className="sm:max-w-40">
             <Input mono inputMode="numeric" value={form.port} onValueChange={(value: string) => set({ port: value })} />
           </Field>
         ) : null}
         <div className="flex flex-col gap-3">
           <Checkbox
-            label="Serve it over HTTPS"
-            description="A certificate is ordered from Let's Encrypt first; the name must already point to this server. Without one, the site is written for plain HTTP."
+            label={t("domains.createSiteDialog.httpsCheckboxLabel")}
+            description={t("domains.createSiteDialog.httpsCheckboxDescription")}
             checked={form.ssl}
             onCheckedChange={(ssl) => set({ ssl })}
           />
           <Checkbox
-            label="Enable it now"
-            description="Otherwise the file is written and waits until you enable it."
+            label={t("domains.createSiteDialog.enableNowCheckboxLabel")}
+            description={t("domains.createSiteDialog.enableNowCheckboxDescription")}
             checked={form.enable}
             onCheckedChange={(enable) => set({ enable })}
           />
         </div>
         {create.isError && Object.keys(server).length === 0 ? (
-          <ErrorBlock live compact error={create.error} title={`${domain || "The site"} was not created`} />
+          <ErrorBlock live compact error={create.error} title={t("domains.createSiteDialog.notCreatedError", { domain: domain || t("domains.theSite") })} />
         ) : null}
       </form>
     </Dialog>

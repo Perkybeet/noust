@@ -1,7 +1,8 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { Button } from "./Button";
 import { Drawer } from "./Drawer";
@@ -44,5 +45,15 @@ describe("Drawer", () => {
     await userEvent.click(screen.getByRole("button", { name: "View deployment" }));
     await screen.findByRole("dialog");
     await expectNoAxeViolations(document.body);
+  });
+
+  it("closes in Spanish too", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    render(<Example />);
+    await userEvent.click(screen.getByRole("button", { name: "View deployment" }));
+    await screen.findByRole("dialog");
+    expect(screen.getByRole("button", { name: "Cerrar" })).toBeInTheDocument();
   });
 });

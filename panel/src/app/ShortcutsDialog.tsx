@@ -2,6 +2,7 @@ import { Fragment } from "react";
 
 import { Dialog } from "../components/ui/Dialog";
 import { Kbd } from "../components/ui/Kbd";
+import { useT } from "../i18n";
 import { modKeyLabel } from "./shortcuts";
 
 export interface ShortcutHelp {
@@ -19,13 +20,17 @@ export interface ShortcutsDialogProps {
 
 /** Every shortcut the console answers to, opened with `?`. */
 export function ShortcutsDialog({ open, onOpenChange, shortcuts }: ShortcutsDialogProps) {
-  const rows: readonly ShortcutHelp[] = [{ keys: [`${modKeyLabel()} K`], description: "Open the command palette" }, ...shortcuts];
+  const t = useT();
+  const rows: readonly ShortcutHelp[] = [
+    { keys: [`${modKeyLabel()} K`], description: t("shell.shortcuts.openPalette") },
+    ...shortcuts,
+  ];
   return (
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Keyboard shortcuts"
-      description="Shortcuts work anywhere except while you type in a field."
+      title={t("shell.session.keyboardShortcuts")}
+      description={t("shell.shortcuts.dialogDescription")}
       size="sm"
     >
       <dl className="flex flex-col">
@@ -38,7 +43,7 @@ export function ShortcutsDialog({ open, onOpenChange, shortcuts }: ShortcutsDial
             <dd className="flex shrink-0 items-center gap-1 text-12 text-fg-faint">
               {shortcut.keys.map((key, index) => (
                 <Fragment key={`${key}-${String(index)}`}>
-                  {index > 0 ? <span>then</span> : null}
+                  {index > 0 ? <span>{t("shell.shortcuts.then")}</span> : null}
                   <span className="flex gap-0.5">
                     {key.split(" ").map((part) => (
                       <Kbd key={part}>{part}</Kbd>

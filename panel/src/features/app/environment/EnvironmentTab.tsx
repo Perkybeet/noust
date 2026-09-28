@@ -19,8 +19,9 @@ import type { Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { IconButton } from "../../../components/ui/IconButton";
 import { Menu, MenuItem } from "../../../components/ui/Menu";
+import { useT } from "../../../i18n";
+import type { T } from "../../../i18n";
 import { cx } from "../../../lib/cx";
-import { formatCount } from "../../../lib/format";
 import { reportActionError } from "../../apps/useAppActions";
 import type { DraftOp, EnvDiff, EnvRow } from "./draft";
 import { applyDraft, describeCounts, diffEnv, draftRows, isMasked, summarise } from "./draft";
@@ -38,19 +39,20 @@ function envFile(app: App | undefined): string {
   return app.layout === "releases" ? `${app.path}/shared/.env` : `${app.path}/.env`;
 }
 
-const STATE_BADGE: Record<Exclude<EnvRow["state"], "unchanged">, string> = {
-  added: "Added",
-  changed: "Changed",
-  removed: "Removed",
-};
+function stateBadge(t: T, state: Exclude<EnvRow["state"], "unchanged">): string {
+  if (state === "added") return t("environment.added");
+  if (state === "changed") return t("environment.changed");
+  return t("environment.removed");
+}
 
 function Masked() {
+  const t = useT();
   return (
     <span className="text-fg-faint">
       <span aria-hidden="true" className="text-13 leading-none tracking-[0.08em]">
         ••••••••
       </span>
-      <span className="sr-only">Hidden</span>
+      <span className="sr-only">{t("environment.tab.hidden")}</span>
     </span>
   );
 }
@@ -74,13 +76,14 @@ function SecrecyMenu({
   pending: boolean;
   onMark: (mark: boolean | null) => void;
 }) {
+  const t = useT();
   const choice = secrecyChoice(verdict);
   return (
     <Menu
       trigger={
         <IconButton
           size="sm"
-          label={`Change whether ${name} is treated as a secret (now ${secrecyStateLabel(choice)})`}
+          label={t("environment.secrecy.changeAria", { name, state: secrecyStateLabel(choice, t.locale) })}
           icon={<ShieldQuestion />}
           disabled={pending}
         />
@@ -94,8 +97,8 @@ function SecrecyMenu({
             onMark(markFor(option));
           }}
         >
-          {secrecyActionLabel(option)}
-          {option === choice ? <span className="sr-only"> (current)</span> : null}
+          {secrecyActionLabel(option, t.locale)}
+          {option === choice ? <span className="sr-only">{t("environment.secrecy.currentSrOnly")}</span> : null}
         </MenuItem>
       ))}
     </Menu>
@@ -108,7 +111,8 @@ function SecrecyMenu({
  * over the values the file really holds.
  */
 export function EnvironmentTab({ domain }: { domain: string }) {
-  useDocumentTitle(`Environment - ${domain}`, 1);
+  const t = useT();
+  useDocumentTitle(t("environment.tab.documentTitle", { domain }), 1);
   const queryClient = useQueryClient();
   const app = useQuery(appQuery(domain));
   const env = useQuery(appEnvQuery(domain, false));
@@ -138,7 +142,7 @@ export function EnvironmentTab({ domain }: { domain: string }) {
       announce(secrecyMarkAnnouncement(variables.name, variables.value));
     },
     onError: (error: unknown) => {
-      reportActionError("Could not change how the variable is classified", error);
+      reportActionError(t("environment.secrecy.markFailed"), error);
     },
   });
 
@@ -157,7 +161,7 @@ export function EnvironmentTab({ domain }: { domain: string }) {
       const result = await unmask.mutateAsync();
       return new Map(Object.entries(result.variables));
     } catch (error: unknown) {
-      reportActionError("Could not read the values in clear", error);
+      reportActionError(t("environment.tab.readClearFailed"), error);
       return null;
     }
   };
@@ -198,7 +202,7 @@ export function EnvironmentTab({ domain }: { domain: string }) {
 
   const undo = (name: string): void => {
     setOps((current) => [...current.filter((op) => !("name" in op && op.name === name)), { kind: "restore", name }]);
-    announce(`Undid the change to ${name}`);
+    announce(t("environment.tab.undidChange", { name }));
   };
 
   const openReview = async (): Promise<void> => {
@@ -211,7 +215,7 @@ export function EnvironmentTab({ domain }: { domain: string }) {
   const columns: Column<EnvRow>[] = [
     {
       id: "name",
-      header: "Name",
+      header: t("environment.tab.nameHeader"),
       width: "w-[38%]",
       cell: (row) => (
         <span className="flex min-w-0 items-center gap-2">
@@ -220,26 +224,26 @@ export function EnvironmentTab({ domain }: { domain: string }) {
             title={row.name}
             className={cx("mono max-w-[9rem] truncate text-12 sm:max-w-[20rem]", row.state === "removed" ? "text-fg-muted line-through" : "text-fg")}
           >
-            {row.name === "" ? "(no name)" : row.name}
+            {row.name === "" ? t("environment.noName") : row.name}
           </span>
           {row.current !== null && isMasked(row.current) && row.state !== "added" ? (
-            <span className="inline-flex text-fg-faint" title="Hidden by the server">
+            <span className="inline-flex text-fg-faint" title={t("environment.tab.hiddenByServerTitle")}>
               <Lock aria-hidden="true" className="size-3.5" />
-              <span className="sr-only">Secret</span>
+              <span className="sr-only">{t("environment.tab.secretSrOnly")}</span>
             </span>
           ) : null}
-          {row.state !== "unchanged" ? <Badge>{STATE_BADGE[row.state]}</Badge> : null}
-          {row.state !== "removed" && !isValidName(row.name) ? <Badge tone="fail">Not a valid name</Badge> : null}
+          {row.state !== "unchanged" ? <Badge>{stateBadge(t, row.state)}</Badge> : null}
+          {row.state !== "removed" && !isValidName(row.name) ? <Badge tone="fail">{t("environment.tab.notValidName")}</Badge> : null}
         </span>
       ),
     },
     {
       id: "value",
-      header: "Value",
+      header: t("environment.tab.valueHeader"),
       cell: (row) => {
         const value = revealed.has(row.name) ? valueOf(row) : null;
         if (value === null) return <Masked />;
-        if (value === "") return <span className="text-13 text-fg-faint">Empty</span>;
+        if (value === "") return <span className="text-13 text-fg-faint">{t("environment.empty")}</span>;
         return (
           <span className="flex min-w-0 items-center gap-1">
             <span
@@ -249,23 +253,23 @@ export function EnvironmentTab({ domain }: { domain: string }) {
             >
               {value}
             </span>
-            <CopyButton value={value} label={`Copy the value of ${row.name}`} />
+            <CopyButton value={value} label={t("environment.tab.copyValueAria", { name: row.name })} />
           </span>
         );
       },
     },
     {
       id: "visibility",
-      header: "Visibility",
+      header: t("environment.tab.visibilityHeader"),
       width: "w-56",
       cell: (row) => {
         // A variable just added exists only in the draft: WASM has not classified it yet, and
         // marking it before it is even saved would set an override for a name the .env file
         // does not hold. A removed one keeps its line, struck through, but not the control.
-        if (row.current === null) return <span className="text-13 text-fg-faint">Not yet classified</span>;
+        if (row.current === null) return <span className="text-13 text-fg-faint">{t("environment.tab.notYetClassified")}</span>;
         const verdict = secrets.get(row.name);
         if (verdict === undefined) return null;
-        const line = secrecyLine(verdict);
+        const line = secrecyLine(verdict, t.locale);
         return (
           <span className="flex min-w-0 items-center gap-2">
             <span
@@ -298,25 +302,25 @@ export function EnvironmentTab({ domain }: { domain: string }) {
           <>
             <IconButton
               size="sm"
-              label={shown ? `Hide the value of ${row.name}` : `Reveal the value of ${row.name}`}
+              label={shown ? t("environment.tab.hideAria", { name: row.name }) : t("environment.tab.revealAria", { name: row.name })}
               icon={shown ? <EyeOff /> : <Eye />}
               disabled={unmask.isPending}
               onClick={() => void toggleReveal(row)}
             />
-            <IconButton size="sm" label={`Edit ${row.name}`} icon={<Pencil />} disabled={unmask.isPending} onClick={() => void edit(row)} />
+            <IconButton size="sm" label={t("environment.tab.editAria", { name: row.name })} icon={<Pencil />} disabled={unmask.isPending} onClick={() => void edit(row)} />
           </>
         ) : null}
         {row.state === "unchanged" ? (
           <IconButton
             size="sm"
-            label={`Remove ${row.name}`}
+            label={t("environment.tab.removeAria", { name: row.name })}
             icon={<Trash2 />}
             onClick={() => {
-              stage([{ kind: "remove", name: row.name }], `${row.name} will be removed when you save`);
+              stage([{ kind: "remove", name: row.name }], t("environment.tab.willBeRemoved", { name: row.name }));
             }}
           />
         ) : (
-          <IconButton size="sm" label={`Undo the change to ${row.name}`} icon={<Undo2 />} onClick={() => undo(row.name)} />
+          <IconButton size="sm" label={t("environment.tab.undoAria", { name: row.name })} icon={<Undo2 />} onClick={() => undo(row.name)} />
         )}
       </span>
     );
@@ -325,10 +329,10 @@ export function EnvironmentTab({ domain }: { domain: string }) {
   const actions = (
     <>
       <Button icon={<ClipboardPaste aria-hidden="true" />} onClick={() => setPasting(true)}>
-        Paste .env
+        {t("environment.tab.pasteButton")}
       </Button>
       <Button icon={<Plus aria-hidden="true" />} onClick={() => setEditing({ mode: "add" })}>
-        Add variable
+        {t("environment.addVariable")}
       </Button>
     </>
   );
@@ -338,13 +342,13 @@ export function EnvironmentTab({ domain }: { domain: string }) {
   return (
     <div className="flex max-w-6xl flex-col gap-8">
       <Section
-        title="Variables"
+        title={t("environment.tab.title")}
         // Two lines whatever the path's length: the sentence, then the file on a line of its
         // own, cut short with the whole path on hover. A path that wrapped the sentence moved
         // the table down when the app's details arrived.
         description={
           <>
-            <span className="block">{isStatic ? "Read when the site is built, from" : "Read by the app's process when it starts, from"}</span>
+            <span className="block">{isStatic ? t("environment.tab.readBuild") : t("environment.tab.readRuntime")}</span>
             <code translate="no" title={file} className="block truncate text-12 text-fg">
               {file}
             </code>
@@ -352,28 +356,28 @@ export function EnvironmentTab({ domain }: { domain: string }) {
         }
         actions={env.data !== undefined && masked.size + counts.added > 0 ? actions : undefined}
       >
-        <p className="text-13 text-fg-muted">
-          WASM hides a value automatically when its name or shape looks like a secret - a password, a Stripe key, a
-          URL with credentials - and shows the rest; mark a variable secret or not secret in its Visibility column to
-          override that call yourself.
-        </p>
+        <p className="text-13 text-fg-muted">{t("environment.tab.autoHideExplanation")}</p>
         <QueryState
           query={env}
-          label="the environment"
+          label={t("environment.tab.queryLabel")}
           skeleton={
-            <DataTable caption={`Environment variables of ${domain}`} columns={columns} rows={[]} getRowId={(row) => row.name} rowActions={rowActions} density="compact" loading />
+            <DataTable
+              caption={t("environment.tab.tableCaption", { domain })}
+              columns={columns}
+              rows={[]}
+              getRowId={(row) => row.name}
+              rowActions={rowActions}
+              density="compact"
+              loading
+            />
           }
           isEmpty={() => rows.length === 0}
           empty={
             <EmptyState
               level={3}
               icon={<Variable />}
-              title="No environment variables"
-              description={
-                isStatic
-                  ? "Variables in this file are read when the site is built. Add one, or paste a whole .env file."
-                  : "Variables in this file are read by the app's process when it starts. Add one, or paste a whole .env file."
-              }
+              title={t("environment.tab.emptyTitle")}
+              description={isStatic ? t("environment.tab.emptyDescriptionStatic") : t("environment.tab.emptyDescriptionRuntime")}
               action={actions}
               command={`wasm env show ${domain}`}
             />
@@ -384,26 +388,26 @@ export function EnvironmentTab({ domain }: { domain: string }) {
               {counts.total > 0 ? (
                 <div className="flex flex-col gap-3 rounded-card border border-border bg-surface px-4 py-3 shadow-raised sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-13 text-fg">
-                    <span className="font-medium">{`${formatCount(counts.total)} unsaved ${counts.total === 1 ? "change" : "changes"}`}</span>
-                    <span className="text-fg-muted">{`: ${describeCounts(counts)}. Nothing is written until you save.`}</span>
+                    <span className="font-medium">{t("environment.tab.unsavedChanges", { count: counts.total })}</span>
+                    <span className="text-fg-muted">{`: ${t("environment.tab.unsavedDetail", { counts: describeCounts(counts, t.locale) })}`}</span>
                   </p>
                   <div className="flex shrink-0 items-center gap-2">
                     <Button
                       onClick={() => {
                         setOps([]);
-                        announce("Discarded the unsaved changes");
+                        announce(t("environment.tab.discardedAnnounce"));
                       }}
                     >
-                      Discard
+                      {t("environment.tab.discard")}
                     </Button>
                     <Button variant="primary" loading={unmask.isPending && review === null} onClick={() => void openReview()}>
-                      Review and save
+                      {t("environment.tab.reviewAndSave")}
                     </Button>
                   </div>
                 </div>
               ) : null}
               <DataTable
-                caption={`Environment variables of ${domain}`}
+                caption={t("environment.tab.tableCaption", { domain })}
                 columns={columns}
                 rows={rows}
                 getRowId={(row) => row.name}
@@ -416,11 +420,11 @@ export function EnvironmentTab({ domain }: { domain: string }) {
         {rows.length > 0 || env.data === undefined ? (
           <p className="flex items-center gap-1.5 text-12 text-fg-muted">
             <Lock aria-hidden="true" className="size-3.5 shrink-0 text-fg-faint" />
-            Secret values are hidden by the server. Revealing or editing one asks you to confirm it&apos;s you.
+            {t("environment.tab.secretsHiddenNote")}
           </p>
         ) : null}
         {/* The empty state carries the same command; said once. */}
-        {rows.length > 0 || env.data === undefined ? <CommandHint command={`wasm env show ${domain}`} label="From a terminal" /> : null}
+        {rows.length > 0 || env.data === undefined ? <CommandHint command={`wasm env show ${domain}`} label={t("environment.fromTerminal")} /> : null}
       </Section>
 
       <VariableDialog
@@ -430,7 +434,7 @@ export function EnvironmentTab({ domain }: { domain: string }) {
         onSubmit={(name, value) => {
           const adding = editing?.mode === "add";
           setEditing(null);
-          stage([{ kind: "set", name, value }], adding ? `${name} will be added when you save` : `${name} will change when you save`);
+          stage([{ kind: "set", name, value }], adding ? t("environment.tab.willBeAdded", { name }) : t("environment.tab.willChange", { name }));
           if (adding) setRevealed((current) => new Set(current).add(name));
         }}
       />

@@ -4,6 +4,7 @@ import { Button } from "../../components/ui/Button";
 import { Field } from "../../components/ui/Field";
 import { IconButton } from "../../components/ui/IconButton";
 import { Input } from "../../components/ui/Input";
+import { useT } from "../../i18n";
 import { pathField } from "./wizard";
 import type { PathRow, ReviewErrors } from "./wizard";
 
@@ -22,6 +23,7 @@ let added = 0;
  * their app needs.
  */
 export function PersistentPathsField({ rows, errors, onChange }: PersistentPathsFieldProps) {
+  const t = useT();
   const update = (id: string, value: string): void => {
     onChange(rows.map((row) => (row.id === id ? { ...row, value } : row)));
   };
@@ -36,7 +38,7 @@ export function PersistentPathsField({ rows, errors, onChange }: PersistentPaths
       {rows.length === 0 ? null : (
         rows.map((row) => (
           <div key={row.id} className="flex items-start gap-2">
-            <Field label="Path" error={errors[pathField(row)]} className="min-w-0 flex-1">
+            <Field label={t("newApp.paths.path")} error={errors[pathField(row)]} className="min-w-0 flex-1">
               <Input
                 mono
                 value={row.value}
@@ -48,7 +50,7 @@ export function PersistentPathsField({ rows, errors, onChange }: PersistentPaths
               />
             </Field>
             <IconButton
-              label={row.value.trim() === "" ? "Remove this path" : `Remove ${row.value.trim()}`}
+              label={row.value.trim() === "" ? t("newApp.paths.removeEmpty") : t("newApp.paths.remove", { path: row.value.trim() })}
               icon={<Trash2 />}
               onClick={() => onChange(rows.filter((other) => other.id !== row.id))}
               className="mt-[1.625rem]"
@@ -58,7 +60,7 @@ export function PersistentPathsField({ rows, errors, onChange }: PersistentPaths
       )}
       <div>
         <Button size="sm" icon={<Plus aria-hidden="true" />} onClick={add}>
-          Add path
+          {t("newApp.paths.add")}
         </Button>
       </div>
     </div>

@@ -11,7 +11,9 @@ import { request } from "../../api/client";
 import { databaseKeys } from "../../api/queries/databases";
 import { activeJobsQuery, isJobFinished, jobKeys, useFollowedJob } from "../../api/queries/jobs";
 import type { Job } from "../../api/queries/jobs";
+import { getLocale } from "../../app/locale";
 import { toast } from "../../components/ui/toast";
+import { translate } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
 
 const RUNNING = new Set(["pending", "running"]);
@@ -52,10 +54,10 @@ export function useEngineActions() {
     onSuccess: (result) => {
       queryClient.setQueryData<Job>(jobKeys.detail(result.job_id), (current) => current ?? (result.job as Job));
       void queryClient.invalidateQueries({ queryKey: jobKeys.active });
-      toast.info(result.message, { description: "You will be told when it finishes." });
+      toast.info(result.message, { description: translate(getLocale(), "databases.actions.installQueuedHint") });
     },
     onError: (error, engine) => {
-      reportActionError(`Could not queue the installation of ${engine}`, error);
+      reportActionError(translate(getLocale(), "databases.actions.installFailed", { engine }), error);
     },
   });
 
@@ -66,7 +68,7 @@ export function useEngineActions() {
       refresh();
     },
     onError: (error, engine) => {
-      reportActionError(`Could not start ${engine}`, error);
+      reportActionError(translate(getLocale(), "databases.actions.startFailed", { engine }), error);
     },
   });
 
@@ -77,7 +79,7 @@ export function useEngineActions() {
       refresh();
     },
     onError: (error, engine) => {
-      reportActionError(`Could not stop ${engine}`, error);
+      reportActionError(translate(getLocale(), "databases.actions.stopFailed", { engine }), error);
     },
   });
 
@@ -88,7 +90,7 @@ export function useEngineActions() {
       refresh();
     },
     onError: (error, engine) => {
-      reportActionError(`Could not restart ${engine}`, error);
+      reportActionError(translate(getLocale(), "databases.actions.restartFailed", { engine }), error);
     },
   });
 

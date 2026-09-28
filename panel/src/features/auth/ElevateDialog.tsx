@@ -10,6 +10,7 @@ import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { SystemOutput } from "../../components/ui/SystemOutput";
+import { useT } from "../../i18n";
 import { describeError } from "../../lib/errors";
 import type { DescribedError } from "../../lib/errors";
 import { cancelElevation, resolveElevation, useElevationRequested } from "./elevation";
@@ -23,6 +24,7 @@ export { elevate } from "./elevation";
  * when two-factor authentication is on, the access token when it is off.
  */
 export function ElevateDialog() {
+  const t = useT();
   const open = useElevationRequested();
   const queryClient = useQueryClient();
   const { data: session } = useQuery({ ...sessionQuery(), enabled: open });
@@ -82,12 +84,8 @@ export function ElevateDialog() {
       onOpenChange={onOpenChange}
       size="sm"
       initialFocus={inputRef}
-      title="Confirm it's you"
-      description={
-        totp
-          ? "This action needs a recent confirmation. Enter a code from your authenticator app or one of your backup codes. It covers the next 10 minutes."
-          : "This action needs a recent confirmation. Enter the access token of this server. It covers the next 10 minutes."
-      }
+      title={t("auth.elevate.title")}
+      description={totp ? t("auth.elevate.descriptionTotp") : t("auth.elevate.descriptionToken")}
       footer={
         <>
           <Button
@@ -96,16 +94,16 @@ export function ElevateDialog() {
               onOpenChange(false);
             }}
           >
-            Cancel
+            {t("auth.elevate.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={pending} disabled={value.trim() === ""}>
-            Confirm
+            {t("auth.elevate.confirm")}
           </Button>
         </>
       }
     >
       <form id={formId} onSubmit={(event) => void submit(event)} className="flex flex-col gap-4">
-        <Field label={totp ? "Authentication code" : "Access token"} error={fieldError}>
+        <Field label={totp ? t("auth.elevate.authenticationCode") : t("auth.accessToken")} error={fieldError}>
           <Input
             ref={inputRef}
             mono
@@ -121,8 +119,8 @@ export function ElevateDialog() {
         </Field>
         {failure !== null ? (
           <div role="alert" className="flex flex-col gap-2 rounded-control border border-fail/30 bg-fail-soft p-3">
-            <p className="text-13 font-medium text-fail">{failure.hint ?? "The confirmation failed. The system said:"}</p>
-            <SystemOutput label="What the system said" maxHeight="max-h-40">
+            <p className="text-13 font-medium text-fail">{failure.hint ?? t("auth.elevate.confirmFailed")}</p>
+            <SystemOutput label={t("auth.elevate.whatSystemSaid")} maxHeight="max-h-40">
               {failure.detail}
             </SystemOutput>
           </div>

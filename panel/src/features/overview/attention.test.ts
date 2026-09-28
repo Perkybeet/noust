@@ -54,7 +54,7 @@ describe("collectAttention", () => {
       title: "clientes.example.com",
       severity: "fail",
       subject: { kind: "app", domain: "clientes.example.com" },
-      reasons: [{ summary: "Last deploy failed", detail: "npm ERR! code ELIFECYCLE", deploymentId: 12 }],
+      reasons: [{ summary: { key: "deployFailed" }, detail: "npm ERR! code ELIFECYCLE", deploymentId: 12 }],
     });
   });
 
@@ -87,8 +87,8 @@ describe("collectAttention", () => {
     expect(items).toHaveLength(1);
     expect(items[0]?.severity).toBe("warn");
     expect(items[0]?.reasons.map((reason) => reason.summary)).toEqual([
-      "Last deploy was rolled back",
-      "Certificate expires in 12 days",
+      { key: "deployRolledBack" },
+      { key: "certExpiresIn", days: 12 },
     ]);
   });
 
@@ -102,8 +102,8 @@ describe("collectAttention", () => {
       ],
     });
     expect(items.map((item) => [item.title, item.severity, item.reasons[0]?.summary])).toEqual([
-      ["late.example.com", "fail", "Certificate expired"],
-      ["soon.example.com", "warn", "Certificate expires in 1 day"],
+      ["late.example.com", "fail", { key: "certExpired" }],
+      ["soon.example.com", "warn", { key: "certExpiresIn", days: 1 }],
     ]);
     expect(items[1]?.subject).toEqual({ kind: "certificate", domain: "soon.example.com" });
   });
@@ -111,9 +111,10 @@ describe("collectAttention", () => {
   it("reports failed units the apps' own state does not already name", () => {
     const machine = { ...MACHINE, units: { running: 3, failed: 2, stopped: 0 } };
     const unnamed = collectAttention({ apps: [app("x.example.com", "stopped")], machine });
-    expect(unnamed.find((item) => item.subject.kind === "units")?.reasons[0]?.summary).toBe(
-      "systemd reports 2 failed WASM units",
-    );
+    expect(unnamed.find((item) => item.subject.kind === "units")?.reasons[0]?.summary).toEqual({
+      key: "unitsFailedCount",
+      count: 2,
+    });
     const named = collectAttention({ apps: [app("x.example.com", "failed"), app("y.example.com", "failed")], machine });
     expect(named.some((item) => item.subject.kind === "units")).toBe(false);
   });
@@ -144,8 +145,8 @@ describe("collectAttention", () => {
     });
     const units = items.filter((item) => item.subject.kind === "unit");
     expect(units.map((item) => [item.title, item.severity, item.reasons[0]?.summary, item.reasons[0]?.detail])).toEqual([
-      ["queue-worker", "fail", "The unit has failed", "Result=exit-code"],
-      ["mailer", "warn", "systemd keeps restarting the unit", undefined],
+      ["queue-worker", "fail", { key: "unitFailed" }, "Result=exit-code"],
+      ["mailer", "warn", { key: "unitRestarting" }, undefined],
     ]);
     expect(units[0]?.subject).toEqual({ kind: "unit", name: "queue-worker" });
     // Named, so the machine's bare count is not repeated.
@@ -161,6 +162,10 @@ describe("collectAttention", () => {
       ],
     });
     expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({ title: "xmrig", severity: "warn", reasons: [{ summary: "Monitor warning: sustained high CPU" }] });
+    expect(items[0]).toMatchObject({
+      title: "xmrig",
+      severity: "warn",
+      reasons: [{ summary: { key: "monitorFinding", severity: "warning", signal: "sustained high CPU" } }],
+    });
   });
 });

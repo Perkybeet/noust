@@ -2,6 +2,7 @@ import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { CopyButton } from "./CopyButton";
 
@@ -67,5 +68,16 @@ describe("CopyButton", () => {
   it("has no accessibility violations", async () => {
     const { container } = render(<CopyButton value="token" label="Copy token" />);
     await expectNoAxeViolations(container);
+  });
+
+  it("speaks Spanish once the language switches", async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    stubClipboard(writeText);
+    await act(async () => {
+      await setLocale("es");
+    });
+    render(<CopyButton value="token" />);
+    await userEvent.click(screen.getByRole("button", { name: "Copiar" }));
+    expect(screen.getByRole("status")).toHaveTextContent("Copiado al portapapeles");
   });
 });

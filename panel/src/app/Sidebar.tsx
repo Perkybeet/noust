@@ -72,6 +72,7 @@ export function SidebarNav({ onNavigate, className }: { onNavigate?: () => void;
 
 /** Settings and the installed version, pinned under the destinations. */
 export function SidebarFooter({ onNavigate }: { onNavigate?: () => void }) {
+  const t = useT();
   const { data: version } = useQuery({ ...sessionQuery(), select: (session) => session.version });
   return (
     <div className="flex flex-col gap-2">
@@ -82,7 +83,7 @@ export function SidebarFooter({ onNavigate }: { onNavigate?: () => void }) {
       </ul>
       {version !== undefined ? (
         <p className="px-2 text-12 text-fg-faint">
-          Version <span className="mono">{version}</span>
+          {t.rich("shell.version", { version: <span className="mono">{version}</span> })}
         </p>
       ) : null}
     </div>
@@ -91,15 +92,16 @@ export function SidebarFooter({ onNavigate }: { onNavigate?: () => void }) {
 
 /** The permanent sidebar on wide screens. Narrow screens get the same lists in a drawer. */
 export function Sidebar() {
+  const t = useT();
   return (
     <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-border lg:flex">
       <div className="flex h-14 shrink-0 items-center border-b border-border px-5">
         <Link
           to="/"
-          aria-label="WASM Console, overview"
+          aria-label={t("shell.sidebarOverview")}
           className="-mx-1.5 rounded-control px-1.5 py-1 focus-visible:outline-2 focus-visible:outline-focus"
         >
-          <Logo size="sm" product="Console" />
+          <Logo size="sm" product={t("shell.consoleProduct")} />
         </Link>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 scroll-thin">

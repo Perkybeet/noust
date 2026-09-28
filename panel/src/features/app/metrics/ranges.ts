@@ -7,24 +7,27 @@
  */
 
 import type { MetricWindow } from "../../../api/queries/metrics";
+import { getLocale } from "../../../app/locale";
+import type { Locale } from "../../../app/locale";
+import { translate } from "../../../i18n";
+import type { MessageKey } from "../../../i18n";
 
 export type MetricRange = "1h" | "24h" | "7d" | "30d";
 
 export interface RangeSpec {
   value: MetricRange;
+  /** The compact code shown on the range control itself: not translated, like a unit symbol. */
   label: string;
-  /** The range in words, for a chart's description: "Last 7 days". */
-  words: string;
   seconds: number;
   /** The window the history endpoint is asked for. */
   window: MetricWindow;
 }
 
 const SPECS: Readonly<Record<MetricRange, RangeSpec>> = {
-  "1h": { value: "1h", label: "1h", words: "Last hour", seconds: 3_600, window: "1h" },
-  "24h": { value: "24h", label: "24h", words: "Last 24 hours", seconds: 86_400, window: "24h" },
-  "7d": { value: "7d", label: "7d", words: "Last 7 days", seconds: 7 * 86_400, window: "7d" },
-  "30d": { value: "30d", label: "30d", words: "Last 30 days", seconds: 30 * 86_400, window: "30d" },
+  "1h": { value: "1h", label: "1h", seconds: 3_600, window: "1h" },
+  "24h": { value: "24h", label: "24h", seconds: 86_400, window: "24h" },
+  "7d": { value: "7d", label: "7d", seconds: 7 * 86_400, window: "7d" },
+  "30d": { value: "30d", label: "30d", seconds: 30 * 86_400, window: "30d" },
 };
 
 export const RANGES: readonly RangeSpec[] = [SPECS["1h"], SPECS["24h"], SPECS["7d"], SPECS["30d"]];
@@ -33,6 +36,18 @@ export const DEFAULT_RANGE: MetricRange = "24h";
 
 export function rangeSpec(range: MetricRange): RangeSpec {
   return SPECS[range];
+}
+
+const RANGE_KEYS: Readonly<Record<MetricRange, MessageKey>> = {
+  "1h": "appPages.metrics.range.1h",
+  "24h": "appPages.metrics.range.24h",
+  "7d": "appPages.metrics.range.7d",
+  "30d": "appPages.metrics.range.30d",
+};
+
+/** The range in words, for a chart's description: "Last 7 days". */
+export function rangeWords(range: MetricRange, locale: Locale = getLocale()): string {
+  return translate(locale, RANGE_KEYS[range]);
 }
 
 export function isRange(value: unknown): value is MetricRange {
@@ -68,27 +83,39 @@ export function summarise(points: Points): Summary | null {
   return { latest: last[1], average: total / points.length, peak: peak[1], peakAt: peak[0] };
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
+const timeFormats = new Map<Locale, Intl.DateTimeFormat>();
+const dayFormats = new Map<Locale, Intl.DateTimeFormat>();
 
-function pad(value: number): string {
-  return String(value).padStart(2, "0");
+function timeFormat(locale: Locale): Intl.DateTimeFormat {
+  let format = timeFormats.get(locale);
+  if (format === undefined) {
+    format = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+    timeFormats.set(locale, format);
+  }
+  return format;
+}
+
+function dayFormat(locale: Locale): Intl.DateTimeFormat {
+  let format = dayFormats.get(locale);
+  if (format === undefined) {
+    format = new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" });
+    dayFormats.set(locale, format);
+  }
+  return format;
 }
 
 /** A moment as short as the range allows: "14:05" within a day, "Sep 22, 14:05" beyond. */
-export function momentWords(seconds: number, range: MetricRange): string {
+export function momentWords(seconds: number, range: MetricRange, locale: Locale = getLocale()): string {
   const date = new Date(seconds * 1000);
-  const time = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  const time = timeFormat(locale).format(date);
   if (range === "1h" || range === "24h") return time;
-  return `${MONTHS[date.getMonth()] ?? ""} ${String(date.getDate())}, ${time}`;
+  return `${dayFormat(locale).format(date)}, ${time}`;
 }
 
 /** One sentence a person reads instead of the chart: "Average 3.1%, peak 41% at 14:05, now 2.4%." */
-export function sentence(summary: Summary, range: MetricRange, format: (value: number) => string, limit: number | null): string {
-  const parts = [
-    `Average ${format(summary.average)}`,
-    `peak ${format(summary.peak)} at ${momentWords(summary.peakAt, range)}`,
-    `latest ${format(summary.latest)}`,
-  ];
-  if (limit !== null) parts.push(`limit ${format(limit)}`);
-  return `${parts.join(", ")}.`;
+export function sentence(summary: Summary, range: MetricRange, format: (value: number) => string, limit: number | null, locale: Locale = getLocale()): string {
+  const when = momentWords(summary.peakAt, range, locale);
+  return limit !== null
+    ? translate(locale, "appPages.metrics.sentenceWithLimit", { average: format(summary.average), peak: format(summary.peak), when, latest: format(summary.latest), limit: format(limit) })
+    : translate(locale, "appPages.metrics.sentenceNoLimit", { average: format(summary.average), peak: format(summary.peak), when, latest: format(summary.latest) });
 }

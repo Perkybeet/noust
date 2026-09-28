@@ -14,6 +14,7 @@ import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
 import { Textarea } from "../../components/ui/Textarea";
 import { toast } from "../../components/ui/toast";
+import { useT } from "../../i18n";
 
 type Mode = "simple" | "advanced";
 
@@ -58,6 +59,7 @@ export interface CreateServiceDialogProps {
  * /api/services`, which enables the unit once it is written.
  */
 export function CreateServiceDialog({ open, onOpenChange }: CreateServiceDialogProps) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<Mode>("simple");
   const [name, setName] = useState("");
@@ -89,7 +91,9 @@ export function CreateServiceDialog({ open, onOpenChange }: CreateServiceDialogP
             body: { name, raw_content: raw, working_directory: "/var/www", restart: "always" },
           }),
     onSuccess: (result) => {
-      toast.success(`Created ${result.service}`, { description: "The service was enabled to start at boot." });
+      toast.success(t("services.createDialog.createdToast", { name: result.service }), {
+        description: t("services.createDialog.createdDescription"),
+      });
       void queryClient.invalidateQueries({ queryKey: serviceKeys.all });
       // Not close(false): that guards on create.isPending, which this closure still reads as
       // true (nothing has re-rendered between the mutation resolving and this callback), so
@@ -125,38 +129,38 @@ export function CreateServiceDialog({ open, onOpenChange }: CreateServiceDialogP
       open={open}
       onOpenChange={close}
       size="lg"
-      title="New service"
-      description="A systemd unit run under this machine's service user, restarted automatically and started at boot."
+      title={t("services.createDialog.title")}
+      description={t("services.createDialog.description")}
       footer={
         <>
           <Button disabled={create.isPending} onClick={() => close(false)}>
-            Cancel
+            {t("services.cancel")}
           </Button>
           <Button variant="primary" disabled={!valid} loading={create.isPending} onClick={() => create.mutate()}>
-            Create service
+            {t("services.createDialog.create")}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between gap-3">
-          <Field label="Name" name="name" className="max-w-64 flex-1">
+          <Field label={t("services.createDialog.nameLabel")} name="name" className="max-w-64 flex-1">
             <Input value={name} onValueChange={setName} mono placeholder="my-worker" autoComplete="off" spellCheck={false} />
           </Field>
           <SegmentedControl
-            label="Mode"
+            label={t("services.createDialog.modeLabel")}
             value={mode}
             onValueChange={setMode}
             options={[
-              { value: "simple", label: "Simple" },
-              { value: "advanced", label: "Advanced" },
+              { value: "simple", label: t("services.createDialog.modeSimple") },
+              { value: "advanced", label: t("services.createDialog.modeAdvanced") },
             ]}
           />
         </div>
 
         {mode === "simple" ? (
           <>
-            <Field label="Command" name="command" description="Run as an argv, without a shell.">
+            <Field label={t("services.createDialog.commandLabel")} name="command" description={t("services.createDialog.commandDescription")}>
               <Input
                 value={command}
                 onValueChange={setCommand}
@@ -167,16 +171,16 @@ export function CreateServiceDialog({ open, onOpenChange }: CreateServiceDialogP
               />
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Working directory" name="directory">
+              <Field label={t("services.createDialog.directoryLabel")} name="directory">
                 <Input value={directory} onValueChange={setDirectory} mono autoComplete="off" spellCheck={false} />
               </Field>
-              <Field label="User" name="user" optional description="Defaults to the configured service user.">
+              <Field label={t("services.createDialog.userLabel")} name="user" optional description={t("services.createDialog.userDescription")}>
                 <Input value={user} onValueChange={setUser} mono autoComplete="off" spellCheck={false} />
               </Field>
             </div>
-            <Field label="Restart policy" name="restart" nativeLabel={false}>
+            <Field label={t("services.createDialog.restartLabel")} name="restart" nativeLabel={false}>
               <Select
-                aria-label="Restart policy"
+                aria-label={t("services.createDialog.restartLabel")}
                 value={restart}
                 onValueChange={setRestart}
                 mono
@@ -185,43 +189,47 @@ export function CreateServiceDialog({ open, onOpenChange }: CreateServiceDialogP
             </Field>
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <span className="text-13 font-medium text-fg">Environment</span>
+                <span className="text-13 font-medium text-fg">{t("services.createDialog.environment")}</span>
                 <Button size="sm" icon={<Plus aria-hidden="true" />} onClick={() => setEnv((rows) => [...rows, emptyRow()])}>
-                  Add variable
+                  {t("services.createDialog.addVariable")}
                 </Button>
               </div>
               {env.length === 0 ? (
-                <p className="text-13 text-fg-muted">No environment variables.</p>
+                <p className="text-13 text-fg-muted">{t("services.createDialog.noEnvironment")}</p>
               ) : (
                 <div className="flex flex-col gap-2">
                   {env.map((row) => (
                     <div key={row.id} className="flex items-center gap-2">
                       <Input
-                        aria-label="Variable name"
+                        aria-label={t("services.createDialog.variableName")}
                         value={row.key}
                         onValueChange={(value) =>
                           setEnv((rows) => rows.map((r) => (r.id === row.id ? { ...r, key: value } : r)))
                         }
                         mono
-                        placeholder="NAME"
+                        placeholder={t("services.createDialog.variableNamePlaceholder")}
                         className="w-40"
                         autoComplete="off"
                         spellCheck={false}
                       />
                       <Input
-                        aria-label="Variable value"
+                        aria-label={t("services.createDialog.variableValue")}
                         value={row.value}
                         onValueChange={(value) =>
                           setEnv((rows) => rows.map((r) => (r.id === row.id ? { ...r, value } : r)))
                         }
                         mono
-                        placeholder="value"
+                        placeholder={t("services.createDialog.variableValuePlaceholder")}
                         className="flex-1"
                         autoComplete="off"
                         spellCheck={false}
                       />
                       <IconButton
-                        label={`Remove ${row.key || "variable"}`}
+                        label={
+                          row.key
+                            ? t("services.createDialog.removeVariableNamed", { name: row.key })
+                            : t("services.createDialog.removeVariable")
+                        }
                         icon={<Trash2 />}
                         size="sm"
                         onClick={() => setEnv((rows) => rows.filter((r) => r.id !== row.id))}
@@ -233,12 +241,12 @@ export function CreateServiceDialog({ open, onOpenChange }: CreateServiceDialogP
             </div>
           </>
         ) : (
-          <Field label="Unit file" name="raw" description="Written to /etc/systemd/system/{name}.service verbatim.">
+          <Field label={t("services.createDialog.unitFileLabel")} name="raw" description={t("services.createDialog.unitFileDescription")}>
             <Textarea mono rows={14} value={raw} onChange={(event) => setRaw(event.target.value)} spellCheck={false} />
           </Field>
         )}
 
-        {create.isError ? <ErrorBlock live compact error={create.error} title="The service was not created" /> : null}
+        {create.isError ? <ErrorBlock live compact error={create.error} title={t("services.createDialog.createFailed")} /> : null}
       </div>
     </Dialog>
   );

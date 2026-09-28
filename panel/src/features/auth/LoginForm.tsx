@@ -11,6 +11,7 @@ import { Button } from "../../components/ui/Button";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { SystemOutput } from "../../components/ui/SystemOutput";
+import { useT } from "../../i18n";
 import { describeError } from "../../lib/errors";
 import type { DescribedError } from "../../lib/errors";
 
@@ -49,6 +50,7 @@ export interface LoginFormProps {
  * server asks for one. A lockout shows how long is left; errors show the server's words.
  */
 export function LoginForm({ next, expired }: LoginFormProps) {
+  const t = useT();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { data: session, error: sessionError } = useQuery(sessionQuery());
@@ -81,8 +83,8 @@ export function LoginForm({ next, expired }: LoginFormProps) {
   }, [fieldError, pending, step]);
 
   useEffect(() => {
-    if (expired) announce("Your session expired. Sign in again to continue where you left off.");
-  }, [expired]);
+    if (expired) announce(t("auth.sessionExpired"));
+  }, [expired, t]);
 
   const backToToken = (): void => {
     setStep("token");
@@ -96,7 +98,7 @@ export function LoginForm({ next, expired }: LoginFormProps) {
     if (pending || locked) return;
     const value = step === "token" ? token : code.trim();
     if (value === "") {
-      setFieldError(step === "token" ? "Enter the access token." : "Enter the code.");
+      setFieldError(step === "token" ? t("auth.enterToken") : t("auth.enterCode"));
       return;
     }
     setPending(true);
@@ -106,7 +108,7 @@ export function LoginForm({ next, expired }: LoginFormProps) {
       // bearer: false - the browser keeps the session in an HttpOnly cookie and never sees it.
       await login(step === "token" ? { token, bearer: false } : { token, bearer: false, totp_code: code.trim() });
       await queryClient.query({ ...sessionQuery(), staleTime: 0 });
-      announce("Signed in");
+      announce(t("auth.signedIn"));
       await navigate({ href: next, replace: true });
     } catch (error: unknown) {
       if (!isApiError(error)) {
@@ -116,7 +118,7 @@ export function LoginForm({ next, expired }: LoginFormProps) {
       switch (error.error) {
         case "totp_required":
           setStep("code");
-          announce("Token accepted. Enter your two-factor code.");
+          announce(t("auth.tokenAcceptedAnnounce"));
           return;
         case "invalid_token":
           backToToken();
@@ -129,7 +131,8 @@ export function LoginForm({ next, expired }: LoginFormProps) {
         case "rate_limited": {
           const seconds = error.retryAfter ?? 60;
           lockFor(seconds);
-          announce(`${error.detail} Try again in ${formatWait(seconds)}.`, "assertive");
+          // The server's own words, then the console's own addition: two sentences, not one built from parts.
+          announce(`${error.detail} ${t("auth.tryAgainIn", { time: formatWait(seconds) })}`, "assertive");
           return;
         }
         default:
@@ -148,27 +151,32 @@ export function LoginForm({ next, expired }: LoginFormProps) {
       {expired ? (
         <div className="flex items-start gap-2.5 rounded-control border border-border bg-surface px-3 py-2.5 text-13 text-fg shadow-raised">
           <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fg-muted" />
-          <p>Your session expired. Sign in again to continue where you left off.</p>
+          <p>{t("auth.sessionExpired")}</p>
         </div>
       ) : null}
 
       {locked ? (
         <div className="flex flex-col gap-0.5 rounded-control border border-fail/30 bg-fail-soft px-3 py-2.5 text-13">
-          <p className="font-medium text-fail">Too many failed attempts</p>
+          <p className="font-medium text-fail">{t("auth.tooManyAttempts")}</p>
           <p className="text-fg">
-            Sign-in is locked for this address. Try again in{" "}
-            <span className="mono font-medium" aria-hidden="true">
-              {formatWait(remaining)}
-            </span>
-            <span className="sr-only">{`${String(Math.ceil(remaining / 60))} minutes`}</span>.
+            {t.rich("auth.lockedFor", {
+              time: (
+                <>
+                  <span className="mono font-medium" aria-hidden="true">
+                    {formatWait(remaining)}
+                  </span>
+                  <span className="sr-only">{t("auth.lockedMinutes", { count: Math.ceil(remaining / 60) })}</span>
+                </>
+              ),
+            })}
           </p>
         </div>
       ) : null}
 
       {shownFailure !== null ? (
         <div role="alert" className="flex flex-col gap-2 rounded-control border border-fail/30 bg-fail-soft p-3">
-          <p className="text-13 font-medium text-fail">{shownFailure.hint ?? "Signing in failed. The server said:"}</p>
-          <SystemOutput label="What the server said" maxHeight="max-h-40">
+          <p className="text-13 font-medium text-fail">{shownFailure.hint ?? t("auth.signInFailed")}</p>
+          <SystemOutput label={t("auth.whatServerSaid")} maxHeight="max-h-40">
             {shownFailure.detail}
           </SystemOutput>
         </div>
@@ -179,14 +187,11 @@ export function LoginForm({ next, expired }: LoginFormProps) {
 
       {step === "token" ? (
         <Field
-          label="Access token"
+          label={t("auth.accessToken")}
           error={fieldError}
-          description={
-            <>
-              Print it on the server with{" "}
-              <code className="mono rounded-[4px] bg-bg-sunken px-1 py-0.5 text-fg">wasm web token</code>
-            </>
-          }
+          description={t.rich("auth.accessTokenHint", {
+            command: <code className="mono rounded-[4px] bg-bg-sunken px-1 py-0.5 text-fg">wasm web token</code>,
+          })}
         >
           <Input
             ref={tokenRef}
@@ -207,17 +212,13 @@ export function LoginForm({ next, expired }: LoginFormProps) {
         <>
           <div className="flex items-center justify-between gap-3 rounded-control border border-border bg-bg-sunken py-1.5 pr-1.5 pl-3">
             <span className="text-13 text-fg-muted">
-              Access token <span className="text-fg">accepted</span>
+              {t.rich("auth.tokenAccepted", { status: <span className="text-fg">{t("auth.accepted")}</span> })}
             </span>
             <Button variant="ghost" size="sm" icon={<ArrowLeft aria-hidden="true" />} onClick={backToToken} disabled={pending}>
-              Use a different token
+              {t("auth.useDifferentToken")}
             </Button>
           </div>
-          <Field
-            label="Two-factor code"
-            error={fieldError}
-            description="The 6-digit code from your authenticator app, or one of your backup codes."
-          >
+          <Field label={t("auth.twoFactorCode")} error={fieldError} description={t("auth.twoFactorHint")}>
             <Input
               ref={codeRef}
               name="totp_code"
@@ -237,7 +238,7 @@ export function LoginForm({ next, expired }: LoginFormProps) {
       )}
 
       <Button type="submit" variant="primary" size="lg" loading={pending} disabled={locked} className="w-full">
-        {step === "token" ? "Sign in" : "Verify"}
+        {step === "token" ? t("auth.signIn") : t("auth.verify")}
       </Button>
     </form>
   );

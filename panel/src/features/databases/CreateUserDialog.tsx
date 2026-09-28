@@ -10,6 +10,7 @@ import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
+import { useT } from "../../i18n";
 import { engineLabel } from "./data";
 import { useDatabaseActions } from "./useDatabaseActions";
 
@@ -25,6 +26,7 @@ export interface CreateUserDialogProps {
  * operator closes it on purpose, rather than a toast that could be missed.
  */
 export function CreateUserDialog({ engines, trigger }: CreateUserDialogProps) {
+  const t = useT();
   const formId = useId();
   const usernameRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
@@ -64,8 +66,8 @@ export function CreateUserDialog({ engines, trigger }: CreateUserDialogProps) {
       onOpenChange={close}
       trigger={trigger}
       initialFocus={usernameRef}
-      title={created ? `${created.username} created` : "Create user"}
-      description={created ? undefined : "Creates a login on the chosen engine, with a generated password unless you set one."}
+      title={created ? t("databases.createUserDialog.created", { username: created.username }) : t("databases.createUserDialog.title")}
+      description={created ? undefined : t("databases.createUserDialog.description")}
       footer={
         created ? (
           <Button
@@ -74,12 +76,12 @@ export function CreateUserDialog({ engines, trigger }: CreateUserDialogProps) {
               close(false);
             }}
           >
-            Done
+            {t("databases.createUserDialog.done")}
           </Button>
         ) : (
           <>
             <Button disabled={createUser.isPending} onClick={() => close(false)}>
-              Cancel
+              {t("databases.cancel")}
             </Button>
             <Button
               type="submit"
@@ -88,7 +90,7 @@ export function CreateUserDialog({ engines, trigger }: CreateUserDialogProps) {
               loading={createUser.isPending}
               disabled={username.trim() === ""}
             >
-              Create user
+              {t("databases.createUserDialog.title")}
             </Button>
           </>
         )
@@ -98,40 +100,49 @@ export function CreateUserDialog({ engines, trigger }: CreateUserDialogProps) {
         <div className="flex flex-col gap-4">
           <div className="flex items-start gap-2 rounded-control border border-warn/30 bg-warn-soft px-3 py-2.5">
             <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warn" />
-            <p className="text-13 text-pretty text-fg">
-              This password is shown once. WASM stores only what the engine stores - a hash - so it cannot be shown
-              again. Copy it now and keep it somewhere safe.
-            </p>
+            <p className="text-13 text-pretty text-fg">{t("databases.createUserDialog.passwordWarning")}</p>
           </div>
-          <Field label="Username">
-            <Input readOnly mono value={created.username} suffix={<CopyButton value={created.username} label="Copy username" />} />
+          <Field label={t("databases.fields.username")}>
+            <Input
+              readOnly
+              mono
+              value={created.username}
+              suffix={<CopyButton value={created.username} label={t("databases.createUserDialog.copyUsername")} />}
+            />
           </Field>
-          <Field label="Password">
-            <Input readOnly mono value={created.password} suffix={<CopyButton value={created.password} label="Copy password" />} />
+          <Field label={t("databases.fields.password")}>
+            <Input
+              readOnly
+              mono
+              value={created.password}
+              suffix={<CopyButton value={created.password} label={t("databases.createUserDialog.copyPassword")} />}
+            />
           </Field>
         </div>
       ) : (
         <form id={formId} onSubmit={submit} className="flex flex-col gap-4">
-          <Field label="Engine" nativeLabel={false}>
+          <Field label={t("databases.fields.engine")} nativeLabel={false}>
             <Select
-              aria-label="Engine"
+              aria-label={t("databases.fields.engine")}
               value={engine}
               onValueChange={setEngine}
               options={engines.map((item) => ({ value: item.name, label: engineLabel(item.name) }))}
             />
           </Field>
-          <Field label="Username">
+          <Field label={t("databases.fields.username")}>
             <Input ref={usernameRef} mono value={username} onValueChange={setUsername} autoComplete="off" spellCheck={false} />
           </Field>
-          <Field label="Password" optional description="Leave it blank for a generated password, shown once you create the user.">
+          <Field label={t("databases.fields.password")} optional description={t("databases.createUserDialog.passwordDescription")}>
             <Input mono type="password" value={password} onValueChange={setPassword} autoComplete="off" />
           </Field>
           {engine !== "redis" ? (
-            <Field label="Host" description="Restricts where this user may connect from.">
+            <Field label={t("databases.fields.host")} description={t("databases.createUserDialog.hostDescription")}>
               <Input mono value={host} onValueChange={setHost} autoComplete="off" spellCheck={false} />
             </Field>
           ) : null}
-          {createUser.isError ? <ErrorBlock live compact error={createUser.error} title="The user was not created" /> : null}
+          {createUser.isError ? (
+            <ErrorBlock live compact error={createUser.error} title={t("databases.createUserDialog.createFailed")} />
+          ) : null}
         </form>
       )}
     </Dialog>

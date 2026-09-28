@@ -8,14 +8,17 @@
 
 import { useSyncExternalStore } from "react";
 
+import type { PlainKey } from "../i18n";
+
 export type ThemeChoice = "system" | "light" | "dark";
 
 export const THEME_STORAGE_KEY = "wasm.theme";
 
-export const THEME_CHOICES: readonly { value: ThemeChoice; label: string }[] = [
-  { value: "system", label: "System" },
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
+/** Labels are catalog keys, like `nav.ts`: `ThemeSwitch` translates them with `t(choice.label)`. */
+export const THEME_CHOICES: readonly { value: ThemeChoice; label: PlainKey }[] = [
+  { value: "system", label: "shell.theme.system" },
+  { value: "light", label: "shell.theme.light" },
+  { value: "dark", label: "shell.theme.dark" },
 ];
 
 function isThemeChoice(value: unknown): value is ThemeChoice {

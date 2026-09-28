@@ -13,6 +13,8 @@ import { announce } from "../../../app/Announcer";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Dialog } from "../../../components/ui/Dialog";
+import { useT } from "../../../i18n";
+import type { T } from "../../../i18n";
 import { RollbackDialog } from "../RollbackDialog";
 import { shortCommit } from "./words";
 
@@ -20,10 +22,11 @@ const RUNNING = new Set(["queued", "running"]);
 
 export type DeploymentActionKind = "rebuild" | "rollback";
 
-const WORDS: Readonly<Record<DeploymentActionKind, { noun: string; failed: string }>> = {
-  rebuild: { noun: "Rebuild", failed: "The rebuild failed" },
-  rollback: { noun: "Rollback", failed: "The rollback failed" },
-};
+function actionWords(t: T, kind: DeploymentActionKind, domain: string): { queued: string; failed: string } {
+  return kind === "rebuild"
+    ? { queued: t("appPages.deployments.actions.rebuildQueued", { domain }), failed: t("appPages.deployments.actions.rebuildFailed") }
+    : { queued: t("appPages.deployments.actions.rollbackQueued", { domain }), failed: t("appPages.deployments.actions.rollbackFailed") };
+}
 
 /**
  * Follows the job a deployment's action queued (useFollowedJob: the job's events, and a poll
@@ -32,7 +35,7 @@ const WORDS: Readonly<Record<DeploymentActionKind, { noun: string; failed: strin
  * one (a release activated in seconds) is said to have finished, and one that fails keeps its
  * error on screen, in its own words.
  */
-function useDeploymentAction(domain: string) {
+function useDeploymentAction(domain: string, t: T) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const followed = useFollowedJob();
@@ -68,7 +71,7 @@ function useDeploymentAction(domain: string) {
     done,
     follow: (next: DeploymentActionKind, queued: Job) => {
       setKind(next);
-      announce(`${WORDS[next].noun} of ${domain} queued`);
+      announce(actionWords(t, next, domain).queued);
       followed.follow(queued);
     },
     dismiss: () => {
@@ -84,32 +87,18 @@ function sentence(text: string): string {
 }
 
 /** What rebuilding a deployment's commit does, on the app's layout. */
-export function rebuildWords(layout: string, commit: string, branch: string | null): string {
-  if (layout === "releases") {
-    return (
-      `If a release built from ${commit} is still on disk and is not the one serving, it is activated in seconds, behind the health check: nothing is built. ` +
-      `Otherwise ${commit} is built into a new release, exactly as an update would, and activated behind the health check.`
-    );
-  }
-  return (
-    `A backup of the app is taken, the checkout is put on ${commit}, and the app is rebuilt and restarted. ` +
-    `Untracked files such as uploads stay. The next update follows ${branch ?? "its branch"} again.`
-  );
+export function rebuildWords(t: T, layout: string, commit: string, branch: string | null): string {
+  if (layout === "releases") return t("appPages.deployments.actions.rebuildReleasesWords", { commit });
+  return branch !== null
+    ? t("appPages.deployments.actions.rebuildInPlaceWordsWithBranch", { commit, branch })
+    : t("appPages.deployments.actions.rebuildInPlaceWordsNoBranch", { commit });
 }
 
 /** What going back to a deployment does, on the app's layout. */
-export function rollbackWords(layout: string, deployment: Deployment): string {
+export function rollbackWords(t: T, layout: string, deployment: Deployment): string {
   const id = String(deployment.id);
-  if (layout === "releases") {
-    return (
-      `Release ${deployment.release_id ?? ""} is activated in seconds and the app restarts; if it fails its health check, the release serving now is put back. ` +
-      "Nothing is rebuilt, and .env and the shared files stay as they are."
-    );
-  }
-  return (
-    `The app's files are restored from backup ${deployment.snapshot_backup ?? ""}, which holds what deployment ${id} produced, then it is rebuilt and restarted. ` +
-    "A backup of the current state is taken first. Anything written to the app's directory since is replaced."
-  );
+  if (layout === "releases") return t("appPages.deployments.actions.rollbackReleasesWords", { id: deployment.release_id ?? "" });
+  return t("appPages.deployments.actions.rollbackInPlaceWords", { snapshot: deployment.snapshot_backup ?? "", id });
 }
 
 function RebuildDialog({
@@ -119,6 +108,7 @@ function RebuildDialog({
   open,
   onOpenChange,
   onQueued,
+  t,
 }: {
   domain: string;
   deployment: Deployment;
@@ -126,6 +116,7 @@ function RebuildDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onQueued: (job: Job) => void;
+  t: T;
 }) {
   const commit = shortCommit(deployment.git_commit) ?? "";
   const rebuild = useMutation({
@@ -145,20 +136,20 @@ function RebuildDialog({
     <Dialog
       open={open}
       onOpenChange={close}
-      title={`Rebuild commit ${commit}?`}
-      description={rebuildWords(layout, commit, deployment.git_branch ?? null)}
+      title={t("appPages.deployments.actions.rebuildDialogTitle", { commit })}
+      description={rebuildWords(t, layout, commit, deployment.git_branch ?? null)}
       footer={
         <>
           <Button disabled={rebuild.isPending} onClick={() => close(false)}>
-            Cancel
+            {t("appPages.common.cancel")}
           </Button>
           <Button variant="primary" loading={rebuild.isPending} onClick={() => rebuild.mutate()}>
-            Rebuild
+            {t("appPages.deployments.actions.rebuild")}
           </Button>
         </>
       }
     >
-      {rebuild.isError ? <ErrorBlock live compact error={rebuild.error} title="The rebuild did not start" /> : null}
+      {rebuild.isError ? <ErrorBlock live compact error={rebuild.error} title={t("appPages.deployments.actions.rebuildNotStarted")} /> : null}
     </Dialog>
   );
 }
@@ -171,6 +162,7 @@ function RollbackToDeploymentDialog({
   onOpenChange,
   onQueued,
   onChooseAnother,
+  t,
 }: {
   domain: string;
   deployment: Deployment;
@@ -179,6 +171,7 @@ function RollbackToDeploymentDialog({
   onOpenChange: (open: boolean) => void;
   onQueued: (job: Job) => void;
   onChooseAnother: () => void;
+  t: T;
 }) {
   const rollback = useMutation({
     mutationFn: () =>
@@ -197,23 +190,23 @@ function RollbackToDeploymentDialog({
     <Dialog
       open={open}
       onOpenChange={close}
-      title={`Roll back to deployment ${String(deployment.id)}?`}
-      description={rollbackWords(layout, deployment)}
+      title={t("appPages.deployments.actions.rollbackDialogTitle", { id: String(deployment.id) })}
+      description={rollbackWords(t, layout, deployment)}
       footer={
         <>
           <Button variant="ghost" disabled={rollback.isPending} onClick={onChooseAnother} className="sm:mr-auto">
-            Choose another version
+            {t("appPages.deployments.actions.chooseAnotherVersion")}
           </Button>
           <Button disabled={rollback.isPending} onClick={() => close(false)}>
-            Cancel
+            {t("appPages.common.cancel")}
           </Button>
           <Button variant="primary" loading={rollback.isPending} onClick={() => rollback.mutate()}>
-            Roll back
+            {t("appPages.common.rollBack")}
           </Button>
         </>
       }
     >
-      {rollback.isError ? <ErrorBlock live compact error={rollback.error} title="The rollback did not start" /> : null}
+      {rollback.isError ? <ErrorBlock live compact error={rollback.error} title={t("appPages.rollback.notStarted")} /> : null}
     </Dialog>
   );
 }
@@ -225,8 +218,9 @@ function RollbackToDeploymentDialog({
  * primary action, so both are secondary here.
  */
 export function DeploymentActions({ domain, deployment }: { domain: string; deployment: Deployment }) {
+  const t = useT();
   const app = useQuery(appQuery(domain));
-  const action = useDeploymentAction(domain);
+  const action = useDeploymentAction(domain, t);
   const [dialog, setDialog] = useState<"rebuild" | "rollback" | "chooser" | null>(null);
   const running = RUNNING.has(deployment.status);
   const layout = app.data?.layout ?? null;
@@ -254,7 +248,7 @@ export function DeploymentActions({ domain, deployment }: { domain: string; depl
             setDialog(available ? "rollback" : "chooser");
           }}
         >
-          {available ? "Roll back to this" : "Roll back…"}
+          {available ? t("appPages.common.rollBackToThis") : t("appPages.deployments.actions.rollBackEllipsis")}
         </Button>
         {commit !== null ? (
           <Button
@@ -266,26 +260,26 @@ export function DeploymentActions({ domain, deployment }: { domain: string; depl
               setDialog("rebuild");
             }}
           >
-            Rebuild this commit
+            {t("appPages.deployments.actions.rebuildThisCommit")}
           </Button>
         ) : null}
       </div>
       {!available && reason !== null ? (
-        <p className="text-right text-12 text-pretty text-fg-muted">{`Can't roll back to this deployment: ${sentence(reason)}`}</p>
+        <p className="text-right text-12 text-pretty text-fg-muted">{t("appPages.deployments.actions.cannotRollBack", { reason: sentence(reason) })}</p>
       ) : null}
       {action.failed !== null && action.kind !== null ? (
         <ErrorBlock
           live
           compact
           className="text-left"
-          error={{ detail: action.failed.error ?? "The job failed without saying why. Its log is on the Activity page." }}
-          title={WORDS[action.kind].failed}
+          error={{ detail: action.failed.error ?? t("appPages.job.noReason") }}
+          title={actionWords(t, action.kind, domain).failed}
         />
       ) : action.done !== null && action.kind !== null ? (
         <p role="status" className="text-right text-12 text-fg-muted">
           {action.kind === "rollback"
-            ? `Rolled back to deployment ${String(deployment.id)}.`
-            : `Rebuilt commit ${commit ?? ""}: it is live.`}
+            ? t("appPages.deployments.actions.rolledBackTo", { id: String(deployment.id) })
+            : t("appPages.deployments.actions.rebuiltCommit", { commit: commit ?? "" })}
         </p>
       ) : null}
 
@@ -297,6 +291,7 @@ export function DeploymentActions({ domain, deployment }: { domain: string; depl
           open={dialog === "rebuild"}
           onOpenChange={setOpen("rebuild")}
           onQueued={queued("rebuild")}
+          t={t}
         />
       ) : null}
       {available ? (
@@ -308,6 +303,7 @@ export function DeploymentActions({ domain, deployment }: { domain: string; depl
           onOpenChange={setOpen("rollback")}
           onQueued={queued("rollback")}
           onChooseAnother={() => setDialog("chooser")}
+          t={t}
         />
       ) : null}
       <RollbackDialog domain={domain} layout={layout} open={dialog === "chooser"} onOpenChange={setOpen("chooser")} onJobQueued={queued("rollback")} />

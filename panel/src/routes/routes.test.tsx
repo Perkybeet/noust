@@ -1,6 +1,7 @@
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../app/locale";
 import { renderConsole } from "../test/console";
 import { fakeBackend, json, signedInRoutes } from "../test/fakes";
 
@@ -74,5 +75,16 @@ describe("the route tree", () => {
     fakeBackend(signedInRoutes());
     renderConsole("/no/such/page");
     expect(await screen.findByRole("heading", { level: 1, name: "Page not found" })).toBeInTheDocument();
+  });
+
+  it("says so in Spanish once the language switches", async () => {
+    fakeBackend(signedInRoutes());
+    renderConsole("/no/such/page");
+    await screen.findByRole("heading", { level: 1, name: "Page not found" });
+    await act(async () => {
+      await setLocale("es");
+    });
+    expect(await screen.findByRole("heading", { level: 1, name: "Página no encontrada" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "resumen" })).toBeInTheDocument();
   });
 });

@@ -8,6 +8,7 @@ import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { BACKDROP, DialogFrame, MODAL_POPUP, MODAL_VIEWPORT } from "../../components/ui/Dialog";
 import { Input } from "../../components/ui/Input";
+import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { useBackupActions } from "./useBackupActions";
 
@@ -23,6 +24,7 @@ export interface RestoreBackupDialogProps {
  * to restore into, since a backup may be replayed onto a different domain than it came from.
  */
 export function RestoreBackupDialog({ backup, open, onOpenChange }: RestoreBackupDialogProps) {
+  const t = useT();
   const inputRef = useRef<HTMLInputElement>(null);
   const [targetDomain, setTargetDomain] = useState(backup.domain);
   const [typed, setTyped] = useState("");
@@ -66,15 +68,15 @@ export function RestoreBackupDialog({ backup, open, onOpenChange }: RestoreBacku
           <AlertDialog.Popup className={cx(MODAL_POPUP, "sm:max-w-[480px]")}>
             <form onSubmit={submit} className="contents">
               <DialogFrame
-                title={`Restore ${backup.backup_id}`}
-                description="Replaces the application's files (and its databases, if this backup includes them) with what this backup holds. Anything written since is lost."
+                title={t("backups.restoreDialog.title", { id: backup.backup_id })}
+                description={t("backups.restoreDialog.description")}
                 Title={AlertDialog.Title}
                 Description={AlertDialog.Description}
                 footer={
                   <>
-                    <AlertDialog.Close render={<Button disabled={restore.isPending}>Cancel</Button>} />
+                    <AlertDialog.Close render={<Button disabled={restore.isPending}>{t("backups.common.cancel")}</Button>} />
                     <Button type="submit" variant="danger" disabled={!matches} loading={restore.isPending}>
-                      Restore
+                      {t("backups.restoreDialog.submit")}
                     </Button>
                   </>
                 }
@@ -82,7 +84,7 @@ export function RestoreBackupDialog({ backup, open, onOpenChange }: RestoreBacku
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col gap-1.5">
                     <label htmlFor="restore-target-domain" className="text-13 font-medium text-fg">
-                      Restore into
+                      {t("backups.restoreDialog.restoreInto")}
                     </label>
                     <Input
                       id="restore-target-domain"
@@ -98,22 +100,24 @@ export function RestoreBackupDialog({ backup, open, onOpenChange }: RestoreBacku
                   <Checkbox
                     checked={restoreEnv}
                     onCheckedChange={setRestoreEnv}
-                    label="Restore .env files"
-                    description="From the backup archive, replacing what is there now."
+                    label={t("backups.restoreDialog.restoreEnv.label")}
+                    description={t("backups.restoreDialog.restoreEnv.description")}
                   />
                   <Checkbox
                     checked={verifyFirst}
                     onCheckedChange={setVerifyFirst}
-                    label="Verify the checksum first"
-                    description="Refuses to restore a corrupted or tampered archive."
+                    label={t("backups.restoreDialog.verifyFirst.label")}
+                    description={t("backups.restoreDialog.verifyFirst.description")}
                   />
                   <div className="flex flex-col gap-1.5">
                     <label htmlFor="restore-confirm" className="text-13 text-fg-muted">
-                      Type{" "}
-                      <span translate="no" className="mono rounded-[4px] bg-bg-sunken px-1 py-0.5 text-fg select-all">
-                        {targetDomain || "the domain"}
-                      </span>{" "}
-                      to confirm
+                      {t.rich("backups.restoreDialog.typeToConfirm", {
+                        domain: (
+                          <span translate="no" className="mono rounded-[4px] bg-bg-sunken px-1 py-0.5 text-fg select-all">
+                            {targetDomain || t("backups.restoreDialog.domainPlaceholder")}
+                          </span>
+                        ),
+                      })}
                     </label>
                     <Input
                       id="restore-confirm"
@@ -127,7 +131,7 @@ export function RestoreBackupDialog({ backup, open, onOpenChange }: RestoreBacku
                       disabled={restore.isPending}
                     />
                   </div>
-                  {restore.isError ? <ErrorBlock live compact error={restore.error} title="The restore did not start" /> : null}
+                  {restore.isError ? <ErrorBlock live compact error={restore.error} title={t("backups.restoreDialog.error")} /> : null}
                 </div>
               </DialogFrame>
             </form>

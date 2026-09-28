@@ -1,6 +1,7 @@
-import { screen, within } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, signedInRoutes } from "../../test/fakes";
@@ -86,5 +87,30 @@ describe("Settings > About", () => {
     await user.click(screen.getByRole("button", { name: "Check again" }));
     expect(await screen.findByText("Could not find out whether a newer version exists.")).toBeInTheDocument();
     expect(backend.callsTo("GET /api/system/version")).toHaveLength(2);
+  });
+});
+
+describe("Settings > About in Spanish", () => {
+  it("offers an update and describes the installation in Spanish, with no accessibility violations", { timeout: 20_000 }, async () => {
+    await act(() => setLocale("es"));
+    fakeBackend(
+      aboutRoutes({
+        current_version: "2.0.0",
+        latest_version: "2.1.0",
+        has_update: true,
+        update_command: "pip install --upgrade wasm-cli",
+        release_url: "https://github.com/Perkybeet/wasm/releases/tag/v2.1.0",
+      }),
+    );
+    const { container } = renderConsole("/settings/about");
+    const version = await screen.findByRole("region", { name: "Versión y actualizaciones" });
+    expect(await within(version).findByText("La versión 2.1.0 está disponible")).toBeInTheDocument();
+    expect(within(version).getByRole("link", { name: /Novedades de 2.1.0/ })).toHaveAttribute(
+      "href",
+      "https://github.com/Perkybeet/wasm/releases/tag/v2.1.0",
+    );
+    expect(screen.getByRole("region", { name: "Esta instalación" })).toBeInTheDocument();
+    expect(screen.getByText("wasm config show")).toBeInTheDocument();
+    await expectNoAxeViolations(container);
   });
 });

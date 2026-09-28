@@ -10,30 +10,30 @@ import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button, buttonClassName } from "../../../components/ui/Button";
 import { Spinner } from "../../../components/ui/Spinner";
 import { toast } from "../../../components/ui/toast";
+import { useT } from "../../../i18n";
+import type { T } from "../../../i18n";
 import { parseCallback } from "./github";
 import type { CallbackRequest } from "./github";
 
-const BREADCRUMBS = [
-  { label: "Settings", to: "/settings" },
-  { label: "Integrations", to: "/settings/integrations" },
-] as const;
-
 type Actionable = Extract<CallbackRequest, { kind: "conversion" | "installation" }>;
 
-const PROGRESS: Record<Actionable["kind"], string> = {
-  conversion: "Finishing the App with GitHub's answer",
-  installation: "Recording the installation",
-};
+function progressFor(t: T, kind: Actionable["kind"]): string {
+  return kind === "conversion"
+    ? t("settings.integrations.callback.progressConversion")
+    : t("settings.integrations.callback.progressInstallation");
+}
 
-const FAILED: Record<Actionable["kind"], string> = {
-  conversion: "The GitHub App was not created on this server",
-  installation: "The installation was not recorded",
-};
+function failedFor(t: T, kind: Actionable["kind"]): string {
+  return kind === "conversion"
+    ? t("settings.integrations.callback.failedConversion")
+    : t("settings.integrations.callback.failedInstallation");
+}
 
 function BackLink({ primary = false }: { primary?: boolean }) {
+  const t = useT();
   return (
     <Link to="/settings/integrations" replace className={buttonClassName(primary ? "primary" : "secondary")}>
-      Back to integrations
+      {t("settings.integrations.callback.backToIntegrations")}
     </Link>
   );
 }
@@ -49,6 +49,7 @@ function Panel({ children }: { children: ReactNode }) {
  * when it fails, and returns to Settings > Integrations when it is done.
  */
 export function GitHubCallback() {
+  const t = useT();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   // Read once, and raw from the history: the router's own search string has been through its
@@ -61,12 +62,12 @@ export function GitHubCallback() {
     mutationFn: async (next: Actionable): Promise<string> => {
       if (next.kind === "conversion") {
         const status = await convertGitHubManifest(next.code, next.state);
-        return `Created the GitHub App ${status.name ?? status.slug ?? ""}`.trim();
+        return t("settings.integrations.callback.createdToast", { name: status.name ?? status.slug ?? "" }).trim();
       }
       const installation = await addGitHubInstallation(next.installationId);
       return next.setupAction === "update"
-        ? `Updated the installation on ${installation.account}`
-        : `Installed the GitHub App on ${installation.account}`;
+        ? t("settings.integrations.callback.updatedToast", { account: installation.account })
+        : t("settings.integrations.callback.installedToast", { account: installation.account });
     },
     onSuccess: (message) => {
       toast.success(message);
@@ -90,11 +91,8 @@ export function GitHubCallback() {
     body = (
       <Panel>
         <div className="flex flex-col gap-1">
-          <p className="text-14 font-medium text-fg">Waiting for an organization owner</p>
-          <p className="text-13 text-pretty text-fg-muted">
-            GitHub sent the installation to the organization's owners for approval. Once one of them approves it, sync
-            the installations in Settings, Integrations.
-          </p>
+          <p className="text-14 font-medium text-fg">{t("settings.integrations.callback.waitingTitle")}</p>
+          <p className="text-13 text-pretty text-fg-muted">{t("settings.integrations.callback.waitingDescription")}</p>
         </div>
         <div>
           <BackLink primary />
@@ -105,11 +103,8 @@ export function GitHubCallback() {
     body = (
       <Panel>
         <div className="flex flex-col gap-1">
-          <p className="text-14 font-medium text-fg">Nothing to finish here</p>
-          <p className="text-13 text-pretty text-fg-muted">
-            GitHub sends the browser to this page after creating or installing the App, with what it needs in the
-            address. This address carries neither, so there is nothing to record. Start from Settings, Integrations.
-          </p>
+          <p className="text-14 font-medium text-fg">{t("settings.integrations.callback.invalidTitle")}</p>
+          <p className="text-13 text-pretty text-fg-muted">{t("settings.integrations.callback.invalidDescription")}</p>
         </div>
         <div>
           <BackLink primary />
@@ -124,7 +119,7 @@ export function GitHubCallback() {
         </p>
         <div className="flex flex-wrap gap-2">
           <Button variant="primary" onClick={() => finish.mutate(request)}>
-            Confirm and continue
+            {t("settings.integrations.callback.confirmAndContinue")}
           </Button>
           <BackLink />
         </div>
@@ -136,11 +131,11 @@ export function GitHubCallback() {
         <ErrorBlock
           live
           error={finish.error}
-          title={FAILED[request.kind]}
+          title={failedFor(t, request.kind)}
           hint={
             request.kind === "conversion"
-              ? "GitHub's code works once and for an hour, and the creation must finish within ten minutes of starting. Start again from Settings, Integrations."
-              : "Check that the App was installed from this server's App page, then sync the installations."
+              ? t("settings.integrations.callback.conversionHint")
+              : t("settings.integrations.callback.installationHint")
           }
           onRetry={() => finish.mutate(request)}
           retrying={finish.isPending}
@@ -155,7 +150,7 @@ export function GitHubCallback() {
       <Panel>
         <p role="status" className="flex items-center gap-2 text-13 text-fg">
           <Spinner size={14} className="text-warn" />
-          {`${PROGRESS[request.kind]}…`}
+          {`${progressFor(t, request.kind)}…`}
         </p>
       </Panel>
     );
@@ -163,7 +158,13 @@ export function GitHubCallback() {
 
   return (
     <>
-      <PageHeader title="Connecting GitHub" breadcrumbs={BREADCRUMBS} />
+      <PageHeader
+        title={t("settings.integrations.callback.title")}
+        breadcrumbs={[
+          { label: t("settings.integrations.callback.breadcrumbSettings"), to: "/settings" },
+          { label: t("settings.integrations.callback.breadcrumbIntegrations"), to: "/settings/integrations" },
+        ]}
+      />
       {body}
     </>
   );

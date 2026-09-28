@@ -5,7 +5,9 @@ import { useDocumentTitle } from "../../../app/documentTitle";
 import { KeyValueListSkeleton } from "../../../components/page/KeyValueList";
 import { Sections } from "../../../components/page/Section";
 import { Skeleton } from "../../../components/ui/Skeleton";
+import { useT } from "../../../i18n";
 import { DangerSection } from "./DangerSection";
+import { ExportSection } from "./ExportSection";
 import { LimitsSection } from "./LimitsSection";
 import { PANEL } from "./panel";
 import { PreviewsSection } from "./PreviewsSection";
@@ -14,9 +16,10 @@ import { SourceSection } from "./SourceSection";
 import { WebhookSection } from "./WebhookSection";
 
 function SettingsSkeleton() {
+  const t = useT();
   return (
     <div aria-busy="true" className="flex max-w-6xl flex-col gap-8">
-      <span className="sr-only">Loading the settings</span>
+      <span className="sr-only">{t("appSettings.skeleton.loading")}</span>
       <div aria-hidden="true" className="grid gap-8 lg:grid-cols-2">
         {[5, 3].map((rows) => (
           <div key={rows} className="flex flex-col gap-4">
@@ -38,10 +41,11 @@ function SettingsSkeleton() {
 /**
  * What can be changed about one app, and what can only be read: how it is built and run, its
  * releases and how they activate, the limits its unit runs under, the deploy webhook, pull
- * request previews, and deleting it.
+ * request previews, exporting it, and deleting it.
  */
 export function SettingsTab({ domain }: { domain: string }) {
-  useDocumentTitle(`Settings - ${domain}`, 1);
+  const t = useT();
+  useDocumentTitle(t("appSettings.documentTitle", { domain }), 1);
   const app = useQuery(appQuery(domain));
 
   // The layout owns the load failure and the not-found page; this shows the shape meanwhile.
@@ -58,6 +62,7 @@ export function SettingsTab({ domain }: { domain: string }) {
       <LimitsSection app={app.data} />
       <WebhookSection app={app.data} />
       <PreviewsSection app={app.data} />
+      <ExportSection app={app.data} />
       <DangerSection app={app.data} />
     </Sections>
   );

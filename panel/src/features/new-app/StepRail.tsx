@@ -1,6 +1,7 @@
 import { Check } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { STEPS } from "./wizard";
 import type { Step } from "./wizard";
@@ -20,9 +21,10 @@ export interface StepRailProps {
  * finished step is a button back to it; the current one is marked for assistive technology.
  */
 export function StepRail({ current, notes, onGoTo, locked = false }: StepRailProps) {
+  const t = useT();
   const at = STEPS.findIndex((step) => step.id === current);
   return (
-    <nav aria-label="Steps">
+    <nav aria-label={t("newApp.steps.label")}>
       <ol className="flex gap-2 lg:flex-col lg:gap-1">
         {STEPS.map((step, index) => {
           const done = index < at;
@@ -43,8 +45,8 @@ export function StepRail({ current, notes, onGoTo, locked = false }: StepRailPro
           const text = (
             <span className="flex min-w-0 flex-col">
               <span className={cx("text-13 font-medium", here || done ? "text-fg" : "text-fg-muted")}>
-                {step.label}
-                <span className="sr-only">{done ? ", done" : here ? ", current step" : ""}</span>
+                {t(step.label)}
+                {done || here ? <span className="sr-only">{t(done ? "newApp.steps.done" : "newApp.steps.current")}</span> : null}
               </span>
               {notes[step.id] !== undefined && done ? (
                 <span className="hidden min-w-0 truncate text-12 text-fg-muted lg:block">{notes[step.id]}</span>

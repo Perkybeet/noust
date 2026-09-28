@@ -1,6 +1,7 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
@@ -275,5 +276,24 @@ describe("Settings > Security", () => {
     expect(within(policy).getByText("120 requests a minute")).toBeInTheDocument();
     expect(within(policy).getByText("12 hours")).toBeInTheDocument();
     expect(within(policy).getByText("Any address")).toBeInTheDocument();
+  });
+});
+
+describe("Settings > Security in Spanish", () => {
+  it("shows the two-factor state, the sessions and the lockout policy in Spanish, with no accessibility violations", async () => {
+    await act(() => setLocale("es"));
+    fakeBackend(securityRoutes({ enabled: true }));
+    const { container } = renderConsole("/settings/security");
+    expect(await screen.findByRole("region", { name: "Verificación en dos pasos" })).toBeInTheDocument();
+    expect(await screen.findByText("Activada")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Nuevos códigos de respaldo" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Desactivar" })).toBeInTheDocument();
+    const sessions = screen.getByRole("region", { name: "Sesiones iniciadas" });
+    expect(within(sessions).getByText("Este navegador")).toBeInTheDocument();
+    const policy = await screen.findByRole("region", { name: "Política de bloqueo" });
+    expect(within(policy).getByText("15 minutos")).toBeInTheDocument();
+    expect(within(policy).getByText("120 solicitudes por minuto")).toBeInTheDocument();
+    expect(within(policy).getByText("Cualquier dirección")).toBeInTheDocument();
+    await expectNoAxeViolations(container);
   });
 });

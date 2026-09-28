@@ -1,6 +1,7 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { setLocale } from "../../../app/locale";
 import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { FakeWebSocket, fakeBackend, json, problem } from "../../../test/fakes";
@@ -355,6 +356,20 @@ describe("a deployment's page", { timeout: 20_000 }, () => {
     await pageAt(20);
     await screen.findByText("The deploy failed while building");
     await screen.findByRole("region", { name: `Build log of deployment 20 of ${TAB_DOMAIN}` });
+    await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
+  it("renders the phases, the failure and the build log in Spanish", async () => {
+    await act(() => setLocale("es"));
+    await pageAt(20);
+    expect(await screen.findByRole("heading", { level: 2, name: "Despliegue 20" })).toBeInTheDocument();
+    expect(await screen.findByText("El despliegue falló al compilar")).toBeInTheDocument();
+    expect(screen.getByText(/La salida de la propia compilación está en el registro de abajo/)).toBeInTheDocument();
+    const phases = screen.getByRole("list", { name: "Fases del despliegue" });
+    expect(within(phases).getByText("Obtención")).toBeInTheDocument();
+    expect(within(phases).getAllByText("No alcanzada")).toHaveLength(2);
+    expect(screen.getByRole("region", { name: "Registro de compilación" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Diagnosticar esta aplicación" })).toHaveAttribute("href", `/apps/${TAB_DOMAIN}/diagnose`);
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 });

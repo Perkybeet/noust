@@ -1,6 +1,7 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { FakeEventSource, MACHINE, fakeBackend, json, signedInRoutes } from "../../test/fakes";
@@ -191,6 +192,22 @@ describe("the overview", () => {
   it("has no accessibility violations", async () => {
     await overview();
     await within(screen.getByRole("region", { name: /Needs attention/ })).findByRole("link", { name: "admin.example.com" });
+    await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
+  it("reads in Spanish", async () => {
+    await act(() => setLocale("es"));
+    fakeBackend(overviewRoutes());
+    renderConsole("/");
+    await screen.findByRole("heading", { level: 1, name: "Resumen" });
+    const attention = screen.getByRole("region", { name: /Requiere atención/ });
+    await within(attention).findByRole("link", { name: "admin.example.com" });
+    expect(within(attention).getByText("El último despliegue falló")).toBeInTheDocument();
+    expect(within(attention).getByText("El servicio ha fallado")).toBeInTheDocument();
+    expect(within(attention).getByRole("link", { name: "Diagnosticar admin.example.com" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Aplicaciones en esta máquina" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Despliegues recientes, los más nuevos primero" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Nueva aplicación" })).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 });

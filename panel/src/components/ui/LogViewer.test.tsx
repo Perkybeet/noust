@@ -1,7 +1,8 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { downloadText } from "../../lib/clipboard";
 import type { LogLine } from "./LogViewer";
@@ -326,5 +327,19 @@ describe("LogViewer", () => {
     await expectNoAxeViolations(container);
     await userEvent.type(within(container).getByRole("searchbox", { name: "Search output" }), "e");
     await expectNoAxeViolations(container);
+  });
+
+  it("speaks Spanish once the language switches", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    render(<LogViewer lines={[]} />);
+    expect(screen.getByRole("searchbox", { name: "Buscar en la salida" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Seguir" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ajustar líneas" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copiar salida" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Descargar salida" })).toBeInTheDocument();
+    expect(screen.getByText("Todavía no hay salida.")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Salida del registro" })).toBeInTheDocument();
   });
 });

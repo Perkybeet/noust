@@ -20,6 +20,8 @@ import { IconButton } from "../../components/ui/IconButton";
 import { Input } from "../../components/ui/Input";
 import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { toast } from "../../components/ui/toast";
+import { useT } from "../../i18n";
+import type { T } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
 import { CertificateStatus } from "./CertificateStatus";
 import { IssueCertificateDialog } from "./IssueCertificateDialog";
@@ -30,9 +32,9 @@ import { truncatedNames } from "./names";
 import { useCertificateRefresh } from "./useCertificateJobs";
 
 /** The state a row shows: the job working on it, or what its expiry means. */
-function rowState(cert: CertEntry, job: Job | null): { tone: "ok" | "warn" | "fail" | "idle" | "busy"; label: string } {
-  if (job !== null) return { tone: "busy", label: job.type === "cert_renew" ? "Renewing" : "Issuing" };
-  return certificateView(cert);
+function rowState(cert: CertEntry, job: Job | null, t: T): { tone: "ok" | "warn" | "fail" | "idle" | "busy"; label: string } {
+  if (job !== null) return { tone: "busy", label: job.type === "cert_renew" ? t("domains.certificatesTab.renewing") : t("domains.certificatesTab.issuing") };
+  return certificateView(cert, t.locale);
 }
 
 /** The names a certificate covers besides the one it is named after. */
@@ -41,15 +43,16 @@ function otherNames(cert: CertEntry): string[] {
 }
 
 function Names({ cert }: { cert: CertEntry }) {
+  const t = useT();
   const others = otherNames(cert);
-  if (others.length === 0) return <span className="text-fg-faint">Only this name</span>;
+  if (others.length === 0) return <span className="text-fg-faint">{t("domains.certificatesTab.onlyThisName")}</span>;
   const { shown, rest } = truncatedNames(others, 2);
   return (
     <span className="flex min-w-0 items-center gap-1.5" title={others.join(", ")}>
       <span translate="no" className="mono truncate text-12 text-fg-muted">
         {shown}
       </span>
-      {rest > 0 ? <span className="shrink-0 text-12 text-fg-faint">{`+${String(rest)} more`}</span> : null}
+      {rest > 0 ? <span className="shrink-0 text-12 text-fg-faint">{t("domains.moreCount", { count: rest })}</span> : null}
     </span>
   );
 }
@@ -65,42 +68,48 @@ function CertificateDrawer({
   onClose: () => void;
   onRenew: (cert: CertEntry) => void;
 }) {
+  const t = useT();
   return (
     <Drawer
       open={cert !== null}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
-      title={cert?.domain ?? "Certificate"}
-      description="As certbot reports it. The private key itself is never read."
+      title={cert?.domain ?? t("domains.certificatesTab.drawerTitleDefault")}
+      description={t("domains.certificatesTab.drawerDescription")}
       footer={
         cert ? (
           <Button icon={<RefreshCw aria-hidden="true" />} disabled={job !== null} onClick={() => onRenew(cert)}>
-            Renew
+            {t("domains.certificatesTab.renew")}
           </Button>
         ) : undefined
       }
     >
       {cert ? (
         <div className="flex flex-col gap-5">
-          <CertificateStatus {...rowState(cert, job)} className="text-14" />
+          <CertificateStatus {...rowState(cert, job, t)} className="text-14" />
           <KeyValueList
             items={[
               {
-                label: "Names",
+                label: t("domains.certificatesTab.namesLabel"),
                 value: cert.domains.join(", "),
                 copy: cert.domains.join(" "),
-                hint: `${String(cert.domains.length)} ${cert.domains.length === 1 ? "name" : "names"}`,
+                hint: t("domains.certificatesTab.namesHint", { count: cert.domains.length }),
               },
-              { label: "Issuer", value: cert.issuer ? issuerName(cert.issuer) : null, mono: false },
-              { label: "Expires", value: cert.expires_on ?? null },
-              { label: "Certbot says", value: cert.valid_until ?? null },
-              { label: "Renewal", value: cert.auto_renew ? "Automatic" : "Manual", mono: false, copy: false },
-              { label: "Certificate", value: cert.path ?? null },
-              { label: "Private key", value: cert.key_path ?? null },
+              { label: t("domains.certificatesTab.issuerLabel"), value: cert.issuer ? issuerName(cert.issuer) : null, mono: false },
+              { label: t("domains.certificatesTab.expiresLabel"), value: cert.expires_on ?? null },
+              { label: t("domains.certificatesTab.certbotSaysLabel"), value: cert.valid_until ?? null },
+              {
+                label: t("domains.certificatesTab.renewalLabel"),
+                value: cert.auto_renew ? t("domains.certificatesTab.renewalAutomatic") : t("domains.certificatesTab.renewalManual"),
+                mono: false,
+                copy: false,
+              },
+              { label: t("domains.certificatesTab.certificateFileLabel"), value: cert.path ?? null },
+              { label: t("domains.certificatesTab.privateKeyLabel"), value: cert.key_path ?? null },
             ]}
           />
-          <CommandHint command={`wasm cert info ${cert.domain}`} label="From a terminal" />
+          <CommandHint command={`wasm cert info ${cert.domain}`} label={t("domains.fromTerminal")} />
         </div>
       ) : null}
     </Drawer>
@@ -113,6 +122,7 @@ function CertificateDrawer({
  * above the table.
  */
 export function CertificatesTab({ initialFilter = "" }: { initialFilter?: string }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const certs = useQuery(certsQuery());
   const active = useQuery(activeJobsQuery());
@@ -143,13 +153,17 @@ export function CertificatesTab({ initialFilter = "" }: { initialFilter?: string
     onSuccess: (result, { cert, force }) => {
       void queryClient.invalidateQueries({ queryKey: jobKeys.all });
       followJob(result.job_id, {
-        running: `${force ? "Renewing" : "Renewing if due"} ${cert.domain}`,
-        done: force ? `Renewed ${cert.domain}` : `Renewal of ${cert.domain} finished. Certbot renews only what is due; its log says which.`,
-        failed: `Renewing ${cert.domain} failed`,
+        running: force
+          ? t("domains.certificatesTab.renewJobRunning", { domain: cert.domain })
+          : t("domains.certificatesTab.renewIfDueJobRunning", { domain: cert.domain }),
+        done: force
+          ? t("domains.certificatesTab.renewJobDoneForced", { domain: cert.domain })
+          : t("domains.certificatesTab.renewJobDoneIfDue", { domain: cert.domain }),
+        failed: t("domains.certificatesTab.renewJobFailed", { domain: cert.domain }),
       });
     },
     onError: (error, { cert }) => {
-      reportActionError(`Could not renew ${cert.domain}`, error);
+      reportActionError(t("domains.certificatesTab.couldNotRenew", { domain: cert.domain }), error);
     },
   });
 
@@ -157,55 +171,55 @@ export function CertificatesTab({ initialFilter = "" }: { initialFilter?: string
     mutationFn: () => request("post", "/api/certs/renew-all", { body: { force: false } }),
     onSuccess: (result) => {
       followJob(result.job_id, {
-        running: "Renewing every certificate that is due",
-        done: "Renewal finished. Certificates not yet due were left alone.",
-        failed: "Renewing the due certificates failed",
+        running: t("domains.certificatesTab.renewAllRunning"),
+        done: t("domains.certificatesTab.renewAllDone"),
+        failed: t("domains.certificatesTab.renewAllFailed"),
       });
     },
     onError: (error) => {
-      reportActionError("Could not start the renewal", error);
+      reportActionError(t("domains.certificatesTab.couldNotStartRenewal"), error);
     },
   });
 
   const columns: Column<CertEntry>[] = [
     {
       id: "name",
-      header: "Certificate",
+      header: t("domains.certificatesTab.certificateColumn"),
       cell: (cert) => <span translate="no">{cert.domain}</span>,
       sortValue: (cert) => cert.domain,
     },
-    { id: "names", header: "Also covers", hideBelow: "md", cell: (cert) => <Names cert={cert} /> },
+    { id: "names", header: t("domains.certificatesTab.alsoCoversColumn"), hideBelow: "md", cell: (cert) => <Names cert={cert} /> },
     {
       id: "expires",
-      header: "Expires",
+      header: t("domains.certificatesTab.expiresLabel"),
       mono: true,
       hideBelow: "sm",
-      cell: (cert) => cert.expires_on ?? <span className="text-fg-faint">Unknown</span>,
+      cell: (cert) => cert.expires_on ?? <span className="text-fg-faint">{t("domains.unknown")}</span>,
       sortValue: (cert) => cert.days_remaining ?? null,
     },
     {
       id: "state",
-      header: "State",
-      cell: (cert) => <CertificateStatus {...rowState(cert, certificateJobFor(jobs, cert.domain))} />,
+      header: t("domains.certificatesTab.stateColumn"),
+      cell: (cert) => <CertificateStatus {...rowState(cert, certificateJobFor(jobs, cert.domain), t)} />,
       sortValue: (cert) => cert.days_remaining ?? null,
     },
     {
       id: "issuer",
-      header: "Issuer",
+      header: t("domains.certificatesTab.issuerLabel"),
       hideBelow: "lg",
-      cell: (cert) => <span className="text-fg-muted">{cert.issuer ? issuerName(cert.issuer) : "Unknown"}</span>,
+      cell: (cert) => <span className="text-fg-muted">{cert.issuer ? issuerName(cert.issuer) : t("domains.unknown")}</span>,
     },
     {
       id: "renewal",
-      header: "Renewal",
+      header: t("domains.certificatesTab.renewalLabel"),
       hideBelow: "lg",
-      cell: (cert) => <span className="text-fg-muted">{cert.auto_renew ? "Automatic" : "Manual"}</span>,
+      cell: (cert) => <span className="text-fg-muted">{cert.auto_renew ? t("domains.certificatesTab.renewalAutomatic") : t("domains.certificatesTab.renewalManual")}</span>,
     },
   ];
 
   const issueButton = (
     <Button variant="primary" icon={<Plus aria-hidden="true" />} onClick={() => setIssuing(true)}>
-      Issue certificate
+      {t("domains.issueCertificate")}
     </Button>
   );
 
@@ -216,8 +230,8 @@ export function CertificatesTab({ initialFilter = "" }: { initialFilter?: string
       {certs.isError && certs.data === undefined ? (
         <ErrorBlock
           error={certs.error}
-          title="Could not list the certificates"
-          hint="The list comes from certbot certificates; check that certbot is installed."
+          title={t("domains.certificatesTab.couldNotListCertificates")}
+          hint={t("domains.certificatesTab.listHint")}
           onRetry={() => void certs.refetch()}
           retrying={certs.isRefetching}
         />
@@ -225,19 +239,19 @@ export function CertificatesTab({ initialFilter = "" }: { initialFilter?: string
         <EmptyState
           level={3}
           icon={<ShieldCheck />}
-          title="No certificates yet"
-          description="A certificate lets a site answer over HTTPS. Let's Encrypt issues one for any name that points to this server, and it renews itself."
+          title={t("domains.certificatesTab.noCertsYetTitle")}
+          description={t("domains.certificatesTab.noCertsYetDescription")}
           action={issueButton}
           command="wasm cert create -d example.com"
           className="py-16"
         />
       ) : (
         <>
-          <div role="search" aria-label="Filter certificates" className="flex flex-wrap items-center gap-2">
+          <div role="search" aria-label={t("domains.certificatesTab.filterAriaLabel")} className="flex flex-wrap items-center gap-2">
             <Input
               type="search"
-              aria-label="Filter certificates by name"
-              placeholder="Filter by name"
+              aria-label={t("domains.certificatesTab.filterByNameAriaLabel")}
+              placeholder={t("domains.filterByNamePlaceholder")}
               value={filter}
               onValueChange={(value: string) => setFilter(value)}
               icon={<Search />}
@@ -247,18 +261,18 @@ export function CertificatesTab({ initialFilter = "" }: { initialFilter?: string
             />
             {filter !== "" ? (
               <Button variant="ghost" icon={<X aria-hidden="true" />} onClick={() => setFilter("")}>
-                Clear
+                {t("domains.clear")}
               </Button>
             ) : null}
             <div className="ml-auto flex flex-wrap items-center gap-2">
               <Button icon={<RefreshCw aria-hidden="true" />} loading={renewAll.isPending} onClick={() => renewAll.mutate()}>
-                Renew due
+                {t("domains.certificatesTab.renewDue")}
               </Button>
               {issueButton}
             </div>
           </div>
           <DataTable
-            caption={needle === "" ? "Certificates" : "Certificates matching the filter"}
+            caption={needle === "" ? t("domains.certificatesTab.tableCaption") : t("domains.certificatesTab.tableCaptionFiltered")}
             columns={columns}
             rows={shown}
             getRowId={(cert) => cert.domain}
@@ -266,33 +280,33 @@ export function CertificatesTab({ initialFilter = "" }: { initialFilter?: string
             onRowActivate={(cert) => setOpened(cert.domain)}
             empty={
               <EmptyState
-                title="No certificate matches"
-                description={`None of the certificates covers a name containing "${filter.trim()}".`}
+                title={t("domains.certificatesTab.noCertMatchTitle")}
+                description={t("domains.certificatesTab.noCertMatchDescription", { filter: filter.trim() })}
                 className="border-0 py-8"
               />
             }
             rowActions={(cert) => {
               const busy = certificateJobFor(jobs, cert.domain) !== null;
               return (
-                <Menu align="end" trigger={<IconButton label={`Actions for ${cert.domain}`} icon={<MoreHorizontal />} size="sm" tooltip={false} />}>
+                <Menu align="end" trigger={<IconButton label={t("domains.actionsFor", { name: cert.domain })} icon={<MoreHorizontal />} size="sm" tooltip={false} />}>
                   <MenuItem icon={<RefreshCw />} disabled={busy} onClick={() => renew.mutate({ cert, force: false })}>
-                    Renew if due
+                    {t("domains.certificatesTab.renewIfDue")}
                   </MenuItem>
                   <MenuItem icon={<RefreshCw />} disabled={busy} onClick={() => renew.mutate({ cert, force: true })}>
-                    Renew now
+                    {t("domains.certificatesTab.renewNow")}
                   </MenuItem>
                   <MenuSeparator />
                   <MenuItem icon={<ShieldX />} destructive onClick={() => setRevoking(cert)}>
-                    Revoke
+                    {t("domains.certificatesTab.revoke")}
                   </MenuItem>
                   <MenuItem icon={<Trash2 />} destructive onClick={() => setDeleting(cert)}>
-                    Delete
+                    {t("domains.delete")}
                   </MenuItem>
                 </Menu>
               );
             }}
           />
-          <CommandHint command="wasm cert list" label="From a terminal" />
+          <CommandHint command="wasm cert list" label={t("domains.fromTerminal")} />
         </>
       )}
 
@@ -301,10 +315,10 @@ export function CertificatesTab({ initialFilter = "" }: { initialFilter?: string
         onOpenChange={setIssuing}
         onQueued={(jobId, domain) =>
           followJob(jobId, {
-            running: `Issuing a certificate for ${domain}`,
-            done: `Issued a certificate for ${domain}`,
-            failed: `Issuing a certificate for ${domain} failed`,
-            hint: "Let's Encrypt could not verify every name. Check that each one points to this server, then issue again.",
+            running: t("domains.certificatesTab.issueJobRunning", { domain }),
+            done: t("domains.certificatesTab.issueJobDone", { domain }),
+            failed: t("domains.certificatesTab.issueJobFailed", { domain }),
+            hint: t("domains.certificatesTab.issueJobHint"),
           })
         }
       />
@@ -319,15 +333,15 @@ export function CertificatesTab({ initialFilter = "" }: { initialFilter?: string
         onOpenChange={(open) => {
           if (!open) setRevoking(null);
         }}
-        title={revoking ? `Revoke ${revoking.domain}` : "Revoke certificate"}
-        description="Let's Encrypt is told to stop trusting it, and its files are deleted. Every site that uses it stops serving HTTPS until a new certificate is issued. This cannot be undone."
+        title={revoking ? t("domains.certificatesTab.revokeNamedTitle", { domain: revoking.domain }) : t("domains.certificatesTab.revokeCertificate")}
+        description={t("domains.certificatesTab.revokeDialogDescription")}
         confirmText={revoking?.domain ?? ""}
-        actionLabel="Revoke certificate"
+        actionLabel={t("domains.certificatesTab.revokeCertificate")}
         onConfirm={async () => {
           if (!revoking) return;
           await request("post", "/api/certs/{domain}/revoke", { params: { domain: revoking.domain } });
           void queryClient.invalidateQueries({ queryKey: certKeys.all });
-          toast.success(`Revoked ${revoking.domain}`);
+          toast.success(t("domains.certificatesTab.revokedToast", { domain: revoking.domain }));
         }}
       />
       <ConfirmDialog
@@ -335,15 +349,15 @@ export function CertificatesTab({ initialFilter = "" }: { initialFilter?: string
         onOpenChange={(open) => {
           if (!open) setDeleting(null);
         }}
-        title={deleting ? `Delete ${deleting.domain}` : "Delete certificate"}
-        description="Its files are deleted without revoking it, so a copy stays valid until it expires. Every site that uses it stops serving HTTPS until a new certificate is issued."
+        title={deleting ? t("domains.deleteNamedTitle", { name: deleting.domain }) : t("domains.certificatesTab.deleteCertificate")}
+        description={t("domains.certificatesTab.deleteDialogDescription")}
         confirmText={deleting?.domain ?? ""}
-        actionLabel="Delete certificate"
+        actionLabel={t("domains.certificatesTab.deleteCertificate")}
         onConfirm={async () => {
           if (!deleting) return;
           await request("delete", "/api/certs/{domain}", { params: { domain: deleting.domain } });
           void queryClient.invalidateQueries({ queryKey: certKeys.all });
-          toast.success(`Deleted ${deleting.domain}`);
+          toast.success(t("domains.certificatesTab.deletedToast", { domain: deleting.domain }));
         }}
       />
     </div>

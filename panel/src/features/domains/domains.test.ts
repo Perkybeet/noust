@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { ApiError } from "../../api/errors";
 import type { Job } from "../../api/queries/jobs";
+import { setLocale } from "../../app/locale";
 import { createSiteBody } from "./CreateSiteDialog";
 import { issueRequest } from "./IssueCertificateDialog";
 import { byUrgency, certificateJobFor, certificateView, covers, issuerName } from "./certificates";
@@ -207,6 +208,56 @@ describe("creating a site", () => {
     expect(createSiteBody({ ...form, domain: "nope", port: "70000" })).toEqual({
       errors: { domain: expect.stringMatching(/two parts/) as string, port: expect.stringMatching(/between 1 and 65535/) as string },
     });
+  });
+});
+
+describe("in Spanish", () => {
+  it("validates domain names in Spanish", async () => {
+    await setLocale("es");
+    try {
+      expect(domainProblem("")).toMatch(/Introduce un dominio/);
+      expect(domainProblem("localhost")).toMatch(/dos partes/);
+      expect(domainProblem("example.c0m")).toMatch(/solo letras/);
+    } finally {
+      await setLocale("en");
+    }
+  });
+
+  it("describes certificate expiry in Spanish", async () => {
+    await setLocale("es");
+    try {
+      expect(certificateView({ days_remaining: 46 })).toMatchObject({ label: "Válido durante 46 días" });
+      expect(certificateView({ days_remaining: 1 })).toMatchObject({ label: "Caduca en 1 día" });
+      expect(certificateView({ days_remaining: 0 })).toMatchObject({ label: "Caduca hoy" });
+      expect(certificateView({ days_remaining: -1 })).toMatchObject({ label: "Caducó ayer" });
+      expect(certificateView({ days_remaining: -9 })).toMatchObject({ label: "Caducó hace 9 días" });
+      expect(certificateView({ days_remaining: null })).toMatchObject({ label: "Caducidad desconocida" });
+    } finally {
+      await setLocale("en");
+    }
+  });
+
+  it("reports validation errors for a new site and a new certificate in Spanish", async () => {
+    await setLocale("es");
+    try {
+      expect(createSiteBody({ domain: "nope", webserver: "nginx", template: "advanced", port: "", ssl: true, enable: true })).toEqual({
+        errors: {
+          domain: expect.stringMatching(/dos partes/) as string,
+          port: expect.stringMatching(/entre 1 y 65535/) as string,
+        },
+      });
+      expect(
+        issueRequest({ domain: "", names: "", includeWww: true, method: "webroot", webroot: "", email: "nope", expand: false }),
+      ).toEqual({
+        errors: {
+          domain: expect.stringMatching(/Introduce un dominio/) as string,
+          webroot: expect.stringMatching(/directorio que sirve el sitio/) as string,
+          email: expect.stringMatching(/ops@example.com/) as string,
+        },
+      });
+    } finally {
+      await setLocale("en");
+    }
   });
 });
 

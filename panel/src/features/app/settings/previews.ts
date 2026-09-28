@@ -1,5 +1,9 @@
+import { getLocale } from "../../../app/locale";
+import type { Locale } from "../../../app/locale";
 import type { PreviewSettings } from "../../../api/queries/previews";
 import type { StatusView } from "../../../components/page/status";
+import { translate } from "../../../i18n/translate";
+import type { MessageKey } from "../../../i18n/types";
 
 /** The bounds the backend holds previews to (`wasm.managers.previews`). */
 export const MAX_PREVIEWS_MIN = 1;
@@ -83,42 +87,42 @@ function hoursOf(draft: Pick<PreviewDraft, "ttl_hours" | "unit">): number | null
 }
 
 /** "7 days", "36 hours", "1 hour": a lifetime in the unit that reads best. */
-export function lifetime(hours: number): string {
-  if (hours % 24 === 0) {
-    const days = hours / 24;
-    return `${String(days)} ${days === 1 ? "day" : "days"}`;
-  }
-  return `${String(hours)} ${hours === 1 ? "hour" : "hours"}`;
+export function lifetime(hours: number, locale: Locale = getLocale()): string {
+  if (hours % 24 === 0) return translate(locale, "appSettings.previews.lifetimeDays", { count: hours / 24 });
+  return translate(locale, "appSettings.previews.lifetimeHours", { count: hours });
 }
 
 /**
  * The form, read as the backend will. Only what is plainly wrong is caught here, for a quick
  * answer; whether the base domain is one previews can live under is the backend's to say.
  */
-export function parsePreviewDraft(draft: PreviewDraft): { values: PreviewValues | null; errors: PreviewErrors } {
+export function parsePreviewDraft(draft: PreviewDraft, locale: Locale = getLocale()): { values: PreviewValues | null; errors: PreviewErrors } {
   const errors: PreviewErrors = {};
   const base = draft.base_domain.trim();
   if (base === "") {
-    errors.base_domain = "Give the domain the wildcard record is for, such as previews.example.com.";
+    errors.base_domain = translate(locale, "appSettings.previews.baseDomainRequired");
   } else if (/\s|\/|:/.test(base)) {
-    errors.base_domain = "A domain name only, such as previews.example.com: no scheme, port or path.";
+    errors.base_domain = translate(locale, "appSettings.previews.baseDomainNoScheme");
   }
 
   const maxText = draft.max_previews.trim();
   const max = /^\d+$/.test(maxText) ? Number.parseInt(maxText, 10) : null;
   if (max === null || max < MAX_PREVIEWS_MIN || max > MAX_PREVIEWS_MAX) {
-    errors.max_previews = `From ${String(MAX_PREVIEWS_MIN)} to ${String(MAX_PREVIEWS_MAX)} previews at once.`;
+    errors.max_previews = translate(locale, "appSettings.previews.maxRange", { min: MAX_PREVIEWS_MIN, max: MAX_PREVIEWS_MAX });
   }
 
   const hours = hoursOf(draft);
   if (hours === null || hours < TTL_HOURS_MIN || hours > TTL_HOURS_MAX) {
-    errors.ttl_hours = draft.unit === "days" ? "From 1 to 90 days." : `From ${String(TTL_HOURS_MIN)} to ${String(TTL_HOURS_MAX)} hours (90 days).`;
+    errors.ttl_hours =
+      draft.unit === "days"
+        ? translate(locale, "appSettings.previews.ttlDays")
+        : translate(locale, "appSettings.previews.ttlHours", { min: TTL_HOURS_MIN, max: TTL_HOURS_MAX });
   }
 
   const excluded = envNamesOf(draft.exclude_env);
   const invalid = excluded.filter((name) => !ENV_NAME.test(name));
   if (invalid.length > 0) {
-    errors.exclude_env = `Not ${invalid.length === 1 ? "a variable name" : "variable names"}: ${invalid.join(", ")}. A name is letters, digits and underscores, and does not start with a digit.`;
+    errors.exclude_env = translate(locale, "appSettings.previews.excludeInvalid", { count: invalid.length, list: invalid.join(", ") });
   }
 
   if (Object.keys(errors).length > 0 || max === null || hours === null) return { values: null, errors };
@@ -137,18 +141,22 @@ export function previewFieldOf(detail: string): PreviewField | null {
   return null;
 }
 
-const PREVIEW_STATES: Readonly<Record<string, StatusView>> = {
-  pending: { state: "deploying", label: "Pending", attention: false },
-  deploying: { state: "deploying", label: "Deploying", attention: false },
-  ready: { state: "running", label: "Ready", attention: false },
-  failed: { state: "failed", label: "Failed", attention: true },
-  removing: { state: "deploying", label: "Removing", attention: false },
+const PREVIEW_STATES: Readonly<Record<string, { state: StatusView["state"]; labelKey: MessageKey; attention: boolean }>> = {
+  pending: { state: "deploying", labelKey: "appSettings.previews.statusPending", attention: false },
+  deploying: { state: "deploying", labelKey: "appSettings.previews.statusDeploying", attention: false },
+  ready: { state: "running", labelKey: "appSettings.previews.statusReady", attention: false },
+  failed: { state: "failed", labelKey: "appSettings.previews.statusFailed", attention: true },
+  removing: { state: "deploying", labelKey: "appSettings.previews.statusRemoving", attention: false },
 };
 
 /** A preview's status in the console's state language; an unknown word is shown as it came. */
-export function previewStatus(status: string): StatusView {
+export function previewStatus(status: string, locale: Locale = getLocale()): StatusView {
   const known = PREVIEW_STATES[status.trim().toLowerCase()];
-  if (known) return known;
+  if (known) return { state: known.state, label: translate(locale, known.labelKey), attention: known.attention };
   const word = status.trim();
-  return { state: "unknown", label: word === "" ? "Unknown" : `${word.charAt(0).toUpperCase()}${word.slice(1)}`, attention: false };
+  return {
+    state: "unknown",
+    label: word === "" ? translate(locale, "appSettings.previews.statusUnknown") : `${word.charAt(0).toUpperCase()}${word.slice(1)}`,
+    attention: false,
+  };
 }

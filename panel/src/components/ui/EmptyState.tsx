@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { CopyButton } from "./CopyButton";
 
@@ -19,6 +20,7 @@ export interface EmptyStateProps {
 
 /** What a list or page shows before it has anything in it. */
 export function EmptyState({ icon, title, description, action, command, level = 3, className }: EmptyStateProps) {
+  const t = useT();
   const Heading = `h${level}` as const;
   return (
     <div
@@ -45,7 +47,7 @@ export function EmptyState({ icon, title, description, action, command, level = 
             </span>
             {command}
           </span>
-          <CopyButton value={command} label="Copy command" />
+          <CopyButton value={command} label={t("common.copyButton.copyCommand")} />
         </div>
       ) : null}
     </div>

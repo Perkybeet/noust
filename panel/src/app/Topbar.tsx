@@ -39,20 +39,18 @@ function SessionPanel({ onOpenShortcuts }: { onOpenShortcuts: () => void }) {
       open={open}
       onOpenChange={setOpen}
       align="end"
-      trigger={<IconButton label="Session and preferences" icon={<CircleUser />} tooltip={false} />}
-      title="Session"
+      trigger={<IconButton label={t("shell.session.label")} icon={<CircleUser />} tooltip={false} />}
+      title={t("shell.session.title")}
       description={
-        session?.hostname !== undefined ? (
-          <>
-            Signed in to <Mono>{session.hostname}</Mono>
-          </>
-        ) : undefined
+        session?.hostname !== undefined
+          ? t.rich("shell.session.signedInTo", { hostname: <Mono>{session.hostname}</Mono> })
+          : undefined
       }
       className="w-72"
     >
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
-          <span className="text-12 font-medium text-fg-muted">Theme</span>
+          <span className="text-12 font-medium text-fg-muted">{t("shell.session.theme")}</span>
           <ThemeSwitch value={theme} onChange={setTheme} />
         </div>
         <div className="flex flex-col gap-1.5">
@@ -70,7 +68,7 @@ function SessionPanel({ onOpenShortcuts }: { onOpenShortcuts: () => void }) {
               onOpenShortcuts();
             }}
           >
-            Keyboard shortcuts
+            {t("shell.session.keyboardShortcuts")}
           </Button>
           <Button
             variant="ghost"
@@ -79,7 +77,7 @@ function SessionPanel({ onOpenShortcuts }: { onOpenShortcuts: () => void }) {
             loading={signingOut}
             onClick={() => void signOut()}
           >
-            Sign out
+            {t("shell.session.signOut")}
           </Button>
         </div>
       </div>
@@ -89,6 +87,7 @@ function SessionPanel({ onOpenShortcuts }: { onOpenShortcuts: () => void }) {
 
 /** The bar over every page: the machine strip, search, the session, and the menu on phones. */
 export function Topbar({ onOpenPalette, onOpenShortcuts, onOpenNav, searchTriggerRef }: TopbarProps) {
+  const t = useT();
   const mod = modKeyLabel();
   // Left padding of 26px on wide screens: with the hostname link's own 6px, the hostname
   // starts on the same edge as the page title below it.
@@ -96,7 +95,7 @@ export function Topbar({ onOpenPalette, onOpenShortcuts, onOpenNav, searchTrigge
     <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-bg/85 px-4 backdrop-blur-md sm:px-6 lg:pr-6 lg:pl-6.5">
       <Link
         to="/"
-        aria-label="Overview"
+        aria-label={t("nav.overview.label")}
         className="-ml-1 flex shrink-0 rounded-control p-1 focus-visible:outline-2 focus-visible:outline-focus lg:hidden"
       >
         <LogoMark size={22} />
@@ -114,15 +113,21 @@ export function Topbar({ onOpenPalette, onOpenShortcuts, onOpenNav, searchTrigge
           className="flex h-8 w-52 cursor-pointer items-center gap-2 rounded-control border border-border bg-surface pr-1.5 pl-2.5 text-13 text-fg-muted shadow-raised transition-colors duration-(--duration-fast) ease-out hover:border-border-strong/60 hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus max-md:hidden lg:w-44 xl:w-60"
         >
           <Search aria-hidden="true" className="size-4 shrink-0" />
-          <span className="flex-1 text-left">Search</span>
+          <span className="flex-1 text-left">{t("shell.search.label")}</span>
           <span aria-hidden="true" className="flex gap-0.5">
             <Kbd>{mod}</Kbd>
             <Kbd>K</Kbd>
           </span>
         </button>
-        <IconButton label="Search" icon={<Search />} onClick={onOpenPalette} tooltip={false} className="md:hidden" />
+        <IconButton
+          label={t("shell.search.label")}
+          icon={<Search />}
+          onClick={onOpenPalette}
+          tooltip={false}
+          className="md:hidden"
+        />
         <SessionPanel onOpenShortcuts={onOpenShortcuts} />
-        <IconButton label="Open menu" icon={<Menu />} onClick={onOpenNav} tooltip={false} className="lg:hidden" />
+        <IconButton label={t("shell.menu.open")} icon={<Menu />} onClick={onOpenNav} tooltip={false} className="lg:hidden" />
       </div>
     </header>
   );

@@ -1,58 +1,102 @@
 /**
  * What the Server page reads beyond the raw API shape: the health verdict and each check's
  * status in the console's state language.
+ *
+ * Labels are message keys, not text: this module has no language, so whoever renders a view
+ * (`ServerPage.tsx`) calls `t()`. `verdict.message`, `check.value` and the report's own
+ * issues and warnings are `collect_health_report`'s own words (wasm.managers.health) and are
+ * shown verbatim, never translated.
  */
 
 import type { Status } from "../../components/ui/StatusPill";
 import type { SystemHealth } from "../../api/queries/system";
+import type { T } from "../../i18n";
 
 export type Verdict = SystemHealth["verdict"];
 export type HealthCheck = SystemHealth["checks"][number];
 
+export type VerdictLabel =
+  | { key: "healthy" }
+  | { key: "needsAttention" }
+  | { key: "critical" }
+  | { key: "unknown"; raw: string };
+
 export interface VerdictView {
   state: Status;
-  label: string;
+  label: VerdictLabel;
 }
 
 /** `collect_health_report`'s verdict: "error", "warning" or "healthy" (wasm.managers.health). */
 export function verdictView(verdict: string): VerdictView {
   switch (verdict) {
     case "healthy":
-      return { state: "running", label: "Healthy" };
+      return { state: "running", label: { key: "healthy" } };
     case "warning":
-      return { state: "warning", label: "Needs attention" };
+      return { state: "warning", label: { key: "needsAttention" } };
     case "error":
-      return { state: "failed", label: "Critical" };
+      return { state: "failed", label: { key: "critical" } };
     default:
-      return { state: "unknown", label: verdict };
+      return { state: "unknown", label: { key: "unknown", raw: verdict } };
   }
 }
 
+export type CheckLabel = { key: "ok" } | { key: "warning" } | { key: "error" } | { key: "info" };
+
+export interface CheckView {
+  state: Status;
+  label: CheckLabel;
+}
+
 /** One check's status: "ok", "warning", "error" or "info". */
-export function checkView(status: string): VerdictView {
+export function checkView(status: string): CheckView {
   switch (status) {
     case "ok":
-      return { state: "running", label: "OK" };
+      return { state: "running", label: { key: "ok" } };
     case "warning":
-      return { state: "warning", label: "Warning" };
+      return { state: "warning", label: { key: "warning" } };
     case "error":
-      return { state: "failed", label: "Error" };
+      return { state: "failed", label: { key: "error" } };
     default:
-      return { state: "unknown", label: "Info" };
+      return { state: "unknown", label: { key: "info" } };
+  }
+}
+
+/** Turns a `VerdictLabel` or `CheckLabel` into the word it stands for, in the active language. */
+export function verdictText(t: T, label: VerdictLabel | CheckLabel): string {
+  switch (label.key) {
+    case "healthy":
+      return t("server.health.verdictHealthy");
+    case "needsAttention":
+      return t("server.health.verdictNeedsAttention");
+    case "critical":
+      return t("server.health.verdictCritical");
+    case "unknown":
+      return label.raw;
+    case "ok":
+      return t("server.health.checkOk");
+    case "warning":
+      return t("server.health.checkWarning");
+    case "error":
+      return t("server.health.checkError");
+    case "info":
+      return t("server.health.checkInfo");
   }
 }
 
 /**
  * `wasm health` names its checks in Title Case for the terminal ("Disk Space"); the console
- * writes labels in sentence case. Known names are reworded, anything else is shown as sent.
+ * writes labels in sentence case. Known names are reworded, anything else is shown as sent
+ * (the backend's word beats a guess, so it stays in English rather than a wrong translation).
  */
-const CHECK_NAMES: Readonly<Record<string, string>> = {
-  "Disk Space": "Disk space",
-  "SSL Certificates": "SSL certificates",
-};
-
-export function checkName(name: string): string {
-  return CHECK_NAMES[name] ?? name;
+export function checkName(t: T, name: string): string {
+  switch (name) {
+    case "Disk Space":
+      return t("server.health.checkDiskSpace");
+    case "SSL Certificates":
+      return t("server.health.checkSslCertificates");
+    default:
+      return name;
+  }
 }
 
 /** A reason for the verdict: an issue fails the check, a warning only needs attention. */

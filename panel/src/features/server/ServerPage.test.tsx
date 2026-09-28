@@ -1,11 +1,15 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import type { ObservationList } from "../../api/queries/monitor";
+import { setLocale } from "../../app/locale";
+import { bindT } from "../../i18n/useT";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { SYSTEM_HEALTH, fakeBackend, json, signedInRoutes } from "../../test/fakes";
 import { checkName } from "./data";
+
+const t = bindT("en");
 
 const XMRIG_OBSERVATION: ObservationList["observations"][number] = {
   id: 91,
@@ -50,7 +54,7 @@ describe("the server page", () => {
     if (!section) throw new Error("no section");
     expect(within(section).getByText("Healthy")).toBeInTheDocument();
     for (const check of SYSTEM_HEALTH.checks) {
-      expect(within(section).getByText(checkName(check.name))).toBeInTheDocument();
+      expect(within(section).getByText(checkName(t, check.name))).toBeInTheDocument();
     }
   });
 
@@ -146,6 +150,23 @@ describe("the server page", () => {
     await serverPage([XMRIG_OBSERVATION]);
     await screen.findByRole("heading", { name: "Top processes" });
     await within(await screen.findByRole("region", { name: "Resource monitor" })).findByText("xmrig");
+    await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
+  it("reads in Spanish", async () => {
+    await act(() => setLocale("es"));
+    fakeBackend(withObservations([XMRIG_OBSERVATION]));
+    renderConsole("/server");
+    await screen.findByRole("heading", { level: 1, name: "Servidor" });
+    const health = await screen.findByRole("heading", { name: "Salud" });
+    const healthSection = health.closest("section");
+    if (!healthSection) throw new Error("no section");
+    expect(within(healthSection).getByText("Correcto")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Sistema" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Interfaces de red" })).toBeInTheDocument();
+    const monitor = await screen.findByRole("region", { name: "Monitor de recursos" });
+    expect(within(monitor).getByText("En marcha")).toBeInTheDocument();
+    expect(within(monitor).getByText("xmrig")).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 });

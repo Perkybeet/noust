@@ -1,3 +1,4 @@
+import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { Meter } from "../ui/Progress";
 
@@ -20,14 +21,15 @@ export interface ResourceMeterProps {
  * then red as the limit nears; without one the reading stands alone and says so, because a
  * bar with no end would imply a ceiling that does not exist.
  */
-export function ResourceMeter({ label, value, limit = null, format, missing = "No reading", className }: ResourceMeterProps) {
+export function ResourceMeter({ label, value, limit = null, format, missing, className }: ResourceMeterProps) {
+  const t = useT();
   if (value !== null && limit !== null && limit > 0) {
     return (
       <Meter
         label={label}
         value={Math.min(value, limit)}
         max={limit}
-        valueText={`${format(value)} of ${format(limit)}`}
+        valueText={t("common.resourceMeter.ofLimit", { value: format(value), limit: format(limit) })}
         {...(className !== undefined ? { className } : {})}
       />
     );
@@ -39,11 +41,11 @@ export function ResourceMeter({ label, value, limit = null, format, missing = "N
         {value !== null ? (
           <span className="mono text-13 text-fg">{format(value)}</span>
         ) : (
-          <span className="text-13 text-fg-faint">{missing}</span>
+          <span className="text-13 text-fg-faint">{missing ?? t("common.resourceMeter.missing")}</span>
         )}
       </div>
       <p className="text-12 text-fg-faint">
-        {limit !== null && limit > 0 ? `Limit ${format(limit)}` : "No limit set"}
+        {limit !== null && limit > 0 ? t("common.resourceMeter.limit", { value: format(limit) }) : t("common.resourceMeter.noLimit")}
       </p>
     </div>
   );

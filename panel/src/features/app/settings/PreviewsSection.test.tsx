@@ -1,7 +1,8 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { previewsInterval } from "../../../api/queries/previews";
+import { setLocale } from "../../../app/locale";
 import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { APPS, SESSION, fakeBackend, json, problem, signedInRoutes } from "../../../test/fakes";
@@ -321,6 +322,16 @@ describe("pull request previews", () => {
     await on.user.click(within(on.section).getByRole("button", { name: "Turn off previews" }));
     await expectNoAxeViolations(await screen.findByRole("dialog"));
   });
+
+  it("renders the previews list in Spanish, with no accessibility violations", async () => {
+    const { section } = await previewsOf(() => ON);
+    await act(() => setLocale("es"));
+    await within(section).findByRole("list", { name: "Vistas previas" });
+    expect(within(section).getByText("Activadas")).toBeInTheDocument();
+    expect(within(section).getByText("2 de como máximo 3")).toBeInTheDocument();
+    expect(within(section).getByRole("button", { name: "Desactivar vistas previas" })).toBeInTheDocument();
+    await expectNoAxeViolations(section);
+  });
 });
 
 describe("the preview settings and states", () => {
@@ -378,5 +389,18 @@ describe("the preview settings and states", () => {
     expect(previewsInterval({ previews: [READY] })).toBe(false);
     expect(previewsInterval({ previews: [READY, { ...FAILED, status: "deploying" }] })).toBe(5_000);
     expect(previewsInterval(undefined)).toBe(false);
+  });
+
+  it("holds the same rules and states, in Spanish", async () => {
+    await setLocale("es");
+    expect(lifetime(24, "es")).toBe("1 día");
+    expect(lifetime(36, "es")).toBe("36 horas");
+    const draft = previewDraftOf(null);
+    expect(parsePreviewDraft({ ...draft, base_domain: "" }, "es").errors.base_domain).toMatch(/Indica el dominio/);
+    expect(parsePreviewDraft({ ...draft, base_domain: "a.example.com", max_previews: "0" }, "es").errors.max_previews).toBe(
+      "De 1 a 20 vistas previas a la vez.",
+    );
+    expect(previewStatus("ready", "es")).toMatchObject({ state: "running", label: "Lista" });
+    expect(previewStatus("failed", "es")).toMatchObject({ state: "failed", label: "Fallida" });
   });
 });

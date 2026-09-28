@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { Field } from "./Field";
 import { Input } from "./Input";
@@ -72,5 +73,17 @@ describe("Field", () => {
       </form>,
     );
     await expectNoAxeViolations(container);
+  });
+
+  it("marks optional fields in Spanish", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    render(
+      <Field label="Branch" optional>
+        <Input />
+      </Field>,
+    );
+    expect(screen.getByText("Opcional")).toBeInTheDocument();
   });
 });

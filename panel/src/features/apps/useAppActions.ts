@@ -9,6 +9,8 @@ import { jobKeys } from "../../api/queries/jobs";
 import type { Job } from "../../api/queries/jobs";
 import { announce } from "../../app/Announcer";
 import { toast } from "../../components/ui/toast";
+import { useT } from "../../i18n";
+import type { T } from "../../i18n";
 import { describeError } from "../../lib/errors";
 
 export interface AppActionOptions {
@@ -42,11 +44,27 @@ export function isNothingNew(error: unknown): error is ApiError {
 
 type UnitVerb = "restart" | "start" | "stop";
 
-const UNIT_WORDS: Record<UnitVerb, { past: string; noun: string }> = {
-  restart: { past: "Restarted", noun: "Restart" },
-  start: { past: "Started", noun: "Start" },
-  stop: { past: "Stopped", noun: "Stop" },
-};
+function unitSuccessToast(t: T, verb: UnitVerb, domain: string): string {
+  switch (verb) {
+    case "restart":
+      return t("apps.actions.restartedToast", { domain });
+    case "start":
+      return t("apps.actions.startedToast", { domain });
+    case "stop":
+      return t("apps.actions.stoppedToast", { domain });
+  }
+}
+
+function unitErrorToast(t: T, verb: UnitVerb, domain: string): string {
+  switch (verb) {
+    case "restart":
+      return t("apps.actions.restartFailed", { domain });
+    case "start":
+      return t("apps.actions.startFailed", { domain });
+    case "stop":
+      return t("apps.actions.stopFailed", { domain });
+  }
+}
 
 function callUnit(domain: string, verb: UnitVerb) {
   const params = { params: { domain } };
@@ -61,16 +79,15 @@ function callUnit(domain: string, verb: UnitVerb) {
 }
 
 /** One synchronous systemctl verb on the app's unit, reported in a toast either way. */
-function useUnitAction(domain: string, verb: UnitVerb, refresh: () => void) {
-  const { past, noun } = UNIT_WORDS[verb];
+function useUnitAction(t: T, domain: string, verb: UnitVerb, refresh: () => void) {
   return useMutation({
     mutationFn: () => callUnit(domain, verb),
     onSuccess: () => {
-      toast.success(`${past} ${domain}`);
+      toast.success(unitSuccessToast(t, verb, domain));
       refresh();
     },
     onError: (error) => {
-      reportActionError(`${noun} of ${domain} failed`, error);
+      reportActionError(unitErrorToast(t, verb, domain), error);
       refresh();
     },
   });
@@ -86,6 +103,7 @@ function useUnitAction(domain: string, verb: UnitVerb, refresh: () => void) {
  * `notice` events, which the shell already turns into a toast, so nothing here repeats it.
  */
 export function useAppActions(domain: string, { onJobQueued }: AppActionOptions = {}) {
+  const t = useT();
   const queryClient = useQueryClient();
 
   const refresh = (): void => {
@@ -93,25 +111,26 @@ export function useAppActions(domain: string, { onJobQueued }: AppActionOptions 
     void queryClient.invalidateQueries({ queryKey: appKeys.list, exact: true });
   };
 
-  const queued = (job: Job, verb: string): void => {
+  const queued = (job: Job, kind: "update" | "rollback"): void => {
     // The job's own events keep this entry current, and can beat the response here: a job
     // that fails in milliseconds has already said so on the stream. The response's snapshot
     // only fills an empty entry, never overwrites a newer one.
     queryClient.setQueryData<Job>(jobKeys.detail(job.id), (current) => current ?? job);
     void queryClient.invalidateQueries({ queryKey: jobKeys.active });
+    const message = kind === "update" ? t("apps.actions.updateQueued", { domain }) : t("apps.actions.rollbackQueued", { domain });
     // Said once: the toast is itself announced (it lives in a live region); a caller that takes
     // the operator somewhere instead of toasting gets the sentence spoken here.
     if (onJobQueued) {
-      announce(`${verb} of ${domain} queued`);
+      announce(message);
       onJobQueued(job);
     } else {
-      toast.info(`${verb} of ${domain} queued`, { description: "You will be told when it finishes." });
+      toast.info(message, { description: t("apps.actions.queuedDescription") });
     }
   };
 
-  const restart = useUnitAction(domain, "restart", refresh);
-  const start = useUnitAction(domain, "start", refresh);
-  const stop = useUnitAction(domain, "stop", refresh);
+  const restart = useUnitAction(t, domain, "restart", refresh);
+  const start = useUnitAction(t, domain, "start", refresh);
+  const stop = useUnitAction(t, domain, "stop", refresh);
 
   // The refusal that asks "rebuild anyway?", kept apart from the mutations' own errors so the
   // question stays open while the forced retry is in flight.
@@ -121,14 +140,14 @@ export function useAppActions(domain: string, { onJobQueued }: AppActionOptions 
     mutationFn: () => callUpdate(false),
     onSuccess: (result) => {
       setNothingNew(null);
-      queued(result.job, "Update");
+      queued(result.job, "update");
     },
     onError: (error) => {
       if (isNothingNew(error)) {
         setNothingNew(error);
         return;
       }
-      reportActionError(`Update of ${domain} could not be queued`, error);
+      reportActionError(t("apps.actions.updateCouldNotQueue", { domain }), error);
     },
   });
   // The same update, told to rebuild the commit that is live: only after nothing_new asked.
@@ -136,18 +155,18 @@ export function useAppActions(domain: string, { onJobQueued }: AppActionOptions 
     mutationFn: () => callUpdate(true),
     onSuccess: (result) => {
       setNothingNew(null);
-      queued(result.job, "Update");
+      queued(result.job, "update");
     },
     onError: (error) => {
       setNothingNew(null);
-      reportActionError(`Update of ${domain} could not be queued`, error);
+      reportActionError(t("apps.actions.updateCouldNotQueue", { domain }), error);
     },
   });
 
   const rollbackToBackup = useMutation({
     mutationFn: (backupId: string) => request("post", "/api/jobs/rollback", { body: { domain, backup_id: backupId } }),
     onSuccess: (result) => {
-      queued(result.job, "Rollback");
+      queued(result.job, "rollback");
     },
   });
 
@@ -159,9 +178,9 @@ export function useAppActions(domain: string, { onJobQueued }: AppActionOptions 
       // `rolled_back` says the release is older than the one it replaced. A release that fails
       // its health check never gets here: the API answers an error, after putting the
       // previous release back.
-      if (!result.changed) toast.info(`Release ${result.release_id} is already serving ${domain}`);
-      else if (result.rolled_back) toast.success(`Rolled ${domain} back to release ${result.release_id}`);
-      else toast.success(`Activated release ${result.release_id} of ${domain}`);
+      if (!result.changed) toast.info(t("apps.actions.releaseAlreadyServing", { release: result.release_id, domain }));
+      else if (result.rolled_back) toast.success(t("apps.actions.rolledBack", { domain, release: result.release_id }));
+      else toast.success(t("apps.actions.releaseActivated", { release: result.release_id, domain }));
     },
   });
 

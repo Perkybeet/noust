@@ -13,6 +13,8 @@ import { IconButton } from "../../components/ui/IconButton";
 import { Menu, MenuItem } from "../../components/ui/Menu";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { toast } from "../../components/ui/toast";
+import { useT } from "../../i18n";
+import type { T } from "../../i18n";
 import { describeError } from "../../lib/errors";
 import { PushBackupDialog } from "./PushBackupDialog";
 import { RestoreBackupDialog } from "./RestoreBackupDialog";
@@ -25,12 +27,12 @@ interface Includes {
   present: boolean;
 }
 
-function includesOf(backup: BackupRow): Includes[] {
+function includesOf(backup: BackupRow, t: T): Includes[] {
   return [
-    { label: "env", present: backup.includes_env },
-    { label: "database", present: backup.has_database },
-    { label: "modules", present: backup.includes_node_modules },
-    { label: "build", present: backup.includes_build },
+    { label: t("backups.table.includes.env"), present: backup.includes_env },
+    { label: t("backups.table.includes.database"), present: backup.has_database },
+    { label: t("backups.table.includes.modules"), present: backup.includes_node_modules },
+    { label: t("backups.table.includes.build"), present: backup.includes_build },
   ];
 }
 
@@ -39,12 +41,12 @@ function includesOf(backup: BackupRow): Includes[] {
  * this session is waiting on a fresh check. The server, not the session, is the source of
  * truth: a page reload shows the same verdict, not "not checked" again.
  */
-function VerifiedCell({ backup, checking }: { backup: BackupRow; checking: boolean }) {
-  if (checking) return <StatusPill state="deploying" label="Checking" appearance="inline" size="sm" />;
+function VerifiedCell({ backup, checking, t }: { backup: BackupRow; checking: boolean; t: T }) {
+  if (checking) return <StatusPill state="deploying" label={t("backups.table.verified.checking")} appearance="inline" size="sm" />;
   if (backup.verified_ok === true) {
     return (
       <span className="flex flex-col gap-0.5">
-        <StatusPill state="running" label="Verified" appearance="inline" size="sm" />
+        <StatusPill state="running" label={t("backups.table.verified.verified")} appearance="inline" size="sm" />
         <RelativeTime value={backup.last_verified_at} className="text-12 text-fg-faint" />
       </span>
     );
@@ -52,12 +54,12 @@ function VerifiedCell({ backup, checking }: { backup: BackupRow; checking: boole
   if (backup.verified_ok === false) {
     return (
       <span className="flex flex-col gap-0.5">
-        <StatusPill state="failed" label="Verification failed" appearance="inline" size="sm" />
+        <StatusPill state="failed" label={t("backups.table.verified.failed")} appearance="inline" size="sm" />
         <RelativeTime value={backup.last_verified_at} className="text-12 text-fg-faint" />
       </span>
     );
   }
-  return <StatusPill state="stopped" label="Never verified" appearance="inline" size="sm" />;
+  return <StatusPill state="stopped" label={t("backups.table.verified.never")} appearance="inline" size="sm" />;
 }
 
 function RowActions({
@@ -69,6 +71,7 @@ function RowActions({
   checking: boolean;
   onVerify: () => void;
 }) {
+  const t = useT();
   const { remove } = useBackupActions();
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [pushOpen, setPushOpen] = useState(false);
@@ -76,18 +79,21 @@ function RowActions({
 
   return (
     <>
-      <Menu align="end" trigger={<IconButton label={`Actions for ${backup.backup_id}`} icon={<MoreHorizontal />} size="sm" tooltip={false} />}>
+      <Menu
+        align="end"
+        trigger={<IconButton label={t("backups.table.actionsFor", { id: backup.backup_id })} icon={<MoreHorizontal />} size="sm" tooltip={false} />}
+      >
         <MenuItem icon={<ShieldCheck />} disabled={checking} onClick={onVerify}>
-          Verify
+          {t("backups.table.actions.verify")}
         </MenuItem>
         <MenuItem icon={<RotateCcw />} onClick={() => setRestoreOpen(true)}>
-          Restore
+          {t("backups.common.restore")}
         </MenuItem>
         <MenuItem icon={<UploadCloud />} onClick={() => setPushOpen(true)}>
-          Copy to destination…
+          {t("backups.table.actions.copyTo")}
         </MenuItem>
         <MenuItem icon={<Trash2 />} destructive onClick={() => setConfirmOpen(true)}>
-          Delete
+          {t("backups.table.actions.delete")}
         </MenuItem>
       </Menu>
       <RestoreBackupDialog backup={backup} open={restoreOpen} onOpenChange={setRestoreOpen} />
@@ -95,10 +101,10 @@ function RowActions({
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title={`Delete ${backup.backup_id}`}
-        description={`Permanently removes this backup of ${backup.domain} and its database dumps, if any. This cannot be undone.`}
+        title={t("backups.table.deleteDialog.title", { id: backup.backup_id })}
+        description={t("backups.table.deleteDialog.description", { domain: backup.domain })}
         confirmText={backup.backup_id}
-        actionLabel="Delete backup"
+        actionLabel={t("backups.table.deleteDialog.action")}
         onConfirm={async () => {
           await remove.mutateAsync(backup.backup_id);
         }}
@@ -122,6 +128,7 @@ export interface BackupsTableProps {
  * itself records them, so the state survives a reload instead of resetting to "not checked".
  */
 export function BackupsTable({ backups, caption, loading = false, skeletonRows, empty }: BackupsTableProps) {
+  const t = useT();
   const { verify } = useBackupActions();
   const [checking, setChecking] = useState<ReadonlySet<string>>(new Set());
 
@@ -135,9 +142,9 @@ export function BackupsTable({ backups, caption, loading = false, skeletonRows, 
           return next;
         });
         if (result.valid) {
-          toast.success(`${backup.backup_id} verified`);
+          toast.success(t("backups.table.toast.verified", { id: backup.backup_id }));
         } else {
-          toast.error(`${backup.backup_id} failed verification`, {
+          toast.error(t("backups.table.toast.verifyFailed", { id: backup.backup_id }), {
             detail: [...(result.errors ?? []), ...(result.warnings ?? [])].join("\n"),
           });
         }
@@ -148,7 +155,7 @@ export function BackupsTable({ backups, caption, loading = false, skeletonRows, 
           next.delete(backup.backup_id);
           return next;
         });
-        toast.error(`Could not verify ${backup.backup_id}`, { detail: describeError(error).detail });
+        toast.error(t("backups.table.toast.verifyError", { id: backup.backup_id }), { detail: describeError(error).detail });
       },
     });
   };
@@ -156,7 +163,7 @@ export function BackupsTable({ backups, caption, loading = false, skeletonRows, 
   const columns: Column<BackupRow>[] = [
     {
       id: "domain",
-      header: "Application",
+      header: t("backups.fields.application"),
       cell: (row) => (
         <Link
           to="/apps/$domain"
@@ -170,14 +177,14 @@ export function BackupsTable({ backups, caption, loading = false, skeletonRows, 
     },
     {
       id: "created",
-      header: "Created",
+      header: t("backups.table.columns.created"),
       width: "w-36",
       cell: (row) => <RelativeTime value={row.timestamp} />,
       sortValue: (row) => row.timestamp,
     },
     {
       id: "size",
-      header: "Size",
+      header: t("backups.table.columns.size"),
       align: "end",
       mono: true,
       width: "w-24",
@@ -188,11 +195,11 @@ export function BackupsTable({ backups, caption, loading = false, skeletonRows, 
     },
     {
       id: "includes",
-      header: "Includes",
+      header: t("backups.table.columns.includes"),
       hideBelow: "md",
       cell: (row) => (
         <span className="flex flex-wrap gap-1">
-          {includesOf(row)
+          {includesOf(row, t)
             .filter((item) => item.present)
             .map((item) => (
               <Badge key={item.label} mono>
@@ -204,9 +211,9 @@ export function BackupsTable({ backups, caption, loading = false, skeletonRows, 
     },
     {
       id: "verified",
-      header: "Verified",
+      header: t("backups.table.columns.verified"),
       width: "w-36",
-      cell: (row) => <VerifiedCell backup={row} checking={checking.has(row.backup_id)} />,
+      cell: (row) => <VerifiedCell backup={row} checking={checking.has(row.backup_id)} t={t} />,
     },
   ];
 

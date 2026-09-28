@@ -7,11 +7,19 @@ import { appsQuery } from "../api/queries/apps";
 import { appStatus } from "../components/page/status";
 import { useSignOut } from "../features/auth/useSignOut";
 import { useT } from "../i18n";
+import type { PlainKey } from "../i18n";
 import type { Command } from "./CommandPalette";
 import { NAV_GROUPS, SETTINGS_ITEM, SETTINGS_TABS } from "./nav";
 import { useTheme } from "./theme";
+import type { ThemeChoice } from "./theme";
 
 const THEME_ICONS = { system: Monitor, light: Sun, dark: Moon } as const;
+
+const THEME_ACTION_LABEL: Record<ThemeChoice, PlainKey> = {
+  system: "shell.commands.followSystemTheme",
+  light: "shell.commands.switchToLightTheme",
+  dark: "shell.commands.switchToDarkTheme",
+};
 
 /**
  * What the palette can do: every page, every application (loaded when the palette opens),
@@ -68,7 +76,15 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
     }));
 
     const actions: Command[] = [
-      { id: "action:new-app", group: "Actions", label: "New application", icon: <Plus />, keywords: "deploy create", kind: "navigate", run: go("/apps/new") },
+      {
+        id: "action:new-app",
+        group: "Actions",
+        label: t("shell.commands.newApplication"),
+        icon: <Plus />,
+        keywords: t("shell.commands.newApplicationKeywords"),
+        kind: "navigate",
+        run: go("/apps/new"),
+      },
       ...(["dark", "light", "system"] as const)
         .filter((choice) => choice !== theme)
         .map((choice): Command => {
@@ -76,17 +92,34 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
           return {
             id: `action:theme-${choice}`,
             group: "Actions",
-            label: choice === "system" ? "Follow the system theme" : `Switch to the ${choice} theme`,
+            label: t(THEME_ACTION_LABEL[choice]),
             icon: <Icon />,
-            keywords: "theme appearance colour color mode",
+            keywords: t("shell.commands.themeKeywords"),
             kind: "action",
             run: () => {
               setTheme(choice);
             },
           };
         }),
-      { id: "action:shortcuts", group: "Actions", label: "Keyboard shortcuts", icon: <Keyboard />, shortcut: ["?"], keywords: "help keys", kind: "action", run: openShortcuts },
-      { id: "action:sign-out", group: "Actions", label: "Sign out", icon: <LogOut />, keywords: "log out logout exit", kind: "navigate", run: () => void signOut() },
+      {
+        id: "action:shortcuts",
+        group: "Actions",
+        label: t("shell.session.keyboardShortcuts"),
+        icon: <Keyboard />,
+        shortcut: ["?"],
+        keywords: t("shell.commands.shortcutsKeywords"),
+        kind: "action",
+        run: openShortcuts,
+      },
+      {
+        id: "action:sign-out",
+        group: "Actions",
+        label: t("shell.session.signOut"),
+        icon: <LogOut />,
+        keywords: t("shell.commands.signOutKeywords"),
+        kind: "navigate",
+        run: () => void signOut(),
+      },
     ];
 
     return [...pages, ...applications, ...actions];

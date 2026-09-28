@@ -2,18 +2,12 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { request } from "../../api/client";
 import { serviceKeys } from "../../api/queries/services";
+import { getLocale } from "../../app/locale";
 import { toast } from "../../components/ui/toast";
+import { translate } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
 
 type Verb = "start" | "stop" | "restart" | "enable" | "disable";
-
-const WORDS: Record<Verb, { past: string; noun: string }> = {
-  start: { past: "Started", noun: "Start" },
-  stop: { past: "Stopped", noun: "Stop" },
-  restart: { past: "Restarted", noun: "Restart" },
-  enable: { past: "Enabled", noun: "Enable" },
-  disable: { past: "Disabled", noun: "Disable" },
-};
 
 function callVerb(name: string, verb: Verb) {
   const params = { params: { name } };
@@ -28,6 +22,39 @@ function callVerb(name: string, verb: Verb) {
       return request("post", "/api/services/{name}/enable", params);
     case "disable":
       return request("post", "/api/services/{name}/disable", params);
+  }
+}
+
+/** The verb's toast, in the active language - one literal key per case, so tsc checks each. */
+function successToast(verb: Verb, name: string): string {
+  const locale = getLocale();
+  switch (verb) {
+    case "start":
+      return translate(locale, "services.actions.startedToast", { name });
+    case "stop":
+      return translate(locale, "services.actions.stoppedToast", { name });
+    case "restart":
+      return translate(locale, "services.actions.restartedToast", { name });
+    case "enable":
+      return translate(locale, "services.actions.enabledToast", { name });
+    case "disable":
+      return translate(locale, "services.actions.disabledToast", { name });
+  }
+}
+
+function failureTitle(verb: Verb, name: string): string {
+  const locale = getLocale();
+  switch (verb) {
+    case "start":
+      return translate(locale, "services.actions.startFailed", { name });
+    case "stop":
+      return translate(locale, "services.actions.stopFailed", { name });
+    case "restart":
+      return translate(locale, "services.actions.restartFailed", { name });
+    case "enable":
+      return translate(locale, "services.actions.enableFailed", { name });
+    case "disable":
+      return translate(locale, "services.actions.disableFailed", { name });
   }
 }
 
@@ -48,11 +75,11 @@ export function useServiceActions(name: string) {
     useMutation({
       mutationFn: () => callVerb(name, verb),
       onSuccess: () => {
-        toast.success(`${WORDS[verb].past} ${name}`);
+        toast.success(successToast(verb, name));
         refresh();
       },
       onError: (error) => {
-        reportActionError(`${WORDS[verb].noun} of ${name} failed`, error);
+        reportActionError(failureTitle(verb, name), error);
         refresh();
       },
     });
@@ -67,7 +94,10 @@ export function useServiceActions(name: string) {
     mutationFn: (config: string) => request("put", "/api/services/{name}/config", { params: { name }, body: { config } }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: serviceKeys.config(name) });
-      toast.success(`Saved the unit file for ${name}`, { description: "Restart the service to apply the change." });
+      const locale = getLocale();
+      toast.success(translate(locale, "services.actions.unitSaved", { name }), {
+        description: translate(locale, "services.actions.unitSavedHint"),
+      });
     },
   });
 
@@ -81,7 +111,7 @@ export function useServiceActions(name: string) {
   const remove = useMutation({
     mutationFn: () => request("delete", "/api/services/{name}", { params: { name } }),
     onSuccess: () => {
-      toast.success(`Deleted ${name}`);
+      toast.success(translate(getLocale(), "services.actions.deletedToast", { name }));
       void queryClient.invalidateQueries({ queryKey: serviceKeys.all });
       // Deleted, not just stale: nothing should be able to read a cached answer for a unit
       // that no longer exists. Only once nothing is still watching it: this page's own detail

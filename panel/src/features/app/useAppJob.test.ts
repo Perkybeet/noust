@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Job } from "../../api/queries/jobs";
+import { loadCatalog } from "../../i18n";
 import { jobStep, jobWords } from "./useAppJob";
 
 const JOB: Job = {
@@ -17,15 +18,22 @@ const JOB: Job = {
   metadata: { domain: "shop.example.net" },
 };
 
+const DOMAIN = "shop.example.net";
+
 describe("jobWords", () => {
-  it("names each job the way the header says it", () => {
-    expect(jobWords("update")).toEqual({ running: "Updating", noun: "Update" });
-    expect(jobWords("rollback")).toEqual({ running: "Rolling back", noun: "Rollback" });
-    expect(jobWords("restore")).toEqual({ running: "Restoring", noun: "Restore" });
-    expect(jobWords("migrate")).toEqual({ running: "Migrating", noun: "Migration" });
-    expect(jobWords("push")).toEqual({ running: "Copying", noun: "Copy" });
-    expect(jobWords("zero_downtime")).toEqual({ running: "Switching", noun: "Zero-downtime mode" });
-    expect(jobWords("something_new")).toEqual({ running: "Working", noun: "Job" });
+  it("names each job the way the header says it, in English by default", () => {
+    expect(jobWords("update", DOMAIN)).toEqual({ running: "Updating", failed: `Update of ${DOMAIN} failed` });
+    expect(jobWords("rollback", DOMAIN)).toEqual({ running: "Rolling back", failed: `Rollback of ${DOMAIN} failed` });
+    expect(jobWords("restore", DOMAIN)).toEqual({ running: "Restoring", failed: `Restore of ${DOMAIN} failed` });
+    expect(jobWords("migrate", DOMAIN)).toEqual({ running: "Migrating", failed: `Migration of ${DOMAIN} failed` });
+    expect(jobWords("push", DOMAIN)).toEqual({ running: "Copying", failed: `Copy of ${DOMAIN} failed` });
+    expect(jobWords("zero_downtime", DOMAIN)).toEqual({ running: "Switching", failed: `Zero-downtime mode of ${DOMAIN} failed` });
+    expect(jobWords("something_new", DOMAIN)).toEqual({ running: "Working", failed: `Job of ${DOMAIN} failed` });
+  });
+
+  it("names each job in Spanish when asked", async () => {
+    await loadCatalog("es");
+    expect(jobWords("update", DOMAIN, "es")).toEqual({ running: "Actualizando", failed: `La actualización de ${DOMAIN} falló` });
   });
 });
 

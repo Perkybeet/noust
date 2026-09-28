@@ -1,6 +1,7 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { setLocale } from "../../../app/locale";
 import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { fakeBackend, json } from "../../../test/fakes";
@@ -126,6 +127,18 @@ describe("the metrics tab", { timeout: 20_000 }, () => {
   it("has no accessibility violations", async () => {
     await metricsAt();
     await screen.findByRole("img", { name: /^Memory, last 24 hours/ });
+    await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
+  it("charts CPU and memory with a Spanish sentence each", async () => {
+    await act(() => setLocale("es"));
+    await metricsAt();
+    expect(await screen.findByRole("img", { name: /^CPU, Últimas 24 horas/ })).toBeInTheDocument();
+    expect(await screen.findByRole("img", { name: /^Memoria, Últimas 24 horas/ })).toBeInTheDocument();
+    expect(await screen.findByText(/Media 250 MB, pico 300 MB a las .*, última 300 MB, límite 512 MB\./)).toBeInTheDocument();
+    const deploys = screen.getByRole("region", { name: "Despliegues en este rango" });
+    // The status word itself comes from a shared, not-yet-translated helper (components/page/status.ts).
+    expect(within(deploys).getByRole("link", { name: /^Despliegue 25, succeeded/ })).toHaveAttribute("href", `/apps/${TAB_DOMAIN}/deployments/25`);
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 });

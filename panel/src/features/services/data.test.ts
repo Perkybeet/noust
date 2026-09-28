@@ -11,35 +11,35 @@ describe("serviceState", () => {
   it("is running when active and systemd reports nothing more specific", () => {
     expect(serviceState({ active: true, active_state: null, sub_state: null, result: null })).toEqual({
       state: "running",
-      label: "Running",
+      label: "services.state.running",
     });
     // Falls back to the bare `active` flag when the finer fields are absent entirely.
-    expect(serviceState({ active: true })).toEqual({ state: "running", label: "Running" });
+    expect(serviceState({ active: true })).toEqual({ state: "running", label: "services.state.running" });
   });
 
   it("is running when active_state says active, even with a quiet sub_state", () => {
     expect(
       serviceState({ active: true, active_state: "active", sub_state: "running", result: "success" }),
-    ).toEqual({ state: "running", label: "Running" });
+    ).toEqual({ state: "running", label: "services.state.running" });
   });
 
   it("is stopped when inactive and nothing says otherwise", () => {
     expect(serviceState({ active: false, active_state: "inactive", sub_state: "dead", result: "success" })).toEqual({
       state: "stopped",
-      label: "Stopped",
+      label: "services.state.stopped",
     });
-    expect(serviceState({ active: false })).toEqual({ state: "stopped", label: "Stopped" });
+    expect(serviceState({ active: false })).toEqual({ state: "stopped", label: "services.state.stopped" });
   });
 
   it("is failed - the state word stays Failed - with systemd's own result word as a separate detail", () => {
     expect(serviceState({ active: false, active_state: "failed", sub_state: "failed", result: "exit-code" })).toEqual({
       state: "failed",
-      label: "Failed",
+      label: "services.state.failed",
       detail: "exit-code",
     });
     expect(serviceState({ active: false, active_state: "failed", sub_state: "failed", result: "signal" })).toEqual({
       state: "failed",
-      label: "Failed",
+      label: "services.state.failed",
       detail: "signal",
     });
   });
@@ -47,11 +47,11 @@ describe("serviceState", () => {
   it("is failed without a specific word when result is missing or success", () => {
     expect(serviceState({ active: false, active_state: "failed", sub_state: "failed", result: null })).toEqual({
       state: "failed",
-      label: "Failed",
+      label: "services.state.failed",
     });
     expect(serviceState({ active: false, active_state: "failed", sub_state: "failed", result: "success" })).toEqual({
       state: "failed",
-      label: "Failed",
+      label: "services.state.failed",
     });
   });
 
@@ -60,29 +60,29 @@ describe("serviceState", () => {
     // "deploying" (which would draw the spinning arc a real deploy uses).
     expect(serviceState({ active: false, active_state: "activating", sub_state: "auto-restart", result: null })).toEqual({
       state: "warning",
-      label: "Restarting",
+      label: "services.state.restarting",
     });
     // Either signal alone is enough: they do not always arrive together.
     expect(serviceState({ active: false, active_state: "activating", sub_state: "start", result: null })).toEqual({
       state: "warning",
-      label: "Restarting",
+      label: "services.state.restarting",
     });
     expect(serviceState({ active: true, active_state: "active", sub_state: "auto-restart", result: null })).toEqual({
       state: "warning",
-      label: "Restarting",
+      label: "services.state.restarting",
     });
   });
 
   it("is restarting rather than failed while a failing unit is still being retried", () => {
     expect(
       serviceState({ active: false, active_state: "activating", sub_state: "auto-restart", result: "exit-code" }),
-    ).toEqual({ state: "warning", label: "Restarting" });
+    ).toEqual({ state: "warning", label: "services.state.restarting" });
   });
 
   it("reads the crash-loop fields case-insensitively and trims them", () => {
     expect(serviceState({ active: false, active_state: " Activating ", sub_state: null, result: null })).toEqual({
       state: "warning",
-      label: "Restarting",
+      label: "services.state.restarting",
     });
   });
 });

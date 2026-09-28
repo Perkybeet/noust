@@ -2,6 +2,7 @@ import { Toast } from "@base-ui/react/toast";
 import { CircleAlert, CircleCheck, Info, TriangleAlert, X } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { buttonClassName } from "./Button";
 import { SystemOutput } from "./SystemOutput";
@@ -24,6 +25,7 @@ function isKind(value: string | undefined): value is ToastKind {
  * is announced by being shown: once, in the words on screen, with nothing hidden.
  */
 function ToastList({ urgent }: { urgent: boolean }) {
+  const t = useT();
   const { toasts } = Toast.useToastManager<ToastData>();
   return toasts
     .filter((item) => isUrgent(item.type) === urgent)
@@ -48,13 +50,17 @@ function ToastList({ urgent }: { urgent: boolean }) {
               <Toast.Title render={<div />} className="text-13 font-semibold text-fg" />
               <Toast.Description className="text-13 text-fg-muted" />
               {item.data?.detail !== undefined ? (
-                <SystemOutput label="What the system said" maxHeight="max-h-28" className="mt-1.5 rounded-control bg-bg-sunken px-2 py-1.5">
+                <SystemOutput
+                  label={t("common.toast.systemSaid")}
+                  maxHeight="max-h-28"
+                  className="mt-1.5 rounded-control bg-bg-sunken px-2 py-1.5"
+                >
                   {item.data.detail}
                 </SystemOutput>
               ) : null}
               {item.data?.output !== undefined ? (
                 <SystemOutput
-                  label="The command's own output"
+                  label={t("common.toast.commandOutput")}
                   maxHeight="max-h-28"
                   className="mt-1.5 rounded-control bg-bg-sunken px-2 py-1.5"
                 >
@@ -64,7 +70,7 @@ function ToastList({ urgent }: { urgent: boolean }) {
               {item.actionProps ? <Toast.Action className={buttonClassName("secondary", "sm", "mt-2 self-start")} /> : null}
             </div>
             <Toast.Close
-              aria-label="Dismiss notification"
+              aria-label={t("common.toast.dismiss")}
               aria-hidden={undefined}
               className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-control text-fg-faint hover:bg-surface-hover hover:text-fg focus-visible:outline-2 focus-visible:outline-focus"
             >

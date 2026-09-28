@@ -1,6 +1,7 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { setLocale } from "../../../app/locale";
 import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { FakeWebSocket, fakeBackend, json } from "../../../test/fakes";
@@ -100,6 +101,25 @@ describe("the logs tab", { timeout: 20_000 }, () => {
       ws.frame({ type: "log", data: "2026-09-25T21:45:52+0100 web-01 shop-example-com[41234]: Ready in 412ms" });
     });
     await screen.findByText(/Ready in 412ms/);
+    await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
+  it("follows the journal live in Spanish", async () => {
+    await act(() => setLocale("es"));
+    await logsAt();
+    const ws = await socket();
+    act(() => {
+      ws.open();
+      ws.frame({ type: "connected", domain: TAB_DOMAIN, service: "shop-example-com" });
+      ws.frame({ type: "log", data: "2026-09-25T21:45:52+0100 web-01 shop-example-com[41234]: GET / 200 in 38ms" });
+    });
+    const journal = await screen.findByRole("region", { name: `Journal de ${TAB_DOMAIN}` });
+    expect(await within(journal).findByText(/GET \/ 200 in 38ms/)).toBeInTheDocument();
+    expect(screen.getByText("En vivo")).toBeInTheDocument();
+    act(() => {
+      ws.drop();
+    });
+    expect(await screen.findByText("Reconectando")).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 });

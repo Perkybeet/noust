@@ -1,7 +1,8 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import type { Column } from "./DataTable";
 import { DataTable } from "./DataTable";
@@ -159,5 +160,21 @@ describe("DataTable", () => {
     // the scrolling region itself.
     expect(within(region).getByText("Actions")).toHaveClass("sr-only");
     expect(region).toHaveClass("relative", "overflow-x-auto");
+  });
+
+  it("translates its own built-in labels into Spanish", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    render(
+      <DataTable
+        caption="Applications"
+        columns={COLUMNS}
+        rows={ROWS}
+        getRowId={(r) => r.domain}
+        rowActions={(row) => <IconButton label={`Restart ${row.domain}`} icon={<span />} tooltip={false} />}
+      />,
+    );
+    expect(screen.getByRole("columnheader", { name: "Acciones" })).toBeInTheDocument();
   });
 });

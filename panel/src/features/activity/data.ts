@@ -11,6 +11,7 @@ import { deployStatus } from "../../components/page/status";
 import type { StatusView } from "../../components/page/status";
 import type { AuditEntry } from "../../api/queries/audit";
 import type { JobList } from "../../api/queries/jobs";
+import type { PlainKey, T } from "../../i18n";
 import { parseTimestamp } from "../../lib/format";
 
 export type { AuditEntry } from "../../api/queries/audit";
@@ -134,25 +135,27 @@ export function mergeActivity({ jobs, jobsComplete, entries, auditComplete, acto
 // screen, next to the raw value the backend actually recorded.
 
 /** `wasm.web.jobs.JobType`, in the console's words. */
-const JOB_ACTION_LABELS: Readonly<Record<string, string>> = {
-  deploy: "Deploy",
-  update: "Update",
-  backup: "Backup",
-  restore: "Restore",
-  rollback: "Roll back",
-  push: "Copy backup to destination",
-  migrate: "Migrate to releases",
-  cert_create: "Issue certificate",
-  cert_renew: "Renew certificate",
-  service_action: "Service action",
-  site_action: "Site action",
-  delete: "Delete",
-  zero_downtime: "Zero-downtime mode",
-  custom: "Custom",
+const JOB_ACTION_LABELS: Readonly<Record<string, PlainKey>> = {
+  deploy: "activity.jobAction.deploy",
+  update: "activity.jobAction.update",
+  backup: "activity.jobAction.backup",
+  restore: "activity.jobAction.restore",
+  rollback: "activity.jobAction.rollback",
+  push: "activity.jobAction.push",
+  migrate: "activity.jobAction.migrate",
+  cert_create: "activity.jobAction.certCreate",
+  cert_renew: "activity.jobAction.certRenew",
+  service_action: "activity.jobAction.serviceAction",
+  site_action: "activity.jobAction.siteAction",
+  delete: "activity.jobAction.delete",
+  zero_downtime: "activity.jobAction.zeroDowntime",
+  custom: "activity.jobAction.custom",
 };
 
-export function jobActionLabel(type: string): string {
-  return JOB_ACTION_LABELS[type] ?? type;
+/** A job's type, in the console's words; the raw value itself when the type is unrecognised. */
+export function jobActionLabel(t: T, type: string): string {
+  const key = JOB_ACTION_LABELS[type];
+  return key ? t(key) : type;
 }
 
 /** The domain a job acted on, when it named one. */
@@ -168,32 +171,32 @@ export function jobResource(job: ActivityJob): string | null {
  * backend only ever records with one result (a lockout is always `locked`) can safely describe
  * that outcome.
  */
-const AUDIT_ACTION_LABELS: Readonly<Record<string, string>> = {
-  "auth.login": "Sign-in attempt",
-  "auth.logout": "Signed out",
-  "auth.credential": "Presented a credential",
-  "auth.csrf": "Failed a CSRF check",
-  "auth.lockout": "Repeated failed sign-ins",
-  "auth.elevate": "Confirmed identity",
-  "auth.elevation": "Elevation required",
-  "auth.revoke_all": "Revoked every session",
-  "auth.revoke_others": "Revoked other sessions",
-  "auth.scope": "Failed a scope check",
-  "auth.session.revoke": "Revoked a session",
-  "auth.token.create": "Created an API token",
-  "auth.token.revoke": "Revoked an API token",
-  "auth.ws_ticket": "Requested a socket ticket",
-  "auth.2fa.confirm": "Two-factor confirmation",
-  "auth.2fa.disable": "Disabled two-factor authentication",
-  "auth.2fa.enroll": "Enrolled two-factor authentication",
-  "auth.2fa.backup_codes": "Regenerated backup codes",
-  "apps.env.reveal": "Revealed an environment variable",
-  "apps.env.update": "Updated environment variables",
-  "config.update": "Updated settings",
-  "hooks.deploy": "Triggered a webhook deploy",
-  "hooks.secret.disable": "Disabled a webhook secret",
-  "hooks.secret.mint": "Minted a webhook secret",
-  "ws.connect": "Opened a socket",
+const AUDIT_ACTION_LABELS: Readonly<Record<string, PlainKey>> = {
+  "auth.login": "activity.auditAction.authLogin",
+  "auth.logout": "activity.auditAction.authLogout",
+  "auth.credential": "activity.auditAction.authCredential",
+  "auth.csrf": "activity.auditAction.authCsrf",
+  "auth.lockout": "activity.auditAction.authLockout",
+  "auth.elevate": "activity.auditAction.authElevate",
+  "auth.elevation": "activity.auditAction.authElevation",
+  "auth.revoke_all": "activity.auditAction.authRevokeAll",
+  "auth.revoke_others": "activity.auditAction.authRevokeOthers",
+  "auth.scope": "activity.auditAction.authScope",
+  "auth.session.revoke": "activity.auditAction.authSessionRevoke",
+  "auth.token.create": "activity.auditAction.authTokenCreate",
+  "auth.token.revoke": "activity.auditAction.authTokenRevoke",
+  "auth.ws_ticket": "activity.auditAction.authWsTicket",
+  "auth.2fa.confirm": "activity.auditAction.auth2faConfirm",
+  "auth.2fa.disable": "activity.auditAction.auth2faDisable",
+  "auth.2fa.enroll": "activity.auditAction.auth2faEnroll",
+  "auth.2fa.backup_codes": "activity.auditAction.auth2faBackupCodes",
+  "apps.env.reveal": "activity.auditAction.appsEnvReveal",
+  "apps.env.update": "activity.auditAction.appsEnvUpdate",
+  "config.update": "activity.auditAction.configUpdate",
+  "hooks.deploy": "activity.auditAction.hooksDeploy",
+  "hooks.secret.disable": "activity.auditAction.hooksSecretDisable",
+  "hooks.secret.mint": "activity.auditAction.hooksSecretMint",
+  "ws.connect": "activity.auditAction.wsConnect",
 };
 
 /**
@@ -203,9 +206,10 @@ const AUDIT_ACTION_LABELS: Readonly<Record<string, string>> = {
  * guessed at from a fixed list, since the method is the one thing about it that is always
  * known. Anything else this table does not recognise is shown verbatim - never a guess.
  */
-export function auditActionLabel(action: string): string {
-  if (action.startsWith("api.")) return `${action.slice("api.".length).toUpperCase()} request`;
-  return AUDIT_ACTION_LABELS[action] ?? action;
+export function auditActionLabel(t: T, action: string): string {
+  if (action.startsWith("api.")) return t("activity.apiRequest", { method: action.slice("api.".length).toUpperCase() });
+  const key = AUDIT_ACTION_LABELS[action];
+  return key ? t(key) : action;
 }
 
 export interface ActionWords {
@@ -215,10 +219,10 @@ export interface ActionWords {
 }
 
 /** A row's action, whichever source it came from. */
-export function actionWords(row: ActivityRow): ActionWords {
+export function actionWords(t: T, row: ActivityRow): ActionWords {
   return row.kind === "job"
-    ? { label: jobActionLabel(row.job.type), raw: row.job.type }
-    : { label: auditActionLabel(row.entry.action), raw: row.entry.action };
+    ? { label: jobActionLabel(t, row.job.type), raw: row.job.type }
+    : { label: auditActionLabel(t, row.entry.action), raw: row.entry.action };
 }
 
 /** A row's target: a job's domain, or an audit entry's resource. */
@@ -236,34 +240,34 @@ function capitalise(text: string): string {
   return text.length === 0 ? text : text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-/** `result` values the audit log writes (`grep -rho 'result="[a-z]*"' src/wasm/web`). */
-const AUDIT_RESULT_STATUS: Readonly<Record<string, StatusView>> = {
-  success: { state: "running", label: "Success", attention: false },
-  ok: { state: "running", label: "OK", attention: false },
-  denied: { state: "failed", label: "Denied", attention: true },
-  failure: { state: "failed", label: "Failed", attention: true },
-  locked: { state: "failed", label: "Locked out", attention: true },
+/** `result` values the audit log writes (`grep -rho 'result="[a-z]*"' src/wasm/web`), as keys. */
+const AUDIT_RESULT_STATUS: Readonly<Record<string, { state: StatusView["state"]; key: PlainKey; attention: boolean }>> = {
+  success: { state: "running", key: "activity.auditResult.success", attention: false },
+  ok: { state: "running", key: "activity.auditResult.ok", attention: false },
+  denied: { state: "failed", key: "activity.auditResult.denied", attention: true },
+  failure: { state: "failed", key: "activity.auditResult.failure", attention: true },
+  locked: { state: "failed", key: "activity.auditResult.locked", attention: true },
 };
 
 /** Maps an audit entry's result to the same state language as an app's or a job's status. */
-export function auditResultStatus(result: string): StatusView {
+export function auditResultStatus(t: T, result: string): StatusView {
   const word = result.trim();
-  if (word === "") return { state: "unknown", label: "Unknown", attention: false };
+  if (word === "") return { state: "unknown", label: t("activity.auditResult.unknown"), attention: false };
   const known = AUDIT_RESULT_STATUS[word.toLowerCase()];
-  if (known !== undefined) return known;
+  if (known !== undefined) return { state: known.state, label: t(known.key), attention: known.attention };
   // The security middleware's generic per-request entry (`wasm.web.server`) writes
   // `error:<status>` rather than one of the fixed words above; it is still a failure.
   if (word.toLowerCase().startsWith("error")) {
     const colon = word.indexOf(":");
     const code = colon === -1 ? "" : word.slice(colon + 1);
-    return { state: "failed", label: code === "" ? "Error" : `Error ${code}`, attention: true };
+    return { state: "failed", label: code === "" ? t("activity.auditResult.error") : t("activity.auditResult.errorCode", { code }), attention: true };
   }
   return { state: "unknown", label: capitalise(word.replace(/_/g, " ")), attention: false };
 }
 
 /** A row's result, whichever source it came from, in the app/deploy/job state language. */
-export function resultView(row: ActivityRow): StatusView {
-  return row.kind === "job" ? deployStatus(row.job.status) : auditResultStatus(row.entry.result);
+export function resultView(t: T, row: ActivityRow): StatusView {
+  return row.kind === "job" ? deployStatus(row.job.status) : auditResultStatus(t, row.entry.result);
 }
 
 export interface ActorWords {
@@ -280,22 +284,22 @@ export interface ActorWords {
  * keeps the raw value alongside the words - the exact string a filter or a support request
  * needs is never hidden behind the paraphrase.
  */
-export function describeActor(actor: string): ActorWords {
-  if (actor === "master") return { label: "The master token", raw: actor };
-  if (actor === "anonymous") return { label: "Anonymous", raw: actor };
-  if (actor === "webhook") return { label: "A webhook delivery", raw: actor };
+export function describeActor(t: T, actor: string): ActorWords {
+  if (actor === "master") return { label: t("activity.actor.masterToken"), raw: actor };
+  if (actor === "anonymous") return { label: t("activity.actor.anonymous"), raw: actor };
+  if (actor === "webhook") return { label: t("activity.actor.webhookDelivery"), raw: actor };
   if (actor.startsWith("token:")) {
     const name = actor.slice("token:".length);
-    return { label: name === "" ? "An API token" : `Token "${name}"`, raw: actor };
+    return { label: name === "" ? t("activity.actor.apiToken") : t("activity.actor.namedToken", { name }), raw: actor };
   }
   const short = actor.slice(0, 8);
-  return { label: short === "" ? "A browser session" : `Session ${short}`, raw: actor };
+  return { label: short === "" ? t("activity.actor.browserSession") : t("activity.actor.session", { short }), raw: actor };
 }
 
 /** A row's actor, worded - "Not recorded" for a job queued before jobs carried one. */
-export function actorWords(row: ActivityRow): ActorWords {
+export function actorWords(t: T, row: ActivityRow): ActorWords {
   const raw = rowActor(row);
-  return raw === null ? { label: "Not recorded", raw: "-" } : describeActor(raw);
+  return raw === null ? { label: t("activity.actor.notRecorded"), raw: "-" } : describeActor(t, raw);
 }
 
 // ---------------------------------------------------------------------------------------
@@ -306,20 +310,20 @@ export const JOB_STATUSES: ReadonlySet<string> = new Set(["pending", "running", 
 /** The `result` values the audit log writes. */
 export const AUDIT_RESULTS: ReadonlySet<string> = new Set(["success", "ok", "denied", "failure", "locked"]);
 
-const JOB_RESULT_WORDS: Readonly<Record<string, string>> = {
-  completed: "Succeeded",
-  failed: "Failed",
-  cancelled: "Cancelled",
-  pending: "Pending",
-  running: "Running",
+const JOB_RESULT_WORDS: Readonly<Record<string, PlainKey>> = {
+  completed: "activity.jobStatus.completed",
+  failed: "activity.jobStatus.failed",
+  cancelled: "activity.jobStatus.cancelled",
+  pending: "activity.jobStatus.pending",
+  running: "activity.jobStatus.running",
 };
 
-const AUDIT_RESULT_WORDS: Readonly<Record<string, string>> = {
-  success: "Succeeded",
-  ok: "OK",
-  denied: "Denied",
-  failure: "Failed",
-  locked: "Locked out",
+const AUDIT_RESULT_WORDS: Readonly<Record<string, PlainKey>> = {
+  success: "activity.auditResult.success",
+  ok: "activity.auditResult.ok",
+  denied: "activity.auditResult.denied",
+  failure: "activity.auditResult.failure",
+  locked: "activity.auditResult.locked",
 };
 
 export interface ActivitySearch {
@@ -347,10 +351,22 @@ export interface ResultOption {
  * so "Failed" the job status and "Failed" the audit result are not offered as one confusing
  * entry), just the relevant one once `kind` narrows it.
  */
-export function resultOptions(kind: ActivitySearch["kind"]): ResultOption[] {
+export function resultOptions(t: T, kind: ActivitySearch["kind"]): ResultOption[] {
   const both = kind === undefined;
-  const jobs = kind !== "audit" ? Object.entries(JOB_RESULT_WORDS).map(([value, label]) => ({ value, label: both ? `Job: ${label}` : label })) : [];
-  const audit = kind !== "jobs" ? Object.entries(AUDIT_RESULT_WORDS).map(([value, label]) => ({ value, label: both ? `Action: ${label}` : label })) : [];
+  const jobs =
+    kind !== "audit"
+      ? Object.entries(JOB_RESULT_WORDS).map(([value, key]) => ({
+          value,
+          label: both ? t("activity.jobResultPrefix", { label: t(key) }) : t(key),
+        }))
+      : [];
+  const audit =
+    kind !== "jobs"
+      ? Object.entries(AUDIT_RESULT_WORDS).map(([value, key]) => ({
+          value,
+          label: both ? t("activity.actionResultPrefix", { label: t(key) }) : t(key),
+        }))
+      : [];
   return [...jobs, ...audit];
 }
 

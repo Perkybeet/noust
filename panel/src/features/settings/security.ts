@@ -5,6 +5,9 @@
  */
 
 import type { ConsoleConfig } from "../../api/queries/config";
+import { getLocale } from "../../app/locale";
+import { translate } from "../../i18n";
+import type { Locale } from "../../i18n";
 import { formatDuration } from "../../lib/format";
 
 export interface LockoutPolicy {
@@ -37,27 +40,28 @@ export function readLockoutPolicy(config: ConsoleConfig["config"]): LockoutPolic
 }
 
 /** A whole number of seconds as people say it: "15 minutes", "1 hour", "90 seconds". */
-export function spokenDuration(seconds: number): string {
-  const units: [number, string][] = [
-    [86_400, "day"],
-    [3_600, "hour"],
-    [60, "minute"],
+export function spokenDuration(seconds: number, locale: Locale = getLocale()): string {
+  const units: [number, "settings.security.duration.days" | "settings.security.duration.hours" | "settings.security.duration.minutes"][] = [
+    [86_400, "settings.security.duration.days"],
+    [3_600, "settings.security.duration.hours"],
+    [60, "settings.security.duration.minutes"],
   ];
-  for (const [size, unit] of units) {
+  for (const [size, key] of units) {
     if (seconds >= size && seconds % size === 0) {
-      const amount = seconds / size;
-      return `${String(amount)} ${unit}${amount === 1 ? "" : "s"}`;
+      return translate(locale, key, { count: seconds / size });
     }
   }
-  return seconds < 60 ? `${String(seconds)} second${seconds === 1 ? "" : "s"}` : formatDuration(seconds);
+  return seconds < 60
+    ? translate(locale, "settings.security.duration.seconds", { count: seconds })
+    : formatDuration(seconds, locale);
 }
 
 /** A rate's window as people say it: "a minute", "an hour", "every 90 seconds". */
-export function perWindow(seconds: number): string {
-  if (seconds === 1) return "a second";
-  if (seconds === 60) return "a minute";
-  if (seconds === 3600) return "an hour";
-  return `every ${spokenDuration(seconds)}`;
+export function perWindow(seconds: number, locale: Locale = getLocale()): string {
+  if (seconds === 1) return translate(locale, "settings.security.window.everySecond");
+  if (seconds === 60) return translate(locale, "settings.security.window.everyMinute");
+  if (seconds === 3600) return translate(locale, "settings.security.window.everyHour");
+  return translate(locale, "settings.security.window.every", { duration: spokenDuration(seconds, locale) });
 }
 
 /** A base32 secret in groups of four, the way authenticator apps show a key to type by hand. */
@@ -66,10 +70,10 @@ export function groupSecret(secret: string): string {
 }
 
 /** The backup codes as a file to keep: one per line, with what they are for. */
-export function backupCodesFile(codes: readonly string[], hostname: string): string {
+export function backupCodesFile(codes: readonly string[], hostname: string, locale: Locale = getLocale()): string {
   return [
-    `WASM backup codes for ${hostname}`,
-    "Each code signs in once in place of an authenticator code.",
+    translate(locale, "settings.security.twoFactor.backupCodes.fileHeader", { hostname }),
+    translate(locale, "settings.security.twoFactor.backupCodes.fileBody"),
     "",
     ...codes,
     "",

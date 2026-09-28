@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { Field } from "./Field";
 import { Select } from "./Select";
@@ -50,5 +51,13 @@ describe("Select", () => {
     await userEvent.click(screen.getByRole("combobox", { name: "Runtime" }));
     await screen.findByRole("listbox");
     await expectNoAxeViolations(document.body);
+  });
+
+  it("shows its own default placeholder in Spanish", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    render(<Select aria-label="Runtime" options={RUNTIMES} />);
+    expect(screen.getByRole("combobox", { name: "Runtime" })).toHaveTextContent("Seleccionar");
   });
 });

@@ -6,6 +6,8 @@ import { authKeys } from "../../api/queries/auth";
 import type { SessionInfo } from "../../api/queries/auth";
 import { jobKeys } from "../../api/queries/jobs";
 import { announce } from "../../app/Announcer";
+import { getLocale } from "../../app/locale";
+import { translate } from "../../i18n";
 import { elevate } from "../auth/elevation";
 
 export interface DeleteAppOptions {
@@ -56,7 +58,7 @@ export function useDeleteApp(domain: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: jobKeys.active });
       void queryClient.invalidateQueries({ queryKey: appKeys.list, exact: true });
-      announce(`Deletion of ${domain} queued`);
+      announce(translate(getLocale(), "appPages.actions.deletionQueued", { domain }));
     },
   });
 }

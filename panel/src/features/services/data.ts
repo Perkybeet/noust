@@ -12,14 +12,16 @@
 
 import type { Status } from "../../components/ui/StatusPill";
 import type { Service, ServiceList } from "../../api/queries/services";
+import type { PlainKey } from "../../i18n";
 
 export type ServiceInfo = ServiceList["services"][number];
 
 export interface ServiceStateView {
   /** The StatusPill state: colour and shape. */
   state: Status;
-  /** The word on screen. The state word itself, never systemd's result - see `detail`. */
-  label: string;
+  /** A catalog key for the word on screen, not text: whoever renders it calls `t(view.label)`.
+   * The state word itself, never systemd's result - see `detail`. */
+  label: PlainKey;
   /** Systemd's own `Result` word (`exit-code`, `signal`, `timeout`, ...), shown in mono
    * beside the label. Present only when it says more than a clean `success` or nothing. */
   detail?: string;
@@ -47,15 +49,17 @@ export function serviceState(
   // ActiveState=failed, so a unit here is neither cleanly running nor cleanly stopped - a
   // problem worth a look, not work in progress, hence "warning" rather than "deploying".
   if (subState === "auto-restart" || activeState === "activating") {
-    return { state: "warning", label: "Restarting" };
+    return { state: "warning", label: "services.state.restarting" };
   }
   if (activeState === "failed") {
-    return detail !== undefined ? { state: "failed", label: "Failed", detail } : { state: "failed", label: "Failed" };
+    return detail !== undefined
+      ? { state: "failed", label: "services.state.failed", detail }
+      : { state: "failed", label: "services.state.failed" };
   }
   if (service.active) {
-    return { state: "running", label: "Running" };
+    return { state: "running", label: "services.state.running" };
   }
-  return { state: "stopped", label: "Stopped" };
+  return { state: "stopped", label: "services.state.stopped" };
 }
 
 export interface ServicesSearch {

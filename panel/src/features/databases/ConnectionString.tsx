@@ -9,6 +9,7 @@ import { CopyButton } from "../../components/ui/CopyButton";
 import { Field } from "../../components/ui/Field";
 import { IconButton } from "../../components/ui/IconButton";
 import { Input } from "../../components/ui/Input";
+import { useT } from "../../i18n";
 import { useDatabaseActions } from "./useDatabaseActions";
 
 /**
@@ -17,6 +18,7 @@ import { useDatabaseActions } from "./useDatabaseActions";
  * embeds the password, so it stays masked until revealed, like every other secret in the console.
  */
 export function ConnectionString({ engine, database }: { engine: string; database: string }) {
+  const t = useT();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [host, setHost] = useState("localhost");
@@ -33,19 +35,16 @@ export function ConnectionString({ engine, database }: { engine: string; databas
   const value = buildConnectionString.data?.connection_string ?? null;
 
   return (
-    <Section
-      title="Connection string"
-      description="Built from a username and password you already have. WASM reads nothing from the server to make it."
-    >
+    <Section title={t("databases.connectionString.title")} description={t("databases.connectionString.description")}>
       <div className="flex flex-col gap-4 rounded-card border border-border bg-surface p-4 shadow-raised">
         <form onSubmit={submit} className="grid max-w-4xl gap-3 sm:grid-cols-3">
-          <Field label="Username">
+          <Field label={t("databases.fields.username")}>
             <Input mono value={username} onValueChange={setUsername} autoComplete="off" spellCheck={false} />
           </Field>
-          <Field label="Password">
+          <Field label={t("databases.fields.password")}>
             <Input mono type="password" value={password} onValueChange={setPassword} autoComplete="off" />
           </Field>
-          <Field label="Host">
+          <Field label={t("databases.fields.host")}>
             <Input mono value={host} onValueChange={setHost} autoComplete="off" spellCheck={false} />
           </Field>
           <div className="sm:col-span-3">
@@ -55,12 +54,12 @@ export function ConnectionString({ engine, database }: { engine: string; databas
               loading={buildConnectionString.isPending}
               disabled={username.trim() === "" || password === ""}
             >
-              Build connection string
+              {t("databases.connectionString.build")}
             </Button>
           </div>
         </form>
         {value !== null ? (
-          <Field label="Connection string">
+          <Field label={t("databases.connectionString.title")}>
             <Input
               readOnly
               mono
@@ -69,21 +68,21 @@ export function ConnectionString({ engine, database }: { engine: string; databas
               suffix={
                 <>
                   <IconButton
-                    label={revealed ? "Hide connection string" : "Reveal connection string"}
+                    label={revealed ? t("databases.connectionString.hide") : t("databases.connectionString.reveal")}
                     icon={revealed ? <EyeOff /> : <Eye />}
                     size="sm"
                     onClick={() => {
                       setRevealed((current) => !current);
                     }}
                   />
-                  <CopyButton value={value} label="Copy connection string" />
+                  <CopyButton value={value} label={t("databases.connectionString.copy")} />
                 </>
               }
             />
           </Field>
         ) : null}
         {buildConnectionString.isError ? (
-          <ErrorBlock compact error={buildConnectionString.error} title="Could not build the connection string" />
+          <ErrorBlock compact error={buildConnectionString.error} title={t("databases.connectionString.buildFailed")} />
         ) : null}
       </div>
     </Section>

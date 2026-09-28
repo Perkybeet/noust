@@ -10,14 +10,16 @@ import { Button } from "../../../components/ui/Button";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Spinner } from "../../../components/ui/Spinner";
+import { useT } from "../../../i18n";
+import type { PlainKey } from "../../../i18n";
 import { organizationProblem } from "./github";
 
-/** What an App gives this server, in the operator's words. */
-const BENEFITS: readonly string[] = [
-  "Private repositories, cloned with short-lived tokens instead of a deploy key per repository.",
-  "Deploys on every push to the branch an application follows.",
-  "A preview deployment for every pull request.",
-  "Deployment statuses on commits and pull requests, so GitHub shows what is live.",
+/** What an App gives this server, in the operator's own words. */
+const BENEFIT_KEYS: readonly PlainKey[] = [
+  "settings.integrations.github.create.benefit1",
+  "settings.integrations.github.create.benefit2",
+  "settings.integrations.github.create.benefit3",
+  "settings.integrations.github.create.benefit4",
 ];
 
 /**
@@ -52,6 +54,7 @@ function ManifestForm({ manifest, onBlocked }: { manifest: GitHubManifest; onBlo
  * sends the browser back to the console's callback page, which finishes the job.
  */
 export function CreateGitHubApp() {
+  const t = useT();
   const [organization, setOrganization] = useState("");
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [blockedBy, setBlockedBy] = useState<string | null>(null);
@@ -89,7 +92,7 @@ export function CreateGitHubApp() {
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
     const name = organization.trim();
-    const problem = organizationProblem(name);
+    const problem = organizationProblem(name, t.locale);
     setFieldError(problem);
     if (problem !== null) return;
     setBlockedBy(null);
@@ -102,24 +105,21 @@ export function CreateGitHubApp() {
   return (
     <div className="flex min-w-0 flex-col gap-5 rounded-card border border-border bg-surface p-5 shadow-raised">
       <div className="flex flex-col gap-2">
-        <p className="text-14 font-medium text-fg">Connect GitHub with an App of your own</p>
+        <p className="text-14 font-medium text-fg">{t("settings.integrations.github.create.intro")}</p>
         <ul className="flex list-disc flex-col gap-1 pl-5 text-13 text-pretty text-fg-muted marker:text-fg-faint">
-          {BENEFITS.map((benefit) => (
-            <li key={benefit}>{benefit}</li>
+          {BENEFIT_KEYS.map((key) => (
+            <li key={key}>{t(key)}</li>
           ))}
         </ul>
-        <p className="text-13 text-pretty text-fg-muted">
-          The App is created in your GitHub account, or in the organization you name, and belongs to no one else. Its
-          private key is kept on this server and never leaves it.
-        </p>
+        <p className="text-13 text-pretty text-fg-muted">{t("settings.integrations.github.create.ownership")}</p>
       </div>
 
       <form onSubmit={submit} noValidate className="flex flex-col gap-4">
         <Field
-          label="Organization"
+          label={t("settings.integrations.github.create.organizationLabel")}
           optional
           error={fieldError}
-          description="Leave empty to create the App in your personal account. You must be an owner of the organization."
+          description={t("settings.integrations.github.create.organizationDescription")}
           className="sm:max-w-80"
         >
           <Input
@@ -130,7 +130,7 @@ export function CreateGitHubApp() {
               setFieldError(null);
               if (start.isError) start.reset();
             }}
-            placeholder="your-org"
+            placeholder={t("settings.integrations.github.create.organizationPlaceholder")}
             autoComplete="off"
             autoCapitalize="off"
             spellCheck={false}
@@ -139,24 +139,24 @@ export function CreateGitHubApp() {
         </Field>
         <div className="flex flex-wrap items-center gap-3">
           <Button type="submit" variant="primary" loading={start.isPending || redirecting}>
-            Create GitHub App
+            {t("settings.integrations.github.create.createApp")}
           </Button>
-          <p className="text-12 text-fg-muted">GitHub opens to confirm the App's name, then brings you back here.</p>
+          <p className="text-12 text-fg-muted">{t("settings.integrations.github.create.createAppHint")}</p>
         </div>
       </form>
 
       {redirecting ? (
         <p role="status" className="flex items-center gap-2 text-13 text-fg">
           <Spinner size={14} className="text-warn" />
-          Opening GitHub…
+          {t("settings.integrations.github.create.opening")}
         </p>
       ) : null}
       {manifest !== undefined && !postable ? (
         <ErrorBlock
           live
           error={{ detail: manifest.post_url }}
-          title="The App was not created: the server named an address for GitHub that is not https"
-          hint="The console only sends the App's manifest to an https address. Check the GitHub URL WASM is configured with."
+          title={t("settings.integrations.github.create.notHttpsTitle")}
+          hint={t("settings.integrations.github.create.notHttpsHint")}
         />
       ) : null}
       {start.error instanceof ElevationCancelledError ? (
@@ -168,11 +168,11 @@ export function CreateGitHubApp() {
         <ErrorBlock
           live
           error={{ detail: blockedBy }}
-          title="The browser refused to send the App's manifest to GitHub"
-          hint="The console's Content Security Policy, below, has to allow form-action https://github.com. Update WASM, then try again."
+          title={t("settings.integrations.github.create.blockedTitle")}
+          hint={t("settings.integrations.github.create.blockedHint")}
         />
       ) : null}
-      {failure !== null ? <ErrorBlock live error={failure} title="Could not start creating the App" /> : null}
+      {failure !== null ? <ErrorBlock live error={failure} title={t("settings.integrations.github.create.startFailed")} /> : null}
       {redirecting ? <ManifestForm manifest={manifest} onBlocked={onBlocked} /> : null}
     </div>
   );

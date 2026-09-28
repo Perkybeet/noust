@@ -1,7 +1,9 @@
-import { screen } from "@testing-library/react";
+import { act, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import type { BackupStorage } from "../../api/queries/backups";
+import { setLocale } from "../../app/locale";
+import { loadCatalog } from "../../i18n";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, signedInRoutes } from "../../test/fakes";
@@ -73,6 +75,26 @@ describe("backup storage", () => {
     expect(notice).toHaveTextContent("wasm backup import /root");
     expect(notice).toHaveTextContent("wasm backup import /var/backups/wasm");
     expect(notice).toHaveTextContent("Add --dry-run to the command to see what would move first, without moving anything.");
+    await expectNoAxeViolations(container);
+  });
+});
+
+describe("backup storage in Spanish", () => {
+  it("translates the summary sentence and pluralises the counts", async () => {
+    await loadCatalog("es");
+    expect(backupSummary(storage(), "es")).toBe("3.00 GB en 12 copias de seguridad de 2 aplicaciones, guardadas en ");
+    expect(backupSummary(storage({ backup_count: 1, domains: ["a"] }), "es")).toBe("3.00 GB en 1 copia de seguridad de 1 aplicación, guardadas en ");
+  });
+
+  it("shows the disk meter and the misplaced notice in Spanish, with no accessibility violations", async () => {
+    await act(() => setLocale("es"));
+    const { container } = backupsPage(
+      storage({ misplaced: [{ directory: "/root", count: 3, command: "wasm backup import /root" }] }),
+    );
+    const meter = await screen.findByRole("meter", { name: "Disco que contiene las copias de seguridad" });
+    expect(meter).toHaveAttribute("aria-valuetext", "380 GB usados, 120 GB libres de 500 GB");
+    const notice = await screen.findByRole("region", { name: "3 copias de seguridad están fuera del directorio de copias de seguridad" });
+    expect(notice).toHaveTextContent("3 copias de seguridad en /root");
     await expectNoAxeViolations(container);
   });
 });

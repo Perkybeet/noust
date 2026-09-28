@@ -1,6 +1,7 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
@@ -155,5 +156,39 @@ describe("Settings > API tokens", () => {
     await waitFor(() => {
       expect(screen.queryByRole("button", { name: "Revoke ci-deploy" })).not.toBeInTheDocument();
     });
+  });
+});
+
+describe("Settings > API tokens in Spanish", () => {
+  it("lists tokens with their state in Spanish, and passes axe", { timeout: 20_000 }, async () => {
+    await act(() => setLocale("es"));
+    // Its own tokens, never the shared SEEDED array: an earlier test in this file revokes
+    // one of them by reference (tokensBackend's DELETE handler mutates the token it was given).
+    const tokens: Token[] = [
+      { id: 101, name: "es-active", scope: "deploy", created_at: NOW - 86_400, expires_at: NOW + 80 * 86_400, last_used_at: NOW - 300, revoked_at: null },
+      { id: 102, name: "es-revoked", scope: "admin", created_at: NOW - 90 * 86_400, expires_at: null, last_used_at: null, revoked_at: NOW - 86_400 },
+      { id: 103, name: "es-expired", scope: "read", created_at: NOW - 40 * 86_400, expires_at: NOW - 86_400, last_used_at: null, revoked_at: null },
+    ];
+    tokensBackend(tokens);
+    const { container } = renderConsole("/settings/tokens");
+    await screen.findByText("es-active");
+    expect(screen.getByRole("region", { name: "Tokens para automatización" })).toBeInTheDocument();
+    const table = screen.getByRole("region", { name: "Tokens de API" });
+    expect(within(table).getByText("Activo")).toBeInTheDocument();
+    expect(within(table).getByText("Caducado")).toBeInTheDocument();
+    expect(within(table).getByText("Revocado")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Crear token" })).toBeInTheDocument();
+    await expectNoAxeViolations(container);
+  });
+
+  it("opens the create dialog with translated scopes, in Spanish", { timeout: 20_000 }, async () => {
+    await act(() => setLocale("es"));
+    tokensBackend([]);
+    const { user } = renderConsole("/settings/tokens");
+    await user.click(await screen.findByRole("button", { name: "Crear token" }));
+    const dialog = await screen.findByRole("dialog", { name: "Crear un token de API" });
+    expect(within(dialog).getByRole("radio", { name: "Lectura" })).toBeChecked();
+    expect(within(dialog).getByRole("radio", { name: "Despliegue" })).toHaveAccessibleDescription(/El indicado para CI/);
+    await expectNoAxeViolations(dialog);
   });
 });

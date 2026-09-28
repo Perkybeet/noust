@@ -1,7 +1,9 @@
 import { useId } from "react";
 
+import { getLocale } from "../../app/locale";
 import { SystemOutput } from "../../components/ui/SystemOutput";
-import { formatCount, formatDuration } from "../../lib/format";
+import { translate, useT } from "../../i18n";
+import { formatDuration } from "../../lib/format";
 
 /**
  * What `POST /api/databases/query` answers, in the shape this feature renders (see
@@ -31,9 +33,10 @@ export interface QueryResult {
  * to count, so it reports only the time.
  */
 export function formatResultLine(result: Pick<QueryResult, "columns" | "rowCount" | "durationMs">): string {
-  const duration = formatDuration(result.durationMs / 1000);
-  if (result.columns.length === 0) return `Ran in ${duration}`;
-  return `${formatCount(result.rowCount)} ${result.rowCount === 1 ? "row" : "rows"} in ${duration}`;
+  const locale = getLocale();
+  const duration = formatDuration(result.durationMs / 1000, locale);
+  if (result.columns.length === 0) return translate(locale, "databases.resultGrid.ranIn", { duration });
+  return translate(locale, "databases.resultGrid.rowsInDuration", { count: result.rowCount, duration });
 }
 
 /**
@@ -42,6 +45,7 @@ export function formatResultLine(result: Pick<QueryResult, "columns" | "rowCount
  * tell a missing value from one that is merely blank.
  */
 function Cell({ value }: { value: string }) {
+  const t = useT();
   if (value === "NULL") {
     return (
       <span aria-label="SQL NULL" className="text-fg-faint italic">
@@ -51,8 +55,8 @@ function Cell({ value }: { value: string }) {
   }
   if (value === "") {
     return (
-      <span aria-label="Empty string" className="text-fg-faint italic">
-        empty
+      <span aria-label={t("databases.resultGrid.emptyStringLabel")} className="text-fg-faint italic">
+        {t("databases.resultGrid.emptyValue")}
       </span>
     );
   }
@@ -61,6 +65,7 @@ function Cell({ value }: { value: string }) {
 
 /** Sticky-header grid for a structured result: columns and rows named and printed by the engine's own client. */
 function Grid({ columns, rows }: { columns: string[]; rows: string[][] }) {
+  const t = useT();
   const captionId = useId();
   return (
     <div
@@ -71,7 +76,7 @@ function Grid({ columns, rows }: { columns: string[]; rows: string[][] }) {
     >
       <table className="w-full border-collapse text-left text-13">
         <caption id={captionId} className="sr-only">
-          Query result
+          {t("databases.resultGrid.caption")}
         </caption>
         <thead className="sticky top-0 z-10 bg-bg-sunken">
           <tr className="border-b border-border">
@@ -108,6 +113,7 @@ function Grid({ columns, rows }: { columns: string[]; rows: string[][] }) {
  * result set to name).
  */
 export function ResultGrid({ result }: { result: QueryResult }) {
+  const t = useT();
   const hasGrid = result.columns.length > 0;
   return (
     <div className="flex flex-col gap-2">
@@ -117,17 +123,17 @@ export function ResultGrid({ result }: { result: QueryResult }) {
       {result.truncated ? (
         <p className="rounded-control border border-border bg-bg-sunken px-3 py-2 text-12 text-fg-muted">
           {hasGrid
-            ? `Only the first ${formatCount(result.rowCount)} ${result.rowCount === 1 ? "row is" : "rows are"} shown; the statement returned more.`
-            : "The output was cut short; the statement returned more."}
+            ? t("databases.resultGrid.truncatedRows", { count: result.rowCount })
+            : t("databases.resultGrid.truncatedOutput")}
         </p>
       ) : null}
       {hasGrid ? (
         <Grid columns={result.columns} rows={result.rows} />
       ) : result.output.trim() === "" ? (
-        <p className="text-13 text-fg-muted">The statement returned no rows.</p>
+        <p className="text-13 text-fg-muted">{t("databases.resultGrid.noRows")}</p>
       ) : (
         <div className="rounded-control border border-border bg-bg-sunken px-3 py-2">
-          <SystemOutput label="The statement's raw output" maxHeight="max-h-72">
+          <SystemOutput label={t("databases.resultGrid.rawOutputLabel")} maxHeight="max-h-72">
             {result.output}
           </SystemOutput>
         </div>

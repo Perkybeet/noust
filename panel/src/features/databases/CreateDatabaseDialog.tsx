@@ -8,6 +8,7 @@ import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
+import { useT } from "../../i18n";
 import { engineLabel } from "./data";
 import { useDatabaseActions } from "./useDatabaseActions";
 
@@ -17,12 +18,9 @@ export interface CreateDatabaseDialogProps {
   trigger: ReactElement<Record<string, unknown>>;
 }
 
-const NAME_HINT: Readonly<Record<string, string>> = {
-  redis: "Redis databases are numbered slots (0-15 by default); name it with a number.",
-};
-
 /** Creates a database on one running engine. */
 export function CreateDatabaseDialog({ engines, trigger }: CreateDatabaseDialogProps) {
+  const t = useT();
   const formId = useId();
   const nameRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
@@ -62,42 +60,44 @@ export function CreateDatabaseDialog({ engines, trigger }: CreateDatabaseDialogP
       onOpenChange={close}
       trigger={trigger}
       initialFocus={nameRef}
-      title="Create database"
-      description="Creates an empty database on the chosen engine."
+      title={t("databases.createDatabaseDialog.create")}
+      description={t("databases.createDatabaseDialog.description")}
       footer={
         <>
           <Button disabled={createDatabase.isPending} onClick={() => close(false)}>
-            Cancel
+            {t("databases.cancel")}
           </Button>
           <Button type="submit" form={formId} variant="primary" loading={createDatabase.isPending} disabled={name.trim() === ""}>
-            Create database
+            {t("databases.createDatabaseDialog.create")}
           </Button>
         </>
       }
     >
       <form id={formId} onSubmit={submit} className="flex flex-col gap-4">
-        <Field label="Engine" nativeLabel={false}>
+        <Field label={t("databases.fields.engine")} nativeLabel={false}>
           <Select
-            aria-label="Engine"
+            aria-label={t("databases.fields.engine")}
             value={engine}
             onValueChange={setEngine}
             options={engines.map((item) => ({ value: item.name, label: engineLabel(item.name) }))}
           />
         </Field>
-        <Field label="Name" description={NAME_HINT[engine]}>
+        <Field label={t("databases.createDatabaseDialog.nameLabel")} description={engine === "redis" ? t("databases.createDatabaseDialog.redisNameHint") : undefined}>
           <Input ref={nameRef} mono value={name} onValueChange={setName} autoComplete="off" spellCheck={false} />
         </Field>
         {engine !== "redis" ? (
           <>
-            <Field label="Owner" optional description="A user that already exists. Defaults to the engine's superuser.">
+            <Field label={t("databases.fields.owner")} optional description={t("databases.createDatabaseDialog.ownerDescription")}>
               <Input mono value={owner} onValueChange={setOwner} autoComplete="off" spellCheck={false} />
             </Field>
-            <Field label="Encoding" optional description="Defaults to UTF8 (PostgreSQL) or utf8mb4 (MySQL/MariaDB).">
+            <Field label={t("databases.fields.encoding")} optional description={t("databases.createDatabaseDialog.encodingDescription")}>
               <Input mono value={encoding} onValueChange={setEncoding} placeholder="UTF8" autoComplete="off" spellCheck={false} />
             </Field>
           </>
         ) : null}
-        {createDatabase.isError ? <ErrorBlock live compact error={createDatabase.error} title="The database was not created" /> : null}
+        {createDatabase.isError ? (
+          <ErrorBlock live compact error={createDatabase.error} title={t("databases.createDatabaseDialog.createFailed")} />
+        ) : null}
       </form>
     </Dialog>
   );

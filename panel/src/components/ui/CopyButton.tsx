@@ -1,5 +1,6 @@
 import { Check, Copy } from "lucide-react";
 
+import { useT } from "../../i18n";
 import { IconButton } from "./IconButton";
 import { useCopyState } from "./useCopyState";
 
@@ -15,13 +16,14 @@ export interface CopyButtonProps {
 }
 
 /** Copies a value and confirms it in place: the icon becomes a check and the change is announced. */
-export function CopyButton({ value, label = "Copy", size = "sm", className, ["aria-describedby"]: describedBy }: CopyButtonProps) {
+export function CopyButton({ value, label, size = "sm", className, ["aria-describedby"]: describedBy }: CopyButtonProps) {
+  const t = useT();
   const { state, copy } = useCopyState();
 
   return (
     <>
       <IconButton
-        label={label}
+        label={label ?? t("common.copyButton.label")}
         size={size}
         icon={state === "copied" ? <Check className="text-ok" /> : <Copy />}
         onClick={() => void copy(typeof value === "function" ? value() : value)}
@@ -29,7 +31,7 @@ export function CopyButton({ value, label = "Copy", size = "sm", className, ["ar
         {...(describedBy !== undefined ? { "aria-describedby": describedBy } : {})}
       />
       <span role="status" className="sr-only">
-        {state === "copied" ? "Copied to clipboard" : state === "failed" ? "Copy failed" : ""}
+        {state === "copied" ? t("common.copyButton.copied") : state === "failed" ? t("common.copyButton.failed") : ""}
       </span>
     </>
   );

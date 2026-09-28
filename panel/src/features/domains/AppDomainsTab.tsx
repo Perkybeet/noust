@@ -24,6 +24,8 @@ import { IconButton } from "../../components/ui/IconButton";
 import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { toast } from "../../components/ui/toast";
+import { useT } from "../../i18n";
+import type { T } from "../../i18n";
 import { findCertificate } from "../app/lookups";
 import { reportActionError } from "../apps/useAppActions";
 import { AddDomainDialog } from "./AddDomainDialog";
@@ -33,15 +35,21 @@ import { certificateJobFor, certificateView, coverageOf, covers, issuerName } fr
 import { JobBanner } from "./JobBanner";
 import { useCertificateRefresh } from "./useCertificateJobs";
 
-const KIND_LABEL: Record<string, string> = { primary: "Primary", alias: "Alias", redirect: "Redirect" };
+function kindLabel(t: T, kind: string): string {
+  if (kind === "primary") return t("domains.kindPrimary");
+  if (kind === "alias") return t("domains.kindAlias");
+  if (kind === "redirect") return t("domains.kindRedirect");
+  return kind;
+}
 
 function Role({ entry, app }: { entry: AppDomain; app: string }) {
-  if (entry.kind !== "redirect") return <Badge>{KIND_LABEL[entry.kind] ?? entry.kind}</Badge>;
+  const t = useT();
+  if (entry.kind !== "redirect") return <Badge>{kindLabel(t, entry.kind)}</Badge>;
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5">
-      <Badge>Redirect</Badge>
+      <Badge>{t("domains.kindRedirect")}</Badge>
       <ArrowRight aria-hidden="true" className="size-3.5 shrink-0 text-fg-faint" />
-      <span className="sr-only">to </span>
+      <span className="sr-only">{t("domains.appTab.roleToSr")}</span>
       <span translate="no" className="truncate text-13 text-fg-muted">
         {app}
       </span>
@@ -50,6 +58,7 @@ function Role({ entry, app }: { entry: AppDomain; app: string }) {
 }
 
 function DnsDialog({ app, name, onClose }: { app: string; name: string | null; onClose: () => void }) {
+  const t = useT();
   const dns = useQuery({ ...dnsCheckQuery(app, name ?? ""), enabled: name !== null });
   return (
     <Dialog
@@ -57,15 +66,15 @@ function DnsDialog({ app, name, onClose }: { app: string; name: string | null; o
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
-      title={name === null ? "DNS" : `Where ${name} points`}
-      description="What the name resolves to right now, compared with this server's addresses."
+      title={name === null ? t("domains.appTab.dnsDialogTitleDefault") : t("domains.appTab.dnsDialogTitle", { name })}
+      description={t("domains.appTab.dnsDialogDescription")}
       footer={
         <>
           <Button icon={<RotateCw aria-hidden="true" />} loading={dns.isFetching} onClick={() => void dns.refetch()}>
-            Check again
+            {t("domains.checkAgain")}
           </Button>
           <Button variant="primary" onClick={onClose}>
-            Done
+            {t("domains.appTab.done")}
           </Button>
         </>
       }
@@ -74,10 +83,10 @@ function DnsDialog({ app, name, onClose }: { app: string; name: string | null; o
         {dns.data ? (
           <DnsVerdict check={dns.data} />
         ) : dns.isError ? (
-          <ErrorBlock compact error={dns.error} title={`Could not resolve ${name ?? ""}`} />
+          <ErrorBlock compact error={dns.error} title={t("domains.couldNotResolve", { name: name ?? "" })} />
         ) : (
           <div aria-busy="true" className="flex flex-col gap-2">
-            <span className="sr-only">Checking DNS</span>
+            <span className="sr-only">{t("domains.checkingDns")}</span>
             <Skeleton className="h-4 w-56" />
             <Skeleton className="h-12" />
           </div>
@@ -107,7 +116,8 @@ function TableSkeleton() {
  * asks DNS first; removing one needs the operator to confirm it's them.
  */
 export function AppDomainsTab({ domain }: { domain: string }) {
-  useDocumentTitle(`Domains - ${domain}`);
+  const t = useT();
+  useDocumentTitle(t("domains.appTab.documentTitle", { domain }));
   const queryClient = useQueryClient();
   const list = useQuery(appDomainsQuery(domain));
   const certs = useQuery(certsQuery());
@@ -133,13 +143,14 @@ export function AppDomainsTab({ domain }: { domain: string }) {
     applyChange(change);
     setLastAdded(name);
     const kept = change.adopted ?? [];
-    const adopted = kept.length > 0 ? ` Kept ${kept.join(", ")}, which the site already answered on, as ${kept.length === 1 ? "an alias" : "aliases"}.` : "";
+    const adopted = kept.length > 0 ? ` ${t("domains.appTab.keptAsAlias", { count: kept.length, names: kept.join(", ") })}` : "";
+    const addedToast = t("domains.appTab.addedToast", { name, domain });
     if (change.certificate_job_id) {
       followed.follow(change.certificate_job_id);
-      toast.success(`Added ${name} to ${domain}`, { description: `Extending the certificate to cover it.${adopted}` });
+      toast.success(addedToast, { description: `${t("domains.appTab.extendingCertDescription")}${adopted}` });
     } else {
-      const description = `${change.tls ? "" : "The site serves plain HTTP, so no certificate was ordered."}${adopted}`.trim();
-      toast.success(`Added ${name} to ${domain}`, description === "" ? {} : { description });
+      const description = `${change.tls ? "" : t("domains.appTab.plainHttpNoCertificate")}${adopted}`.trim();
+      toast.success(addedToast, description === "" ? {} : { description });
     }
   };
 
@@ -150,17 +161,17 @@ export function AppDomainsTab({ domain }: { domain: string }) {
       applyChange(change);
       setLastAdded(entry.domain);
       if (change.certificate_job_id) followed.follow(change.certificate_job_id);
-      else toast.info(`${domain} serves plain HTTP`, { description: "There is no certificate to extend." });
+      else toast.info(t("domains.appTab.servesPlainHttpToast", { domain }), { description: t("domains.appTab.noCertToExtendDescription") });
     },
     onError: (error, entry) => {
-      reportActionError(`Could not retry the certificate for ${entry.domain}`, error);
+      reportActionError(t("domains.appTab.retryFailedError", { name: entry.domain }), error);
     },
   });
 
   const columns: Column<AppDomain>[] = [
     {
       id: "domain",
-      header: "Domain",
+      header: t("domains.appTab.domainColumn"),
       cell: (entry) => (
         <a
           href={`${lineage && covers(lineage, entry.domain) ? "https" : "http"}://${entry.domain}`}
@@ -170,87 +181,91 @@ export function AppDomainsTab({ domain }: { domain: string }) {
           className="-mx-1 rounded-[4px] px-1 py-0.5 font-medium text-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus"
         >
           {entry.domain}
-          <span className="sr-only"> (opens in a new tab)</span>
+          <span className="sr-only">{t("domains.appTab.openInNewTabSr")}</span>
         </a>
       ),
       sortValue: (entry) => entry.domain,
     },
-    { id: "role", header: "Role", cell: (entry) => <Role entry={entry} app={domain} /> },
+    { id: "role", header: t("domains.appTab.roleColumn"), cell: (entry) => <Role entry={entry} app={domain} /> },
     {
       id: "certificate",
-      header: "Certificate",
+      header: t("domains.appTab.certificateColumn"),
       cell: (entry) => {
-        const coverage = coverageOf(entry.domain, lineage, extending);
+        const coverage = coverageOf(entry.domain, lineage, extending, t.locale);
         return <CertificateStatus tone={coverage.tone} label={coverage.label} />;
       },
     },
     {
       id: "added",
-      header: "Added",
+      header: t("domains.appTab.addedColumn"),
       hideBelow: "md",
-      cell: (entry) => (entry.created_at ? <RelativeTime value={entry.created_at} className="text-fg-muted" /> : <span className="text-fg-faint">Unknown</span>),
+      cell: (entry) =>
+        entry.created_at ? <RelativeTime value={entry.created_at} className="text-fg-muted" /> : <span className="text-fg-faint">{t("domains.unknown")}</span>,
     },
   ];
 
   return (
     <Sections>
       <Section
-        title="Domains"
-        description={`The names ${domain} answers on. Aliases serve the app; redirects send visitors to ${domain}.`}
+        title={t("domains.appTab.domainsSectionTitle")}
+        description={t("domains.appTab.domainsSectionDescription", { domain })}
         actions={
           <Button icon={<Plus aria-hidden="true" />} onClick={() => setAdding(true)}>
-            Add domain
+            {t("domains.addDomain")}
           </Button>
         }
       >
         <JobBanner
           followed={followed}
           words={{
-            running: lastAdded === null ? `Extending the certificate of ${domain}` : `Extending the certificate to ${lastAdded}`,
-            done: `The certificate covers every domain of ${domain}`,
-            failed: "The certificate was not extended",
-            hint: `${lastAdded ?? "The new name"} is served already, but browsers warn on HTTPS until the certificate covers it. Once DNS points here, retry it from its row.`,
+            running:
+              lastAdded === null
+                ? t("domains.appTab.extendingCertOf", { domain })
+                : t("domains.appTab.extendingCertTo", { name: lastAdded }),
+            done: t("domains.appTab.certCoversEvery", { domain }),
+            failed: t("domains.appTab.certNotExtended"),
+            hint: t("domains.appTab.extendHint", { name: lastAdded ?? t("domains.appTab.theNewName") }),
           }}
         />
         {list.isError && list.data === undefined ? (
-          <ErrorBlock error={list.error} title={`Could not load the domains of ${domain}`} onRetry={() => void list.refetch()} retrying={list.isRefetching} />
+          <ErrorBlock error={list.error} title={t("domains.appTab.couldNotLoadDomains", { domain })} onRetry={() => void list.refetch()} retrying={list.isRefetching} />
         ) : list.data === undefined ? (
           <div aria-busy="true">
-            <span className="sr-only">Loading domains</span>
+            <span className="sr-only">{t("domains.appTab.loadingDomainsSr")}</span>
             <TableSkeleton />
           </div>
         ) : (
           <DataTable
-            caption={`Domains of ${domain}`}
+            caption={t("domains.appTab.tableCaption", { domain })}
             columns={columns}
             rows={list.data.domains}
             getRowId={(entry) => entry.domain}
             empty={
               <EmptyState
                 icon={<Globe />}
-                title="No domains recorded"
-                description="Add the names this app should answer on."
+                title={t("domains.appTab.noDomainsTitle")}
+                description={t("domains.appTab.noDomainsDescription")}
                 className="border-0 py-8"
               />
             }
             rowActions={(entry) => (
               <Menu
                 align="end"
-                trigger={<IconButton label={`Actions for ${entry.domain}`} icon={<MoreHorizontal />} size="sm" tooltip={false} />}
+                trigger={<IconButton label={t("domains.actionsFor", { name: entry.domain })} icon={<MoreHorizontal />} size="sm" tooltip={false} />}
               >
                 <MenuItem icon={<Search />} onClick={() => setDnsFor(entry.domain)}>
-                  Check DNS
+                  {t("domains.checkDns")}
                 </MenuItem>
                 {entry.kind !== "primary" && lineage && !covers(lineage, entry.domain) ? (
                   <MenuItem icon={<RotateCw />} disabled={retry.isPending || extending} onClick={() => retry.mutate(entry)}>
-                    Retry certificate
+                    {t("domains.appTab.retryCertificate")}
                   </MenuItem>
                 ) : null}
                 {entry.kind !== "primary" ? (
                   <>
                     <MenuSeparator />
                     <MenuItem icon={<Trash2 />} destructive onClick={() => setRemoving(entry)}>
-                      Remove
+                      {t("domains.appTab.remove")}
                     </MenuItem>
                   </>
                 ) : null}
@@ -258,17 +273,15 @@ export function AppDomainsTab({ domain }: { domain: string }) {
             )}
           />
         )}
-        <p className="max-w-[68ch] text-13 text-pretty text-fg-muted">
-          {`${domain} is the primary domain: the app's unit, directory and site are named after it, so it cannot be removed here. To move the app to another name, deploy it there and delete this one.`}
-        </p>
+        <p className="max-w-[68ch] text-13 text-pretty text-fg-muted">{t("domains.appTab.primaryDomainNote", { domain })}</p>
       </Section>
 
       <Section
-        title="Certificate"
-        description="One certificate covers every name of the app, redirects included."
+        title={t("domains.appTab.certificateSectionTitle")}
+        description={t("domains.appTab.certificateSectionDescription")}
         actions={
           <Link to="/domains" search={{ tab: "certificates" }} className="rounded-[4px] text-13 font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus">
-            All certificates
+            {t("domains.appTab.allCertificates")}
           </Link>
         }
       >
@@ -276,19 +289,23 @@ export function AppDomainsTab({ domain }: { domain: string }) {
           <Skeleton className="h-16 rounded-card" />
         ) : lineage === null ? (
           <p className="text-13 text-fg-muted">
-            {certs.isError ? "The certificates could not be listed." : `No certificate covers ${domain}: the site answers over plain HTTP.`}
+            {certs.isError ? t("domains.appTab.certificatesCouldNotBeListed") : t("domains.appTab.noCertificateCoversNote", { domain })}
           </p>
         ) : (
           <div className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4 shadow-raised sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 flex-col gap-1">
-              <CertificateStatus {...certificateView(lineage)} className="text-14" />
+              <CertificateStatus {...certificateView(lineage, t.locale)} className="text-14" />
               <p className="text-13 text-fg-muted">
-                {lineage.issuer ? `Issued by ${issuerName(lineage.issuer)}. ` : ""}
-                {lineage.expires_on ? `Valid until ${lineage.expires_on}. ` : ""}
-                {lineage.auto_renew ? "Renews on its own before it expires." : "Does not renew on its own."}
+                {[
+                  lineage.issuer ? t("domains.appTab.issuedBy", { issuer: issuerName(lineage.issuer) }) : null,
+                  lineage.expires_on ? t("domains.appTab.validUntil", { date: lineage.expires_on }) : null,
+                  lineage.auto_renew ? t("domains.appTab.renewsAutomatically") : t("domains.appTab.doesNotRenewAutomatically"),
+                ]
+                  .filter((part): part is string => part !== null)
+                  .join(" ")}
               </p>
             </div>
-            <ul aria-label="Names on the certificate" className="flex min-w-0 flex-wrap gap-1.5 sm:justify-end">
+            <ul aria-label={t("domains.appTab.namesOnCertificateAriaLabel")} className="flex min-w-0 flex-wrap gap-1.5 sm:justify-end">
               {lineage.domains.map((name) => (
                 <li key={name}>
                   <Badge mono>{name}</Badge>
@@ -299,7 +316,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
         )}
       </Section>
 
-      <CommandHint command={`wasm domain list ${domain}`} label="From a terminal" />
+      <CommandHint command={`wasm domain list ${domain}`} label={t("domains.fromTerminal")} />
 
       <AddDomainDialog app={domain} open={adding} onOpenChange={setAdding} onAdded={onAdded} />
       <DnsDialog app={domain} name={dnsFor} onClose={() => setDnsFor(null)} />
@@ -308,21 +325,17 @@ export function AppDomainsTab({ domain }: { domain: string }) {
         onOpenChange={(open) => {
           if (!open) setRemoving(null);
         }}
-        title={removing ? `Remove ${removing.domain}` : "Remove domain"}
-        description={
-          removing
-            ? `${domain} stops answering on ${removing.domain} as soon as the site reloads. The certificate keeps covering the name until it is next renewed; nothing is revoked.`
-            : ""
-        }
+        title={removing ? t("domains.appTab.removeDialogTitle", { domain: removing.domain }) : t("domains.appTab.removeDomain")}
+        description={removing ? t("domains.appTab.removeDialogDescription", { app: domain, removed: removing.domain }) : ""}
         confirmText={removing?.domain ?? ""}
-        actionLabel="Remove domain"
+        actionLabel={t("domains.appTab.removeDomain")}
         onConfirm={async () => {
           if (!removing) return;
           const change = await request("delete", "/api/apps/{domain}/domains/{name}", {
             params: { domain, name: removing.domain },
           });
           applyChange(change);
-          toast.success(`Removed ${removing.domain} from ${domain}`);
+          toast.success(t("domains.appTab.removedToast", { removed: removing.domain, domain }));
         }}
       />
     </Sections>

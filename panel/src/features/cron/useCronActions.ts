@@ -3,8 +3,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { request } from "../../api/client";
 import type { BodyOf } from "../../api/client";
 import { cronKeys } from "../../api/queries/cron";
-import { reportActionError } from "../apps/useAppActions";
 import { toast } from "../../components/ui/toast";
+import { useT } from "../../i18n";
+import { reportActionError } from "../apps/useAppActions";
 
 export type CreateCronJobBody = BodyOf<"/api/cron", "post">;
 
@@ -14,6 +15,7 @@ export type CreateCronJobBody = BodyOf<"/api/cron", "post">;
  * synchronous systemctl call.
  */
 export function useCronActions() {
+  const t = useT();
   const queryClient = useQueryClient();
 
   const refresh = (): void => {
@@ -23,7 +25,10 @@ export function useCronActions() {
   const create = useMutation({
     mutationFn: (body: CreateCronJobBody) => request("post", "/api/cron", { body }),
     onSuccess: (result) => {
-      toast.success(`Created ${result.job?.name ?? "the job"}`, result.job ? { description: `Next run: ${result.job.next_run}.` } : {});
+      toast.success(
+        t("cron.toast.created", { name: result.job?.name ?? t("cron.toast.theJob") }),
+        result.job ? { description: t("cron.toast.nextRun", { value: result.job.next_run }) } : {},
+      );
       refresh();
     },
   });
@@ -31,32 +36,32 @@ export function useCronActions() {
   const remove = useMutation({
     mutationFn: (name: string) => request("delete", "/api/cron/{name}", { params: { name } }),
     onSuccess: (_result, name) => {
-      toast.success(`Deleted ${name}`);
+      toast.success(t("cron.toast.deleted", { name }));
       refresh();
     },
     onError: (error, name) => {
-      reportActionError(`Deletion of ${name} failed`, error);
+      reportActionError(t("cron.toast.deleteError", { name }), error);
     },
   });
 
   const run = useMutation({
     mutationFn: (name: string) => request("post", "/api/cron/{name}/run", { params: { name } }),
     onSuccess: (_result, name) => {
-      toast.success(`Started ${name}`, { description: "Its result will appear in its run history shortly." });
+      toast.success(t("cron.toast.started", { name }), { description: t("cron.toast.startedDescription") });
     },
     onError: (error, name) => {
-      reportActionError(`Could not start ${name}`, error);
+      reportActionError(t("cron.toast.startError", { name }), error);
     },
   });
 
   const enable = useMutation({
     mutationFn: (name: string) => request("post", "/api/cron/{name}/enable", { params: { name } }),
     onSuccess: (_result, name) => {
-      toast.success(`Enabled ${name}`);
+      toast.success(t("cron.toast.enabled", { name }));
       refresh();
     },
     onError: (error, name) => {
-      reportActionError(`Could not enable ${name}`, error);
+      reportActionError(t("cron.toast.enableError", { name }), error);
       refresh();
     },
   });
@@ -64,11 +69,11 @@ export function useCronActions() {
   const disable = useMutation({
     mutationFn: (name: string) => request("post", "/api/cron/{name}/disable", { params: { name } }),
     onSuccess: (_result, name) => {
-      toast.success(`Disabled ${name}`);
+      toast.success(t("cron.toast.disabled", { name }));
       refresh();
     },
     onError: (error, name) => {
-      reportActionError(`Could not disable ${name}`, error);
+      reportActionError(t("cron.toast.disableError", { name }), error);
       refresh();
     },
   });

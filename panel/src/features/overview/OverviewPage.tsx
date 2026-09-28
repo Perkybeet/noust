@@ -11,6 +11,7 @@ import { Section, Sections } from "../../components/page/Section";
 import { Badge } from "../../components/ui/Badge";
 import { buttonClassName } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
+import { useT } from "../../i18n";
 import { AppsTable } from "../apps/AppsTable";
 import { latestDeployByDomain, recentDeploysQuery, useLatestMetrics } from "../apps/data";
 import { useStateTransitions } from "../apps/useStateTransitions";
@@ -19,15 +20,17 @@ import { NeedsAttention, rememberedAttentionHeight } from "./NeedsAttention";
 import { RecentDeployments } from "./RecentDeployments";
 
 function NewAppLink() {
+  const t = useT();
   return (
     <Link to="/apps/new" className={buttonClassName("primary")}>
       <Plus aria-hidden="true" />
-      New application
+      {t("overview.newApplication")}
     </Link>
   );
 }
 
 function Applications() {
+  const t = useT();
   const apps = useQuery(appsQuery());
   const deploys = useQuery(recentDeploysQuery());
   const metrics = useLatestMetrics();
@@ -37,31 +40,36 @@ function Applications() {
   const total = apps.data?.total;
   return (
     <Section
-      title="Applications"
+      title={t("overview.applications.title")}
       badge={total !== undefined && total > 0 ? <Badge>{total}</Badge> : undefined}
       actions={
         <Link
           to="/apps"
           className="rounded-[4px] text-13 font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus"
         >
-          Search and filter
+          {t("overview.applications.searchAndFilter")}
         </Link>
       }
     >
       {apps.isError && apps.data === undefined ? (
-        <ErrorBlock error={apps.error} title="Could not load applications" onRetry={() => void apps.refetch()} retrying={apps.isRefetching} />
+        <ErrorBlock
+          error={apps.error}
+          title={t("overview.applications.couldNotLoad")}
+          onRetry={() => void apps.refetch()}
+          retrying={apps.isRefetching}
+        />
       ) : (
         <AppsTable
           apps={apps.data?.apps ?? []}
           deploys={latest}
           metrics={metrics}
-          caption="Applications on this machine"
+          caption={t("overview.applications.caption")}
           loading={apps.isPending}
           empty={
             <EmptyState
               icon={<Boxes />}
-              title="Deploy your first application"
-              description="Point WASM at a Git repository or a directory: it detects the stack, builds it and serves it with a certificate."
+              title={t("overview.applications.emptyTitle")}
+              description={t("overview.applications.emptyDescription")}
               action={<NewAppLink />}
               command="wasm create -d example.com -s https://github.com/you/app"
               className="border-0 py-10"
@@ -109,14 +117,11 @@ function useHoldBelowAttention(): { ready: boolean; settled: () => void } {
 }
 
 export function OverviewPage({ window, onWindowChange }: OverviewPageProps) {
+  const t = useT();
   const below = useHoldBelowAttention();
   return (
     <>
-      <PageHeader
-        title="Overview"
-        description="The state of this machine and everything deployed on it."
-        actions={<NewAppLink />}
-      />
+      <PageHeader title={t("overview.title")} description={t("overview.description")} actions={<NewAppLink />} />
       <Sections>
         <NeedsAttention onSettled={below.settled} />
         {/* display: contents keeps each section a direct item of the stack and its gap. */}

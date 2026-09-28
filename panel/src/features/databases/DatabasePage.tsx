@@ -13,6 +13,7 @@ import { Section } from "../../components/page/Section";
 import { Button } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { Menu, MenuItem } from "../../components/ui/Menu";
+import { useT } from "../../i18n";
 import { ConnectionString } from "./ConnectionString";
 import { DatabaseBackups } from "./DatabaseBackups";
 import { engineLabel } from "./data";
@@ -20,10 +21,18 @@ import { SqlConsole } from "./SqlConsole";
 import { useDatabaseActions } from "./useDatabaseActions";
 
 function Overview({ engine, name }: { engine: string; name: string }) {
+  const t = useT();
   const database = useQuery(databaseQuery(engine, name));
 
   if (database.isError && database.data === undefined) {
-    return <ErrorBlock error={database.error} title="Could not load this database" onRetry={() => void database.refetch()} retrying={database.isRefetching} />;
+    return (
+      <ErrorBlock
+        error={database.error}
+        title={t("databases.detail.overviewLoadFailed")}
+        onRetry={() => void database.refetch()}
+        retrying={database.isRefetching}
+      />
+    );
   }
   if (database.data === undefined) {
     return (
@@ -35,11 +44,11 @@ function Overview({ engine, name }: { engine: string; name: string }) {
 
   const info = database.data;
   const items: KeyValueItem[] = [
-    { label: "Engine", value: engineLabel(info.engine) },
-    { label: info.engine === "redis" ? "Keys" : "Tables", value: info.tables, mono: true },
-    { label: "Size", value: info.size, mono: true },
-    { label: "Owner", value: info.owner, mono: true },
-    { label: "Encoding", value: info.encoding, mono: true },
+    { label: t("databases.fields.engine"), value: engineLabel(info.engine) },
+    { label: info.engine === "redis" ? t("databases.fields.keys") : t("databases.fields.tables"), value: info.tables, mono: true },
+    { label: t("databases.fields.size"), value: info.size, mono: true },
+    { label: t("databases.fields.owner"), value: info.owner, mono: true },
+    { label: t("databases.fields.encoding"), value: info.encoding, mono: true },
   ];
 
   return (
@@ -51,29 +60,31 @@ function Overview({ engine, name }: { engine: string; name: string }) {
 
 /** One database: what it is, its own backups, a connection string on request, and the console. */
 export function DatabasePage({ engine, name }: { engine: string; name: string }) {
+  const t = useT();
   const navigate = useNavigate();
   const { dropDatabase } = useDatabaseActions();
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const keysLabel = engine === "redis" ? "slot" : "database";
+  const isRedis = engine === "redis";
+  const dropAction = isRedis ? t("databases.detail.dropSlot") : t("databases.table.dropDatabase");
 
   return (
     <>
       <PageHeader
         title={name}
-        description={`A ${engineLabel(engine)} ${keysLabel} on this machine.`}
-        breadcrumbs={[{ label: "Databases", to: "/databases" }]}
+        description={t(isRedis ? "databases.detail.aboutSlot" : "databases.detail.aboutDatabase", { engine: engineLabel(engine) })}
+        breadcrumbs={[{ label: t("nav.databases.label"), to: "/databases" }]}
         actions={
-          <Menu align="end" trigger={<Button icon={<MoreHorizontal aria-hidden="true" />}>Actions</Button>}>
+          <Menu align="end" trigger={<Button icon={<MoreHorizontal aria-hidden="true" />}>{t("databases.detail.actionsMenu")}</Button>}>
             <MenuItem icon={<Trash2 />} destructive onClick={() => setConfirmOpen(true)}>
-              Drop {keysLabel}
+              {dropAction}
             </MenuItem>
           </Menu>
         }
       />
       <div className="flex flex-col gap-8">
-        <Section title="Overview">
+        <Section title={t("nav.appTabs.overview.label")}>
           <Overview engine={engine} name={name} />
-          <CommandHint command={`wasm db info ${name} --engine ${engine}`} label="From a terminal" />
+          <CommandHint command={`wasm db info ${name} --engine ${engine}`} label={t("databases.fromTerminal")} />
         </Section>
 
         {/* The console is what this page is opened for most: right under what the database is. */}
@@ -87,10 +98,10 @@ export function DatabasePage({ engine, name }: { engine: string; name: string })
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title={`Drop ${name}`}
-        description={`This permanently deletes '${name}' on ${engineLabel(engine)} and everything in it. This cannot be undone.`}
+        title={t("databases.table.dropTitle", { name })}
+        description={t("databases.detail.dropDescription", { name, engine: engineLabel(engine) })}
         confirmText={name}
-        actionLabel={`Drop ${keysLabel}`}
+        actionLabel={dropAction}
         onConfirm={async () => {
           await dropDatabase.mutateAsync({ engine, name });
           void navigate({ to: "/databases" });

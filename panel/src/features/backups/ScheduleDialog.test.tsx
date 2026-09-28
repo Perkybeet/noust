@@ -1,6 +1,7 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, signedInRoutes } from "../../test/fakes";
@@ -164,5 +165,20 @@ describe("ScheduleDialog", () => {
     expect(body.retention_count).toBeNull();
     expect(body.retention_days).toBeNull();
     expect(body.include_databases).toBe(false);
+  });
+});
+
+describe("ScheduleDialog in Spanish", () => {
+  it("opens the new schedule dialog in Spanish, with no accessibility violations", async () => {
+    fakeBackend(schedulesRoutes([]));
+    await act(() => setLocale("es"));
+    const { user, container } = renderConsole("/backups");
+    await screen.findByRole("heading", { level: 1, name: "Copias de seguridad" });
+    await user.click(await screen.findByRole("button", { name: "Nueva programación" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Nueva programación de copias de seguridad" });
+    expect(within(dialog).getByText(/conserva sus últimas 7 copias de seguridad durante un máximo de 30 días/)).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Crear programación" })).toBeInTheDocument();
+    await expectNoAxeViolations(container);
   });
 });

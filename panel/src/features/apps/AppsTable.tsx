@@ -9,6 +9,8 @@ import { STATE_RANK, appStatus, deployStatus } from "../../components/page/statu
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { STATUS, StatusGlyph } from "../../components/ui/StatusPill";
+import { useT } from "../../i18n";
+import type { T } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { formatBytes, formatPercent, parseTimestamp } from "../../lib/format";
 import type { AppInfo, Deployment } from "./data";
@@ -44,7 +46,7 @@ export function DeployMoment({ deploy }: { deploy: Deployment }) {
  * The app's domain, a link to its page; a pull request preview says whose it is underneath, so
  * a list with previews in it still reads as the apps the operator deployed.
  */
-export function AppName({ app }: { app: AppInfo }) {
+export function AppName({ t, app }: { t: T; app: AppInfo }) {
   const parent = previewParentOf(app);
   const link = (
     <Link
@@ -62,7 +64,7 @@ export function AppName({ app }: { app: AppInfo }) {
       <span className="inline-flex items-center gap-1 text-12 text-fg-muted">
         <GitPullRequest aria-hidden="true" className="size-3 shrink-0 text-fg-faint" />
         <span>
-          {"Preview of "}
+          {t("apps.table.previewOf")}
           <span translate="no">{parent}</span>
         </span>
       </span>
@@ -109,51 +111,54 @@ export function AppsTable({
   detail = "summary",
   className,
 }: AppsTableProps) {
+  const t = useT();
   const rows: Row[] = apps.map((app) => ({ app, deploy: deploys.get(app.domain), ...appReading(metrics, app.domain) }));
   const withReadings = readsApps(metrics);
 
   const columns: Column<Row>[] = [
     {
       id: "state",
-      header: "State",
+      header: t("apps.table.columnState"),
       width: "w-32",
       cell: (row) => <AppStatePill status={row.app.status} appearance="inline" size="sm" />,
       sortValue: (row) => STATE_RANK[appStatus(row.app.status).state],
     },
     {
       id: "domain",
-      header: "Application",
-      cell: (row) => <AppName app={row.app} />,
+      header: t("apps.table.columnApplication"),
+      cell: (row) => <AppName t={t} app={row.app} />,
       sortValue: (row) => row.app.domain,
     },
     {
       id: "type",
-      header: "Type",
+      header: t("apps.table.columnType"),
       mono: true,
       width: "w-36",
       hideBelow: "sm",
-      cell: (row) => (row.app.app_type ? <span className="text-fg-muted">{row.app.app_type}</span> : <Nothing reason="Unknown type" />),
+      cell: (row) =>
+        row.app.app_type ? <span className="text-fg-muted">{row.app.app_type}</span> : <Nothing reason={t("apps.table.unknownType")} />,
       sortValue: (row) => row.app.app_type ?? null,
     },
     ...(detail === "full"
       ? [
           {
             id: "port",
-            header: "Port",
+            header: t("apps.table.columnPort"),
             mono: true,
             width: "w-24",
             align: "end",
             hideBelow: "md",
-            cell: (row: Row) => (row.app.port ? <span className="text-fg-muted">{row.app.port}</span> : <Nothing reason="No port" />),
+            cell: (row: Row) =>
+              row.app.port ? <span className="text-fg-muted">{row.app.port}</span> : <Nothing reason={t("apps.table.noPort")} />,
             sortValue: (row: Row) => row.app.port ?? null,
           } satisfies Column<Row>,
         ]
       : []),
     {
       id: "deploy",
-      header: "Last deploy",
+      header: t("apps.table.columnLastDeploy"),
       width: "w-40",
-      cell: (row) => (row.deploy ? <DeployMoment deploy={row.deploy} /> : <Nothing reason="No recent deploy" />),
+      cell: (row) => (row.deploy ? <DeployMoment deploy={row.deploy} /> : <Nothing reason={t("apps.table.noRecentDeploy")} />),
       sortValue: (row) => {
         const moment = row.deploy ? parseTimestamp(deployMoment(row.deploy)) : null;
         return moment === null ? null : -moment.getTime();
@@ -163,20 +168,20 @@ export function AppsTable({
       ? ([
           {
             id: "cpu",
-            header: "CPU",
+            header: t("apps.table.columnCpu"),
             align: "end",
             mono: true,
             hideBelow: "md",
-            cell: (row) => (row.cpu === null ? <Nothing reason="No reading" /> : formatPercent(row.cpu)),
+            cell: (row) => (row.cpu === null ? <Nothing reason={t("apps.table.noReading")} /> : formatPercent(row.cpu)),
             sortValue: (row) => row.cpu,
           },
           {
             id: "memory",
-            header: "Memory",
+            header: t("apps.table.columnMemory"),
             align: "end",
             mono: true,
             hideBelow: "md",
-            cell: (row) => (row.memory === null ? <Nothing reason="No reading" /> : formatBytes(row.memory)),
+            cell: (row) => (row.memory === null ? <Nothing reason={t("apps.table.noReading")} /> : formatBytes(row.memory)),
             sortValue: (row) => row.memory,
           },
         ] satisfies Column<Row>[])

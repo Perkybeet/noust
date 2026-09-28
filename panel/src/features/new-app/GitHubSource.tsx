@@ -14,6 +14,7 @@ import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
 import type { SelectOption } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { ExternalAnchor } from "../settings/github/ExternalAnchor";
 import { splitFullName } from "../settings/github/github";
@@ -37,15 +38,16 @@ export function filterRepositories(repositories: readonly GitHubRepository[], qu
 
 /** Private or public, told by shape and word; neither is a state, so neither is coloured. */
 function Visibility({ repository }: { repository: Pick<GitHubRepository, "private"> }) {
+  const t = useT();
   return repository.private ? (
     <span className="flex shrink-0 items-center gap-1 text-12 text-fg-muted">
       <Lock aria-hidden="true" className="size-3" />
-      Private
+      {t("newApp.github.private")}
     </span>
   ) : (
     <span className="flex shrink-0 items-center gap-1 text-12 text-fg-muted">
       <Globe aria-hidden="true" className="size-3" />
-      Public
+      {t("newApp.github.public")}
     </span>
   );
 }
@@ -72,6 +74,7 @@ function RepositoryPicker({
   error: string | undefined;
   disabled: boolean;
 }) {
+  const t = useT();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const base = useId().replace(/[^a-zA-Z0-9_-]/g, "");
@@ -122,9 +125,9 @@ function RepositoryPicker({
   return (
     <div className="flex min-w-0 flex-col gap-2">
       <Field
-        label="Repository"
+        label={t("newApp.github.repository")}
         error={error}
-        description={`${String(repositories.length)} ${repositories.length === 1 ? "repository" : "repositories"} the App can read. Type to filter, arrow keys to move, Enter to choose.`}
+        description={t("newApp.github.repositoryCount", { count: repositories.length })}
       >
         <Input
           icon={<Search />}
@@ -139,7 +142,7 @@ function RepositoryPicker({
             setActive(0);
           }}
           onKeyDown={onKeyDown}
-          placeholder="Search repositories"
+          placeholder={t("newApp.github.search")}
           autoComplete="off"
           autoCapitalize="off"
           spellCheck={false}
@@ -150,7 +153,7 @@ function RepositoryPicker({
       <div
         id={listId}
         role="listbox"
-        aria-label="Repositories"
+        aria-label={t("newApp.github.repositories")}
         className={cx(
           "max-h-72 min-h-0 overflow-y-auto rounded-card border border-border bg-surface p-1 shadow-raised scroll-thin",
           matches.length === 0 && "hidden",
@@ -193,8 +196,8 @@ function RepositoryPicker({
               {repository.default_branch ? (
                 <span translate="no" className="mono hidden shrink-0 items-center gap-1 text-12 text-fg-muted sm:flex">
                   <GitBranch aria-hidden="true" className="size-3" />
-                  <span className="sr-only">default branch </span>
-                  {repository.default_branch}
+                  <span className="sr-only">{t("newApp.github.defaultBranchOf", { branch: repository.default_branch })}</span>
+                  <span aria-hidden="true">{repository.default_branch}</span>
                 </span>
               ) : null}
             </div>
@@ -203,13 +206,13 @@ function RepositoryPicker({
       </div>
       {matches.length === 0 ? (
         <p role="status" className="rounded-card border border-dashed border-border px-4 py-6 text-center text-13 text-fg-muted">
-          {query.trim() === "" ? "The App cannot read any repository yet." : `No repository matches "${query.trim()}".`}
+          {query.trim() === "" ? t("newApp.github.noneYet") : t("newApp.github.noMatch", { query: query.trim() })}
         </p>
       ) : null}
       {onCancel !== null ? (
         <div>
           <Button size="sm" variant="ghost" onClick={onCancel} disabled={disabled}>
-            Keep the chosen repository
+            {t("newApp.github.keepChosen")}
           </Button>
         </div>
       ) : null}
@@ -231,15 +234,16 @@ function BranchField({
   onChange: (form: SourceForm) => void;
   disabled: boolean;
 }) {
+  const t = useT();
   const branches = useQuery(githubBranchesQuery(repository.owner, repository.repo));
-  const description = "Pushes to this branch can redeploy it later.";
+  const description = t("newApp.github.branchDescription");
 
   if (branches.isError) {
     // The list is a convenience: the branch can still be typed, and the inspection checks it.
     return (
       <div className="flex min-w-0 flex-col gap-3">
-        <ErrorBlock compact error={branches.error} title="Could not list the branches" onRetry={() => void branches.refetch()} retrying={branches.isFetching} />
-        <Field label="Branch" error={error} description={`${description} Type it while the list is unavailable.`} className="sm:max-w-80">
+        <ErrorBlock compact error={branches.error} title={t("newApp.github.branchesFailed")} onRetry={() => void branches.refetch()} retrying={branches.isFetching} />
+        <Field label={t("newApp.github.branch")} error={error} description={t("newApp.github.branchTypeIt")} className="sm:max-w-80">
           <Input
             mono
             icon={<GitBranch />}
@@ -259,7 +263,7 @@ function BranchField({
   const options: SelectOption[] =
     listed.length > 0
       ? listed.map((branch) => {
-          const notes = [branch.name === repository.defaultBranch ? "Default branch" : null, branch.protected ? "Protected" : null].filter(
+          const notes = [branch.name === repository.defaultBranch ? t("newApp.github.defaultBranch") : null, branch.protected ? t("newApp.github.protected") : null].filter(
             (note): note is string => note !== null,
           );
           return { value: branch.name, label: branch.name, ...(notes.length > 0 ? { hint: notes.join(", ") } : {}) };
@@ -270,17 +274,17 @@ function BranchField({
 
   return (
     <Field
-      label="Branch"
+      label={t("newApp.github.branch")}
       nativeLabel={false}
       error={error}
-      description={branches.isPending ? `${description} Loading the branches from GitHub…` : description}
+      description={branches.isPending ? t("newApp.github.branchLoading") : description}
       className="sm:max-w-80"
     >
       <Select
         mono
         options={options}
         value={form.branch === "" ? null : form.branch}
-        placeholder={branches.isPending ? "Loading branches" : "Choose a branch"}
+        placeholder={t(branches.isPending ? "newApp.github.loadingBranches" : "newApp.github.chooseBranch")}
         onValueChange={(branch) => onChange({ ...form, branch })}
         disabled={disabled || (branches.isPending && options.length === 0)}
         className="w-full"
@@ -303,6 +307,7 @@ export interface GitHubSourceProps {
  * and carries the installation that reads it into the inspection and the deploy.
  */
 export function GitHubSource({ status, form, errors, onChange, disabled }: GitHubSourceProps) {
+  const t = useT();
   const installed = status.installations.length > 0;
   const repositories = useQuery({ ...githubRepositoriesQuery(), enabled: installed });
   const [changing, setChanging] = useState(false);
@@ -325,15 +330,13 @@ export function GitHubSource({ status, form, errors, onChange, disabled }: GitHu
   if (!installed) {
     return (
       <div className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-surface p-4 shadow-raised">
-        <p className="text-13 text-pretty text-fg">
-          The GitHub App is not installed on any account yet, so it cannot read a repository.
-        </p>
+        <p className="text-13 text-pretty text-fg">{t("newApp.github.notInstalled")}</p>
         <div className="flex flex-wrap items-center gap-3">
           <ExternalAnchor href={status.install_url} button="primary">
-            Install on GitHub
+            {t("newApp.github.install")}
           </ExternalAnchor>
           <Link to="/settings/integrations" className="rounded-[4px] text-13 font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus">
-            Settings, Integrations
+            {t("newApp.github.integrations")}
           </Link>
         </div>
       </div>
@@ -345,8 +348,8 @@ export function GitHubSource({ status, form, errors, onChange, disabled }: GitHu
       return (
         <ErrorBlock
           error={repositories.error}
-          title="Could not list the repositories on GitHub"
-          hint="Check that this server can reach api.github.com, and that the App is still installed."
+          title={t("newApp.github.repositoriesFailed")}
+          hint={t("newApp.github.repositoriesFailedHint")}
           onRetry={() => void repositories.refetch()}
           retrying={repositories.isFetching}
         />
@@ -354,7 +357,7 @@ export function GitHubSource({ status, form, errors, onChange, disabled }: GitHu
     }
     return (
       <div aria-busy="true" className="flex flex-col gap-2">
-        <span className="sr-only">Loading the repositories</span>
+        <span className="sr-only">{t("newApp.github.loadingRepositories")}</span>
         <Skeleton className="h-3 w-24" />
         <Skeleton className="h-8" />
         <Skeleton className="h-40" />
@@ -367,7 +370,7 @@ export function GitHubSource({ status, form, errors, onChange, disabled }: GitHu
     setChanging(false);
     const branch = repository.default_branch ?? "";
     onChange({ source: repository.source, branch, installationId: repository.installation_id });
-    announce(`Chose ${repository.full_name}${branch !== "" ? `, branch ${branch}` : ""}`);
+    announce(branch !== "" ? t("newApp.github.choseBranch", { name: repository.full_name, branch }) : t("newApp.github.chose", { name: repository.full_name }));
   };
 
   if (!chosen) {
@@ -381,10 +384,16 @@ export function GitHubSource({ status, form, errors, onChange, disabled }: GitHu
           disabled={disabled}
         />
         <p className="text-12 text-pretty text-fg-muted">
-          {"Missing one? The App reads only the repositories its installations allow. "}
-          <Link to="/settings/integrations" className="rounded-[4px] font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus">
-            Manage installations
-          </Link>
+          {t.rich("newApp.github.missing", {
+            link: (
+              <Link
+                to="/settings/integrations"
+                className="rounded-[4px] font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus"
+              >
+                {t("newApp.github.manage")}
+              </Link>
+            ),
+          })}
         </p>
       </div>
     );
@@ -393,7 +402,7 @@ export function GitHubSource({ status, form, errors, onChange, disabled }: GitHu
   return (
     <div className="flex min-w-0 flex-col gap-6">
       <div className="flex min-w-0 flex-col gap-1.5">
-        <span className="text-13 font-medium text-fg">Repository</span>
+        <span className="text-13 font-medium text-fg">{t("newApp.github.repository")}</span>
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 rounded-card border border-border bg-surface px-3 py-2 shadow-raised">
           <FolderGit2 aria-hidden="true" className="size-4 shrink-0 text-fg-muted" />
           <code translate="no" className="min-w-0 flex-1 truncate text-12 text-fg" title={fullName}>
@@ -401,7 +410,7 @@ export function GitHubSource({ status, form, errors, onChange, disabled }: GitHu
           </code>
           {listed !== undefined ? <Visibility repository={listed} /> : null}
           <Button ref={change} size="sm" variant="ghost" onClick={() => setChanging(true)} disabled={disabled}>
-            Change repository
+            {t("newApp.github.change")}
           </Button>
         </div>
         {errors.source !== undefined ? (

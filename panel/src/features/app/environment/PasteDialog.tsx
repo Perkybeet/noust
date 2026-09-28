@@ -6,17 +6,13 @@ import { Button } from "../../../components/ui/Button";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Field } from "../../../components/ui/Field";
 import { Textarea } from "../../../components/ui/Textarea";
+import { useT } from "../../../i18n";
+import type { T } from "../../../i18n";
 import { cx } from "../../../lib/cx";
-import { formatCount } from "../../../lib/format";
 import type { DraftOp, EnvMap } from "./draft";
 import { nameProblem, parseDotenv, valueProblem } from "./dotenv";
 
 export type PasteMode = "merge" | "replace";
-
-const MODES = [
-  { value: "merge", label: "Add and update" },
-  { value: "replace", label: "Replace all" },
-] as const;
 
 interface Problem {
   /** Blocks staging: the API would refuse the variables. */
@@ -25,28 +21,32 @@ interface Problem {
 }
 
 /** What is wrong with the pasted text, line by line, in the order the lines come. */
-function problemsOf(text: string): { problems: Problem[]; count: number; parsed: ReturnType<typeof parseDotenv> } {
+function problemsOf(text: string, t: T): { problems: Problem[]; count: number; parsed: ReturnType<typeof parseDotenv> } {
   const parsed = parseDotenv(text);
   const problems: Problem[] = [];
   const lines = new Map<string, number[]>();
   for (const assignment of parsed.assignments) {
     lines.set(assignment.name, [...(lines.get(assignment.name) ?? []), assignment.line]);
-    const name = nameProblem(assignment.name);
-    if (name !== null) problems.push({ blocking: true, text: `Line ${String(assignment.line)}: ${name}` });
-    const value = valueProblem(assignment.value);
-    if (value !== null) problems.push({ blocking: true, text: `Line ${String(assignment.line)}: ${value}` });
+    const name = nameProblem(assignment.name, t.locale);
+    if (name !== null) problems.push({ blocking: true, text: t("environment.pasteDialog.lineProblem", { line: assignment.line, problem: name }) });
+    const value = valueProblem(assignment.value, t.locale);
+    if (value !== null) problems.push({ blocking: true, text: t("environment.pasteDialog.lineProblem", { line: assignment.line, problem: value }) });
   }
   for (const [name, at] of lines) {
-    if (at.length > 1 && nameProblem(name) === null) {
+    if (at.length > 1 && nameProblem(name, t.locale) === null) {
       const list = at.map(String);
       problems.push({
         blocking: false,
-        text: `${name} is set on lines ${list.slice(0, -1).join(", ")} and ${list.at(-1) ?? ""}; the later line wins.`,
+        text: t("environment.pasteDialog.duplicateLines", {
+          name,
+          firstLines: list.slice(0, -1).join(", "),
+          lastLine: list.at(-1) ?? "",
+        }),
       });
     }
   }
   for (const skipped of parsed.skipped) {
-    problems.push({ blocking: false, text: `Line ${String(skipped.line)} has no = and is skipped, as WASM skips it.` });
+    problems.push({ blocking: false, text: t("environment.pasteDialog.skippedLine", { line: skipped.line }) });
   }
   return { problems, count: parsed.variables.size, parsed };
 }
@@ -64,10 +64,11 @@ export interface PasteDialogProps {
  * is wrong said line by line before anything is staged.
  */
 export function PasteDialog({ open, onOpenChange, current, onStage }: PasteDialogProps) {
+  const t = useT();
   const formId = useId();
   const [text, setText] = useState("");
   const [mode, setMode] = useState<PasteMode>("merge");
-  const { problems, count, parsed } = useMemo(() => problemsOf(text), [text]);
+  const { problems, count, parsed } = useMemo(() => problemsOf(text, t), [text, t]);
   const blocking = problems.some((problem) => problem.blocking);
 
   const removals = mode === "replace" ? [...current.keys()].filter((name) => !parsed.variables.has(name)).length : 0;
@@ -86,28 +87,28 @@ export function PasteDialog({ open, onOpenChange, current, onStage }: PasteDialo
       mode === "replace"
         ? [{ kind: "replace", variables: new Map(parsed.variables) }]
         : [...parsed.variables].map(([name, value]) => ({ kind: "set", name, value }));
-    const summary =
-      mode === "replace"
-        ? `Staged ${formatCount(count)} pasted ${count === 1 ? "variable" : "variables"} to replace the file`
-        : `Staged ${formatCount(count)} pasted ${count === 1 ? "variable" : "variables"}`;
+    const summary = t(mode === "replace" ? "environment.pasteDialog.stagedSummaryReplace" : "environment.pasteDialog.stagedSummary", { count });
     onStage(ops, summary);
     close(false);
   };
 
-  const noun = count === 1 ? "variable" : "variables";
+  const modes: readonly { value: PasteMode; label: string }[] = [
+    { value: "merge", label: t("environment.pasteDialog.modeMerge") },
+    { value: "replace", label: t("environment.pasteDialog.modeReplace") },
+  ];
 
   return (
     <Dialog
       open={open}
       onOpenChange={close}
       size="lg"
-      title="Paste a .env file"
-      description="Read the way WASM reads the file on disk: blank lines, comments and one pair of quotes around a value are dropped, nothing else is interpreted. Nothing is saved until you review the changes."
+      title={t("environment.pasteDialog.title")}
+      description={t("environment.pasteDialog.description")}
       footer={
         <>
-          <Button onClick={() => close(false)}>Cancel</Button>
+          <Button onClick={() => close(false)}>{t("environment.cancel")}</Button>
           <Button type="submit" form={formId} variant="primary" disabled={count === 0 || blocking}>
-            {count === 0 ? "Stage variables" : `Stage ${formatCount(count)} ${noun}`}
+            {count === 0 ? t("environment.pasteDialog.stageEmpty") : t("environment.pasteDialog.stage", { count })}
           </Button>
         </>
       }
@@ -122,7 +123,7 @@ export function PasteDialog({ open, onOpenChange, current, onStage }: PasteDialo
       >
         {/* Side by side from the small breakpoint: the text and what it parses to. */}
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label=".env contents">
+          <Field label={t("environment.pasteDialog.contentsLabel")}>
             <Textarea
               mono
               rows={11}
@@ -140,16 +141,16 @@ export function PasteDialog({ open, onOpenChange, current, onStage }: PasteDialo
 
           <section aria-labelledby={`${formId}-preview`} className="flex min-w-0 flex-col gap-1.5">
             <h3 id={`${formId}-preview`} className="text-13 font-medium text-fg">
-              {count === 0 ? "Parsed variables" : `${formatCount(count)} ${noun} found`}
+              {count === 0 ? t("environment.pasteDialog.parsedHeading") : t("environment.pasteDialog.foundCount", { count })}
             </h3>
             <div
               role="region"
-              aria-label="What the pasted text parses to"
+              aria-label={t("environment.pasteDialog.previewRegionAria")}
               tabIndex={0}
               className="flex h-60 flex-col gap-2 overflow-y-auto rounded-control border border-border bg-bg-sunken p-2 scroll-thin focus-visible:outline-2 focus-visible:outline-focus"
             >
               {count === 0 && problems.length === 0 ? (
-                <p className="px-1 py-1 text-12 text-fg-faint">Each NAME=value line appears here as it will be read.</p>
+                <p className="px-1 py-1 text-12 text-fg-faint">{t("environment.pasteDialog.emptyHint")}</p>
               ) : null}
               {problems.length > 0 ? (
                 <ul className="flex flex-col gap-1.5 px-1 pt-0.5">
@@ -161,7 +162,7 @@ export function PasteDialog({ open, onOpenChange, current, onStage }: PasteDialo
                         <TriangleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-warn" />
                       )}
                       <span className={problem.blocking ? "text-fg" : "text-fg-muted"}>
-                        <span className="sr-only">{problem.blocking ? "Error: " : "Note: "}</span>
+                        <span className="sr-only">{problem.blocking ? t("environment.pasteDialog.errorPrefix") : t("environment.pasteDialog.notePrefix")}</span>
                         {problem.text}
                       </span>
                     </li>
@@ -169,17 +170,17 @@ export function PasteDialog({ open, onOpenChange, current, onStage }: PasteDialo
                 </ul>
               ) : null}
               {count > 0 ? (
-                <ul aria-label="Parsed variables" className="divide-y divide-border rounded-[4px] border border-border bg-surface">
+                <ul aria-label={t("environment.pasteDialog.parsedHeading")} className="divide-y divide-border rounded-[4px] border border-border bg-surface">
                   {[...parsed.variables].map(([name, value]) => {
-                    const invalid = nameProblem(name) !== null;
+                    const invalid = nameProblem(name, t.locale) !== null;
                     return (
                       <li key={name} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 px-2 py-1 text-12">
                         <span translate="no" className={cx("mono truncate", invalid ? "text-fail" : "text-fg")} title={name}>
-                          {name === "" ? "(no name)" : name}
+                          {name === "" ? t("environment.noName") : name}
                         </span>
-                        <span className="text-fg-faint">{current.has(name) ? "Replaces" : "New"}</span>
+                        <span className="text-fg-faint">{current.has(name) ? t("environment.pasteDialog.replaces") : t("environment.pasteDialog.new")}</span>
                         <span translate="no" className="mono col-span-2 truncate text-fg-muted" title={value}>
-                          {value === "" ? <span className="font-sans text-fg-faint">Empty</span> : value}
+                          {value === "" ? <span className="font-sans text-fg-faint">{t("environment.empty")}</span> : value}
                         </span>
                       </li>
                     );
@@ -190,25 +191,19 @@ export function PasteDialog({ open, onOpenChange, current, onStage }: PasteDialo
           </section>
         </div>
 
-
         <div className="flex flex-col gap-1.5">
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
             <span aria-hidden="true" className="text-13 font-medium text-fg">
-              What to do with the pasted variables
+              {t("environment.pasteDialog.modeLabel")}
             </span>
-            <SegmentedControl<PasteMode>
-              label="What to do with the pasted variables"
-              options={MODES}
-              value={mode}
-              onValueChange={setMode}
-            />
+            <SegmentedControl<PasteMode> label={t("environment.pasteDialog.modeLabel")} options={modes} value={mode} onValueChange={setMode} />
           </div>
           <p className="text-13 text-fg-muted">
             {mode === "merge"
-              ? "They are added, or replace the value of a variable with the same name. The others stay."
+              ? t("environment.pasteDialog.mergeDescription")
               : removals > 0
-                ? `The file will hold exactly these: ${formatCount(removals)} current ${removals === 1 ? "variable is" : "variables are"} removed.`
-                : "The file will hold exactly these."}
+                ? t("environment.pasteDialog.replaceDescriptionWithRemovals", { count: removals })
+                : t("environment.pasteDialog.replaceDescriptionNoRemovals")}
           </p>
         </div>
       </form>

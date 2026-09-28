@@ -14,6 +14,8 @@ import type { LogLine } from "../../../components/ui/LogViewer";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import type { Status } from "../../../components/ui/StatusPill";
+import { useT } from "../../../i18n";
+import type { T } from "../../../i18n";
 import { formatCount } from "../../../lib/format";
 import { useLogStream } from "../../../realtime/sockets";
 import type { SocketStatus } from "../../../realtime/sockets";
@@ -25,12 +27,18 @@ export const LOG_CAP = 10_000;
 /** Journal lines asked for when the stream opens. */
 const BACKLOG = 200;
 
-const CONNECTION: Readonly<Record<SocketStatus, { state: Status; label: string }>> = {
-  connecting: { state: "deploying", label: "Connecting" },
-  open: { state: "running", label: "Live" },
-  reconnecting: { state: "deploying", label: "Reconnecting" },
-  closed: { state: "stopped", label: "Disconnected" },
-};
+function connectionView(t: T, status: SocketStatus): { state: Status; label: string } {
+  switch (status) {
+    case "connecting":
+      return { state: "deploying", label: t("appPages.logs.connecting") };
+    case "open":
+      return { state: "running", label: t("appPages.logs.live") };
+    case "reconnecting":
+      return { state: "deploying", label: t("appPages.common.reconnecting") };
+    case "closed":
+      return { state: "stopped", label: t("appPages.logs.disconnected") };
+  }
+}
 
 /**
  * A journal line in `short-iso` form: "2026-09-25T21:45:52+0100 web-01 shop[41234]: message".
@@ -64,10 +72,10 @@ function withLevel(line: LogLine): LogLine {
  * stream reconnects by itself; the viewer follows the newest line until the operator scrolls
  * up, and `/` searches it.
  */
-function Journal({ domain, failed }: { domain: string; failed: boolean }) {
+function Journal({ domain, failed, t }: { domain: string; failed: boolean; t: T }) {
   const stream = useLogStream(domain, { lines: BACKLOG, cap: LOG_CAP });
   const lines = useMemo(() => stream.lines.map(withLevel), [stream.lines]);
-  const connection = CONNECTION[stream.status];
+  const connection = connectionView(t, stream.status);
 
   return (
     <div className="flex flex-col gap-3">
@@ -76,23 +84,26 @@ function Journal({ domain, failed }: { domain: string; failed: boolean }) {
           <StatusPill state={connection.state} label={connection.label} size="sm" />
           <span className="text-12 text-fg-muted">
             {stream.status === "connecting" && lines.length === 0
-              ? `Reading the last ${String(BACKLOG)} lines of the journal`
-              : `${formatCount(lines.length)} ${lines.length === 1 ? "line" : "lines"}`}
+              ? t("appPages.logs.readingBacklog", { count: BACKLOG })
+              : t("appPages.logs.lineCount", { count: lines.length })}
           </span>
           {failed ? (
             <span className="text-12 text-fg-muted">
-              {"The unit has failed; its last lines usually say why. "}
-              <Link
-                to="/apps/$domain/diagnose"
-                params={{ domain }}
-                className="rounded-[4px] font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus"
-              >
-                Diagnose
-              </Link>
+              {t.rich("appPages.logs.unitFailedHint", {
+                diagnose: (
+                  <Link
+                    to="/apps/$domain/diagnose"
+                    params={{ domain }}
+                    className="rounded-[4px] font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus"
+                  >
+                    {t("nav.appTabs.diagnose.label")}
+                  </Link>
+                ),
+              })}
             </span>
           ) : null}
         </div>
-        <CommandHint command={`wasm logs ${domain} --follow`} label="From a terminal" />
+        <CommandHint command={`wasm logs ${domain} --follow`} label={t("appPages.fromTerminal")} />
       </div>
 
       {stream.error !== null ? (
@@ -100,15 +111,16 @@ function Journal({ domain, failed }: { domain: string; failed: boolean }) {
           live
           compact
           error={{ detail: stream.error }}
-          title="The journal stream failed"
-          hint="The console follows the unit with journalctl. Reading it from a terminal shows whether the journal itself answers."
+          title={t("appPages.logs.streamFailed")}
+          hint={t("appPages.logs.streamFailedHint")}
         />
       ) : null}
       {stream.truncated ? (
         <p className="rounded-control border border-border bg-bg-sunken px-3 py-2 text-12 text-fg-muted">
-          {`Showing the newest ${formatCount(LOG_CAP)} lines. Older ones were dropped from this view; `}
-          <code translate="no" className="text-fg">{`wasm logs ${domain} --lines 50000`}</code>
-          {" reads further back."}
+          {t.rich("appPages.logs.truncatedNotice", {
+            lines: formatCount(LOG_CAP, t.locale),
+            command: <code translate="no" className="text-fg">{`wasm logs ${domain} --lines 50000`}</code>,
+          })}
         </p>
       ) : null}
 
@@ -117,9 +129,9 @@ function Journal({ domain, failed }: { domain: string; failed: boolean }) {
           lines={lines}
           height="fill"
           pageSearch
-          label={`Journal of ${domain}`}
+          label={t("appPages.logs.journalLabel", { domain })}
           filename={`${domain}-journal.log`}
-          emptyMessage={stream.status === "open" ? "The journal has no lines for this unit yet." : "Connecting to the journal."}
+          emptyMessage={stream.status === "open" ? t("appPages.logs.emptyOpen") : t("appPages.logs.emptyConnecting")}
         />
       </div>
     </div>
@@ -128,14 +140,15 @@ function Journal({ domain, failed }: { domain: string; failed: boolean }) {
 
 /** The Logs tab: the unit's journal, followed live. A static site has no unit, and says so. */
 export function LogsTab({ domain }: { domain: string }) {
-  useDocumentTitle(`Logs - ${domain}`, 1);
+  const t = useT();
+  useDocumentTitle(t("appPages.logs.documentTitle", { domain }), 1);
   const app = useQuery(appQuery(domain));
 
   // The layout owns the load failure and the not-found page.
   if (app.data === undefined) {
     return app.isError ? null : (
       <div aria-busy="true" className="flex flex-col gap-3">
-        <span className="sr-only">Loading the journal</span>
+        <span className="sr-only">{t("appPages.logs.loadingJournal")}</span>
         <Skeleton className="h-6 w-40" />
         <Skeleton className="h-[24rem] w-full rounded-card" />
       </div>
@@ -148,13 +161,13 @@ export function LogsTab({ domain }: { domain: string }) {
       <EmptyState
         level={2}
         icon={<FileText />}
-        title="A static site has no process to log"
-        description="The web server serves its files directly, so there is no unit and no journal. Requests to it are in the web server's access log."
+        title={t("appPages.logs.staticTitle")}
+        description={t("appPages.logs.staticDescription")}
         command={`tail -f /var/log/nginx/access.log`}
         className="py-16"
       />
     );
   }
 
-  return <Journal domain={domain} failed={appStatus(app.data.status).state === "failed"} />;
+  return <Journal domain={domain} failed={appStatus(app.data.status).state === "failed"} t={t} />;
 }

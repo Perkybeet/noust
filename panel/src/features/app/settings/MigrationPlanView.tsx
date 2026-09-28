@@ -1,66 +1,82 @@
 import { TriangleAlert } from "lucide-react";
 
 import type { MigrationPlan } from "../../../api/queries/apps";
+import { getLocale } from "../../../app/locale";
+import type { Locale } from "../../../app/locale";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../../components/page/KeyValueList";
-import { formatBytes, formatCount } from "../../../lib/format";
+import { useT } from "../../../i18n";
+import { translate } from "../../../i18n/translate";
+import { formatBytes } from "../../../lib/format";
 
 /** How the paths kept in shared/ were chosen, as the plan's `persistent_source` says. */
-const PERSISTENT_SOURCE: Readonly<Record<string, string>> = {
-  git: "Everything git does not track in the tree, minus build output",
-  explicit: "The paths named for this migration",
-  common: "The usual upload directories found in the tree",
-};
-
-function plural(count: number, one: string, many: string): string {
-  return `${formatCount(count)} ${count === 1 ? one : many}`;
+function persistentSourceHint(source: string, locale: Locale): string {
+  if (source === "git") return translate(locale, "appSettings.migrationPlan.persistentSourceGit");
+  if (source === "explicit") return translate(locale, "appSettings.migrationPlan.persistentSourceExplicit");
+  if (source === "common") return translate(locale, "appSettings.migrationPlan.persistentSourceCommon");
+  return source;
 }
 
 /** The rows of a plan, in the order the migration does them. */
-export function planItems(plan: MigrationPlan): KeyValueItem[] {
+export function planItems(plan: MigrationPlan, locale: Locale = getLocale()): KeyValueItem[] {
+  const fileCount = translate(locale, "appSettings.migrationPlan.fileCount", { count: plan.files });
   const items: KeyValueItem[] = [
     {
-      label: "First release",
+      label: translate(locale, "appSettings.migrationPlan.firstRelease"),
       value: plan.release_id,
-      hint: "Named when the migration runs; this is the name it would get now",
+      hint: translate(locale, "appSettings.migrationPlan.firstReleaseHint"),
     },
-    { label: "Commit", value: plan.commit ?? "Not a git checkout", mono: plan.commit !== null && plan.commit !== undefined, copy: false },
     {
-      label: "Kept in shared/",
-      value: plan.persistent.length > 0 ? plan.persistent.join(", ") : "Nothing",
+      label: translate(locale, "appSettings.migrationPlan.commit"),
+      value: plan.commit ?? translate(locale, "appSettings.migrationPlan.notGitCheckout"),
+      mono: plan.commit !== null && plan.commit !== undefined,
+      copy: false,
+    },
+    {
+      label: translate(locale, "appSettings.migrationPlan.keptInShared"),
+      value: plan.persistent.length > 0 ? plan.persistent.join(", ") : translate(locale, "appSettings.migrationPlan.nothing"),
       mono: plan.persistent.length > 0,
       copy: false,
-      hint: PERSISTENT_SOURCE[plan.persistent_source] ?? plan.persistent_source,
+      hint: persistentSourceHint(plan.persistent_source, locale),
     },
     {
-      label: "Environment",
-      value: plan.env_files.length > 0 ? plan.env_files.join(", ") : "No environment file",
+      label: translate(locale, "appSettings.migrationPlan.environment"),
+      value: plan.env_files.length > 0 ? plan.env_files.join(", ") : translate(locale, "appSettings.migrationPlan.noEnvFile"),
       mono: plan.env_files.length > 0,
       copy: false,
-      hint: plan.env_files.length > 0 ? "Moved to shared/ and linked into every release" : undefined,
+      hint: plan.env_files.length > 0 ? translate(locale, "appSettings.migrationPlan.envMovedHint") : undefined,
     },
     {
-      label: "Unit",
-      value: plan.unit ? `${plan.unit}${plan.unit_rewrite ? ", rewritten to run from current" : ", unchanged"}` : "None, the web server serves it",
+      label: translate(locale, "appSettings.migrationPlan.unit"),
+      value: plan.unit
+        ? translate(locale, plan.unit_rewrite ? "appSettings.migrationPlan.unitRewritten" : "appSettings.migrationPlan.unitUnchanged", { unit: plan.unit })
+        : translate(locale, "appSettings.migrationPlan.unitNone"),
       mono: false,
       copy: false,
     },
-    { label: "Site", value: plan.site_rewrite ? "Rewritten to serve current" : "Unchanged", mono: false, copy: false },
     {
-      label: "Files",
-      value: `${plural(plan.files, "file", "files")}, ${formatBytes(plan.bytes)}`,
+      label: translate(locale, "appSettings.migrationPlan.site"),
+      value: plan.site_rewrite ? translate(locale, "appSettings.migrationPlan.siteRewritten") : translate(locale, "appSettings.migrationPlan.siteUnchanged"),
       mono: false,
       copy: false,
-      hint: "All kept: moved into place, never copied or deleted",
+    },
+    {
+      label: translate(locale, "appSettings.migrationPlan.files"),
+      value: translate(locale, "appSettings.migrationPlan.filesValue", { count: fileCount, bytes: formatBytes(plan.bytes, locale) }),
+      mono: false,
+      copy: false,
+      hint: translate(locale, "appSettings.migrationPlan.filesHint"),
     },
   ];
   if (plan.untracked_files.length > 0) {
     items.push({
-      label: "Only in the first release",
-      value: plural(plan.untracked_files.length, "untracked file", "untracked files"),
+      label: translate(locale, "appSettings.migrationPlan.onlyInFirstRelease"),
+      value: translate(locale, "appSettings.migrationPlan.untrackedFileCount", { count: plan.untracked_files.length }),
       mono: false,
       copy: false,
-      hint: plan.untracked_files.slice(0, 5).join(", ") + (plan.untracked_files.length > 5 ? ", and more" : ""),
+      hint:
+        plan.untracked_files.slice(0, 5).join(", ") +
+        (plan.untracked_files.length > 5 ? translate(locale, "appSettings.migrationPlan.untrackedHintMore") : ""),
     });
   }
   return items;
@@ -81,17 +97,18 @@ export function PlanWarning({ children }: { children: string }) {
  * then each change in the order it happens.
  */
 export function MigrationPlanView({ plan }: { plan: MigrationPlan }) {
+  const t = useT();
   return (
     <div className="flex min-w-0 flex-col gap-3">
       {plan.warnings.length > 0 ? (
         <div className="flex flex-col gap-2">
-          <h4 className="sr-only">Warnings</h4>
+          <h4 className="sr-only">{t("appSettings.migrationPlan.warningsHeading")}</h4>
           {plan.warnings.map((warning) => (
             <PlanWarning key={warning}>{warning}</PlanWarning>
           ))}
         </div>
       ) : null}
-      <KeyValueList items={planItems(plan)} />
+      <KeyValueList items={planItems(plan, t.locale)} />
     </div>
   );
 }

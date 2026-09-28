@@ -2,6 +2,7 @@ import { Drawer as BaseDrawer } from "@base-ui/react/drawer";
 import { X } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
 
+import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { BACKDROP } from "./Dialog";
 import { IconButton } from "./IconButton";
@@ -39,6 +40,7 @@ export function Drawer({
   size = "md",
   finalFocus,
 }: DrawerProps) {
+  const t = useT();
   return (
     <BaseDrawer.Root
       swipeDirection="right"
@@ -67,7 +69,7 @@ export function Drawer({
                 ) : null}
               </div>
               <BaseDrawer.Close
-                render={<IconButton label="Close" icon={<X />} size="sm" tooltip={false} className="-mr-2" />}
+                render={<IconButton label={t("common.dialog.close")} icon={<X />} size="sm" tooltip={false} className="-mr-2" />}
               />
             </header>
             <BaseDrawer.Content className="min-h-0 flex-1 overflow-y-auto px-5 py-4 scroll-thin">{children}</BaseDrawer.Content>

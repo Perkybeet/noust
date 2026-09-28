@@ -10,19 +10,36 @@
 
 import type { Status } from "../../components/ui/StatusPill";
 import type { CronJobList } from "../../api/queries/cron";
+import { getLocale } from "../../app/locale";
+import type { Locale } from "../../app/locale";
+import { translate } from "../../i18n";
 import { parseTimestamp } from "../../lib/format";
 
 export type CronJob = CronJobList["jobs"][number];
 
 export type Schedule = "hourly" | "daily" | "weekly" | "monthly" | "custom";
 
-export const SCHEDULE_PRESETS: readonly { value: Schedule; label: string }[] = [
-  { value: "hourly", label: "Hourly" },
-  { value: "daily", label: "Daily" },
-  { value: "weekly", label: "Weekly" },
-  { value: "monthly", label: "Monthly" },
-  { value: "custom", label: "Custom" },
-];
+const SCHEDULE_VALUES: readonly Schedule[] = ["hourly", "daily", "weekly", "monthly", "custom"];
+
+function presetLabel(value: Schedule, locale: Locale): string {
+  switch (value) {
+    case "hourly":
+      return translate(locale, "cron.presets.hourly");
+    case "daily":
+      return translate(locale, "cron.presets.daily");
+    case "weekly":
+      return translate(locale, "cron.presets.weekly");
+    case "monthly":
+      return translate(locale, "cron.presets.monthly");
+    case "custom":
+      return translate(locale, "cron.presets.custom");
+  }
+}
+
+/** The calendar presets the editor offers, labelled in the active language. */
+export function schedulePresets(locale: Locale = getLocale()): readonly { value: Schedule; label: string }[] {
+  return SCHEDULE_VALUES.map((value) => ({ value, label: presetLabel(value, locale) }));
+}
 
 export interface RunView {
   state: Status;
@@ -36,13 +53,13 @@ export interface RunView {
  * `core-dump`, `watchdog`, `start-limit-hit`), or the job's own `never ran`/`unknown`, in the
  * console's state language.
  */
-export function runStatus(result: string | null | undefined): RunView {
+export function runStatus(result: string | null | undefined, locale: Locale = getLocale()): RunView {
   const word = (result ?? "").trim().toLowerCase();
-  if (word === "" || word === "never ran") return { state: "unknown", label: "Never run" };
-  if (word === "success") return { state: "running", label: "Succeeded" };
-  if (word === "unknown") return { state: "unknown", label: "Unknown" };
+  if (word === "" || word === "never ran") return { state: "unknown", label: translate(locale, "cron.status.neverRun") };
+  if (word === "success") return { state: "running", label: translate(locale, "cron.status.succeeded") };
+  if (word === "unknown") return { state: "unknown", label: translate(locale, "cron.status.unknown") };
   // The state word is the state; systemd's reason goes beside it, as the services list does.
-  return { state: "failed", label: "Failed", detail: word };
+  return { state: "failed", label: translate(locale, "cron.status.failed"), detail: word };
 }
 
 /**
@@ -50,12 +67,12 @@ export function runStatus(result: string | null | undefined): RunView {
  * ("*-*-* 03:30:00" is every day at 03:30); anything else is "Custom", with the expression
  * itself shown beside it.
  */
-export function scheduleWords(schedule: string, onCalendar: string): string {
-  const preset = SCHEDULE_PRESETS.find((option) => option.value === schedule.trim().toLowerCase() && option.value !== "custom");
-  if (preset) return preset.label;
+export function scheduleWords(schedule: string, onCalendar: string, locale: Locale = getLocale()): string {
+  const trimmed = schedule.trim().toLowerCase();
+  if (trimmed !== "custom" && SCHEDULE_VALUES.includes(trimmed as Schedule)) return presetLabel(trimmed as Schedule, locale);
   const daily = /^\*-\*-\*\s+(\d{1,2}):(\d{2})(?::00)?$/.exec(onCalendar.trim());
-  if (daily) return `Every day at ${(daily[1] ?? "").padStart(2, "0")}:${daily[2] ?? ""}`;
-  return "Custom";
+  if (daily) return translate(locale, "cron.presets.dailyAt", { hours: (daily[1] ?? "").padStart(2, "0"), minutes: daily[2] ?? "" });
+  return translate(locale, "cron.presets.custom");
 }
 
 export interface CronSearch {

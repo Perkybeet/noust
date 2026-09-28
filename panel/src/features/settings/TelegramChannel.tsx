@@ -11,13 +11,10 @@ import { Button } from "../../components/ui/Button";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { toast } from "../../components/ui/toast";
+import { useT } from "../../i18n";
 import { ChannelHeader, DirtyActions, SecretInput, TestButton, TestOutcome, useChannelTest, useRefreshConfig } from "./channelParts";
 import { splitConfigErrors } from "./formErrors";
-import { CHANNELS, REDACTED, channelValue, telegramChatIdWarning, telegramChatName, telegramChatType } from "./notifications";
-
-const SPEC = CHANNELS.find((spec) => spec.id === "telegram") ?? CHANNELS[0];
-const TOKEN_FIELD = SPEC?.fields.find((field) => field.key === "bot_token");
-const CHAT_FIELD = SPEC?.fields.find((field) => field.key === "chat_id");
+import { REDACTED, channelValue, channels, telegramChatIdWarning, telegramChatName, telegramChatType } from "./notifications";
 
 type TelegramField = "bot_token" | "chat_id";
 const FIELDS: readonly TelegramField[] = ["bot_token", "chat_id"];
@@ -42,9 +39,14 @@ function ChatFinder({
   chatId: string;
   onPick: (chat: TelegramChat) => void;
 }) {
+  const t = useT();
   const reasonId = useId();
   const find = useMutation({ mutationFn: findTelegramChats });
-  const reason = !tokenSaved && !tokenTyped ? "Save the bot token first." : tokenTyped ? "Save the new token first." : undefined;
+  const reason = !tokenSaved && !tokenTyped
+    ? t("settings.notifications.telegram.findChatNeedsToken")
+    : tokenTyped
+      ? t("settings.notifications.telegram.findChatNeedsSavedToken")
+      : undefined;
   const chats = find.data;
 
   return (
@@ -60,33 +62,39 @@ function ChatFinder({
             find.mutate();
           }}
         >
-          Find my chat
+          {t("settings.notifications.telegram.findChat")}
         </Button>
         <span id={reasonId} className="text-12 text-fg-faint">
-          {reason ?? "Lists the chats your bot has seen, to pick the chat ID from."}
+          {reason ?? t("settings.notifications.telegram.findChatHint")}
         </span>
       </div>
       {/* The count is announced; the list itself is read on demand. */}
       <p role="status" className="sr-only">
-        {chats === undefined ? "" : chats.length === 0 ? "Your bot has not seen any chat yet." : `Found ${String(chats.length)} ${chats.length === 1 ? "chat" : "chats"}.`}
+        {chats === undefined
+          ? ""
+          : chats.length === 0
+            ? t("settings.notifications.telegram.noChatsSeen")
+            : t("settings.notifications.telegram.chatsFound", { count: chats.length })}
       </p>
-      {find.isError ? <ErrorBlock compact error={find.error} title="Could not list the chats" /> : null}
+      {find.isError ? <ErrorBlock compact error={find.error} title={t("settings.notifications.telegram.listFailed")} /> : null}
       {chats?.length === 0 ? (
         <div className="flex flex-col gap-1 rounded-control border border-border bg-bg-sunken px-3 py-2 text-13 text-fg-muted">
-          <p className="font-medium text-fg">Your bot has not seen any chat yet.</p>
+          <p className="font-medium text-fg">{t("settings.notifications.telegram.noChatsSeen")}</p>
           <p className="text-pretty">
-            Add the bot to the group and send{" "}
-            <code translate="no" className="mono rounded-[4px] bg-surface px-1 text-12 text-fg">
-              /start@your_bot_name
-            </code>{" "}
-            there, with your bot's own username - or send it any message in a private chat. Then find your chat again.
+            {t.rich("settings.notifications.telegram.noChatsHint", {
+              command: (
+                <code translate="no" className="mono rounded-[4px] bg-surface px-1 text-12 text-fg">
+                  /start@your_bot_name
+                </code>
+              ),
+            })}
           </p>
         </div>
       ) : null}
       {chats !== undefined && chats.length > 0 ? (
-        <ul aria-label="Chats your bot has seen" className="flex min-w-0 flex-col divide-y divide-border rounded-control border border-border bg-bg-sunken">
+        <ul aria-label={t("settings.notifications.telegram.chatsListLabel")} className="flex min-w-0 flex-col divide-y divide-border rounded-control border border-border bg-bg-sunken">
           {chats.map((chat) => {
-            const name = telegramChatName(chat);
+            const name = telegramChatName(chat, t.locale);
             const chosen = chatId.trim() === String(chat.id);
             return (
               <li key={chat.id} className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 py-1.5 pr-1.5 pl-3">
@@ -95,7 +103,7 @@ function ChatFinder({
                     {name}
                   </span>
                   <span className="text-12 text-fg-muted">
-                    {telegramChatType(chat.type)}
+                    {telegramChatType(chat.type, t.locale)}
                     {chat.title && chat.username ? <span translate="no">{` · @${chat.username}`}</span> : null}
                   </span>
                 </div>
@@ -105,18 +113,18 @@ function ChatFinder({
                 {chosen ? (
                   <span className="flex h-7 shrink-0 items-center gap-1.5 px-2 text-12 text-fg">
                     <Check aria-hidden="true" className="size-3.5 text-ok" />
-                    Chosen
+                    {t("settings.notifications.telegram.chosen")}
                   </span>
                 ) : (
                   <Button
                     size="sm"
                     variant="ghost"
-                    aria-label={`Use ${name}`}
+                    aria-label={t("settings.notifications.telegram.useChat", { name })}
                     onClick={() => {
                       onPick(chat);
                     }}
                   >
-                    Use
+                    {t("settings.notifications.telegram.useButton")}
                   </Button>
                 )}
               </li>
@@ -135,6 +143,8 @@ function ChatFinder({
  * PATCH, which is the one write that can.
  */
 export function TelegramChannel({ stored }: { stored: Readonly<Record<string, string>> }) {
+  const t = useT();
+  const spec = channels(t).find((candidate) => candidate.id === "telegram");
   const refresh = useRefreshConfig();
   const headingId = useId();
   const [draft, setDraft] = useState<Partial<Record<TelegramField, string>>>({});
@@ -158,7 +168,7 @@ export function TelegramChannel({ stored }: { stored: Readonly<Record<string, st
       setDraft({});
       test.reset();
       await refresh();
-      toast.success("Saved the Telegram destination");
+      toast.success(t("settings.notifications.telegram.savedToast"));
     },
     onSettled: () => {
       setEdited(new Set());
@@ -166,15 +176,15 @@ export function TelegramChannel({ stored }: { stored: Readonly<Record<string, st
   });
   const remove = useMutation({
     mutationFn: () => {
-      if (SPEC === undefined) return Promise.resolve(undefined);
-      return patchConfig("notifications.channels.telegram", channelValue(SPEC, stored, {}, new Set(["bot_token"])));
+      if (spec === undefined) return Promise.resolve(undefined);
+      return patchConfig("notifications.channels.telegram", channelValue(spec, stored, {}, new Set(["bot_token"])));
     },
     onSuccess: async () => {
       setDraft({});
       test.reset();
       save.reset();
       await refresh();
-      toast.success("Removed the Telegram destination");
+      toast.success(t("settings.notifications.telegram.removedToast"));
     },
   });
   const pending = save.isPending || remove.isPending;
@@ -191,15 +201,21 @@ export function TelegramChannel({ stored }: { stored: Readonly<Record<string, st
     if (dirty && !pending) save.mutate();
   };
 
-  const testReason = !configured ? "Add a destination to test it." : dirty ? "Save your changes first." : undefined;
-  const warning = telegramChatIdWarning(chatId);
+  const testReason = !configured
+    ? t("settings.notifications.channels.testReasonNotConfigured")
+    : dirty
+      ? t("settings.notifications.channels.testReasonDirty")
+      : undefined;
+  const warning = telegramChatIdWarning(chatId, t.locale);
+  const tokenField = spec?.fields.find((field) => field.key === "bot_token");
+  const chatField = spec?.fields.find((field) => field.key === "chat_id");
 
   return (
     <article aria-labelledby={headingId} className="flex min-w-0 flex-col gap-3 px-5 py-4">
       <ChannelHeader
         id={headingId}
-        label="Telegram"
-        description={SPEC?.description ?? ""}
+        label={t("settings.notifications.telegram.label")}
+        description={spec?.description ?? ""}
         configured={configured}
         actions={
           <>
@@ -213,7 +229,7 @@ export function TelegramChannel({ stored }: { stored: Readonly<Record<string, st
                   remove.mutate();
                 }}
               >
-                Remove destination
+                {t("settings.notifications.channels.removeDestination")}
               </Button>
             ) : null}
             <TestButton test={test} disabled={dirty || !configured} reason={testReason} />
@@ -221,13 +237,13 @@ export function TelegramChannel({ stored }: { stored: Readonly<Record<string, st
         }
       />
       <form noValidate onSubmit={submit} className="flex min-w-0 flex-col gap-3">
-        {split.form !== null ? <ErrorBlock live compact error={split.form} title="Could not save Telegram" /> : null}
-        {remove.isError ? <ErrorBlock live compact error={remove.error} title="Could not remove the Telegram destination" /> : null}
+        {split.form !== null ? <ErrorBlock live compact error={split.form} title={t("settings.notifications.telegram.saveErrorTitle")} /> : null}
+        {remove.isError ? <ErrorBlock live compact error={remove.error} title={t("settings.notifications.telegram.removeFailed")} /> : null}
         <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-          <Field label={TOKEN_FIELD?.label ?? "Bot token"} error={errorOf("bot_token")}>
+          <Field label={tokenField?.label ?? t("settings.notifications.telegram.botTokenLabel")} error={errorOf("bot_token")}>
             <SecretInput
-              label={TOKEN_FIELD?.label ?? "Bot token"}
-              placeholder={TOKEN_FIELD?.placeholder ?? ""}
+              label={tokenField?.label ?? t("settings.notifications.telegram.botTokenLabel")}
+              placeholder={tokenField?.placeholder ?? ""}
               value={draft.bot_token ?? ""}
               configured={tokenSaved}
               disabled={pending}
@@ -236,12 +252,12 @@ export function TelegramChannel({ stored }: { stored: Readonly<Record<string, st
               }}
             />
           </Field>
-          <Field label={CHAT_FIELD?.label ?? "Chat ID"} description={CHAT_FIELD?.description} error={errorOf("chat_id")}>
+          <Field label={chatField?.label ?? t("settings.notifications.telegram.chatIdLabel")} description={chatField?.description} error={errorOf("chat_id")}>
             <Input
               mono
               autoComplete="off"
               spellCheck={false}
-              placeholder={CHAT_FIELD?.placeholder}
+              placeholder={chatField?.placeholder}
               value={chatId}
               disabled={pending}
               onValueChange={(next: string) => {
@@ -278,7 +294,7 @@ export function TelegramChannel({ stored }: { stored: Readonly<Record<string, st
             setEdited(new Set());
             save.reset();
           }}
-          note="A test goes to what is saved."
+          note={t("settings.notifications.channels.testNote")}
         />
       </form>
       <div role="status" className="min-w-0 empty:hidden">

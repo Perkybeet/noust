@@ -1,6 +1,7 @@
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { ANONYMOUS, SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
@@ -131,6 +132,25 @@ describe("sign-in", () => {
     await user.type(screen.getByLabelText("Access token"), TOKEN);
     await user.click(screen.getByRole("button", { name: "Sign in" }));
     await screen.findByLabelText("Two-factor code");
+    await expectNoAxeViolations(document.body, { page: true });
+  });
+
+  it("speaks Spanish once the language switches", async () => {
+    twoFactorBackend();
+    const { user } = renderConsole("/login?reason=expired");
+    await screen.findByText("web-01");
+    await act(async () => {
+      await setLocale("es");
+    });
+    expect(screen.getByRole("heading", { level: 1, name: "Iniciar sesión" })).toBeInTheDocument();
+    expect(
+      screen.getByText("Tu sesión expiró. Inicia sesión de nuevo para continuar donde lo dejaste."),
+    ).toBeInTheDocument();
+    const token = screen.getByLabelText("Token de acceso");
+    await user.type(token, TOKEN);
+    await user.click(screen.getByRole("button", { name: "Iniciar sesión" }));
+    await screen.findByLabelText("Código de verificación en dos pasos");
+    expect(await screen.findByText("aceptado")).toBeInTheDocument();
     await expectNoAxeViolations(document.body, { page: true });
   });
 });

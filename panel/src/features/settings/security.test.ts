@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { loadCatalog } from "../../i18n";
 import { backupCodesFile, groupSecret, perWindow, readLockoutPolicy, spokenDuration } from "./security";
 
 describe("security facts", () => {
@@ -49,6 +50,19 @@ describe("security facts", () => {
   it("writes the backup codes one per line", () => {
     expect(backupCodesFile(["a1b2-c3d4", "e5f6-a7b8"], "web-01")).toBe(
       "WASM backup codes for web-01\nEach code signs in once in place of an authenticator code.\n\na1b2-c3d4\ne5f6-a7b8\n",
+    );
+  });
+
+  it("says durations and the backup codes file in Spanish when asked to", async () => {
+    await loadCatalog("es");
+    expect(spokenDuration(900, "es")).toBe("15 minutos");
+    expect(spokenDuration(3600, "es")).toBe("1 hora");
+    expect(spokenDuration(86_400, "es")).toBe("1 día");
+    expect(perWindow(60, "es")).toBe("por minuto");
+    expect(perWindow(3600, "es")).toBe("por hora");
+    expect(perWindow(300, "es")).toBe("cada 5 minutos");
+    expect(backupCodesFile(["a1b2-c3d4"], "web-01", "es")).toBe(
+      "Códigos de respaldo de WASM para web-01\nCada código inicia sesión una vez en lugar de un código de autenticación.\n\na1b2-c3d4\n",
     );
   });
 });

@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { IconButton } from "../../components/ui/IconButton";
 import { Spinner } from "../../components/ui/Spinner";
+import { useT } from "../../i18n";
 import { CertificateStatus } from "./CertificateStatus";
 import { isJobFinished } from "../../api/queries/jobs";
 import type { FollowedJob } from "../../api/queries/jobs";
@@ -24,6 +25,7 @@ export interface JobWords {
  * outcomes stay until dismissed; the live region says each once.
  */
 export function JobBanner({ followed, words }: { followed: FollowedJob; words: JobWords }) {
+  const t = useT();
   const job = followed.job;
   if (followed.id === null) return null;
   if (job === null || !isJobFinished(job)) {
@@ -50,7 +52,7 @@ export function JobBanner({ followed, words }: { followed: FollowedJob; words: J
         className="flex items-center justify-between gap-3 rounded-control border border-ok/30 bg-ok-soft/40 py-1.5 pr-1.5 pl-3 text-13"
       >
         <CertificateStatus tone="ok" label={words.done} />
-        <IconButton label="Dismiss" icon={<X />} size="sm" onClick={followed.dismiss} />
+        <IconButton label={t("domains.jobBanner.dismiss")} icon={<X />} size="sm" onClick={followed.dismiss} />
       </div>
     );
   }
@@ -61,13 +63,13 @@ export function JobBanner({ followed, words }: { followed: FollowedJob; words: J
         error={{
           detail:
             job.error ??
-            (job.status === "cancelled" ? "The job was cancelled." : "The job failed without saying why. Its log is on the Activity page."),
+            (job.status === "cancelled" ? t("domains.jobBanner.jobCancelled") : t("domains.jobBanner.jobFailedNoReason")),
         }}
         title={words.failed}
         {...(words.hint !== undefined ? { hint: words.hint } : {})}
         className="pr-12"
       />
-      <IconButton label="Dismiss" icon={<X />} size="sm" onClick={followed.dismiss} className="absolute top-2.5 right-2.5" />
+      <IconButton label={t("domains.jobBanner.dismiss")} icon={<X />} size="sm" onClick={followed.dismiss} className="absolute top-2.5 right-2.5" />
     </div>
   );
 }

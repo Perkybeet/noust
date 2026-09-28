@@ -2,23 +2,37 @@ import { useQuery } from "@tanstack/react-query";
 
 import { activeJobsQuery, useFollowedJob } from "../../api/queries/jobs";
 import type { Job } from "../../api/queries/jobs";
+import { getLocale } from "../../app/locale";
+import type { Locale } from "../../app/locale";
+import { translate } from "../../i18n";
+import type { MessageKey } from "../../i18n";
 
 /** How a job on an app is named while it runs and when it ends (the backend's JobType). */
-const JOB_WORDS: Readonly<Record<string, { running: string; noun: string }>> = {
-  deploy: { running: "Deploying", noun: "Deploy" },
-  update: { running: "Updating", noun: "Update" },
-  rollback: { running: "Rolling back", noun: "Rollback" },
-  restore: { running: "Restoring", noun: "Restore" },
-  delete: { running: "Deleting", noun: "Deletion" },
-  backup: { running: "Backing up", noun: "Backup" },
-  push: { running: "Copying", noun: "Copy" },
-  migrate: { running: "Migrating", noun: "Migration" },
-  service_action: { running: "Working", noun: "Service action" },
-  zero_downtime: { running: "Switching", noun: "Zero-downtime mode" },
+const JOB_KEYS: Readonly<Record<string, { running: MessageKey; failed: MessageKey }>> = {
+  deploy: { running: "appPages.job.deploy.running", failed: "appPages.job.deploy.failed" },
+  update: { running: "appPages.job.update.running", failed: "appPages.job.update.failed" },
+  rollback: { running: "appPages.job.rollback.running", failed: "appPages.job.rollback.failed" },
+  restore: { running: "appPages.job.restore.running", failed: "appPages.job.restore.failed" },
+  delete: { running: "appPages.job.delete.running", failed: "appPages.job.delete.failed" },
+  backup: { running: "appPages.job.backup.running", failed: "appPages.job.backup.failed" },
+  push: { running: "appPages.job.push.running", failed: "appPages.job.push.failed" },
+  migrate: { running: "appPages.job.migrate.running", failed: "appPages.job.migrate.failed" },
+  service_action: { running: "appPages.job.serviceAction.running", failed: "appPages.job.serviceAction.failed" },
+  zero_downtime: { running: "appPages.job.zeroDowntime.running", failed: "appPages.job.zeroDowntime.failed" },
 };
 
-export function jobWords(type: string): { running: string; noun: string } {
-  return JOB_WORDS[type] ?? { running: "Working", noun: "Job" };
+const DEFAULT_JOB_KEYS = { running: "appPages.job.default.running", failed: "appPages.job.default.failed" } as const;
+
+export interface JobWords {
+  /** The bare state word ("Deploying"): a label on its own, or before the domain it names. */
+  running: string;
+  /** How its failure is titled, the domain's name and grammar already in the sentence. */
+  failed: string;
+}
+
+export function jobWords(type: string, domain: string, locale: Locale = getLocale()): JobWords {
+  const keys = JOB_KEYS[type] ?? DEFAULT_JOB_KEYS;
+  return { running: translate(locale, keys.running), failed: translate(locale, keys.failed, { domain }) };
 }
 
 const RUNNING = new Set(["pending", "running"]);

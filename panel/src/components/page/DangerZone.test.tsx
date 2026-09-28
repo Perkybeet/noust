@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { Button } from "../ui/Button";
 import { DangerAction, DangerZone } from "./DangerZone";
@@ -34,5 +35,17 @@ describe("DangerZone", () => {
   it("has no accessibility violations", async () => {
     const { container } = render(<Zone />);
     await expectNoAxeViolations(container);
+  });
+
+  it("names its own default title in Spanish", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    render(
+      <DangerZone>
+        <DangerAction title="Delete this application" description="Gone for good." action={<Button>Delete</Button>} />
+      </DangerZone>,
+    );
+    expect(screen.getByRole("region", { name: "Zona de peligro" })).toBeInTheDocument();
   });
 });

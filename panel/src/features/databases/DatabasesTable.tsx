@@ -10,6 +10,7 @@ import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { IconButton } from "../../components/ui/IconButton";
 import { Menu, MenuItem } from "../../components/ui/Menu";
+import { useT } from "../../i18n";
 import { formatCount } from "../../lib/format";
 import { engineLabel } from "./data";
 import { useDatabaseActions } from "./useDatabaseActions";
@@ -18,15 +19,16 @@ import { useDatabaseActions } from "./useDatabaseActions";
 export type DatabaseRow = Database;
 
 function RowActions({ database }: { database: DatabaseRow }) {
+  const t = useT();
   const navigate = useNavigate();
   const { dropDatabase } = useDatabaseActions();
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const keysLabel = database.engine === "redis" ? "keys" : "tables";
+  const isSlot = database.engine === "redis";
   return (
     <>
       <Menu
         align="end"
-        trigger={<IconButton label={`Actions for ${database.name}`} icon={<MoreHorizontal />} size="sm" tooltip={false} />}
+        trigger={<IconButton label={t("databases.table.actionsFor", { name: database.name })} icon={<MoreHorizontal />} size="sm" tooltip={false} />}
       >
         <MenuItem
           icon={<SquareTerminal />}
@@ -34,19 +36,22 @@ function RowActions({ database }: { database: DatabaseRow }) {
             void navigate({ to: "/databases/$engine/$name", params: { engine: database.engine, name: database.name } })
           }
         >
-          Open
+          {t("databases.table.open")}
         </MenuItem>
         <MenuItem icon={<Trash2 />} destructive onClick={() => setConfirmOpen(true)}>
-          Drop database
+          {t("databases.table.dropDatabase")}
         </MenuItem>
       </Menu>
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title={`Drop ${database.name}`}
-        description={`This permanently deletes the '${database.name}' ${keysLabel === "keys" ? "slot" : "database"} on ${engineLabel(database.engine)} and everything in it. This cannot be undone.`}
+        title={t("databases.table.dropTitle", { name: database.name })}
+        description={t(isSlot ? "databases.table.dropDescriptionSlot" : "databases.table.dropDescriptionDatabase", {
+          name: database.name,
+          engine: engineLabel(database.engine),
+        })}
         confirmText={database.name}
-        actionLabel="Drop database"
+        actionLabel={t("databases.table.dropDatabase")}
         onConfirm={async () => {
           await dropDatabase.mutateAsync({ engine: database.engine, name: database.name });
         }}
@@ -65,17 +70,18 @@ export interface DatabasesTableProps {
 
 /** Every database an installed, running engine reports, across engines unless filtered. */
 export function DatabasesTable({ databases, caption, loading = false, empty, className }: DatabasesTableProps) {
+  const t = useT();
   const columns: Column<DatabaseRow>[] = [
     {
       id: "engine",
-      header: "Engine",
+      header: t("databases.fields.engine"),
       width: "w-36",
       cell: (row) => <Badge tone="neutral">{engineLabel(row.engine)}</Badge>,
       sortValue: (row) => row.engine,
     },
     {
       id: "name",
-      header: "Database",
+      header: t("databases.fields.database"),
       mono: true,
       cell: (row) => (
         <Link
@@ -90,7 +96,7 @@ export function DatabasesTable({ databases, caption, loading = false, empty, cla
     },
     {
       id: "owner",
-      header: "Owner",
+      header: t("databases.fields.owner"),
       mono: true,
       hideBelow: "md",
       cell: (row) => (row.owner ? <span className="text-fg-muted">{row.owner}</span> : <span className="text-fg-faint">-</span>),
@@ -98,7 +104,7 @@ export function DatabasesTable({ databases, caption, loading = false, empty, cla
     },
     {
       id: "tables",
-      header: "Tables",
+      header: t("databases.fields.tables"),
       align: "end",
       mono: true,
       hideBelow: "sm",
@@ -107,7 +113,7 @@ export function DatabasesTable({ databases, caption, loading = false, empty, cla
     },
     {
       id: "size",
-      header: "Size",
+      header: t("databases.fields.size"),
       align: "end",
       mono: true,
       width: "w-28",

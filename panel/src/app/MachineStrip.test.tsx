@@ -1,6 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { bindT, loadCatalog } from "../i18n";
 import { expectNoAxeViolations } from "../test/axe";
 import { renderConsole } from "../test/console";
 import { MACHINE, fakeBackend, json, signedInRoutes } from "../test/fakes";
@@ -17,7 +18,16 @@ async function stripAt(units: typeof MACHINE.units) {
 
 describe("unitTallySummary", () => {
   it("says what each count means, in one sentence", () => {
-    expect(unitTallySummary({ running: 15, failed: 0, stopped: 1 })).toBe("WASM units: 15 running, 0 failed, 1 stopped");
+    expect(unitTallySummary({ running: 15, failed: 0, stopped: 1 }, bindT("en"))).toBe(
+      "WASM units: 15 running, 0 failed, 1 stopped",
+    );
+  });
+
+  it("says it in Spanish too", async () => {
+    await loadCatalog("es");
+    expect(unitTallySummary({ running: 15, failed: 0, stopped: 1 }, bindT("es"))).toBe(
+      "Unidades de WASM: 15 en ejecución, 0 con fallos, 1 detenidas",
+    );
   });
 });
 

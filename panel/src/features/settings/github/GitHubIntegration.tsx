@@ -17,6 +17,8 @@ import type { Column } from "../../../components/ui/DataTable";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusGlyph } from "../../../components/ui/StatusPill";
 import { toast } from "../../../components/ui/toast";
+import { useT } from "../../../i18n";
+import type { T } from "../../../i18n";
 import { reportActionError } from "../../apps/useAppActions";
 import { SettingsSection } from "../SettingsForm";
 import { CreateGitHubApp } from "./CreateGitHubApp";
@@ -25,36 +27,43 @@ import { accountTypeWords, hooksState, repositorySelectionWords } from "./github
 
 const EXPOSE_COMMAND = "wasm web expose-hooks hooks.example.com";
 
-const INSTALLATION_COLUMNS: readonly Column<GitHubInstallation>[] = [
-  {
-    id: "account",
-    header: "Account",
-    cell: (installation) => (
-      <span translate="no" className="mono text-12 text-fg">
-        {installation.account}
-      </span>
-    ),
-  },
-  { id: "type", header: "Type", cell: (installation) => <Badge>{accountTypeWords(installation.account_type)}</Badge> },
-  {
-    id: "repositories",
-    header: "Repositories",
-    hideBelow: "sm",
-    cell: (installation) => <span className="text-13 text-fg">{repositorySelectionWords(installation.repository_selection)}</span>,
-  },
-];
+function installationColumns(t: T): readonly Column<GitHubInstallation>[] {
+  return [
+    {
+      id: "account",
+      header: t("settings.integrations.github.installations.columnAccount"),
+      cell: (installation) => (
+        <span translate="no" className="mono text-12 text-fg">
+          {installation.account}
+        </span>
+      ),
+    },
+    {
+      id: "type",
+      header: t("settings.integrations.github.installations.columnType"),
+      cell: (installation) => <Badge>{accountTypeWords(installation.account_type, t.locale)}</Badge>,
+    },
+    {
+      id: "repositories",
+      header: t("settings.integrations.github.installations.columnRepositories"),
+      hideBelow: "sm",
+      cell: (installation) => <span className="text-13 text-fg">{repositorySelectionWords(installation.repository_selection, t.locale)}</span>,
+    },
+  ];
+}
 
 /** The App itself: its name, owner and page on GitHub. */
 function AppFacts({ status }: { status: GitHubStatus }) {
+  const t = useT();
   return (
     <div className="rounded-card border border-border bg-surface px-5 py-2 shadow-raised">
       <KeyValueList
         items={[
-          { label: "App", value: status.name ?? status.slug ?? null, mono: false },
-          { label: "Owner", value: status.owner ?? null },
-          { label: "App ID", value: status.app_id ?? null },
+          { label: t("settings.integrations.github.appFacts.app"), value: status.name ?? status.slug ?? null, mono: false },
+          { label: t("settings.integrations.github.appFacts.owner"), value: status.owner ?? null },
+          { label: t("settings.integrations.github.appFacts.appId"), value: status.app_id ?? null },
           {
-            label: "On GitHub",
+            label: t("settings.integrations.github.appFacts.onGitHub"),
             value: status.html_url ? <ExternalAnchor href={status.html_url}>{status.html_url.replace(/^https:\/\//, "")}</ExternalAnchor> : null,
             copy: false,
           },
@@ -66,17 +75,20 @@ function AppFacts({ status }: { status: GitHubStatus }) {
 
 /** The accounts the App is installed on, and the way to add or refresh them. */
 function Installations({ status }: { status: GitHubStatus }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const sync = useMutation({
     mutationFn: syncGitHubInstallations,
     onSuccess: (result) => {
       toast.success(
-        result.total === 1 ? "Synced 1 installation from GitHub" : `Synced ${String(result.total)} installations from GitHub`,
+        result.total === 1
+          ? t("settings.integrations.github.installations.syncedToastOne")
+          : t("settings.integrations.github.installations.syncedToast", { count: result.total }),
       );
       void queryClient.invalidateQueries({ queryKey: githubKeys.all });
     },
     onError: (error) => {
-      reportActionError("The installations were not synced", error);
+      reportActionError(t("settings.integrations.github.installations.syncFailed"), error);
     },
   });
   const none = status.installations.length === 0;
@@ -84,16 +96,16 @@ function Installations({ status }: { status: GitHubStatus }) {
   return (
     <Section
       level={3}
-      title="Installations"
-      description="The accounts the App is installed on. It reads only the repositories each installation lets it see."
+      title={t("settings.integrations.github.installations.title")}
+      description={t("settings.integrations.github.installations.description")}
       actions={
         none ? undefined : (
           <>
             <Button size="sm" icon={<RotateCw aria-hidden="true" />} loading={sync.isPending} onClick={() => sync.mutate()}>
-              Sync installations
+              {t("settings.integrations.github.installations.syncInstallations")}
             </Button>
             <ExternalAnchor href={status.install_url} button="secondary" size="sm">
-              Install on another account
+              {t("settings.integrations.github.installations.installOnAnother")}
             </ExternalAnchor>
           </>
         )
@@ -102,30 +114,31 @@ function Installations({ status }: { status: GitHubStatus }) {
       {none ? (
         <div className="flex min-w-0 flex-col gap-3 rounded-card border border-accent/40 bg-surface p-5 shadow-raised">
           <div className="flex flex-col gap-1">
-            <p className="text-14 font-medium text-fg">Next: install the App</p>
-            <p className="text-13 text-pretty text-fg-muted">
-              Install it on the account or organization that holds your repositories, and choose which repositories it
-              can read. GitHub brings you back here when it is done.
-            </p>
+            <p className="text-14 font-medium text-fg">{t("settings.integrations.github.installations.nextTitle")}</p>
+            <p className="text-13 text-pretty text-fg-muted">{t("settings.integrations.github.installations.nextDescription")}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <ExternalAnchor href={status.install_url} button="primary">
-              Install on GitHub
+              {t("settings.integrations.github.installations.installOnGitHub")}
             </ExternalAnchor>
             <Button icon={<RotateCw aria-hidden="true" />} loading={sync.isPending} onClick={() => sync.mutate()}>
-              Sync installations
+              {t("settings.integrations.github.installations.syncInstallations")}
             </Button>
           </div>
         </div>
       ) : (
         <DataTable
-          caption="GitHub App installations"
-          columns={INSTALLATION_COLUMNS}
+          caption={t("settings.integrations.github.installations.tableCaption")}
+          columns={installationColumns(t)}
           rows={status.installations}
           getRowId={(installation) => String(installation.installation_id)}
           rowActions={(installation) => (
-            <ExternalAnchor href={installation.settings_url} label={`Manage ${installation.account} on GitHub`} className="text-12">
-              <span className="max-sm:sr-only">Manage</span>
+            <ExternalAnchor
+              href={installation.settings_url}
+              label={t("settings.integrations.github.installations.manageLabel", { account: installation.account })}
+              className="text-12"
+            >
+              <span className="max-sm:sr-only">{t("settings.integrations.github.installations.manage")}</span>
             </ExternalAnchor>
           )}
         />
@@ -136,6 +149,7 @@ function Installations({ status }: { status: GitHubStatus }) {
 
 /** Whether GitHub can deliver pushes and pull requests to this server, and what to do if not. */
 function WebhookState({ status }: { status: GitHubStatus }) {
+  const t = useT();
   const state = hooksState(status);
   const url = status.hooks_url ?? "";
   return (
@@ -144,38 +158,30 @@ function WebhookState({ status }: { status: GitHubStatus }) {
         <>
           <p className="flex items-center gap-2 text-14 font-medium text-fg">
             <StatusGlyph state="warning" className="text-warn" />
-            Not reachable from GitHub
+            {t("settings.integrations.github.webhook.unexposedTitle")}
           </p>
-          <p className="text-13 text-pretty text-fg-muted">
-            GitHub delivers pushes and pull requests to /hooks on a public domain, and this server does not expose one
-            yet. Until it does, GitHub cannot trigger deploys on push or pull request previews. Point a domain at this
-            server, then run:
-          </p>
+          <p className="text-13 text-pretty text-fg-muted">{t("settings.integrations.github.webhook.unexposedDescription")}</p>
           <CommandHint command={EXPOSE_COMMAND} />
         </>
       ) : state === "inactive" ? (
         <>
           <p className="flex items-center gap-2 text-14 font-medium text-fg">
             <StatusGlyph state="warning" className="text-warn" />
-            Inactive on GitHub
+            {t("settings.integrations.github.webhook.inactiveTitle")}
           </p>
-          <p className="text-13 text-pretty text-fg-muted">
-            GitHub does not send the App's events until its webhook is switched on. In the App's settings on GitHub, set
-            the webhook URL to the address below and tick Active; then, under Permissions &amp; events, subscribe to Push
-            and Pull request. Once only. The first delivery marks it active here.
-          </p>
+          <p className="text-13 text-pretty text-fg-muted">{t("settings.integrations.github.webhook.inactiveDescription")}</p>
           <code translate="no" className="mono w-fit max-w-full truncate rounded-control bg-bg-sunken px-2 py-1 text-12 text-fg">
             {url}
           </code>
-          <ExternalAnchor href={status.settings_url}>Open the App's settings on GitHub</ExternalAnchor>
+          <ExternalAnchor href={status.settings_url}>{t("settings.integrations.github.webhook.openAppSettings")}</ExternalAnchor>
         </>
       ) : state === "active" ? (
         <>
           <p className="flex items-center gap-2 text-14 font-medium text-fg">
             <StatusGlyph state="running" className="text-ok" />
-            Receiving events
+            {t("settings.integrations.github.webhook.activeTitle")}
           </p>
-          <p className="text-13 text-pretty text-fg-muted">GitHub delivers the App's pushes and pull requests to:</p>
+          <p className="text-13 text-pretty text-fg-muted">{t("settings.integrations.github.webhook.activeDescription")}</p>
           <code translate="no" className="mono w-fit max-w-full truncate rounded-control bg-bg-sunken px-2 py-1 text-12 text-fg">
             {url}
           </code>
@@ -184,12 +190,9 @@ function WebhookState({ status }: { status: GitHubStatus }) {
         <>
           <p className="flex items-center gap-2 text-14 font-medium text-fg">
             <StatusGlyph state="stopped" className="text-idle" />
-            Ready for the App
+            {t("settings.integrations.github.webhook.readyTitle")}
           </p>
-          <p className="text-13 text-pretty text-fg-muted">
-            The App will be created with this address, so GitHub delivers its pushes and pull requests here from the
-            start:
-          </p>
+          <p className="text-13 text-pretty text-fg-muted">{t("settings.integrations.github.webhook.readyDescription")}</p>
           <code translate="no" className="mono w-fit max-w-full truncate rounded-control bg-bg-sunken px-2 py-1 text-12 text-fg">
             {url}
           </code>
@@ -201,14 +204,15 @@ function WebhookState({ status }: { status: GitHubStatus }) {
 
 /** Forgetting the App on this server, with where to delete it on GitHub. */
 function RemoveApp({ status, onRemoved }: { status: GitHubStatus; onRemoved: (settingsUrl: string | null) => void }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const name = status.name ?? status.slug ?? "github";
   return (
     <DangerZone>
       <DangerAction
-        title="Remove the GitHub App from this server"
-        description="Deletes the App's private key, its webhook secret and the list of installations from this server. Applications deployed from GitHub keep running, but stop deploying on push and can no longer clone a private repository. The App stays on GitHub until you delete it there."
+        title={t("settings.integrations.github.remove.title")}
+        description={t("settings.integrations.github.remove.description")}
         action={
           <Button
             variant="danger"
@@ -217,32 +221,31 @@ function RemoveApp({ status, onRemoved }: { status: GitHubStatus; onRemoved: (se
               setOpen(true);
             }}
           >
-            Remove GitHub App
+            {t("settings.integrations.github.remove.action")}
           </Button>
         }
       />
       <ConfirmDialog
         open={open}
         onOpenChange={setOpen}
-        title={`Remove ${name}`}
+        title={t("settings.integrations.github.remove.confirmTitle", { name })}
         description={
           <>
-            This server forgets the App: its private key, webhook secret and installations are deleted here. GitHub keeps
-            the App until you delete it in its settings there
+            {t("settings.integrations.github.remove.confirmDescription")}
             {status.settings_url ? (
               <>
                 {": "}
-                <ExternalAnchor href={status.settings_url}>the App's settings on GitHub</ExternalAnchor>
+                <ExternalAnchor href={status.settings_url}>{t("settings.integrations.github.remove.confirmDescriptionLink")}</ExternalAnchor>
               </>
             ) : null}
             .
           </>
         }
         confirmText={name}
-        actionLabel="Remove GitHub App"
+        actionLabel={t("settings.integrations.github.remove.action")}
         onConfirm={async () => {
           const result = await removeGitHubApp();
-          toast.success(`Removed ${name} from this server`);
+          toast.success(t("settings.integrations.github.remove.removedToast", { name }));
           onRemoved(result.settings_url ?? status.settings_url ?? null);
           void queryClient.invalidateQueries({ queryKey: githubKeys.all });
         }}
@@ -268,6 +271,7 @@ function GitHubSkeleton() {
  * it. Every change goes through "Confirm it's you".
  */
 export function GitHubIntegration() {
+  const t = useT();
   const query = useQuery(githubStatusQuery());
   // Removing the App leaves it on GitHub; where to delete it stays on screen until then.
   const [removedAt, setRemovedAt] = useState<string | null | undefined>(undefined);
@@ -275,19 +279,19 @@ export function GitHubIntegration() {
   return (
     <>
       <SettingsSection
-        title="GitHub"
-        description="Deploy from private repositories, on every push and for every pull request, through a GitHub App this server owns."
+        title={t("settings.integrations.github.title")}
+        description={t("settings.integrations.github.description")}
         commands={["wasm github status", "wasm github installations --sync"]}
       >
         <div className="flex min-w-0 flex-col gap-6">
           {removedAt !== undefined && query.data?.configured !== true ? (
             <div role="status" className="flex min-w-0 flex-col gap-2 rounded-card border border-border bg-bg-sunken p-4">
-              <p className="text-13 font-medium text-fg">The App was removed from this server. It still exists on GitHub.</p>
-              <p className="text-13 text-pretty text-fg-muted">Delete it there, so no copy of its key can act for it.</p>
-              <ExternalAnchor href={removedAt}>Delete the App on GitHub</ExternalAnchor>
+              <p className="text-13 font-medium text-fg">{t("settings.integrations.github.removedNotice")}</p>
+              <p className="text-13 text-pretty text-fg-muted">{t("settings.integrations.github.removedHint")}</p>
+              <ExternalAnchor href={removedAt}>{t("settings.integrations.github.deleteOnGitHub")}</ExternalAnchor>
             </div>
           ) : null}
-          <QueryState query={query} label="the GitHub integration" skeleton={<GitHubSkeleton />}>
+          <QueryState query={query} label={t("settings.integrations.github.loadingLabel")} skeleton={<GitHubSkeleton />}>
             {(status) =>
               status.configured ? (
                 <div className="flex min-w-0 flex-col gap-6">
@@ -304,8 +308,8 @@ export function GitHubIntegration() {
 
       {query.data !== undefined ? (
         <SettingsSection
-          title="Push and pull request events"
-          description="GitHub tells this server about pushes and pull requests by calling its public hooks address."
+          title={t("settings.integrations.github.webhook.title")}
+          description={t("settings.integrations.github.webhook.description")}
           commands={["wasm web status"]}
         >
           <WebhookState status={query.data} />

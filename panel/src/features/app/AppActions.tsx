@@ -12,6 +12,7 @@ import { Dialog } from "../../components/ui/Dialog";
 import { IconButton } from "../../components/ui/IconButton";
 import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { toast } from "../../components/ui/toast";
+import { useT } from "../../i18n";
 import { hasUnit } from "../apps/AppRowActions";
 import { NothingNewDialog } from "../apps/NothingNewDialog";
 import { reportActionError, useAppActions } from "../apps/useAppActions";
@@ -32,6 +33,7 @@ export interface AppActionsProps {
  * the session is not elevated.
  */
 export function AppActions({ app, busy, onJobQueued }: AppActionsProps) {
+  const t = useT();
   const domain = app.domain;
   const navigate = useNavigate();
   const { restart, start, stop, update, rebuildAnyway, nothingNew, dismissNothingNew } = useAppActions(domain, { onJobQueued });
@@ -47,11 +49,11 @@ export function AppActions({ app, busy, onJobQueued }: AppActionsProps) {
   const unitItem = unit ? (
     running ? (
       <MenuItem icon={<Square />} disabled={stop.isPending} onClick={() => setConfirmStop(true)}>
-        Stop
+        {t("appPages.actions.stop")}
       </MenuItem>
     ) : (
       <MenuItem icon={<Play />} disabled={start.isPending} onClick={() => start.mutate()}>
-        Start
+        {t("appPages.actions.start")}
       </MenuItem>
     )
   ) : null;
@@ -59,7 +61,7 @@ export function AppActions({ app, busy, onJobQueued }: AppActionsProps) {
   const rest = (
     <>
       <MenuItem icon={<History />} onClick={() => setRollbackOpen(true)}>
-        Roll back
+        {t("appPages.common.rollBack")}
       </MenuItem>
       <MenuSeparator />
       <MenuItem
@@ -72,12 +74,12 @@ export function AppActions({ app, busy, onJobQueued }: AppActionsProps) {
               setDeleteOpen(true);
             },
             (error: unknown) => {
-              if (!(error instanceof ElevationCancelledError)) reportActionError(`Deletion of ${domain} could not start`, error);
+              if (!(error instanceof ElevationCancelledError)) reportActionError(t("appPages.actions.deletionCouldNotStart", { domain }), error);
             },
           );
         }}
       >
-        Delete application
+        {t("appPages.actions.deleteApplication")}
       </MenuItem>
     </>
   );
@@ -87,7 +89,7 @@ export function AppActions({ app, busy, onJobQueued }: AppActionsProps) {
       <div className="hidden items-center gap-2 sm:flex">
         {unit ? (
           <Button icon={<RotateCw aria-hidden="true" />} loading={restart.isPending} onClick={() => restart.mutate()}>
-            Restart
+            {t("appPages.actions.restart")}
           </Button>
         ) : null}
         <Button
@@ -96,9 +98,9 @@ export function AppActions({ app, busy, onJobQueued }: AppActionsProps) {
           loading={update.isPending || busy}
           onClick={() => update.mutate()}
         >
-          Update
+          {t("appPages.actions.update")}
         </Button>
-        <Menu align="end" trigger={<IconButton variant="secondary" label="More actions" icon={<MoreHorizontal />} tooltip={false} />}>
+        <Menu align="end" trigger={<IconButton variant="secondary" label={t("appPages.actions.moreActions")} icon={<MoreHorizontal />} tooltip={false} />}>
           {unitItem}
           {rest}
         </Menu>
@@ -107,14 +109,14 @@ export function AppActions({ app, busy, onJobQueued }: AppActionsProps) {
       <div className="sm:hidden">
         <Menu
           align="end"
-          trigger={<IconButton variant="secondary" label={`Actions for ${domain}`} icon={<MoreHorizontal />} tooltip={false} />}
+          trigger={<IconButton variant="secondary" label={t("appPages.actions.moreActionsFor", { domain })} icon={<MoreHorizontal />} tooltip={false} />}
         >
           <MenuItem icon={<CircleArrowUp />} disabled={update.isPending || busy} onClick={() => update.mutate()}>
-            Update
+            {t("appPages.actions.update")}
           </MenuItem>
           {unit ? (
             <MenuItem icon={<RotateCw />} disabled={restart.isPending} onClick={() => restart.mutate()}>
-              Restart
+              {t("appPages.actions.restart")}
             </MenuItem>
           ) : null}
           {unitItem}
@@ -126,11 +128,11 @@ export function AppActions({ app, busy, onJobQueued }: AppActionsProps) {
         open={confirmStop}
         onOpenChange={setConfirmStop}
         size="sm"
-        title={`Stop ${domain}?`}
-        description="The service stops and the site answers 502 until it is started again. Nothing is deleted."
+        title={t("appPages.actions.stopTitle", { domain })}
+        description={t("appPages.actions.stopDescription")}
         footer={
           <>
-            <Button onClick={() => setConfirmStop(false)}>Cancel</Button>
+            <Button onClick={() => setConfirmStop(false)}>{t("appPages.common.cancel")}</Button>
             <Button
               variant="danger"
               loading={stop.isPending}
@@ -142,7 +144,7 @@ export function AppActions({ app, busy, onJobQueued }: AppActionsProps) {
                 })
               }
             >
-              Stop application
+              {t("appPages.actions.stopApplication")}
             </Button>
           </>
         }
@@ -161,14 +163,14 @@ export function AppActions({ app, busy, onJobQueued }: AppActionsProps) {
       <ConfirmDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        title={`Delete ${domain}`}
-        description="Stops and removes the service, the site, the certificate and the app's files. Backups are kept. This cannot be undone."
+        title={t("appPages.actions.deleteTitle", { domain })}
+        description={t("appPages.actions.deleteDescription")}
         confirmText={domain}
-        actionLabel="Delete application"
+        actionLabel={t("appPages.actions.deleteApplication")}
         onConfirm={async () => {
           await remove.mutateAsync({ removeFiles: true, removeSsl: true });
           // The page is about to go; the toast is what stays to say the job is on its way.
-          toast.info(`Deletion of ${domain} queued`, { description: "You will be told when it finishes." });
+          toast.info(t("appPages.actions.deletionQueued", { domain }), { description: t("appPages.actions.deletionQueuedDescription") });
           void navigate({ to: "/apps" });
         }}
       />

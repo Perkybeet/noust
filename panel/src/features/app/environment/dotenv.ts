@@ -20,7 +20,15 @@
  * The writer quotes a value only when writing it bare would change how it reads back
  * (surrounding spaces, or a value that is itself wrapped in a pair of quotes), so every value
  * the API accepts is read back exactly as it was saved.
+ *
+ * `nameProblem` and `valueProblem` take a trailing `locale`, defaulting to the active one: a
+ * test calls them directly and reads English, a component passes `t.locale`.
  */
+
+import { getLocale } from "../../../app/locale";
+import type { Locale } from "../../../app/locale";
+import { translate } from "../../../i18n/translate";
+import type { MessageKey } from "../../../i18n/types";
 
 /** Characters Python's `str.isspace()` is true for: what `str.strip()` removes. */
 const PYTHON_SPACE = new Set([
@@ -110,11 +118,11 @@ const NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 // eslint-disable-next-line no-control-regex -- the control characters the API refuses are the point
 const FORBIDDEN = /[\x00-\x1f\x7f]/;
 
-const CONTROL_NAMES: Readonly<Record<string, string>> = {
-  "\n": "a newline",
-  "\r": "a carriage return",
-  "\t": "a tab",
-  "\x00": "a NUL character",
+const CONTROL_KEYS: Readonly<Record<string, MessageKey>> = {
+  "\n": "environment.dotenv.controlNewline",
+  "\r": "environment.dotenv.controlCr",
+  "\t": "environment.dotenv.controlTab",
+  "\x00": "environment.dotenv.controlNul",
 };
 
 export function isValidName(name: string): boolean {
@@ -122,17 +130,19 @@ export function isValidName(name: string): boolean {
 }
 
 /** Why the API would refuse this name, or null when it accepts it. */
-export function nameProblem(name: string): string | null {
+export function nameProblem(name: string, locale: Locale = getLocale()): string | null {
   if (isValidName(name)) return null;
-  if (name === "") return "A line has a value but no name before the =.";
-  return `"${name}" is not a variable name. Names start with a letter or underscore and hold only letters, digits and underscores.`;
+  if (name === "") return translate(locale, "environment.dotenv.noName");
+  return translate(locale, "environment.dotenv.invalidName", { name });
 }
 
 /** Why the API would refuse this value, or null when it accepts it. */
-export function valueProblem(value: string): string | null {
+export function valueProblem(value: string, locale: Locale = getLocale()): string | null {
   const match = FORBIDDEN.exec(value);
   if (match === null) return null;
   const char = match[0];
   const code = char.charCodeAt(0).toString(16).toUpperCase().padStart(4, "0");
-  return `The value contains ${CONTROL_NAMES[char] ?? `the control character U+${code}`}, which a systemd unit cannot hold.`;
+  const key = CONTROL_KEYS[char];
+  const name = key ? translate(locale, key) : translate(locale, "environment.dotenv.controlGeneric", { code });
+  return translate(locale, "environment.dotenv.forbiddenChar", { char: name });
 }

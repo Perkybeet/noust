@@ -18,8 +18,9 @@ import {
   sourceProblems,
   typeName,
   typeOptions,
+  withProposal,
 } from "./wizard";
-import type { AppTypeOption, Inspection, PathRow, ReviewForm } from "./wizard";
+import type { AppTypeOption, Inspection, PathRow, PlatformProposal, ReviewForm } from "./wizard";
 
 const INSPECTION: Inspection = {
   app_type: "nextjs",
@@ -361,5 +362,90 @@ describe("generated secrets", () => {
     expect(secret).toBe("_".repeat(42) + "8");
     expect(generateSecret()).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(generateSecret()).not.toBe(generateSecret());
+  });
+});
+
+describe("another platform's configuration", () => {
+  const PROPOSAL: PlatformProposal = {
+    platform: "railway",
+    files: ["railway.toml"],
+    app_type: null,
+    install_command: null,
+    build_command: "npm run build",
+    start_command: "node server.js",
+    output_directory: null,
+    port: 8080,
+    health_path: "/healthz",
+    health_timeout: 60,
+    env: [
+      { name: "DATABASE_URL", value: null, secret: true, generated: false, required: true, note: "${{Postgres.DATABASE_URL}}" },
+      { name: "SESSION_SECRET", value: null, secret: true, generated: true, required: false, note: null },
+      { name: "NODE_ENV", value: "production", secret: false, generated: false, required: false, note: null },
+    ],
+    databases: ["postgresql"],
+    domains: [],
+    persistent_paths: ["data"],
+    warnings: ["Railway's cron schedule has no equivalent; add it with wasm cron add."],
+  };
+  const WITH: Inspection = { ...INSPECTION, platform_proposal: PROPOSAL };
+
+  it("fills in its port, its variables .env.example does not declare, and its persistent paths", () => {
+    const form = initialReview(WITH, { webserver: "nginx", taken: new Map([[8080, "shop.example.com"]]) });
+    expect(form.useProposal).toBe(true);
+    // 8080 is taken on this machine, so the next free port after it.
+    expect(form.port).toBe("8081");
+    expect(form.persistentPaths.map((row) => row.value)).toEqual(["data"]);
+    // DATABASE_URL is already declared by .env.example: that row stays the only one.
+    expect(form.env.filter((row) => row.name === "DATABASE_URL")).toHaveLength(1);
+    const session = form.env.find((row) => row.name === "SESSION_SECRET");
+    expect(session?.value).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(session).toMatchObject({ secret: true, required: false, declared: true, proposed: { generated: true, note: null } });
+    expect(form.env.find((row) => row.name === "NODE_ENV")).toMatchObject({ value: "production", example: "production" });
+  });
+
+  it("takes out what it filled in when turned off, and keeps what the operator typed when turned on again", () => {
+    const on = initialReview(WITH, { webserver: "nginx", taken: new Map() });
+    const typed = { ...on, env: on.env.map((row) => (row.name === "NODE_ENV" ? { ...row, value: "staging" } : row)) };
+    const off = withProposal(typed, WITH, new Map(), false);
+    expect(off.useProposal).toBe(false);
+    expect(off.port).toBe("3000");
+    expect(off.persistentPaths).toEqual([]);
+    expect(off.env.map((row) => row.name)).toEqual(["DATABASE_URL", "NEXTAUTH_SECRET", "LOG_LEVEL"]);
+
+    const again = withProposal({ ...typed }, WITH, new Map(), true);
+    expect(again.env.find((row) => row.name === "NODE_ENV")?.value).toBe("staging");
+  });
+
+  it("leaves a port the operator changed alone when it is turned off", () => {
+    const on = initialReview(WITH, { webserver: "nginx", taken: new Map() });
+    expect(withProposal({ ...on, port: "4000" }, WITH, new Map(), false).port).toBe("4000");
+  });
+
+  it("stays off when the source is inspected again after it was turned off", () => {
+    const off = withProposal(initialReview(WITH, { webserver: "nginx", taken: new Map() }), WITH, new Map(), false);
+    const again = initialReview(WITH, { webserver: "nginx", taken: new Map() }, off);
+    expect(again.useProposal).toBe(false);
+    expect(again.env.some((row) => row.proposed !== undefined)).toBe(false);
+  });
+
+  it("requires a value its configuration does not give, in words that do not blame .env.example", () => {
+    const proposal = { ...PROPOSAL, env: [{ name: "STRIPE_KEY", value: null, secret: true, generated: false, required: true, note: null }] };
+    const form = { ...initialReview({ ...INSPECTION, env_keys: [], platform_proposal: proposal }, { webserver: "nginx", taken: new Map() }), domain: "shop.example.com" };
+    const problems = reviewProblems(form, NOBODY);
+    expect(Object.values(problems)).toContain("The platform's configuration gives it no value, so the app expects one.");
+  });
+
+  it("sends what it filled in with the rest of the review", () => {
+    const form = { ...initialReview(WITH, { webserver: "nginx", taken: new Map() }), domain: "shop.example.com" };
+    const body = createAppBody({ source: "/srv/app", branch: "" }, form);
+    expect(body).toMatchObject({ port: 8080, persistent_paths: ["data"] });
+    expect(body.env_vars).toMatchObject({ NODE_ENV: "production" });
+    expect(body.env_vars?.["SESSION_SECRET"]).toMatch(/^[A-Za-z0-9_-]{43}$/);
+  });
+
+  it("changes nothing for an inspection without one", () => {
+    const form = initialReview(INSPECTION, { webserver: "nginx", taken: new Map() });
+    expect(form.env.every((row) => row.proposed === undefined)).toBe(true);
+    expect(form.port).toBe("3000");
   });
 });

@@ -2,6 +2,7 @@ import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import { useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 
+import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { Skeleton } from "./Skeleton";
 
@@ -92,6 +93,7 @@ export function DataTable<T>({
   density = "comfortable",
   className,
 }: DataTableProps<T>) {
+  const t = useT();
   const captionId = useId();
   const [internalSort, setInternalSort] = useState<SortState | null>(defaultSort);
   const activeSort = sort !== undefined ? sort : internalSort;
@@ -209,7 +211,7 @@ export function DataTable<T>({
             })}
             {rowActions ? (
               <th scope="col" className="w-12 px-3">
-                <span className="sr-only">Actions</span>
+                <span className="sr-only">{t("common.dataTable.actions")}</span>
               </th>
             ) : null}
           </tr>

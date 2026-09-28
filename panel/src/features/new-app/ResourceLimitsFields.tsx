@@ -2,6 +2,7 @@ import { ChevronDown } from "lucide-react";
 
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
+import { useT } from "../../i18n";
 import type { LimitsDraft } from "../app/settings/limits";
 import { limitField } from "./wizard";
 import type { ReviewErrors } from "./wizard";
@@ -21,6 +22,7 @@ export interface ResourceLimitsFieldsProps {
  * one - the same bounds and the same words, so the two never disagree.
  */
 export function ResourceLimitsFields({ draft, cores, errors, onChange }: ResourceLimitsFieldsProps) {
+  const t = useT();
   const set = (patch: Partial<LimitsDraft>): void => {
     onChange({ ...draft, ...patch });
   };
@@ -29,42 +31,42 @@ export function ResourceLimitsFields({ draft, cores, errors, onChange }: Resourc
   return (
     <details open={invalid} className="group rounded-control border border-border">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-13 font-medium text-fg [&::-webkit-details-marker]:hidden">
-        <span>Resource limits</span>
+        <span>{t("newApp.limits.title")}</span>
         <span className="flex items-center gap-1.5 text-12 font-normal text-fg-muted">
-          <span className="group-open:hidden">Empty: no limit</span>
-          <span className="hidden group-open:inline">Hide</span>
+          <span className="group-open:hidden">{t("newApp.limits.empty")}</span>
+          <span className="hidden group-open:inline">{t("newApp.limits.hide")}</span>
           <ChevronDown aria-hidden="true" className="size-3.5 transition-transform duration-(--duration-fast) group-open:rotate-180" />
         </span>
       </summary>
       <div className="grid gap-4 border-t border-border px-3 py-3 sm:grid-cols-3">
-        <Field label="Memory" description="MemoryMax. At least 64 MB." error={errors[limitField("memory")]}>
+        <Field label={t("newApp.limits.memory")} description={t("newApp.limits.memoryDescription")} error={errors[limitField("memory")]}>
           <Input
             mono
             inputMode="numeric"
             autoComplete="off"
-            placeholder="No limit"
+            placeholder={t("newApp.limits.none")}
             suffix="MB"
             value={draft.memory}
             onValueChange={(value: string) => set({ memory: value })}
           />
         </Field>
         <Field
-          label="CPU"
-          description={cores === null ? "CPUQuota. 100 is one whole CPU, 200 two." : `CPUQuota. 100 is one whole CPU; up to ${String(100 * cores)} here.`}
+          label={t("newApp.limits.cpu")}
+          description={cores === null ? t("newApp.limits.cpuDescription") : t("newApp.limits.cpuDescriptionCores", { max: String(100 * cores) })}
           error={errors[limitField("cpu")]}
         >
           <Input
             mono
             inputMode="numeric"
             autoComplete="off"
-            placeholder="No limit"
+            placeholder={t("newApp.limits.none")}
             suffix="%"
             value={draft.cpu}
             onValueChange={(value: string) => set({ cpu: value })}
           />
         </Field>
-        <Field label="Tasks" description="TasksMax: processes and threads. At least 16." error={errors[limitField("tasks")]}>
-          <Input mono inputMode="numeric" autoComplete="off" placeholder="No limit" value={draft.tasks} onValueChange={(value: string) => set({ tasks: value })} />
+        <Field label={t("newApp.limits.tasks")} description={t("newApp.limits.tasksDescription")} error={errors[limitField("tasks")]}>
+          <Input mono inputMode="numeric" autoComplete="off" placeholder={t("newApp.limits.none")} value={draft.tasks} onValueChange={(value: string) => set({ tasks: value })} />
         </Field>
       </div>
     </details>

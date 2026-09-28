@@ -2,37 +2,28 @@ import { TriangleAlert } from "lucide-react";
 import { useId } from "react";
 import type { ReactNode, Ref, SyntheticEvent } from "react";
 
-import { ErrorBlock } from "../../components/page/QueryState";
 import { Section } from "../../components/page/Section";
 import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { Button } from "../../components/ui/Button";
-import { Checkbox } from "../../components/ui/Checkbox";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
-import { Skeleton } from "../../components/ui/Skeleton";
+import { useT } from "../../i18n";
+import type { PlainKey, T } from "../../i18n";
 import { cx } from "../../lib/cx";
-import { DnsVerdict } from "../domains/DnsVerdict";
-import { normalizeDomain } from "../domains/names";
+import { AddressFields } from "./AddressFields";
 import { EnvironmentFields } from "./EnvironmentFields";
 import { InspectionReadout } from "./InspectionReadout";
 import { PersistentPathsField } from "./PersistentPathsField";
+import { PlatformProposalPanel } from "./PlatformProposalPanel";
 import { ResourceLimitsFields } from "./ResourceLimitsFields";
 import { useDomainDnsCheck } from "./useDomainDnsCheck";
-import { canIncludeWww, hasPort, typeName, typeOptions } from "./wizard";
+import { hasPort, platformName, typeName, typeOptions, withProposal } from "./wizard";
 import type { AppTypeOption, Inspection, Layout, ReviewErrors, ReviewForm, WebServer } from "./wizard";
 
-const LAYOUTS: readonly { value: Layout; label: string; description: string }[] = [
-  {
-    value: "releases",
-    label: "Releases",
-    description: "Each deploy builds beside the running copy and switches over only once it answers. Rolling back takes seconds.",
-  },
-  {
-    value: "inplace",
-    label: "In place",
-    description: "Each deploy builds over the running copy, as WASM 1.x did. Rolling back restores a backup.",
-  },
+const LAYOUTS: readonly { value: Layout; label: PlainKey; description: PlainKey }[] = [
+  { value: "releases", label: "newApp.review.releases", description: "newApp.review.releasesDescription" },
+  { value: "inplace", label: "newApp.review.inplace", description: "newApp.review.inplaceDescription" },
 ];
 
 function Choice<V extends string>({
@@ -83,33 +74,26 @@ function Choice<V extends string>({
 }
 
 /** Where the proposed port came from, so a number that is not the framework's default is explained. */
-function portNote(inspection: Inspection, types: readonly AppTypeOption[], taken: ReadonlyMap<number, string>): string {
+function portNote(t: T, inspection: Inspection, form: ReviewForm, types: readonly AppTypeOption[], taken: ReadonlyMap<number, string>): string {
+  const proposal = inspection.platform_proposal ?? null;
+  const asked = proposal?.port ?? null;
+  if (form.useProposal && proposal !== null && asked !== null) {
+    return t("newApp.review.portProposal", { platform: platformName(proposal.platform), port: String(asked) });
+  }
   const preferred = inspection.default_port;
   const owner = taken.get(preferred);
-  const base = "The app listens here and the web server passes requests to it.";
-  if (inspection.detected_types.length === 0) return base;
-  if (owner === undefined) return `${base} ${typeName(types, inspection.app_type)} uses ${String(preferred)} by default.`;
-  return `${base} ${typeName(types, inspection.app_type)} uses ${String(preferred)} by default, which ${owner} has, so the next free one is proposed.`;
+  if (inspection.detected_types.length === 0) return t("newApp.review.portNote");
+  const type = typeName(types, inspection.app_type);
+  if (owner === undefined) return t("newApp.review.portDefault", { type, port: String(preferred) });
+  return t("newApp.review.portTaken", { type, port: String(preferred), owner });
 }
 
-function Group({ title, description, children }: { title: string; description?: ReactNode; children: ReactNode }) {
+/** A titled part of a review, ruled off from the one above. */
+export function ReviewGroup({ title, description, children }: { title: string; description?: ReactNode; children: ReactNode }) {
   return (
     <Section title={title} level={3} {...(description !== undefined ? { description } : {})} className="border-t border-border pt-6">
       {children}
     </Section>
-  );
-}
-
-function DnsSkeleton() {
-  return (
-    <div aria-busy="true" className="flex flex-col gap-3 rounded-card border border-border p-3">
-      <span className="sr-only">Checking where it points</span>
-      <Skeleton className="h-4 w-56" />
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Skeleton className="h-10" />
-        <Skeleton className="h-10" />
-      </div>
-    </div>
   );
 }
 
@@ -136,6 +120,7 @@ export interface ReviewStepProps {
  * form generated from `.env.example`. The source is not asked again.
  */
 export function ReviewStep({ inspection, types, taken, cores, source, form, errors, onChange, onBack, onContinue, headingRef }: ReviewStepProps) {
+  const t = useT();
   const set = (patch: Partial<ReviewForm>): void => {
     onChange({ ...form, ...patch });
   };
@@ -147,31 +132,34 @@ export function ReviewStep({ inspection, types, taken, cores, source, form, erro
   };
   const detected = inspection.detected_types.length > 0;
   const chosenElsewhere = detected && form.appType !== inspection.app_type;
-  const domain = normalizeDomain(form.domain);
-  const offerWww = canIncludeWww(form.domain);
+  const proposal = inspection.platform_proposal ?? null;
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-6">
       <header className="flex flex-col gap-1">
         <h2 ref={headingRef} tabIndex={-1} className="title text-18 text-fg outline-none">
-          Review
+          {t("newApp.review.heading")}
         </h2>
-        <p className="text-14 text-pretty text-fg-muted">Check what WASM found and fill in what only you know. Everything here can be changed later.</p>
+        <p className="text-14 text-pretty text-fg-muted">{t("newApp.review.intro")}</p>
       </header>
 
       <InspectionReadout inspection={inspection} types={types} source={source} />
 
+      {proposal !== null ? (
+        <PlatformProposalPanel proposal={proposal} used={form.useProposal} onUse={(used) => onChange(withProposal(form, inspection, taken, used))} />
+      ) : null}
+
       <Field
-        label="Deploy as"
+        label={t("newApp.review.deployAs")}
         nativeLabel={false}
         error={errors["appType"]}
-        description="The type decides how the app is installed, built and started. Check it: detection reads files, not intent."
+        description={t("newApp.review.deployAsDescription")}
         className="sm:max-w-96"
       >
         <Select
           options={typeOptions(types, inspection.detected_types)}
           value={form.appType === "" ? null : form.appType}
-          placeholder="Choose a type"
+          placeholder={t("newApp.review.chooseType")}
           onValueChange={(appType) => set({ appType })}
           className="w-full"
         />
@@ -179,53 +167,19 @@ export function ReviewStep({ inspection, types, taken, cores, source, form, erro
       {chosenElsewhere ? (
         <p className="-mt-3 flex items-start gap-2 text-13 text-pretty text-fg">
           <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warn" />
-          {`The commands above are ${typeName(types, inspection.app_type)}'s. Deployed as ${typeName(types, form.appType)}, the app is installed, built and started the ${typeName(types, form.appType)} way instead.`}
+          {t("newApp.review.chosenElsewhere", { detected: typeName(types, inspection.app_type), chosen: typeName(types, form.appType) })}
         </p>
       ) : null}
 
-      <Group title="Address" description="Where the app answers, and how.">
+      <ReviewGroup title={t("newApp.review.address")} description={t("newApp.review.addressDescription")}>
         <div className="flex flex-col gap-5">
-          <Field label="Domain" error={errors["domain"]} description="Every other name, such as an alias or a redirect, is added from the app's Domains tab once it is deployed.">
-            <Input
-              mono
-              value={form.domain}
-              onValueChange={(value: string) => set({ domain: value })}
-              placeholder="app.example.com"
-              autoComplete="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              inputMode="url"
-            />
-          </Field>
-          <div aria-live="polite" className="flex flex-col gap-2">
-            {dns.data ? (
-              <DnsVerdict check={dns.data} />
-            ) : dns.isError ? (
-              <ErrorBlock compact error={dns.error} title={`Could not resolve ${domain || "the domain"}`} />
-            ) : dns.isFetching ? (
-              <DnsSkeleton />
-            ) : null}
-          </div>
-          {offerWww ? (
-            <Checkbox
-              label="Also serve www"
-              description={`Adds www.${domain || "the domain"} too, as a redirect to it.`}
-              checked={form.includeWww}
-              onCheckedChange={(includeWww) => set({ includeWww })}
-            />
-          ) : null}
-          <Checkbox
-            label="Serve it over HTTPS"
-            description={`Orders a Let's Encrypt certificate for ${domain || "the domain"} once the site is up. The domain has to point to this server already.`}
-            checked={form.ssl}
-            onCheckedChange={(ssl) => set({ ssl })}
-          />
+          <AddressFields value={form} onChange={set} error={errors["domain"]} dns={dns} />
           <div className="flex flex-col gap-1.5">
             <span aria-hidden="true" className="text-13 font-medium text-fg">
-              Web server
+              {t("newApp.review.webServer")}
             </span>
             <SegmentedControl<WebServer>
-              label="Web server"
+              label={t("newApp.review.webServer")}
               options={[
                 { value: "nginx", label: "nginx" },
                 { value: "apache", label: "Apache" },
@@ -236,34 +190,33 @@ export function ReviewStep({ inspection, types, taken, cores, source, form, erro
             />
           </div>
         </div>
-      </Group>
+      </ReviewGroup>
 
-      <Group title="Runtime">
+      <ReviewGroup title={t("newApp.review.runtime")}>
         <div className="flex flex-col gap-5">
           {hasPort(form.appType) ? (
             <Field
-              label="Port"
+              label={t("newApp.review.port")}
               error={errors["port"]}
-              description={portNote(inspection, types, taken)}
+              description={portNote(t, inspection, form, types, taken)}
               className="sm:max-w-80"
             >
               <Input mono inputMode="numeric" value={form.port} onValueChange={(value: string) => set({ port: value })} autoComplete="off" />
             </Field>
           ) : null}
           <Choice<Layout>
-            legend="Deploys"
-            options={LAYOUTS}
+            legend={t("newApp.review.deploys")}
+            options={LAYOUTS.map((option) => ({ value: option.value, label: t(option.label), description: t(option.description) }))}
             value={form.layout}
             onChange={(layout) => set({ layout })}
-            badge={{ releases: "Recommended" }}
+            badge={{ releases: t("newApp.review.recommended") }}
           />
           {form.layout === "releases" ? (
             <div className="flex flex-col gap-2">
               <div className="flex flex-col gap-0.5">
-                <span className="text-13 font-medium text-fg">Persistent paths</span>
+                <span className="text-13 font-medium text-fg">{t("newApp.review.persistentPaths")}</span>
                 <span className="text-12 text-fg-muted">
-                  Kept across every release, linked from <code translate="no">shared/</code>: uploads, a SQLite file. Most apps need
-                  none.
+                  {t.rich("newApp.review.persistentDescription", { shared: <code translate="no">shared/</code> })}
                 </span>
               </div>
               <PersistentPathsField rows={form.persistentPaths} errors={errors} onChange={(persistentPaths) => set({ persistentPaths })} />
@@ -271,19 +224,19 @@ export function ReviewStep({ inspection, types, taken, cores, source, form, erro
           ) : null}
           <ResourceLimitsFields draft={form.limits} cores={cores} errors={errors} onChange={(limits) => set({ limits })} />
         </div>
-      </Group>
+      </ReviewGroup>
 
-      <Group
-        title="Environment"
-        description="Written to the app's .env before the first build. Change it later from the app's Environment tab."
+      <ReviewGroup
+        title={t("newApp.review.environment")}
+        description={t("newApp.review.environmentDescription")}
       >
         <EnvironmentFields rows={form.env} errors={errors} onChange={(env) => set({ env })} />
-      </Group>
+      </ReviewGroup>
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-6">
-        <Button onClick={onBack}>Back</Button>
+        <Button onClick={onBack}>{t("newApp.review.back")}</Button>
         <Button type="submit" variant="primary">
-          Continue
+          {t("newApp.review.continue")}
         </Button>
       </div>
     </form>

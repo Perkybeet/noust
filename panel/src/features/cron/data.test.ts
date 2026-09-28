@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { loadCatalog } from "../../i18n";
 import type { CronJob } from "./data";
 import { filterJobs, isFiltered, runStatus, scheduleWords, validateCronSearch } from "./data";
 
@@ -67,5 +68,21 @@ describe("scheduleWords", () => {
     expect(scheduleWords("custom", "*-*-* 03:30:00")).toBe("Every day at 03:30");
     expect(scheduleWords("custom", "*-*-* 3:05")).toBe("Every day at 03:05");
     expect(scheduleWords("custom", "Mon..Fri *-*-* 09:00:00")).toBe("Custom");
+  });
+});
+
+describe("in Spanish", () => {
+  it("translates the run status words", async () => {
+    await loadCatalog("es");
+    expect(runStatus("success", "es")).toEqual({ state: "running", label: "Correcta" });
+    expect(runStatus("never ran", "es")).toEqual({ state: "unknown", label: "Nunca se ejecutó" });
+    expect(runStatus("timeout", "es")).toEqual({ state: "failed", label: "Fallida", detail: "timeout" });
+  });
+
+  it("translates the schedule words", async () => {
+    await loadCatalog("es");
+    expect(scheduleWords("daily", "*-*-* 02:00:00", "es")).toBe("Diaria");
+    expect(scheduleWords("custom", "*-*-* 03:30:00", "es")).toBe("Cada día a las 03:30");
+    expect(scheduleWords("custom", "Mon..Fri *-*-* 09:00:00", "es")).toBe("Personalizada");
   });
 });

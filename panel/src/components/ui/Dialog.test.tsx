@@ -1,7 +1,8 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { Button } from "./Button";
 import { Dialog, DialogClose, MODAL_POPUP, MODAL_VIEWPORT } from "./Dialog";
@@ -103,6 +104,17 @@ describe("Dialog", () => {
     render(<Example />);
     await userEvent.click(screen.getByRole("button", { name: "Rename" }));
     await screen.findByRole("dialog");
+    await expectNoAxeViolations(document.body);
+  });
+
+  it("closes in Spanish too", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    render(<Example />);
+    await userEvent.click(screen.getByRole("button", { name: "Rename" }));
+    await screen.findByRole("dialog", { name: "Rename application" });
+    expect(screen.getByRole("button", { name: "Cerrar" })).toBeInTheDocument();
     await expectNoAxeViolations(document.body);
   });
 });

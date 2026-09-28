@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../../app/locale";
 import {
   markFor,
   secrecyActionLabel,
@@ -74,5 +75,16 @@ describe("secrecyMarkAnnouncement", () => {
     expect(secrecyMarkAnnouncement("SESSION_SECRET", true)).toBe("SESSION_SECRET is now always hidden");
     expect(secrecyMarkAnnouncement("PUBLIC_KEY", false)).toBe("PUBLIC_KEY is now always shown");
     expect(secrecyMarkAnnouncement("API_URL", null)).toBe("API_URL is now classified automatically");
+  });
+});
+
+describe("in Spanish", () => {
+  it("says the same things in Spanish", async () => {
+    await setLocale("es");
+    expect(secrecyLine(verdict({ secret: true, reason: "value: stripe" }), "es")).toBe("Oculto: su valor parece una clave de Stripe");
+    expect(secrecyLine(verdict({ secret: false, reason: "plain" }), "es")).toBe("Mostrado: nada en él parece un secreto");
+    expect(secrecyStateLabel("secret", "es")).toBe("siempre oculto");
+    expect(secrecyActionLabel("not-secret", "es")).toBe("Tratar como no secreto");
+    expect(secrecyMarkAnnouncement("API_URL", null, "es")).toBe("API_URL ahora se clasifica automáticamente");
   });
 });

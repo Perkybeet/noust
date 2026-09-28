@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { CopyButton } from "../ui/CopyButton";
 import { Skeleton } from "../ui/Skeleton";
@@ -35,7 +36,9 @@ function isBlank(value: ReactNode): boolean {
  * and truncated to one line with the full text on hover; the copy button appears on hover and
  * on keyboard focus (and always, on touch screens).
  */
-export function KeyValueList({ items, empty = "Not set", className }: KeyValueListProps) {
+export function KeyValueList({ items, empty, className }: KeyValueListProps) {
+  const t = useT();
+  const emptyText = empty ?? t("common.keyValueList.empty");
   return (
     <dl className={cx("flex min-w-0 flex-col divide-y divide-border", className)}>
       {items.map((item) => {
@@ -52,7 +55,7 @@ export function KeyValueList({ items, empty = "Not set", className }: KeyValueLi
             <dd className="flex min-w-0 flex-col">
               <div className="flex min-w-0 items-center gap-1">
                 {blank ? (
-                  <span className="text-13 text-fg-faint">{empty}</span>
+                  <span className="text-13 text-fg-faint">{emptyText}</span>
                 ) : (
                   <span
                     translate={mono ? "no" : undefined}
@@ -65,7 +68,7 @@ export function KeyValueList({ items, empty = "Not set", className }: KeyValueLi
                 {copy !== false ? (
                   <CopyButton
                     value={copy}
-                    label={`Copy ${item.label.toLowerCase()}`}
+                    label={t("common.copyButton.copyValue", { value: item.label.toLowerCase() })}
                     className="-my-1 opacity-0 transition-opacity duration-(--duration-fast) group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
                   />
                 ) : null}

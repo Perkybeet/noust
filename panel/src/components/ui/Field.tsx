@@ -2,6 +2,7 @@ import { Field as BaseField } from "@base-ui/react/field";
 import { CircleAlert } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 
 export interface FieldProps {
@@ -38,6 +39,7 @@ export function Field({
   children,
   className,
 }: FieldProps) {
+  const t = useT();
   const invalid = error !== undefined && error !== null && error !== "";
   return (
     <BaseField.Root
@@ -52,7 +54,7 @@ export function Field({
         className="flex items-baseline justify-between gap-3 text-13 font-medium text-fg data-disabled:text-fg-muted"
       >
         <span>{label}</span>
-        {optional ? <span className="text-12 font-normal text-fg-faint">Optional</span> : null}
+        {optional ? <span className="text-12 font-normal text-fg-faint">{t("common.field.optional")}</span> : null}
       </BaseField.Label>
       {children}
       {description !== undefined ? (

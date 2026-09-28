@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import { bindT, loadCatalog } from "../../i18n";
 import {
-  CHANNELS,
-  EVENTS,
+  EVENT_KINDS,
   REDACTED,
   channelValue,
+  channels,
+  events,
   isChannelConfigured,
   parseHostList,
   looksLikeEmail,
@@ -15,12 +17,15 @@ import {
   smtpBody,
   smtpFormDirty,
   smtpFormFrom,
+  smtpSecurityOptions,
   splitAddresses,
   telegramChatIdWarning,
   telegramChatName,
   telegramChatType,
 } from "./notifications";
 import type { ChannelSpec } from "./notifications";
+
+const en = bindT("en");
 
 /** GET /api/config's notifications block as the sandboxed server answers it. */
 const CONFIG = {
@@ -40,7 +45,7 @@ const CONFIG = {
 };
 
 function spec(id: string): ChannelSpec {
-  const found = CHANNELS.find((channel) => channel.id === id);
+  const found = channels(en).find((channel) => channel.id === id);
   if (!found) throw new Error(id);
   return found;
 }
@@ -61,6 +66,12 @@ describe("the notification settings", () => {
     expect(settings.enabled).toBe(false);
     expect(settings.channels.slack).toEqual({ webhook_url: "" });
     expect(settings.smtp.host).toBe("");
+    expect(settings.language).toBe("en");
+  });
+
+  it("reads the language WASM's own notification text is written in", () => {
+    expect(readNotificationSettings({ notifications: { language: "es" } }).language).toBe("es");
+    expect(readNotificationSettings({ notifications: { language: "fr" } }).language).toBe("en");
   });
 
   it("sends a secret left empty back as the placeholder, so the stored one is kept", () => {
@@ -102,13 +113,24 @@ describe("the notification settings", () => {
   });
 
   it("offers the deploy lifecycle's own events, in the notifier's order", () => {
-    const kinds = EVENTS.map((event) => event.kind);
+    const kinds = [...EVENT_KINDS];
     expect(kinds.indexOf("deploy_started")).toBeLessThan(kinds.indexOf("deploy_success"));
     expect(kinds.indexOf("deploy_success")).toBeLessThan(kinds.indexOf("deploy_failed"));
     expect(kinds.indexOf("deploy_failed")).toBeLessThan(kinds.indexOf("deploy_rolled_back"));
     expect(kinds.indexOf("deploy_rolled_back")).toBeLessThan(kinds.indexOf("cert_expiring"));
-    expect(EVENTS.find((event) => event.kind === "deploy_started")?.unsent).toBeUndefined();
-    expect(EVENTS.find((event) => event.kind === "deploy_rolled_back")?.unsent).toBeUndefined();
+    const specs = events(en);
+    expect(specs.find((event) => event.kind === "deploy_started")?.unsent).toBeUndefined();
+    expect(specs.find((event) => event.kind === "deploy_rolled_back")?.unsent).toBeUndefined();
+    expect(specs.find((event) => event.kind === "cert_expiring")?.unsent).toBe(true);
+  });
+
+  it("translates the events and channels into Spanish, key for key", async () => {
+    await loadCatalog("es");
+    const es = bindT("es");
+    expect(events(es).map((event) => event.kind)).toEqual(events(en).map((event) => event.kind));
+    expect(events(es).find((event) => event.kind === "deploy_rolled_back")?.label).toBe("Despliegue revertido");
+    expect(channels(es).map((channel) => channel.id)).toEqual(channels(en).map((channel) => channel.id));
+    expect(channels(es).find((channel) => channel.id === "telegram")?.label).toBe("Telegram");
   });
 
   it("reads the console's own public address, unset by default", () => {
@@ -139,6 +161,26 @@ describe("telegramChatIdWarning", () => {
 
   it("ignores surrounding whitespace", () => {
     expect(telegramChatIdWarning("  1001234567890  ")).not.toBeNull();
+  });
+
+  it("says it in Spanish when asked to", async () => {
+    await loadCatalog("es");
+    expect(telegramChatIdWarning("1001234567890", "es")).toBe(
+      "Esto parece el ID de chat de un grupo sin su signo menos. Los grupos y supergrupos usan un ID negativo (el de un supergrupo empieza por -100); prueba con -1001234567890.",
+    );
+  });
+});
+
+describe("telegramChatType and telegramChatName, in Spanish", () => {
+  it("names a chat's type in Spanish", async () => {
+    await loadCatalog("es");
+    expect(telegramChatType("supergroup", "es")).toBe("Supergrupo");
+    expect(telegramChatType("something_new", "es")).toBe("something_new");
+  });
+
+  it("falls back to the type, translated, when there is neither a title nor a username", async () => {
+    await loadCatalog("es");
+    expect(telegramChatName({ id: 5, type: "group", title: null, username: null }, "es")).toBe("Grupo");
   });
 });
 
@@ -198,6 +240,13 @@ describe("the SMTP form", () => {
     expect(portForSecurity("465", "ssl", "starttls")).toBe("587");
     expect(portForSecurity("587", "starttls", "none")).toBe("25");
     expect(portForSecurity("2525", "ssl", "starttls")).toBe("2525");
+  });
+
+  it("translates the encryption choices, keeping their usual ports", async () => {
+    await loadCatalog("es");
+    const es = bindT("es");
+    expect(smtpSecurityOptions(es).map((option) => option.port)).toEqual(smtpSecurityOptions(en).map((option) => option.port));
+    expect(smtpSecurityOptions(es).find((option) => option.value === "starttls")?.label).toBe("STARTTLS");
   });
 
   it("checks an address's shape as wasm.core.config does, and splits a pasted list", () => {

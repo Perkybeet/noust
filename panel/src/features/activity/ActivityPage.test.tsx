@@ -1,6 +1,7 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
@@ -158,6 +159,24 @@ describe("the activity timeline", () => {
   it("has no accessibility violations on the admin-required note", async () => {
     const { table } = await activityAt({ "GET /api/audit": () => problem(403, "forbidden", "admin scope required") });
     await within(table).findByText("shop.example.com");
+    await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
+  it("reads in Spanish", async () => {
+    await act(() => setLocale("es"));
+    fakeBackend({
+      ...signedInRoutes(),
+      "GET /api/jobs": jobsHandler(JOBS),
+      "GET /api/audit": auditHandler(AUDIT_ENTRIES),
+    });
+    renderConsole("/activity");
+    await screen.findByRole("heading", { level: 1, name: "Actividad" });
+    const table = await screen.findByRole("region", { name: /Actividad/ });
+    await within(table).findByText("shop.example.com");
+    expect(within(table).getByText("Intento de inicio de sesión")).toBeInTheDocument();
+    expect(within(table).getByText("Falló una comprobación de alcance")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Tipo" })).toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: "Autor" })).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 });

@@ -19,6 +19,7 @@ import { IconButton } from "../../components/ui/IconButton";
 import { Input } from "../../components/ui/Input";
 import { Menu, MenuItem } from "../../components/ui/Menu";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { useDatabaseActions } from "./useDatabaseActions";
 
@@ -39,6 +40,7 @@ function RestoreDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const t = useT();
   const name = basename(backup.path);
   const inputRef = useRef<HTMLInputElement>(null);
   const [typed, setTyped] = useState("");
@@ -73,15 +75,15 @@ function RestoreDialog({
           <AlertDialog.Popup initialFocus={inputRef} className={cx(MODAL_POPUP, "sm:max-w-[460px]")}>
             <form onSubmit={submit} className="contents">
               <DialogFrame
-                title={`Restore ${database}`}
-                description={`Overwrites '${database}' with the contents of this dump. Anything written since ${name} was taken is lost.`}
+                title={t("databases.backups.restoreTitle", { database })}
+                description={t("databases.backups.restoreDescription", { database, name })}
                 Title={AlertDialog.Title}
                 Description={AlertDialog.Description}
                 footer={
                   <>
-                    <AlertDialog.Close render={<Button disabled={restoreBackup.isPending}>Cancel</Button>} />
+                    <AlertDialog.Close render={<Button disabled={restoreBackup.isPending}>{t("databases.cancel")}</Button>} />
                     <Button type="submit" variant="danger" disabled={!matches} loading={restoreBackup.isPending}>
-                      Restore database
+                      {t("databases.backups.restoreSubmit")}
                     </Button>
                   </>
                 }
@@ -90,12 +92,18 @@ function RestoreDialog({
                   <Checkbox
                     checked={dropExisting}
                     onCheckedChange={setDropExisting}
-                    label="Drop the database first"
-                    description="Recommended when the dump's schema differs from what is there now."
+                    label={t("databases.backups.dropFirstLabel")}
+                    description={t("databases.backups.dropFirstDescription")}
                   />
                   <div className="flex flex-col gap-1.5">
                     <label htmlFor={`${name}-confirm`} className="text-13 text-fg-muted">
-                      Type <span translate="no" className="mono rounded-[4px] bg-bg-sunken px-1 py-0.5 text-fg select-all">{name}</span> to confirm
+                      {t.rich("databases.backups.typeToConfirm", {
+                        name: (
+                          <span translate="no" className="mono rounded-[4px] bg-bg-sunken px-1 py-0.5 text-fg select-all">
+                            {name}
+                          </span>
+                        ),
+                      })}
                     </label>
                     <Input
                       id={`${name}-confirm`}
@@ -110,7 +118,7 @@ function RestoreDialog({
                     />
                   </div>
                   {restoreBackup.isError ? (
-                    <ErrorBlock live compact error={restoreBackup.error} title="The restore did not start" />
+                    <ErrorBlock live compact error={restoreBackup.error} title={t("databases.backups.restoreFailed")} />
                   ) : null}
                 </div>
               </DialogFrame>
@@ -123,12 +131,23 @@ function RestoreDialog({
 }
 
 function BackupActions({ engine, database, backup }: { engine: string; database: string; backup: DatabaseBackup }) {
+  const t = useT();
   const [restoreOpen, setRestoreOpen] = useState(false);
   return (
     <>
-      <Menu align="end" trigger={<IconButton label={`Actions for ${basename(backup.path)}`} icon={<MoreHorizontal />} size="sm" tooltip={false} />}>
+      <Menu
+        align="end"
+        trigger={
+          <IconButton
+            label={t("databases.table.actionsFor", { name: basename(backup.path) })}
+            icon={<MoreHorizontal />}
+            size="sm"
+            tooltip={false}
+          />
+        }
+      >
         <MenuItem icon={<RotateCcw />} onClick={() => setRestoreOpen(true)}>
-          Restore
+          {t("databases.backups.restore")}
         </MenuItem>
       </Menu>
       <RestoreDialog engine={engine} database={database} backup={backup} open={restoreOpen} onOpenChange={setRestoreOpen} />
@@ -138,30 +157,38 @@ function BackupActions({ engine, database, backup }: { engine: string; database:
 
 /** Dumps of this one database: create one, restore one by name with a typed confirmation. */
 export function DatabaseBackups({ engine, database }: { engine: string; database: string }) {
+  const t = useT();
   const backups = useQuery(databaseBackupsQuery(engine, database));
   const { createBackup } = useDatabaseActions();
 
   const columns: Column<DatabaseBackup>[] = [
     {
       id: "created",
-      header: "Created",
+      header: t("databases.backups.createdColumn"),
       cell: (row) => <RelativeTime value={row.created} />,
       sortValue: (row) => row.created,
     },
-    { id: "size", header: "Size", align: "end", mono: true, cell: (row) => row.size_human, sortValue: (row) => row.size },
+    {
+      id: "size",
+      header: t("databases.fields.size"),
+      align: "end",
+      mono: true,
+      cell: (row) => row.size_human,
+      sortValue: (row) => row.size,
+    },
     {
       id: "compressed",
-      header: "Compressed",
+      header: t("databases.backups.compressedColumn"),
       width: "w-28",
       // A fact, not a state: no colour.
-      cell: (row) => <span className="text-fg-muted">{row.compressed ? "Yes" : "No"}</span>,
+      cell: (row) => <span className="text-fg-muted">{row.compressed ? t("databases.backups.yes") : t("databases.backups.no")}</span>,
     },
   ];
 
   return (
     <Section
-      title="Backups"
-      description="Dumps of this database only, kept beside every other engine's dumps."
+      title={t("nav.backups.label")}
+      description={t("databases.backups.description")}
       // The empty state offers the same action; said once.
       actions={
         backups.data !== undefined && backups.data.backups.length > 0 ? (
@@ -171,7 +198,7 @@ export function DatabaseBackups({ engine, database }: { engine: string; database
             loading={createBackup.isPending}
             onClick={() => createBackup.mutate({ engine, database, compress: true })}
           >
-            Create backup
+            {t("databases.backups.create")}
           </Button>
         ) : undefined
       }
@@ -190,8 +217,8 @@ export function DatabaseBackups({ engine, database }: { engine: string; database
         empty={
           <EmptyState
             icon={<Archive />}
-            title="No backups of this database yet"
-            description="A backup is a dump of this database alone, restorable by name."
+            title={t("databases.backups.emptyTitle")}
+            description={t("databases.backups.emptyDescription")}
             action={
               <Button
                 variant="primary"
@@ -199,7 +226,7 @@ export function DatabaseBackups({ engine, database }: { engine: string; database
                 loading={createBackup.isPending}
                 onClick={() => createBackup.mutate({ engine, database, compress: true })}
               >
-                Create backup
+                {t("databases.backups.create")}
               </Button>
             }
           />
@@ -210,7 +237,7 @@ export function DatabaseBackups({ engine, database }: { engine: string; database
             columns={columns}
             rows={data.backups}
             getRowId={(row) => row.path}
-            caption={`Backups of ${database}`}
+            caption={t("databases.backups.tableCaption", { database })}
             rowActions={(row) => <BackupActions engine={engine} database={database} backup={row} />}
             defaultSort={{ column: "created", direction: "descending" }}
           />

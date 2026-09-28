@@ -3,38 +3,76 @@ import { useBlocker } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { request } from "../../api/client";
+import { importApp } from "../../api/queries/appImport";
+import type { ImportAppBody } from "../../api/queries/appImport";
 import { appKeys, appsQuery, appTypesQuery } from "../../api/queries/apps";
 import { githubStatusQuery } from "../../api/queries/github";
 import { webserverQuery } from "../../api/queries/config";
 import { jobKeys, useFollowedJob } from "../../api/queries/jobs";
 import type { Job } from "../../api/queries/jobs";
+import { recipeQuery } from "../../api/queries/recipes";
+import type { Recipe, RecipeSummary } from "../../api/queries/recipes";
 import { systemInfoQuery } from "../../api/queries/system";
 import { announce } from "../../app/Announcer";
+import { getLocale } from "../../app/locale";
 import { PageHeader } from "../../app/PageHeader";
 import { Button } from "../../components/ui/Button";
 import { Dialog } from "../../components/ui/Dialog";
+import { translate, useT } from "../../i18n";
 import { normalizeDomain } from "../domains/names";
-import { DeployStep } from "./DeployStep";
+import { DeployStep, deploySummary } from "./DeployStep";
+import type { DeployKind } from "./DeployStep";
+import { exportFileProblem, importBody, importProblems, importRefusalOf, initialImportForm, readExport } from "./exportFile";
+import type { ImportForm } from "./exportFile";
+import { ImportFile } from "./ImportFile";
+import type { LoadedExport } from "./ImportFile";
+import { ImportReview, importSummary } from "./ImportReview";
+import { RecipeGallery } from "./RecipeGallery";
+import { RecipeReview, recipeSummary } from "./RecipeReview";
+import { initialRecipeForm, recipeBody, recipeProblems } from "./recipe";
+import type { RecipeForm } from "./recipe";
 import { ReviewStep } from "./ReviewStep";
 import { SourceStep } from "./SourceStep";
 import type { SourceMode } from "./SourceStep";
 import { StepRail } from "./StepRail";
 import type { LandingTarget } from "./useDeploymentLanding";
 import { STEPS, createAppBody, initialReview, inspectBody, manualInspection, refusalOf, reviewProblems, sameSource, shortSource, sourceProblems } from "./wizard";
-import type { Inspection, ReviewErrors, ReviewForm, SourceErrors, SourceForm, Step, WebServer } from "./wizard";
-
-const BREADCRUMBS = [{ label: "Applications", to: "/apps" }] as const;
+import type { CreateAppBody, Inspection, ReviewErrors, ReviewForm, SourceErrors, SourceForm, Step, WebServer } from "./wizard";
 
 function isAbort(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
 }
 
+/** The first field that needs attention takes focus; its message is read with it. */
+function focusFirstInvalid(): void {
+  requestAnimationFrame(() => {
+    document.querySelector<HTMLElement>("main form [aria-invalid='true']")?.focus();
+  });
+}
+
+function kindOf(mode: SourceMode): DeployKind {
+  return mode === "recipe" ? "recipe" : mode === "import" ? "import" : "code";
+}
+
+/** Reads an export file in the browser, as text. */
+function readText(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+    reader.onerror = () => reject(reader.error ?? new Error("unreadable"));
+    reader.readAsText(file);
+  });
+}
+
 /**
- * The new-app wizard: where the code is, what WASM found in it (every part editable), and the
- * deploy, which hands over to the deployment page as soon as the build starts. What the
- * operator typed survives going back and forth between the steps and is never asked twice.
+ * The new-app wizard: where the code is (a repository or a directory, a recipe, or another
+ * server's export), what WASM found in it (every part editable), and the deploy. A deploy from
+ * code hands over to the deployment page as soon as the build starts; a recipe or an import is
+ * followed here to its end. What the operator typed survives going back and forth between the
+ * steps and is never asked twice.
  */
 export function NewAppWizard() {
+  const t = useT();
   const queryClient = useQueryClient();
   const apps = useQuery(appsQuery());
   const webserver = useQuery(webserverQuery());
@@ -54,6 +92,15 @@ export function NewAppWizard() {
   const [reviewErrors, setReviewErrors] = useState<ReviewErrors>({});
   const [inspectingSince, setInspectingSince] = useState<number | null>(null);
   const [target, setTarget] = useState<LandingTarget | null>(null);
+  // A recipe: the one chosen, read in full, and what the operator set over it.
+  const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const [recipeForm, setRecipeForm] = useState<RecipeForm | null>(null);
+  const [recipeErrors, setRecipeErrors] = useState<ReviewErrors>({});
+  // An import: the export read from the file, why a file was refused, and what changes.
+  const [loaded, setLoaded] = useState<LoadedExport | null>(null);
+  const [importProblem, setImportProblem] = useState<string | null>(null);
+  const [importForm, setImportForm] = useState<ImportForm | null>(null);
+  const [importErrors, setImportErrors] = useState<ReviewErrors>({});
 
   const heading = useRef<HTMLHeadingElement>(null);
   const moved = useRef(false);
@@ -64,7 +111,8 @@ export function NewAppWizard() {
     moved.current = true;
     setStep(next);
     const index = STEPS.findIndex((entry) => entry.id === next);
-    announce(`Step ${String(index + 1)} of ${String(STEPS.length)}: ${STEPS[index]?.label ?? next}`);
+    const entry = STEPS[index];
+    announce(t("newApp.steps.announce", { number: String(index + 1), total: String(STEPS.length), label: entry ? t(entry.label) : next }));
   };
 
   // A new step starts at its heading, so the next Tab and a screen reader begin there.
@@ -86,6 +134,8 @@ export function NewAppWizard() {
 
   const githubStatus = github.data ?? null;
   const sourceMode: SourceMode = chosenMode ?? (githubStatus?.configured === true ? "github" : "manual");
+  const kind = kindOf(sourceMode);
+  const typeList = types.data?.types ?? [];
 
   const defaultWebserver: WebServer = webserver.data?.webserver === "apache" ? "apache" : "nginx";
 
@@ -115,19 +165,39 @@ export function NewAppWizard() {
     },
   });
 
-  const create = useMutation({
-    mutationFn: (body: ReturnType<typeof createAppBody>) => request("post", "/api/apps", { body }),
-    onSuccess: (accepted, body) => {
-      followedJob.follow(accepted.job as unknown as Job);
-      void queryClient.invalidateQueries({ queryKey: jobKeys.active });
-      void queryClient.invalidateQueries({ queryKey: appKeys.list, exact: true });
-      announce(`Deploy of ${body.domain} queued`);
-      setTarget({ domain: body.domain, jobId: accepted.job_id });
+  const openRecipe = useMutation({
+    mutationFn: (summary: RecipeSummary) => queryClient.query(recipeQuery(summary.name)),
+    onSuccess: (full) => {
+      setRecipe(full);
+      setRecipeForm((previous) => initialRecipeForm(full, previous));
+      setRecipeErrors({});
+      go("review");
     },
-    onError: (error) => {
+  });
+
+  const queued = (accepted: { job?: unknown; job_id: string }, domain: string, message: string): void => {
+    followedJob.follow(accepted.job === undefined ? accepted.job_id : (accepted.job as Job));
+    void queryClient.invalidateQueries({ queryKey: jobKeys.active });
+    void queryClient.invalidateQueries({ queryKey: appKeys.list, exact: true });
+    announce(message);
+    setTarget({ domain, jobId: accepted.job_id });
+  };
+
+  const create = useMutation({
+    mutationFn: (body: CreateAppBody) => request("post", "/api/apps", { body }),
+    onSuccess: (accepted, body) => {
+      queued(accepted, body.domain, t("newApp.page.queued", { domain: body.domain }));
+    },
+    onError: (error, body) => {
       const refusal = refusalOf(error);
       if (refusal === null) return;
-      if (refusal.step === "source") {
+      if (body.recipe) {
+        // A recipe brings its own source and type: only its domain is the operator's to fix.
+        if (refusal.fields["domain"] !== undefined) {
+          setRecipeErrors({ domain: refusal.fields["domain"] });
+          go("review");
+        }
+      } else if (refusal.step === "source") {
         setSourceErrors(refusal.fields);
         go("source");
       } else if (Object.keys(refusal.fields).length > 0) {
@@ -137,7 +207,22 @@ export function NewAppWizard() {
     },
   });
 
-  const dirty = source.source.trim() !== "" && target === null;
+  const importing = useMutation({
+    mutationFn: (body: ImportAppBody) => importApp(body),
+    onSuccess: (accepted, body) => {
+      const domain = body.domain ?? normalizeDomain(body.document.app.domain);
+      queued(accepted, domain, t("newApp.page.importQueued", { domain }));
+    },
+    onError: (error) => {
+      const fields = importRefusalOf(error);
+      if (fields === null) return;
+      setImportErrors(fields);
+      go("review");
+    },
+  });
+
+  const chosen = kind === "recipe" ? recipe !== null : kind === "import" ? loaded !== null : source.source.trim() !== "";
+  const dirty = chosen && target === null;
   const blocker = useBlocker({
     // Signing in again after the session expired is not leaving: nothing typed could be kept.
     shouldBlockFn: ({ next }) => dirty && !leaving.current && next.pathname !== "/login",
@@ -151,7 +236,7 @@ export function NewAppWizard() {
   const submitSource = (): void => {
     const errors: SourceErrors =
       sourceMode === "github" && githubStatus?.configured === true && source.installationId === undefined
-        ? { source: "Choose a repository." }
+        ? { source: t("newApp.source.chooseRepository") }
         : sourceProblems(source);
     setSourceErrors(errors);
     if (Object.keys(errors).length > 0) return;
@@ -167,41 +252,142 @@ export function NewAppWizard() {
     const errors = reviewProblems(review, context);
     setReviewErrors(errors);
     if (Object.keys(errors).length > 0) {
-      // The first field that needs attention takes focus; its message is read with it.
-      requestAnimationFrame(() => {
-        document.querySelector<HTMLElement>("main form [aria-invalid='true']")?.focus();
-      });
+      focusFirstInvalid();
       return;
     }
     create.reset();
     go("deploy");
   };
 
+  const submitRecipe = (): void => {
+    if (recipeForm === null) return;
+    const errors = recipeProblems(recipeForm, context.domains);
+    setRecipeErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      focusFirstInvalid();
+      return;
+    }
+    create.reset();
+    go("deploy");
+  };
+
+  const submitImport = (): void => {
+    if (importForm === null) return;
+    const errors = importProblems(importForm, context.domains);
+    setImportErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      focusFirstInvalid();
+      return;
+    }
+    importing.reset();
+    go("deploy");
+  };
+
+  const readFile = (file: File): void => {
+    const tooLarge = exportFileProblem(file);
+    if (tooLarge !== null) {
+      setLoaded(null);
+      setImportProblem(tooLarge);
+      return;
+    }
+    readText(file).then(
+      (text) => {
+        const read = readExport(text);
+        if ("problem" in read) {
+          setLoaded(null);
+          setImportProblem(read.problem);
+          return;
+        }
+        setLoaded({ fileName: file.name, document: read.document });
+        setImportProblem(null);
+        setImportForm(initialImportForm(read.document));
+        setImportErrors({});
+      },
+      () => {
+        setLoaded(null);
+        setImportProblem(translate(getLocale(), "newApp.importApp.unreadable"));
+      },
+    );
+  };
+
   const deploy = (): void => {
-    if (review === null || inspected === null) return;
-    create.mutate(createAppBody(inspected.for, review));
+    if (kind === "recipe") {
+      if (recipe !== null && recipeForm !== null) create.mutate(recipeBody(recipe, recipeForm));
+    } else if (kind === "import") {
+      if (loaded !== null && importForm !== null) importing.mutate(importBody(loaded.document, importForm));
+    } else if (review !== null && inspected !== null) {
+      create.mutate(createAppBody(inspected.for, review));
+    }
   };
 
+  const reviewedDomain = kind === "recipe" ? recipeForm?.domain : kind === "import" ? importForm?.domain : review?.domain;
   const notes: Partial<Record<Step, string>> = {
-    source: shortSource(inspected?.for.source ?? source.source),
-    review: review ? normalizeDomain(review.domain) : "",
+    source: kind === "recipe" ? (recipe?.title ?? "") : kind === "import" ? (loaded?.fileName ?? "") : shortSource(inspected?.for.source ?? source.source),
+    review: reviewedDomain ? normalizeDomain(reviewedDomain) : "",
   };
 
-  const createFailure = create.isError && refusalOf(create.error) === null ? create.error : null;
+  const createFailure =
+    create.isError && (kind === "recipe" ? refusalOf(create.error)?.fields["domain"] === undefined : refusalOf(create.error) === null) ? create.error : null;
+  const importFailure = importing.isError && importRefusalOf(importing.error) === null ? importing.error : null;
+
+  const deployProps = {
+    onDeploy: deploy,
+    deploying: create.isPending || importing.isPending,
+    target,
+    followedJob,
+    onBack: () => {
+      setTarget(null);
+      followedJob.dismiss();
+      create.reset();
+      importing.reset();
+      go("review");
+    },
+    onGone,
+    headingRef: heading,
+  };
+
+  let deployStep = null;
+  if (step === "deploy") {
+    if (kind === "code" && inspected !== null && review !== null) {
+      deployStep = (
+        <DeployStep
+          kind="code"
+          domain={review.domain}
+          summary={deploySummary(t, inspected.for, inspected.inspection, typeList, review)}
+          failure={createFailure}
+          {...deployProps}
+        />
+      );
+    } else if (kind === "recipe" && recipe !== null && recipeForm !== null) {
+      deployStep = (
+        <DeployStep kind="recipe" domain={recipeForm.domain} summary={recipeSummary(t, recipe, recipeForm)} failure={createFailure} {...deployProps} />
+      );
+    } else if (kind === "import" && loaded !== null && importForm !== null) {
+      deployStep = (
+        <DeployStep
+          kind="import"
+          domain={importForm.domain}
+          summary={importSummary(t, loaded.document, importForm, typeList)}
+          failure={importFailure}
+          {...deployProps}
+        />
+      );
+    }
+  }
 
   return (
     <>
       <PageHeader
-        title="New application"
-        description="Deploy from a Git repository or a directory on this server."
-        breadcrumbs={BREADCRUMBS}
+        title={t("newApp.page.title")}
+        description={t("newApp.page.description")}
+        breadcrumbs={[{ label: t("newApp.page.breadcrumb"), to: "/apps" }]}
       />
       <div className="grid min-w-0 gap-6 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-10">
         <div className="min-w-0 lg:sticky lg:top-20 lg:self-start">
           <StepRail
             current={step}
             notes={notes}
-            locked={inspect.isPending || create.isPending || target !== null}
+            locked={inspect.isPending || openRecipe.isPending || create.isPending || importing.isPending || target !== null}
             onGoTo={(next) => {
               go(next);
             }}
@@ -224,9 +410,14 @@ export function NewAppWizard() {
               mode={sourceMode}
               onModeChange={(mode) => {
                 setChosenMode(mode);
-                setSource({ source: "", branch: "" });
-                setSourceErrors({});
+                // GitHub and a typed source are two spellings of the same field: switching
+                // between them starts it over. A recipe or an export keeps its own state.
+                if (kindOf(mode) === "code") {
+                  setSource({ source: "", branch: "" });
+                  setSourceErrors({});
+                }
                 inspect.reset();
+                openRecipe.reset();
               }}
               onSubmit={submitSource}
               inspecting={inspectingSince === null ? null : { since: inspectingSince }}
@@ -246,14 +437,35 @@ export function NewAppWizard() {
                 go("review");
               }}
               headingRef={heading}
+              recipes={
+                <RecipeGallery
+                  opening={openRecipe.isPending ? openRecipe.variables.name : null}
+                  failure={
+                    openRecipe.isError
+                      ? { title: t("newApp.recipes.openFailed", { title: openRecipe.variables.title }), error: openRecipe.error }
+                      : null
+                  }
+                  onChoose={(summary) => {
+                    // The same recipe again: what was set over it stays, nothing is read twice.
+                    if (recipe !== null && recipe.name === summary.name && recipeForm !== null) {
+                      go("review");
+                      return;
+                    }
+                    openRecipe.mutate(summary);
+                  }}
+                />
+              }
+              importer={
+                <ImportFile loaded={loaded} problem={importProblem} types={typeList} onFile={readFile} onContinue={() => go("review")} />
+              }
             />
           ) : null}
-          {step === "review" && inspected !== null && review !== null ? (
+          {step === "review" && kind === "code" && inspected !== null && review !== null ? (
             <ReviewStep
               taken={context.ports}
               cores={cores}
               inspection={inspected.inspection}
-              types={types.data?.types ?? []}
+              types={typeList}
               source={inspected.for.source.trim()}
               form={review}
               errors={reviewErrors}
@@ -266,27 +478,37 @@ export function NewAppWizard() {
               headingRef={heading}
             />
           ) : null}
-          {step === "deploy" && inspected !== null && review !== null ? (
-            <DeployStep
-              source={inspected.for}
-              inspection={inspected.inspection}
-              types={types.data?.types ?? []}
-              form={review}
-              onDeploy={deploy}
-              deploying={create.isPending}
-              failure={createFailure}
-              target={target}
-              followedJob={followedJob}
-              onBack={() => {
-                setTarget(null);
-                followedJob.dismiss();
-                create.reset();
-                go("review");
+          {step === "review" && kind === "recipe" && recipe !== null && recipeForm !== null ? (
+            <RecipeReview
+              recipe={recipe}
+              types={typeList}
+              form={recipeForm}
+              errors={recipeErrors}
+              onChange={(next) => {
+                setRecipeForm(next);
+                if (Object.keys(recipeErrors).length > 0) setRecipeErrors(recipeProblems(next, context.domains));
               }}
-              onGone={onGone}
+              onBack={() => go("source")}
+              onContinue={submitRecipe}
               headingRef={heading}
             />
           ) : null}
+          {step === "review" && kind === "import" && loaded !== null && importForm !== null ? (
+            <ImportReview
+              document={loaded.document}
+              types={typeList}
+              form={importForm}
+              errors={importErrors}
+              onChange={(next) => {
+                setImportForm(next);
+                if (Object.keys(importErrors).length > 0) setImportErrors(importProblems(next, context.domains));
+              }}
+              onBack={() => go("source")}
+              onContinue={submitImport}
+              headingRef={heading}
+            />
+          ) : null}
+          {deployStep}
         </div>
       </div>
 
@@ -296,13 +518,13 @@ export function NewAppWizard() {
           if (!open) blocker.reset?.();
         }}
         size="sm"
-        title="Leave the new application?"
-        description="Nothing has been deployed, and what you filled in is not kept."
+        title={t("newApp.leave.title")}
+        description={t("newApp.leave.description")}
         footer={
           <>
-            <Button onClick={() => blocker.reset?.()}>Stay</Button>
+            <Button onClick={() => blocker.reset?.()}>{t("newApp.leave.stay")}</Button>
             <Button variant="danger" onClick={() => blocker.proceed?.()}>
-              Leave
+              {t("newApp.leave.leave")}
             </Button>
           </>
         }

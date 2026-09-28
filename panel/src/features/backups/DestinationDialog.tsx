@@ -13,6 +13,7 @@ import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { useT } from "../../i18n";
 import { SecretInput } from "../settings/channelParts";
 import { OAUTH_BACKENDS, backendDescription, backendLabel } from "./backendCatalog";
 import { fieldsPayload, hasRequiredValues } from "./destinationForm";
@@ -34,6 +35,7 @@ export interface DestinationDialogProps {
  * backups with - which is the only way those backups are read again.
  */
 export function DestinationDialog({ existing, open, onOpenChange }: DestinationDialogProps) {
+  const t = useT();
   const formId = useId();
   const backends = useQuery({ ...backupDestinationBackendsQuery(), enabled: open });
   const [backend, setBackend] = useState(existing?.backend ?? "");
@@ -115,15 +117,15 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
         open={open}
         onOpenChange={close}
         size="lg"
-        title={existing ? `Edit ${existing.name}` : "Add backup destination"}
-        description="Where backups can be copied, on a schedule or by hand, over rclone."
+        title={existing ? t("backups.destinationDialog.titleEdit", { name: existing.name }) : t("backups.destinationDialog.titleNew")}
+        description={t("backups.destinationDialog.description")}
         footer={
           <>
             <Button disabled={saving} onClick={() => close(false)}>
-              Cancel
+              {t("backups.common.cancel")}
             </Button>
             <Button type="submit" form={formId} variant="primary" loading={saving} disabled={!canSubmit}>
-              {existing ? "Save" : "Add destination"}
+              {existing ? t("backups.common.save") : t("backups.destinationDialog.add")}
             </Button>
           </>
         }
@@ -131,7 +133,7 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
         <form id={formId} onSubmit={submit} className="flex flex-col gap-4">
           {existing === undefined ? (
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Name" description="Also its rclone remote name: lowercase letters, digits and '-'.">
+              <Field label={t("backups.destinationDialog.nameLabel")} description={t("backups.destinationDialog.nameDescription")}>
                 <Input
                   mono
                   value={name}
@@ -143,18 +145,18 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
                   disabled={saving}
                 />
               </Field>
-              <Field label="Backend" nativeLabel={false}>
+              <Field label={t("backups.destinationDialog.backendLabel")} nativeLabel={false}>
                 {backends.isPending ? (
                   <Skeleton className="h-8 w-full rounded-control" />
                 ) : (
                   <Select
-                    aria-label="Backend"
+                    aria-label={t("backups.destinationDialog.backendLabel")}
                     value={backend}
                     onValueChange={(next) => {
                       setBackend(next);
                       setValues({});
                     }}
-                    placeholder="Choose a backend"
+                    placeholder={t("backups.destinationDialog.chooseBackend")}
                     disabled={saving}
                     options={(backends.data?.backends ?? []).map((option) => {
                       const description = backendDescription(option.backend);
@@ -170,7 +172,9 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
             </div>
           ) : (
             <p className="text-13 text-fg-muted">
-              Backend: <span className="font-medium text-fg">{backendLabel(existing.backend)}</span>. A destination cannot change backend once created.
+              {t.rich("backups.destinationDialog.backendFixed", {
+                backend: <span className="font-medium text-fg">{backendLabel(existing.backend)}</span>,
+              })}
             </p>
           )}
 
@@ -186,9 +190,11 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
                 <div className="flex items-start gap-2 rounded-control border border-border bg-bg-sunken px-3 py-2.5 text-13 text-fg-muted">
                   <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
                   <p>
-                    This backend signs in on your own computer, never on the server. Run{" "}
-                    <code translate="no" className="mono rounded-[4px] bg-surface px-1 py-0.5 text-fg">{`rclone authorize "${backend}"`}</code>{" "}
-                    there, then paste the JSON it prints below.
+                    {t.rich("backups.destinationDialog.oauthNote", {
+                      command: (
+                        <code translate="no" className="mono rounded-[4px] bg-surface px-1 py-0.5 text-fg">{`rclone authorize "${backend}"`}</code>
+                      ),
+                    })}
                   </p>
                 </div>
               ) : null}
@@ -207,7 +213,7 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
                           aria-label={field.label}
                           value={values[field.key] ?? ""}
                           onValueChange={(next) => setValues((current) => ({ ...current, [field.key]: next }))}
-                          placeholder="Choose one"
+                          placeholder={t("backups.fields.chooseOne")}
                           disabled={saving}
                           options={choices.map((choice) => ({ value: choice, label: choice }))}
                         />
@@ -241,8 +247,8 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
                   checked={encrypted}
                   onCheckedChange={setEncrypted}
                   disabled={saving}
-                  label="Encrypt backups before upload"
-                  description="Wraps everything sent here in an rclone crypt layer, so the destination itself never sees a readable file."
+                  label={t("backups.destinationDialog.encrypt.label")}
+                  description={t("backups.destinationDialog.encrypt.description")}
                 />
                 {encrypted && existing === undefined ? (
                   <div className="flex flex-col gap-3 pl-6">
@@ -250,17 +256,24 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
                       checked={useExistingKey}
                       onCheckedChange={setUseExistingKey}
                       disabled={saving}
-                      label="I already have a key for this folder"
-                      description="The key another server showed for it. Backups already there can only be read with the key they were encrypted with."
+                      label={t("backups.destinationDialog.haveKey.label")}
+                      description={t("backups.destinationDialog.haveKey.description")}
                     />
                     {useExistingKey ? (
                       <div className="grid gap-4 sm:grid-cols-2">
-                        <Field label="Password">
-                          <SecretInput label="Password" placeholder="" value={keyPassword} configured={false} disabled={saving} onChange={setKeyPassword} />
-                        </Field>
-                        <Field label="Password 2 (salt)">
+                        <Field label={t("backups.fields.password")}>
                           <SecretInput
-                            label="Password 2 (salt)"
+                            label={t("backups.fields.password")}
+                            placeholder=""
+                            value={keyPassword}
+                            configured={false}
+                            disabled={saving}
+                            onChange={setKeyPassword}
+                          />
+                        </Field>
+                        <Field label={t("backups.fields.password2")}>
+                          <SecretInput
+                            label={t("backups.fields.password2")}
                             placeholder=""
                             value={keyPassword2}
                             configured={false}
@@ -275,9 +288,7 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
                 {encrypted && !useExistingKey ? (
                   <p className="flex items-start gap-1.5 pl-6 text-13 text-warn">
                     <span>
-                      WASM keeps the key, but if this server is ever lost, so is the only other copy - unless you write it down when it
-                      is shown next.{" "}
-                      <span className="font-medium">Losing it makes every backup on this destination unrecoverable.</span>
+                      {t("backups.destinationDialog.encryptWarning")} <span className="font-medium">{t("backups.destinationDialog.encryptWarningBold")}</span>
                     </span>
                   </p>
                 ) : null}
@@ -286,7 +297,12 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
           ) : null}
 
           {failed ? (
-            <ErrorBlock live compact error={error} title={existing ? "The destination was not saved" : "The destination was not created"} />
+            <ErrorBlock
+              live
+              compact
+              error={error}
+              title={existing ? t("backups.destinationDialog.errorSave") : t("backups.destinationDialog.errorCreate")}
+            />
           ) : null}
         </form>
       </Dialog>

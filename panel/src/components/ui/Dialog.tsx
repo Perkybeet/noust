@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import { useId, useRef } from "react";
 import type { ComponentType, ReactElement, ReactNode, RefObject } from "react";
 
+import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { IconButton } from "./IconButton";
 import { useNeedsScrollFocus } from "./scrollable";
@@ -124,6 +125,7 @@ export function Dialog({
   size = "md",
   initialFocus,
 }: DialogProps) {
+  const t = useT();
   return (
     <BaseDialog.Root
       {...(open !== undefined ? { open } : {})}
@@ -146,7 +148,9 @@ export function Dialog({
               Description={BaseDialog.Description}
               close={
                 <BaseDialog.Close
-                  render={<IconButton label="Close" icon={<X />} size="sm" tooltip={false} className="-mt-1 -mr-2" />}
+                  render={
+                    <IconButton label={t("common.dialog.close")} icon={<X />} size="sm" tooltip={false} className="-mt-1 -mr-2" />
+                  }
                 />
               }
             >

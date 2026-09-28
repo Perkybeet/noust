@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { Boxes } from "lucide-react";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { Button } from "./Button";
 import { EmptyState } from "./EmptyState";
@@ -35,5 +36,13 @@ describe("EmptyState", () => {
       <EmptyState icon={<Boxes />} title="No applications yet" description="Deploy one." command={COMMAND} />,
     );
     await expectNoAxeViolations(container);
+  });
+
+  it("labels the copy button in Spanish", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    render(<EmptyState title="No applications yet" command={COMMAND} />);
+    expect(screen.getByRole("button", { name: "Copiar comando" })).toBeInTheDocument();
   });
 });

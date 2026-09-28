@@ -3,6 +3,9 @@
  * its drawer and an app's Domains tab. Pure, so every threshold is tested without a page.
  */
 
+import { getLocale } from "../../app/locale";
+import { translate } from "../../i18n";
+import type { Locale } from "../../i18n";
 import type { CertEntry } from "../../api/queries/certs";
 import type { Job } from "../../api/queries/jobs";
 import { CERT_WARNING_DAYS } from "../overview/attention";
@@ -19,18 +22,27 @@ export interface CertificateView {
   attention: boolean;
 }
 
-function days(count: number): string {
-  return `${String(count)} ${count === 1 ? "day" : "days"}`;
+function days(count: number, locale: Locale): string {
+  return translate(locale, "domains.certificates.day", { count });
 }
 
 /** The state of a certificate from the days it has left. */
-export function certificateView(cert: Pick<CertEntry, "days_remaining">): CertificateView {
+export function certificateView(cert: Pick<CertEntry, "days_remaining">, locale: Locale = getLocale()): CertificateView {
   const left = cert.days_remaining;
-  if (left === null || left === undefined) return { tone: "idle", label: "Expiry unknown", attention: false };
-  if (left < 0) return { tone: "fail", label: left === -1 ? "Expired yesterday" : `Expired ${days(-left)} ago`, attention: true };
-  if (left === 0) return { tone: "warn", label: "Expires today", attention: true };
-  if (left < CERT_WARNING_DAYS) return { tone: "warn", label: `Expires in ${days(left)}`, attention: true };
-  return { tone: "ok", label: `Valid for ${days(left)}`, attention: false };
+  if (left === null || left === undefined) return { tone: "idle", label: translate(locale, "domains.certificates.expiryUnknown"), attention: false };
+  if (left < 0) {
+    return {
+      tone: "fail",
+      label:
+        left === -1
+          ? translate(locale, "domains.certificates.expiredYesterday")
+          : translate(locale, "domains.certificates.expiredAgo", { days: days(-left, locale) }),
+      attention: true,
+    };
+  }
+  if (left === 0) return { tone: "warn", label: translate(locale, "domains.certificates.expiresToday"), attention: true };
+  if (left < CERT_WARNING_DAYS) return { tone: "warn", label: translate(locale, "domains.certificates.expiresIn", { days: days(left, locale) }), attention: true };
+  return { tone: "ok", label: translate(locale, "domains.certificates.validFor", { days: days(left, locale) }), attention: false };
 }
 
 /** Most urgent first: expired, then the fewest days left; unknown expiry last. */
@@ -94,12 +106,15 @@ export function coverageOf(
   name: string,
   lineage: CertEntry | null | undefined,
   extending: boolean,
+  locale: Locale = getLocale(),
 ): { tone: CertTone; label: string } {
-  if (lineage === undefined) return { tone: "idle", label: "Checking" };
-  if (lineage === null) return { tone: "idle", label: "No certificate, HTTP only" };
+  if (lineage === undefined) return { tone: "idle", label: translate(locale, "domains.certificates.checking") };
+  if (lineage === null) return { tone: "idle", label: translate(locale, "domains.certificates.noCertificateHttpOnly") };
   if (!covers(lineage, name)) {
-    return extending ? { tone: "busy", label: "Extending the certificate" } : { tone: "warn", label: "Not covered" };
+    return extending
+      ? { tone: "busy", label: translate(locale, "domains.certificates.extendingCertificate") }
+      : { tone: "warn", label: translate(locale, "domains.certificates.notCovered") };
   }
-  const view = certificateView(lineage);
-  return { tone: view.tone, label: view.tone === "ok" ? "Covered" : view.label };
+  const view = certificateView(lineage, locale);
+  return { tone: view.tone, label: view.tone === "ok" ? translate(locale, "domains.certificates.covered") : view.label };
 }

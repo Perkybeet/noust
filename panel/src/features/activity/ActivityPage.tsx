@@ -11,6 +11,7 @@ import { Button } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
+import { useT } from "../../i18n";
 import { ActivityTable } from "./ActivityTable";
 import { JobLogDrawer } from "./JobLogDrawer";
 import { AUDIT_RESULTS, JOB_STATUSES, isFiltered, mergeActivity, resultOptions, resultValidFor } from "./data";
@@ -37,6 +38,7 @@ type SearchPatch = { [K in keyof ActivitySearch]?: ActivitySearch[K] | undefined
  * quiet note instead of an error, since a read-scoped operator did nothing wrong.
  */
 export function ActivityPage({ search, onSearchChange }: ActivityPageProps) {
+  const t = useT();
   const [jobsLimit, setJobsLimit] = useState(JOBS_PAGE);
   const [openJob, setOpenJob] = useState<ActivityJob | null>(null);
 
@@ -116,13 +118,10 @@ export function ActivityPage({ search, onSearchChange }: ActivityPageProps) {
     const failing = jobsHardError ? jobs : audit;
     return (
       <>
-        <PageHeader
-          title="Activity"
-          description="Every job and audited action on this machine, merged into one timeline, newest first."
-        />
+        <PageHeader title={t("activity.title")} description={t("activity.description")} />
         <ErrorBlock
           error={failing.error}
-          title="Could not load activity"
+          title={t("activity.couldNotLoad")}
           onRetry={() => {
             if (jobsHardError) void jobs.refetch();
             if (auditHardError) void audit.refetch();
@@ -137,13 +136,10 @@ export function ActivityPage({ search, onSearchChange }: ActivityPageProps) {
 
   return (
     <>
-      <PageHeader
-        title="Activity"
-        description="Every job and audited action on this machine, merged into one timeline, newest first."
-      />
+      <PageHeader title={t("activity.title")} description={t("activity.description")} />
       {wantsAudit && auditForbidden ? (
         <p role="status" className="-mt-4 mb-6 max-w-[68ch] text-13 text-pretty text-fg-muted">
-          The audit log needs an admin token. Showing jobs only.
+          {t("activity.auditForbidden")}
         </p>
       ) : null}
 
@@ -151,36 +147,36 @@ export function ActivityPage({ search, onSearchChange }: ActivityPageProps) {
         <EmptyState
           level={2}
           icon={<History />}
-          title="Nothing has run yet"
-          description="Deploys, updates, backups and audited actions will appear here as they happen."
+          title={t("activity.emptyTitle")}
+          description={t("activity.emptyDescription")}
           command="wasm jobs list"
           className="py-16"
         />
       ) : (
         <div className="flex flex-col gap-4">
-          <div role="search" aria-label="Filter activity" className="flex flex-wrap items-end gap-2">
+          <div role="search" aria-label={t("activity.filterLabel")} className="flex flex-wrap items-end gap-2">
             <Select
-              aria-label="Kind"
+              aria-label={t("activity.kindLabel")}
               value={search.kind ?? ALL}
               onValueChange={(value) => set({ kind: value === ALL ? undefined : value })}
               options={[
-                { value: ALL, label: "Everything" },
-                { value: "jobs", label: "Jobs" },
-                { value: "audit", label: "Audited actions" },
+                { value: ALL, label: t("activity.kindEverything") },
+                { value: "jobs", label: t("activity.kindJobs") },
+                { value: "audit", label: t("activity.kindAudit") },
               ]}
               className="min-w-36"
             />
             <Select
-              aria-label="Result"
+              aria-label={t("activity.resultLabel")}
               value={search.result ?? ALL}
               onValueChange={(value) => set({ result: value === ALL ? undefined : value })}
-              options={[{ value: ALL, label: "Every result" }, ...resultOptions(search.kind)]}
+              options={[{ value: ALL, label: t("activity.resultEvery") }, ...resultOptions(t, search.kind)]}
               className="min-w-44"
             />
             <Input
               type="search"
-              aria-label="Actor"
-              placeholder="Actor"
+              aria-label={t("activity.actorLabel")}
+              placeholder={t("activity.actorPlaceholder")}
               icon={<User />}
               value={search.actor ?? ""}
               onValueChange={(value) => set({ actor: value === "" ? undefined : value })}
@@ -190,23 +186,23 @@ export function ActivityPage({ search, onSearchChange }: ActivityPageProps) {
             />
             {filtered ? (
               <Button variant="ghost" icon={<X aria-hidden="true" />} onClick={() => onSearchChange({})}>
-                Clear filters
+                {t("activity.clearFilters")}
               </Button>
             ) : null}
           </div>
 
           <ActivityTable
             rows={rows}
-            caption={filtered ? "Activity matching the filters" : "Activity"}
+            caption={filtered ? t("activity.captionFiltered") : t("activity.caption")}
             loading={loading}
             onOpenJobLog={setOpenJob}
             empty={
               <EmptyState
-                title="No activity matches"
-                description="Nothing on this machine matches these filters."
+                title={t("activity.noMatchTitle")}
+                description={t("activity.noMatchDescription")}
                 action={
                   <Button icon={<X aria-hidden="true" />} onClick={() => onSearchChange({})}>
-                    Clear filters
+                    {t("activity.clearFilters")}
                   </Button>
                 }
                 className="border-0 py-8"
@@ -221,7 +217,7 @@ export function ActivityPage({ search, onSearchChange }: ActivityPageProps) {
                 loading={(includeJobsQuery && !jobsComplete && jobs.isFetching) || (includeAudit && audit.isFetchingNextPage)}
                 onClick={loadMore}
               >
-                Load more
+                {t("activity.loadMore")}
               </Button>
             </div>
           ) : null}

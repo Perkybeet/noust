@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { buttonClassName } from "../../../components/ui/Button";
 import type { ButtonSize, ButtonVariant } from "../../../components/ui/Button";
+import { useT } from "../../../i18n";
 import { cx } from "../../../lib/cx";
 import { isHttpUrl } from "../../../lib/url";
 
@@ -26,18 +27,20 @@ const LINK =
  * the console with the external glyph and in words for assistive technology.
  */
 export function ExternalAnchor({ href, children, button, size = "md", label, className }: ExternalAnchorProps) {
+  const t = useT();
   if (href === null || href === undefined || !isHttpUrl(href)) return null;
+  const opensInNewTab = t("settings.shared.opensInNewTab");
   return (
     <a
       href={href}
       target="_blank"
       rel="noreferrer"
-      {...(label !== undefined ? { "aria-label": `${label} (opens in a new tab)` } : {})}
+      {...(label !== undefined ? { "aria-label": `${label} ${opensInNewTab}` } : {})}
       className={button !== undefined ? buttonClassName(button, size, className) : cx(LINK, className)}
     >
       <span className="min-w-0 truncate">{children}</span>
       <ExternalLink aria-hidden="true" className="size-3.5 shrink-0" />
-      {label === undefined ? <span className="sr-only"> (opens in a new tab)</span> : null}
+      {label === undefined ? <span className="sr-only"> {opensInNewTab}</span> : null}
     </a>
   );
 }

@@ -11,6 +11,7 @@ import { backupKeys } from "../../api/queries/backups";
 import { jobKeys } from "../../api/queries/jobs";
 import type { Job } from "../../api/queries/jobs";
 import { toast } from "../../components/ui/toast";
+import { useT } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
 
 export interface CreateBackupInput {
@@ -55,6 +56,7 @@ export interface PushBackupInput {
 }
 
 export function useBackupActions() {
+  const t = useT();
   const queryClient = useQueryClient();
 
   const refreshList = (): void => {
@@ -62,10 +64,10 @@ export function useBackupActions() {
     void queryClient.invalidateQueries({ queryKey: backupKeys.storage });
   };
 
-  const queueJob = (result: { job_id: string; job?: unknown; message: string }, verb: string): void => {
+  const queueJob = (result: { job_id: string; job?: unknown; message: string }, description: string): void => {
     queryClient.setQueryData<Job>(jobKeys.detail(result.job_id), (current) => current ?? (result.job as Job));
     void queryClient.invalidateQueries({ queryKey: jobKeys.active });
-    toast.info(result.message, { description: `You will be told when the ${verb} finishes.` });
+    toast.info(result.message, { description });
   };
 
   const create = useMutation({
@@ -85,10 +87,10 @@ export function useBackupActions() {
         },
       }),
     onSuccess: (result) => {
-      queueJob(result, "backup");
+      queueJob(result, t("backups.toast.backupQueuedDescription"));
     },
     onError: (error, input) => {
-      reportActionError(`Could not queue a backup of ${input.domain}`, error);
+      reportActionError(t("backups.toast.createError", { domain: input.domain }), error);
     },
   });
 
@@ -106,10 +108,10 @@ export function useBackupActions() {
         body: { target_domain: input.targetDomain ?? null, restore_env: input.restoreEnv, verify: input.verify },
       }),
     onSuccess: (result) => {
-      queueJob(result, "restore");
+      queueJob(result, t("backups.toast.restoreQueuedDescription"));
     },
     onError: (error) => {
-      reportActionError("Could not queue the restore", error);
+      reportActionError(t("backups.toast.restoreQueueError"), error);
     },
   });
 
@@ -120,7 +122,7 @@ export function useBackupActions() {
       refreshList();
     },
     onError: (error) => {
-      reportActionError("Could not delete the backup", error);
+      reportActionError(t("backups.toast.deleteError"), error);
     },
   });
 
@@ -131,10 +133,10 @@ export function useBackupActions() {
         body: { destination: input.destination },
       }),
     onSuccess: (result) => {
-      queueJob(result, "copy");
+      queueJob(result, t("backups.toast.copyQueuedDescription"));
     },
     onError: (error) => {
-      reportActionError("Could not queue the copy", error);
+      reportActionError(t("backups.toast.copyQueueError"), error);
     },
   });
 
@@ -175,7 +177,7 @@ export function useBackupActions() {
       void queryClient.invalidateQueries({ queryKey: backupKeys.schedules });
     },
     onError: (error) => {
-      reportActionError("Could not remove the schedule", error);
+      reportActionError(t("backups.toast.removeScheduleError"), error);
     },
   });
 

@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { CommandHint } from "./CommandHint";
 
@@ -26,5 +27,13 @@ describe("CommandHint", () => {
   it("has no accessibility violations", async () => {
     const { container } = render(<CommandHint command="wasm list" label="From a terminal" />);
     await expectNoAxeViolations(container);
+  });
+
+  it("labels the copy button in Spanish", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    render(<CommandHint command="wasm list" />);
+    expect(screen.getByRole("button", { name: "Copiar comando" })).toBeInTheDocument();
   });
 });

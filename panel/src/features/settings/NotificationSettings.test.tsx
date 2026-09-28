@@ -1,6 +1,7 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
@@ -527,5 +528,47 @@ describe("Settings > Notifications", () => {
     await user.click(within(telegram).getByRole("button", { name: "Save" }));
     expect(await within(telegram).findByText(/looks like a supergroup or channel id missing its leading '-'/)).toBeInTheDocument();
     expect(within(telegram).getByLabelText("Chat ID")).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("offers English and Español, each written in its own language, for the language of notifications", { timeout: 20_000 }, async () => {
+    const backend = notificationsBackend();
+    const { user } = renderConsole("/settings/notifications");
+    await screen.findByRole("switch", { name: /Send notifications/ });
+    const section = screen.getByRole("region", { name: "Language of notifications" });
+    const english = within(section).getByRole("radio", { name: "English" });
+    const spanish = within(section).getByRole("radio", { name: "Español" });
+    expect(english).toHaveAttribute("lang", "en");
+    expect(spanish).toHaveAttribute("lang", "es");
+    expect(english).toBeChecked();
+    expect(within(section).getByText("wasm config get notifications.language")).toBeInTheDocument();
+
+    await user.click(spanish);
+    expect(within(section).getByText("wasm config set notifications.language es")).toBeInTheDocument();
+    await user.click(within(section).getByRole("button", { name: "Save changes" }));
+    await confirmItsYou(user);
+    await waitFor(() => {
+      expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({ path: "notifications.language", value: "es" });
+    });
+  });
+});
+
+describe("Settings > Notifications in Spanish", () => {
+  it("shows the channels, the events and the language setting in Spanish, with no accessibility violations", { timeout: 20_000 }, async () => {
+    await act(() => setLocale("es"));
+    notificationsBackend();
+    const { container } = renderConsole("/settings/notifications");
+    expect(await screen.findByRole("switch", { name: /Enviar notificaciones/ })).toBeInTheDocument();
+    for (const name of ["Webhook", "Slack", "Discord", "Telegram", "Correo electrónico"]) {
+      expect(screen.getByRole("article", { name })).toBeInTheDocument();
+    }
+    expect(screen.getByRole("region", { name: "Eventos" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /Certificado a punto de caducar/ })).toBeInTheDocument();
+    const language = screen.getByRole("region", { name: "Idioma de las notificaciones" });
+    const english = within(language).getByRole("radio", { name: "English" });
+    const spanish = within(language).getByRole("radio", { name: "Español" });
+    expect(english).toHaveAttribute("lang", "en");
+    expect(spanish).toHaveAttribute("lang", "es");
+    expect(english).toBeChecked();
+    await expectNoAxeViolations(container);
   });
 });

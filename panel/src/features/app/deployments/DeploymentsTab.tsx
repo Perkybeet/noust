@@ -16,6 +16,8 @@ import { Badge } from "../../../components/ui/Badge";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
+import { useT } from "../../../i18n";
+import type { T } from "../../../i18n";
 import { formatCount, formatDuration, parseTimestamp } from "../../../lib/format";
 import { ReleasesSection } from "./ReleasesSection";
 import { shortCommit, triggerWords } from "./words";
@@ -26,23 +28,23 @@ export const DEPLOYMENTS_PAGE = 10;
 const RUNNING = new Set(["queued", "running"]);
 
 /** How long a deploy took, or has been running for. */
-function Duration({ deployment }: { deployment: Deployment }) {
+function Duration({ deployment, t }: { deployment: Deployment; t: T }) {
   const running = RUNNING.has(deployment.status);
   const started = parseTimestamp(deployment.started_at);
   const now = useNow(() => (running ? 1_000 : 3_600_000));
   if (running) {
     if (started === null) return <span className="text-fg-faint">-</span>;
-    return <span className="text-fg-muted">{formatDuration(Math.max(0, (now - started.getTime()) / 1000))}</span>;
+    return <span className="text-fg-muted">{formatDuration(Math.max(0, (now - started.getTime()) / 1000), t.locale)}</span>;
   }
   if (deployment.duration_s === null || deployment.duration_s === undefined) return <span className="text-fg-faint">-</span>;
-  return <>{formatDuration(deployment.duration_s)}</>;
+  return <>{formatDuration(deployment.duration_s, t.locale)}</>;
 }
 
-function columns(domain: string): Column<Deployment>[] {
+function columns(domain: string, t: T): Column<Deployment>[] {
   return [
     {
       id: "id",
-      header: "Deploy",
+      header: t("appPages.deployments.tab.deployColumn"),
       width: "w-20",
       cell: (row) => (
         <Link
@@ -50,20 +52,20 @@ function columns(domain: string): Column<Deployment>[] {
           params={{ domain, id: String(row.id) }}
           className="mono -mx-1 inline-flex h-7 items-center rounded-[4px] px-1 text-12 font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus"
         >
-          <span className="sr-only">{`Deployment ${String(row.id)}`}</span>
+          <span className="sr-only">{t("appPages.deployments.page.heading", { id: String(row.id) })}</span>
           <span aria-hidden="true">{`#${String(row.id)}`}</span>
         </Link>
       ),
     },
     {
       id: "status",
-      header: "Status",
+      header: t("appPages.deployments.tab.statusColumn"),
       width: "w-36",
       cell: (row) => <DeployStatePill status={row.status} appearance="inline" size="sm" />,
     },
     {
       id: "commit",
-      header: "Commit",
+      header: t("appPages.deployments.tab.commitColumn"),
       cell: (row) => {
         const commit = shortCommit(row.git_commit);
         return (
@@ -74,7 +76,7 @@ function columns(domain: string): Column<Deployment>[] {
                   {commit}
                 </span>
               ) : (
-                <span className="text-12 text-fg-faint">No commit</span>
+                <span className="text-12 text-fg-faint">{t("appPages.deployments.tab.noCommit")}</span>
               )}
               {row.git_branch ? (
                 <span translate="no" className="mono hidden truncate text-12 text-fg-faint sm:inline">
@@ -93,10 +95,10 @@ function columns(domain: string): Column<Deployment>[] {
     },
     {
       id: "trigger",
-      header: "Started by",
+      header: t("appPages.deployments.fields.startedBy"),
       hideBelow: "md",
       cell: (row) => {
-        const words = triggerWords(row.triggered_by);
+        const words = triggerWords(t, row.triggered_by);
         const Icon = words.icon;
         return (
           <span className="flex items-center gap-1.5 text-fg-muted">
@@ -108,50 +110,50 @@ function columns(domain: string): Column<Deployment>[] {
     },
     {
       id: "started",
-      header: "Started",
+      header: t("appPages.deployments.fields.started"),
       cell: (row) => <RelativeTime value={row.started_at} className="text-fg-muted" />,
     },
     {
       id: "duration",
-      header: "Duration",
+      header: t("appPages.deployments.fields.duration"),
       align: "end",
       mono: true,
       hideBelow: "sm",
-      cell: (row) => <Duration deployment={row} />,
+      cell: (row) => <Duration deployment={row} t={t} />,
     },
   ];
 }
 
-function History({ domain }: { domain: string }) {
+function History({ domain, t }: { domain: string; t: T }) {
   const pages = useInfiniteQuery(deploymentPagesQuery({ domain, limit: DEPLOYMENTS_PAGE }));
   const rows = pages.data?.pages.flatMap((page) => page.items) ?? [];
   const total = pages.data?.pages[0]?.total ?? 0;
 
   if (pages.isError && pages.data === undefined) {
     return (
-      <Section title="History">
-        <ErrorBlock error={pages.error} title="Could not load the deploys" onRetry={() => void pages.refetch()} retrying={pages.isRefetching} />
+      <Section title={t("appPages.deployments.tab.historyTitle")}>
+        <ErrorBlock error={pages.error} title={t("appPages.deployments.tab.loadError")} onRetry={() => void pages.refetch()} retrying={pages.isRefetching} />
       </Section>
     );
   }
 
   return (
     <Section
-      title="History"
-      description="Every deploy and update of this app, newest first. Each one opens its build log."
+      title={t("appPages.deployments.tab.historyTitle")}
+      description={t("appPages.deployments.tab.historyDescription")}
       badge={
         pages.data ? (
           // The same count badge every section title carries.
           <Badge>
-            {formatCount(total)}
-            <span className="sr-only"> in total</span>
+            {formatCount(total, t.locale)}
+            <span className="sr-only"> {t("appPages.deployments.tab.inTotal")}</span>
           </Badge>
         ) : undefined
       }
     >
       <DataTable
-        caption={`Deploys of ${domain}, newest first`}
-        columns={columns(domain)}
+        caption={t("appPages.deployments.tab.caption", { domain })}
+        columns={columns(domain, t)}
         rows={rows}
         getRowId={(row) => String(row.id)}
         loading={pages.isPending}
@@ -160,25 +162,25 @@ function History({ domain }: { domain: string }) {
           <EmptyState
             level={3}
             icon={<Rocket />}
-            title="No deploys recorded yet"
-            description="Deploys and updates started from the console, the command line or a push to the repository appear here, each with its build log."
+            title={t("appPages.deployments.tab.emptyTitle")}
+            description={t("appPages.deployments.tab.emptyDescription")}
             command={`wasm update ${domain}`}
             className="py-8"
           />
         }
       />
       {pages.isError ? (
-        <ErrorBlock compact live error={pages.error} title="Could not load older deploys" onRetry={() => void pages.fetchNextPage()} />
+        <ErrorBlock compact live error={pages.error} title={t("appPages.deployments.tab.olderLoadError")} onRetry={() => void pages.fetchNextPage()} />
       ) : null}
       {pages.hasNextPage ? (
         <div className="flex flex-wrap items-center gap-3">
           <Button size="sm" loading={pages.isFetchingNextPage} onClick={() => void pages.fetchNextPage()}>
-            Load older deploys
+            {t("appPages.deployments.tab.loadOlder")}
           </Button>
-          <span className="text-12 text-fg-faint">{`Showing ${formatCount(rows.length)} of ${formatCount(total)}`}</span>
+          <span className="text-12 text-fg-faint">{t("appPages.deployments.tab.showing", { shown: formatCount(rows.length, t.locale), total: formatCount(total, t.locale) })}</span>
         </div>
       ) : rows.length > DEPLOYMENTS_PAGE ? (
-        <p className="text-12 text-fg-faint">{`All ${formatCount(total)} deploys the history keeps are shown.`}</p>
+        <p className="text-12 text-fg-faint">{t("appPages.deployments.tab.allShown", { total: formatCount(total, t.locale) })}</p>
       ) : null}
     </Section>
   );
@@ -189,12 +191,13 @@ function History({ domain }: { domain: string }) {
  * for an app deployed in place, the backups a rollback restores.
  */
 export function DeploymentsTab({ domain }: { domain: string }) {
-  useDocumentTitle(`Deployments - ${domain}`, 1);
+  const t = useT();
+  useDocumentTitle(t("appPages.deployments.tab.documentTitle", { domain }), 1);
   const app = useQuery(appQuery(domain));
 
   return (
     <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
-      <History domain={domain} />
+      <History domain={domain} t={t} />
       {app.data ? <ReleasesSection domain={domain} layout={app.data.layout} /> : null}
     </div>
   );

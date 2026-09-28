@@ -15,6 +15,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { IconButton } from "../../components/ui/IconButton";
 import { Menu, MenuItem } from "../../components/ui/Menu";
 import { Select } from "../../components/ui/Select";
+import { useT } from "../../i18n";
 import { CreateUserDialog } from "./CreateUserDialog";
 import { engineLabel } from "./data";
 import { GrantDialog } from "./GrantDialog";
@@ -22,20 +23,24 @@ import type { GrantMode } from "./GrantDialog";
 import { useDatabaseActions } from "./useDatabaseActions";
 
 function UserActions({ user }: { user: DatabaseUser }) {
+  const t = useT();
   const { deleteUser } = useDatabaseActions();
   const [grantMode, setGrantMode] = useState<GrantMode | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   return (
     <>
-      <Menu align="end" trigger={<IconButton label={`Actions for ${user.username}`} icon={<MoreHorizontal />} size="sm" tooltip={false} />}>
+      <Menu
+        align="end"
+        trigger={<IconButton label={t("databases.table.actionsFor", { name: user.username })} icon={<MoreHorizontal />} size="sm" tooltip={false} />}
+      >
         <MenuItem icon={<ShieldPlus />} onClick={() => setGrantMode("grant")}>
-          Grant privileges
+          {t("databases.users.grantPrivileges")}
         </MenuItem>
         <MenuItem icon={<ShieldMinus />} onClick={() => setGrantMode("revoke")}>
-          Revoke privileges
+          {t("databases.users.revokePrivileges")}
         </MenuItem>
         <MenuItem icon={<Trash2 />} destructive onClick={() => setConfirmOpen(true)}>
-          Delete user
+          {t("databases.users.deleteUser")}
         </MenuItem>
       </Menu>
       <GrantDialog
@@ -49,10 +54,10 @@ function UserActions({ user }: { user: DatabaseUser }) {
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title={`Delete ${user.username}`}
-        description={`Removes '${user.username}' from ${engineLabel(user.engine)}. Databases it owns are not deleted, but it can no longer connect.`}
+        title={t("databases.users.deleteTitle", { username: user.username })}
+        description={t("databases.users.deleteDescription", { username: user.username, engine: engineLabel(user.engine) })}
         confirmText={user.username}
-        actionLabel="Delete user"
+        actionLabel={t("databases.users.deleteUser")}
         onConfirm={async () => {
           await deleteUser.mutateAsync({ engine: user.engine, username: user.username, host: user.host });
         }}
@@ -71,18 +76,19 @@ export interface UsersPanelProps {
 
 /** The users of one engine, with grant, revoke and delete - engine-scoped, like the CLI's `wasm db user` commands. */
 export function UsersPanel({ engines, loading = false, engine, onEngineChange }: UsersPanelProps) {
+  const t = useT();
   const users = useQuery({ ...databaseUsersQuery(engine), enabled: engine !== "" });
   const runnable = engines.filter((item) => item.installed && item.running);
 
   const columns: Column<DatabaseUser>[] = [
-    { id: "username", header: "Username", mono: true, cell: (row) => row.username, sortValue: (row) => row.username },
-    { id: "host", header: "Host", mono: true, width: "w-40", hideBelow: "sm", cell: (row) => row.host, sortValue: (row) => row.host },
+    { id: "username", header: t("databases.fields.username"), mono: true, cell: (row) => row.username, sortValue: (row) => row.username },
+    { id: "host", header: t("databases.fields.host"), mono: true, width: "w-40", hideBelow: "sm", cell: (row) => row.host, sortValue: (row) => row.host },
     {
       id: "privileges",
-      header: "Privileges",
+      header: t("databases.fields.privileges"),
       cell: (row) =>
         (row.privileges ?? []).length === 0 ? (
-          <span className="text-fg-faint">Default</span>
+          <span className="text-fg-faint">{t("databases.users.defaultPrivileges")}</span>
         ) : (
           <span className="flex flex-wrap gap-1">
             {(row.privileges ?? []).map((privilege) => (
@@ -97,12 +103,12 @@ export function UsersPanel({ engines, loading = false, engine, onEngineChange }:
 
   return (
     <Section
-      title="Users"
-      description="Logins on one engine. A user is granted access to a database, not created inside one."
+      title={t("databases.users.title")}
+      description={t("databases.users.description")}
       actions={
         <>
           <Select
-            aria-label="Engine"
+            aria-label={t("databases.fields.engine")}
             size="sm"
             value={engine}
             onValueChange={onEngineChange}
@@ -113,7 +119,7 @@ export function UsersPanel({ engines, loading = false, engine, onEngineChange }:
             engines={runnable}
             trigger={
               <Button size="sm" icon={<Plus aria-hidden="true" />} disabled={runnable.length === 0}>
-                New user
+                {t("databases.users.newUser")}
               </Button>
             }
           />
@@ -124,27 +130,35 @@ export function UsersPanel({ engines, loading = false, engine, onEngineChange }:
         // The table's own placeholder: until the engines answer, "No running engine" would be
         // a guess, and a card of that size swapped for a table moved everything around it.
         <div aria-busy="true">
-          <span className="sr-only">Loading users</span>
-          <DataTable columns={columns} rows={[]} getRowId={() => ""} caption="Database users" loading />
+          <span className="sr-only">{t("databases.users.loading")}</span>
+          <DataTable columns={columns} rows={[]} getRowId={() => ""} caption={t("databases.users.tableCaption")} loading />
         </div>
       ) : runnable.length === 0 ? (
         <EmptyState
           level={3}
           icon={<UserRound />}
-          title="No running engine"
-          description="Start a database engine above to manage its users."
+          title={t("databases.users.noEngineTitle")}
+          description={t("databases.users.noEngineDescription")}
         />
       ) : (
         <QueryState
           query={users}
           label="users"
-          skeleton={<DataTable columns={columns} rows={[]} getRowId={() => ""} caption={`Users on ${engineLabel(engine)}`} loading />}
+          skeleton={
+            <DataTable
+              columns={columns}
+              rows={[]}
+              getRowId={() => ""}
+              caption={t("databases.users.tableCaptionOn", { engine: engineLabel(engine) })}
+              loading
+            />
+          }
           isEmpty={(data) => data.users.length === 0}
           empty={
             <EmptyState
               icon={<UserRound />}
-              title="No users on this engine"
-              description={`Create a login to connect applications or people to ${engineLabel(engine)}.`}
+              title={t("databases.users.emptyTitle")}
+              description={t("databases.users.emptyDescription", { engine: engineLabel(engine) })}
             />
           }
         >
@@ -153,7 +167,7 @@ export function UsersPanel({ engines, loading = false, engine, onEngineChange }:
               columns={columns}
               rows={data.users}
               getRowId={(row) => `${row.username}@${row.host}`}
-              caption={`Users on ${engineLabel(engine)}`}
+              caption={t("databases.users.tableCaptionOn", { engine: engineLabel(engine) })}
               rowActions={(row) => <UserActions user={row} />}
               defaultSort={{ column: "username", direction: "ascending" }}
             />

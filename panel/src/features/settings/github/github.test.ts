@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { loadCatalog } from "../../../i18n";
 import { accountTypeWords, hooksState, organizationProblem, parseCallback, repositorySelectionWords, splitFullName } from "./github";
 
 describe("parseCallback", () => {
@@ -30,6 +31,13 @@ describe("the words for an installation", () => {
     expect(repositorySelectionWords("selected")).toBe("Selected repositories");
     expect(repositorySelectionWords(undefined)).toBe("Repositories not reported");
   });
+
+  it("names them in Spanish when asked to", async () => {
+    await loadCatalog("es");
+    expect(accountTypeWords("Organization", "es")).toBe("Organización");
+    expect(accountTypeWords("User", "es")).toBe("Cuenta personal");
+    expect(repositorySelectionWords("selected", "es")).toBe("Repositorios seleccionados");
+  });
 });
 
 describe("hooksState", () => {
@@ -51,6 +59,13 @@ describe("organizationProblem", () => {
     expect(organizationProblem("-acme")).not.toBeNull();
     expect(organizationProblem("acme--labs")).not.toBeNull();
     expect(organizationProblem("a".repeat(40))).not.toBeNull();
+  });
+
+  it("says why in Spanish when asked to", async () => {
+    await loadCatalog("es");
+    expect(organizationProblem("acme corp", "es")).toBe(
+      "El nombre de una organización en GitHub usa letras, dígitos y guiones simples, hasta 39 caracteres, como en su URL: github.com/tu-org.",
+    );
   });
 });
 

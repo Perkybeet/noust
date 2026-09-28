@@ -5,32 +5,53 @@ import { Button } from "../../components/ui/Button";
 import { Field } from "../../components/ui/Field";
 import { IconButton } from "../../components/ui/IconButton";
 import { Input } from "../../components/ui/Input";
+import { useT } from "../../i18n";
+import type { T } from "../../i18n";
 import { generateSecret } from "./secrets";
 import { envField, envNameField } from "./wizard";
 import type { EnvRow, ReviewErrors } from "./wizard";
 
 function Label({ row }: { row: EnvRow }) {
+  const t = useT();
   return (
     <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
       <code translate="no" className="text-12 font-medium text-fg">
         {row.name}
       </code>
-      {row.required ? <span className="text-12 font-medium text-fg-muted">Required</span> : null}
-      {row.secret ? <span className="text-12 font-normal text-fg-faint">Secret</span> : null}
+      {row.required ? <span className="text-12 font-medium text-fg-muted">{t("newApp.env.required")}</span> : null}
+      {row.secret ? <span className="text-12 font-normal text-fg-faint">{t("newApp.env.secret")}</span> : null}
     </span>
   );
 }
 
+/** Where a declared variable's value came from, when that is worth saying. */
+function origin(t: T, row: EnvRow): string | undefined {
+  if (row.proposed !== undefined) {
+    if (row.proposed.generated) return t("newApp.env.proposalGenerated");
+    if (row.example !== null && row.example !== "") return t("newApp.env.proposalDefault");
+    return row.secret ? t("newApp.env.pasteOrGenerate") : undefined;
+  }
+  if (row.example !== null && row.example !== "") return t(row.secret ? "newApp.env.exampleSecret" : "newApp.env.exampleDefault");
+  return row.secret ? t("newApp.env.pasteOrGenerate") : undefined;
+}
+
 function DeclaredRow({ row, error, onChange }: { row: EnvRow; error: string | undefined; onChange: (value: string) => void }) {
+  const t = useT();
   const [shown, setShown] = useState(false);
+  const said = origin(t, row);
+  // The platform's own note on where the value came from there, verbatim.
+  const note = row.proposed?.note ?? null;
   const description =
-    row.example !== null && row.example !== ""
-      ? row.secret
-        ? "Default from .env.example. Replace it: an example secret is public."
-        : "Default from .env.example."
-      : row.secret
-        ? "Paste the value, or generate a random one."
-        : undefined;
+    note !== null ? (
+      <>
+        {said !== undefined ? `${said} ` : null}
+        <span translate="no" className="mono">
+          {note}
+        </span>
+      </>
+    ) : (
+      said
+    );
   return (
     <div className={row.secret ? "grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2" : undefined}>
       <Field label={<Label row={row} />} error={error} {...(description !== undefined ? { description } : {})}>
@@ -46,7 +67,7 @@ function DeclaredRow({ row, error, onChange }: { row: EnvRow; error: string | un
             ? {
                 suffix: (
                   <IconButton
-                    label={shown ? `Hide ${row.name}` : `Show ${row.name}`}
+                    label={t(shown ? "newApp.env.hide" : "newApp.env.show", { name: row.name })}
                     icon={shown ? <EyeOff /> : <Eye />}
                     size="sm"
                     pressed={shown}
@@ -61,11 +82,11 @@ function DeclaredRow({ row, error, onChange }: { row: EnvRow; error: string | un
         <Button
           size="md"
           icon={<KeyRound aria-hidden="true" />}
-          aria-label={`Generate ${row.name}`}
+          aria-label={t("newApp.env.generateNamed", { name: row.name })}
           onClick={() => onChange(generateSecret())}
           className="mt-[1.625rem]"
         >
-          <span className="hidden sm:inline">Generate</span>
+          <span className="hidden sm:inline">{t("newApp.env.generate")}</span>
         </Button>
       ) : null}
     </div>
@@ -85,9 +106,10 @@ function AddedRow({
   onChange: (patch: Partial<EnvRow>) => void;
   onRemove: () => void;
 }) {
+  const t = useT();
   return (
     <div className="grid gap-2 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_auto] sm:items-start">
-      <Field label="Name" error={nameError}>
+      <Field label={t("newApp.env.name")} error={nameError}>
         <Input
           mono
           value={row.name}
@@ -98,11 +120,11 @@ function AddedRow({
           spellCheck={false}
         />
       </Field>
-      <Field label="Value" error={valueError}>
+      <Field label={t("newApp.env.value")} error={valueError}>
         <Input mono value={row.value} onValueChange={(value: string) => onChange({ value })} autoComplete="off" spellCheck={false} />
       </Field>
       <IconButton
-        label={row.name.trim() === "" ? "Remove this variable" : `Remove ${row.name.trim()}`}
+        label={row.name.trim() === "" ? t("newApp.env.removeUnnamed") : t("newApp.env.remove", { name: row.name.trim() })}
         icon={<Trash2 />}
         onClick={onRemove}
         className="sm:mt-[1.625rem]"
@@ -126,6 +148,7 @@ let added = 0;
  * Environment tab.
  */
 export function EnvironmentFields({ rows, errors, onChange }: EnvironmentFieldsProps) {
+  const t = useT();
   const declared = rows.filter((row) => row.declared);
   const extra = rows.filter((row) => !row.declared);
   const update = (id: string, patch: Partial<EnvRow>): void => {
@@ -142,9 +165,7 @@ export function EnvironmentFields({ rows, errors, onChange }: EnvironmentFieldsP
   return (
     <div className="flex flex-col gap-4">
       {declared.length === 0 ? (
-        <p className="text-13 text-fg-muted">
-          The repository has no .env.example. Add the variables the app needs now, or later from its Environment tab.
-        </p>
+        <p className="text-13 text-fg-muted">{t("newApp.env.noExample")}</p>
       ) : (
         <div className="flex flex-col gap-4">
           {declared.map((row) => (
@@ -168,7 +189,7 @@ export function EnvironmentFields({ rows, errors, onChange }: EnvironmentFieldsP
       ) : null}
       <div>
         <Button size="sm" icon={<Plus aria-hidden="true" />} onClick={add}>
-          Add variable
+          {t("newApp.env.add")}
         </Button>
       </div>
     </div>

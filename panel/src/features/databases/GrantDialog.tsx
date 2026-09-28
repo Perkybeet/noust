@@ -12,6 +12,7 @@ import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { useT } from "../../i18n";
 import { engineLabel } from "./data";
 import { useDatabaseActions } from "./useDatabaseActions";
 
@@ -31,6 +32,7 @@ export interface GrantDialogProps {
  * every privilege); the server refuses anything not on its own whitelist and says so verbatim.
  */
 export function GrantDialog({ mode, user, open, onOpenChange }: GrantDialogProps) {
+  const t = useT();
   const formId = useId();
   const databases = useQuery({ ...databasesQuery(user.engine), enabled: open });
   const privileges = useQuery({ ...enginePrivilegesQuery(user.engine), enabled: open });
@@ -69,16 +71,16 @@ export function GrantDialog({ mode, user, open, onOpenChange }: GrantDialogProps
     <Dialog
       open={open}
       onOpenChange={close}
-      title={mode === "grant" ? `Grant privileges to ${user.username}` : `Revoke privileges from ${user.username}`}
-      description={
+      title={
         mode === "grant"
-          ? "Grants access on one database. Check none for every privilege."
-          : "Revokes access on one database. Check none to revoke every privilege."
+          ? t("databases.grantDialog.grantTitle", { username: user.username })
+          : t("databases.grantDialog.revokeTitle", { username: user.username })
       }
+      description={mode === "grant" ? t("databases.grantDialog.grantDescription") : t("databases.grantDialog.revokeDescription")}
       footer={
         <>
           <Button disabled={action.isPending} onClick={() => close(false)}>
-            Cancel
+            {t("databases.cancel")}
           </Button>
           <Button
             type="submit"
@@ -87,26 +89,26 @@ export function GrantDialog({ mode, user, open, onOpenChange }: GrantDialogProps
             loading={action.isPending}
             disabled={database === ""}
           >
-            {mode === "grant" ? "Grant" : "Revoke"}
+            {mode === "grant" ? t("databases.grantDialog.grant") : t("databases.grantDialog.revoke")}
           </Button>
         </>
       }
     >
       <form id={formId} onSubmit={submit} className="flex flex-col gap-4">
-        <Field label="Database" nativeLabel={false}>
+        <Field label={t("databases.fields.database")} nativeLabel={false}>
           <Select
-            aria-label="Database"
+            aria-label={t("databases.fields.database")}
             value={database}
             onValueChange={setDatabase}
-            placeholder={databases.isPending ? "Loading databases..." : "Choose a database"}
+            placeholder={databases.isPending ? t("databases.grantDialog.loadingDatabases") : t("databases.grantDialog.chooseDatabase")}
             options={options}
             disabled={databases.isPending || options.length === 0}
           />
         </Field>
         <fieldset className="flex flex-col gap-2">
-          <legend className="mb-0.5 text-13 font-medium text-fg">Privileges</legend>
+          <legend className="mb-0.5 text-13 font-medium text-fg">{t("databases.fields.privileges")}</legend>
           <p className="text-12 text-fg-muted">
-            {`Leave every privilege unchecked for ${engineLabel(user.engine)}'s own default (usually every privilege).`}
+            {t("databases.grantDialog.defaultHint", { engine: engineLabel(user.engine) })}
           </p>
           <QueryState
             query={privileges}
@@ -119,7 +121,11 @@ export function GrantDialog({ mode, user, open, onOpenChange }: GrantDialogProps
               </div>
             }
             isEmpty={(data) => data.privileges.length === 0}
-            empty={<p className="text-13 text-fg-muted">{`${engineLabel(user.engine)} defines no discrete privileges here; only its own default applies.`}</p>}
+            empty={
+              <p className="text-13 text-fg-muted">
+                {t("databases.grantDialog.noDiscretePrivileges", { engine: engineLabel(user.engine) })}
+              </p>
+            }
           >
             {(data) => (
               <div className="grid max-h-48 grid-cols-2 gap-x-4 gap-y-2 overflow-y-auto pr-1 scroll-thin">
@@ -137,11 +143,16 @@ export function GrantDialog({ mode, user, open, onOpenChange }: GrantDialogProps
             )}
           </QueryState>
         </fieldset>
-        <Field label="Host">
+        <Field label={t("databases.fields.host")}>
           <Input mono value={host} onValueChange={setHost} autoComplete="off" spellCheck={false} />
         </Field>
         {action.isError ? (
-          <ErrorBlock live compact error={action.error} title={mode === "grant" ? "The grant failed" : "The revoke failed"} />
+          <ErrorBlock
+            live
+            compact
+            error={action.error}
+            title={mode === "grant" ? t("databases.grantDialog.grantFailed") : t("databases.grantDialog.revokeFailed")}
+          />
         ) : null}
       </form>
     </Dialog>

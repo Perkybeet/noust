@@ -6,10 +6,12 @@ import { isApiError } from "../../api/client";
 import { logout } from "../../api/queries/auth";
 import { announce } from "../../app/Announcer";
 import { toast } from "../../components/ui/toast";
+import { useT } from "../../i18n";
 import { describeError } from "../../lib/errors";
 
 /** Ends the session, forgets everything it loaded, and shows the sign-in page. */
 export function useSignOut(): { signOut: () => Promise<void>; pending: boolean } {
+  const t = useT();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [pending, setPending] = useState(false);
@@ -23,13 +25,13 @@ export function useSignOut(): { signOut: () => Promise<void>; pending: boolean }
       // A session that already ended is handled by the client: it is on its way to sign-in.
       if (isApiError(error) && error.sessionExpired) return;
       const { hint, detail } = describeError(error);
-      toast.error("Sign out failed", { ...(hint !== null ? { description: hint } : {}), detail });
+      toast.error(t("auth.signOutFailed"), { ...(hint !== null ? { description: hint } : {}), detail });
       return;
     }
     queryClient.clear();
     await navigate({ to: "/login", replace: true });
     setPending(false);
-    announce("Signed out");
+    announce(t("auth.signedOut"));
   };
 
   return { signOut, pending };

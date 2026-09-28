@@ -10,18 +10,20 @@ import { Button } from "../../components/ui/Button";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { Textarea } from "../../components/ui/Textarea";
+import { useT } from "../../i18n";
 import { useServiceActions } from "./useServiceActions";
 
 type Outcome = { kind: "rejected"; output: string } | { kind: "saved"; output: string } | null;
 
 function VerifyRejected({ output }: { output: string }) {
+  const t = useT();
   return (
     <div role="alert" className="flex flex-col gap-2 rounded-card border border-fail/30 bg-fail-soft/50 p-3">
       <div className="flex items-start gap-2">
         <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fail" />
-        <p className="text-13 text-fg">Nothing was saved: systemd-analyze rejected the unit. Fix what it names and save again.</p>
+        <p className="text-13 text-fg">{t("services.unitEditor.rejected")}</p>
       </div>
-      <SystemOutput label="What systemd-analyze said" maxHeight="max-h-40">
+      <SystemOutput label={t("services.unitEditor.systemdAnalyzeOutput")} maxHeight="max-h-40">
         {output}
       </SystemOutput>
     </div>
@@ -29,17 +31,16 @@ function VerifyRejected({ output }: { output: string }) {
 }
 
 function VerifyPassed({ output }: { output: string }) {
+  const t = useT();
   const clean = output.trim() === "";
   return (
     <div role="status" className="flex flex-col gap-2 rounded-card border border-ok/30 bg-ok-soft/40 p-3">
       <div className="flex items-start gap-2">
         <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-ok" />
-        <p className="text-13 text-fg">
-          {clean ? "Saved. systemd-analyze found no problems." : "Saved. systemd-analyze passed, with this output:"}
-        </p>
+        <p className="text-13 text-fg">{clean ? t("services.unitEditor.savedClean") : t("services.unitEditor.savedWithOutput")}</p>
       </div>
       {clean ? null : (
-        <SystemOutput label="What systemd-analyze said" maxHeight="max-h-32">
+        <SystemOutput label={t("services.unitEditor.systemdAnalyzeOutput")} maxHeight="max-h-32">
           {output}
         </SystemOutput>
       )}
@@ -58,6 +59,7 @@ function VerifyPassed({ output }: { output: string }) {
  * instance, restamp the WASM ownership marker.
  */
 export function UnitEditor({ name }: { name: string }) {
+  const t = useT();
   const config = useQuery(serviceConfigQuery(name));
   const { updateConfig, verifyUnit } = useServiceActions(name);
   const [value, setValue] = useState<string | null>(null);
@@ -103,18 +105,20 @@ export function UnitEditor({ name }: { name: string }) {
   };
 
   return (
-    <Section
-      title="Unit file"
-      description="The raw systemd unit. Saving tests it with systemd-analyze first and requires confirming it's you; restarting the service applies the change."
-    >
+    <Section title={t("services.unitEditor.title")} description={t("services.unitEditor.description")}>
       {config.isError && config.data === undefined ? (
-        <ErrorBlock error={config.error} title="Could not load the unit file" onRetry={() => void config.refetch()} retrying={config.isRefetching} />
+        <ErrorBlock
+          error={config.error}
+          title={t("services.unitEditor.loadFailed")}
+          onRetry={() => void config.refetch()}
+          retrying={config.isRefetching}
+        />
       ) : value === null ? (
         <Skeleton className="h-56 w-full rounded-card" />
       ) : (
         <div className="flex flex-col gap-2">
           <Textarea
-            aria-label={`Unit file for ${name}`}
+            aria-label={t("services.unitEditor.label", { name })}
             mono
             rows={16}
             value={value}
@@ -125,7 +129,15 @@ export function UnitEditor({ name }: { name: string }) {
           />
           <div className="flex items-center justify-between gap-3">
             <p role="status" className="text-12 text-fg-muted">
-              {checking ? "Checking with systemd-analyze..." : saving ? "Saving..." : outcome?.kind === "saved" ? "" : dirty ? "Unsaved changes." : ""}
+              {checking
+                ? t("services.unitEditor.checking")
+                : saving
+                  ? t("services.unitEditor.saving")
+                  : outcome?.kind === "saved"
+                    ? ""
+                    : dirty
+                      ? t("services.unitEditor.unsaved")
+                      : ""}
             </p>
             <div className="flex items-center gap-2">
               {dirty ? (
@@ -136,11 +148,11 @@ export function UnitEditor({ name }: { name: string }) {
                     setOutcome(null);
                   }}
                 >
-                  Revert
+                  {t("services.unitEditor.revert")}
                 </Button>
               ) : null}
               <Button variant="primary" disabled={!dirty} loading={checking || saving} onClick={save}>
-                Save unit file
+                {t("services.unitEditor.save")}
               </Button>
             </div>
           </div>
@@ -149,13 +161,13 @@ export function UnitEditor({ name }: { name: string }) {
           ) : outcome?.kind === "saved" ? (
             <VerifyPassed output={outcome.output} />
           ) : verifyUnit.isError ? (
-            <ErrorBlock live compact error={verifyUnit.error} title="The unit file could not be checked" />
+            <ErrorBlock live compact error={verifyUnit.error} title={t("services.unitEditor.verifyFailed")} />
           ) : updateConfig.isError && updateConfig.error instanceof ElevationCancelledError ? (
             <p role="status" className="text-13 text-fg-muted">
               {updateConfig.error.detail}
             </p>
           ) : updateConfig.isError ? (
-            <ErrorBlock live compact error={updateConfig.error} title="The unit file was not saved" />
+            <ErrorBlock live compact error={updateConfig.error} title={t("services.unitEditor.saveFailed")} />
           ) : null}
         </div>
       )}

@@ -16,6 +16,7 @@ import { IconButton } from "../../components/ui/IconButton";
 import { Input } from "../../components/ui/Input";
 import { StatusGlyph, StatusPill } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
+import { useT } from "../../i18n";
 
 /** Refreshes every configuration answer, the typed sections included. */
 export function useRefreshConfig() {
@@ -28,9 +29,11 @@ export function useRefreshConfig() {
  *
  * @param source Who said it, as a sentence continues: "the server", "Telegram".
  */
-export function TestOutcome({ result, error, source = "the server" }: { result: NotificationTestResult | undefined; error: unknown; source?: string }) {
+export function TestOutcome({ result, error, source }: { result: NotificationTestResult | undefined; error: unknown; source?: string }) {
+  const t = useT();
+  const named = source ?? t("settings.notifications.channels.testSourceServer");
   if (error !== null && error !== undefined) {
-    return <ErrorBlock compact error={error} title="The test could not be sent" />;
+    return <ErrorBlock compact error={error} title={t("settings.notifications.channels.testFailedTitle")} />;
   }
   if (result === undefined) return null;
   if (result.ok) {
@@ -41,14 +44,14 @@ export function TestOutcome({ result, error, source = "the server" }: { result: 
       </p>
     );
   }
-  const speaker = source.charAt(0).toUpperCase() + source.slice(1);
+  const speaker = named.charAt(0).toUpperCase() + named.slice(1);
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       <p className="flex items-center gap-2 text-13 font-medium text-fg">
         <StatusGlyph state="failed" className="text-fail" />
-        {`The test failed. ${speaker} said:`}
+        {t("settings.notifications.channels.testFailed", { source: speaker })}
       </p>
-      <SystemOutput label={`What ${source} said`} maxHeight="max-h-40" className="rounded-control border border-border bg-bg-sunken px-3 py-2">
+      <SystemOutput label={t("settings.notifications.channels.testWhatSaid", { source: named })} maxHeight="max-h-40" className="rounded-control border border-border bg-bg-sunken px-3 py-2">
         {result.detail}
       </SystemOutput>
     </div>
@@ -73,6 +76,7 @@ export function SecretInput({
   onChange: (value: string) => void;
   disabled: boolean;
 }) {
+  const t = useT();
   const [shown, setShown] = useState(false);
   return (
     <Input
@@ -81,7 +85,7 @@ export function SecretInput({
       autoComplete="off"
       autoCapitalize="off"
       spellCheck={false}
-      placeholder={configured ? "Set - leave blank to keep it" : placeholder}
+      placeholder={configured ? t("settings.notifications.channels.secretPlaceholder") : placeholder}
       value={value}
       disabled={disabled}
       onValueChange={(next: string) => {
@@ -90,7 +94,11 @@ export function SecretInput({
       suffix={
         <IconButton
           size="sm"
-          label={shown ? `Hide the ${label.toLowerCase()}` : `Show the ${label.toLowerCase()}`}
+          label={
+            shown
+              ? t("settings.notifications.channels.hideSecret", { label: label.toLowerCase() })
+              : t("settings.notifications.channels.showSecret", { label: label.toLowerCase() })
+          }
           icon={shown ? <EyeOff /> : <Eye />}
           pressed={shown}
           onClick={() => {
@@ -108,6 +116,7 @@ export function useChannelTest(channel: string) {
 
 /** Sending a test needs a destination to send to; a dirty form needs saving before it means anything. */
 export function TestButton({ test, disabled, reason }: { test: ReturnType<typeof useChannelTest>; disabled: boolean; reason?: string | undefined }) {
+  const t = useT();
   const reasonId = useId();
   return (
     <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -126,7 +135,7 @@ export function TestButton({ test, disabled, reason }: { test: ReturnType<typeof
           test.mutate();
         }}
       >
-        Send test
+        {t("settings.notifications.channels.sendTest")}
       </Button>
     </span>
   );
@@ -146,6 +155,7 @@ export function ChannelHeader({
   configured: boolean;
   actions: ReactNode;
 }) {
+  const t = useT();
   return (
     <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
       <div className="min-w-0 flex-1 basis-60">
@@ -155,7 +165,7 @@ export function ChannelHeader({
           </h3>
           <StatusPill
             state={configured ? "running" : "stopped"}
-            label={configured ? "Configured" : "Not configured"}
+            label={configured ? t("settings.notifications.channels.configured") : t("settings.notifications.channels.notConfigured")}
             appearance="inline"
             size="sm"
           />
@@ -170,14 +180,15 @@ export function ChannelHeader({
 
 /** Save and Discard, only once something changed: a clean channel shows no dead buttons. */
 export function DirtyActions({ dirty, pending, onDiscard, note }: { dirty: boolean; pending: boolean; onDiscard: () => void; note?: string }) {
+  const t = useT();
   if (!dirty && !pending) return null;
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button type="submit" size="sm" variant="primary" loading={pending}>
-        Save
+        {t("settings.shared.save")}
       </Button>
       <Button size="sm" variant="ghost" disabled={pending} onClick={onDiscard}>
-        Discard
+        {t("settings.shared.discard")}
       </Button>
       {note !== undefined ? <p className="text-12 text-fg-muted">{note}</p> : null}
     </div>

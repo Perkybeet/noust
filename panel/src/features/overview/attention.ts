@@ -21,14 +21,34 @@ export const CERT_WARNING_DAYS = 21;
 
 export type Severity = "fail" | "warn";
 
+/**
+ * What is wrong, as a message key and its parameters rather than finished text: this module
+ * is pure and has no language, so whoever renders an item (`NeedsAttention.tsx`) is the one
+ * that calls `t()`.
+ */
+export type AttentionSummary =
+  | { key: "serviceFailed" }
+  | { key: "serviceState"; label: string }
+  | { key: "deployFailed" }
+  | { key: "deployRolledBack" }
+  | { key: "certExpired" }
+  | { key: "certExpiresToday" }
+  | { key: "certExpiresIn"; days: number }
+  | { key: "unitFailed" }
+  | { key: "unitRestarting" }
+  | { key: "unitsFailedCount"; count: number }
+  | { key: "monitorFinding"; severity: string; signal: string };
+
 export interface AttentionReason {
   /** Where the problem comes from, which decides where it is fixed. */
   kind: "state" | "deploy" | "certificate" | "units" | "monitor";
   severity: Severity;
-  /** What is wrong, in the console's words: "Last deploy failed". */
-  summary: string;
-  /** The system's own words, verbatim, when there are any: the first line of the error. */
+  /** What is wrong: "Last deploy failed". */
+  summary: AttentionSummary;
+  /** The system's own words, verbatim, when there are any: the first line of the error, or systemd's result. */
   detail?: string;
+  /** A certificate's expiry date, in the backend's format; translated and formatted where it is drawn. */
+  validUntil?: string;
   /** When it happened, as the backend sent it. */
   when?: string | null;
   /** A deployment to open for the full story. */
@@ -116,7 +136,7 @@ export function collectAttention({ apps, deployments, certificates, observations
     add(app.domain, { kind: "app", domain: app.domain }, {
       kind: "state",
       severity: view.state === "failed" ? "fail" : "warn",
-      summary: view.label === "Failed" ? "The service has failed" : `The service is in state ${view.label}`,
+      summary: view.label === "Failed" ? { key: "serviceFailed" } : { key: "serviceState", label: view.label },
     });
   }
 
@@ -128,7 +148,7 @@ export function collectAttention({ apps, deployments, certificates, observations
     const reason: AttentionReason = {
       kind: "deploy",
       severity: deploy.status === "failed" ? "fail" : "warn",
-      summary: deploy.status === "failed" ? "Last deploy failed" : "Last deploy was rolled back",
+      summary: deploy.status === "failed" ? { key: "deployFailed" } : { key: "deployRolledBack" },
       when: deployMoment(deploy),
       deploymentId: deploy.id,
     };
@@ -144,13 +164,13 @@ export function collectAttention({ apps, deployments, certificates, observations
       : { kind: "certificate", domain: cert.domain };
     const reason: AttentionReason =
       days < 0
-        ? { kind: "certificate", severity: "fail", summary: "Certificate expired" }
+        ? { kind: "certificate", severity: "fail", summary: { key: "certExpired" } }
         : {
             kind: "certificate",
             severity: "warn",
-            summary: days === 0 ? "Certificate expires today" : `Certificate expires in ${String(days)} ${days === 1 ? "day" : "days"}`,
+            summary: days === 0 ? { key: "certExpiresToday" } : { key: "certExpiresIn", days },
           };
-    add(cert.domain, subject, { ...reason, ...(cert.expires_on ? { detail: `Valid until ${cert.expires_on}` } : {}) });
+    add(cert.domain, subject, { ...reason, ...(cert.expires_on ? { validUntil: cert.expires_on } : {}) });
   }
 
   const items = [...byDomain.values()];
@@ -172,7 +192,7 @@ export function collectAttention({ apps, deployments, certificates, observations
           {
             kind: "units",
             severity: failed ? "fail" : "warn",
-            summary: failed ? "The unit has failed" : "systemd keeps restarting the unit",
+            summary: failed ? { key: "unitFailed" } : { key: "unitRestarting" },
             ...(result !== "" && result !== "success" ? { detail: `Result=${result}` } : {}),
           },
         ],
@@ -192,7 +212,7 @@ export function collectAttention({ apps, deployments, certificates, observations
         {
           kind: "units",
           severity: "fail",
-          summary: `systemd reports ${String(extra)} failed WASM ${extra === 1 ? "unit" : "units"}`,
+          summary: { key: "unitsFailedCount", count: extra },
         },
       ],
     });
@@ -212,7 +232,7 @@ export function collectAttention({ apps, deployments, certificates, observations
         {
           kind: "monitor",
           severity,
-          summary: `Monitor ${observation.severity}: ${observation.signal}`,
+          summary: { key: "monitorFinding", severity: observation.severity, signal: observation.signal },
           when: observation.observed_at,
           ...(observation.detail ? { detail: observation.detail } : {}),
         },
