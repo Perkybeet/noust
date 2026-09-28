@@ -63,6 +63,8 @@ Suggests:       python3-starlette
 Suggests:       python3-pydantic
 Suggests:       python3-uvicorn
 Suggests:       python3-psutil
+# Remote backup destinations (wasm backup destination); nothing else needs it.
+Suggests:       rclone
 # No separate venv package is Required here: python3-libs, pulled in
 # transitively by python3 above, contains the venv module itself, which is
 # what wasm.deployers.python's 'python3 -m venv' needs. That call does not
@@ -89,6 +91,7 @@ Suggests:       python%{python3_pkgversion}-starlette
 Suggests:       python%{python3_pkgversion}-pydantic
 Suggests:       python%{python3_pkgversion}-uvicorn
 Suggests:       python%{python3_pkgversion}-psutil
+Suggests:       rclone
 %if 0%{?suse_version} < 1600
 Requires:       python311
 # questionary is not packaged for 3.11 on Leap. Interactive mode already checks

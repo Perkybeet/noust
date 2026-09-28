@@ -55,7 +55,8 @@ Recommends: python3-questionary,
             python3-psutil
 Suggests: git,
           nodejs,
-          npm
+          npm,
+          rclone
 Description: Web App System Management CLI Tool
  WASM is a robust CLI tool for deploying and managing web applications
  on Linux servers. It handles site configuration (Nginx/Apache), SSL

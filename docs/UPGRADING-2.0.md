@@ -261,6 +261,35 @@ What does not come back:
 - Deployment history, jobs and audit entries recorded under 2.0 (kept in
   `/var/lib/wasm.2.0` and `/etc/wasm.2.0`).
 
+## 2.2
+
+What changes when a 2.1 server upgrades to 2.2 (see [CHANGELOG-2.2.md](CHANGELOG-2.2.md)):
+
+- **The store moves to schema 10** on the first command (blue/green, secret marks, the
+  GitHub link and the preview link per application; previews, backup destinations, backup
+  schedules and the GitHub App as tables). 2.1 cannot read a migrated store; back it up
+  first, as for every schema change.
+- **Backup schedules move into the store.** Each existing `wasm-backup-*` timer is adopted
+  the first time schedules are listed (`wasm backup schedule list`, or the Backups page): a
+  row is written from what systemd reports and the timer's service is rewritten to run
+  `wasm backup run-schedule`. List them once after upgrading. **Retention is now applied**:
+  a schedule created with `--retention-count 7` keeps seven scheduled backups, which the
+  timer never did before, so older scheduled backups beyond that are removed on the next run.
+- **Secrets beside the store**: credentials WASM keeps for itself (the GitHub App's key,
+  backup destinations' passwords) are 0600 files under `secrets/` next to the store
+  (`/var/lib/wasm/secrets`). Back that directory up with the store.
+- **Webhooks**: a signed delivery that is not a push (a ping, a pull request) no longer
+  triggers an update. A pull request delivery now builds a preview when previews are on.
+- **Deploy notifications** come from every deployment, the CLI's included, instead of from
+  console jobs only. `deploy_rolled_back` is on by default; `deploy_started` is off.
+- **Environment variables**: some variables change from hidden to shown (public prefixes
+  such as `NEXT_PUBLIC_`) or from shown to hidden (a value that is a token). Mark any you
+  disagree with.
+- **rclone** is an optional package, needed only for remote backup destinations:
+  `apt install rclone`, `dnf install rclone` or `zypper install rclone`.
+- **Console Content Security Policy**: `form-action` allows `https://github.com`, for the one
+  form that creates the GitHub App.
+
 ## 2.1
 
 What changes when a 2.0 server upgrades to 2.1 (see [CHANGELOG-2.1.md](CHANGELOG-2.1.md)):
