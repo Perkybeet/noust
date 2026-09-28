@@ -70,6 +70,31 @@ Print the status as JSON.
 .SS wasm app
 Change how a deployed application is laid out and what it may use.
 
+.SS wasm app export
+Export everything that defines an application as a JSON document.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-with\-secrets
+Include the values of secret variables. The file is written 0600.
+.TP
+.B \-o, \-\-output
+Write the export to this file instead of printing it.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+The export is JSON already; accepted for scripts that always pass it.
+
 .SS wasm app health
 Show or set what the health gate asks of an application.
 .TP
@@ -100,6 +125,37 @@ Never emit colour.
 .TP
 .B \-\-json
 Print the health check settings as JSON.
+
+.SS wasm app import
+Create an application from a 'wasm app export' document.
+.TP
+.B Arguments
+.br
+\fIfile\fR
+.TP
+.B \-\-domain
+Create it on this domain instead of the exported one.
+.TP
+.B \-\-source
+Deploy from this source instead of the exported one.
+.TP
+.B \-\-env\-file
+File of NAME=value lines: the secret values the export left out, or overrides.
+.TP
+.B \-\-env
+A variable's value, over the export and \-\-env\-file. Repeat for several.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the plan and what was applied as JSON.
 
 .SS wasm app limits
 Show or set the memory, CPU and task limits of an application.
@@ -638,7 +694,13 @@ Deploy a web application and put it online.
 Domain the application is served on.
 .TP
 .B \-s, \-\-source
-Git URL or directory to deploy from.
+Git URL, archive URL or directory to deploy from. Not with \-\-recipe.
+.TP
+.B \-\-recipe
+Deploy a known application from its recipe (see 'wasm recipe list'): its source, type, database and settings come from the recipe.
+.TP
+.B \-\-env
+Set a variable of the application environment, over \-\-env\-file and a recipe's own. Repeat for several.
 .TP
 .B \-t, \-\-type
 Application type. Detected from the source when left on auto. Default: auto.
@@ -1236,6 +1298,43 @@ Check the server and report anything that needs attention.
 .B \-\-json
 Print the report as JSON.
 
+.SS wasm import
+Read Vercel, Railway, Render or Heroku configuration from a repository.
+.TP
+.B Arguments
+.br
+\fIpath\fR
+.TP
+.B \-\-from
+The platform whose configuration the repository carries.
+.TP
+.B \-\-deploy
+Deploy it on this domain with the proposal, through the normal create path.
+.TP
+.B \-\-source
+With \-\-deploy: the repository to deploy. Default: PATH itself.
+.TP
+.B \-\-branch
+With \-\-deploy: the branch to deploy.
+.TP
+.B \-\-env\-file
+With \-\-deploy: NAME=value lines, for the variables the platform kept.
+.TP
+.B \-\-env
+With \-\-deploy: a variable's value. Repeat for several.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the proposal (or, with \-\-deploy, what was done) as JSON.
+
 .SS wasm list
 List the applications deployed on this server.
 .TP
@@ -1454,6 +1553,25 @@ Never emit colour.
 .TP
 .B \-\-json
 Print the previews removed as JSON.
+
+.SS wasm recipe
+Applications WASM deploys from a recipe: WordPress, Uptime Kuma, Umami, n8n.
+
+.SS wasm recipe list
+List the recipes, the ones this release can deploy first.
+.TP
+.B \-\-json
+Print the recipes as JSON.
+
+.SS wasm recipe show
+Describe one recipe: what it deploys, from where, and what it needs.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-json
+Print the recipe as JSON.
 
 .SS wasm releases
 List an application's releases and go back to one instantly.
