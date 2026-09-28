@@ -52,8 +52,6 @@ from wasm.core.runner import CommandResult, CommandRunner, get_runner
 from wasm.core.store import (
     App,
     AppStatus,
-    Database,
-    DatabaseEngine,
     DeploymentTrigger,
     MonorepoWorkspace,
     Service,
@@ -69,6 +67,7 @@ from wasm.deployers.helpers import (
     TurboHelper,
     WorkspaceHelper,
 )
+from wasm.deployers.helpers.databases import provision_database
 from wasm.deployers.helpers.health import wait_until_healthy
 from wasm.deployers.helpers.health_gate import HealthCheck, HealthGate
 from wasm.deployers.helpers.permissions import hand_over_tree
@@ -1006,71 +1005,36 @@ class MonorepoDeployer(AppDeployer):
                 self.logger.warning("You may need to configure the database manually")
 
     def _provision_postgresql(self, db_config: DatabaseConfig) -> None:
-        """Provision PostgreSQL database."""
-        try:
-            from wasm.managers.database import DatabaseRegistry
+        """
+        Provision the PostgreSQL database and user this monorepo needs.
 
-            manager = DatabaseRegistry.get("postgresql")
-            if not manager:
-                self.logger.warning("PostgreSQL manager not available")
-                return
+        Delegates to the shared :func:`provision_database` helper, which is
+        idempotent (a retry after a failed deploy reuses what the first
+        attempt made) and ownership-checked (it refuses a database another
+        application already owns). ``createdb`` is requested because Prisma
+        needs it to create its shadow database during migrations.
 
-            if not manager.is_installed():
-                self.logger.warning("PostgreSQL is not installed")
-                return
+        Args:
+            db_config: The name and user this monorepo's detection chose.
+                Updated in place with the real password and port, so
+                :meth:`_configure_environment` builds ``DATABASE_URL`` from
+                credentials that actually match what was created - not the
+                password generated at detection time, which is stale once an
+                existing user's real password is reused instead.
 
-            self.logger.substep(f"Creating PostgreSQL database: {db_config.name}")
-
-            # Create database
-            try:
-                manager.create_database(db_config.name)
-            except Exception as e:
-                if "already exists" not in str(e).lower():
-                    raise
-                self.logger.debug(f"Database {db_config.name} already exists")
-
-            # Create user with CREATEDB (needed for Prisma shadow database)
-            try:
-                manager.create_user(
-                    username=db_config.user,
-                    password=db_config.password,
-                    createdb=True,  # Prisma needs this for migrations
-                )
-            except Exception as e:
-                if "already exists" not in str(e).lower():
-                    raise
-                self.logger.debug(f"User {db_config.user} already exists")
-
-            # Grant privileges. This covers the public schema too, which is what
-            # Prisma migrations need; the previous code reached past the manager
-            # into its private _execute_sql to interpolate a user name straight
-            # into GRANT statements.
-            try:
-                manager.grant_privileges(
-                    database=db_config.name,
-                    username=db_config.user,
-                )
-            except WASMError as e:
-                self.logger.debug(f"Grant on {db_config.name} reported: {e}")
-
-            # Register in store
-            app = self.store.get_app(self.domain)
-            if app:
-                db_record = Database(
-                    app_id=app.id,
-                    name=db_config.name,
-                    engine=DatabaseEngine.POSTGRESQL.value,
-                    host=db_config.host,
-                    port=db_config.port,
-                    username=db_config.user,
-                )
-                try:
-                    self.store.create_database(db_record)
-                except (WASMError, sqlite3.Error) as e:
-                    self.logger.debug(f"Database row already present: {e}")
-
-        except ImportError:
-            self.logger.debug("Database manager not available")
+        Raises:
+            WASMError: Provisioning failed; the caller logs it as a warning.
+        """
+        credentials = provision_database(
+            "postgresql",
+            name=db_config.name,
+            user=db_config.user,
+            domain=self.domain,
+            createdb=True,  # Prisma needs this for its shadow database.
+            logger=self.logger,
+        )
+        db_config.password = credentials.password
+        db_config.port = credentials.port
 
     def _provision_redis(self, db_config: DatabaseConfig) -> None:
         """Verify Redis is available."""

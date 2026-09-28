@@ -201,6 +201,7 @@ def _import_deployers() -> None:
         monorepo,
         nextjs,
         nodejs,
+        php_fpm,
         python,
         static,
         vite,

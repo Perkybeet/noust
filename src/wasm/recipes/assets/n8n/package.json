@@ -1,0 +1,14 @@
+{
+  "name": "n8n-server",
+  "private": true,
+  "description": "n8n, installed by WASM from the n8n recipe",
+  "scripts": {
+    "start": "n8n start"
+  },
+  "dependencies": {
+    "n8n": "1.123.82"
+  },
+  "engines": {
+    "node": ">=20.19 <=24.x"
+  }
+}

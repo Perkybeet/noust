@@ -40,6 +40,7 @@ allowed at all, and a rehearsal extracts nothing and creates no destination.
 from __future__ import annotations
 
 import base64
+import hashlib
 import os
 import re
 import shutil
@@ -492,6 +493,129 @@ def validate_archive_url(url: str) -> str:
     return candidate
 
 
+#: Hex digest length for each algorithm an archive checksum is verified with.
+_DIGEST_LENGTHS: dict[str, int] = {"sha1": 40, "sha256": 64, "sha512": 128}
+
+#: A checksum file's own extension names the algorithm it was produced with
+#: (WordPress publishes ``latest.tar.gz.sha1``; most others ``.sha256``).
+_CHECKSUM_URL_ALGORITHMS: dict[str, str] = {
+    ".sha1": "sha1",
+    ".sha256": "sha256",
+    ".sha512": "sha512",
+}
+
+_HEX_DIGEST_RE = re.compile(r"^[0-9a-fA-F]+$")
+
+#: What every rejected or malformed checksum fragment is told is accepted.
+_CHECKSUM_FRAGMENT_HELP = (
+    "Accepted forms: '#sha256=<64 hex digest>' or "
+    "'#checksum=<https URL ending in .sha1, .sha256 or .sha512>'"
+)
+
+
+@dataclass(frozen=True)
+class ArchiveChecksum:
+    """
+    An archive's expected checksum, as carried in its source URL's fragment.
+
+    Either `digest` is already known (``#sha256=...``) or `url` names where to
+    fetch it from (``#checksum=...``); never both, never neither.
+
+    Attributes:
+        algorithm: Digest algorithm to verify the download with: ``sha1``,
+            ``sha256`` or ``sha512``.
+        digest: The expected digest, lowercase hex, when pinned directly in
+            the fragment.
+        url: The https URL to fetch the digest from, when it is not pinned.
+    """
+
+    algorithm: str
+    digest: str | None
+    url: str | None
+
+
+def split_archive_checksum(url: str) -> tuple[str, ArchiveChecksum | None]:
+    """
+    Split an archive URL from the checksum expectation its fragment carries.
+
+    An archive source is one string stored in the app row, so the checksum
+    that verifies every future download travels with it, in the URL fragment
+    (never sent to the server):
+
+    - ``#sha256=<64 hex digest>``: the digest is pinned right there.
+    - ``#checksum=<https URL>``: the digest is fetched from that URL at
+      download time. The URL must be https and end in ``.sha1``, ``.sha256``
+      or ``.sha512``, which names the algorithm.
+
+    A URL with no fragment verifies nothing, exactly as before this existed.
+
+    Args:
+        url: Archive URL, with or without a checksum fragment.
+
+    Returns:
+        The URL with the fragment removed, and the parsed expectation, or
+        None when the URL carried no fragment.
+
+    Raises:
+        SourceError: If a fragment is present but is not one of the two forms
+            above: an unknown key, an empty value, a malformed digest, or a
+            checksum URL that is not https or does not name an algorithm.
+    """
+    bare, sep, fragment = url.partition("#")
+    if not sep:
+        return url, None
+    if not fragment:
+        raise SourceError(
+            f"Empty checksum fragment in archive URL: {redact_git_text(bare)}",
+            details=_CHECKSUM_FRAGMENT_HELP,
+        )
+
+    key, eq, value = fragment.partition("=")
+    if not eq or not value:
+        raise SourceError(
+            f"Malformed checksum fragment in archive URL: {redact_git_text(bare)}",
+            details=_CHECKSUM_FRAGMENT_HELP,
+        )
+
+    if key == "sha256":
+        digest = value.lower()
+        if len(digest) != _DIGEST_LENGTHS["sha256"] or not _HEX_DIGEST_RE.match(digest):
+            raise SourceError(
+                f"Invalid sha256 checksum in archive URL: {redact_git_text(bare)}",
+                details=f"A sha256 fragment must be exactly "
+                f"{_DIGEST_LENGTHS['sha256']} hexadecimal characters",
+            )
+        return bare, ArchiveChecksum(algorithm="sha256", digest=digest, url=None)
+
+    if key == "checksum":
+        checksum_url = value
+        algorithm = next(
+            (
+                name
+                for suffix, name in _CHECKSUM_URL_ALGORITHMS.items()
+                if checksum_url.lower().endswith(suffix)
+            ),
+            None,
+        )
+        if algorithm is None:
+            raise SourceError(
+                f"Cannot infer checksum algorithm: {redact_git_text(checksum_url)}",
+                details="The checksum URL must end in .sha1, .sha256 or .sha512",
+            )
+        if urlparse(checksum_url).scheme.lower() != "https":
+            raise SourceError(
+                f"Checksum URL must be https: {redact_git_text(checksum_url)}",
+                details="A checksum fetched over plain http proves nothing about "
+                "the archive fetched over https",
+            )
+        return bare, ArchiveChecksum(algorithm=algorithm, digest=None, url=checksum_url)
+
+    raise SourceError(
+        f"Unknown checksum fragment '{key}' in archive URL: {redact_git_text(bare)}",
+        details=_CHECKSUM_FRAGMENT_HELP,
+    )
+
+
 def validate_git_remote_url(url: str) -> str:
     """
     Check that a URL is safe to hand to ``git clone`` or ``git remote set-url``.
@@ -767,6 +891,103 @@ def _download_to_file(
         # A partial download must not be mistaken for a usable archive.
         if not completed:
             destination.unlink(missing_ok=True)
+
+
+#: A checksum file is a hex digest and, sometimes, a file name: never a
+#: reason to hold a connection open or read more than a few dozen bytes.
+_CHECKSUM_MAX_BYTES = 64 * 1024
+_CHECKSUM_TIMEOUT = 10
+
+
+def _hash_file(path: Path, algorithm: str) -> str:
+    """
+    Hash a file's contents in chunks.
+
+    Args:
+        path: File to hash.
+        algorithm: A name :func:`hashlib.new` accepts (``sha1``, ``sha256`` or
+            ``sha512`` here).
+
+    Returns:
+        The digest, lowercase hex.
+    """
+    digest = hashlib.new(algorithm)
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(_COPY_CHUNK), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _fetch_checksum_digest(checksum_url: str, algorithm: str) -> str:
+    """
+    Download a checksum file and read the digest its first token names.
+
+    Accepts both a bare digest (as WordPress publishes ``latest.tar.gz.sha1``)
+    and ``sha256sum`` output (``<hex>  filename``): either way, the digest is
+    the first whitespace-separated token.
+
+    Args:
+        checksum_url: https URL of the checksum file. Already scheme-checked
+            by :func:`split_archive_checksum`; re-checked here at the point of
+            use.
+        algorithm: Algorithm the digest is expected to be for, which fixes
+            the hex length it must have.
+
+    Returns:
+        The digest, lowercase hex.
+
+    Raises:
+        SourceError: If the URL is not https, cannot be fetched, exceeds the
+            size cap, or its first token is not a valid digest for the
+            algorithm.
+    """
+    safe_checksum_url = validate_archive_url(checksum_url)
+    if urlparse(safe_checksum_url).scheme.lower() != "https":
+        raise SourceError(
+            f"Checksum URL must be https: {redact_git_text(safe_checksum_url)}",
+            details="A checksum fetched over plain http proves nothing about "
+            "the archive fetched over https",
+        )
+
+    try:
+        response = _open_url(safe_checksum_url, _CHECKSUM_TIMEOUT)
+    except URLError as exc:
+        raise SourceError(
+            f"Cannot fetch checksum: {redact_git_text(safe_checksum_url)}",
+            details=str(exc.reason),
+        ) from exc
+    except OSError as exc:
+        raise SourceError(
+            f"Cannot fetch checksum: {redact_git_text(safe_checksum_url)}", details=str(exc)
+        ) from exc
+
+    with response:
+        body = response.read(_CHECKSUM_MAX_BYTES + 1)
+    if len(body) > _CHECKSUM_MAX_BYTES:
+        raise SourceError(
+            f"Checksum file exceeds {_CHECKSUM_MAX_BYTES} bytes: "
+            f"{redact_git_text(safe_checksum_url)}",
+            details="A checksum file is a hex digest and a file name, not this large",
+        )
+
+    tokens = body.split()
+    token = tokens[0] if tokens else b""
+    try:
+        digest = token.decode("ascii").lower()
+    except UnicodeDecodeError as exc:
+        raise SourceError(
+            f"Invalid {algorithm} checksum content: {redact_git_text(safe_checksum_url)}",
+            details="Expected a hex digest as the first token of the file",
+        ) from exc
+
+    expected_length = _DIGEST_LENGTHS[algorithm]
+    if len(digest) != expected_length or not _HEX_DIGEST_RE.match(digest):
+        raise SourceError(
+            f"Invalid {algorithm} checksum content: {redact_git_text(safe_checksum_url)}",
+            details=f"Expected a {expected_length}-character hex digest as the first "
+            "token of the file",
+        )
+    return digest
 
 
 # Archive extraction -------------------------------------------------------
@@ -1807,6 +2028,10 @@ class SourceManager(BaseManager):
             timeout=GIT_NETWORK_TIMEOUT,
         )
         if not result.success:
+            # A recipe pins a release tag, which is not under refs/heads: the
+            # cache follows the tag instead, detached, as the clone did.
+            if self._follow_tag(cache, safe_branch):
+                return
             raise self._git_failed(result, f"Git fetch of {safe_branch} failed", url=safe_url)
 
         if safe_branch != current:
@@ -1819,6 +2044,33 @@ class SourceManager(BaseManager):
         result = self._git(["reset", "--hard", f"origin/{safe_branch}"], cwd=cache)
         if not result.success:
             raise SourceError("Git reset failed", details=result.stderr)
+
+    def _follow_tag(self, cache: Path, tag: str) -> bool:
+        """
+        Put the cache on a tag, when the ref it follows is one.
+
+        Args:
+            cache: Directory of the clone.
+            tag: The ref, already validated.
+
+        Returns:
+            True when the remote has the tag and the cache is on it now; False
+            when it has no such tag, so the branch failure is the one to report.
+
+        Raises:
+            SourceError: When the tag was fetched but could not be checked out.
+        """
+        fetched = self._git(
+            ["fetch", "--no-tags", "origin", f"+refs/tags/{tag}:refs/tags/{tag}"],
+            cwd=cache,
+            timeout=GIT_NETWORK_TIMEOUT,
+        )
+        if not fetched.success:
+            return False
+        result = self._git(["checkout", "--force", "--detach", f"refs/tags/{tag}"], cwd=cache)
+        if not result.success:
+            raise SourceError(f"Git checkout of tag {tag} failed", details=result.stderr)
+        return True
 
     def export_commit(self, repository: Path, commit: str, destination: Path) -> None:
         """
@@ -2506,23 +2758,30 @@ class SourceManager(BaseManager):
 
     def download_archive(self, url: str, destination: Path) -> bool:
         """
-        Download and extract an archive.
+        Download and extract an archive, verifying its checksum first.
 
         The archive is never trusted: see :func:`extract_archive` for the checks
-        applied to every member.
+        applied to every member. When the source URL carries a checksum
+        fragment (see :func:`split_archive_checksum`), the download is hashed
+        and compared against it before a single member is extracted.
 
         Args:
-            url: Archive URL. Must be http(s).
+            url: Archive URL. Must be http(s), optionally with a ``#sha256=``
+                or ``#checksum=`` fragment.
             destination: Destination directory.
 
         Returns:
             True if download and extraction was successful.
 
         Raises:
-            SourceError: If the URL is not downloadable, the transfer fails, or
-                the archive contains an unsafe member.
+            SourceError: If the URL or its checksum fragment is malformed, the
+                transfer fails, the checksum cannot be obtained, the archive
+                does not match it, or the archive contains an unsafe member.
         """
-        safe_url = validate_archive_url(url)
+        # Parsed before anything is downloaded, so a malformed fragment fails
+        # the deploy immediately rather than after a wasted transfer.
+        bare_url, expected = split_archive_checksum(url)
+        safe_url = validate_archive_url(bare_url)
         archive_format = detect_archive_format(urlparse(safe_url).path)
 
         self.fs.make_dir(destination, parents=True)
@@ -2539,10 +2798,50 @@ class SourceManager(BaseManager):
         with tempfile.TemporaryDirectory(prefix="wasm-source-") as workdir:
             archive = Path(workdir) / "archive"
             _download_to_file(safe_url, archive)
+            if expected is not None:
+                self._verify_archive_checksum(archive, safe_url, expected)
             extract_archive(archive, destination, archive_format=archive_format, fs=self.fs)
 
         self._flatten_single_directory(destination)
         return True
+
+    def _verify_archive_checksum(self, archive: Path, url: str, expected: ArchiveChecksum) -> None:
+        """
+        Verify a downloaded archive against the checksum its source URL named.
+
+        Args:
+            archive: The downloaded file, not yet extracted.
+            url: The archive URL, without its fragment, for the error message.
+            expected: The parsed checksum expectation.
+
+        Raises:
+            SourceError: If the expected checksum cannot be obtained, or the
+                archive's own digest does not match it.
+        """
+        if expected.digest is not None:
+            digest, source_desc = expected.digest, "the source URL"
+        elif expected.url is not None:
+            digest = _fetch_checksum_digest(expected.url, expected.algorithm)
+            source_desc = redact_git_text(expected.url)
+        else:
+            # split_archive_checksum never returns an expectation with neither
+            # a digest nor a URL; this guards the invariant for mypy and for
+            # whoever changes that function next.
+            raise SourceError("Archive checksum expectation has no digest and no URL")
+
+        actual = _hash_file(archive, expected.algorithm)
+        if actual != digest:
+            raise SourceError(
+                f"Checksum mismatch for {redact_git_text(url)}",
+                details=(
+                    f"Expected {expected.algorithm}: {digest} (from {source_desc})\n"
+                    f"Actual {expected.algorithm}:   {actual}\n"
+                    "The download is not what was published; nothing was extracted. "
+                    "Retry later: a new release may have been published between the "
+                    "two downloads."
+                ),
+            )
+        self.logger.substep(f"Checksum verified ({expected.algorithm})")
 
     def _flatten_single_directory(self, destination: Path) -> None:
         """

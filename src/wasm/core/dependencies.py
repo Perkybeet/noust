@@ -12,7 +12,7 @@ from enum import Enum
 from pathlib import Path
 from typing import ClassVar, TypedDict
 
-from wasm.core.exceptions import SecurityError
+from wasm.core.exceptions import DeploymentError, SecurityError
 from wasm.core.runner import CommandRunner, get_runner
 from wasm.core.utils import TRUSTED_INSTALLER_URLS, run_trusted_installer
 
@@ -272,6 +272,44 @@ BACKUP_DEPENDENCIES: list[Dependency] = [
 #: rest of this module's tables.
 RCLONE_DEPENDENCY = BACKUP_DEPENDENCIES[0]
 
+# PHP (2.3): the php-fpm deployer and the WordPress recipe. PHP-FPM itself is
+# not probed by command name - Debian installs it as /usr/sbin/php-fpm8.2, off
+# PATH - but by wasm.deployers.helpers.php_fpm.find_fpm, which knows each
+# distribution's layout; its entry here carries the package names.
+PHP_FPM_DEPENDENCY = Dependency(
+    name="php-fpm",
+    command="php-fpm",
+    description="PHP FastCGI Process Manager, which runs PHP applications' pools",
+    required=False,
+    category="php",
+    install_apt="php-fpm php-mysql php-pgsql php-curl php-gd php-mbstring php-xml php-zip php-intl",
+    install_dnf="php-fpm php-mysqlnd php-pgsql php-gd php-mbstring php-xml php-intl",
+    install_zypper="php8-fpm php8-mysql php8-pgsql php8-gd php8-mbstring php8-intl php8-zip",
+)
+
+PHP_DEPENDENCIES: list[Dependency] = [
+    Dependency(
+        name="php",
+        command="php",
+        description="PHP command-line interpreter (Composer runs on it)",
+        required=False,
+        category="php",
+        install_apt="php-cli",
+        install_dnf="php-cli",
+        install_zypper="php8-cli",
+    ),
+    Dependency(
+        name="composer",
+        command="composer",
+        description="PHP dependency manager, for applications with a composer.json",
+        required=False,
+        category="php",
+        install_apt="composer",
+        install_dnf="composer",
+        install_zypper="php-composer2",
+    ),
+]
+
 
 def dependency_install_hint(dep: Dependency) -> str:
     """
@@ -348,6 +386,7 @@ class DependencyChecker:
         "python": PYTHON_DEPENDENCIES,
         "docker": DOCKER_DEPENDENCIES,
         "backup": BACKUP_DEPENDENCIES,
+        "php": PHP_DEPENDENCIES,
     }
 
     # Package manager info
@@ -591,6 +630,22 @@ class DependencyChecker:
                 result = self.runner.run(["docker", "compose", "version"], timeout=PROBE_TIMEOUT)
                 if not result.success:
                     missing.append("docker compose: Docker Compose v2 plugin is required")
+
+        elif app_type == "php-fpm":
+            from wasm.deployers.helpers.php_fpm import find_fpm
+
+            try:
+                find_fpm()
+            except DeploymentError:
+                missing.append(
+                    "php-fpm: PHP-FPM is required for PHP applications. Install it: "
+                    + dependency_install_hint(PHP_FPM_DEPENDENCY)
+                )
+            if not self.check_command("composer"):
+                warnings.append(
+                    "composer: needed for PHP applications with a composer.json. Install it: "
+                    + dependency_install_hint(PHP_DEPENDENCIES[1])
+                )
 
         elif app_type == "python":
             if not self.check_command("python3"):

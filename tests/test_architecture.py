@@ -670,6 +670,8 @@ class TestPackaging:
 
         needed = {
             "templates/**/*.j2": SRC / "templates",
+            "recipes/*.yaml": SRC / "recipes",
+            "recipes/assets/**/*": SRC / "recipes" / "assets",
             "web/static/**/*": SRC / "web/static",
         }
 
@@ -696,6 +698,8 @@ class TestPackaging:
         manifest = (REPO / "MANIFEST.in").read_text(encoding="utf-8")
 
         assert "recursive-include src/wasm/web/static *" in manifest
+        assert "recursive-include src/wasm/recipes *.yaml" in manifest
+        assert "recursive-include src/wasm/recipes/assets *" in manifest
         assert "web/templates" not in manifest, "the Jinja pages are gone"
 
     def test_the_debian_build_dependencies_agree(self):

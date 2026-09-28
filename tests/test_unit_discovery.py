@@ -170,15 +170,15 @@ def test_app_units_without_prefix_or_store_row_are_counted(
     runner: FakeRunner, unit_dirs: dict[str, Path], store: WASMStore
 ) -> None:
     """The top bar said "Units 1" on a machine running fifteen applications."""
-    for domain in ("qrboda.com", "tienda.arennalabs.com", "broken.example.com"):
+    for domain in ("example.net", "tienda.example.com", "broken.example.com"):
         deploy(store, domain)
         marked(unit_dirs, domain_to_app_name(domain))
     marked(unit_dirs, "wasm-monitor")
     runner.script(
         LIST_UNITS,
         stdout=listing(
-            "qrboda-com loaded active running",
-            "tienda-arennalabs-com loaded active running",
+            "example-net loaded active running",
+            "tienda-example-com loaded active running",
             "broken-example-com loaded failed failed",
             "wasm-monitor loaded active running",
         ),
@@ -189,8 +189,8 @@ def test_app_units_without_prefix_or_store_row_are_counted(
 
     assert names == [
         "broken-example-com",
-        "qrboda-com",
-        "tienda-arennalabs-com",
+        "example-net",
+        "tienda-example-com",
         "wasm-monitor",
     ]
     assert state.units == UnitTally(running=3, failed=1, stopped=0)
@@ -201,13 +201,13 @@ def test_the_listing_asks_systemd_for_full_unit_names(
     runner: FakeRunner, unit_dirs: dict[str, Path], store: WASMStore
 ) -> None:
     """list-units matches globs against "name.service": a bare name matches nothing."""
-    deploy(store, "qrboda.com")
-    marked(unit_dirs, "qrboda-com")
+    deploy(store, "example.net")
+    marked(unit_dirs, "example-net")
 
     ServiceManager().list_services()
 
     argv = next(call for call in runner.calls if call[:2] == ("systemctl", "list-units"))
-    assert "qrboda-com.service" in argv
+    assert "example-net.service" in argv
     assert "wasm-*" in argv
     assert "*" not in argv
     assert not any(call[:2] == ("systemctl", "show") for call in runner.calls), (
@@ -476,10 +476,10 @@ def test_the_detail_of_an_app_unit_without_a_store_row_answers(
     runner: FakeRunner, unit_dirs: dict[str, Path], store: WASMStore, api: TestClient
 ) -> None:
     """It used to 404, and the console then showed WASM's own unit as a foreign one."""
-    marked(unit_dirs, "qrboda-com")
-    runner.script(["systemctl", "is-active", "qrboda-com.service"], stdout="active\n")
+    marked(unit_dirs, "example-net")
+    runner.script(["systemctl", "is-active", "example-net.service"], stdout="active\n")
 
-    response = api.get("/api/services/qrboda-com")
+    response = api.get("/api/services/example-net")
 
     assert response.status_code == 200, response.text
     assert response.json()["managed"] is True

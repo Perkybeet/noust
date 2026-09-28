@@ -164,6 +164,11 @@ def is_archive_url(source: str) -> bool:
     """
     Check if source is a downloadable archive URL.
 
+    An archive URL may carry its expected checksum in the URL fragment (see
+    :func:`wasm.managers.source_manager.split_archive_checksum`), so the
+    extension check is made against the URL with any ``#...`` fragment
+    removed.
+
     Args:
         source: Source string to check.
 
@@ -171,7 +176,7 @@ def is_archive_url(source: str) -> bool:
         True if source is an archive URL.
     """
     archive_extensions = [".tar.gz", ".tgz", ".tar.bz2", ".zip", ".tar.xz"]
-    source_lower = source.lower()
+    source_lower = source.lower().split("#", 1)[0]
 
     if not source_lower.startswith(("http://", "https://")):
         return False
@@ -381,6 +386,11 @@ def get_repo_name(source: str) -> str:
     if is_git_url(source):
         parsed = parse_git_url(source)
         return parsed["repo"] or "app"
+
+    # Archive URL: a trailing #sha256=... or #checksum=... fragment names a
+    # checksum, not part of the file name.
+    if is_archive_url(source):
+        return Path(source.split("#", 1)[0]).name or "app"
 
     # Local path
     if source.startswith("~"):

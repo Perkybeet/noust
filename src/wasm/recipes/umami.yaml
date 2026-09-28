@@ -1,0 +1,32 @@
+# Umami v2, built from its repository at a release tag with a PostgreSQL
+# database. The build itself needs the database: it applies Umami's
+# migrations (check-db), which is why the recipe provisions it first.
+#
+# The Node deployer rather than the Next.js one: Umami's own instructions
+# start it with `next start` from the repository root, where its build puts
+# the GeoIP database it reads at runtime; the standalone server the Next.js
+# deployer would run looks for it elsewhere.
+name: umami
+title: Umami
+description: Simple, privacy-friendly web analytics, an alternative to Google Analytics.
+homepage: https://umami.is
+requires:
+  - Node.js 18.18 or newer, with pnpm (npm install -g pnpm)
+  - PostgreSQL (wasm db install postgresql)
+app_type: nodejs
+source:
+  git: https://github.com/umami-software/umami.git
+  ref: v2.20.2
+layout: releases
+port: 3000
+database:
+  engine: postgresql
+env:
+  DATABASE_URL: "{{ database.url }}"
+  APP_SECRET: "{{ secret(48) }}"
+  DISABLE_TELEMETRY: "1"
+health:
+  path: /api/heartbeat
+  expect: "200"
+notes:
+  - "Sign in at {{ url }} as admin with the password umami, and change that password at once (Settings > Profile)."

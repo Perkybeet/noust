@@ -358,7 +358,16 @@ def test_detection_order_is_independent_of_registration_order() -> None:
     """Precedence comes from the priority attribute, not from import order."""
     order = [d.APP_TYPE for d in DeployerRegistry.in_detection_order() if d.APP_TYPE != "auto"]
 
-    assert order == ["monorepo", "docker-compose", "nextjs", "vite", "python", "nodejs", "static"]
+    assert order == [
+        "monorepo",
+        "docker-compose",
+        "nextjs",
+        "php-fpm",
+        "vite",
+        "python",
+        "nodejs",
+        "static",
+    ]
 
 
 # ---------------------------------------------------------------------------

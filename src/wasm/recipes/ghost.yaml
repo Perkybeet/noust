@@ -1,0 +1,6 @@
+name: ghost
+title: Ghost
+description: A publishing platform for blogs, newsletters and paid memberships.
+homepage: https://ghost.org
+available: false
+unavailable_reason: "Ghost supports only MySQL 8 in production, not MariaDB, which is what most distributions install as MySQL; its supported install is ghost-cli on Ubuntu. Not available in 2.3."

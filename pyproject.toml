@@ -108,6 +108,10 @@ include = ["wasm*"]
 wasm = [
     # nginx, apache and systemd unit templates.
     "templates/**/*.j2",
+    # Recipes (2.3): the recipe files, and the files they write into an
+    # application (wp-config.php, n8n's package.json).
+    "recipes/*.yaml",
+    "recipes/assets/**/*",
     # Committed, not generated: see src/wasm/completions/README.md.
     "completions/*",
     # The console: the committed Vite build of panel/ (index.html, the

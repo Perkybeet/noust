@@ -1,0 +1,62 @@
+# WordPress, served by PHP-FPM behind nginx, with a MariaDB or MySQL database.
+#
+# The archive is https://wordpress.org/latest.tar.gz, verified against the
+# SHA-1 wordpress.org publishes beside it (latest.tar.gz.sha1), fetched at
+# every download: a pinned version would go stale within weeks and a redeploy
+# would downgrade a site WordPress already updated itself. The two files come
+# from the same origin, so the check catches a corrupt or truncated download
+# and a mirror serving something else, not a compromised wordpress.org.
+#
+# wp-content (plugins, themes, uploads) is moved into shared/ on the first
+# deploy, so whatever is installed through the admin survives every release.
+# WordPress can still update its own core in place, inside the active
+# release; the next `wasm update` builds a new release from the latest
+# archive, which is at least as new, so nothing goes backwards.
+name: wordpress
+title: WordPress
+description: The website and blogging platform, on PHP-FPM with a MariaDB or MySQL database.
+homepage: https://wordpress.org
+requires:
+  - PHP-FPM 7.4 or newer with the mysqli, curl, gd, mbstring, xml, zip and intl extensions
+  - MariaDB or MySQL (wasm db install mysql)
+app_type: php-fpm
+source:
+  archive: https://wordpress.org/latest.tar.gz
+  checksum_url: https://wordpress.org/latest.tar.gz.sha1
+layout: releases
+database:
+  engine: mysql
+env:
+  WORDPRESS_DB_NAME: "{{ database.name }}"
+  WORDPRESS_DB_USER: "{{ database.user }}"
+  WORDPRESS_DB_PASSWORD: "{{ database.password }}"
+  WORDPRESS_DB_HOST: "{{ database.host }}"
+  WORDPRESS_AUTH_KEY: "{{ secret(64) }}"
+  WORDPRESS_SECURE_AUTH_KEY: "{{ secret(64) }}"
+  WORDPRESS_LOGGED_IN_KEY: "{{ secret(64) }}"
+  WORDPRESS_NONCE_KEY: "{{ secret(64) }}"
+  WORDPRESS_AUTH_SALT: "{{ secret(64) }}"
+  WORDPRESS_SECURE_AUTH_SALT: "{{ secret(64) }}"
+  WORDPRESS_LOGGED_IN_SALT: "{{ secret(64) }}"
+  WORDPRESS_NONCE_SALT: "{{ secret(64) }}"
+health:
+  # Before the installation WordPress redirects to wp-admin/install.php; a
+  # database it cannot reach is a 500.
+  path: /
+  expect: 200-399
+php:
+  webroot: "."
+  max_upload: 64m
+  deny:
+    - wp-config.php
+    - wp-config-sample.php
+    - readme.html
+    - license.txt
+  shared_from_release:
+    - wp-content
+  files:
+    wp-config.php: wp-config.php
+notes:
+  - "Open {{ url }}/wp-admin/install.php now to choose the site title and the administrator account: until then, anyone who reaches it can."
+  - "The database settings and the salts are in the application's environment (wasm env show {{ domain }}); wp-config.php reads them from there."
+  - "Plugins, themes and uploads live in shared/wp-content and survive every release."

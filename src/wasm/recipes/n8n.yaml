@@ -1,0 +1,37 @@
+# n8n is published as an npm package, not as a repository to build, so the
+# source is a two-line package.json rendered from the recipe (assets/n8n/)
+# that depends on a pinned n8n. The 1.x line runs on Node.js 20.19 to 24; 2.x
+# needs Node.js 24. Its SQLite database and encryption key file live in
+# N8N_USER_FOLDER, kept in shared/ across releases.
+name: n8n
+title: n8n
+description: Workflow automation with a visual editor and hundreds of integrations.
+homepage: https://n8n.io
+requires:
+  - Node.js 20.19 to 24, with npm
+  - About 2 GB of disk for its dependencies
+app_type: nodejs
+source:
+  template:
+    package.json: package.json
+layout: releases
+port: 5678
+env:
+  N8N_PORT: "{{ port }}"
+  N8N_LISTEN_ADDRESS: "127.0.0.1"
+  N8N_HOST: "{{ domain }}"
+  N8N_PROTOCOL: "{{ 'https' if https else 'http' }}"
+  N8N_EDITOR_BASE_URL: "{{ url }}/"
+  WEBHOOK_URL: "{{ url }}/"
+  N8N_SECURE_COOKIE: "{{ 'true' if https else 'false' }}"
+  N8N_USER_FOLDER: "{{ app_path }}/shared/data"
+  N8N_ENCRYPTION_KEY: "{{ secret(48) }}"
+  N8N_DIAGNOSTICS_ENABLED: "false"
+persistent_paths:
+  - data
+health:
+  path: /healthz
+  expect: "200"
+notes:
+  - "Open {{ url }} now to create the owner account: until then, anyone who reaches it can."
+  - "N8N_ENCRYPTION_KEY encrypts every stored credential: keep a copy (wasm env show {{ domain }}); without it they cannot be decrypted."

@@ -93,6 +93,8 @@ from wasm.deployers.helpers.layout import INPLACE, RELEASES, app_root, env_file_
 from wasm.deployers.helpers.release_build import stage_release
 from wasm.deployers.interface import UpdateResult
 from wasm.deployers.monorepo import MonorepoDeployer
+from wasm.deployers.php_fpm import PhpFpmDeployer, remove_pool_of
+from wasm.deployers.php_fpm import health_gate_for_app as php_health_gate_for_app
 from wasm.deployers.recorder import CapturingLogger, DeploymentRecorder, recording
 from wasm.deployers.registry import detect_app_type, get_deployer
 from wasm.deployers.releases import (
@@ -111,6 +113,9 @@ from wasm.managers.source_manager import SourceManager, validate_commit_id
 from wasm.managers.webserver import delete_site_completely
 from wasm.validators.domain import validate_domain
 from wasm.validators.source import validate_source
+
+#: The application type served by a PHP-FPM pool rather than a unit.
+PHP_FPM = PhpFpmDeployer.APP_TYPE
 
 #: Called as each phase begins, with its position, the total and a description.
 PhaseReporter = Callable[[int, int, str], None]
@@ -1213,6 +1218,10 @@ def health_gate_for(
     Returns:
         The gate.
     """
+    if app.app_type == PHP_FPM:
+        # A pool in the shared PHP-FPM, not a unit: reloaded and asked over
+        # FastCGI, with the same path, expectation and timeout.
+        return php_health_gate_for_app(app, log)
     services = ServiceManager()
     service = store.get_service_by_app_id(app.id) if app.id is not None else None
     if not app.is_static:
@@ -2199,7 +2208,7 @@ def set_health_check(
     """
     store = get_store()
     app = _known_app(store, validate_domain(domain))
-    if app.is_static:
+    if app.is_static and app.app_type != PHP_FPM:
         raise DeploymentError(
             f"{app.domain} is a static site; nothing answers HTTP for it but the web server",
             details="Its health check is that the directory it serves has an index.html.",
@@ -2506,6 +2515,13 @@ def _delete_app(
         ).teardown():
             warnings.append(warning)
             log.warning(warning)
+
+    if app is not None and app.app_type == PHP_FPM and not is_rehearsal():
+        # A pool left behind keeps workers running for a deleted application.
+        try:
+            remove_pool_of(app_path.name, log)
+        except WASMError as exc:
+            failed("Its PHP-FPM pool was not removed", exc)
 
     phase(3, DELETE_PHASES, "Removing its site and certificate")
     deletion = delete_site_completely(

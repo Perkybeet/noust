@@ -565,7 +565,7 @@ def test_an_update_of_a_static_app_retires_a_leftover_unit(
     """A site already on disk with a crash-looping unit loses it on its next update."""
     machine.git.publish(write_tree(tmp_path / "site", {"public/index.html": "<h1>hi</h1>"}))
     deploy_new(root, machine, deployer_class=StaticDeployer)
-    # What 2.0.0 left on arennalabs.com: the unit of the type it was before.
+    # What 2.0.0 left on example.com: the unit of the type it was before.
     machine.services.units["rel-example-com"] = {"command": "/usr/bin/npm run start"}
 
     steps: list[str] = []
