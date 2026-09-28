@@ -354,7 +354,7 @@ def _number(data: Mapping[str, Any], key: str, where: str) -> int | None:
         return None
     if isinstance(value, bool) or not isinstance(value, int):
         raise _fail(f"{where}.{key}", "must be a whole number")
-    return value
+    return int(value)
 
 
 def _flag(data: Mapping[str, Any], key: str, where: str, default: bool = False) -> bool:

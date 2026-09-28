@@ -605,7 +605,9 @@ class TestPackaging:
         """
         import sys
 
-        stdlib = set(sys.stdlib_module_names)
+        # tomllib joined the standard library in 3.11; on 3.10 the importers
+        # that read TOML use it only behind a version check.
+        stdlib = set(sys.stdlib_module_names) | {"tomllib"}
         found: set[str] = set()
         for path in python_files():
             tree = ast.parse(path.read_text(encoding="utf-8"))
