@@ -8,6 +8,7 @@ import { Skeleton } from "../../../components/ui/Skeleton";
 import { DangerSection } from "./DangerSection";
 import { LimitsSection } from "./LimitsSection";
 import { PANEL } from "./panel";
+import { PreviewsSection } from "./PreviewsSection";
 import { ReleasesSection } from "./ReleasesSection";
 import { SourceSection } from "./SourceSection";
 import { WebhookSection } from "./WebhookSection";
@@ -36,7 +37,8 @@ function SettingsSkeleton() {
 
 /**
  * What can be changed about one app, and what can only be read: how it is built and run, its
- * releases, the limits its unit runs under, the deploy webhook, and deleting it.
+ * releases and how they activate, the limits its unit runs under, the deploy webhook, pull
+ * request previews, and deleting it.
  */
 export function SettingsTab({ domain }: { domain: string }) {
   useDocumentTitle(`Settings - ${domain}`, 1);
@@ -55,6 +57,7 @@ export function SettingsTab({ domain }: { domain: string }) {
       </div>
       <LimitsSection app={app.data} />
       <WebhookSection app={app.data} />
+      <PreviewsSection app={app.data} />
       <DangerSection app={app.data} />
     </Sections>
   );

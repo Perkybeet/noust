@@ -8,6 +8,7 @@ import type { RecordedCall, RouteHandler } from "../../../test/fakes";
 
 const DOMAIN = "shop.example.com";
 const ENV_PATH = `/api/apps/${DOMAIN}/env`;
+const MARKS_PATH = `${ENV_PATH}/marks`;
 
 const MASKED = {
   NODE_ENV: "production",
@@ -21,10 +22,26 @@ const CLEAR = {
   SESSION_SECRET: "s3cr3t-value",
 };
 
-function envRoute(masked: Record<string, string> = MASKED, clear: Record<string, string> = CLEAR): RouteHandler {
+interface Secrecy {
+  secret: boolean;
+  reason: string;
+  marked: boolean;
+}
+
+const SECRETS: Record<string, Secrecy> = {
+  NODE_ENV: { secret: false, reason: "plain", marked: false },
+  DATABASE_URL: { secret: true, reason: "url credentials", marked: false },
+  SESSION_SECRET: { secret: true, reason: "name", marked: false },
+};
+
+function envRoute(
+  masked: Record<string, string> = MASKED,
+  clear: Record<string, string> = CLEAR,
+  secrets: Record<string, Secrecy> = SECRETS,
+): RouteHandler {
   return (call: RecordedCall) => {
     const unmasked = call.search.get("unmask") === "true";
-    return json(200, { domain: DOMAIN, variables: unmasked ? clear : masked, unmasked });
+    return json(200, { domain: DOMAIN, variables: unmasked ? clear : masked, unmasked, secrets });
   };
 }
 
@@ -85,6 +102,70 @@ describe("the environment tab", () => {
     await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
     expect(await screen.findByText("s3cr3t-value")).toBeInTheDocument();
     expect(backend.callsTo("POST /api/auth/elevate")).toHaveLength(1);
+  });
+
+  it("explains why each variable is hidden or shown, and lets an operator override it immediately", async () => {
+    let marked = false;
+    const { user, backend } = await environmentTab({
+      [`GET ${ENV_PATH}`]: (call) =>
+        envRoute(
+          MASKED,
+          CLEAR,
+          marked ? { ...SECRETS, SESSION_SECRET: { secret: false, reason: "marked not secret", marked: true } } : SECRETS,
+        )(call),
+      [`PUT ${MARKS_PATH}`]: () => {
+        marked = true;
+        return json(200, {
+          domain: DOMAIN,
+          secrets: { ...SECRETS, SESSION_SECRET: { secret: false, reason: "marked not secret", marked: true } },
+        });
+      },
+    });
+
+    expect(screen.getByText(/WASM hides a value automatically/)).toBeInTheDocument();
+    const table = screen.getByRole("table", { name: `Environment variables of ${DOMAIN}` });
+    expect(within(table).getByText("Shown: nothing about it looks like a secret")).toBeInTheDocument();
+    expect(within(table).getByText("Hidden: the URL carries credentials")).toBeInTheDocument();
+    expect(within(table).getByText("Hidden: its name suggests a secret")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Change whether SESSION_SECRET is treated as a secret (now decided automatically)" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Treat as not secret" }));
+
+    await waitFor(() => {
+      expect(backend.callsTo(`PUT ${MARKS_PATH}`)).toHaveLength(1);
+    });
+    expect(backend.callsTo(`PUT ${MARKS_PATH}`)[0]?.body).toEqual({ marks: { SESSION_SECRET: false } });
+    expect(await within(table).findByText("Shown: marked not secret by you")).toBeInTheDocument();
+  });
+
+  it("asks to confirm it's you before changing a mark, then applies it", async () => {
+    let elevated = false;
+    let marked = false;
+    const { user } = await environmentTab({
+      [`GET ${ENV_PATH}`]: (call) =>
+        envRoute(
+          MASKED,
+          CLEAR,
+          marked ? { ...SECRETS, NODE_ENV: { secret: true, reason: "marked secret", marked: true } } : SECRETS,
+        )(call),
+      [`PUT ${MARKS_PATH}`]: () => {
+        if (!elevated) return problem(403, "elevation_required", "Confirm it's you to continue");
+        marked = true;
+        return json(200, { domain: DOMAIN, secrets: { ...SECRETS, NODE_ENV: { secret: true, reason: "marked secret", marked: true } } });
+      },
+      "POST /api/auth/elevate": () => {
+        elevated = true;
+        return json(200, { elevated_until: "2026-09-25T20:10:00+00:00" });
+      },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Change whether NODE_ENV is treated as a secret (now decided automatically)" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Treat as secret" }));
+    const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
+    await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
+    await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+
+    expect(await screen.findByText("Hidden: marked secret by you")).toBeInTheDocument();
   });
 
   it("stages a pasted file, reviews it over the real values, saves exactly that map and offers a restart", async () => {

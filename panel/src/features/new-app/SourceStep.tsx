@@ -1,7 +1,12 @@
 import { Archive, FolderGit2, FolderOpen, GitBranch, Search, TriangleAlert, X } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import type { ReactNode, Ref, SyntheticEvent } from "react";
 
+import type { GitHubStatus } from "../../api/queries/github";
+
 import { CommandHint } from "../../components/page/CommandHint";
+import { SegmentedControl } from "../../components/page/SegmentedControl";
+import type { SegmentedOption } from "../../components/page/SegmentedControl";
 import { isApiError } from "../../api/client";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { useNow } from "../../components/page/clock";
@@ -11,11 +16,13 @@ import { Input } from "../../components/ui/Input";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { Spinner } from "../../components/ui/Spinner";
 import { SystemOutput } from "../../components/ui/SystemOutput";
+import { GitHubSource } from "./GitHubSource";
 import { Suggestion } from "./Suggestion";
 import { SOURCE_WORDS, sourceKind } from "./wizard";
 import type { SourceErrors, SourceForm, SourceKind } from "./wizard";
 
 const KIND_ICON: Record<SourceKind, ReactNode> = {
+  github: <FolderGit2 />,
   git: <GitBranch />,
   archive: <Archive />,
   local: <FolderOpen />,
@@ -55,8 +62,12 @@ function ReviewSkeleton() {
 
 const FETCH_HINT = "Check the address and that this server can reach it. A private repository needs a deploy key, or a token in the URL.";
 
+/** For a repository read through the GitHub App, the usual cause is the installation, not a key. */
+const GITHUB_FETCH_HINT = "Check that the App's installation still covers this repository and the branch exists: Settings, Integrations, Sync installations.";
+
 /** What the inspection is doing, said once: there is no streamed progress, so no steps are made up. */
 const READING: Readonly<Record<SourceKind, string>> = {
+  github: "Reading the repository through the GitHub App",
   git: "Reading the repository",
   archive: "Downloading and reading the archive",
   local: "Reading the directory",
@@ -102,6 +113,7 @@ function VerdictFailure({ failure, source, onManual }: { failure: { detail: stri
  * but matched no type can still be deployed: the operator picks the type.
  */
 function InspectFailure({ failure, source, onManual }: { failure: unknown; source: string; onManual: () => void }) {
+  const fetchHint = sourceKind(source) === "github" ? GITHUB_FETCH_HINT : FETCH_HINT;
   let block: ReactNode;
   if (isApiError(failure) && failure.error === "sourceerror") {
     // The short sentence (failure.detail) is already on the field, next to what it complains
@@ -110,7 +122,7 @@ function InspectFailure({ failure, source, onManual }: { failure: unknown; sourc
     // An older or simpler SourceError has no output of its own; `hint` is what it printed then.
     const printed = failure.output ?? failure.hint;
     if (printed === null) return null;
-    const fix = failure.output !== null ? (failure.hint ?? FETCH_HINT) : FETCH_HINT;
+    const fix = failure.output !== null ? (failure.hint ?? fetchHint) : fetchHint;
     block = <ErrorBlock live error={{ detail: printed }} title={`What fetching ${source} reported`} hint={fix} />;
   } else if (isApiError(failure) && VERDICT_ERRORS.has(failure.error) && failure.status === 400) {
     block = <VerdictFailure failure={failure} source={source} onManual={onManual} />;
@@ -125,7 +137,7 @@ function InspectFailure({ failure, source, onManual }: { failure: unknown; sourc
       </>
     );
   } else {
-    block = <ErrorBlock live error={failure} title={`Could not inspect ${source}`} hint={FETCH_HINT} />;
+    block = <ErrorBlock live error={failure} title={`Could not inspect ${source}`} hint={fetchHint} />;
   }
   return (
     <div className="flex flex-col gap-3">
@@ -150,7 +162,19 @@ export interface SourceStepProps {
   /** Go on without detection: the operator chooses the type. */
   onManual: () => void;
   headingRef: Ref<HTMLHeadingElement>;
+  /** This server's GitHub integration; null while unknown or when it could not be read. */
+  github: GitHubStatus | null;
+  /** Where the source comes from: a repository the GitHub App reaches, or typed. */
+  mode: SourceMode;
+  onModeChange: (mode: SourceMode) => void;
 }
+
+export type SourceMode = "github" | "manual";
+
+const MODES: readonly SegmentedOption<SourceMode>[] = [
+  { value: "github", label: "From GitHub" },
+  { value: "manual", label: "URL or path" },
+];
 
 /**
  * Step one: where the code is. WASM fetches it into a throwaway checkout and reads it, so the
@@ -168,6 +192,9 @@ export function SourceStep({
   onInspectAgain,
   onManual,
   headingRef,
+  github,
+  mode,
+  onModeChange,
 }: SourceStepProps) {
   const kind = sourceKind(form.source);
   const local = kind === "local";
@@ -189,40 +216,69 @@ export function SourceStep({
         </p>
       </header>
 
-      <Field label="Repository or directory" error={errors.source} description={SOURCE_WORDS[kind]}>
-        <Input
-          mono
-          icon={KIND_ICON[kind]}
-          value={form.source}
-          onValueChange={(value: string) => onChange({ ...form, source: value })}
-          placeholder="https://github.com/you/app.git"
-          autoComplete="off"
-          autoCapitalize="off"
-          spellCheck={false}
-          disabled={busy}
-        />
-      </Field>
+      {github?.configured === true ? (
+        <SegmentedControl label="Where the code is" options={MODES} value={mode} onValueChange={onModeChange} className="self-start" />
+      ) : null}
 
-      {local ? null : (
-        <Field
-          label="Branch"
-          optional
-          error={errors.branch}
-          description="Empty deploys the repository's default branch. Pushes to this branch can redeploy it later."
-          className="sm:max-w-80"
-        >
-          <Input
-            mono
-            icon={<GitBranch />}
-            value={form.branch}
-            onValueChange={(value: string) => onChange({ ...form, branch: value })}
-            placeholder="main"
-            autoComplete="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            disabled={busy}
-          />
-        </Field>
+      {mode === "github" && github?.configured === true ? (
+        <GitHubSource status={github} form={form} errors={errors} onChange={onChange} disabled={busy} />
+      ) : (
+        <>
+          <Field
+            label="Repository or directory"
+            error={errors.source}
+            description={
+              github !== null && !github.configured ? (
+                <>
+                  {`${SOURCE_WORDS[kind]} Deploying from GitHub? `}
+                  <Link
+                    to="/settings/integrations"
+                    className="rounded-[4px] font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus"
+                  >
+                    Connect a GitHub App
+                  </Link>
+                  {" for private repositories and deploys on push."}
+                </>
+              ) : (
+                SOURCE_WORDS[kind]
+              )
+            }
+          >
+            <Input
+              mono
+              icon={KIND_ICON[kind]}
+              value={form.source}
+              onValueChange={(value: string) => onChange({ source: value, branch: form.branch })}
+              placeholder="https://github.com/you/app.git"
+              autoComplete="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              disabled={busy}
+            />
+          </Field>
+
+          {local ? null : (
+            <Field
+              label="Branch"
+              optional
+              error={errors.branch}
+              description="Empty deploys the repository's default branch. Pushes to this branch can redeploy it later."
+              className="sm:max-w-80"
+            >
+              <Input
+                mono
+                icon={<GitBranch />}
+                value={form.branch}
+                onValueChange={(value: string) => onChange({ source: form.source, branch: value })}
+                placeholder="main"
+                autoComplete="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                disabled={busy}
+              />
+            </Field>
+          )}
+        </>
       )}
 
       <div className="flex flex-wrap items-center gap-2">

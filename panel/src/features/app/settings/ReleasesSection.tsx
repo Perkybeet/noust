@@ -26,6 +26,7 @@ import { HealthCheckForm, StaticHealthNote } from "./HealthCheckForm";
 import { MigrationPlanView } from "./MigrationPlanView";
 import { RetentionForm } from "./RetentionForm";
 import { LINK, PANEL } from "./panel";
+import { ZeroDowntimePanel } from "./ZeroDowntimePanel";
 
 /**
  * The migration summary a finished `migrate` job's `result` carries (see `migrate_app_job`):
@@ -308,7 +309,8 @@ function MigrationCard({ app, onMigrated }: { app: App; onMigrated: (result: Mig
 /**
  * How the app's deploys are laid out on disk and what lets a new version serve: for an app on
  * releases, the release serving, how many are kept to go back to and the retention; for one
- * still in place, the way onto releases. Either way, the health check every activation passes.
+ * still in place, the way onto releases. Either way, whether an activation is a blue/green switch
+ * or a restart, and the health check every activation passes.
  */
 export function ReleasesSection({ app }: { app: App }) {
   const [migrated, setMigrated] = useState<MigrationSummary | null>(null);
@@ -338,6 +340,7 @@ export function ReleasesSection({ app }: { app: App }) {
         </div>
       ) : null}
       {onReleases ? <RetentionForm app={app} /> : null}
+      {hasUnit(app) ? <ZeroDowntimePanel app={app} /> : null}
       {hasUnit(app) ? <HealthCheckForm app={app} /> : <StaticHealthNote />}
     </Section>
   );

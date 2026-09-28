@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AppInfo, Deployment } from "./data";
-import { appLimits, appReading, deployMoment, latestDeployByDomain, readsApps } from "./data";
+import { appLimits, appNameOf, appReading, deployMoment, latestDeployByDomain, previewParentOf, readsApps } from "./data";
 
 function deploy(id: number, domain: string, status = "success"): Deployment {
   return { id, domain, status, triggered_by: "cli", has_log: true, started_at: "2026-09-25T10:00:00", finished_at: null, rollback_available: false };
@@ -43,7 +43,7 @@ describe("appReading", () => {
 });
 
 describe("appLimits", () => {
-  const base: AppInfo = { domain: "a.com", name: "a.com", status: "running", active: true, enabled: true, layout: "releases", webhook_enabled: false, keep_releases: 5 };
+  const base: AppInfo = { domain: "a.com", name: "a.com", status: "running", active: true, enabled: true, layout: "releases", webhook_enabled: false, keep_releases: 5, zero_downtime: false };
 
   it("reads the unit's limits in bytes and percent", () => {
     expect(appLimits({ ...base, memory_max_mb: 512, cpu_quota_percent: 50, tasks_max: 256 })).toEqual({
@@ -55,5 +55,20 @@ describe("appLimits", () => {
 
   it("treats absent or zero limits as no limit", () => {
     expect(appLimits({ ...base, memory_max_mb: null, cpu_quota_percent: 0 })).toEqual({ memory: null, cpu: null, tasks: null });
+  });
+});
+
+describe("previewParentOf", () => {
+  it("is the app a preview was made from, and null for an app of its own or an API without the field", () => {
+    expect(previewParentOf({ domain: "pr-1-shop.previews.example.com", preview_parent: "shop.example.com" })).toBe("shop.example.com");
+    expect(previewParentOf({ domain: "shop.example.com", preview_parent: null })).toBeNull();
+    expect(previewParentOf({ domain: "shop.example.com", preview_parent: "" })).toBeNull();
+    expect(previewParentOf({ domain: "shop.example.com" })).toBeNull();
+  });
+});
+
+describe("appNameOf", () => {
+  it("is the domain with dots as dashes", () => {
+    expect(appNameOf("shop.example.com")).toBe("shop-example-com");
   });
 });

@@ -12,8 +12,10 @@ function configBody(notifications: Record<string, unknown> = {}) {
       notifications: {
         enabled: false,
         events: {
+          deploy_started: false,
           deploy_success: true,
           deploy_failed: true,
+          deploy_rolled_back: true,
           cert_expiring: true,
           unit_failed: true,
           disk_threshold: true,
@@ -108,6 +110,11 @@ describe("Settings > Notifications", () => {
     expect(await within(channel("Email")).findByLabelText("SMTP server")).toHaveValue("");
     expect(screen.getByRole("checkbox", { name: /Certificate expiring/ })).toBeInTheDocument();
     expect(screen.getByText(/Not sent by this version of WASM yet/)).toBeInTheDocument();
+    // The two new deploy lifecycle events: off by default (noisy) and on by default (a rollback matters).
+    expect(screen.getByRole("checkbox", { name: /Deployment started/ })).not.toBeChecked();
+    expect(screen.getByText(/Noisy: one message per attempt/)).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /Deployment rolled back/ })).toBeChecked();
+    expect(screen.getByText(/A new version failed its health check, and the previous one is serving again\./)).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 
@@ -252,8 +259,10 @@ describe("Settings > Notifications", () => {
       expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({
         path: "notifications.events",
         value: {
+          deploy_started: false,
           deploy_success: false,
           deploy_failed: true,
+          deploy_rolled_back: true,
           cert_expiring: true,
           unit_failed: true,
           disk_threshold: true,
@@ -261,6 +270,40 @@ describe("Settings > Notifications", () => {
         },
       });
     });
+  });
+
+  it("saves the console's own address, used only to build a notification's link", async () => {
+    const backend = notificationsBackend();
+    const { user } = renderConsole("/settings/notifications");
+    const field = await screen.findByLabelText(/Console address/);
+    await user.type(field, "https://console.example.com");
+    await user.click(within(screen.getByRole("region", { name: "Link in notifications" })).getByRole("button", { name: "Save changes" }));
+    await confirmItsYou(user);
+    await waitFor(() => {
+      expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({
+        path: "web.public_url",
+        value: "https://console.example.com",
+      });
+    });
+  });
+
+  it("shows the server's refusal of the console's address beside its field", async () => {
+    notificationsBackend({
+      routes: {
+        "PATCH /api/config": () =>
+          problem(400, "config_error", "web.public_url must be an absolute https:// URL", {
+            hint: "Got 'ftp://x'. Use an address such as https://console.example.com.",
+          }),
+      },
+    });
+    const { user } = renderConsole("/settings/notifications");
+    const field = await screen.findByLabelText(/Console address/);
+    await user.type(field, "ftp://x");
+    await user.click(within(screen.getByRole("region", { name: "Link in notifications" })).getByRole("button", { name: "Save changes" }));
+    expect(
+      await screen.findByText("web.public_url must be an absolute https:// URL Got 'ftp://x'. Use an address such as https://console.example.com."),
+    ).toBeInTheDocument();
+    expect(field).toHaveAttribute("aria-invalid", "true");
   });
 
   it("saves the private destinations as a list", async () => {

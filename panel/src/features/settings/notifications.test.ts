@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   CHANNELS,
+  EVENTS,
   REDACTED,
   channelValue,
   isChannelConfigured,
   parseHostList,
   looksLikeEmail,
   portForSecurity,
+  publicUrlOf,
   readNotificationSettings,
   refusedRecipients,
   smtpBody,
@@ -97,6 +99,21 @@ describe("the notification settings", () => {
   it("reads a list of hosts typed one per line or with commas", () => {
     expect(parseHostList("10.0.0.12\n  Hooks.Internal , 10.0.0.12\n\n")).toEqual(["10.0.0.12", "hooks.internal"]);
     expect(parseHostList("   ")).toEqual([]);
+  });
+
+  it("offers the deploy lifecycle's own events, in the notifier's order", () => {
+    const kinds = EVENTS.map((event) => event.kind);
+    expect(kinds.indexOf("deploy_started")).toBeLessThan(kinds.indexOf("deploy_success"));
+    expect(kinds.indexOf("deploy_success")).toBeLessThan(kinds.indexOf("deploy_failed"));
+    expect(kinds.indexOf("deploy_failed")).toBeLessThan(kinds.indexOf("deploy_rolled_back"));
+    expect(kinds.indexOf("deploy_rolled_back")).toBeLessThan(kinds.indexOf("cert_expiring"));
+    expect(EVENTS.find((event) => event.kind === "deploy_started")?.unsent).toBeUndefined();
+    expect(EVENTS.find((event) => event.kind === "deploy_rolled_back")?.unsent).toBeUndefined();
+  });
+
+  it("reads the console's own public address, unset by default", () => {
+    expect(publicUrlOf({})).toBe("");
+    expect(publicUrlOf({ web: { public_url: "https://console.example.com" } })).toBe("https://console.example.com");
   });
 });
 

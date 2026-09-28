@@ -26,6 +26,7 @@ import { Route as ConsoleServicesIndexRouteImport } from "./routes/_console/serv
 import { Route as ConsoleServicesNameRouteImport } from "./routes/_console/services/$name"
 import { Route as ConsoleSettingsIndexRouteImport } from "./routes/_console/settings/index"
 import { Route as ConsoleSettingsAboutRouteImport } from "./routes/_console/settings/about"
+import { Route as ConsoleSettingsIntegrationsRouteImport } from "./routes/_console/settings/integrations"
 import { Route as ConsoleSettingsNotificationsRouteImport } from "./routes/_console/settings/notifications"
 import { Route as ConsoleSettingsSecurityRouteImport } from "./routes/_console/settings/security"
 import { Route as ConsoleSettingsTokensRouteImport } from "./routes/_console/settings/tokens"
@@ -38,6 +39,7 @@ import { Route as ConsoleAppsDomainMetricsRouteImport } from "./routes/_console/
 import { Route as ConsoleAppsDomainSettingsRouteImport } from "./routes/_console/apps/$domain/settings"
 import { Route as ConsoleDatabasesEngineNameRouteImport } from "./routes/_console/databases/$engine/$name"
 import { Route as ConsoleDomainsSitesSiteRouteImport } from "./routes/_console/domains/sites/$site"
+import { Route as ConsoleIntegrationsGithubCallbackRouteImport } from "./routes/_console/integrations/github/callback"
 import { Route as ConsoleAppsDomainDeploymentsIndexRouteImport } from "./routes/_console/apps/$domain/deployments/index"
 import { Route as ConsoleAppsDomainDeploymentsIdRouteImport } from "./routes/_console/apps/$domain/deployments/$id"
 
@@ -125,6 +127,12 @@ const ConsoleSettingsAboutRoute = ConsoleSettingsAboutRouteImport.update({
   path: "/about",
   getParentRoute: () => ConsoleSettingsRoute,
 } as any)
+const ConsoleSettingsIntegrationsRoute =
+  ConsoleSettingsIntegrationsRouteImport.update({
+    id: "/integrations",
+    path: "/integrations",
+    getParentRoute: () => ConsoleSettingsRoute,
+  } as any)
 const ConsoleSettingsNotificationsRoute =
   ConsoleSettingsNotificationsRouteImport.update({
     id: "/notifications",
@@ -192,6 +200,12 @@ const ConsoleDomainsSitesSiteRoute = ConsoleDomainsSitesSiteRouteImport.update({
   path: "/domains/sites/$site",
   getParentRoute: () => ConsoleRoute,
 } as any)
+const ConsoleIntegrationsGithubCallbackRoute =
+  ConsoleIntegrationsGithubCallbackRouteImport.update({
+    id: "/integrations/github/callback",
+    path: "/integrations/github/callback",
+    getParentRoute: () => ConsoleRoute,
+  } as any)
 const ConsoleAppsDomainDeploymentsIndexRoute =
   ConsoleAppsDomainDeploymentsIndexRouteImport.update({
     id: "/deployments/",
@@ -217,6 +231,7 @@ export interface FileRoutesByFullPath {
   "/apps/new": typeof ConsoleAppsNewRoute
   "/services/$name": typeof ConsoleServicesNameRoute
   "/settings/about": typeof ConsoleSettingsAboutRoute
+  "/settings/integrations": typeof ConsoleSettingsIntegrationsRoute
   "/settings/notifications": typeof ConsoleSettingsNotificationsRoute
   "/settings/security": typeof ConsoleSettingsSecurityRoute
   "/settings/tokens": typeof ConsoleSettingsTokensRoute
@@ -233,6 +248,7 @@ export interface FileRoutesByFullPath {
   "/apps/$domain/settings": typeof ConsoleAppsDomainSettingsRoute
   "/databases/$engine/$name": typeof ConsoleDatabasesEngineNameRoute
   "/domains/sites/$site": typeof ConsoleDomainsSitesSiteRoute
+  "/integrations/github/callback": typeof ConsoleIntegrationsGithubCallbackRoute
   "/apps/$domain/": typeof ConsoleAppsDomainIndexRoute
   "/apps/$domain/deployments/$id": typeof ConsoleAppsDomainDeploymentsIdRoute
   "/apps/$domain/deployments/": typeof ConsoleAppsDomainDeploymentsIndexRoute
@@ -247,6 +263,7 @@ export interface FileRoutesByTo {
   "/apps/new": typeof ConsoleAppsNewRoute
   "/services/$name": typeof ConsoleServicesNameRoute
   "/settings/about": typeof ConsoleSettingsAboutRoute
+  "/settings/integrations": typeof ConsoleSettingsIntegrationsRoute
   "/settings/notifications": typeof ConsoleSettingsNotificationsRoute
   "/settings/security": typeof ConsoleSettingsSecurityRoute
   "/settings/tokens": typeof ConsoleSettingsTokensRoute
@@ -263,6 +280,7 @@ export interface FileRoutesByTo {
   "/apps/$domain/settings": typeof ConsoleAppsDomainSettingsRoute
   "/databases/$engine/$name": typeof ConsoleDatabasesEngineNameRoute
   "/domains/sites/$site": typeof ConsoleDomainsSitesSiteRoute
+  "/integrations/github/callback": typeof ConsoleIntegrationsGithubCallbackRoute
   "/apps/$domain": typeof ConsoleAppsDomainIndexRoute
   "/apps/$domain/deployments/$id": typeof ConsoleAppsDomainDeploymentsIdRoute
   "/apps/$domain/deployments": typeof ConsoleAppsDomainDeploymentsIndexRoute
@@ -281,6 +299,7 @@ export interface FileRoutesById {
   "/_console/apps/new": typeof ConsoleAppsNewRoute
   "/_console/services/$name": typeof ConsoleServicesNameRoute
   "/_console/settings/about": typeof ConsoleSettingsAboutRoute
+  "/_console/settings/integrations": typeof ConsoleSettingsIntegrationsRoute
   "/_console/settings/notifications": typeof ConsoleSettingsNotificationsRoute
   "/_console/settings/security": typeof ConsoleSettingsSecurityRoute
   "/_console/settings/tokens": typeof ConsoleSettingsTokensRoute
@@ -297,6 +316,7 @@ export interface FileRoutesById {
   "/_console/apps/$domain/settings": typeof ConsoleAppsDomainSettingsRoute
   "/_console/databases/$engine/$name": typeof ConsoleDatabasesEngineNameRoute
   "/_console/domains/sites/$site": typeof ConsoleDomainsSitesSiteRoute
+  "/_console/integrations/github/callback": typeof ConsoleIntegrationsGithubCallbackRoute
   "/_console/apps/$domain/": typeof ConsoleAppsDomainIndexRoute
   "/_console/apps/$domain/deployments/$id": typeof ConsoleAppsDomainDeploymentsIdRoute
   "/_console/apps/$domain/deployments/": typeof ConsoleAppsDomainDeploymentsIndexRoute
@@ -315,6 +335,7 @@ export interface FileRouteTypes {
     | "/apps/new"
     | "/services/$name"
     | "/settings/about"
+    | "/settings/integrations"
     | "/settings/notifications"
     | "/settings/security"
     | "/settings/tokens"
@@ -331,6 +352,7 @@ export interface FileRouteTypes {
     | "/apps/$domain/settings"
     | "/databases/$engine/$name"
     | "/domains/sites/$site"
+    | "/integrations/github/callback"
     | "/apps/$domain/"
     | "/apps/$domain/deployments/$id"
     | "/apps/$domain/deployments/"
@@ -345,6 +367,7 @@ export interface FileRouteTypes {
     | "/apps/new"
     | "/services/$name"
     | "/settings/about"
+    | "/settings/integrations"
     | "/settings/notifications"
     | "/settings/security"
     | "/settings/tokens"
@@ -361,6 +384,7 @@ export interface FileRouteTypes {
     | "/apps/$domain/settings"
     | "/databases/$engine/$name"
     | "/domains/sites/$site"
+    | "/integrations/github/callback"
     | "/apps/$domain"
     | "/apps/$domain/deployments/$id"
     | "/apps/$domain/deployments"
@@ -378,6 +402,7 @@ export interface FileRouteTypes {
     | "/_console/apps/new"
     | "/_console/services/$name"
     | "/_console/settings/about"
+    | "/_console/settings/integrations"
     | "/_console/settings/notifications"
     | "/_console/settings/security"
     | "/_console/settings/tokens"
@@ -394,6 +419,7 @@ export interface FileRouteTypes {
     | "/_console/apps/$domain/settings"
     | "/_console/databases/$engine/$name"
     | "/_console/domains/sites/$site"
+    | "/_console/integrations/github/callback"
     | "/_console/apps/$domain/"
     | "/_console/apps/$domain/deployments/$id"
     | "/_console/apps/$domain/deployments/"
@@ -525,6 +551,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleSettingsAboutRouteImport
       parentRoute: typeof ConsoleSettingsRoute
     }
+    "/_console/settings/integrations": {
+      id: "/_console/settings/integrations"
+      path: "/integrations"
+      fullPath: "/settings/integrations"
+      preLoaderRoute: typeof ConsoleSettingsIntegrationsRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
     "/_console/settings/notifications": {
       id: "/_console/settings/notifications"
       path: "/notifications"
@@ -609,6 +642,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleDomainsSitesSiteRouteImport
       parentRoute: typeof ConsoleRoute
     }
+    "/_console/integrations/github/callback": {
+      id: "/_console/integrations/github/callback"
+      path: "/integrations/github/callback"
+      fullPath: "/integrations/github/callback"
+      preLoaderRoute: typeof ConsoleIntegrationsGithubCallbackRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
     "/_console/apps/$domain/deployments/": {
       id: "/_console/apps/$domain/deployments/"
       path: "/deployments"
@@ -628,6 +668,7 @@ declare module "@tanstack/react-router" {
 
 interface ConsoleSettingsRouteChildren {
   ConsoleSettingsAboutRoute: typeof ConsoleSettingsAboutRoute
+  ConsoleSettingsIntegrationsRoute: typeof ConsoleSettingsIntegrationsRoute
   ConsoleSettingsNotificationsRoute: typeof ConsoleSettingsNotificationsRoute
   ConsoleSettingsSecurityRoute: typeof ConsoleSettingsSecurityRoute
   ConsoleSettingsTokensRoute: typeof ConsoleSettingsTokensRoute
@@ -636,6 +677,7 @@ interface ConsoleSettingsRouteChildren {
 
 const ConsoleSettingsRouteChildren: ConsoleSettingsRouteChildren = {
   ConsoleSettingsAboutRoute: ConsoleSettingsAboutRoute,
+  ConsoleSettingsIntegrationsRoute: ConsoleSettingsIntegrationsRoute,
   ConsoleSettingsNotificationsRoute: ConsoleSettingsNotificationsRoute,
   ConsoleSettingsSecurityRoute: ConsoleSettingsSecurityRoute,
   ConsoleSettingsTokensRoute: ConsoleSettingsTokensRoute,
@@ -690,6 +732,7 @@ interface ConsoleRouteChildren {
   ConsoleServicesIndexRoute: typeof ConsoleServicesIndexRoute
   ConsoleDatabasesEngineNameRoute: typeof ConsoleDatabasesEngineNameRoute
   ConsoleDomainsSitesSiteRoute: typeof ConsoleDomainsSitesSiteRoute
+  ConsoleIntegrationsGithubCallbackRoute: typeof ConsoleIntegrationsGithubCallbackRoute
 }
 
 const ConsoleRouteChildren: ConsoleRouteChildren = {
@@ -708,6 +751,8 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
   ConsoleServicesIndexRoute: ConsoleServicesIndexRoute,
   ConsoleDatabasesEngineNameRoute: ConsoleDatabasesEngineNameRoute,
   ConsoleDomainsSitesSiteRoute: ConsoleDomainsSitesSiteRoute,
+  ConsoleIntegrationsGithubCallbackRoute:
+    ConsoleIntegrationsGithubCallbackRoute,
 }
 
 const ConsoleRouteWithChildren =

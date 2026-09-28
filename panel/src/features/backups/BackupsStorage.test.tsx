@@ -29,6 +29,7 @@ function backupsPage(answer: BackupStorage) {
     "GET /api/backups": () => json(200, { backups: [], total: 0 }),
     "GET /api/backups/storage": () => json(200, answer),
     "GET /api/backup-schedules": () => json(200, { schedules: [], total: 0 }),
+    "GET /api/backup-destinations": () => json(200, { destinations: [], total: 0 }),
   });
   return renderConsole("/backups");
 }

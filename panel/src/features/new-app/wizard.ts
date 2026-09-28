@@ -26,7 +26,13 @@ export const STEPS: readonly { id: Step; label: string }[] = [
 // ---------------------------------------------------------------------------------------
 // The source
 
-export type SourceKind = "git" | "archive" | "local" | "unknown";
+export type SourceKind = "github" | "git" | "archive" | "local" | "unknown";
+
+/**
+ * `github:owner/repo`: a repository this server's GitHub App reaches, the spelling the
+ * repository picker and `wasm create --source` share (wasm.validators.source).
+ */
+const GITHUB_SHORTHAND = /^github:[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})\/[A-Za-z0-9._-]{1,100}$/;
 
 /**
  * What a source looks like, for the hint under the field. The server decides for real
@@ -35,6 +41,7 @@ export type SourceKind = "git" | "archive" | "local" | "unknown";
 export function sourceKind(value: string): SourceKind {
   const source = value.trim();
   if (source === "") return "unknown";
+  if (GITHUB_SHORTHAND.test(source)) return "github";
   if (source.startsWith("/") || source.startsWith("~/") || source.startsWith("./") || source.startsWith("../")) return "local";
   if (/^(?:https?|ftp):\/\/\S+\.(?:zip|tar\.gz|tgz|tar\.bz2|tar\.xz|tar)(?:\?\S*)?$/i.test(source)) return "archive";
   if (/^(?:https?|ssh|git):\/\/\S+$/i.test(source) || /^[\w.-]+@[\w.-]+:\S+$/.test(source)) return "git";
@@ -52,6 +59,7 @@ export function shortSource(value: string): string {
 }
 
 export const SOURCE_WORDS: Record<SourceKind, string> = {
+  github: "GitHub repository, cloned through this server's GitHub App at the branch below.",
   git: "Git repository: cloned at the branch below, or its default branch.",
   archive: "Archive: downloaded and unpacked.",
   local: "Directory on this server: copied as it is, without .git, node_modules or virtualenvs.",
@@ -61,6 +69,28 @@ export const SOURCE_WORDS: Record<SourceKind, string> = {
 export interface SourceForm {
   source: string;
   branch: string;
+  /**
+   * The GitHub App installation that reaches the repository, as the repository picker listed
+   * it. Only a repository chosen there has one; a typed source never does.
+   */
+  installationId?: number;
+}
+
+/** Whether two sources would be inspected, and deployed, the same way. */
+export function sameSource(a: SourceForm, b: SourceForm): boolean {
+  return a.source.trim() === b.source.trim() && a.branch.trim() === b.branch.trim() && a.installationId === b.installationId;
+}
+
+export type InspectBody = BodyOf<"/api/apps/inspect", "post">;
+
+/** The request `POST /api/apps/inspect` takes for a source. */
+export function inspectBody(form: SourceForm): InspectBody {
+  const branch = form.branch.trim();
+  return {
+    source: form.source.trim(),
+    ...(branch !== "" && sourceKind(form.source) !== "local" ? { branch } : {}),
+    ...(form.installationId !== undefined ? { github_installation_id: form.installationId } : {}),
+  };
 }
 
 export type SourceErrors = Partial<Record<"source" | "branch", string>>;
@@ -367,6 +397,7 @@ export function createAppBody(source: SourceForm, form: ReviewForm): CreateAppBo
     domain: normalizeDomain(form.domain),
     source: source.source.trim(),
     ...(branch !== "" && sourceKind(source.source) !== "local" ? { branch } : {}),
+    ...(source.installationId !== undefined ? { github_installation_id: source.installationId } : {}),
     app_type: form.appType,
     ...(hasPort(form.appType) ? { port: Number(form.port.trim()) } : {}),
     webserver: form.webserver,
@@ -393,7 +424,7 @@ export interface Refusal {
 }
 
 /** Fields of the request, by the step that asks for them. */
-const SOURCE_FIELDS = new Set(["source", "branch"]);
+const SOURCE_FIELDS = new Set(["source", "branch", "github_installation_id"]);
 const REVIEW_FIELDS: Readonly<Record<string, string>> = {
   domain: "domain",
   port: "port",
@@ -419,7 +450,8 @@ export function refusalOf(error: unknown): Refusal | null {
     const source: Record<string, string> = {};
     const review: Record<string, string> = {};
     for (const [name, message] of Object.entries(error.fields)) {
-      if (SOURCE_FIELDS.has(name)) source[name] = message;
+      // The installation is part of the chosen repository, so its complaint is the source's.
+      if (SOURCE_FIELDS.has(name)) source[name === "github_installation_id" ? "source" : name] = message;
       else review[REVIEW_FIELDS[name] ?? name] = message;
     }
     if (Object.keys(source).length > 0) return { step: "source", fields: source };

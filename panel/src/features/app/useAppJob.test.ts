@@ -22,6 +22,8 @@ describe("jobWords", () => {
     expect(jobWords("update")).toEqual({ running: "Updating", noun: "Update" });
     expect(jobWords("restore")).toEqual({ running: "Rolling back", noun: "Rollback" });
     expect(jobWords("migrate")).toEqual({ running: "Migrating", noun: "Migration" });
+    expect(jobWords("push")).toEqual({ running: "Copying", noun: "Copy" });
+    expect(jobWords("zero_downtime")).toEqual({ running: "Switching", noun: "Zero-downtime mode" });
     expect(jobWords("something_new")).toEqual({ running: "Working", noun: "Job" });
   });
 });

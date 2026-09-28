@@ -21,7 +21,7 @@ import { reportActionError } from "../apps/useAppActions";
 import { ChannelHeader, DirtyActions, SecretInput, TestButton, TestOutcome, useChannelTest, useRefreshConfig } from "./channelParts";
 import { EmailChannel, EmailFormSkeleton } from "./EmailChannel";
 import { splitErrors } from "./formErrors";
-import { CHANNELS, EVENTS, REDACTED, channelValue, isChannelConfigured, parseHostList, readNotificationSettings } from "./notifications";
+import { CHANNELS, EVENTS, REDACTED, channelValue, isChannelConfigured, parseHostList, publicUrlOf, readNotificationSettings } from "./notifications";
 import type { ChannelSpec, NotificationSettings as Settings } from "./notifications";
 import { configSetCommand } from "./shell";
 import { SettingsFormCard, SettingsFormSkeleton, SettingsSection } from "./SettingsForm";
@@ -336,6 +336,68 @@ function PrivateHostsSection({ query }: { query: ConfigQuery }) {
   );
 }
 
+// ---------------------------------------------------------------------------------------
+// The console's own address, for the link a deployment notification carries back to it.
+
+function ConsoleLinkSection({ query }: { query: ConfigQuery }) {
+  const refresh = useRefreshConfig();
+  const form = useSettingsForm({
+    server: query.data === undefined ? undefined : { public_url: publicUrlOf(query.data.config) },
+    names: ["public_url"],
+    soleField: "public_url",
+    save: async ({ public_url }) => {
+      await patchConfig("web.public_url", public_url.trim());
+      await refresh();
+      toast.success("Saved the console's address");
+    },
+  });
+  return (
+    <SettingsSection
+      title="Link in notifications"
+      description="Used only to build the link a deployment notification carries back to its page in the console. It does not move the console or change how it is reached - that is Console address, in General settings."
+      commands={
+        form.dirty
+          ? [configSetCommand("web.public_url", form.values?.public_url ?? "")]
+          : ["wasm config get web.public_url"]
+      }
+    >
+      <QueryState query={query} label="the console's address" skeleton={<SettingsFormSkeleton fields={[{ description: 1 }]} />}>
+        {() => (
+          <SettingsFormCard
+            dirty={form.dirty}
+            pending={form.pending}
+            formError={form.formError}
+            errorTitle="Could not save the console's address"
+            onSubmit={form.submit}
+            onDiscard={form.discard}
+          >
+            <Field
+              label="Console address"
+              optional
+              description="An absolute https:// address, such as https://console.example.com. Left empty, notifications carry no link."
+              error={form.fieldErrors.public_url}
+            >
+              <Input
+                mono
+                type="url"
+                autoComplete="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                placeholder="https://console.example.com"
+                value={form.values?.public_url ?? ""}
+                onValueChange={(value: string) => {
+                  form.set("public_url", value);
+                }}
+                className="max-w-md"
+              />
+            </Field>
+          </SettingsFormCard>
+        )}
+      </QueryState>
+    </SettingsSection>
+  );
+}
+
 type ConfigQuery = ReturnType<typeof useQuery<ConsoleConfig>>;
 
 /** A section's content once the configuration is read; its skeleton or the failure until then. */
@@ -451,6 +513,7 @@ export function NotificationSettings() {
       <ChannelsSection query={query} />
       <EventsSection query={query} />
       <PrivateHostsSection query={query} />
+      <ConsoleLinkSection query={query} />
     </Sections>
   );
 }

@@ -139,12 +139,14 @@ const JOB_ACTION_LABELS: Readonly<Record<string, string>> = {
   update: "Update",
   backup: "Backup",
   restore: "Restore",
+  push: "Copy backup to destination",
   migrate: "Migrate to releases",
   cert_create: "Issue certificate",
   cert_renew: "Renew certificate",
   service_action: "Service action",
   site_action: "Site action",
   delete: "Delete",
+  zero_downtime: "Zero-downtime mode",
   custom: "Custom",
 };
 

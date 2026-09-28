@@ -91,6 +91,23 @@ export function SchedulesSection() {
           <span className="text-fg-faint">Unknown</span>
         ),
     },
+    {
+      id: "destinations",
+      header: "Destinations",
+      hideBelow: "lg",
+      cell: (row) =>
+        row.destinations !== undefined && row.destinations.length > 0 ? (
+          <span className="flex flex-wrap gap-1">
+            {row.destinations.map((destination) => (
+              <Badge key={destination.name} mono>
+                {destination.name}
+              </Badge>
+            ))}
+          </span>
+        ) : (
+          <span className="text-fg-faint">Local only</span>
+        ),
+    },
   ];
 
   return (

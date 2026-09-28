@@ -34,6 +34,7 @@ function backupsRoutes(backups: Record<string, unknown>[], extra: Record<string,
     "GET /api/backups": () => json(200, { backups, total: backups.length }),
     "GET /api/backups/storage": () => json(200, { path: "/var/backups/wasm", total_size: 0, total_size_human: "0 B", backup_count: 0, domains: [] }),
     "GET /api/backup-schedules": () => json(200, { schedules: [], total: 0 }),
+    "GET /api/backup-destinations": () => json(200, { destinations: [], total: 0 }),
     ...extra,
   };
 }
@@ -159,5 +160,35 @@ describe("BackupsTable", () => {
     await waitFor(() => {
       expect([...document.querySelectorAll(".toast")].some((toast) => toast.textContent.includes("Backup deleted: b-3"))).toBe(true);
     });
+  });
+
+  it("copies a backup to a destination as a background job", async () => {
+    const backend = fakeBackend(
+      backupsRoutes([backup({ backup_id: "b-4", domain: "shop.example.com" })], {
+        "GET /api/backup-destinations": () =>
+          json(200, {
+            destinations: [
+              { name: "offsite", backend: "sftp", encrypted: false, settings: {}, configured_secret_fields: [], encryption_configured: false },
+            ],
+            total: 1,
+          }),
+        "POST /api/backups/b-4/push": () => json(202, { job_id: "j-push", status: "pending", message: "Copy queued", job: {} }),
+      }),
+    );
+    const { user } = renderConsole("/backups");
+    await screen.findByRole("heading", { level: 1, name: "Backups" });
+
+    await user.click(within(await row("shop.example.com")).getByRole("button", { name: /^Actions for/ }));
+    await user.click(await screen.findByRole("menuitem", { name: "Copy to destination…" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Copy b-4" });
+    await user.click(within(dialog).getByRole("combobox", { name: "Destination" }));
+    await user.click(await screen.findByRole("option", { name: "offsite" }));
+    await user.click(within(dialog).getByRole("button", { name: "Copy" }));
+
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/backups/b-4/push")).toHaveLength(1);
+    });
+    expect(backend.callsTo("POST /api/backups/b-4/push")[0]?.body).toEqual({ destination: "offsite" });
   });
 });

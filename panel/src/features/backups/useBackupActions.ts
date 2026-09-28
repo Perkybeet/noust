@@ -32,12 +32,24 @@ export interface RestoreBackupInput {
   verify: boolean;
 }
 
+export interface ScheduleDestinationInput {
+  name: string;
+  retentionCount?: number | undefined;
+  retentionDays?: number | undefined;
+}
+
 export interface CreateScheduleInput {
   domain: string;
   schedule: string;
   retentionCount: number;
   retentionDays: number;
   includeDatabases: boolean;
+  destinations: ScheduleDestinationInput[];
+}
+
+export interface PushBackupInput {
+  backupId: string;
+  destination: string;
 }
 
 export function useBackupActions() {
@@ -110,17 +122,44 @@ export function useBackupActions() {
     },
   });
 
-  const createSchedule = useMutation({
-    mutationFn: (input: CreateScheduleInput) =>
-      request("post", "/api/backup-schedules", {
-        body: {
-          domain: input.domain,
-          schedule: input.schedule,
-          retention_count: input.retentionCount,
-          retention_days: input.retentionDays,
-          include_databases: input.includeDatabases,
-        },
+  const push = useMutation({
+    mutationFn: (input: PushBackupInput) =>
+      request("post", "/api/backups/{backup_id}/push", {
+        params: { backup_id: input.backupId },
+        body: { destination: input.destination },
       }),
+    onSuccess: (result) => {
+      queueJob(result, "copy");
+    },
+    onError: (error) => {
+      reportActionError("Could not queue the copy", error);
+    },
+  });
+
+  const scheduleBody = (input: CreateScheduleInput) => ({
+    domain: input.domain,
+    schedule: input.schedule,
+    retention_count: input.retentionCount,
+    retention_days: input.retentionDays,
+    include_databases: input.includeDatabases,
+    destinations: input.destinations.map((destination) => ({
+      name: destination.name,
+      retention_count: destination.retentionCount ?? null,
+      retention_days: destination.retentionDays ?? null,
+    })),
+  });
+
+  const createSchedule = useMutation({
+    mutationFn: (input: CreateScheduleInput) => request("post", "/api/backup-schedules", { body: scheduleBody(input) }),
+    onSuccess: (result) => {
+      toast.success(result.message);
+      void queryClient.invalidateQueries({ queryKey: backupKeys.schedules });
+    },
+  });
+
+  const updateSchedule = useMutation({
+    mutationFn: (input: CreateScheduleInput) =>
+      request("put", "/api/backup-schedules/{domain}", { params: { domain: input.domain }, body: scheduleBody(input) }),
     onSuccess: (result) => {
       toast.success(result.message);
       void queryClient.invalidateQueries({ queryKey: backupKeys.schedules });
@@ -138,5 +177,5 @@ export function useBackupActions() {
     },
   });
 
-  return { create, verify, restore, remove, createSchedule, deleteSchedule };
+  return { create, verify, restore, remove, push, createSchedule, updateSchedule, deleteSchedule };
 }

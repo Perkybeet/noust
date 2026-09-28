@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ClipboardPaste, Eye, EyeOff, Lock, Pencil, Plus, Trash2, Undo2, Variable } from "lucide-react";
+import { ClipboardPaste, Eye, EyeOff, Lock, Pencil, Plus, ShieldQuestion, Trash2, Undo2, Variable } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { request } from "../../../api/client";
@@ -18,6 +18,7 @@ import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { IconButton } from "../../../components/ui/IconButton";
+import { Menu, MenuItem } from "../../../components/ui/Menu";
 import { cx } from "../../../lib/cx";
 import { formatCount } from "../../../lib/format";
 import { reportActionError } from "../../apps/useAppActions";
@@ -26,6 +27,8 @@ import { applyDraft, describeCounts, diffEnv, draftRows, isMasked, summarise } f
 import { isValidName } from "./dotenv";
 import { PasteDialog } from "./PasteDialog";
 import { ReviewDialog } from "./ReviewDialog";
+import { markFor, secrecyActionLabel, secrecyChoice, secrecyLine, secrecyMarkAnnouncement, secrecyStateLabel } from "./secrecy";
+import type { EnvSecrecy, SecrecyChoice } from "./secrecy";
 import { VariableDialog } from "./VariableDialog";
 import type { VariableTarget } from "./VariableDialog";
 
@@ -49,6 +52,53 @@ function Masked() {
       </span>
       <span className="sr-only">Hidden</span>
     </span>
+  );
+}
+
+const SECRECY_CHOICES: readonly SecrecyChoice[] = ["secret", "not-secret", "auto"];
+
+/**
+ * The control behind "an accessible control per variable to mark it secret / not secret /
+ * automatic": a menu, so its three text-labelled options are reachable and operable from the
+ * keyboard, and the current choice is named rather than only coloured. A choice writes through
+ * PUT /env/marks immediately - it is not part of the draft, which only ever edits values.
+ */
+function SecrecyMenu({
+  name,
+  verdict,
+  pending,
+  onMark,
+}: {
+  name: string;
+  verdict: EnvSecrecy;
+  pending: boolean;
+  onMark: (mark: boolean | null) => void;
+}) {
+  const choice = secrecyChoice(verdict);
+  return (
+    <Menu
+      trigger={
+        <IconButton
+          size="sm"
+          label={`Change whether ${name} is treated as a secret (now ${secrecyStateLabel(choice)})`}
+          icon={<ShieldQuestion />}
+          disabled={pending}
+        />
+      }
+    >
+      {SECRECY_CHOICES.map((option) => (
+        <MenuItem
+          key={option}
+          disabled={option === choice}
+          onClick={() => {
+            onMark(markFor(option));
+          }}
+        >
+          {secrecyActionLabel(option)}
+          {option === choice ? <span className="sr-only"> (current)</span> : null}
+        </MenuItem>
+      ))}
+    </Menu>
   );
 }
 
@@ -78,7 +128,22 @@ export function EnvironmentTab({ domain }: { domain: string }) {
     },
   });
 
+  // Marking a variable is not part of the draft: it changes how WASM classifies the name, not
+  // what the file holds, so it writes through immediately and refreshes the listing.
+  const mark = useMutation({
+    mutationFn: ({ name, value }: { name: string; value: boolean | null }) =>
+      request("put", "/api/apps/{domain}/env/marks", { params: { domain }, body: { marks: { [name]: value } } }),
+    onSuccess: (_result, variables) => {
+      void queryClient.invalidateQueries({ queryKey: appKeys.env(domain, false) });
+      announce(secrecyMarkAnnouncement(variables.name, variables.value));
+    },
+    onError: (error: unknown) => {
+      reportActionError("Could not change how the variable is classified", error);
+    },
+  });
+
   const masked = useMemo(() => new Map(Object.entries(env.data?.variables ?? {})), [env.data]);
+  const secrets = useMemo(() => new Map(Object.entries(env.data?.secrets ?? {})), [env.data]);
   const rows = useMemo(() => draftRows(masked, ops, clear), [masked, ops, clear]);
   const counts = summarise(rows);
   const names = useMemo(() => new Set(rows.filter((row) => row.state !== "removed").map((row) => row.name)), [rows]);
@@ -189,6 +254,40 @@ export function EnvironmentTab({ domain }: { domain: string }) {
         );
       },
     },
+    {
+      id: "visibility",
+      header: "Visibility",
+      width: "w-56",
+      cell: (row) => {
+        // A variable just added exists only in the draft: WASM has not classified it yet, and
+        // marking it before it is even saved would set an override for a name the .env file
+        // does not hold. A removed one keeps its line, struck through, but not the control.
+        if (row.current === null) return <span className="text-13 text-fg-faint">Not yet classified</span>;
+        const verdict = secrets.get(row.name);
+        if (verdict === undefined) return null;
+        const line = secrecyLine(verdict);
+        return (
+          <span className="flex min-w-0 items-center gap-2">
+            <span
+              title={line}
+              className={cx("min-w-0 max-w-[13rem] truncate text-13", row.state === "removed" ? "text-fg-muted line-through" : "text-fg-muted")}
+            >
+              {line}
+            </span>
+            {row.state !== "removed" ? (
+              <SecrecyMenu
+                name={row.name}
+                verdict={verdict}
+                pending={mark.isPending && mark.variables.name === row.name}
+                onMark={(value) => {
+                  mark.mutate({ name: row.name, value });
+                }}
+              />
+            ) : null}
+          </span>
+        );
+      },
+    },
   ];
 
   const rowActions = (row: EnvRow) => {
@@ -253,6 +352,11 @@ export function EnvironmentTab({ domain }: { domain: string }) {
         }
         actions={env.data !== undefined && masked.size + counts.added > 0 ? actions : undefined}
       >
+        <p className="text-13 text-fg-muted">
+          WASM hides a value automatically when its name or shape looks like a secret - a password, a Stripe key, a
+          URL with credentials - and shows the rest; mark a variable secret or not secret in its Visibility column to
+          override that call yourself.
+        </p>
         <QueryState
           query={env}
           label="the environment"

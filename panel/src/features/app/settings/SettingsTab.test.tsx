@@ -102,6 +102,9 @@ async function settingsOf(app: object, extra: Record<string, RouteHandler> = {})
     "GET /api/system": () => json(200, { cpu: { cores: 4, percent: 3, load_1min: 0.1, load_5min: 0.1, load_15min: 0.1 } }),
     [`GET /api/apps/${DOMAIN}/releases`]: () => json(200, RELEASES),
     [`GET /api/apps/${DOMAIN}/webhook/deliveries`]: () => json(200, { items: [], total: 0 }),
+    [`GET /api/apps/${DOMAIN}/zero-downtime`]: () =>
+      json(200, { domain: DOMAIN, enabled: false, drain_seconds: 10, instances: [], eligible: true, reason: null, hint: null }),
+    [`GET /api/apps/${DOMAIN}/previews`]: () => json(200, { domain: DOMAIN, enabled: false, settings: null, previews: [], total: 0 }),
     ...extra,
   });
   const harness = renderConsole(`/apps/${DOMAIN}/settings`);

@@ -105,8 +105,18 @@ export interface EventSpec {
 
 /** In the notifier's order (wasm.core.notifier.EVENT_KINDS), described by who sends them. */
 export const EVENTS: readonly EventSpec[] = [
+  {
+    kind: "deploy_started",
+    label: "Deployment started",
+    description: "A deploy, update or rollback began. Noisy: one message per attempt, whatever it goes on to do.",
+  },
   { kind: "deploy_success", label: "Deploy finished", description: "A deploy, update or rollback completed." },
   { kind: "deploy_failed", label: "Deploy failed", description: "A deploy, update or rollback failed, with the tool's own error." },
+  {
+    kind: "deploy_rolled_back",
+    label: "Deployment rolled back",
+    description: "A new version failed its health check, and the previous one is serving again.",
+  },
   {
     kind: "cert_expiring",
     label: "Certificate expiring",
@@ -224,6 +234,15 @@ export function channelValue(
       return [field.key, typed ?? stored[field.key] ?? ""];
     }),
   );
+}
+
+// ---------------------------------------------------------------------------------------
+// The console's own address (web.public_url): read here only to build the link a deployment
+// notification carries back to the console; it does not move the console itself.
+
+/** `web.public_url`, out of the whole configuration tree - "" when the operator never set one. */
+export function publicUrlOf(config: ConsoleConfig["config"]): string {
+  return text(branch(config, "web"), "public_url");
 }
 
 /** Private hosts as typed, one per line or separated by commas, without blanks or repeats. */

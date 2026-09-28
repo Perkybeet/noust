@@ -97,3 +97,20 @@ export function appLimits(app: AppInfo): AppLimits {
     tasks: positive(app.tasks_max),
   };
 }
+
+/**
+ * The application a pull request preview was made from, or null for an app of its own.
+ *
+ * Read defensively: `preview_parent` is recorded in the store (2.2) but only reaches the
+ * console once `AppInfo` carries it. Until then every app reads as its own, which is what the
+ * lists showed before previews existed.
+ */
+export function previewParentOf(app: object): string | null {
+  const value: unknown = (app as Record<string, unknown>)["preview_parent"];
+  return typeof value === "string" && value !== "" ? value : null;
+}
+
+/** An app's name, as its directory and unit are named: the domain with dots as dashes. */
+export function appNameOf(domain: string): string {
+  return domain.replace(/\./g, "-");
+}

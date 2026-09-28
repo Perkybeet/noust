@@ -43,6 +43,15 @@ describe("useBackupRefresh", () => {
     expect(client.getQueryState(backupKeys.list(null))?.isInvalidated).toBe(true);
   });
 
+  it("refreshes on a finished push (copy to destination) job too", () => {
+    const client = new QueryClient();
+    client.setQueryData(backupKeys.list(null), { backups: [] });
+    mount(client);
+
+    FakeEventSource.latest().emit("job", { id: "j4", type: "push", status: "completed", metadata: { domain: "shop.example.com" } });
+    expect(client.getQueryState(backupKeys.list(null))?.isInvalidated).toBe(true);
+  });
+
   it("ignores jobs of other kinds", () => {
     const client = new QueryClient();
     client.setQueryData(backupKeys.list(null), { backups: [] });

@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { GitPullRequest } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { MetricsSnapshot } from "../../api/queries/metrics";
@@ -11,7 +12,7 @@ import { STATUS, StatusGlyph } from "../../components/ui/StatusPill";
 import { cx } from "../../lib/cx";
 import { formatBytes, formatPercent, parseTimestamp } from "../../lib/format";
 import type { AppInfo, Deployment } from "./data";
-import { appReading, deployMoment, readsApps } from "./data";
+import { appReading, deployMoment, previewParentOf, readsApps } from "./data";
 
 const TONE_TEXT = { ok: "text-ok", warn: "text-warn", fail: "text-fail", idle: "text-idle" } as const;
 
@@ -35,6 +36,36 @@ export function DeployMoment({ deploy }: { deploy: Deployment }) {
       <StatusGlyph state={view.state} size={10} className={TONE_TEXT[STATUS[view.state].tone]} />
       <span className="sr-only">{`${view.label}, `}</span>
       <RelativeTime value={deployMoment(deploy)} className="text-fg-muted" />
+    </span>
+  );
+}
+
+/**
+ * The app's domain, a link to its page; a pull request preview says whose it is underneath, so
+ * a list with previews in it still reads as the apps the operator deployed.
+ */
+export function AppName({ app }: { app: AppInfo }) {
+  const parent = previewParentOf(app);
+  const link = (
+    <Link
+      to="/apps/$domain"
+      params={{ domain: app.domain }}
+      className="-mx-1 rounded-[4px] px-1 py-0.5 font-medium text-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus"
+    >
+      {app.domain}
+    </Link>
+  );
+  if (parent === null) return link;
+  return (
+    <span className="flex min-w-0 flex-col items-start">
+      {link}
+      <span className="inline-flex items-center gap-1 text-12 text-fg-muted">
+        <GitPullRequest aria-hidden="true" className="size-3 shrink-0 text-fg-faint" />
+        <span>
+          {"Preview of "}
+          <span translate="no">{parent}</span>
+        </span>
+      </span>
     </span>
   );
 }
@@ -92,15 +123,7 @@ export function AppsTable({
     {
       id: "domain",
       header: "Application",
-      cell: (row) => (
-        <Link
-          to="/apps/$domain"
-          params={{ domain: row.app.domain }}
-          className="-mx-1 rounded-[4px] px-1 py-0.5 font-medium text-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus"
-        >
-          {row.app.domain}
-        </Link>
-      ),
+      cell: (row) => <AppName app={row.app} />,
       sortValue: (row) => row.app.domain,
     },
     {

@@ -13,6 +13,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { Select } from "../../components/ui/Select";
 import { BackupsTable } from "./BackupsTable";
 import { CreateBackupDialog } from "./CreateBackupDialog";
+import { DestinationsSection } from "./DestinationsSection";
 import { backupDomains, filterBackups, isFiltered } from "./filters";
 import type { BackupsSearch } from "./filters";
 import { MisplacedBackupsNotice } from "./MisplacedBackupsNotice";
@@ -137,9 +138,14 @@ export function BackupsPage({ search, onSearchChange }: BackupsPageProps) {
           )}
         </Section>
 
-        {/* Under a list whose length is not known until it loads: drawn once it has, so the
-            schedules never jump down the page as the backups arrive above them. */}
-        {backups.data !== undefined || backups.isError ? <SchedulesSection /> : null}
+        {/* Under a list whose length is not known until it loads: drawn once it has, so
+            destinations and schedules never jump down the page as the backups arrive above them. */}
+        {backups.data !== undefined || backups.isError ? (
+          <>
+            <DestinationsSection />
+            <SchedulesSection />
+          </>
+        ) : null}
       </div>
     </>
   );

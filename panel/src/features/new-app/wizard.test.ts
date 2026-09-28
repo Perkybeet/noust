@@ -6,11 +6,13 @@ import {
   canIncludeWww,
   createAppBody,
   initialReview,
+  inspectBody,
   manualInspection,
   persistentPathProblem,
   proposedPort,
   refusalOf,
   reviewProblems,
+  sameSource,
   shortSource,
   sourceKind,
   sourceProblems,
@@ -318,6 +320,38 @@ describe("refusals", () => {
     expect(refusalOf(new ApiError(400, "sourceerror", "Source path does not exist: /x"))).toEqual({ step: "source", fields: { source: "Source path does not exist: /x" } });
     expect(refusalOf(new ApiError(500, "internal", "boom"))).toBeNull();
     expect(refusalOf(new Error("boom"))).toBeNull();
+  });
+});
+
+describe("a repository chosen on GitHub", () => {
+  const chosen = { source: "github:acme/storefront", branch: "production", installationId: 7001 };
+
+  it("is a source of its own kind, valid as it is", () => {
+    expect(sourceKind("github:acme/storefront")).toBe("github");
+    expect(sourceKind("github:acme")).toBe("unknown");
+    expect(sourceKind("github:-acme/app")).toBe("unknown");
+    expect(sourceProblems(chosen)).toEqual({});
+    expect(shortSource("github:acme/storefront")).toBe("acme/storefront");
+  });
+
+  it("carries its installation into the inspection and the deploy", () => {
+    expect(inspectBody(chosen)).toEqual({ source: "github:acme/storefront", branch: "production", github_installation_id: 7001 });
+    expect(inspectBody({ source: " /srv/app ", branch: "main" })).toEqual({ source: "/srv/app" });
+    expect(createAppBody(chosen, review())).toMatchObject({ source: "github:acme/storefront", branch: "production", github_installation_id: 7001 });
+    expect(createAppBody({ source: "https://github.com/acme/app.git", branch: "" }, review())).not.toHaveProperty("github_installation_id");
+  });
+
+  it("is another source under another installation", () => {
+    expect(sameSource(chosen, { ...chosen })).toBe(true);
+    expect(sameSource(chosen, { ...chosen, installationId: 7002 })).toBe(false);
+    expect(sameSource(chosen, { source: chosen.source, branch: chosen.branch })).toBe(false);
+  });
+
+  it("sends a refused installation back to the source", () => {
+    expect(refusalOf(new ApiError(422, "validation_error", "Validation failed", null, { github_installation_id: "not covered" }))).toEqual({
+      step: "source",
+      fields: { source: "not covered" },
+    });
   });
 });
 

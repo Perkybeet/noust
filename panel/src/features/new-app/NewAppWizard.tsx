@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { request } from "../../api/client";
 import { appKeys, appsQuery, appTypesQuery } from "../../api/queries/apps";
+import { githubStatusQuery } from "../../api/queries/github";
 import { webserverQuery } from "../../api/queries/config";
 import { jobKeys, useFollowedJob } from "../../api/queries/jobs";
 import type { Job } from "../../api/queries/jobs";
@@ -16,16 +17,13 @@ import { normalizeDomain } from "../domains/names";
 import { DeployStep } from "./DeployStep";
 import { ReviewStep } from "./ReviewStep";
 import { SourceStep } from "./SourceStep";
+import type { SourceMode } from "./SourceStep";
 import { StepRail } from "./StepRail";
 import type { LandingTarget } from "./useDeploymentLanding";
-import { STEPS, createAppBody, initialReview, manualInspection, refusalOf, reviewProblems, shortSource, sourceKind, sourceProblems } from "./wizard";
+import { STEPS, createAppBody, initialReview, inspectBody, manualInspection, refusalOf, reviewProblems, sameSource, shortSource, sourceProblems } from "./wizard";
 import type { Inspection, ReviewErrors, ReviewForm, SourceErrors, SourceForm, Step, WebServer } from "./wizard";
 
 const BREADCRUMBS = [{ label: "Applications", to: "/apps" }] as const;
-
-function sameSource(a: SourceForm, b: SourceForm): boolean {
-  return a.source.trim() === b.source.trim() && a.branch.trim() === b.branch.trim();
-}
 
 function isAbort(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
@@ -43,9 +41,13 @@ export function NewAppWizard() {
   const types = useQuery(appTypesQuery());
   const system = useQuery({ ...systemInfoQuery(), staleTime: 10 * 60_000, refetchOnWindowFocus: false });
   const followedJob = useFollowedJob();
+  // Only decides whether "From GitHub" is offered: a failure leaves the typed source, as before.
+  const github = useQuery({ ...githubStatusQuery(), retry: false });
 
   const [step, setStep] = useState<Step>("source");
   const [source, setSource] = useState<SourceForm>({ source: "", branch: "" });
+  // Null until the operator acts: GitHub when the App is connected, the typed source otherwise.
+  const [chosenMode, setChosenMode] = useState<SourceMode | null>(null);
   const [sourceErrors, setSourceErrors] = useState<SourceErrors>({});
   const [inspected, setInspected] = useState<{ inspection: Inspection; for: SourceForm } | null>(null);
   const [review, setReview] = useState<ReviewForm | null>(null);
@@ -82,6 +84,9 @@ export function NewAppWizard() {
     };
   }, [apps.data, cores]);
 
+  const githubStatus = github.data ?? null;
+  const sourceMode: SourceMode = chosenMode ?? (githubStatus?.configured === true ? "github" : "manual");
+
   const defaultWebserver: WebServer = webserver.data?.webserver === "apache" ? "apache" : "nginx";
 
   const inspect = useMutation({
@@ -89,11 +94,7 @@ export function NewAppWizard() {
       abort.current?.abort();
       const controller = new AbortController();
       abort.current = controller;
-      const branch = form.branch.trim();
-      const inspection = await request("post", "/api/apps/inspect", {
-        body: { source: form.source.trim(), ...(branch !== "" && sourceKind(form.source) !== "local" ? { branch } : {}) },
-        signal: controller.signal,
-      });
+      const inspection = await request("post", "/api/apps/inspect", { body: inspectBody(form), signal: controller.signal });
       return { inspection, form };
     },
     onMutate: () => {
@@ -148,7 +149,10 @@ export function NewAppWizard() {
   }, []);
 
   const submitSource = (): void => {
-    const errors = sourceProblems(source);
+    const errors: SourceErrors =
+      sourceMode === "github" && githubStatus?.configured === true && source.installationId === undefined
+        ? { source: "Choose a repository." }
+        : sourceProblems(source);
     setSourceErrors(errors);
     if (Object.keys(errors).length > 0) return;
     if (inspected !== null && sameSource(inspected.for, source) && review !== null) {
@@ -209,9 +213,20 @@ export function NewAppWizard() {
               form={source}
               errors={sourceErrors}
               onChange={(next) => {
+                // The first edit settles where the source comes from, so the GitHub status
+                // arriving late never swaps the field out from under the operator.
+                setChosenMode(sourceMode);
                 setSource(next);
                 setSourceErrors({});
                 if (inspect.isError) inspect.reset();
+              }}
+              github={githubStatus}
+              mode={sourceMode}
+              onModeChange={(mode) => {
+                setChosenMode(mode);
+                setSource({ source: "", branch: "" });
+                setSourceErrors({});
+                inspect.reset();
               }}
               onSubmit={submitSource}
               inspecting={inspectingSince === null ? null : { since: inspectingSince }}

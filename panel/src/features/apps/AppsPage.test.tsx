@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
-import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
+import { APPS, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 
 const JOB = {
@@ -137,6 +137,32 @@ describe("the applications list", () => {
       expect(backend.callsTo("POST /api/apps/shop.example.com/restart")).toHaveLength(1);
     });
     expect(await screen.findByText("Restarted shop.example.com")).toBeInTheDocument();
+  });
+
+  it("says which application a pull request preview belongs to", async () => {
+    const preview = {
+      domain: "pr-12-shop-example-com.previews.example.com",
+      name: "pr-12-shop-example-com",
+      app_type: "nextjs",
+      status: "running",
+      active: true,
+      enabled: true,
+      port: 3012,
+      layout: "releases",
+      preview_parent: "shop.example.com",
+    };
+    const { table } = await appsAt("/apps", {
+      "GET /api/apps": () => json(200, { total: 2, apps: [APPS[0], preview] }),
+    });
+    const link = await within(table).findByRole("link", { name: preview.domain });
+    const row = link.closest("tr");
+    if (!row) throw new Error("no row");
+    expect(within(row).getByText("Preview of")).toBeInTheDocument();
+    expect(within(row).getByText("shop.example.com")).toBeInTheDocument();
+    const own = within(table).getByRole("link", { name: "shop.example.com" }).closest("tr");
+    if (!own) throw new Error("no row");
+    expect(within(own).queryByText(/Preview of/)).not.toBeInTheDocument();
+    await expectNoAxeViolations(table);
   });
 
   it("invites the first deploy on an empty machine", async () => {

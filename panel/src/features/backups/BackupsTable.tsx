@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { MoreHorizontal, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
+import { MoreHorizontal, RotateCcw, ShieldCheck, Trash2, UploadCloud } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 
@@ -14,6 +14,7 @@ import { Menu, MenuItem } from "../../components/ui/Menu";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { toast } from "../../components/ui/toast";
 import { describeError } from "../../lib/errors";
+import { PushBackupDialog } from "./PushBackupDialog";
 import { RestoreBackupDialog } from "./RestoreBackupDialog";
 import { useBackupActions } from "./useBackupActions";
 
@@ -70,6 +71,7 @@ function RowActions({
 }) {
   const { remove } = useBackupActions();
   const [restoreOpen, setRestoreOpen] = useState(false);
+  const [pushOpen, setPushOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   return (
@@ -81,11 +83,15 @@ function RowActions({
         <MenuItem icon={<RotateCcw />} onClick={() => setRestoreOpen(true)}>
           Restore
         </MenuItem>
+        <MenuItem icon={<UploadCloud />} onClick={() => setPushOpen(true)}>
+          Copy to destination…
+        </MenuItem>
         <MenuItem icon={<Trash2 />} destructive onClick={() => setConfirmOpen(true)}>
           Delete
         </MenuItem>
       </Menu>
       <RestoreBackupDialog backup={backup} open={restoreOpen} onOpenChange={setRestoreOpen} />
+      <PushBackupDialog backup={backup} open={pushOpen} onOpenChange={setPushOpen} />
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}

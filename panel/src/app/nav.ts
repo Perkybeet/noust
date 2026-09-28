@@ -84,6 +84,7 @@ export const SETTINGS_TABS: readonly TabItem[] = [
   { label: "General", to: "/settings", exact: true, keywords: "apps directory web server email" },
   { label: "Security", to: "/settings/security", keywords: "two-factor 2fa totp sessions lockout" },
   { label: "Notifications", to: "/settings/notifications", keywords: "alerts email slack webhook channels" },
+  { label: "Integrations", to: "/settings/integrations", keywords: "github app repositories push pull request previews" },
   { label: "API tokens", to: "/settings/tokens", keywords: "automation ci scope" },
   { label: "About", to: "/settings/about", keywords: "version update" },
 ];

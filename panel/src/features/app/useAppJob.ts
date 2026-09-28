@@ -10,8 +10,10 @@ const JOB_WORDS: Readonly<Record<string, { running: string; noun: string }>> = {
   restore: { running: "Rolling back", noun: "Rollback" },
   delete: { running: "Deleting", noun: "Deletion" },
   backup: { running: "Backing up", noun: "Backup" },
+  push: { running: "Copying", noun: "Copy" },
   migrate: { running: "Migrating", noun: "Migration" },
   service_action: { running: "Working", noun: "Service action" },
+  zero_downtime: { running: "Switching", noun: "Zero-downtime mode" },
 };
 
 export function jobWords(type: string): { running: string; noun: string } {
