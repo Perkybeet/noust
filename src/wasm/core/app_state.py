@@ -24,6 +24,11 @@ decided from four signals:
 
 The last one is why health warned about five sites that were fine: a static
 site has no systemd unit, so querying one always says "not running".
+
+A PHP application is stored as static too (no unit of its own runs it), but
+something does run it: its pool in the shared PHP-FPM. Its state is the
+pool's - FPM's own state, the pool file, and the health check asked of the
+pool over FastCGI, as the deploy gate asks it.
 """
 
 from __future__ import annotations
@@ -155,6 +160,11 @@ def resolve_state_with_status(
         The state, and the raw mapping ``ServiceManager.get_status`` returned
         - empty for a static application, which is never queried.
     """
+    from wasm.deployers.helpers.php_fpm import is_php_fpm
+
+    if is_php_fpm(app):
+        return _pool_state(app, probe=probe), {}
+
     if app.is_static:
         return (
             AppState(STATIC, healthy=True, detail="served directly by the web server"),
@@ -178,6 +188,61 @@ def resolve_state_with_status(
             return state, status
         resolved.append((state, status))
     return resolved[0]
+
+
+def _pool_state(app: App, *, probe: bool) -> AppState:
+    """
+    Decide a PHP application's state from its pool.
+
+    Args:
+        app: The application record, of the ``php-fpm`` type.
+        probe: Whether to ask the pool the health check; otherwise its
+            socket's presence stands for it.
+
+    Returns:
+        The state.
+    """
+    # Imported here: the deployers import far more than this module needs
+    # for every other application.
+    from wasm.deployers.php_fpm import inspect_pool
+
+    try:
+        pool = inspect_pool(app, probe=probe)
+    except (WASMError, ValidationError) as error:
+        return AppState(FAILED, healthy=False, detail=str(error))
+
+    if not pool.enabled:
+        if pool.disabled:
+            return AppState(
+                STOPPED,
+                healthy=False,
+                detail=f"its PHP-FPM pool is disabled; start it with wasm start {app.domain}",
+            )
+        return AppState(
+            FAILED,
+            healthy=False,
+            detail=f"its PHP-FPM pool {pool.pool_file} is missing; "
+            f"write it again with wasm update {app.domain}",
+        )
+    if pool.service_state in ("activating", "deactivating"):
+        return AppState(RESTARTING, healthy=False, detail=f"{pool.service} is {pool.service_state}")
+    if not pool.fpm_up:
+        return AppState(
+            FAILED,
+            healthy=False,
+            detail=f"{pool.service}, which runs every PHP pool, is {pool.service_state}",
+        )
+    if pool.answered is False:
+        return AppState(
+            NOT_RESPONDING,
+            healthy=False,
+            detail=f"its PHP-FPM pool does not answer the health check: {pool.detail}",
+        )
+    if pool.answered is None and not pool.socket_exists:
+        return AppState(
+            NOT_RESPONDING, healthy=False, detail=f"there is no socket at {pool.socket}"
+        )
+    return AppState(RUNNING, healthy=True)
 
 
 def _state_from_status(app: App, status: dict[str, Any], *, probe: bool) -> AppState:

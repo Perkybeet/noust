@@ -15,8 +15,11 @@ import type { Locale } from "../../../app/locale";
 import { translate } from "../../../i18n/translate";
 import type { App } from "../../../api/queries/apps";
 
-/** The gate's own defaults, as `docs/releases.md` states them. */
-export const HEALTH_DEFAULTS = { path: "/", expect: "any status below 500", timeout: 30 } as const;
+/**
+ * The gate's own defaults, as `docs/releases.md` states them. The accepted statuses ("any
+ * status below 500") are words, so they are the catalog's: `appSettings.healthCheck.defaultExpect`.
+ */
+export const HEALTH_DEFAULTS = { path: "/", timeout: 30 } as const;
 
 export const HEALTH_TIMEOUT_MIN = 5;
 export const HEALTH_TIMEOUT_MAX = 600;

@@ -122,7 +122,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
               onValueChange={(value) => set({ state: STATE_FILTERS.find((state) => state === value) })}
               options={[
                 { value: ALL, label: t("apps.page.everyState") },
-                ...STATE_FILTERS.map((state) => ({ value: state, label: STATUS[state].label })),
+                ...STATE_FILTERS.map((state) => ({ value: state, label: t(STATUS[state].labelKey) })),
               ]}
               className="min-w-36"
             />

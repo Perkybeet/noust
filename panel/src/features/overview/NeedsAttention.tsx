@@ -11,6 +11,7 @@ import { servicesQuery } from "../../api/queries/services";
 import { machineQuery } from "../../api/queries/system";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
+import { appStatus } from "../../components/page/status";
 import { Section } from "../../components/page/Section";
 import { useAnnounceChange } from "../../components/page/useAnnounceChange";
 import { Badge } from "../../components/ui/Badge";
@@ -31,7 +32,7 @@ function summaryText(t: T, summary: AttentionSummary): string {
     case "serviceFailed":
       return t("overview.attention.serviceFailed");
     case "serviceState":
-      return t("overview.attention.serviceState", { label: summary.label });
+      return t("overview.attention.serviceState", { label: appStatus(summary.status, t.locale).label });
     case "deployFailed":
       return t("overview.attention.deployFailed");
     case "deployRolledBack":

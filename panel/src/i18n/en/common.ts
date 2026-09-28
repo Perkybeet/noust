@@ -20,6 +20,9 @@ export const common = {
   dialog: {
     close: "Close",
   },
+  externalLink: {
+    opensInNewTab: "(opens in a new tab)",
+  },
   field: {
     optional: "Optional",
   },
@@ -50,6 +53,22 @@ export const common = {
     newLines: "new lines",
     empty: "No output yet.",
   },
+  apiErrors: {
+    elevationCancelled: "Nothing was changed because the confirmation was cancelled.",
+    elevationCancelledHint: "Run the action again and confirm it's you to continue.",
+    unreachable: "The request did not reach the server.",
+    unreachableHint: "The console could not reach the WASM panel. Check that it is running with `wasm web status`.",
+  },
+  streams: {
+    logFailed: "The log stream failed.",
+    jobFailed: "The job stream failed.",
+  },
+  rateLimit: {
+    title: "Too many requests",
+    retrying: "Retrying automatically in {wait}.",
+    tryAgain: "Try again in {wait}.",
+    tryAgainShortly: "Try again shortly.",
+  },
   toast: {
     dismiss: "Dismiss notification",
     systemSaid: "What the system said",
@@ -62,6 +81,27 @@ export const common = {
     failed: "Failed",
     stopped: "Stopped",
     static: "Static",
+    unknown: "Unknown",
+  },
+  appState: {
+    running: "Running",
+    static: "Static",
+    deploying: "Deploying",
+    building: "Building",
+    restarting: "Restarting",
+    starting: "Starting",
+    stopped: "Stopped",
+    failed: "Failed",
+    noAnswer: "No answer",
+    unknown: "Unknown",
+  },
+  deployState: {
+    queued: "Queued",
+    inProgress: "In progress",
+    succeeded: "Succeeded",
+    failed: "Failed",
+    rolledBack: "Rolled back",
+    cancelled: "Cancelled",
     unknown: "Unknown",
   },
   errorBlock: {

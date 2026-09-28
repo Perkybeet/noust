@@ -10228,7 +10228,7 @@
     },
     "/api/apps/import": {
       "post": {
-        "description": "Queue the creation of an application from an export document.\n\nChecked before anything is queued: the document, the domain (409 when\ntaken), the source (a local path is the operator's alone, as for ``POST\n/api/apps``) and the secret values the export left out (400 naming every\none missing). Sudo mode: it deploys as root.\n\nArgs:\n    body: The document, and what to change about it.\n    request: The incoming request, for the audit record of a refusal.\n    session: The authenticated session.\n\nReturns:\n    The queued job; its result lists what was applied and what was not.\n\nRaises:\n    ValidationError: The document is not valid, or a value is missing.\n    DomainConflictError: The domain is taken.\n    HTTPException: 403 for a local source the credential may not deploy,\n        503 when no port is free.",
+        "description": "Queue the creation of an application from an export document.\n\nChecked before anything is queued: the document, the domain (409 when\ntaken), the source (a local path is the operator's alone, as for ``POST\n/api/apps``) and the secret values the export left out (400 naming every\none missing). Sudo mode: it deploys as root, and the document may create\ncron jobs and previews, which is what the console's confirmation is for.\nThe job's ``metadata.plan`` carries the whole plan (every cron job with\nits user, directory and command; what previews copy; the reasons it\nneeded confirming), and its log opens with it.\n\nArgs:\n    body: The document, and what to change about it.\n    request: The incoming request, for the audit record of a refusal.\n    session: The authenticated session.\n\nReturns:\n    The queued job; its result lists what was applied and what was not.\n\nRaises:\n    ValidationError: The document is not valid, or a value is missing.\n    DomainConflictError: The domain is taken.\n    HTTPException: 403 for a local source the credential may not deploy,\n        503 when no port is free.",
         "operationId": "import_app_api_apps_import_post",
         "requestBody": {
           "content": {
@@ -18794,7 +18794,7 @@
     },
     "/api/system/version": {
       "get": {
-        "description": "Report the installed version and, when known, the released one.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The version comparison and how to update, or ``status=\"disabled\"``\n    and nothing else when the operator turned ``updates.check`` off.",
+        "description": "Report the installed version and, when known, the released one.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The version comparison and how to update, ``status=\"disabled\"`` and\n    nothing else when the operator turned ``updates.check`` off, or\n    ``status=\"checking\"`` when another call is already fetching and\n    there is no cached result yet to answer with instead.",
         "operationId": "check_version_api_system_version_get",
         "responses": {
           "200": {

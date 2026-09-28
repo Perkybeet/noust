@@ -16,6 +16,7 @@ command's own path, in a background thread with a short timeout.
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -24,7 +25,12 @@ import pytest
 from wasm import __version__
 from wasm.core import package_index
 from wasm.core.config import Config
-from wasm.core.update_checker import UpdateChecker, VersionCheck, _location
+from wasm.core.update_checker import (
+    UpdateChecker,
+    UpdateCheckInProgress,
+    VersionCheck,
+    _location,
+)
 
 
 def _check(
@@ -96,6 +102,10 @@ def _reset_checker_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Ite
     monkeypatch.setattr(UpdateChecker, "CACHE_FILE", tmp_path / "version_check.json")
     UpdateChecker._check_thread = None
     UpdateChecker._pending = None
+    # A fresh lock per test: nothing here should ever leave the real one
+    # held, but a fresh instance means a bug in one test cannot deadlock
+    # every test that runs after it.
+    UpdateChecker._check_lock = threading.Lock()
     try:
         yield
     finally:
@@ -504,6 +514,68 @@ def test_an_offline_check_is_up_to_date_and_still_cached(sources: dict[str, list
 
     assert check.state == "up_to_date"
     assert UpdateChecker._is_cache_valid() is True
+
+
+class TestSingleFlight:
+    """
+    A burst of concurrent callers must not each open their own connection.
+
+    ``check()`` is not re-entrant-safe by design: :attr:`UpdateChecker._check_lock`
+    is a plain, non-reentrant lock, so a test that already holds it and calls
+    ``check()`` from the same thread stands in for a second, concurrent
+    caller without needing to spin up a real thread.
+    """
+
+    def test_a_concurrent_caller_gets_the_stale_cache_instead_of_fetching(
+        self, sources: dict[str, list[str]]
+    ) -> None:
+        """Even an expired cache beats opening a second connection."""
+        UpdateChecker._write_cache(
+            _check(installable="1.0.0", method="zypper", checked_at=0.0).to_cache()
+        )
+        UpdateChecker._check_lock.acquire()
+        try:
+            result = UpdateChecker.check()
+        finally:
+            UpdateChecker._check_lock.release()
+
+        assert result.installable == "1.0.0"
+        assert result.method == "zypper"
+        assert sources["calls"] == []
+
+    def test_a_concurrent_caller_with_no_cache_at_all_is_told_so(
+        self, sources: dict[str, list[str]]
+    ) -> None:
+        """First check ever, several callers at once: no cache to fall back to."""
+        UpdateChecker._check_lock.acquire()
+        try:
+            with pytest.raises(UpdateCheckInProgress):
+                UpdateChecker.check()
+        finally:
+            UpdateChecker._check_lock.release()
+
+        assert sources["calls"] == []
+
+    def test_the_lock_is_released_after_a_normal_check(self, sources: dict[str, list[str]]) -> None:
+        """A check that ran to completion must not leave the lock held."""
+        UpdateChecker.check()
+
+        assert UpdateChecker._check_lock.acquire(blocking=False)
+        UpdateChecker._check_lock.release()
+
+    def test_the_lock_is_released_even_when_a_fetch_raises(
+        self, sources: dict[str, list[str]], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def boom(cls: type[UpdateChecker], method: str) -> str | None:
+            raise ValueError("network is down")
+
+        monkeypatch.setattr(UpdateChecker, "_fetch_installable_version", classmethod(boom))
+
+        with pytest.raises(ValueError):
+            UpdateChecker.check()
+
+        assert UpdateChecker._check_lock.acquire(blocking=False)
+        UpdateChecker._check_lock.release()
 
 
 def test_an_old_format_cache_is_not_used() -> None:

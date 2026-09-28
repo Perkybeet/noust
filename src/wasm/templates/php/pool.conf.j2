@@ -31,7 +31,24 @@ php_admin_value[memory_limit] = {{ memory_limit }}
 php_admin_value[upload_max_filesize] = {{ max_upload }}
 php_admin_value[post_max_size] = {{ max_upload }}
 
-; The application's environment, single-quoted so FPM expands nothing in it.
+; Every WASM pool runs as the same service user, so nothing but this keeps one
+; application's PHP from opening another's files: a path traversal or a file
+; inclusion bug stops at its own directory. It does not contain code that can
+; run programs (exec, proc_open); separate users per pool would, and are not
+; done yet. /tmp stays readable for libraries that hard-code it; PHP's own
+; temporary files, uploads and sessions go to the pool's private directory
+; instead, so no other pool can read a session.
+php_admin_value[open_basedir] = {{ open_basedir }}
+php_admin_value[sys_temp_dir] = {{ tmp_dir }}
+php_admin_value[upload_tmp_dir] = {{ tmp_dir }}
+php_admin_value[session.save_path] = {{ tmp_dir }}
+; Debian turns PHP's session collection off and cleans only its default
+; directory from cron: this one is collected by PHP itself.
+php_admin_value[session.gc_probability] = 1
+
+; The application's environment, single-quoted so the INI parser reads it
+; literally; values starting with '$' are refused, since FPM would replace
+; them with its own environment variable of that name.
 ; clear_env stays on: a worker sees these and nothing of the master's.
 clear_env = yes
 {% for key, value in env %}

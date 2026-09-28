@@ -49,9 +49,21 @@ from wasm.core.fs import FileSystem
 from wasm.core.logger import Logger
 from wasm.core.runner import CommandResult, CommandRunner
 
+#: The application type served by a PHP-FPM pool.
+PHP_FPM_TYPE = "php-fpm"
+
 #: Every pool and socket WASM writes carries this prefix, so one never
 #: collides with the distribution's own ``www`` pool or another tool's.
 POOL_PREFIX = "wasm-"
+
+#: What a stopped application's pool file is renamed with: every
+#: distribution's FPM includes ``*.conf`` from the pool directory only, so the
+#: file is kept, unread, until the application is started again.
+DISABLED_SUFFIX = ".disabled"
+
+#: How long a pool's socket gets to accept a connection when only its
+#: presence is asked (the machine snapshot's timer).
+SOCKET_CONNECT_TIMEOUT = 0.4
 
 #: Pool files hold the application's environment, secrets included, and only
 #: the FPM master (root) reads them.
@@ -76,6 +88,30 @@ MIN_WORKER_MEMORY_MB = 64
 #: A size as PHP and nginx both read it: a number, optionally k, m or g.
 SIZE_PATTERN = re.compile(r"^[1-9][0-9]{0,5}[kKmMgG]?$")
 
+#: The largest size accepted, in bytes: past this a limit is a typo, not a
+#: choice, and nginx buffers request bodies up to it.
+MAX_SIZE_BYTES = 16 * 1024**3
+
+_SIZE_UNITS = {"": 1, "k": 1024, "m": 1024**2, "g": 1024**3}
+
+#: Directory, beside the applications, that holds each pool's own temporary
+#: directory: PHP's uploads, sessions and ``sys_get_temp_dir()`` go there
+#: instead of the ``/tmp`` every pool shares, where any of them could list
+#: another's session ids. It sits outside the application's tree on purpose:
+#: in place that tree belongs to the service user, who could swap the
+#: directory for a link to anything before root sets its owner and mode.
+PHP_TMP_ROOT = ".wasm-php-tmp"
+
+#: Mode of the parent: root's, crossed by the workers, listed by nobody.
+PHP_TMP_ROOT_MODE = 0o711
+
+#: Mode of a pool's temporary directory: its workers' only.
+PHP_TMP_MODE = 0o700
+
+#: Read-only system code a pool may include besides its own tree: the
+#: ``include_path`` of the distributions' PHP (PEAR and packaged libraries).
+SYSTEM_PHP_DIRS = ("/usr/share/php",)
+
 #: How to install PHP-FPM, per package manager, for every message that says
 #: it is missing.
 FPM_INSTALL_HINT = (
@@ -87,6 +123,10 @@ FPM_INSTALL_HINT = (
 )
 
 _DEBIAN_VERSION = re.compile(r"^\d+\.\d+$")
+
+#: A path written unquoted into a pool file: nothing the INI parser reads
+#: as syntax.
+_POOL_PATH = re.compile(r"^/[A-Za-z0-9._/-]+$")
 _NGINX_USER = re.compile(r"^\s*user\s+([A-Za-z0-9_.-]+)(?:\s+([A-Za-z0-9_.-]+))?\s*;", re.M)
 
 
@@ -123,6 +163,19 @@ class FpmInstallation:
         """
         return self.pool_dir / f"{POOL_PREFIX}{app_name}.conf"
 
+    def disabled_pool_file(self, app_name: str) -> Path:
+        """
+        Say where a stopped application's pool is kept.
+
+        Args:
+            app_name: The application name.
+
+        Returns:
+            The pool file with :data:`DISABLED_SUFFIX`, which FPM does not read.
+        """
+        path = self.pool_file(app_name)
+        return path.with_name(path.name + DISABLED_SUFFIX)
+
     def socket(self, app_name: str) -> Path:
         """
         Say where an application's pool listens.
@@ -134,6 +187,44 @@ class FpmInstallation:
             ``<socket_dir>/wasm-<app_name>.sock``.
         """
         return self.socket_dir / f"{POOL_PREFIX}{app_name}.sock"
+
+
+def is_php_fpm(app: object) -> bool:
+    """
+    Tell whether an application is served by a PHP-FPM pool.
+
+    Such an application is stored as static (no unit of its own runs it), so
+    every place that would treat it as a site served off disk asks this
+    first: its state, its start, stop and restart, its limits and its
+    diagnosis are the pool's.
+
+    Args:
+        app: An application row, or anything with an ``app_type``.
+
+    Returns:
+        True for the ``php-fpm`` type.
+    """
+    return getattr(app, "app_type", None) == PHP_FPM_TYPE
+
+
+def socket_accepts(path: Path, timeout: float = SOCKET_CONNECT_TIMEOUT) -> bool:
+    """
+    Ask whether anything accepts a connection on a Unix socket.
+
+    Args:
+        path: The socket.
+        timeout: Seconds to wait.
+
+    Returns:
+        True when the connection is accepted.
+    """
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+            sock.settimeout(timeout)
+            sock.connect(str(path))
+            return True
+    except OSError:
+        return False
 
 
 def _version_key(version: str) -> tuple[int, ...]:
@@ -248,6 +339,9 @@ class PoolSpec:
         group: Group the workers run as.
         listen_group: Group the socket belongs to: nginx's workers'.
         socket: The socket path.
+        root: The application directory, which ``open_basedir`` confines
+            the workers to.
+        tmp_dir: The pool's own temporary directory (:func:`pool_tmp_dir`).
         env: The application's environment, in order.
         max_upload: Largest request body, as PHP reads a size (``64m``).
         memory_max_mb: The application's memory limit, from which each
@@ -261,10 +355,25 @@ class PoolSpec:
     group: str
     listen_group: str
     socket: Path
+    root: Path
+    tmp_dir: Path
     env: Mapping[str, str] = field(default_factory=dict)
     max_upload: str = "64m"
     memory_max_mb: int | None = None
     max_children: int = DEFAULT_MAX_CHILDREN
+
+    def open_basedir(self) -> str:
+        """
+        Say what the workers may open: their application and temporary files.
+
+        Returns:
+            Colon-separated directories, each with a trailing slash: without
+            it ``/var/www/apps/blog`` would also admit ``/var/www/apps/blog-2``.
+        """
+        # /tmp stays reachable for libraries that hard-code it; PHP's own
+        # temporary files, uploads and sessions go to tmp_dir instead.
+        paths = (str(self.root), str(self.tmp_dir), "/tmp", *SYSTEM_PHP_DIRS)  # noqa: S108
+        return ":".join(f"{path.rstrip('/')}/" for path in paths)
 
     def memory_limit(self) -> str:
         """
@@ -282,6 +391,56 @@ class PoolSpec:
         return f"{share}M"
 
 
+def pool_tmp_dir(app_path: Path) -> Path:
+    """
+    Say where an application's pool keeps its temporary files.
+
+    Args:
+        app_path: The application directory.
+
+    Returns:
+        ``<apps directory>/.wasm-php-tmp/<app name>``.
+    """
+    return app_path.parent / PHP_TMP_ROOT / app_path.name
+
+
+def prepare_tmp_dir(
+    path: Path, *, user: str, group: str, fs: FileSystem, runner: CommandRunner
+) -> None:
+    """
+    Create a pool's temporary directory, the workers' alone.
+
+    Its parent is root's and only crossed (0711), so no worker can replace
+    the directory between its creation and the chown below.
+
+    Args:
+        path: What :func:`pool_tmp_dir` answered.
+        user: Account the workers run as.
+        group: Group the workers run as.
+        fs: Where the directories are created.
+        runner: Where the chown runs.
+
+    Raises:
+        DeploymentError: When something other than a directory is in the way,
+            or the chown failed: PHP would then fail every upload and session.
+    """
+    for directory, mode in ((path.parent, PHP_TMP_ROOT_MODE), (path, PHP_TMP_MODE)):
+        if directory.is_symlink() or (os.path.lexists(directory) and not directory.is_dir()):
+            raise DeploymentError(
+                f"Refusing to use {directory}: it is not a plain directory",
+                details="WASM keeps each PHP pool's temporary files there. Remove what is "
+                "in the way and deploy again.",
+            )
+        fs.make_dir(directory, mode=mode, parents=True)
+        fs.chmod(directory, mode)
+    result = runner.run(["chown", f"{user}:{group}", str(path)], timeout=FPM_CONTROL_TIMEOUT)
+    if not result.success:
+        raise DeploymentError(
+            f"Could not hand {path} over to {user}:{group}",
+            details=_output(result) or "chown failed without saying why.",
+        )
+
+
 def validate_size(value: str, *, field_name: str) -> str:
     """
     Check a size that ends up in both nginx and PHP configuration.
@@ -294,24 +453,37 @@ def validate_size(value: str, *, field_name: str) -> str:
         The size, lower-cased.
 
     Raises:
-        ValidationError: When it is not a plain number with an optional unit.
+        ValidationError: When it is not a plain number with an optional unit,
+            or is larger than :data:`MAX_SIZE_BYTES`.
     """
     if not SIZE_PATTERN.match(value or ""):
         raise ValidationError(
             f"Invalid {field_name}: {value!r}",
             details="Use a number with an optional unit k, m or g, such as 64m.",
         )
-    return value.lower()
+    lowered = value.lower()
+    unit = lowered[-1] if lowered[-1] in _SIZE_UNITS else ""
+    number = int(lowered[: -1 if unit else None])
+    if number * _SIZE_UNITS[unit] > MAX_SIZE_BYTES:
+        raise ValidationError(
+            f"Invalid {field_name}: {value!r} is larger than 16g",
+            details="Use a size of at most 16g.",
+        )
+    return lowered
 
 
 def pool_env_lines(env: Mapping[str, str]) -> list[tuple[str, str]]:
     """
     Turn the application's environment into what a pool file can carry.
 
-    Every value is written single-quoted, which FPM takes literally (no
-    ``${...}`` expansion, no ``;`` comment): the one character it cannot hold
-    is a single quote. An empty value is left out, since FPM rejects
-    ``env[X] = ''`` and ``getenv()`` answers the same for unset and empty.
+    Every value is written single-quoted, which keeps the INI parser from
+    reading ``${...}`` or a ``;`` comment in it; a single quote cannot be held
+    at all. Quoting does not stop FPM itself, though: a value that *starts*
+    with ``$`` is replaced by the master's environment variable of that name
+    (``'$HOSTNAME'`` reaches PHP as the hostname, ``'$secret'`` as nothing),
+    so such a value is refused rather than silently changed. An empty value
+    is left out, since FPM rejects ``env[X] = ''`` and ``getenv()`` answers
+    the same for unset and empty.
 
     Args:
         env: Variable name to value, already validated as an environment.
@@ -320,13 +492,21 @@ def pool_env_lines(env: Mapping[str, str]) -> list[tuple[str, str]]:
         ``(name, value)`` pairs, sorted by name.
 
     Raises:
-        ValidationError: When a value holds a single quote or a line break.
+        ValidationError: When a value holds a single quote or a line break,
+            or starts with ``$``.
     """
     lines: list[tuple[str, str]] = []
     for key in sorted(env):
         value = env[key]
         if value == "":
             continue
+        if value.startswith("$"):
+            raise ValidationError(
+                f"{key} cannot be passed to PHP-FPM",
+                details="PHP-FPM replaces a value that starts with '$' with its own "
+                "environment variable of that name, so PHP would never see this one. "
+                f"Change the value so it does not start with '$': wasm env set <domain> {key}=...",
+            )
         if "'" in value or "\n" in value or "\r" in value or "\0" in value:
             raise ValidationError(
                 f"{key} cannot be passed to PHP-FPM",
@@ -352,6 +532,13 @@ def render_pool(spec: PoolSpec) -> str:
         ValidationError: When a value cannot be written into a pool file.
         TemplateError: When the template is missing or fails to render.
     """
+    unsafe = next((p for p in (spec.root, spec.tmp_dir) if not _POOL_PATH.match(str(p))), None)
+    if unsafe is not None:
+        raise ValidationError(
+            f"{unsafe} cannot be written into a PHP-FPM pool",
+            details="The application directory must be an absolute path of letters, digits, "
+            "'.', '_', '-' and '/'. Change apps_directory in the WASM configuration.",
+        )
     try:
         environment = Environment(
             loader=PackageLoader("wasm", "templates/php"),
@@ -371,6 +558,8 @@ def render_pool(spec: PoolSpec) -> str:
             max_children=spec.max_children,
             memory_limit=spec.memory_limit(),
             max_upload=validate_size(spec.max_upload, field_name="upload size"),
+            open_basedir=spec.open_basedir(),
+            tmp_dir=str(spec.tmp_dir),
             env=pool_env_lines(spec.env),
         )
     except (ValueError, ImportError, JinjaTemplateError) as exc:
@@ -446,6 +635,21 @@ class FpmService:
                 or f"See why with: systemctl status {self.installation.service}",
             )
 
+    def state(self) -> str:
+        """
+        Ask systemd what the FPM master is doing.
+
+        Returns:
+            What ``systemctl is-active`` printed (``active``, ``reloading``,
+            ``inactive``, ``failed``, ``activating``...), or ``unknown``.
+        """
+        result = self._runner.run(
+            ["systemctl", "is-active", self.installation.service], timeout=FPM_CONTROL_TIMEOUT
+        )
+        # is-active exits non-zero for every state but active, and still
+        # prints the state: the output is the answer either way.
+        return result.stdout.strip() or "unknown"
+
     def restart(self, name: str) -> None:
         """
         Reload FPM: the health gate's restart of a PHP application.
@@ -492,6 +696,8 @@ class FpmService:
             DeploymentError: When FPM did not reload.
         """
         previous = _read(path)
+        # A new pool is a started one: a copy a stop left aside is stale.
+        self._fs.remove(_disabled(path))
         if previous == content:
             return False
         self._fs.write_text(path, content, mode=POOL_MODE)
@@ -521,11 +727,86 @@ class FpmService:
         Raises:
             DeploymentError: When FPM did not reload.
         """
+        self._fs.remove(_disabled(path))
         if not os.path.lexists(path):
             return False
         self._fs.remove(path)
         self.reload()
         return True
+
+    def disable_pool(self, path: Path) -> bool:
+        """
+        Stop serving a pool: move its file aside and reload FPM.
+
+        FPM is shared by every PHP application, so it keeps running; only
+        this pool's workers and socket go.
+
+        Args:
+            path: The pool file.
+
+        Returns:
+            Whether it was enabled.
+
+        Raises:
+            DeploymentError: When FPM did not reload; the file is back.
+        """
+        if not path.is_file():
+            return False
+        aside = _disabled(path)
+        self._fs.move(path, aside)
+        try:
+            self.reload()
+        except DeploymentError:
+            self._fs.move(aside, path)
+            raise
+        return True
+
+    def enable_pool(self, path: Path) -> bool:
+        """
+        Serve a pool again: put its file back, test FPM's configuration, reload.
+
+        Args:
+            path: The pool file.
+
+        Returns:
+            Whether it had been disabled. Either way FPM is reloaded, which
+            also starts it when it was not running.
+
+        Raises:
+            ValidationError: When FPM refuses the configuration with it; the
+                file is aside again.
+            DeploymentError: When there is no pool at all, or FPM did not
+                reload.
+        """
+        aside = _disabled(path)
+        restored = False
+        if not path.is_file():
+            if not aside.is_file():
+                raise DeploymentError(
+                    f"There is no PHP-FPM pool at {path}",
+                    details="Write it again by redeploying the application: wasm update <domain>",
+                )
+            self._fs.move(aside, path)
+            restored = True
+            problem = self.config_errors()
+            if problem is not None:
+                self._fs.move(path, aside)
+                raise ValidationError(f"PHP-FPM rejected the pool {path.name}", details=problem)
+        self.reload()
+        return restored
+
+
+def _disabled(path: Path) -> Path:
+    """
+    Say where a pool file is kept while its application is stopped.
+
+    Args:
+        path: The pool file.
+
+    Returns:
+        The same name with :data:`DISABLED_SUFFIX`.
+    """
+    return path.with_name(path.name + DISABLED_SUFFIX)
 
 
 def _read(path: Path) -> str | None:

@@ -50,6 +50,9 @@ _BUILDPACK_TYPES: dict[str, str | None] = {
 
 _PROCFILE_LINE = re.compile(r"^([A-Za-z0-9_-]+)\s*:\s*(.+)$")
 
+#: ``$PORT``, ``${PORT}`` and ``${PORT:-3000}``, but not ``$PORTAL``.
+_READS_PORT = re.compile(r"\$\{?PORT\b")
+
 
 def is_manifest(data: dict[str, Any]) -> bool:
     """
@@ -109,7 +112,7 @@ def read(root: Path) -> Proposal:
         proposal.files.append("Procfile")
         _procfile(procfile, proposal)
     proposal.note_commands()
-    if proposal.start_command and "$PORT" in proposal.start_command:
+    if proposal.start_command and _READS_PORT.search(proposal.start_command):
         proposal.warn(
             "The web command reads $PORT; WASM sets PORT for the application, so it keeps working."
         )
@@ -130,12 +133,21 @@ def _manifest(manifest: dict[str, Any], proposal: Proposal) -> None:
             if isinstance(name, str):
                 _env(name, spec, proposal)
 
-    for addon in manifest.get("addons") or []:
-        _addon(addon, proposal)
+    addons = manifest.get("addons")
+    if isinstance(addons, list):
+        for addon in addons:
+            _addon(addon, proposal)
+    elif isinstance(addons, dict):
+        # Not the manifest's shape, but a natural one to write: name to plan.
+        for name, spec in addons.items():
+            _addon(spec if isinstance(spec, dict) and "plan" in spec else name, proposal)
+    elif addons is not None:
+        proposal.warn("addons in app.json is not a list of add-ons; it is not read.")
 
+    packs = manifest.get("buildpacks")
     buildpacks = [
         text_value(pack, "url") if isinstance(pack, dict) else None
-        for pack in manifest.get("buildpacks") or []
+        for pack in (packs if isinstance(packs, list) else [])
     ]
     for url in filter(None, buildpacks):
         if url in _BUILDPACK_TYPES:
@@ -246,6 +258,11 @@ def _procfile(text: str, proposal: Proposal) -> None:
             continue
         process, command = match.group(1), match.group(2).strip()
         if process == "web":
+            if proposal.start_command is not None and proposal.start_command != command:
+                proposal.warn(
+                    f"The Procfile declares web more than once; the last one ({command}) "
+                    f"is proposed, not {proposal.start_command}."
+                )
             proposal.start_command = command
         elif process == "release":
             proposal.warn(

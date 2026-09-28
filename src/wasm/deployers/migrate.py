@@ -74,6 +74,7 @@ from wasm.core.store import (
 from wasm.deployers.helpers.layout import RELEASES, app_root
 from wasm.deployers.helpers.permissions import hand_over_file
 from wasm.deployers.lifecycle import health_gate_for
+from wasm.deployers.php_fpm import PHP_SETTINGS_FILE
 from wasm.deployers.recorder import CapturingLogger, DeploymentRecorder, recording
 from wasm.deployers.registry import get_deployer
 from wasm.deployers.releases import (
@@ -122,6 +123,11 @@ COMMON_PERSISTENT: tuple[str, ...] = ("uploads", "public/uploads", "storage", "d
 
 #: WASM's own inventory of the variables, written next to the ``.env``.
 ENV_INVENTORY = ".wasm"
+
+#: What stays at the application root, beside ``releases/`` and ``current``:
+#: WASM reads a PHP application's settings there, whatever the layout. Moved
+#: into the first release, they would silently fall back to the defaults.
+KEPT_AT_ROOT = frozenset({PHP_SETTINGS_FILE})
 
 #: Names a SQLite database is given. Only files named like this are opened to
 #: read their header, so planning does not read a large tree file by file.
@@ -639,6 +645,9 @@ def _untracked(root: Path, runner: CommandRunner) -> tuple[list[str], list[str]]
         if len(entry) < 4 or entry[:2] not in ("??", "!!"):
             continue
         path = entry[3:]
+        if PurePosixPath(path).parts[0] in KEPT_AT_ROOT:
+            # WASM's, not the application's: neither shared nor released.
+            continue
         if path.endswith("/"):
             directories.append(path.rstrip("/"))
         else:
@@ -694,6 +703,11 @@ def _explicit(paths: Sequence[str]) -> list[str]:
             path = persistent_path(raw)
         except DeploymentError as exc:
             raise ValidationError(exc.message, details=exc.details) from exc
+        if path.parts[0] in KEPT_AT_ROOT:
+            raise ValidationError(
+                f"{raw} does not need --persist",
+                details="WASM keeps it at the application root, beside releases/.",
+            )
         if path.parts[0] in (ENV_FILE, ENV_INVENTORY):
             raise ValidationError(
                 f"{raw} does not need --persist",
@@ -1193,7 +1207,8 @@ def _move_into_release(
 
     Everything moves into a staging directory first, so a name the
     application uses itself (``releases``, ``shared``, ``current``) is out of
-    the way before the layout creates its own.
+    the way before the layout creates its own. What :data:`KEPT_AT_ROOT`
+    names stays where it is.
 
     Args:
         root: The application directory.
@@ -1206,7 +1221,7 @@ def _move_into_release(
         The staging directory, empty by now, and the first release.
     """
     staging = root / f".wasm-migrating-{secrets.token_hex(4)}"
-    entries = sorted(os.listdir(root))
+    entries = sorted(name for name in os.listdir(root) if name not in KEPT_AT_ROOT)
     journal.made_dir(staging)
     for name in entries:
         journal.moved(root / name, staging / name)

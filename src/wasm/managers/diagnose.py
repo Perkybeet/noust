@@ -325,13 +325,101 @@ def _days_until(expiry: str, now: datetime) -> int | None:
 # -- Probes ---------------------------------------------------------------
 
 
+#: How many lines of the PHP-FPM journal a PHP application's diagnosis reads.
+_FPM_JOURNAL_LINES = 200
+
+#: How many of them, about the application's pool, are kept as evidence.
+_FPM_JOURNAL_KEPT = 30
+
+
+def _check_php_fpm(ctx: _Context) -> ProbeResult:
+    """
+    Inspect a PHP application's pool: FPM, the pool file, its socket, the FastCGI probe.
+
+    A PHP application has no unit of its own; this is its unit, port and
+    journal checks in one. FPM's journal is shared by every pool, so only
+    the lines naming this pool are kept (all of the last ones when none do).
+    """
+    from wasm.deployers.php_fpm import inspect_pool
+
+    if ctx.app is None:
+        return Check("php_fpm", "skip", "No application record", ""), {}
+    pool = inspect_pool(ctx.app, runner=ctx.runner)
+    facts: dict[str, Any] = {
+        "service": pool.service,
+        "service_state": pool.service_state,
+        "enabled": pool.enabled,
+        "disabled": pool.disabled,
+        "socket_exists": pool.socket_exists,
+        "answered": pool.answered,
+    }
+    evidence = [
+        f"{pool.service}: {pool.service_state}",
+        f"pool file {pool.pool_file}: "
+        + ("present" if pool.enabled else "disabled" if pool.disabled else "missing"),
+        f"socket {pool.socket}: " + ("present" if pool.socket_exists else "missing"),
+    ]
+    if pool.enabled:
+        config = ctx.runner.run([pool.binary, "-t"], timeout=30)
+        output = "\n".join(p.strip() for p in (config.stderr, config.stdout) if p.strip())
+        facts["config_ok"] = config.success
+        evidence.append(f"php-fpm -t: {'ok' if config.success else 'refused'}")
+        if output and not config.success:
+            evidence.append(output)
+    if pool.answered is not None:
+        evidence.append(
+            "FastCGI health check: " + ("answered" if pool.answered else pool.detail or "failed")
+        )
+    journal = ctx.runner.run(
+        ["journalctl", "-u", pool.service, "-n", str(_FPM_JOURNAL_LINES), "--no-pager"],
+        timeout=15,
+    )
+    if journal.success and journal.stdout.strip():
+        lines = journal.stdout.strip().splitlines()
+        mine = [line for line in lines if pool.pool_file.stem in line]
+        evidence.append("\n".join((mine or lines)[-_FPM_JOURNAL_KEPT:]))
+
+    cause: str | None = None
+    if not pool.enabled and pool.disabled:
+        cause = f"The PHP-FPM pool is disabled (stopped); start it with wasm start {ctx.domain}."
+    elif not pool.enabled:
+        cause = f"The PHP-FPM pool file {pool.pool_file} is missing; redeploy with wasm update {ctx.domain}."
+    elif not pool.fpm_up:
+        cause = f"{pool.service}, which runs every PHP pool, is {pool.service_state}."
+    elif facts.get("config_ok") is False:
+        cause = "PHP-FPM refuses its configuration; see php-fpm -t below."
+    elif pool.answered is False:
+        cause = "The PHP-FPM pool does not answer the health check; see PHP's errors below."
+    facts["cause"] = cause
+    status: CheckStatus = "fail" if cause else "ok"
+    summary = cause or f"The PHP-FPM pool answers ({pool.service} {pool.service_state})"
+    return Check("php_fpm", status, summary, "\n".join(evidence)), facts
+
+
+def _no_unit(ctx: _Context) -> str | None:
+    """
+    Say why an application has no unit to check, when it has none.
+
+    Args:
+        ctx: The diagnosis context.
+
+    Returns:
+        The reason, or None when it runs as a unit.
+    """
+    from wasm.deployers.helpers.php_fpm import is_php_fpm
+
+    if ctx.app is None or not ctx.app.is_static:
+        return None
+    if is_php_fpm(ctx.app):
+        return "PHP application: it runs in its PHP-FPM pool, checked under php_fpm"
+    return "Static site: served directly by the web server"
+
+
 def _check_unit(ctx: _Context) -> ProbeResult:
     """Ask systemd what state the app's unit is in."""
-    if ctx.app is not None and ctx.app.is_static:
-        return (
-            Check("unit", "skip", "Static site: served directly by the web server, no unit", ""),
-            {},
-        )
+    reason = _no_unit(ctx)
+    if reason is not None:
+        return Check("unit", "skip", f"{reason}, no unit", ""), {}
 
     info = ctx.service_manager.inspect_unit(ctx.app_name)
     if not info.exists:
@@ -392,8 +480,9 @@ def _check_unit(ctx: _Context) -> ProbeResult:
 
 def _check_port(ctx: _Context) -> ProbeResult:
     """Check whether anything listens on the port WASM recorded for this app."""
-    if ctx.app is not None and ctx.app.is_static:
-        return Check("port", "skip", "Static site: no backend port to check", ""), {}
+    reason = _no_unit(ctx)
+    if reason is not None:
+        return Check("port", "skip", f"{reason}, no backend port to check", ""), {}
 
     # In zero-downtime mode, the port of the instance that serves.
     recorded_port = serving_port(ctx.app) if ctx.app else None
@@ -525,8 +614,9 @@ def _check_http_nginx(ctx: _Context) -> ProbeResult:
 
 def _check_journal(ctx: _Context) -> ProbeResult:
     """Read the unit's last 50 journal lines, verbatim."""
-    if ctx.app is not None and ctx.app.is_static:
-        return Check("journal", "skip", "Static site: no unit to read logs from", ""), {}
+    reason = _no_unit(ctx)
+    if reason is not None:
+        return Check("journal", "skip", f"{reason}, no unit to read logs from", ""), {}
 
     info = ctx.service_manager.inspect_unit(ctx.app_name)
     if not info.exists:
@@ -887,6 +977,10 @@ def _decide(
     crash_looping = sub_state == "auto-restart" or active_state == "activating"
     unit_failed = active_state == "failed" or sub_state == "failed"
 
+    php = facts.get("php_fpm", {})
+    if php.get("cause"):
+        return "down", php["cause"]
+
     if unit.get("exists") is False:
         return (
             "down",
@@ -1032,10 +1126,15 @@ def diagnose(
 
     checks: list[Check] = []
     facts: dict[str, dict[str, Any]] = {}
+    from wasm.deployers.helpers.php_fpm import is_php_fpm
+
     probes = _PROBES
     if app is not None and app.zero_downtime:
         # Only then: which instance serves comes before everything else.
         probes = (("blue_green", _check_blue_green), *_PROBES)
+    if app is not None and is_php_fpm(app):
+        # Its pool is what runs it, so the pool comes first.
+        probes = (("php_fpm", _check_php_fpm), *_PROBES)
     for name, probe in probes:
         try:
             check, probe_facts = probe(ctx)

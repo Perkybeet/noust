@@ -2,6 +2,7 @@ import { act, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { setLocale } from "../../app/locale";
+import { translate } from "../../i18n";
 import { expectNoAxeViolations } from "../../test/axe";
 import type { Status } from "./StatusPill";
 import { STATUS, StatusPill } from "./StatusPill";
@@ -16,7 +17,7 @@ describe("StatusPill", () => {
 
   it.each(STATES)("says %s in words", (state) => {
     render(<StatusPill state={state} />);
-    expect(screen.getByText(STATUS[state].label)).toBeInTheDocument();
+    expect(screen.getByText(translate("en", STATUS[state].labelKey))).toBeInTheDocument();
   });
 
   it("gives every state its own shape, so colour is never the only signal", () => {

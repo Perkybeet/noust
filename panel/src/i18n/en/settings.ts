@@ -1,6 +1,10 @@
 /** Strings of the console's settings area: General, Security, Notifications, Tokens, Integrations, About. */
 export const settings = {
   area: "Settings",
+  page: {
+    title: "Settings",
+    description: "How WASM runs on this machine and who can reach the console.",
+  },
   shared: {
     cancel: "Cancel",
     done: "Done",

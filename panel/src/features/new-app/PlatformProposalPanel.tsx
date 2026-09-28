@@ -1,4 +1,4 @@
-import { FileCog, TriangleAlert } from "lucide-react";
+import { CircleAlert, FileCog, TriangleAlert } from "lucide-react";
 import { useId } from "react";
 import type { ReactNode } from "react";
 
@@ -29,15 +29,17 @@ export interface PlatformProposalPanelProps {
   /** Whether what it proposes is filled in below. */
   used: boolean;
   onUse: (used: boolean) => void;
+  /** What the server said of the health check it sent, verbatim, when it refused it. */
+  healthErrors?: readonly string[];
 }
 
 /**
  * What another platform's configuration in the repository says, in WASM's terms: which files
- * were read, a toggle for the values filled in below (port, variables, persistent paths), the
- * commands and the health check for reference, and every warning the server wrote about what
- * has no equivalent here, verbatim.
+ * were read, a toggle for the values filled in below (port, variables, persistent paths) and
+ * for the health check the first deploy is gated on, the commands for reference, and every
+ * warning the server wrote about what has no equivalent here, verbatim.
  */
-export function PlatformProposalPanel({ proposal, used, onUse }: PlatformProposalPanelProps) {
+export function PlatformProposalPanel({ proposal, used, onUse, healthErrors = [] }: PlatformProposalPanelProps) {
   const t = useT();
   const headingId = useId();
   const files = proposal.files ?? [];
@@ -90,7 +92,6 @@ export function PlatformProposalPanel({ proposal, used, onUse }: PlatformProposa
               <span translate="no" className="mono">
                 {health}
               </span>
-              <span className="block text-fg-muted">{t("newApp.proposal.healthNote")}</span>
             </Fact>
           ) : null}
           {databases.length > 0 ? (
@@ -110,6 +111,20 @@ export function PlatformProposalPanel({ proposal, used, onUse }: PlatformProposa
             </Fact>
           ) : null}
         </dl>
+      ) : null}
+      {used && healthErrors.length > 0 ? (
+        <div role="alert" className="flex items-start gap-1.5 text-13 text-pretty text-fail">
+          <CircleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
+          <div className="flex min-w-0 flex-col gap-1">
+            <p>{t("newApp.proposal.healthRefused")}</p>
+            {/* The server's own words, verbatim. */}
+            {healthErrors.map((message) => (
+              <p key={message} className="mono text-12">
+                {message}
+              </p>
+            ))}
+          </div>
+        </div>
       ) : null}
 
       {warnings.length > 0 ? (

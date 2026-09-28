@@ -156,7 +156,7 @@ export const newApp: Catalog<typeof en> = {
   proposal: {
     found: "Se ha encontrado una configuración de {platform} ({files})",
     use: "Usar lo que propone",
-    useDescription: "Rellena abajo el puerto, las variables y las rutas persistentes. Si lo desactivas, la revisión parte de lo que ha detectado WASM.",
+    useDescription: "Rellena abajo el puerto, las variables y las rutas persistentes, y comprueba su salud desde el primer despliegue. Si lo desactivas, la revisión parte de lo que ha detectado WASM.",
     commandsNote: "Solo como referencia: WASM instala, compila y arranca la aplicación con los comandos propios del tipo elegido.",
     install: "Instalar",
     build: "Compilar",
@@ -165,7 +165,7 @@ export const newApp: Catalog<typeof en> = {
     healthPath: "GET {path}",
     healthTimeout: "GET {path}, esperando hasta {seconds} s",
     healthTimeoutOnly: "Esperando hasta {seconds} s",
-    healthNote: "Configúrala desde los ajustes de la aplicación cuando esté desplegada; el primer despliegue usa la comprobación propia de WASM.",
+    healthRefused: "El servidor ha rechazado esta comprobación de salud. Desactiva lo que propone, o corrígela en la configuración de la plataforma y vuelve a inspeccionar.",
     databases: "Bases de datos",
     databasesNote: "Créalas desde Bases de datos y define abajo sus variables de conexión.",
     domains: "Dominios",
@@ -404,8 +404,5 @@ export const newApp: Catalog<typeof en> = {
       previews: "las vistas previas",
       zeroDowntime: "el despliegue sin interrupciones",
     },
-  },
-  external: {
-    newTab: "(se abre en una pestaña nueva)",
   },
 };

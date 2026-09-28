@@ -28,7 +28,7 @@ export type Severity = "fail" | "warn";
  */
 export type AttentionSummary =
   | { key: "serviceFailed" }
-  | { key: "serviceState"; label: string }
+  | { key: "serviceState"; status: string }
   | { key: "deployFailed" }
   | { key: "deployRolledBack" }
   | { key: "certExpired" }
@@ -136,7 +136,7 @@ export function collectAttention({ apps, deployments, certificates, observations
     add(app.domain, { kind: "app", domain: app.domain }, {
       kind: "state",
       severity: view.state === "failed" ? "fail" : "warn",
-      summary: view.label === "Failed" ? { key: "serviceFailed" } : { key: "serviceState", label: view.label },
+      summary: app.status.trim().toLowerCase() === "failed" ? { key: "serviceFailed" } : { key: "serviceState", status: app.status },
     });
   }
 

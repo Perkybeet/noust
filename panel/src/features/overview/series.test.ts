@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { alignSeries, latest, resolutionCategory, resolutionWords } from "./series";
+import { alignSeries, latest, resolutionCategory } from "./series";
 
 describe("alignSeries", () => {
   it("puts every series on one ascending time axis", () => {
@@ -52,14 +52,5 @@ describe("resolutionCategory", () => {
     expect(resolutionCategory("minute")).toBe("minute");
     expect(resolutionCategory("raw")).toBeNull();
     expect(resolutionCategory(undefined)).toBeNull();
-  });
-});
-
-describe("resolutionWords", () => {
-  it("says how far apart the points of a read are, in English, and nothing for raw samples", () => {
-    expect(resolutionWords("hour")).toBe("hourly averages");
-    expect(resolutionWords("minute")).toBe("minute averages");
-    expect(resolutionWords("raw")).toBeNull();
-    expect(resolutionWords(undefined)).toBeNull();
   });
 });

@@ -5,13 +5,13 @@ import type { Recipe } from "../../api/queries/recipes";
 import type { KeyValueItem } from "../../components/page/KeyValueList";
 import { KeyValueList } from "../../components/page/KeyValueList";
 import { Button } from "../../components/ui/Button";
+import { ExternalLink } from "../../components/ui/ExternalLink";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { AddressFields } from "./AddressFields";
 import { addressItem } from "./DeployStep";
-import { ExternalLink } from "./ExternalLink";
 import { ReviewGroup } from "./ReviewStep";
 import { useDomainDnsCheck } from "./useDomainDnsCheck";
 import { editableVariables, generatedVariables } from "./recipe";
@@ -151,7 +151,7 @@ export function RecipeReview({ recipe, types, form, errors, onChange, onBack, on
             ...(recipe.app_type ? [{ label: t("newApp.recipes.type"), value: typeName(types, recipe.app_type), mono: false, copy: false as const }] : []),
           ]}
         />
-        <ExternalLink href={recipe.homepage} className="text-12">
+        <ExternalLink href={recipe.homepage} inline unlinked="text" className="text-12">
           {recipe.homepage}
         </ExternalLink>
       </section>

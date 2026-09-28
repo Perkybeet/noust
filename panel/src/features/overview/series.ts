@@ -41,7 +41,7 @@ export function latest(points: Points | undefined): number | null {
 /**
  * Whether a history read's points are minute or hourly means rather than raw samples, from
  * the endpoint's `resolution`: a chart should say so. Null for raw samples. Returned as a
- * category, not text, so the caller (`MachineCharts.tsx`) translates it.
+ * category, not text, so the caller translates it.
  */
 export function resolutionCategory(resolution: string | undefined): "minute" | "hour" | null {
   switch (resolution) {
@@ -49,22 +49,6 @@ export function resolutionCategory(resolution: string | undefined): "minute" | "
       return "minute";
     case "hour":
       return "hour";
-    default:
-      return null;
-  }
-}
-
-/**
- * How far apart a history read's points are, in English words, from the endpoint's
- * `resolution`. Kept for `features/app/metrics/MetricsTab.tsx`, outside this area's scope;
- * `MachineCharts.tsx` uses `resolutionCategory` and translates it instead.
- */
-export function resolutionWords(resolution: string | undefined): string | null {
-  switch (resolution) {
-    case "minute":
-      return "minute averages";
-    case "hour":
-      return "hourly averages";
     default:
       return null;
   }

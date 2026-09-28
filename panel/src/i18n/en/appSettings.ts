@@ -275,6 +275,7 @@ export const appSettings = {
     getsPreview: "Pull requests get a preview.",
     getsNoPreview: "Pull requests get no preview until previews are turned on.",
     needsLabel: "What previews need",
+    baseDomainUnset: "<base domain>",
     needWildcardTitle: "A wildcard DNS record",
     needWildcardBody: "{record} pointing at this server. Each preview answers at its own name, such as {example}, with a certificate of its own.",
     needPrTitle: "Pull request events",

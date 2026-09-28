@@ -82,7 +82,11 @@ export interface paths {
          *     Checked before anything is queued: the document, the domain (409 when
          *     taken), the source (a local path is the operator's alone, as for ``POST
          *     /api/apps``) and the secret values the export left out (400 naming every
-         *     one missing). Sudo mode: it deploys as root.
+         *     one missing). Sudo mode: it deploys as root, and the document may create
+         *     cron jobs and previews, which is what the console's confirmation is for.
+         *     The job's ``metadata.plan`` carries the whole plan (every cron job with
+         *     its user, directory and command; what previews copy; the reasons it
+         *     needed confirming), and its log opens with it.
          *
          *     Args:
          *         body: The document, and what to change about it.
@@ -6087,8 +6091,10 @@ export interface paths {
          *         session: The authenticated session.
          *
          *     Returns:
-         *         The version comparison and how to update, or ``status="disabled"``
-         *         and nothing else when the operator turned ``updates.check`` off.
+         *         The version comparison and how to update, ``status="disabled"`` and
+         *         nothing else when the operator turned ``updates.check`` off, or
+         *         ``status="checking"`` when another call is already fetching and
+         *         there is no cached result yet to answer with instead.
          */
         get: operations["check_version_api_system_version_get"];
         put?: never;

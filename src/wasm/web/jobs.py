@@ -1039,6 +1039,7 @@ def deploy_app_job(
         "env_vars": env_vars or {},
         "layout": layout or CONFIGURED_LAYOUT,
         "persistent_paths": persistent_paths,
+        "initial_health": (health_path, health_expect, health_timeout),
     }
     if recipe is not None:
         from wasm.core.logger import Logger
@@ -1056,7 +1057,9 @@ def deploy_app_job(
         app_type = plan.app_type
         context.set_metadata("app_type", app_type)
         context.set_metadata("recipe", recipe)
-        settings = plan.configure_arguments()
+        # The recipe's check, with what the operator gave over it: the first
+        # release is judged by it, whatever the type.
+        settings = plan.configure_arguments(health=(health_path, health_expect, health_timeout))
 
     deployer = get_deployer(app_type, verbose=False)
     deployer.configure(
@@ -1080,7 +1083,6 @@ def deploy_app_job(
         package_manager=package_manager or "auto",
         preview_parent=preview_parent,
         env_secret_marks=env_secret_marks,
-        initial_health=(health_path, health_expect, health_timeout),
     )
 
     context.update("Deploying", 10)

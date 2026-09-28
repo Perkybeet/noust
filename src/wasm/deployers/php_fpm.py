@@ -37,16 +37,21 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, ClassVar
 
+from wasm.core.applock import app_lock
+from wasm.core.config import Config
 from wasm.core.exceptions import DeploymentError, ValidationError
 from wasm.core.fs import FileSystem
 from wasm.core.logger import Icons, Logger
 from wasm.core.runner import CommandRunner, get_runner
 from wasm.core.store import App
 from wasm.deployers.base import INSTALL_TIMEOUT, BaseDeployer
+from wasm.deployers.helpers.env_manager import EnvManager
 from wasm.deployers.helpers.health import failure_output
 from wasm.deployers.helpers.health_gate import HealthCheck, HealthGate
-from wasm.deployers.helpers.layout import app_root, code_path_for
+from wasm.deployers.helpers.layout import app_root, code_path_for, env_file_for
 from wasm.deployers.helpers.php_fpm import (
+    DEFAULT_MAX_CHILDREN,
+    PHP_FPM_TYPE,
     FpmInstallation,
     FpmService,
     PoolSpec,
@@ -54,7 +59,10 @@ from wasm.deployers.helpers.php_fpm import (
     fastcgi_probe,
     find_fpm,
     nginx_worker_group,
+    pool_tmp_dir,
+    prepare_tmp_dir,
     render_pool,
+    socket_accepts,
     validate_size,
 )
 from wasm.deployers.helpers.release_build import stage_release
@@ -69,12 +77,32 @@ PHP_SETTINGS_FILE = ".wasm-php.json"
 #: Largest request body when nothing says otherwise.
 DEFAULT_MAX_UPLOAD = "64m"
 
+#: Most paths a settings file may refuse or move to ``shared/``: in place
+#: the file sits in a tree the service user owns, so it is read as untrusted.
+MAX_DENY_PATHS = 64
+MAX_SHARED_FROM_RELEASE = 16
+
+#: Mode of the settings file: root writes it, nginx's and PHP's users need
+#: nothing from it.
+PHP_SETTINGS_MODE = 0o644
+
 #: What a seeded file in ``shared/`` is created with: the service user reads
 #: it (a wp-config.php), nobody else does.
 SEEDED_FILE_MODE = 0o640
 
 #: The filesystem root FPM is looked for under. Tests point it elsewhere.
 FPM_ROOT = Path("/")
+
+#: Most workers an application's task limit can give its pool: each one is a
+#: PHP process holding its own memory_limit.
+MAX_POOL_CHILDREN = 64
+
+#: How long a state probe gives the pool to answer the health check: long
+#: enough for a WordPress page, short enough for ``wasm list``.
+STATE_PROBE_WITHIN = 5.0
+
+#: FPM states in which it serves requests.
+_FPM_UP = frozenset({"active", "reloading"})
 
 #: One path segment of a web root or a refused path.
 _SEGMENT = re.compile(r"^[A-Za-z0-9._-]+$")
@@ -158,9 +186,16 @@ class PhpSettings:
         webroot = data.get("webroot")
         deny = data.get("deny") or []
         shared = data.get("shared_from_release") or []
-        for name, value in (("deny", deny), ("shared_from_release", shared)):
+        for name, value, most in (
+            ("deny", deny, MAX_DENY_PATHS),
+            ("shared_from_release", shared, MAX_SHARED_FROM_RELEASE),
+        ):
             if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
                 raise ValidationError(f"PHP {name} must be a list of paths", details=repr(value))
+            if len(value) > most:
+                raise ValidationError(
+                    f"PHP {name} lists {len(value)} paths", details=f"At most {most} are accepted."
+                )
         return cls(
             webroot=None
             if webroot is None
@@ -299,6 +334,89 @@ def build_gate(
     )
 
 
+def document_root_for(app: App) -> Path:
+    """
+    Say what nginx serves for a deployed PHP application, through ``current``.
+
+    Args:
+        app: The application's row.
+
+    Returns:
+        The running code, or its web root inside it.
+
+    Raises:
+        ValidationError: When the settings file holds something unacceptable.
+    """
+    settings = load_php_settings(app_root(app))
+    code = code_path_for(app)
+    webroot = settings.webroot or detect_webroot(code)
+    return code if webroot == "." else code / webroot
+
+
+def pool_children(tasks_max: int | None) -> int:
+    """
+    Say how many workers a pool may grow to under an application's task limit.
+
+    A pool's workers are its processes, which is what ``TasksMax`` limits for
+    an application that runs as a unit.
+
+    Args:
+        tasks_max: The application's task limit, or None.
+
+    Returns:
+        :data:`DEFAULT_MAX_CHILDREN` without one, the limit otherwise, within
+        1 and :data:`MAX_POOL_CHILDREN`.
+    """
+    if tasks_max is None:
+        return DEFAULT_MAX_CHILDREN
+    return max(1, min(tasks_max, MAX_POOL_CHILDREN))
+
+
+def pool_spec_for(
+    *,
+    app_name: str,
+    domain: str,
+    app_path: Path,
+    env: Mapping[str, str],
+    installation: FpmInstallation,
+    config: Config,
+    max_upload: str,
+    memory_max_mb: int | None,
+    tasks_max: int | None,
+) -> PoolSpec:
+    """
+    Describe an application's pool: the one description a deploy and a limits change share.
+
+    Args:
+        app_name: The application name.
+        domain: Its domain.
+        app_path: Its directory.
+        env: Its environment, as the ``.env`` says now.
+        installation: The FPM it runs in.
+        config: Where the service user comes from.
+        max_upload: Largest request body.
+        memory_max_mb: Its memory limit, which the workers share.
+        tasks_max: Its task limit, which bounds the workers.
+
+    Returns:
+        The pool.
+    """
+    return PoolSpec(
+        app_name=app_name,
+        domain=domain,
+        user=config.service_user,
+        group=config.service_group,
+        listen_group=nginx_worker_group(config.service_group, root=FPM_ROOT),
+        socket=installation.socket(app_name),
+        root=app_path,
+        tmp_dir=pool_tmp_dir(app_path),
+        env=env,
+        max_upload=max_upload,
+        memory_max_mb=memory_max_mb,
+        max_children=pool_children(tasks_max),
+    )
+
+
 def health_gate_for_app(app: App, log: Logger) -> HealthGate:
     """
     Build the gate for a deployed PHP application from its row alone.
@@ -316,27 +434,23 @@ def health_gate_for_app(app: App, log: Logger) -> HealthGate:
     Raises:
         DeploymentError: When PHP-FPM is not installed.
     """
-    root = app_root(app)
-    settings = load_php_settings(root)
-    code = code_path_for(app)
-    webroot = settings.webroot or detect_webroot(code)
     return build_gate(
         fpm=fpm_service(logger=log),
-        app_name=root.name,
+        app_name=app_root(app).name,
         domain=app.domain,
-        document_root=code if webroot == "." else code / webroot,
+        document_root=document_root_for(app),
         https=bool(app.ssl_enabled),
         check=HealthCheck.for_app(app),
         logger=log,
     )
 
 
-def remove_pool_of(app_name: str, log: Logger) -> bool:
+def remove_pool_of(app_path: Path, log: Logger) -> bool:
     """
-    Remove a deleted application's pool, so FPM stops running it.
+    Remove a deleted application's pool and temporary files, so FPM stops running it.
 
     Args:
-        app_name: The application name.
+        app_path: The application directory, which names the pool.
         log: Where the removal is reported.
 
     Returns:
@@ -346,14 +460,271 @@ def remove_pool_of(app_name: str, log: Logger) -> bool:
     Raises:
         DeploymentError: When FPM did not reload after the removal.
     """
+    from wasm.core.fs import get_fs
+
+    tmp = pool_tmp_dir(app_path)
+    if tmp.is_dir() and not tmp.is_symlink():
+        get_fs().remove_tree(tmp)
     try:
         fpm = fpm_service(logger=log)
     except DeploymentError:
         return False
-    removed = fpm.remove_pool(fpm.installation.pool_file(app_name))
+    path = fpm.installation.pool_file(app_path.name)
+    removed = fpm.remove_pool(path)
     if removed:
-        log.substep(f"Removed the PHP-FPM pool {fpm.installation.pool_file(app_name)}")
+        log.substep(f"Removed the PHP-FPM pool {path}")
     return removed
+
+
+# The running application ------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class PoolReport:
+    """
+    What is true about a PHP application's pool right now.
+
+    Attributes:
+        service: The FPM master's unit.
+        binary: The FPM binary, which tests the configuration.
+        service_state: What systemd says it is doing (``active``, ``failed``...).
+        pool_file: Where the pool is written.
+        enabled: Whether the pool file is in place, so FPM runs it.
+        disabled: Whether a stop moved it aside.
+        socket: Where the pool listens.
+        socket_exists: Whether the socket is there.
+        answered: Whether the pool answered the health check over FastCGI;
+            None when it was not asked.
+        detail: Why it did not answer, verbatim from the probe.
+    """
+
+    service: str
+    binary: str
+    service_state: str
+    pool_file: Path
+    enabled: bool
+    disabled: bool
+    socket: Path
+    socket_exists: bool
+    answered: bool | None = None
+    detail: str = ""
+
+    @property
+    def fpm_up(self) -> bool:
+        """Whether the FPM master serves requests."""
+        return self.service_state in _FPM_UP
+
+
+def inspect_pool(
+    app: App, *, probe: bool = True, runner: CommandRunner | None = None
+) -> PoolReport:
+    """
+    Read a PHP application's pool, and ask it the health check.
+
+    The probe is the gate's (:func:`health_gate_for_app`): the same socket,
+    path, expectation and document root, one attempt.
+
+    Args:
+        app: The application's row.
+        probe: Ask the pool over FastCGI; otherwise only files and systemd.
+        runner: Where systemctl runs. Defaults to the process-wide runner.
+
+    Returns:
+        The report.
+
+    Raises:
+        DeploymentError: When PHP-FPM is not installed.
+        ValidationError: When the settings file holds something unacceptable.
+    """
+    fpm = fpm_service(runner=runner, logger=Logger(verbose=False))
+    installation = fpm.installation
+    name = app_root(app).name
+    pool = installation.pool_file(name)
+    socket_path = installation.socket(name)
+    state = fpm.state()
+    answered: bool | None = None
+    failures: list[str] = []
+    if probe and pool.is_file() and state in _FPM_UP:
+        check = HealthCheck.for_app(app)
+        document_root = document_root_for(app)
+        ask = fastcgi_probe(
+            socket_path,
+            lambda: fastcgi_params(
+                document_root=document_root,
+                path=check.path,
+                domain=app.domain,
+                https=bool(app.ssl_enabled),
+            ),
+        )
+        answered = ask(
+            "",
+            retries=1,
+            delay=0.0,
+            on_attempt=failures.append,
+            accept=check.accepts,
+            within=STATE_PROBE_WITHIN,
+        )
+    return PoolReport(
+        service=installation.service,
+        binary=installation.binary,
+        service_state=state,
+        pool_file=pool,
+        enabled=pool.is_file(),
+        disabled=installation.disabled_pool_file(name).is_file(),
+        socket=socket_path,
+        socket_exists=socket_path.exists(),
+        answered=answered,
+        detail=failures[-1] if failures else "",
+    )
+
+
+def pool_serving(app: App) -> str:
+    """
+    Sort a PHP application into the machine snapshot's buckets, cheaply.
+
+    The snapshot runs on a five-second timer and asks systemd nothing per
+    application, so neither does this: the pool file, and whether its socket
+    accepts a connection (it does only while FPM runs the pool).
+
+    Args:
+        app: The application's row.
+
+    Returns:
+        ``"active"``, ``"stopped"`` (a stop moved the pool aside) or
+        ``"failed"``.
+    """
+    try:
+        installation = find_fpm(FPM_ROOT)
+    except DeploymentError:
+        return "failed"
+    name = app_root(app).name
+    if installation.pool_file(name).is_file():
+        return "active" if socket_accepts(installation.socket(name)) else "failed"
+    return "stopped" if installation.disabled_pool_file(name).is_file() else "failed"
+
+
+#: What each service action does to a pool, in the words the callers print.
+POOL_ACTIONS = ("start", "stop", "restart")
+
+
+def control_pool(app: App, action: str, *, logger: Logger | None = None) -> str:
+    """
+    Start, stop or restart a PHP application: the one place its pool is controlled.
+
+    The pool is the application's, FPM is every PHP application's, so:
+
+    - ``restart`` reloads FPM. A reload restarts every pool's workers
+      gracefully (requests in flight finish), which is the only way FPM
+      restarts one pool; the other PHP sites keep answering.
+    - ``stop`` moves the pool file aside and reloads, so its workers and
+      socket go and nginx answers 502 for it; nothing else is touched.
+    - ``start`` puts it back, has FPM test it, and reloads (starting FPM
+      when it is not running).
+
+    Args:
+        app: The application's row.
+        action: ``start``, ``stop`` or ``restart``.
+        logger: Where progress is reported.
+
+    Returns:
+        What was done, in a sentence.
+
+    Raises:
+        ValueError: When the action is not one of :data:`POOL_ACTIONS`.
+        DeploymentError: When PHP-FPM is not installed, there is no pool,
+            or FPM did not reload.
+        ValidationError: When FPM refuses the pool on start.
+        AppBusyError: Another operation is running on the application.
+    """
+    if action not in POOL_ACTIONS:
+        raise ValueError(f"not a pool action: {action!r}")
+    log = logger if logger is not None else Logger(verbose=False)
+    fpm = fpm_service(logger=log)
+    name = app_root(app).name
+    path = fpm.installation.pool_file(name)
+    service = fpm.installation.service
+    # A deploy rewriting the pool while it moves would leave whichever
+    # finished last.
+    with app_lock(app.domain, f"PHP-FPM pool {action}"):
+        if action == "restart":
+            if not path.is_file():
+                raise DeploymentError(
+                    f"{app.domain} is stopped; there is no pool to restart",
+                    details=f"Start it with: wasm start {app.domain}",
+                )
+            fpm.reload()
+            return f"Reloaded {service}: the workers of every PHP pool restarted gracefully"
+        if action == "stop":
+            if fpm.disable_pool(path):
+                return f"Disabled the pool {path.name} and reloaded {service}"
+            return f"The pool of {app.domain} was already disabled"
+        if fpm.enable_pool(path):
+            return f"Enabled the pool {path.name} and reloaded {service}"
+        return f"The pool of {app.domain} was already enabled; reloaded {service}"
+
+
+def set_pool_limits(
+    app: App, *, memory_max_mb: int | None, tasks_max: int | None, logger: Logger
+) -> str:
+    """
+    Rewrite a PHP application's pool for new limits, behind its health gate.
+
+    The memory limit is shared by the workers (each gets its share as
+    ``memory_limit``) and the task limit bounds them (``pm.max_children``).
+    FPM tests the new pool before it is kept, and the reload that applies it
+    is the gate's restart: when the pool does not answer under the new
+    limits, the previous pool is put back and reloaded.
+
+    Args:
+        app: The application's row.
+        memory_max_mb: The new memory limit, or None for the default.
+        tasks_max: The new task limit, or None for the default.
+        logger: Where the reload and the probes are reported.
+
+    Returns:
+        The FPM service that was reloaded.
+
+    Raises:
+        DeploymentError: When PHP-FPM is not installed, the application is
+            stopped, or it did not answer under the new limits (the previous
+            pool is back).
+        ValidationError: When FPM refuses the new pool (the previous one is
+            back).
+    """
+    fpm = fpm_service(logger=logger)
+    installation = fpm.installation
+    root = app_root(app)
+    path = installation.pool_file(root.name)
+    if not path.is_file():
+        raise DeploymentError(
+            f"{app.domain} is stopped; its pool is not running to be limited",
+            details=f"Start it first: wasm start {app.domain}",
+        )
+    previous = path.read_text(encoding="utf-8")
+    env_file = env_file_for(app)
+    spec = pool_spec_for(
+        app_name=root.name,
+        domain=app.domain,
+        app_path=root,
+        env=EnvManager(verbose=False).read_env_file(env_file) if env_file.is_file() else {},
+        installation=installation,
+        config=Config(),
+        max_upload=load_php_settings(root).max_upload,
+        memory_max_mb=memory_max_mb,
+        tasks_max=tasks_max,
+    )
+    fpm.install_pool(path, render_pool(spec))
+    gate = health_gate_for_app(app, logger)
+    healthy, evidence = gate.restart_and_probe()
+    if not healthy:
+        fpm.install_pool(path, previous)
+        restored, _ = gate.restart_and_probe()
+        state = "answering again" if restored else "back, but it is not answering either"
+        raise DeploymentError(
+            f"{app.domain} did not answer under the new limits; the previous pool is {state}",
+            details=evidence,
+        )
+    return installation.service
 
 
 class PhpFpmDeployer(BaseDeployer):
@@ -368,7 +739,7 @@ class PhpFpmDeployer(BaseDeployer):
     monorepo detector claims first. A root ``index.php`` alone is PHP.
     """
 
-    APP_TYPE = "php-fpm"
+    APP_TYPE = PHP_FPM_TYPE
     DISPLAY_NAME = "PHP (PHP-FPM)"
 
     DETECTION_FILES: ClassVar[list[str]] = ["composer.json", "index.php"]
@@ -398,7 +769,6 @@ class PhpFpmDeployer(BaseDeployer):
         super().__init__(verbose=verbose, runner=runner, fs=fs)
         self.php = PhpSettings()
         self._seed_files: dict[str, str] = {}
-        self._health_given: dict[str, str | None] = {}
         self._fpm: FpmService | None = None
 
     # Configuration ------------------------------------------------------
@@ -413,10 +783,10 @@ class PhpFpmDeployer(BaseDeployer):
             **options: Everything :meth:`BaseDeployer.configure` takes, plus
                 ``php_webroot``, ``php_deny``, ``php_max_upload`` and
                 ``php_shared_from_release`` (see :class:`PhpSettings`),
-                ``php_files`` (relative path to content, written into
-                ``shared/`` once and linked into every release), and
-                ``health_path`` / ``health_expect`` for a new application's
-                health check. What is not given comes from the settings file.
+                and ``php_files`` (relative path to content, written into
+                ``shared/`` once and linked into every release). What is not
+                given comes from the settings file. A new application's health
+                check is ``initial_health``, as for every type.
 
         Raises:
             ValidationError: When a PHP setting is not acceptable.
@@ -433,10 +803,6 @@ class PhpFpmDeployer(BaseDeployer):
         self._seed_files = {
             str(persistent_path(_relative(path, field_name="seeded file"))): str(content)
             for path, content in dict(files).items()
-        }
-        self._health_given = {
-            "path": options.get("health_path"),
-            "expect": options.get("health_expect"),
         }
         self._fpm = None
 
@@ -558,7 +924,11 @@ class PhpFpmDeployer(BaseDeployer):
                 f"Refusing to write {path}: it is a symlink",
                 details="Remove the link; WASM writes this file itself.",
             )
-        self.fs.write_text(path, json.dumps(self.php.to_mapping(), indent=2) + "\n")
+        # Rewritten after the tree was handed over, so it is root's again
+        # after every deploy; it is validated on every read regardless.
+        self.fs.write_text(
+            path, json.dumps(self.php.to_mapping(), indent=2) + "\n", mode=PHP_SETTINGS_MODE
+        )
 
     def get_template_context(self) -> dict:
         """
@@ -615,22 +985,21 @@ class PhpFpmDeployer(BaseDeployer):
 
         Returns:
             The pool: the ``.env`` as it is on disk, the service user, and the
-            application's memory limit.
+            application's memory and task limits.
         """
         env_file = self._env_file()
         env = self._env_manager.read_env_file(env_file) if env_file.is_file() else {}
         app = self._app_row()
-        memory = app.memory_max_mb if app is not None else self.memory_max_mb
-        return PoolSpec(
+        return pool_spec_for(
             app_name=self.app_name,
             domain=self.domain,
-            user=self.config.service_user,
-            group=self.config.service_group,
-            listen_group=nginx_worker_group(self.config.service_group, root=FPM_ROOT),
-            socket=self._fpm_service().installation.socket(self.app_name),
+            app_path=self.app_path,
             env=env,
+            installation=self._fpm_service().installation,
+            config=self.config,
             max_upload=self.php.max_upload,
-            memory_max_mb=memory,
+            memory_max_mb=app.memory_max_mb if app is not None else self.memory_max_mb,
+            tasks_max=app.tasks_max if app is not None else self.tasks_max,
         )
 
     def write_pool(self) -> None:
@@ -644,17 +1013,18 @@ class PhpFpmDeployer(BaseDeployer):
         """
         fpm = self._fpm_service()
         path = fpm.installation.pool_file(self.app_name)
-        if fpm.install_pool(path, render_pool(self._pool_spec())):
+        spec = self._pool_spec()
+        content = render_pool(spec)
+        prepare_tmp_dir(
+            spec.tmp_dir, user=spec.user, group=spec.group, fs=self.fs, runner=self.runner
+        )
+        if fpm.install_pool(path, content):
             self.logger.substep(f"Pool: {path}")
         self._persist_settings()
 
     def remove_pool(self) -> None:
-        """Remove the pool a failed first deploy wrote."""
-        try:
-            fpm = self._fpm_service()
-        except DeploymentError:
-            return
-        fpm.remove_pool(fpm.installation.pool_file(self.app_name))
+        """Remove the pool and temporary directory a failed first deploy wrote."""
+        remove_pool_of(self.app_path, self.logger)
 
     @property
     def installation(self) -> FpmInstallation:
@@ -943,25 +1313,6 @@ class PhpFpmDeployer(BaseDeployer):
         return result
 
     # Health ---------------------------------------------------------------
-
-    def _register_app_in_store(self, status: str) -> App:
-        """
-        Register the application, with the health check it was deployed with.
-
-        Args:
-            status: Initial app status.
-
-        Returns:
-            The row.
-        """
-        app = super()._register_app_in_store(status)
-        path, expect = self._health_given.get("path"), self._health_given.get("expect")
-        if (path or expect) and app.health_path is None and app.health_expect is None:
-            self.store.set_app_health(app.domain, path=path, expect=expect, timeout=None)
-            refreshed = self.store.get_app(app.domain)
-            if refreshed is not None:
-                app = refreshed
-        return app
 
     def _https(self) -> bool:
         """Whether the site is served over TLS right now."""

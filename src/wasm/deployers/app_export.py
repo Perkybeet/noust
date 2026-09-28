@@ -34,6 +34,8 @@ from __future__ import annotations
 
 import functools
 import json
+import logging
+import re
 import secrets
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
@@ -59,6 +61,7 @@ from wasm.managers.previews import enable_previews
 from wasm.managers.source_manager import redact_git_text
 from wasm.validators.domain import validate_domain
 from wasm.validators.environment import is_valid_env_name
+from wasm.validators.health import check_health_expect, check_health_path, check_health_timeout
 
 #: What the document says it is, and the version of its shape.
 FORMAT = "wasm-app"
@@ -70,6 +73,10 @@ MANAGED_ENV = frozenset({"PORT", "NODE_ENV"})
 
 #: Largest document an import reads; a real one is a few kilobytes.
 MAX_DOCUMENT_SIZE = 1024 * 1024
+
+#: Where every cron job an import creates is recorded, as ``POST /api/cron``
+#: records the ones created there.
+audit_log = logging.getLogger("wasm.audit")
 
 
 # Export ---------------------------------------------------------------------
@@ -134,7 +141,7 @@ def export_app(
         "app": {
             "domain": app.domain,
             "app_type": app.app_type,
-            "source": redact_git_text(app.source) if app.source else None,
+            "source": _export_source(app.source, with_secrets=with_secrets),
             "branch": app.branch,
             "layout": app.layout,
             "port": app.port,
@@ -173,6 +180,78 @@ def export_app(
             key=lambda entry: (entry["engine"], entry["name"]),
         ),
     }
+
+
+def _export_source(source: str | None, *, with_secrets: bool) -> str | None:
+    """
+    Describe where an application deploys from, without its credentials.
+
+    The userinfo of a URL always goes (a repository token is WASM's to keep,
+    not the document's). Without ``with_secrets`` the query and the fragment
+    of an http(s) URL go too: an archive link carries its token there
+    (``?token=``, a presigned ``X-Amz-Signature``). They are replaced by
+    ``***``, so :func:`plan_import` asks for the source again, as it does
+    for ``***@``, instead of deploying from a broken URL.
+
+    Args:
+        source: The application's source.
+        with_secrets: Keep the query and the fragment.
+
+    Returns:
+        The source to write, or None when it has none.
+    """
+    if not source:
+        return None
+    return redact_git_text(source if with_secrets else strip_url_secrets(source))
+
+
+def strip_url_secrets(source: str) -> str:
+    """
+    Replace the query and the fragment of an http(s) URL with ``***``.
+
+    Args:
+        source: A source: URL, archive URL or path.
+
+    Returns:
+        The source, its query and fragment replaced when it is an http(s)
+        URL that has them; anything else unchanged.
+    """
+    if not source.lower().startswith(("http://", "https://")):
+        return source
+    cut = min((i for i in (source.find("?"), source.find("#")) if i != -1), default=-1)
+    if cut == -1:
+        return source
+    rest = source[cut:]
+    query = f"?{REDACTED}" if rest.startswith("?") else ""
+    fragment = f"#{REDACTED}" if "#" in rest else ""
+    return source[:cut] + query + fragment
+
+
+def display_source(source: str) -> str:
+    """
+    Show a source in a plan, a log or a job, without a credential in it.
+
+    Args:
+        source: The source.
+
+    Returns:
+        The source, its userinfo, query and fragment replaced.
+    """
+    return redact_git_text(strip_url_secrets(source))
+
+
+def _source_was_stripped(source: str) -> bool:
+    """
+    Tell whether an exported source had its credentials taken out.
+
+    Args:
+        source: The source the document names.
+
+    Returns:
+        True when its userinfo, query or fragment is the ``***`` an export
+        leaves.
+    """
+    return f"{REDACTED}@" in source or source.endswith((f"?{REDACTED}", f"#{REDACTED}"))
 
 
 def _export_env(app: App, *, with_secrets: bool) -> dict[str, dict[str, Any]]:
@@ -380,19 +459,21 @@ def validate_document(data: Any) -> dict[str, Any]:
     Check a document's shape and fill in what an older export left out.
 
     Unknown keys are ignored, so a document from a later release of the same
-    version still imports.
+    version still imports. Every optional section an older or a hand-written
+    document leaves out is filled in with its empty value, on a copy, so the
+    code after this never meets a missing key.
 
     Args:
         data: The parsed JSON.
 
     Returns:
-        The document, every section present.
+        A copy of the document, every section present.
 
     Raises:
         ValidationError: It is not a ``wasm-app`` document of a version this
             release reads, or a field has the wrong type.
     """
-    doc = _object(data, "document")
+    doc = dict(_object(data, "document"))
     if doc.get("format") != FORMAT:
         raise ValidationError(
             "This is not a WASM application export",
@@ -412,7 +493,8 @@ def validate_document(data: Any) -> dict[str, Any]:
     if version < 1:
         raise _fail("version", "must be 1 or more")
 
-    app = _object(doc.get("app"), "app")
+    app = dict(_object(doc.get("app"), "app"))
+    doc["app"] = app
     _text(app, "domain", "app", required=True)
     _text(app, "app_type", "app", required=True)
     for key in ("source", "branch", "layout", "webserver"):
@@ -424,23 +506,27 @@ def validate_document(data: Any) -> dict[str, Any]:
         _number(app, key, "app")
     for key in ("ssl", "include_www"):
         _flag(app, key, "app", default=key == "ssl")
-    _names(app, "persistent_paths", "app")
-    limits = _object(app.get("limits"), "app.limits", optional=True)
+    app["persistent_paths"] = _names(app, "persistent_paths", "app")
+    limits = app["limits"] = _object(app.get("limits"), "app.limits", optional=True)
     for key in ("memory_max_mb", "cpu_quota_percent", "tasks_max"):
         _number(limits, key, "app.limits")
-    health = _object(app.get("health"), "app.health", optional=True)
+    health = app["health"] = _object(app.get("health"), "app.health", optional=True)
     _text(health, "path", "app.health")
     _text(health, "expect", "app.health")
     _number(health, "timeout", "app.health")
-    zero = _object(app.get("zero_downtime"), "app.zero_downtime", optional=True)
+    zero = app["zero_downtime"] = _object(
+        app.get("zero_downtime"), "app.zero_downtime", optional=True
+    )
     _flag(zero, "enabled", "app.zero_downtime")
     _number(zero, "drain_seconds", "app.zero_downtime")
 
     domains = _object(doc.get("domains"), "domains", optional=True)
-    _names(domains, "aliases", "domains")
-    _names(domains, "redirects", "domains")
+    doc["domains"] = {
+        "aliases": _names(domains, "aliases", "domains"),
+        "redirects": _names(domains, "redirects", "domains"),
+    }
 
-    env = _object(doc.get("env"), "env", optional=True)
+    env = doc["env"] = _object(doc.get("env"), "env", optional=True)
     for name, entry in env.items():
         if not is_valid_env_name(name):
             raise _fail(f"env.{name}", "is not an environment variable name")
@@ -450,8 +536,9 @@ def validate_document(data: Any) -> dict[str, Any]:
     marks = _object(doc.get("env_secret_marks"), "env_secret_marks", optional=True)
     if not all(isinstance(mark, bool) for mark in marks.values()):
         raise _fail("env_secret_marks", "must map names to true or false")
+    doc["env_secret_marks"] = marks
 
-    cron = doc.get("cron") or []
+    cron = doc["cron"] = doc.get("cron") or []
     if not isinstance(cron, list):
         raise _fail("cron", "must be a list")
     for index, job in enumerate(cron):
@@ -487,9 +574,11 @@ def validate_document(data: Any) -> dict[str, Any]:
         _flag(previews, "allow_bots", "previews")
         _names(previews, "exclude_env", "previews")
 
-    github = _object(doc.get("github"), "github", optional=True)
+    doc.setdefault("backup", None)
+    doc.setdefault("previews", None)
+    github = doc["github"] = _object(doc.get("github"), "github", optional=True)
     _flag(github, "installation_linked", "github")
-    databases = doc.get("databases") or []
+    databases = doc["databases"] = doc.get("databases") or []
     if not isinstance(databases, list):
         raise _fail("databases", "must be a list")
     for index, database in enumerate(databases):
@@ -522,6 +611,12 @@ def load_document(text: str) -> dict[str, Any]:
         data = json.loads(text)
     except json.JSONDecodeError as exc:
         raise ValidationError("The export document is not JSON", details=str(exc)) from exc
+    except RecursionError as exc:
+        raise ValidationError(
+            "The export document nests too deeply to be read",
+            details="An export nests three levels; check the file is the one 'wasm app "
+            "export' wrote.",
+        ) from exc
     return validate_document(data)
 
 
@@ -549,6 +644,10 @@ class CreateSpec:
         memory_max_mb: ``MemoryMax``, or None for none.
         cpu_quota_percent: ``CPUQuota``, or None for none.
         tasks_max: ``TasksMax``, or None for none.
+        health_path: What the health gate asks for from the first
+            deployment, or None for the default.
+        health_expect: The statuses it accepts, or None for the default.
+        health_timeout: Seconds it waits, or None for the default.
     """
 
     domain: str
@@ -566,6 +665,15 @@ class CreateSpec:
     memory_max_mb: int | None = None
     cpu_quota_percent: int | None = None
     tasks_max: int | None = None
+    health_path: str | None = None
+    health_expect: str | None = None
+    health_timeout: int | None = None
+
+    @property
+    def initial_health(self) -> tuple[str | None, str | None, int | None] | None:
+        """``(path, expect, timeout)`` for the deployer, or None when all are defaults."""
+        health = (self.health_path, self.health_expect, self.health_timeout)
+        return health if any(value is not None for value in health) else None
 
 
 @dataclass(frozen=True)
@@ -596,6 +704,9 @@ class ImportPlan:
         steps: What is applied after it, in order, one line each.
         skipped: What will not be applied, known before starting.
         document: The checked document.
+        confirm: Why the operator must say yes before it runs: the parts
+            that run commands or copy variables the document chose (cron
+            jobs, previews). Empty when nothing needs it.
     """
 
     domain: str
@@ -604,6 +715,7 @@ class ImportPlan:
     steps: list[str]
     skipped: list[ImportStep]
     document: dict[str, Any] = field(repr=False)
+    confirm: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -630,6 +742,11 @@ def _rename(name: str, old: str, new: str) -> str:
     """
     Carry a name derived from the exported domain over to the new one.
 
+    A domain is renamed when it is the old one or a subdomain of it. In any
+    other name the old application name is replaced only where it stands as
+    a whole word between dashes (``shop-example-com-nightly``), never inside
+    another word: a job ``myshop-example-com-sync`` is not the application's.
+
     Args:
         name: A domain or a job name.
         old: The exported domain.
@@ -642,7 +759,8 @@ def _rename(name: str, old: str, new: str) -> str:
         return name
     if name == old or name.endswith(f".{old}"):
         return name[: len(name) - len(old)] + new
-    return name.replace(domain_to_app_name(old), domain_to_app_name(new))
+    token = re.compile(rf"(?<![A-Za-z0-9]){re.escape(domain_to_app_name(old))}(?![A-Za-z0-9])")
+    return token.sub(domain_to_app_name(new), name)
 
 
 def plan_import(
@@ -691,7 +809,7 @@ def plan_import(
         raise ValidationError(
             "The export names no source to deploy from", details="Give one with --source."
         )
-    if f"{REDACTED}@" in chosen_source:
+    if _source_was_stripped(chosen_source):
         raise ValidationError(
             "The exported source had its credentials taken out",
             details="Give the repository URL again with --source, with a token if it is "
@@ -725,6 +843,7 @@ def plan_import(
             field="env",
         )
 
+    health = _checked_health(app.get("health") or {})
     limits = app.get("limits") or {}
     port = app.get("port")
     if port is not None and port in store.ports_owned_by_apps():
@@ -746,9 +865,12 @@ def plan_import(
         memory_max_mb=limits.get("memory_max_mb"),
         cpu_quota_percent=limits.get("cpu_quota_percent"),
         tasks_max=limits.get("tasks_max"),
+        health_path=health["path"],
+        health_expect=health["expect"],
+        health_timeout=health["timeout"],
     )
 
-    steps, skipped = _describe_steps(doc, exported, target, app.get("port"), port)
+    steps, skipped, confirm = _describe_steps(doc, exported, target, app.get("port"), port)
     return ImportPlan(
         domain=target,
         exported_domain=exported,
@@ -756,14 +878,56 @@ def plan_import(
         steps=steps,
         skipped=skipped,
         document=doc,
+        confirm=confirm,
     )
+
+
+def _checked_health(health: Mapping[str, Any]) -> dict[str, Any]:
+    """
+    Check a document's health settings with the gate's own rules.
+
+    Checked before anything is deployed, because the first deployment's gate
+    already asks them.
+
+    Args:
+        health: ``app.health`` of the document.
+
+    Returns:
+        ``path``, ``expect`` and ``timeout``, each None or the value as the
+        store keeps it.
+
+    Raises:
+        ValidationError: A value the gate could not use; ``field`` names it.
+    """
+    checks: tuple[tuple[str, Callable[[Any], Any]], ...] = (
+        ("path", check_health_path),
+        ("expect", check_health_expect),
+        ("timeout", check_health_timeout),
+    )
+    out: dict[str, Any] = {}
+    for key, check in checks:
+        value = health.get(key)
+        if value is None:
+            out[key] = None
+            continue
+        try:
+            out[key] = check(value)
+        except ValidationError as exc:
+            exc.field = f"app.health.{key}"
+            raise
+    return out
 
 
 def _describe_steps(
     doc: dict[str, Any], exported: str, target: str, exported_port: Any, port: int | None
-) -> tuple[list[str], list[ImportStep]]:
+) -> tuple[list[str], list[ImportStep], list[str]]:
     """
-    List what an import applies after the deploy, and what it will not.
+    List what an import applies after the deploy, what it will not, and what needs a yes.
+
+    Each line says what the part will do on this server, not only its name: a
+    cron job is its schedule, its user, its directory and its command, and a
+    preview says whether bots' pull requests deploy and which variables are
+    copied. That is what the operator is agreeing to.
 
     Args:
         doc: The checked document.
@@ -773,14 +937,14 @@ def _describe_steps(
         port: The port the deploy will ask for.
 
     Returns:
-        The steps, and the parts known to be skipped.
+        The steps, the parts known to be skipped, and the reasons the import
+        needs the operator's confirmation.
     """
     store = get_store()
     app = doc["app"]
-    steps = [
-        f"deploy {target} ({app['app_type']}) from {redact_git_text(str(app['source'] or ''))}"
-    ]
+    steps = [f"deploy {target} ({app['app_type']}) from {display_source(str(app['source'] or ''))}"]
     skipped: list[ImportStep] = []
+    confirm: list[str] = []
     if exported_port is not None and port is None:
         skipped.append(
             ImportStep(
@@ -789,22 +953,39 @@ def _describe_steps(
                 "Another application on this server has it; a free port is chosen.",
             )
         )
-    for alias in doc["domains"].get("aliases", []):
+    for alias in doc["domains"]["aliases"]:
         steps.append(f"alias {_rename(alias, exported, target)}")
-    for redirect in doc["domains"].get("redirects", []):
+    for redirect in doc["domains"]["redirects"]:
         steps.append(f"redirect {_rename(redirect, exported, target)}")
-    health = app.get("health") or {}
+    health = app["health"]
     if any(health.get(key) is not None for key in ("path", "expect", "timeout")):
-        steps.append("health check")
+        steps.append(
+            f"health check {health.get('path') or '/'}, expecting "
+            f"{health.get('expect') or 'the default statuses'}, waiting "
+            f"{health.get('timeout') or 'the default'} s, from the first deployment"
+        )
     if app.get("layout") == RELEASES and app.get("keep_releases") is not None:
         steps.append(f"keep {app['keep_releases']} releases")
-    if doc.get("env_secret_marks"):
+    if doc["env_secret_marks"]:
         steps.append("secret marks")
-    for job in doc.get("cron", []):
-        steps.append(f"cron {_rename(job['name'], exported, target)}")
-    backup = doc.get("backup")
+    jobs = doc["cron"]
+    if jobs:
+        steps.extend(
+            _cron_line(job, _rename(job["name"], exported, target), target) for job in jobs
+        )
+        as_root = [job["name"] for job in jobs if _runs_as_root(job)]
+        confirm.append(
+            f"creates {len(jobs)} cron job(s) that run commands the document chose"
+            + (f", {len(as_root)} of them as root" if as_root else "")
+        )
+    backup = doc["backup"]
     if backup is not None:
-        steps.append(f"backup schedule {backup['schedule']}")
+        names = [d["name"] for d in backup.get("destinations", [])]
+        steps.append(
+            f"backup schedule {backup['schedule']}, "
+            + ("to " + ", ".join(names) if names else "local only")
+            + ("" if backup.get("include_databases", True) else ", without databases")
+        )
         for destination in backup.get("destinations", []):
             if store.get_backup_destination(destination["name"]) is None:
                 skipped.append(
@@ -816,11 +997,26 @@ def _describe_steps(
                         "schedule again.",
                     )
                 )
-    if doc.get("previews") is not None:
-        steps.append(f"previews under {doc['previews']['base_domain']}")
-    if (app.get("zero_downtime") or {}).get("enabled"):
-        steps.append("zero-downtime")
-    for database in doc.get("databases", []):
+    previews = doc["previews"]
+    if previews is not None:
+        steps.append(_previews_line(previews))
+        confirm.append(
+            "enables pull request previews, which deploy code from pull requests with "
+            + (
+                "every variable of the application, secrets included"
+                if not previews.get("exclude_env")
+                else "the application's variables"
+            )
+            + (", bots' pull requests too" if previews.get("allow_bots") else "")
+        )
+    zero = app["zero_downtime"]
+    if zero.get("enabled"):
+        drain = zero.get("drain_seconds")
+        steps.append(
+            "zero-downtime: every activation starts a second instance and switches to it"
+            + (f", draining the old one for {drain} s" if drain is not None else "")
+        )
+    for database in doc["databases"]:
         named = f"{database['name']} " if database.get("name") else ""
         skipped.append(
             ImportStep(
@@ -830,7 +1026,7 @@ def _describe_steps(
                 "restore its data, and set the application's connection variables.",
             )
         )
-    if (doc.get("github") or {}).get("installation_linked"):
+    if doc["github"].get("installation_linked"):
         skipped.append(
             ImportStep(
                 "GitHub App installation",
@@ -840,7 +1036,67 @@ def _describe_steps(
                 "use it.",
             )
         )
-    return steps, skipped
+    return steps, skipped, confirm
+
+
+def _runs_as_root(job: Mapping[str, Any]) -> bool:
+    """Whether a cron job of a document runs as root (by name or by uid)."""
+    return (job.get("user") or "").strip() in ("root", "0")
+
+
+def _cron_line(job: Mapping[str, Any], name: str, target: str) -> str:
+    """
+    Describe a cron job as it will run here.
+
+    Args:
+        job: The document's job.
+        name: Its name here.
+        target: The domain it is created for.
+
+    Returns:
+        ``cron NAME [SCHEDULE] as USER in DIR: COMMAND``, root and a
+        directory outside the application called out.
+    """
+    config = Config()
+    user = job.get("user") or config.service_user
+    who = f"as {user}" + (" (root: the whole server)" if _runs_as_root(job) else "")
+    directory = job.get("working_directory")
+    app_dir = str(config.apps_directory / domain_to_app_name(target))
+    if not directory:
+        where = "in the application's directory"
+    elif directory == app_dir or directory.startswith(f"{app_dir}/"):
+        where = f"in {directory}"
+    else:
+        where = f"in {directory} (outside the application)"
+    state = "" if job.get("enabled", True) else " (created disabled)"
+    return f"cron {name} [{job['schedule']}] {who} {where}{state}: {job['command']}"
+
+
+def _previews_line(previews: Mapping[str, Any]) -> str:
+    """
+    Describe the pull request previews an import turns on.
+
+    Args:
+        previews: The document's ``previews``.
+
+    Returns:
+        The base domain, the limits, whether bots' pull requests deploy and
+        which variables a preview is given.
+    """
+    limits = []
+    if previews.get("max_previews") is not None:
+        limits.append(f"at most {previews['max_previews']}")
+    if previews.get("ttl_hours") is not None:
+        limits.append(f"removed after {previews['ttl_hours']} h")
+    excluded = previews.get("exclude_env") or []
+    variables = (
+        f"every variable copied except {', '.join(excluded)}"
+        if excluded
+        else "every variable copied, secrets included"
+    )
+    bots = "bots' pull requests deploy too" if previews.get("allow_bots") else "no bots"
+    shown = ", ".join([*limits, bots, variables])
+    return f"previews under {previews['base_domain']}: {shown}"
 
 
 #: What a step may raise and still let the import go on to the next one.
@@ -853,6 +1109,7 @@ def apply_import(
     deploy: Callable[[CreateSpec], None],
     logger: Logger | None = None,
     cron: CronManager | None = None,
+    actor: str = "cli",
 ) -> ImportReport:
     """
     Create the application a plan describes and apply the rest of it.
@@ -870,6 +1127,9 @@ def apply_import(
             raises when the deploy fails.
         logger: Where progress goes.
         cron: Cron manager; tests pass one.
+        actor: Who asked, for the audit record of each cron job created
+            (:func:`wasm.web.auth.actor_label` in the console, ``cli`` on the
+            terminal).
 
     Returns:
         What was applied and what was not.
@@ -934,21 +1194,25 @@ def apply_import(
 
         attempt("certificate for every domain", certificate)
 
-    health = app.get("health") or {}
-    if any(health.get(key) is not None for key in ("path", "expect", "timeout")):
-        attempt(
-            "health check",
-            lambda: _none(
-                set_health_check(
-                    target,
-                    path=health.get("path"),
-                    expect=health.get("expect"),
-                    timeout=health.get("timeout"),
-                )
-            ),
-        )
-
     created = get_store().get_app(target)
+    wanted = plan.create.initial_health
+    if wanted is not None:
+        if created is not None and (
+            created.health_path,
+            created.health_expect,
+            created.health_timeout,
+        ) == tuple(wanted):
+            # The deployment recorded it before its own gate asked it.
+            log.substep("Applied health check")
+            report.steps.append(ImportStep("health check", True))
+        else:
+            # A deployer without the initial health (monorepo, Compose).
+            path, expect, timeout = wanted
+            attempt(
+                "health check",
+                lambda: _none(set_health_check(target, path=path, expect=expect, timeout=timeout)),
+            )
+
     keep = app.get("keep_releases")
     if (
         keep is not None
@@ -970,7 +1234,7 @@ def apply_import(
     jobs = cron or CronManager()
     for job in doc.get("cron", []):
         name = _rename(job["name"], exported, target)
-        attempt(f"cron {name}", functools.partial(_cron_job, jobs, job, name, target))
+        attempt(f"cron {name}", functools.partial(_cron_job, jobs, job, name, target, actor))
 
     backup = doc.get("backup")
     if backup is not None:
@@ -1032,15 +1296,18 @@ def _none(_result: Any) -> None:
     return None
 
 
-def _cron_job(jobs: CronManager, job: Mapping[str, Any], name: str, domain: str) -> str | None:
+def _cron_job(
+    jobs: CronManager, job: Mapping[str, Any], name: str, domain: str, actor: str
+) -> str | None:
     """
-    Create one exported cron job for the new application.
+    Create one exported cron job for the new application, audited.
 
     Args:
         jobs: The cron manager.
         job: The exported job.
         name: Its name here.
         domain: The application it belongs to.
+        actor: Who asked for the import.
 
     Returns:
         Why it was not created, or None when it was.
@@ -1053,6 +1320,16 @@ def _cron_job(jobs: CronManager, job: Mapping[str, Any], name: str, domain: str)
             f"A cron job named {name} already exists on this server; create this one with "
             "'wasm cron create' under another name."
         )
+    # The record POST /api/cron writes, plus what makes an imported job worth
+    # reading twice: whom it runs as, and that a document chose it.
+    audit_log.info(
+        "create_cron_job name=%s schedule=%s session=%s user=%s via=import app=%s",
+        name,
+        job["schedule"],
+        actor,
+        job.get("user") or Config().service_user,
+        domain,
+    )
     jobs.create_job(
         CronJob(
             name=name,
@@ -1156,8 +1433,8 @@ def plan_summary(plan: ImportPlan) -> dict[str, Any]:
         plan: The plan.
 
     Returns:
-        The domain, what is created (variables by name only), the steps and
-        the parts known to be skipped.
+        The domain, what is created (variables by name only), the steps, the
+        parts known to be skipped, and why it needs a yes.
     """
     create = plan.create
     return {
@@ -1165,7 +1442,7 @@ def plan_summary(plan: ImportPlan) -> dict[str, Any]:
         "exported_domain": plan.exported_domain,
         "create": {
             "app_type": create.app_type,
-            "source": redact_git_text(create.source),
+            "source": display_source(create.source),
             "branch": create.branch,
             "layout": create.layout,
             "port": create.port,
@@ -1177,9 +1454,13 @@ def plan_summary(plan: ImportPlan) -> dict[str, Any]:
             "memory_max_mb": create.memory_max_mb,
             "cpu_quota_percent": create.cpu_quota_percent,
             "tasks_max": create.tasks_max,
+            "health_path": create.health_path,
+            "health_expect": create.health_expect,
+            "health_timeout": create.health_timeout,
         },
         "steps": list(plan.steps),
         "skipped": [_step_summary(step) for step in plan.skipped],
+        "confirm": list(plan.confirm),
     }
 
 

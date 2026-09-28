@@ -24,6 +24,7 @@ from wasm.deployers.importers.base import (
     int_value,
     read_text,
     text_value,
+    too_deep,
 )
 
 PLATFORM = "render"
@@ -78,18 +79,25 @@ def read(root: Path) -> Proposal:
         blueprint = yaml.safe_load(text)
     except yaml.YAMLError as exc:
         raise ValidationError("render.yaml is not valid YAML", details=str(exc)) from exc
+    except RecursionError as exc:
+        raise too_deep("render.yaml") from exc
     if blueprint is None:
         blueprint = {}
     if not isinstance(blueprint, dict):
         raise ValidationError("render.yaml does not hold a mapping")
 
-    services = [s for s in blueprint.get("services") or [] if isinstance(s, dict)]
-    databases = [d for d in blueprint.get("databases") or [] if isinstance(d, dict)]
+    services = [s for s in _entries(blueprint, "services") if isinstance(s, dict)]
+    databases = [d for d in _entries(blueprint, "databases") if isinstance(d, dict)]
     chosen = _choose_service(services, proposal)
     if chosen is not None:
         _service(chosen, proposal)
     elif services:
-        proposal.warn("render.yaml has no web or static service to deploy as an application.")
+        proposal.warn(
+            f"render.yaml has no web or static service to deploy as an application; it "
+            f"declares {_describe_services(services)}. A worker or cron job is a 'wasm cron' "
+            "job or a service you run yourself; a Key Value instance is 'wasm db create "
+            "--engine redis'."
+        )
     else:
         proposal.warn("render.yaml declares no services.")
 
@@ -106,6 +114,36 @@ def read(root: Path) -> Proposal:
             "variables into the application's environment."
         )
     return proposal
+
+
+def _entries(mapping: dict[str, Any], key: str) -> list[Any]:
+    """
+    Read a list setting, as empty when it is absent or not a list.
+
+    Args:
+        mapping: The Blueprint or a service.
+        key: The setting.
+
+    Returns:
+        The list.
+    """
+    value = mapping.get(key)
+    return value if isinstance(value, list) else []
+
+
+def _describe_services(services: list[dict[str, Any]]) -> str:
+    """
+    Name services for a warning.
+
+    Args:
+        services: The services.
+
+    Returns:
+        ``name (type)`` for each, comma separated.
+    """
+    return ", ".join(
+        f"{text_value(s, 'name') or '?'} ({text_value(s, 'type') or '?'})" for s in services
+    )
 
 
 def _choose_service(services: list[dict[str, Any]], proposal: Proposal) -> dict[str, Any] | None:
@@ -125,11 +163,8 @@ def _choose_service(services: list[dict[str, Any]], proposal: Proposal) -> dict[
     chosen = web[0]
     others = [s for s in services if s is not chosen]
     if others:
-        described = ", ".join(
-            f"{text_value(s, 'name') or '?'} ({text_value(s, 'type') or '?'})" for s in others
-        )
         proposal.warn(
-            f"render.yaml also declares {described}. Each web service is an application "
+            f"render.yaml also declares {_describe_services(others)}. Each web service is an application "
             "of its own on WASM; a worker or cron job is a 'wasm cron' job or a service "
             "you run yourself; a Key Value instance is 'wasm db create --engine redis'."
         )
@@ -176,7 +211,7 @@ def _service(service: dict[str, Any], proposal: Proposal) -> None:
     if isinstance(domains, list):
         proposal.domains = [d.strip().lower() for d in domains if isinstance(d, str) and d.strip()]
 
-    for variable in service.get("envVars") or []:
+    for variable in _entries(service, "envVars"):
         if isinstance(variable, dict):
             _env_var(variable, proposal)
 

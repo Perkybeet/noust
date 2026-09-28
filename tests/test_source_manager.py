@@ -17,6 +17,7 @@ import tarfile
 import zipfile
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -579,6 +580,76 @@ def test_download_archive_refuses_file_url(manager: SourceManager, tmp_path: Pat
     """A file:// source must not turn into a local file read."""
     with pytest.raises(SourceError):
         manager.download_archive("file:///etc/passwd.tar.gz", tmp_path / "app")
+
+
+class TestSafeRedirectHandler:
+    """
+    The redirect handler behind every archive and checksum download.
+
+    A checksum URL is required to be https precisely so a network attacker
+    cannot substitute the digest an archive is verified against; a redirect
+    that quietly served the checksum over plain http instead would be the
+    same attack wearing a 302.
+    """
+
+    def _handler(self) -> sm._SafeRedirectHandler:
+        return sm._SafeRedirectHandler()
+
+    def _request(self, url: str) -> Any:
+        import urllib.request
+
+        return urllib.request.Request(url)
+
+    def test_https_to_http_is_refused(self) -> None:
+        request = self._request("https://archives.example.test/app.tar.gz")
+
+        with pytest.raises(SourceError, match="https to http"):
+            self._handler().redirect_request(
+                request, None, 302, "Found", {}, "http://archives.example.test/app.tar.gz"
+            )
+
+    def test_https_checksum_redirected_to_http_is_refused(self) -> None:
+        """The exact path :func:`sm._fetch_checksum_digest` exercises."""
+        request = self._request("https://archives.example.test/app.tar.gz.sha256")
+
+        with pytest.raises(SourceError, match="https to http"):
+            self._handler().redirect_request(
+                request,
+                None,
+                302,
+                "Found",
+                {},
+                "http://attacker.example.test/app.tar.gz.sha256",
+            )
+
+    def test_https_to_https_is_still_followed(self) -> None:
+        request = self._request("https://archives.example.test/app.tar.gz")
+
+        built = self._handler().redirect_request(
+            request, None, 302, "Found", {}, "https://mirror.example.test/app.tar.gz"
+        )
+
+        assert built is not None
+        assert built.full_url == "https://mirror.example.test/app.tar.gz"
+
+    def test_http_to_http_is_unaffected(self) -> None:
+        """No downgrade happened: the request never was https to begin with."""
+        request = self._request("http://archives.example.test/app.tar.gz")
+
+        built = self._handler().redirect_request(
+            request, None, 302, "Found", {}, "http://mirror.example.test/app.tar.gz"
+        )
+
+        assert built is not None
+        assert built.full_url == "http://mirror.example.test/app.tar.gz"
+
+    def test_a_non_http_scheme_is_still_refused_first(self) -> None:
+        request = self._request("https://archives.example.test/app.tar.gz")
+
+        with pytest.raises(SourceError, match="'ftp'"):
+            self._handler().redirect_request(
+                request, None, 302, "Found", {}, "ftp://archives.example.test/app.tar.gz"
+            )
 
 
 @pytest.mark.parametrize(

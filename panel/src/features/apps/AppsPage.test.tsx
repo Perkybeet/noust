@@ -202,4 +202,30 @@ describe("the applications list", () => {
     expect(shop).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
+  it("says every state in Spanish: the pills, the last deploy and the state filter", async () => {
+    await act(() => setLocale("es"));
+    const user = (await import("@testing-library/user-event")).default.setup();
+    fakeBackend({
+      ...signedInRoutes(),
+      "GET /api/deployments": () =>
+        json(200, {
+          items: [{ id: 4, domain: "shop.example.com", status: "success", triggered_by: "cli", has_log: true, started_at: "2026-09-25T10:00:00", finished_at: "2026-09-25T10:00:30" }],
+          total: 1,
+          next_before_id: null,
+        }),
+    });
+    renderConsole("/apps");
+    const table = await screen.findByRole("region", { name: /Aplicaciones/ });
+    const shop = await within(table).findByRole("link", { name: "shop.example.com" });
+    const shopRow = shop.closest("tr");
+    const admin = within(table).getByRole("link", { name: "admin.example.com" }).closest("tr");
+    if (!shopRow || !admin) throw new Error("no row");
+    expect(within(shopRow).getByText("En ejecución")).toBeInTheDocument();
+    expect(await within(shopRow).findByText(/Correcto/)).toHaveClass("sr-only");
+    expect(within(admin).getByText("Fallido")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("combobox", { name: "Estado" }));
+    expect(await screen.findByRole("option", { name: "Detenido" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Fallido" })).toBeInTheDocument();
+  });
 });

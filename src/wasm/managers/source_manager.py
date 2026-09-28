@@ -754,7 +754,19 @@ class RemoteHead:
 
 
 class _SafeRedirectHandler(HTTPRedirectHandler):
-    """Follows redirects only while they stay on http(s)."""
+    """
+    Follows redirects only while they stay on http(s), and never downgrades.
+
+    An archive download and the checksum fetched to verify it
+    (:func:`_fetch_checksum_digest`) both go through this handler. A
+    checksum's URL is required to be https (:func:`split_archive_checksum`,
+    :func:`_fetch_checksum_digest`) precisely so a network attacker cannot
+    substitute the digest that decides whether a tampered archive is
+    accepted; a handler that itself followed an https request to an http
+    response would let the same attacker do exactly that with a redirect
+    instead of a substituted response body. So once a request in the chain
+    was https, every following hop must be too.
+    """
 
     def redirect_request(
         self,
@@ -769,7 +781,7 @@ class _SafeRedirectHandler(HTTPRedirectHandler):
         Build the request for a redirect, refusing a change of scheme.
 
         Args:
-            req: The original request.
+            req: The request that received the redirect response.
             fp: The response body of the redirect.
             code: HTTP status code.
             msg: HTTP status message.
@@ -780,13 +792,23 @@ class _SafeRedirectHandler(HTTPRedirectHandler):
             The follow-up request, or None when urllib decides not to redirect.
 
         Raises:
-            SourceError: If the redirect leaves http(s).
+            SourceError: If the redirect leaves http(s), or downgrades a
+                request that was https to plain http.
         """
         scheme = urlparse(newurl).scheme.lower()
         if scheme not in ALLOWED_ARCHIVE_SCHEMES:
             raise SourceError(
                 f"Refusing redirect to a '{scheme or 'schemeless'}' URL",
                 details="A download may only be redirected to http:// or https://",
+            )
+        if str(getattr(req, "type", "")).lower() == "https" and scheme != "https":
+            raise SourceError(
+                "Refusing redirect from https to http",
+                details=(
+                    "A download or checksum fetched over https must not be downgraded "
+                    "to http by a redirect: that defeats the point of requiring https "
+                    "in the first place."
+                ),
             )
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 

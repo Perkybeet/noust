@@ -60,7 +60,7 @@ function DeployDots({ domain, deploys, t }: { domain: string; deploys: readonly 
   return (
     <ol aria-label={t("appPages.overview.lastDeploys", { count: ordered.length })} className="-ml-1 flex items-center gap-0.5">
       {ordered.map((deploy) => {
-        const view = deployStatus(deploy.status);
+        const view = deployStatus(deploy.status, t.locale);
         const moment = parseTimestamp(deployMoment(deploy));
         const when = moment === null ? "" : `, ${formatDateTime(moment, t.locale)}`;
         const commit = deploy.git_commit ? ` ${deploy.git_commit.slice(0, 7)}` : "";
@@ -208,7 +208,7 @@ function Tiles({ app, t }: { app: App; t: T }) {
         }
         detail={
           newest ? (
-            t.rich("appPages.overview.lastStatusDetail", { status: deployStatus(newest.status).label.toLowerCase(), time: <RelativeTime value={deployMoment(newest)} /> })
+            t.rich("appPages.overview.lastStatusDetail", { status: deployStatus(newest.status, t.locale).label.toLowerCase(), time: <RelativeTime value={deployMoment(newest)} /> })
           ) : deploys.isPending ? undefined : (
             t("appPages.overview.deploysAppearHere")
           )

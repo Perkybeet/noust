@@ -1,3 +1,4 @@
+import { useT } from "../../i18n";
 import { StatusPill } from "../ui/StatusPill";
 import type { StatusPillProps } from "../ui/StatusPill";
 import { appStatus, deployStatus } from "./status";
@@ -9,7 +10,8 @@ export interface AppStatePillProps extends Omit<StatusPillProps, "state" | "labe
 
 /** An application's state, from whichever vocabulary the backend used to say it. */
 export function AppStatePill({ status, ...rest }: AppStatePillProps) {
-  const view = appStatus(status);
+  const t = useT();
+  const view = appStatus(status, t.locale);
   return <StatusPill state={view.state} label={view.label} {...rest} />;
 }
 
@@ -20,6 +22,7 @@ export interface DeployStatePillProps extends Omit<StatusPillProps, "state" | "l
 
 /** The outcome of a deployment or a job: queued, in progress, succeeded, failed, rolled back. */
 export function DeployStatePill({ status, ...rest }: DeployStatePillProps) {
-  const view = deployStatus(status);
+  const t = useT();
+  const view = deployStatus(status, t.locale);
   return <StatusPill state={view.state} label={view.label} {...rest} />;
 }

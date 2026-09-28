@@ -467,6 +467,10 @@ class TestReadOnlyClassification:
             ["journalctl", "-u", "wasm-example-com"],
             ["node", "--version"],
             ["/usr/bin/whoami"],
+            # wasm.core.package_index.rpm_latest's cache-only fallback probe.
+            ["dnf", "--cacheonly", "info", "--available", "wasm-cli"],
+            ["yum", "--cacheonly", "info", "available", "wasm-cli"],
+            ["zypper", "--no-refresh", "--non-interactive", "info", "wasm-cli"],
         ],
     )
     def test_recognised_as_read_only(self, argv):
@@ -485,6 +489,9 @@ class TestReadOnlyClassification:
             ["apt-get", "install", "-y", "nginx"],
             ["npm", "install"],
             ["some-unknown-tool", "--flag"],
+            ["dnf", "install", "-y", "wasm-cli"],
+            ["yum", "update", "wasm-cli"],
+            ["zypper", "install", "wasm-cli"],
             [],
         ],
     )

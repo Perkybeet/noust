@@ -13,20 +13,12 @@
 
 export type PhaseKey = "fetch" | "install" | "build" | "activate" | "health";
 
+/** A phase, by key: its words are the catalog's (`phaseLabel` and `phaseDoing` in PhaseTimeline). */
 export interface PhaseSpec {
   key: PhaseKey;
-  label: string;
-  /** What is happening while it runs, for the announcement: "Building". */
-  doing: string;
 }
 
-export const PHASES: readonly PhaseSpec[] = [
-  { key: "fetch", label: "Fetch", doing: "Fetching the source" },
-  { key: "install", label: "Install", doing: "Installing dependencies" },
-  { key: "build", label: "Build", doing: "Building" },
-  { key: "activate", label: "Activate", doing: "Activating" },
-  { key: "health", label: "Health", doing: "Checking health" },
-];
+export const PHASES: readonly PhaseSpec[] = [{ key: "fetch" }, { key: "install" }, { key: "build" }, { key: "activate" }, { key: "health" }];
 
 const INDEX: Readonly<Record<PhaseKey, number>> = { fetch: 0, install: 1, build: 2, activate: 3, health: 4 };
 

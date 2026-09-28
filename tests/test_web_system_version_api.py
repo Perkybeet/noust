@@ -154,3 +154,30 @@ def test_a_published_release_not_yet_packaged_is_on_the_way(
     assert body["latest_version"] == __version__
     assert body["published_version"] == "99.0.0"
     assert body["release_url"] == "https://github.com/Perkybeet/wasm/releases/tag/v99.0.0"
+    # Nothing is installable yet: the CLI banner shows no command either
+    # (UpdateChecker._show_on_the_way_message), so the API must not offer one.
+    assert body["update_command"] is None
+
+
+def test_a_concurrent_check_already_in_flight_reports_status_checking(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """
+    A slow or trickling repository must not hold this request open: a second
+    caller arriving while the first is still fetching, with nothing cached
+    yet, gets told to check back rather than opening its own connection.
+    """
+    _answer(monkeypatch, tmp_path, installable="99.0.0", published="99.0.0")
+    UpdateChecker._check_lock.acquire()
+    try:
+        response = client.get("/api/system/version")
+    finally:
+        UpdateChecker._check_lock.release()
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["status"] == "checking"
+    assert body["current_version"] == __version__
+    assert body["has_update"] is False
+    assert body["latest_version"] is None
+    assert body["update_command"] is None

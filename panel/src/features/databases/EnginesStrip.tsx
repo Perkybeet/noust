@@ -145,7 +145,7 @@ export function EnginesStrip() {
   const engines = useQuery(enginesQuery());
   return (
     <Section title={t("databases.engines.title")} description={t("databases.engines.description")}>
-      <QueryState query={engines} label="engines" skeleton={<EnginesSkeleton />}>
+      <QueryState query={engines} label={t("databases.queryLabels.engines")} skeleton={<EnginesSkeleton />}>
         {(data) => (
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {data.engines.map((engine) => (

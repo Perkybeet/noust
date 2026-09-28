@@ -93,7 +93,7 @@ from wasm.deployers.helpers.layout import INPLACE, RELEASES, app_root, env_file_
 from wasm.deployers.helpers.release_build import stage_release
 from wasm.deployers.interface import UpdateResult
 from wasm.deployers.monorepo import MonorepoDeployer
-from wasm.deployers.php_fpm import PhpFpmDeployer, remove_pool_of
+from wasm.deployers.php_fpm import PhpFpmDeployer, remove_pool_of, set_pool_limits
 from wasm.deployers.php_fpm import health_gate_for_app as php_health_gate_for_app
 from wasm.deployers.recorder import CapturingLogger, DeploymentRecorder, recording
 from wasm.deployers.registry import detect_app_type, get_deployer
@@ -1992,8 +1992,10 @@ def set_resource_limits(
         ValidationError: A limit is out of range.
         DeploymentError: Nothing runs as a unit for it: a static site, or a
             Docker Compose stack, whose containers are not in the unit's
-            cgroup and are limited in the compose file. Or, restarted, it
-            did not answer under the new limits, and the old ones are back.
+            cgroup and are limited in the compose file. A PHP application
+            is limited in its pool (memory and workers, no CPU quota) and
+            always reloaded behind the gate. Or, restarted, it did not
+            answer under the new limits, and the old ones are back.
         ServiceError: A unit could not be rewritten; the ones already
             rewritten are put back.
         AppBusyError: Another operation is running on the application.
@@ -2039,6 +2041,8 @@ def _set_resource_limits(
             f"{domain} runs in Docker containers, which its unit's limits do not reach",
             details="Set deploy.resources.limits for each service in the compose file.",
         )
+    if app.app_type == PHP_FPM:
+        return _set_pool_limits(app, limits, store=store, log=log)
     units = [s.name for s in store.list_services() if app.id is not None and s.app_id == app.id]
     if not units and not app.is_static:
         units = [app_root(app).name]
@@ -2093,6 +2097,46 @@ def _set_resource_limits(
             )
 
     return _record_limits(app, limits, units, restart, store)
+
+
+def _set_pool_limits(
+    app: App, limits: ResourceLimits, *, store: WASMStore, log: Logger
+) -> LimitsChange:
+    """
+    Apply resource limits to a PHP application: its pool, not a unit.
+
+    The pool runs inside the PHP-FPM every PHP application shares, so a CPU
+    quota cannot be given to it alone. The memory limit becomes the workers'
+    ``memory_limit`` and the task limit their number, and the reload that
+    applies them always passes the health gate: FPM has no way to rewrite a
+    pool without restarting its workers.
+
+    Args:
+        app: The application.
+        limits: The validated limits.
+        store: The store.
+        log: Where the reload and the probes are reported.
+
+    Returns:
+        What was done: FPM's service, reloaded.
+
+    Raises:
+        DeploymentError: A CPU quota was asked for, the application is
+            stopped, or it did not answer under the new limits (the previous
+            pool is back).
+        ValidationError: FPM refused the new pool (the previous one is back).
+    """
+    if limits.cpu_quota_percent is not None:
+        raise DeploymentError(
+            f"{app.domain} runs in the PHP-FPM every PHP application shares; a CPU quota "
+            "cannot be given to its pool alone",
+            details="Leave the CPU limit out: its memory limit and task limit (the pool's "
+            "workers) apply.",
+        )
+    service = set_pool_limits(
+        app, memory_max_mb=limits.memory_max_mb, tasks_max=limits.tasks_max, logger=log
+    )
+    return _record_limits(app, limits, (service,), True, store)
 
 
 def _record_limits(
@@ -2519,7 +2563,7 @@ def _delete_app(
     if app is not None and app.app_type == PHP_FPM and not is_rehearsal():
         # A pool left behind keeps workers running for a deleted application.
         try:
-            remove_pool_of(app_path.name, log)
+            remove_pool_of(app_path, log)
         except WASMError as exc:
             failed("Its PHP-FPM pool was not removed", exc)
 

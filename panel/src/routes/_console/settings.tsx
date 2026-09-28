@@ -14,7 +14,7 @@ function SettingsLayout() {
   const t = useT();
   return (
     <>
-      <PageHeader title="Settings" description="How WASM runs on this machine and who can reach the console." />
+      <PageHeader title={t("settings.page.title")} description={t("settings.page.description")} />
       <LinkTabs label={t("nav.landmarks.settingsSections")} tabs={SETTINGS_TABS} className="-mt-4 mb-8" />
       {/* Every settings page is a form: it keeps the measure it was designed at rather than
           stretching its fields across a wide screen. */}

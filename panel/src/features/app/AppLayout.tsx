@@ -139,7 +139,7 @@ export function AppLayout({ domain }: { domain: string }) {
   const cert = findCertificate(certs.data, domain);
   const job = useAppJob(domain);
 
-  const base = appStatus(app.data?.status);
+  const base = appStatus(app.data?.status, t.locale);
   // A job running on the app is its state, whatever systemd says about the unit meanwhile.
   const view: StatusView = job.running
     ? { state: "deploying", label: jobWords(job.running.type, domain, t.locale).running, attention: false }

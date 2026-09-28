@@ -325,14 +325,17 @@ describe("in Spanish", () => {
     await act(() => setLocale("es"));
     await appAt();
     const top = header();
-    // The state word itself comes from a shared, not-yet-translated helper (components/page/status.ts).
-    await within(top).findByText("Running");
+    expect(await within(top).findByText("En ejecución")).toBeInTheDocument();
     expect(within(top).getByText("Puerto")).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Secciones de la aplicación" })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Actualizar" })).toBeInTheDocument();
     expect(await screen.findByText("Quedan 29 días")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Dominios" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Tiempo de ejecución" })).toBeInTheDocument();
+    // The last deploys, as dots named by their outcome, and the newest in words.
+    expect(await screen.findByRole("link", { name: /^Despliegue 12: Fallido c07d5e3/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^Despliegue 11: Correcto 9f2c41a/ })).toBeInTheDocument();
+    expect(screen.getByText(/Último despliegue: fallido,/)).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 });

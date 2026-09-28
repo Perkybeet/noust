@@ -11,7 +11,7 @@ import { Skeleton } from "../components/ui/Skeleton";
 import { StatusGlyph, StatusPill } from "../components/ui/StatusPill";
 import { Tooltip } from "../components/ui/Tooltip";
 import { cx } from "../lib/cx";
-import { formatDuration } from "../lib/format";
+import { formatDuration, formatLoad } from "../lib/format";
 import { useStreamStatus } from "../realtime/events";
 
 /** The one sentence that says what the unit tally means, for the tooltip and the link's accessible name alike. */
@@ -43,15 +43,15 @@ function Load({ machine }: { machine: Machine }) {
   return (
     <div
       className="flex items-center gap-2"
-      title={t("shell.machine.loadAverage", { one: one.toFixed(2), five: five.toFixed(2), fifteen: fifteen.toFixed(2) })}
+      title={t("shell.machine.loadAverage", { one: formatLoad(one, t.locale), five: formatLoad(five, t.locale), fifteen: formatLoad(fifteen, t.locale) })}
     >
       <span className="text-12 text-fg-muted">{t("shell.machine.load")}</span>{" "}
       <svg width="48" height="18" viewBox="0 0 48 18" aria-hidden="true" className="shrink-0 text-fg-muted">
         <path d={sparklinePath(machine.load_history, 48, 18)} fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" />
       </svg>
-      <span className="mono text-13 text-fg">{one.toFixed(2)}</span>{" "}
+      <span className="mono text-13 text-fg">{formatLoad(one, t.locale)}</span>{" "}
       <span className="sr-only">
-        {t("shell.machine.loadDetail", { five: five.toFixed(2), fifteen: fifteen.toFixed(2) })}
+        {t("shell.machine.loadDetail", { five: formatLoad(five, t.locale), fifteen: formatLoad(fifteen, t.locale) })}
       </span>
     </div>
   );

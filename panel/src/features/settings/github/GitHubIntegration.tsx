@@ -14,6 +14,7 @@ import { Button } from "../../../components/ui/Button";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
+import { ExternalLink } from "../../../components/ui/ExternalLink";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusGlyph } from "../../../components/ui/StatusPill";
 import { toast } from "../../../components/ui/toast";
@@ -22,7 +23,6 @@ import type { T } from "../../../i18n";
 import { reportActionError } from "../../apps/useAppActions";
 import { SettingsSection } from "../SettingsForm";
 import { CreateGitHubApp } from "./CreateGitHubApp";
-import { ExternalAnchor } from "./ExternalAnchor";
 import { accountTypeWords, hooksState, repositorySelectionWords } from "./github";
 
 const EXPOSE_COMMAND = "wasm web expose-hooks hooks.example.com";
@@ -64,7 +64,7 @@ function AppFacts({ status }: { status: GitHubStatus }) {
           { label: t("settings.integrations.github.appFacts.appId"), value: status.app_id ?? null },
           {
             label: t("settings.integrations.github.appFacts.onGitHub"),
-            value: status.html_url ? <ExternalAnchor href={status.html_url}>{status.html_url.replace(/^https:\/\//, "")}</ExternalAnchor> : null,
+            value: status.html_url ? <ExternalLink href={status.html_url}>{status.html_url.replace(/^https:\/\//, "")}</ExternalLink> : null,
             copy: false,
           },
         ]}
@@ -104,9 +104,9 @@ function Installations({ status }: { status: GitHubStatus }) {
             <Button size="sm" icon={<RotateCw aria-hidden="true" />} loading={sync.isPending} onClick={() => sync.mutate()}>
               {t("settings.integrations.github.installations.syncInstallations")}
             </Button>
-            <ExternalAnchor href={status.install_url} button="secondary" size="sm">
+            <ExternalLink href={status.install_url} button="secondary" size="sm">
               {t("settings.integrations.github.installations.installOnAnother")}
-            </ExternalAnchor>
+            </ExternalLink>
           </>
         )
       }
@@ -118,9 +118,9 @@ function Installations({ status }: { status: GitHubStatus }) {
             <p className="text-13 text-pretty text-fg-muted">{t("settings.integrations.github.installations.nextDescription")}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <ExternalAnchor href={status.install_url} button="primary">
+            <ExternalLink href={status.install_url} button="primary">
               {t("settings.integrations.github.installations.installOnGitHub")}
-            </ExternalAnchor>
+            </ExternalLink>
             <Button icon={<RotateCw aria-hidden="true" />} loading={sync.isPending} onClick={() => sync.mutate()}>
               {t("settings.integrations.github.installations.syncInstallations")}
             </Button>
@@ -133,13 +133,13 @@ function Installations({ status }: { status: GitHubStatus }) {
           rows={status.installations}
           getRowId={(installation) => String(installation.installation_id)}
           rowActions={(installation) => (
-            <ExternalAnchor
+            <ExternalLink
               href={installation.settings_url}
               label={t("settings.integrations.github.installations.manageLabel", { account: installation.account })}
               className="text-12"
             >
               <span className="max-sm:sr-only">{t("settings.integrations.github.installations.manage")}</span>
-            </ExternalAnchor>
+            </ExternalLink>
           )}
         />
       )}
@@ -173,7 +173,7 @@ function WebhookState({ status }: { status: GitHubStatus }) {
           <code translate="no" className="mono w-fit max-w-full truncate rounded-control bg-bg-sunken px-2 py-1 text-12 text-fg">
             {url}
           </code>
-          <ExternalAnchor href={status.settings_url}>{t("settings.integrations.github.webhook.openAppSettings")}</ExternalAnchor>
+          <ExternalLink href={status.settings_url}>{t("settings.integrations.github.webhook.openAppSettings")}</ExternalLink>
         </>
       ) : state === "active" ? (
         <>
@@ -235,7 +235,7 @@ function RemoveApp({ status, onRemoved }: { status: GitHubStatus; onRemoved: (se
             {status.settings_url ? (
               <>
                 {": "}
-                <ExternalAnchor href={status.settings_url}>{t("settings.integrations.github.remove.confirmDescriptionLink")}</ExternalAnchor>
+                <ExternalLink href={status.settings_url}>{t("settings.integrations.github.remove.confirmDescriptionLink")}</ExternalLink>
               </>
             ) : null}
             .
@@ -288,7 +288,7 @@ export function GitHubIntegration() {
             <div role="status" className="flex min-w-0 flex-col gap-2 rounded-card border border-border bg-bg-sunken p-4">
               <p className="text-13 font-medium text-fg">{t("settings.integrations.github.removedNotice")}</p>
               <p className="text-13 text-pretty text-fg-muted">{t("settings.integrations.github.removedHint")}</p>
-              <ExternalAnchor href={removedAt}>{t("settings.integrations.github.deleteOnGitHub")}</ExternalAnchor>
+              <ExternalLink href={removedAt}>{t("settings.integrations.github.deleteOnGitHub")}</ExternalLink>
             </div>
           ) : null}
           <QueryState query={query} label={t("settings.integrations.github.loadingLabel")} skeleton={<GitHubSkeleton />}>

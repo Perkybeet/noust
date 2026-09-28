@@ -102,6 +102,10 @@ COMMAND_TIMEOUT = 300
 #: to probe gets this long to fail before its state is believed.
 SETTLE_SECONDS = 2
 
+#: What a provisioned engine is handed to the workspaces as, for the warning
+#: that says it was not.
+_DATABASE_URL_VARIABLES = {"postgresql": "DATABASE_URL", "redis": "REDIS_URL"}
+
 
 @dataclass(frozen=True)
 class WorkspaceRestart:
@@ -994,15 +998,24 @@ class MonorepoDeployer(AppDeployer):
             self.logger.substep("No databases detected")
             return
 
-        for db_type, db_config in self.databases.items():
+        for db_type, db_config in list(self.databases.items()):
             try:
                 if db_type == "postgresql":
                     self._provision_postgresql(db_config)
                 elif db_type == "redis":
                     self._provision_redis(db_config)
             except WASMError as e:
-                self.logger.warning(f"Database provisioning failed for {db_type}: {e}")
-                self.logger.warning("You may need to configure the database manually")
+                # Its credentials are detection-time guesses, so writing a URL
+                # from them gives the application one that cannot authenticate.
+                del self.databases[db_type]
+                variable = _DATABASE_URL_VARIABLES.get(db_type, "the database URL")
+                self.logger.warning(f"Database provisioning failed for {db_type}: {e.message}")
+                if e.details:
+                    self.logger.warning(e.details)
+                self.logger.warning(
+                    f"{variable} was not written: the workspaces start without it. "
+                    "Fix the cause above and redeploy."
+                )
 
     def _provision_postgresql(self, db_config: DatabaseConfig) -> None:
         """
@@ -1023,7 +1036,11 @@ class MonorepoDeployer(AppDeployer):
                 existing user's real password is reused instead.
 
         Raises:
-            WASMError: Provisioning failed; the caller logs it as a warning.
+            WASMError: Provisioning failed, or the name or the user the
+                repository asks for is not this application's to use (another
+                application's, or the server's own). The caller drops the
+                database from :attr:`databases`, so no URL is written from
+                the detection-time guess, and logs why.
         """
         credentials = provision_database(
             "postgresql",

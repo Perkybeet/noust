@@ -1,12 +1,22 @@
+import { getLocale } from "../../app/locale";
+import { translate } from "../../i18n";
+import type { Locale, PlainKey } from "../../i18n";
 import type { Status } from "../ui/StatusPill";
 
 /** What the console shows for a backend state word, and whether it is a problem. */
 export interface StatusView {
   /** The StatusPill state: colour and shape. */
   state: Status;
-  /** The word on screen, in the backend's vocabulary. */
+  /** The word on screen, in the active language (a word the console does not know, verbatim). */
   label: string;
   /** True when an operator should look at it: it belongs under "Needs attention". */
+  attention: boolean;
+}
+
+/** A word the console knows: its state, the catalog key of its label, and its attention. */
+interface KnownState {
+  state: Status;
+  labelKey: PlainKey;
   attention: boolean;
 }
 
@@ -24,21 +34,25 @@ export interface StatusView {
  * Matching is case-insensitive. A stopped app is not a problem by itself (an operator stops
  * apps on purpose); a crash loop, a unit systemd gave up on, or a port nothing answers on is.
  */
-const APP_STATES: Readonly<Record<string, StatusView>> = {
-  running: { state: "running", label: "Running", attention: false },
-  active: { state: "running", label: "Running", attention: false },
-  static: { state: "static", label: "Static", attention: false },
-  deploying: { state: "deploying", label: "Deploying", attention: false },
-  building: { state: "deploying", label: "Building", attention: false },
-  restarting: { state: "deploying", label: "Restarting", attention: true },
-  activating: { state: "deploying", label: "Starting", attention: false },
-  stopped: { state: "stopped", label: "Stopped", attention: false },
-  inactive: { state: "stopped", label: "Stopped", attention: false },
-  failed: { state: "failed", label: "Failed", attention: true },
-  "no answer": { state: "failed", label: "No answer", attention: true },
-  no_answer: { state: "failed", label: "No answer", attention: true },
-  unknown: { state: "unknown", label: "Unknown", attention: true },
+const APP_STATES: Readonly<Record<string, KnownState>> = {
+  running: { state: "running", labelKey: "common.appState.running", attention: false },
+  active: { state: "running", labelKey: "common.appState.running", attention: false },
+  static: { state: "static", labelKey: "common.appState.static", attention: false },
+  deploying: { state: "deploying", labelKey: "common.appState.deploying", attention: false },
+  building: { state: "deploying", labelKey: "common.appState.building", attention: false },
+  restarting: { state: "deploying", labelKey: "common.appState.restarting", attention: true },
+  activating: { state: "deploying", labelKey: "common.appState.starting", attention: false },
+  stopped: { state: "stopped", labelKey: "common.appState.stopped", attention: false },
+  inactive: { state: "stopped", labelKey: "common.appState.stopped", attention: false },
+  failed: { state: "failed", labelKey: "common.appState.failed", attention: true },
+  "no answer": { state: "failed", labelKey: "common.appState.noAnswer", attention: true },
+  no_answer: { state: "failed", labelKey: "common.appState.noAnswer", attention: true },
+  unknown: { state: "unknown", labelKey: "common.appState.unknown", attention: true },
 };
+
+function known(view: KnownState, locale: Locale): StatusView {
+  return { state: view.state, label: translate(locale, view.labelKey), attention: view.attention };
+}
 
 function capitalise(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
@@ -47,11 +61,14 @@ function capitalise(text: string): string {
 /**
  * Maps an application's status to what the console draws. A word the console does not know
  * is still shown, verbatim, with the unknown shape: the backend's word beats a guess.
+ *
+ * A component passes `t.locale`, so the label follows a language switch.
  */
-export function appStatus(status: string | null | undefined): StatusView {
+export function appStatus(status: string | null | undefined, locale: Locale = getLocale()): StatusView {
   const word = status?.trim() ?? "";
-  if (word === "") return { state: "unknown", label: "Unknown", attention: false };
-  return APP_STATES[word.toLowerCase()] ?? { state: "unknown", label: capitalise(word), attention: false };
+  if (word === "") return { state: "unknown", label: translate(locale, "common.appState.unknown"), attention: false };
+  const view = APP_STATES[word.toLowerCase()];
+  return view ? known(view, locale) : { state: "unknown", label: capitalise(word), attention: false };
 }
 
 /**
@@ -59,28 +76,23 @@ export function appStatus(status: string | null | undefined): StatusView {
  * the job statuses (`pending`, `running`, `completed`, `failed`, `cancelled`), drawn in the
  * same state language as applications.
  */
-const DEPLOY_STATES: Readonly<Record<string, StatusView>> = {
-  queued: { state: "deploying", label: "Queued", attention: false },
-  pending: { state: "deploying", label: "Queued", attention: false },
-  running: { state: "deploying", label: "In progress", attention: false },
-  success: { state: "running", label: "Succeeded", attention: false },
-  completed: { state: "running", label: "Succeeded", attention: false },
-  failed: { state: "failed", label: "Failed", attention: true },
-  rolled_back: { state: "stopped", label: "Rolled back", attention: true },
-  cancelled: { state: "stopped", label: "Cancelled", attention: false },
+const DEPLOY_STATES: Readonly<Record<string, KnownState>> = {
+  queued: { state: "deploying", labelKey: "common.deployState.queued", attention: false },
+  pending: { state: "deploying", labelKey: "common.deployState.queued", attention: false },
+  running: { state: "deploying", labelKey: "common.deployState.inProgress", attention: false },
+  success: { state: "running", labelKey: "common.deployState.succeeded", attention: false },
+  completed: { state: "running", labelKey: "common.deployState.succeeded", attention: false },
+  failed: { state: "failed", labelKey: "common.deployState.failed", attention: true },
+  rolled_back: { state: "stopped", labelKey: "common.deployState.rolledBack", attention: true },
+  cancelled: { state: "stopped", labelKey: "common.deployState.cancelled", attention: false },
 };
 
-/** Maps a deployment's or a job's status to what the console draws. */
-export function deployStatus(status: string | null | undefined): StatusView {
+/** Maps a deployment's or a job's status to what the console draws, in `locale`. */
+export function deployStatus(status: string | null | undefined, locale: Locale = getLocale()): StatusView {
   const word = status?.trim() ?? "";
-  if (word === "") return { state: "unknown", label: "Unknown", attention: false };
-  return (
-    DEPLOY_STATES[word.toLowerCase()] ?? {
-      state: "unknown",
-      label: capitalise(word.replace(/_/g, " ")),
-      attention: false,
-    }
-  );
+  if (word === "") return { state: "unknown", label: translate(locale, "common.deployState.unknown"), attention: false };
+  const view = DEPLOY_STATES[word.toLowerCase()];
+  return view ? known(view, locale) : { state: "unknown", label: capitalise(word.replace(/_/g, " ")), attention: false };
 }
 
 /** Severity order for sorting: problems first, then work in progress, then the quiet states. */

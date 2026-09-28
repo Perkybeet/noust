@@ -13,9 +13,11 @@ from __future__ import annotations
 
 import gzip
 import lzma
+import time
 import urllib.error
 from collections.abc import Callable
 from pathlib import Path
+from xml.etree import ElementTree
 
 import pytest
 
@@ -384,6 +386,27 @@ def test_metadata_with_a_dtd_is_refused() -> None:
         package_index.repomd_primary_href(bomb)
 
 
+def test_a_utf16_encoded_dtd_is_also_refused() -> None:
+    """
+    A byte search for ``<!DOCTYPE`` never matches a UTF-16 document: the
+    marker's ASCII bytes are split by the encoding's null bytes. The DTD
+    must still be refused once expat itself decodes the document.
+    """
+    bomb = (
+        '<?xml version="1.0" encoding="UTF-16"?>'
+        '<!DOCTYPE x [<!ENTITY a "aaaa">]><repomd>&a;</repomd>'
+    ).encode("utf-16")
+    assert b"<!DOCTYPE" not in bomb
+
+    with pytest.raises(ValueError, match="DTD"):
+        package_index.repomd_primary_href(bomb)
+
+
+def test_malformed_xml_still_raises_a_parse_error() -> None:
+    with pytest.raises(ElementTree.ParseError):
+        package_index.repomd_primary_href(b"<repomd><data></repomd>")
+
+
 def test_an_index_that_inflates_past_the_limit_is_refused(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -437,6 +460,61 @@ def test_a_redirect_to_a_private_host_is_refused(resolve) -> None:
         handler.redirect_request(
             request, None, 302, "Found", {}, "https://mirror.internal/Packages.gz"
         )  # type: ignore[arg-type]
+
+
+class _TricklingResponse:
+    """
+    Answers one byte per ``.read()`` call, forever.
+
+    Stands in for a response whose server sends data slower than any single
+    socket operation ever times out at - the case a per-operation
+    ``timeout=`` does not bound on its own.
+    """
+
+    def read(self, _size: int) -> bytes:
+        return b"x"
+
+
+class _FiniteResponse:
+    """Answers from a fixed list of chunks, then signals end of stream."""
+
+    def __init__(self, chunks: list[bytes]) -> None:
+        self._chunks = list(chunks)
+
+    def read(self, _size: int) -> bytes:
+        return self._chunks.pop(0) if self._chunks else b""
+
+
+def test_read_until_refuses_a_response_still_trickling_past_its_deadline() -> None:
+    """The wall clock stops it, even though no single .read() call ever times out."""
+    deadline = time.monotonic() + 0.05
+
+    with pytest.raises(TimeoutError, match="not complete"):
+        package_index._read_until(_TricklingResponse(), deadline)
+
+
+def test_read_until_returns_a_finished_body_before_the_deadline() -> None:
+    deadline = time.monotonic() + 5
+
+    body = package_index._read_until(_FiniteResponse([b"ab", b"cd", b"ef"]), deadline)
+
+    assert body == b"abcdef"
+
+
+def test_read_until_stops_once_past_the_byte_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    It stops as soon as the total crosses the limit, leaving the exact bound
+    to the caller (:func:`package_index.fetch` raises past it) rather than
+    reading a body already over budget forever.
+    """
+    monkeypatch.setattr(package_index, "MAX_INDEX_BYTES", 4)
+    unread = _FiniteResponse([b"ab", b"cd", b"ef", b"gh", b"never read"])
+    deadline = time.monotonic() + 5
+
+    body = package_index._read_until(unread, deadline)
+
+    assert body == b"abcdef"
+    assert unread._chunks == [b"gh", b"never read"]
 
 
 def test_an_unreadable_source_is_none_not_an_error(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -323,7 +323,7 @@ def test_wordpress_plans_a_database_salts_and_php_settings(
     assert arguments["php_shared_from_release"] == ["wp-content"]
     assert "wasm_env" in arguments["php_files"]["wp-config.php"]
     assert set(arguments["persistent_paths"]) >= {"wp-content", "wp-config.php"}
-    assert arguments["health_expect"] == "200-399"
+    assert arguments["initial_health"] == ("/", "200-399", None)
     assert plan.notes[0].startswith(f"Open https://{DOMAIN}/wp-admin/install.php")
 
 
@@ -385,10 +385,8 @@ def test_an_unavailable_recipe_is_refused_with_its_reason(store: WASMStore) -> N
     assert "MySQL 8" in failure.value.details
 
 
-def test_finishing_links_the_database_and_sets_the_health_check(
-    store: WASMStore, provisioned: list[dict[str, Any]]
-) -> None:
-    """The row the deployment created learns about both."""
+def test_finishing_links_the_database(store: WASMStore, provisioned: list[dict[str, Any]]) -> None:
+    """The row learns its database; its health check came with the deployment."""
     plan = plan_recipe("umami", DOMAIN, port=3000, ssl=True, logger=Logger(verbose=False))
     store.create_database(Database(name="site_example_com_db", engine="postgresql"))
     store.create_app(App(domain=DOMAIN, app_type="nodejs"))
@@ -397,7 +395,7 @@ def test_finishing_links_the_database_and_sets_the_health_check(
 
     app = store.get_app(DOMAIN)
     assert app is not None
-    assert (app.health_path, app.health_expect) == ("/api/heartbeat", "200")
+    assert (app.health_path, app.health_expect) == (None, None)
     assert store.get_database("site_example_com_db", "postgresql").app_id == app.id
     assert notes and "admin" in notes[0]
 

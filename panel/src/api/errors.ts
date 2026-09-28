@@ -9,6 +9,9 @@
  * present only for the errors that carry one.
  */
 
+import { getLocale } from "../app/locale";
+import { translate } from "../i18n/translate";
+
 /**
  * 401 codes that mean "these credentials were wrong", as opposed to "there is no session".
  * The login and elevate endpoints answer them; a 401 carrying anything else means the
@@ -62,11 +65,12 @@ export class ApiError extends Error {
 /** The operator closed "Confirm it's you" instead of confirming: the action did not run. */
 export class ElevationCancelledError extends ApiError {
   constructor() {
+    const locale = getLocale();
     super(
       403,
       "elevation_cancelled",
-      "Nothing was changed because the confirmation was cancelled.",
-      "Run the action again and confirm it's you to continue.",
+      translate(locale, "common.apiErrors.elevationCancelled"),
+      translate(locale, "common.apiErrors.elevationCancelledHint"),
     );
     this.name = "ElevationCancelledError";
   }
@@ -149,11 +153,8 @@ export async function errorFromResponse(response: Response): Promise<ApiError> {
 
 /** The server did not answer at all: it is down, restarting, or the network is gone. */
 export function unreachable(cause: unknown): ApiError {
-  const detail = cause instanceof Error && cause.message !== "" ? cause.message : "The request did not reach the server.";
-  return new ApiError(
-    0,
-    "network",
-    detail,
-    "The console could not reach the WASM panel. Check that it is running with `wasm web status`.",
-  );
+  const locale = getLocale();
+  // The browser's own words for what failed, when it has any, are what the operator needs.
+  const detail = cause instanceof Error && cause.message !== "" ? cause.message : translate(locale, "common.apiErrors.unreachable");
+  return new ApiError(0, "network", detail, translate(locale, "common.apiErrors.unreachableHint"));
 }

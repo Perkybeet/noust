@@ -5,6 +5,7 @@ export const time = {
   duration: {
     milliseconds: "{value} ms",
     seconds: "{value}s",
+    minutes: "{value}m",
     minutesSeconds: "{minutes}m {seconds}s",
     hoursMinutes: "{hours}h {minutes}m",
     daysHours: "{days}d {hours}h",

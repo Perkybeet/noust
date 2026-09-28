@@ -372,7 +372,11 @@ def test_plan_takes_secrets_given_and_names_what_it_will_skip(shop: App, cron: F
     assert plan.create.include_www and plan.create.layout == "releases"
     assert f"alias api.{NEW}" in plan.steps
     assert "redirect shop.example.net" in plan.steps
-    assert "cron store-example-org-nightly" in plan.steps
+    assert (
+        "cron store-example-org-nightly [*-*-* 03:00:00] as www-data in the application's "
+        "directory (created disabled): node scripts/nightly.js"
+    ) in plan.steps
+    assert plan.confirm, "a document that creates cron jobs and previews needs a yes"
     skipped = {step.part: step.detail for step in plan.skipped}
     assert "backup destination gone" in skipped
     assert "backup destination offsite" not in skipped
@@ -584,5 +588,6 @@ def test_a_proposal_becomes_a_document_the_plan_accepts(store: WASMStore) -> Non
     assert plan.create.app_type == "python"
     assert plan.create.port == 8080
     assert plan.create.persistent_paths == ("uploads",)
-    assert "health check" in plan.steps
+    assert any(step.startswith("health check /healthz") for step in plan.steps)
+    assert plan.create.initial_health == ("/healthz", None, 120)
     assert [step.part for step in plan.skipped] == ["database (postgresql)"]

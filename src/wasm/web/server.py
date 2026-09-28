@@ -562,7 +562,12 @@ def deployment_notification(job: Any) -> NotificationEvent | None:
         title = _optional_domain_title(
             "restore_succeeded_title", "restore_succeeded_title_no_domain", locale, domain_str
         )
-        body = ""
+        # v2.2.1 carried the backup id in the job's own description, reused
+        # verbatim as the body; that text is out of scope for translation
+        # (see wasm.core.messages), so the id travels through the catalog
+        # instead of being dropped.
+        backup_id = job.metadata.get("backup_id")
+        body = message("restore_succeeded_body", locale, backup_id=backup_id) if backup_id else ""
 
     return NotificationEvent(kind=kind, title=title, body=body, domain=domain_str)
 
@@ -717,7 +722,7 @@ class JobNotificationSubscriber:
         title = (
             message("deploy_failed_title", locale, domain=domain_str)
             if domain_str
-            else f"{job.name} failed"
+            else message("deploy_failed_title_no_domain", locale, name=job.name)
         )
         return NotificationEvent(
             kind="deploy_failed",

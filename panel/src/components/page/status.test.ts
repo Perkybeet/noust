@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
+import { loadCatalog } from "../../i18n";
 import { STATE_RANK, appStatus, deployStatus } from "./status";
 
 describe("appStatus", () => {
@@ -57,6 +58,20 @@ describe("deployStatus", () => {
 
   it("keeps an unknown word readable", () => {
     expect(deployStatus("half_done").label).toBe("Half done");
+  });
+});
+
+describe("in Spanish", () => {
+  beforeAll(() => loadCatalog("es"));
+
+  it("says the words it knows in the language it is given, and an unknown word verbatim", () => {
+    expect(appStatus("running", "es").label).toBe("En ejecución");
+    expect(appStatus("No answer", "es")).toEqual({ state: "failed", label: "Sin respuesta", attention: true });
+    expect(appStatus(null, "es").label).toBe("Desconocido");
+    expect(appStatus("degraded", "es").label).toBe("Degraded");
+    expect(deployStatus("success", "es").label).toBe("Correcto");
+    expect(deployStatus("rolled_back", "es").label).toBe("Revertido");
+    expect(deployStatus("half_done", "es").label).toBe("Half done");
   });
 });
 

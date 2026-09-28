@@ -80,7 +80,7 @@ function SchedulePreview({ schedule }: { schedule: string }) {
         <ul className="flex flex-col gap-1">
           {preview.data.next_runs.map((run) => (
             <li key={run} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-13">
-              <span className="mono text-12 text-fg-muted">{absoluteWithOffset(run)}</span>
+              <span className="mono text-12 text-fg-muted">{absoluteWithOffset(run, t.locale)}</span>
               <RelativeTime value={run} />
             </li>
           ))}

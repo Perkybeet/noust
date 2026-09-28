@@ -63,7 +63,7 @@ export function DatabasesPage() {
         >
           <QueryState
             query={databases}
-            label="databases"
+            label={t("databases.queryLabels.databases")}
             // The table itself with placeholder rows, and the hint under it: the loaded shape.
             skeleton={
               <div className="flex flex-col gap-3">

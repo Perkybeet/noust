@@ -205,7 +205,7 @@ export function DatabaseBackups({ engine, database }: { engine: string; database
     >
       <QueryState
         query={backups}
-        label="backups"
+        label={t("databases.queryLabels.backups")}
         skeleton={
           <div aria-hidden="true" className="flex flex-col gap-2">
             {[0, 1].map((i) => (

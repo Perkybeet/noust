@@ -318,6 +318,43 @@ describe("another platform's configuration", () => {
     await waitFor(() => {
       expect(backend.callsTo("POST /api/apps")).toHaveLength(1);
     });
-    expect(backend.callsTo("POST /api/apps")[0]?.body).toMatchObject({ port: 8080, persistent_paths: ["data"], app_type: "nodejs" });
+    expect(backend.callsTo("POST /api/apps")[0]?.body).toMatchObject({
+      port: 8080,
+      persistent_paths: ["data"],
+      app_type: "nodejs",
+      health_path: "/healthz",
+      health_timeout: 60,
+    });
+  });
+
+  it("shows the server's refusal of its health check next to it, and takes it back when turned off", { timeout: 20_000 }, async () => {
+    const { backend, harness } = wizard("api.example.com", {}, {
+      "POST /api/apps/inspect": () => json(200, INSPECTION),
+      "POST /api/apps": () =>
+        problem(400, "validationerror", "Health path must start with /", { fields: { health_path: "Health path must start with /" } }),
+    });
+    const { user } = harness;
+    await screen.findByRole("heading", { level: 1, name: "New application" });
+    await user.type(screen.getByLabelText("Repository or directory"), "/srv/api");
+    await user.click(screen.getByRole("button", { name: "Inspect source" }));
+    await screen.findByRole("heading", { level: 2, name: "Review" });
+    await user.type(screen.getByLabelText("Domain"), "api.example.com");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(await screen.findByRole("button", { name: "Deploy api.example.com" }));
+
+    await screen.findByRole("heading", { level: 2, name: "Review" });
+    const panel = screen.getByRole("region", { name: "Found a Railway configuration (railway.toml)" });
+    expect(within(panel).getByRole("alert")).toHaveTextContent(/The server refused this health check/);
+    expect(within(panel).getByText("Health path must start with /")).toBeInTheDocument();
+    await expectNoAxeViolations(harness.container);
+
+    await user.click(within(panel).getByRole("checkbox", { name: "Use what it proposes" }));
+    expect(within(panel).queryByRole("alert")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(await screen.findByRole("button", { name: "Deploy api.example.com" }));
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/apps")).toHaveLength(2);
+    });
+    expect(backend.callsTo("POST /api/apps")[1]?.body).not.toHaveProperty("health_path");
   });
 });

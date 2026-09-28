@@ -112,7 +112,7 @@ export function GrantDialog({ mode, user, open, onOpenChange }: GrantDialogProps
           </p>
           <QueryState
             query={privileges}
-            label="privileges"
+            label={t("databases.queryLabels.privileges")}
             skeleton={
               <div aria-hidden="true" className="grid grid-cols-2 gap-x-4 gap-y-2">
                 {[0, 1, 2, 3].map((i) => (

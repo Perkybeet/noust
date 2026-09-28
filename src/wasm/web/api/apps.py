@@ -51,6 +51,7 @@ from wasm.deployers.helpers.env_manager import redact_url_credentials
 from wasm.deployers.helpers.health_gate import HealthCheck
 from wasm.deployers.helpers.layout import RELEASES
 from wasm.deployers.helpers.package_manager import SUPPORTED_PACKAGE_MANAGERS
+from wasm.deployers.helpers.php_fpm import is_php_fpm
 from wasm.deployers.inspect import SourceInspection, inspect_source
 from wasm.deployers.lifecycle import (
     activate_release,
@@ -60,6 +61,7 @@ from wasm.deployers.lifecycle import (
     set_resource_limits,
 )
 from wasm.deployers.migrate import MigrationPlan, plan_migration
+from wasm.deployers.php_fpm import control_pool
 from wasm.deployers.registry import DeployerRegistry, available_types
 from wasm.deployers.releases import is_release_id
 from wasm.managers.backup_manager import RollbackManager
@@ -1316,9 +1318,20 @@ def _service_action(domain: str, action: str, past_tense: str) -> AppActionRespo
     Raises:
         HTTPException: 404 when the application has no unit.
         ServiceError: When systemd refuses the operation.
+        DeploymentError: When a PHP application's pool cannot be controlled.
     """
     validated = strict_domain(domain)
     app_name = domain_to_app_name(validated)
+
+    app = get_store().get_app(validated)
+    if app is not None and is_php_fpm(app):
+        # Its pool, not a unit: the same control the CLI uses.
+        detail = control_pool(app, action)
+        return AppActionResponse(
+            success=True,
+            message=f"Application {past_tense}: {validated}. {detail}",
+            domain=validated,
+        )
 
     manager = ServiceManager(verbose=False)
     if not manager.get_status(app_name).get("exists"):

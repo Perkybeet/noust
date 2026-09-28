@@ -45,6 +45,9 @@ from wasm.validators.environment import validate_environment
 #: does every later update.
 RECIPE_SOURCES_DIR = "recipe-sources"
 
+#: A health check as ``BaseDeployer.configure`` takes it: path, expect, timeout.
+HealthTriple = tuple[str | None, str | None, int | None]
+
 
 @dataclass(frozen=True)
 class RecipePlan:
@@ -61,7 +64,7 @@ class RecipePlan:
         env_vars: The rendered variables, with the operator's overrides.
         layout: ``releases`` or ``inplace``.
         persistent_paths: What every release shares.
-        options: Deployer-specific settings (PHP, the health check).
+        options: Deployer-specific settings (PHP).
         database: The credentials provisioned, when it has a database.
         notes: What to tell the operator once it is deployed.
     """
@@ -79,13 +82,23 @@ class RecipePlan:
     database: DatabaseCredentials | None = None
     notes: tuple[str, ...] = ()
 
-    def configure_arguments(self) -> dict[str, Any]:
+    def configure_arguments(self, *, health: HealthTriple | None = None) -> dict[str, Any]:
         """
         Say what a deployer's ``configure`` is given, besides the domain.
 
+        The recipe's health check goes in as ``initial_health``, which every
+        deployer records on the new row before its first gate: given as a
+        loose option it reached only the PHP deployer, and every other type
+        judged its first release by ``/`` below 500.
+
+        Args:
+            health: The operator's ``(path, expect, timeout)``, when the
+                caller has one; each value given wins over the recipe's.
+
         Returns:
             Keyword arguments: source, branch, env_vars, layout,
-            persistent_paths and the deployer-specific options.
+            persistent_paths, initial_health and the deployer-specific
+            options.
         """
         return {
             "source": self.source,
@@ -93,8 +106,32 @@ class RecipePlan:
             "env_vars": dict(self.env_vars),
             "layout": self.layout,
             "persistent_paths": list(self.persistent_paths),
+            "initial_health": self.initial_health(health),
             **self.options,
         }
+
+    def initial_health(self, given: HealthTriple | None = None) -> HealthTriple | None:
+        """
+        Merge the recipe's health check with the operator's.
+
+        Args:
+            given: The operator's ``(path, expect, timeout)``, any of them None.
+
+        Returns:
+            The check the new application starts with, or None when neither
+            says anything.
+        """
+        recipe = self.recipe.health
+        ours: HealthTriple = (
+            (recipe.path, recipe.expect, None) if recipe is not None else (None, None, None)
+        )
+        theirs = given or (None, None, None)
+        merged: HealthTriple = (
+            theirs[0] if theirs[0] is not None else ours[0],
+            theirs[1] if theirs[1] is not None else ours[1],
+            theirs[2] if theirs[2] is not None else ours[2],
+        )
+        return merged if any(value is not None for value in merged) else None
 
 
 def recipe_source_dir(app_name: str, store: WASMStore | None = None) -> Path:
@@ -235,9 +272,6 @@ def plan_recipe(
         for extra in [*(php.get("shared_from_release") or []), *files]:
             if extra not in persistent:
                 persistent.append(extra)
-    if recipe.health is not None:
-        options["health_path"] = recipe.health.path
-        options["health_expect"] = recipe.health.expect
 
     notes = tuple(
         render_value(note, context, what=f"Recipe {recipe.name}: note") for note in recipe.notes
@@ -289,7 +323,10 @@ def _render_template_source(
 
 def finish_recipe(plan: RecipePlan, *, logger: Logger, store: WASMStore | None = None) -> list[str]:
     """
-    Link what the deployment created to the recipe's database and health check.
+    Link what the deployment created to the recipe's database.
+
+    The health check is not set here: the deployment recorded it on the new
+    row before its first gate, from :meth:`RecipePlan.configure_arguments`.
 
     Args:
         plan: What the recipe resolved to.
@@ -305,10 +342,5 @@ def finish_recipe(plan: RecipePlan, *, logger: Logger, store: WASMStore | None =
         return list(plan.notes)
     if plan.database is not None:
         store.link_database_to_app(plan.database.name, plan.database.engine, plan.domain)
-    health = plan.recipe.health
-    if health is not None and app.health_path is None and app.health_expect is None:
-        # PHP registers it itself, before its first gate; a process type only
-        # learns it here, for every gate after this deployment.
-        store.set_app_health(plan.domain, path=health.path, expect=health.expect, timeout=None)
-        logger.debug(f"Health check: {health.path} ({health.expect or 'below 500'})")
+        logger.debug(f"Database {plan.database.name} linked to {plan.domain}")
     return list(plan.notes)

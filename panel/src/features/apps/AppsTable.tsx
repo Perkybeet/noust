@@ -32,7 +32,8 @@ function Nothing({ reason }: { reason: string }) {
 
 /** A deployment's outcome as a glyph and when it happened, for dense rows. */
 export function DeployMoment({ deploy }: { deploy: Deployment }) {
-  const view = deployStatus(deploy.status);
+  const t = useT();
+  const view = deployStatus(deploy.status, t.locale);
   return (
     <span className="inline-flex items-center gap-1.5">
       <StatusGlyph state={view.state} size={10} className={TONE_TEXT[STATUS[view.state].tone]} />

@@ -267,7 +267,7 @@ export function auditResultStatus(t: T, result: string): StatusView {
 
 /** A row's result, whichever source it came from, in the app/deploy/job state language. */
 export function resultView(t: T, row: ActivityRow): StatusView {
-  return row.kind === "job" ? deployStatus(row.job.status) : auditResultStatus(t, row.entry.result);
+  return row.kind === "job" ? deployStatus(row.job.status, t.locale) : auditResultStatus(t, row.entry.result);
 }
 
 export interface ActorWords {

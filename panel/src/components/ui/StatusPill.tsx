@@ -10,7 +10,8 @@ type Glyph = "dot" | "arc" | "triangle" | "cross" | "ring" | "square" | "questio
 type Tone = "ok" | "warn" | "fail" | "idle";
 
 interface StatusSpec {
-  label: string;
+  /** The catalog key of the state's default word: whoever prints it calls `t(labelKey)`. */
+  labelKey: PlainKey;
   tone: Tone;
   glyph: Glyph;
 }
@@ -20,29 +21,15 @@ interface StatusSpec {
  * silhouette so the state survives greyscale, colour blindness and a glance.
  */
 export const STATUS: Record<Status, StatusSpec> = {
-  running: { label: "Running", tone: "ok", glyph: "dot" },
-  deploying: { label: "Deploying", tone: "warn", glyph: "arc" },
+  running: { labelKey: "common.statusPill.running", tone: "ok", glyph: "dot" },
+  deploying: { labelKey: "common.statusPill.deploying", tone: "warn", glyph: "arc" },
   // Amber like work in progress, but still: something to look at (an expiring certificate, a
   // health check that warns), which a spinning arc would misread as "busy".
-  warning: { label: "Warning", tone: "warn", glyph: "triangle" },
-  failed: { label: "Failed", tone: "fail", glyph: "cross" },
-  stopped: { label: "Stopped", tone: "idle", glyph: "ring" },
-  static: { label: "Static", tone: "ok", glyph: "square" },
-  unknown: { label: "Unknown", tone: "idle", glyph: "question" },
-};
-
-/**
- * The catalog key of each state's default word (its render, not `STATUS[state].label`, which
- * other areas still read directly as English - see `common.statusPill` in the i18n README).
- */
-const STATUS_LABEL_KEY: Record<Status, PlainKey> = {
-  running: "common.statusPill.running",
-  deploying: "common.statusPill.deploying",
-  warning: "common.statusPill.warning",
-  failed: "common.statusPill.failed",
-  stopped: "common.statusPill.stopped",
-  static: "common.statusPill.static",
-  unknown: "common.statusPill.unknown",
+  warning: { labelKey: "common.statusPill.warning", tone: "warn", glyph: "triangle" },
+  failed: { labelKey: "common.statusPill.failed", tone: "fail", glyph: "cross" },
+  stopped: { labelKey: "common.statusPill.stopped", tone: "idle", glyph: "ring" },
+  static: { labelKey: "common.statusPill.static", tone: "ok", glyph: "square" },
+  unknown: { labelKey: "common.statusPill.unknown", tone: "idle", glyph: "question" },
 };
 
 export const TONE_TEXT: Record<Tone, string> = {
@@ -147,7 +134,7 @@ export function StatusPill({ state, label, appearance = "pill", size = "md", cla
       )}
     >
       <StatusGlyph state={state} size={size === "sm" ? 10 : 12} />
-      {label ?? t(STATUS_LABEL_KEY[state])}
+      {label ?? t(spec.labelKey)}
     </span>
   );
 }

@@ -316,7 +316,7 @@ export function NewAppWizard() {
     } else if (kind === "import") {
       if (loaded !== null && importForm !== null) importing.mutate(importBody(loaded.document, importForm));
     } else if (review !== null && inspected !== null) {
-      create.mutate(createAppBody(inspected.for, review));
+      create.mutate(createAppBody(inspected.for, review, inspected.inspection.platform_proposal ?? null));
     }
   };
 

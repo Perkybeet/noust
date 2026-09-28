@@ -3,9 +3,11 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, ReactElement, ReactNode } from "react";
 import uPlot from "uplot";
 
+import { getLocale } from "../../app/locale";
 import { useT } from "../../i18n";
-import type { T } from "../../i18n";
+import type { Locale, T } from "../../i18n";
 import { cx } from "../../lib/cx";
+import { formatClock, formatDate, formatDecimal, formatMoment } from "../../lib/format";
 import { isHttpUrl } from "../../lib/url";
 import { Button } from "./Button";
 import { Dialog } from "./Dialog";
@@ -143,8 +145,6 @@ export function valueAxisSize(u: Pick<uPlot, "ctx">, values: readonly string[] |
   return Math.max(VALUE_AXIS_MIN, Math.ceil(width + VALUE_AXIS_PADDING));
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
-
 /** The span, in seconds, past which an axis or table needs a date rather than a bare clock. */
 const TWO_DAYS = 2 * 86_400;
 /** Below this, a short range (an hour, say) still gets a date if it happens to cross
@@ -152,28 +152,21 @@ const TWO_DAYS = 2 * 86_400;
  * midnight by construction and stays a bare clock regardless. */
 const HALF_DAY = 43_200;
 
-function formatTime(seconds: number): string {
-  // 24-hour clock: shorter on the axis and the way server logs print time.
-  return new Date(seconds * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-}
-
 function isMidnightLocal(date: Date): boolean {
   return date.getHours() === 0 && date.getMinutes() === 0;
 }
 
-function formatDateOnly(date: Date): string {
-  return `${MONTHS[date.getMonth()] ?? ""} ${String(date.getDate())}`;
-}
-
 /**
  * A moment in the format its span calls for: a bare 24-hour clock under about two days, the
- * date and time beyond it ("Sep 25 14:00"), or the bare date at a tick that lands exactly on
- * midnight. Shared by the axis and the table's time column, so both read the same way.
+ * date and time beyond it ("Sep 25 14:00", "25 sept 14:00"), or the bare date at a tick that
+ * lands exactly on midnight. Shared by the axis and the table's time column, so both read the
+ * same way.
  */
-export function formatChartTime(seconds: number, withDate: boolean): string {
-  if (!withDate) return formatTime(seconds);
+export function formatChartTime(seconds: number, withDate: boolean, locale: Locale = getLocale()): string {
   const date = new Date(seconds * 1000);
-  return isMidnightLocal(date) ? formatDateOnly(date) : `${formatDateOnly(date)} ${formatTime(seconds)}`;
+  if (!withDate) return formatClock(date, locale);
+  const day = formatDate(date, { year: false }, locale);
+  return isMidnightLocal(date) ? day : `${day} ${formatClock(date, locale)}`;
 }
 
 /**
@@ -330,7 +323,7 @@ function markerAffordance(marker: ChartMarker, children: ReactNode, className: s
 export type ChartWindow = readonly [number, number];
 
 function defaultFormat(value: number): string {
-  return value.toLocaleString(undefined, { maximumFractionDigits: 1 });
+  return formatDecimal(value);
 }
 
 /** The first and last index whose moment is inside `window` (all of them without one). */
@@ -343,8 +336,8 @@ export function visibleBounds(timestamps: readonly number[], window: ChartWindow
 }
 
 /** The moment in full, for assistive technology: "Sep 25, 2026, 14:32:05". */
-function absoluteTime(seconds: number): string {
-  return new Date(seconds * 1000).toLocaleString([], { dateStyle: "medium", timeStyle: "medium", hourCycle: "h23" });
+function absoluteTime(seconds: number, locale: Locale): string {
+  return formatMoment(new Date(seconds * 1000), locale);
 }
 
 /** What the readout says of one sample, e.g. "14:32, CPU 12.4%". */
@@ -360,7 +353,7 @@ export function readoutWords(
     const value = s.values[index];
     return `${s.label} ${value === null || value === undefined ? t("common.chart.noReading") : format(value)}`;
   });
-  return [formatChartTime(seconds, withDate), ...values].join(", ");
+  return [formatChartTime(seconds, withDate, t.locale), ...values].join(", ");
 }
 
 /**
@@ -433,6 +426,7 @@ function ChartBody({
   const formatRef = useRef(formatValue);
   const markersRef = useRef<readonly ChartMarker[]>(markers ?? []);
   const withDateRef = useRef(withDate);
+  const localeRef = useRef(t.locale);
   const onZoomRef = useRef(onZoom);
   const hintId = useId();
   const zoomable = onZoom !== undefined;
@@ -441,6 +435,7 @@ function ChartBody({
     formatRef.current = formatValue;
     markersRef.current = markers ?? [];
     withDateRef.current = withDate;
+    localeRef.current = t.locale;
     onZoomRef.current = onZoom;
   });
 
@@ -499,7 +494,7 @@ function ChartBody({
           // A date+time label is much wider than a clock: fewer, well-spaced ticks so
           // neither collides at a narrow width, rather than uPlot's fixed default.
           space: () => (withDateRef.current ? 92 : 56),
-          values: (_u, splits) => splits.map((s) => formatChartTime(s, withDateRef.current)),
+          values: (_u, splits) => splits.map((s) => formatChartTime(s, withDateRef.current, localeRef.current)),
         },
         {
           stroke: () => palette.axis,
@@ -592,6 +587,11 @@ function ChartBody({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [asTable, height, labels, zoomable, yRange?.[0], yRange?.[1]]);
 
+  // The canvas axis is drawn by uPlot, not React: redraw its labels in a new language.
+  useEffect(() => {
+    plotRef.current?.redraw(false, true);
+  }, [t.locale]);
+
   const zoomFrom = zoom?.[0];
   const zoomTo = zoom?.[1];
   useEffect(() => {
@@ -667,8 +667,8 @@ function ChartBody({
             t("common.chart.latest")
           ) : (
             <time dateTime={new Date(shownAt * 1000).toISOString()}>
-              <span aria-hidden="true">{formatChartTime(shownAt, withDate)}</span>
-              <span className="sr-only">{absoluteTime(shownAt)}</span>
+              <span aria-hidden="true">{formatChartTime(shownAt, withDate, t.locale)}</span>
+              <span className="sr-only">{absoluteTime(shownAt, t.locale)}</span>
             </time>
           )}
         </span>
@@ -722,7 +722,7 @@ function ChartBody({
                   .reverse()
                   .map(({ moment, i }) => (
                     <tr key={moment} className="border-t border-border">
-                      <td className="mono px-3 py-1 text-fg-muted">{formatChartTime(moment, withDate)}</td>
+                      <td className="mono px-3 py-1 text-fg-muted">{formatChartTime(moment, withDate, t.locale)}</td>
                       {series.map((s) => {
                         const v = s.values[i];
                         return (
@@ -919,8 +919,8 @@ function ChartDialog({ open, onOpenChange, description, rangeSelector, ...body }
           {active === null
             ? t("common.chart.dragToZoom")
             : t("common.chart.zoomedRange", {
-                from: formatChartTime(active[0], body.withDate),
-                to: formatChartTime(active[1], body.withDate),
+                from: formatChartTime(active[0], body.withDate, t.locale),
+                to: formatChartTime(active[1], body.withDate, t.locale),
               })}
         </p>
       </div>

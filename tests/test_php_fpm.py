@@ -175,6 +175,8 @@ def spec(**overrides: Any) -> PoolSpec:
         "group": "www-data",
         "listen_group": "www-data",
         "socket": Path(f"/run/php/wasm-{APP}.sock"),
+        "root": Path(f"/var/www/apps/{APP}"),
+        "tmp_dir": Path(f"/var/www/apps/.wasm-php-tmp/{APP}"),
         "env": {"DB_NAME": "blog", "SALT": 'a$b;c"d'},
     }
     values.update(overrides)
@@ -618,7 +620,7 @@ WORDPRESS_OPTIONS: dict[str, Any] = {
     "php_shared_from_release": ["wp-content"],
     "php_files": {"wp-config.php": "<?php /* reads getenv() */\n"},
     "persistent_paths": ["wp-content", "wp-config.php"],
-    "health_expect": "200-399",
+    "initial_health": ("/", "200-399", None),
 }
 
 
@@ -817,16 +819,20 @@ def test_a_rollback_uses_the_php_gate(
 def test_deleting_the_app_removes_its_pool(
     tmp_path: Path, machine: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A stale pool would keep workers for a deleted application."""
+    """A stale pool would keep workers for a deleted application, and its tmp its sessions."""
     monkeypatch.setattr(fpm_module, "FPM_CONTROL_TIMEOUT", 1)
     machine.pool.write_text("[pool]\n")
+    tmp = fpm_module.pool_tmp_dir(machine.root)
+    tmp.mkdir(parents=True)
+    (tmp / "sess_x").write_text("s")
     runner = FakeRunner()
     monkeypatch.setattr(php_module, "get_runner", lambda: runner)
 
-    assert php_module.remove_pool_of(APP, Logger(verbose=False)) is True
+    assert php_module.remove_pool_of(machine.root, Logger(verbose=False)) is True
     assert not machine.pool.exists()
+    assert not tmp.exists()
     assert runner.ran("systemctl", "reload-or-restart", "php8.2-fpm")
-    assert php_module.remove_pool_of(APP, Logger(verbose=False)) is False
+    assert php_module.remove_pool_of(machine.root, Logger(verbose=False)) is False
 
 
 def test_health_gate_for_app_reads_the_settings_file(

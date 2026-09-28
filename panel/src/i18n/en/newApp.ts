@@ -154,7 +154,7 @@ export const newApp = {
   proposal: {
     found: "Found a {platform} configuration ({files})",
     use: "Use what it proposes",
-    useDescription: "Fills in the port, the variables and the persistent paths below. Off, the review starts from what WASM detected.",
+    useDescription: "Fills in the port, the variables and the persistent paths below, and checks its health from the first deploy. Off, the review starts from what WASM detected.",
     commandsNote: "For reference only: WASM installs, builds and starts the app with the chosen type's own commands.",
     install: "Install",
     build: "Build",
@@ -163,7 +163,7 @@ export const newApp = {
     healthPath: "GET {path}",
     healthTimeout: "GET {path}, waiting up to {seconds} s",
     healthTimeoutOnly: "Waiting up to {seconds} s",
-    healthNote: "Set it from the app's Settings once it is deployed; the first deploy uses WASM's own check.",
+    healthRefused: "The server refused this health check. Turn off what it proposes, or fix it in the platform's configuration and inspect again.",
     databases: "Databases",
     databasesNote: "Create them from Databases, then set their connection variables below.",
     domains: "Domains",
@@ -402,8 +402,5 @@ export const newApp = {
       previews: "previews",
       zeroDowntime: "zero-downtime",
     },
-  },
-  external: {
-    newTab: "(opens in a new tab)",
   },
 } as const;

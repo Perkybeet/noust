@@ -17,6 +17,9 @@ export const common: Catalog<typeof en> = {
   dialog: {
     close: "Cerrar",
   },
+  externalLink: {
+    opensInNewTab: "(se abre en una pestaña nueva)",
+  },
   field: {
     optional: "Opcional",
   },
@@ -47,6 +50,22 @@ export const common: Catalog<typeof en> = {
     newLines: "líneas nuevas",
     empty: "Todavía no hay salida.",
   },
+  apiErrors: {
+    elevationCancelled: "No se ha cambiado nada porque se canceló la confirmación.",
+    elevationCancelledHint: "Vuelve a ejecutar la acción y confirma que eres tú para continuar.",
+    unreachable: "La solicitud no llegó al servidor.",
+    unreachableHint: "La consola no pudo contactar con el panel de WASM. Comprueba que está en ejecución con `wasm web status`.",
+  },
+  streams: {
+    logFailed: "Falló la transmisión de registros.",
+    jobFailed: "Falló la transmisión de la tarea.",
+  },
+  rateLimit: {
+    title: "Demasiadas solicitudes",
+    retrying: "Se reintentará automáticamente en {wait}.",
+    tryAgain: "Vuelve a intentarlo en {wait}.",
+    tryAgainShortly: "Vuelve a intentarlo en unos momentos.",
+  },
   toast: {
     dismiss: "Descartar notificación",
     systemSaid: "Lo que dijo el sistema",
@@ -59,6 +78,27 @@ export const common: Catalog<typeof en> = {
     failed: "Fallido",
     stopped: "Detenido",
     static: "Estático",
+    unknown: "Desconocido",
+  },
+  appState: {
+    running: "En ejecución",
+    static: "Estático",
+    deploying: "Desplegando",
+    building: "Compilando",
+    restarting: "Reiniciando",
+    starting: "Iniciando",
+    stopped: "Detenido",
+    failed: "Fallido",
+    noAnswer: "Sin respuesta",
+    unknown: "Desconocido",
+  },
+  deployState: {
+    queued: "En cola",
+    inProgress: "En curso",
+    succeeded: "Correcto",
+    failed: "Fallido",
+    rolledBack: "Revertido",
+    cancelled: "Cancelado",
     unknown: "Desconocido",
   },
   errorBlock: {

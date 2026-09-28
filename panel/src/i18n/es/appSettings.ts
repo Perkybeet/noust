@@ -270,6 +270,7 @@ export const appSettings: Catalog<typeof en> = {
     getsPreview: "Los pull requests obtienen una vista previa.",
     getsNoPreview: "Los pull requests no obtienen vista previa hasta que se activan las vistas previas.",
     needsLabel: "Lo que necesitan las vistas previas",
+    baseDomainUnset: "<dominio base>",
     needWildcardTitle: "Un registro DNS comodín",
     needWildcardBody: "{record} apuntando a este servidor. Cada vista previa responde en su propio nombre, como {example}, con su propio certificado.",
     needPrTitle: "Eventos de pull request",

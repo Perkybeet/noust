@@ -4,6 +4,13 @@ import type { Catalog } from "../types";
 export const databases: Catalog<typeof en> = {
   cancel: "Cancelar",
   fromTerminal: "Desde un terminal",
+  queryLabels: {
+    databases: "las bases de datos",
+    engines: "los motores",
+    users: "los usuarios",
+    privileges: "los privilegios",
+    backups: "las copias de seguridad",
+  },
   fields: {
     engine: "Motor",
     database: "Base de datos",

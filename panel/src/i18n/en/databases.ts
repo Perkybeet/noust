@@ -5,6 +5,14 @@
 export const databases = {
   cancel: "Cancel",
   fromTerminal: "From a terminal",
+  /** What is loading, inside "Loading {label}" and "Could not load {label}". */
+  queryLabels: {
+    databases: "databases",
+    engines: "engines",
+    users: "users",
+    privileges: "privileges",
+    backups: "backups",
+  },
   fields: {
     engine: "Engine",
     database: "Database",

@@ -58,6 +58,20 @@ UpdateState = Literal["up_to_date", "update_available", "on_the_way"]
 RELEASES_URL = "https://github.com/Perkybeet/wasm/releases/tag/v{version}"
 
 
+class UpdateCheckInProgress(Exception):
+    """
+    Raised by :meth:`UpdateChecker.check` when it declines to fetch.
+
+    Another call already holds the check's lock and is talking to the
+    network, and there is no cached result - not even a stale one - this
+    call can answer with instead. Concurrent callers otherwise each opened
+    their own connection to the same repository a slow or trickling server
+    was already holding open for someone else, piling every one of them up
+    behind it; a caller that catches this - :func:`wasm.web.api.system.check_version`
+    does - answers "checking" rather than waiting.
+    """
+
+
 def _location() -> str:
     """
     Where the running WASM is installed: the installation's fingerprint.
@@ -183,6 +197,12 @@ class UpdateChecker:
     _check_thread: threading.Thread | None = None
     _pending: VersionCheck | None = None
 
+    #: Held by whichever call is actually talking to the network in
+    #: :meth:`check`, so a burst of concurrent callers - several console tabs
+    #: hitting ``GET /api/system/version`` at once - never opens more than one
+    #: connection to the same repository between them.
+    _check_lock: threading.Lock = threading.Lock()
+
     @classmethod
     def enabled(cls) -> bool:
         """
@@ -240,7 +260,10 @@ class UpdateChecker:
         Report what can be installed, from the cache while it is fresh.
 
         The one implementation behind the CLI banner and ``GET
-        /api/system/version``.
+        /api/system/version``. Single-flight: when the cache is stale and
+        another call is already fetching, this one does not open a second
+        connection to the same repository beside it - see
+        :attr:`_check_lock` and :class:`UpdateCheckInProgress`.
 
         Returns:
             The cached check when it is younger than :attr:`CHECK_INTERVAL`
@@ -248,42 +271,66 @@ class UpdateChecker:
             written to the cache, otherwise. A new check is written even when
             nothing could be read, so a server without a route out does not
             retry on every command.
+
+        Raises:
+            UpdateCheckInProgress: Another call is fetching right now, and
+                there is no cached result - not even a stale one - to answer
+                with instead.
         """
         cached = cls._cached_check()
         if cached is not None:
             return cached
 
-        previous = cls._read_cache()
-        stale = VersionCheck.from_cache(previous) if previous else None
-        # Detection runs processes; the method only changes with the
-        # installation, which the location already fingerprints.
-        if stale is not None and cls._same_installation(stale):
-            method = stale.method
-        else:
-            method = cls._detect_installation_method()
+        if not cls._check_lock.acquire(blocking=False):
+            # Answering from the disk cache - stale or not - beats every
+            # concurrent caller opening its own connection to the same slow
+            # or trickling repository the one call already in flight is
+            # reading from.
+            existing = VersionCheck.from_cache(cls._read_cache() or {})
+            if existing is not None and cls._same_installation(existing):
+                return existing
+            raise UpdateCheckInProgress("An update check is already in progress")
 
-        published: list[str | None] = [None]
+        try:
+            # The call that held the lock before this one may have just
+            # finished and written a fresh cache while this one waited.
+            cached = cls._cached_check()
+            if cached is not None:
+                return cached
 
-        def read_published() -> None:
-            published[0] = cls._fetch_published_version()
+            previous = cls._read_cache()
+            stale = VersionCheck.from_cache(previous) if previous else None
+            # Detection runs processes; the method only changes with the
+            # installation, which the location already fingerprints.
+            if stale is not None and cls._same_installation(stale):
+                method = stale.method
+            else:
+                method = cls._detect_installation_method()
 
-        # The two sources are independent; reading them side by side keeps
-        # the check inside the moment a short command gives it.
-        github = threading.Thread(target=read_published, daemon=True)
-        github.start()
-        installable = cls._fetch_installable_version(method)
-        github.join(timeout=package_index.TIMEOUT * 3)
+            published: list[str | None] = [None]
 
-        result = VersionCheck(
-            current=__version__,
-            location=_location(),
-            method=method,
-            installable=installable,
-            published=published[0],
-            checked_at=time.time(),
-        )
-        cls._write_cache(result.to_cache())
-        return result
+            def read_published() -> None:
+                published[0] = cls._fetch_published_version()
+
+            # The two sources are independent; reading them side by side keeps
+            # the check inside the moment a short command gives it.
+            github = threading.Thread(target=read_published, daemon=True)
+            github.start()
+            installable = cls._fetch_installable_version(method)
+            github.join(timeout=package_index.TIMEOUT * 3)
+
+            result = VersionCheck(
+                current=__version__,
+                location=_location(),
+                method=method,
+                installable=installable,
+                published=published[0],
+                checked_at=time.time(),
+            )
+            cls._write_cache(result.to_cache())
+            return result
+        finally:
+            cls._check_lock.release()
 
     @classmethod
     def _fetch_published_version(cls) -> str | None:

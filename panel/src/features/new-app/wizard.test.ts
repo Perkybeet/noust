@@ -437,10 +437,19 @@ describe("another platform's configuration", () => {
 
   it("sends what it filled in with the rest of the review", () => {
     const form = { ...initialReview(WITH, { webserver: "nginx", taken: new Map() }), domain: "shop.example.com" };
-    const body = createAppBody({ source: "/srv/app", branch: "" }, form);
-    expect(body).toMatchObject({ port: 8080, persistent_paths: ["data"] });
+    const body = createAppBody({ source: "/srv/app", branch: "" }, form, PROPOSAL);
+    expect(body).toMatchObject({ port: 8080, persistent_paths: ["data"], health_path: "/healthz", health_timeout: 60 });
+    expect(body).not.toHaveProperty("health_expect");
     expect(body.env_vars).toMatchObject({ NODE_ENV: "production" });
     expect(body.env_vars?.["SESSION_SECRET"]).toMatch(/^[A-Za-z0-9_-]{43}$/);
+  });
+
+  it("sends its health check only while it is used, and only the parts it gives", () => {
+    const on = { ...initialReview(WITH, { webserver: "nginx", taken: new Map() }), domain: "shop.example.com" };
+    const off = withProposal(on, WITH, new Map(), false);
+    expect(createAppBody({ source: "/srv/app", branch: "" }, off, PROPOSAL)).not.toHaveProperty("health_path");
+    expect(createAppBody({ source: "/srv/app", branch: "" }, on, { ...PROPOSAL, health_timeout: null })).toMatchObject({ health_path: "/healthz" });
+    expect(createAppBody({ source: "/srv/app", branch: "" }, on, { ...PROPOSAL, health_timeout: null })).not.toHaveProperty("health_timeout");
   });
 
   it("changes nothing for an inspection without one", () => {

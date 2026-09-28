@@ -244,12 +244,18 @@ def get_app_export(
     return AppExportDocument(**document)
 
 
-def import_app_job(plan: ImportPlan, job_context: JobContext | None = None) -> dict[str, Any]:
+def import_app_job(
+    plan: ImportPlan, actor: str = "api", job_context: JobContext | None = None
+) -> dict[str, Any]:
     """
     Carry out an import as a background job.
 
+    The job's log opens with the plan, line by line, so what ran is on
+    record next to what it did.
+
     Args:
         plan: What :func:`plan_import` decided in the request.
+        actor: Who asked, for the audit record of each cron job created.
         job_context: Injected by the job manager.
 
     Returns:
@@ -262,6 +268,11 @@ def import_app_job(plan: ImportPlan, job_context: JobContext | None = None) -> d
     if job_context is not None:
         job_context.set_metadata("domain", plan.domain)
         logger.attach_sink(job_context.log)
+    logger.info(f"Importing {plan.exported_domain} as {plan.domain}")
+    for line in plan.steps:
+        logger.substep(line)
+    for skipped in plan.skipped:
+        logger.substep(f"will not apply {skipped.part}")
 
     def deploy(spec: CreateSpec) -> None:
         deploy_app_job(
@@ -280,10 +291,13 @@ def import_app_job(plan: ImportPlan, job_context: JobContext | None = None) -> d
             cpu_quota_percent=spec.cpu_quota_percent,
             tasks_max=spec.tasks_max,
             env_secret_marks=dict(spec.env_secret_marks),
+            health_path=spec.health_path,
+            health_expect=spec.health_expect,
+            health_timeout=spec.health_timeout,
             job_context=job_context,
         )
 
-    report = apply_import(plan, deploy=deploy, logger=logger)
+    report = apply_import(plan, deploy=deploy, logger=logger, actor=actor)
     if job_context is not None:
         job_context.update("Import complete", 100)
     return report_summary(report)
@@ -301,7 +315,11 @@ def import_app(
     Checked before anything is queued: the document, the domain (409 when
     taken), the source (a local path is the operator's alone, as for ``POST
     /api/apps``) and the secret values the export left out (400 naming every
-    one missing). Sudo mode: it deploys as root.
+    one missing). Sudo mode: it deploys as root, and the document may create
+    cron jobs and previews, which is what the console's confirmation is for.
+    The job's ``metadata.plan`` carries the whole plan (every cron job with
+    its user, directory and command; what previews copy; the reasons it
+    needed confirming), and its log opens with it.
 
     Args:
         body: The document, and what to change about it.
@@ -330,20 +348,29 @@ def import_app(
             raise HTTPException(status_code=503, detail="No available port found")
         plan.create = dataclasses.replace(plan.create, port=port)
 
+    summary = plan_summary(plan)
     job = get_job_manager().create_job(
         job_type=JobType.DEPLOY,
         name=f"Import {plan.domain}",
         description=f"Importing {plan.exported_domain} as {plan.domain}",
         func=import_app_job,
-        kwargs={"plan": plan},
-        metadata={"domain": plan.domain, "app_type": plan.create.app_type, "import": True},
+        kwargs={"plan": plan, "actor": actor_label(session)},
+        metadata={
+            "domain": plan.domain,
+            "app_type": plan.create.app_type,
+            "import": True,
+            "plan": summary,
+        },
         actor=actor_label(session),
     )
-    summary = plan_summary(plan)
     return JobAcceptedResponse(
         job_id=job.id,
         status=job.status.value,
-        message=f"Import queued for {plan.domain}: {len(summary['steps'])} step(s), "
-        f"{len(summary['skipped'])} part(s) that will not be applied",
+        message=f"Import queued for {plan.domain}: {'; '.join(summary['steps'])}"
+        + (
+            f". Will not apply: {', '.join(step['part'] for step in summary['skipped'])}"
+            if summary["skipped"]
+            else ""
+        ),
         job=job.to_dict(),
     )

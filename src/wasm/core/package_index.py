@@ -41,6 +41,7 @@ import json
 import logging
 import lzma
 import re
+import time
 import urllib.error
 import urllib.request
 import zlib
@@ -50,6 +51,7 @@ from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any
 from urllib.parse import urlparse
 from xml.etree import ElementTree
+from xml.parsers import expat
 
 if TYPE_CHECKING:
     from wasm.core.runner import CommandRunner
@@ -70,8 +72,15 @@ PYPI_JSON = f"https://pypi.org/pypi/{PYPI_PACKAGE}/json"
 #: URL names it serves WASM whatever else it is called.
 OBS_PROJECT = "perkybeet"
 
-#: Seconds each request may take.
+#: Seconds a request may take, wall clock, connect through the last byte of
+#: the body. ``timeout=`` on the opener alone only bounds one socket
+#: operation at a time: a server that answers one byte every couple of
+#: seconds never lets any single ``recv`` time out, so :func:`fetch` also
+#: checks a monotonic clock between reads.
 TIMEOUT = 3
+
+#: Bytes read from the network between deadline checks in :func:`fetch`.
+_FETCH_CHUNK = 64 * 1024
 
 #: The most an index may be, compressed or not. The OBS repositories hold one
 #: package; this bounds what a misconfigured or hostile one can make this
@@ -257,7 +266,9 @@ def fetch(url: str, *, accept: str | None = None) -> bytes:
 
     Raises:
         ValueError: When the URL is refused or the body is over the limit.
-        OSError: When the request fails or answers with an error status.
+        OSError: When the request fails, answers with an error status, or the
+            transfer is still not finished :data:`TIMEOUT` seconds after it
+            started (``TimeoutError`` is an ``OSError`` since Python 3.10).
         http.client.HTTPException: When the response is malformed.
     """
     require_public_https(url)
@@ -266,11 +277,52 @@ def fetch(url: str, *, accept: str | None = None) -> bytes:
         headers["Accept"] = accept
     request = urllib.request.Request(url, headers=headers)
     opener = urllib.request.build_opener(_PublicHttpsRedirects())
+    deadline = time.monotonic() + TIMEOUT
     with opener.open(request, timeout=TIMEOUT) as response:
-        body = response.read(MAX_INDEX_BYTES + 1)
+        body = _read_until(response, deadline)
     if len(body) > MAX_INDEX_BYTES:
         raise ValueError(f"{url} is larger than {MAX_INDEX_BYTES} bytes")
-    return bytes(body)
+    return body
+
+
+def _read_until(response: IO[bytes], deadline: float) -> bytes:
+    """
+    Read a response body, refusing to let a trickling server hold it open.
+
+    ``timeout=`` passed to :func:`urllib.request.OpenerDirector.open` bounds
+    one socket operation, not the transfer: a server that answers one byte
+    every couple of seconds never lets any single ``recv`` run past it, so a
+    single ``response.read(N)`` call - which loops internally, at the C
+    level, until ``N`` bytes arrive or the connection closes - can run for as
+    long as the server keeps trickling. Reading in bounded chunks and
+    checking a wall clock between them closes that: no chunk after the
+    deadline is read at all, whatever the per-operation timeout would have
+    allowed.
+
+    Args:
+        response: The open response, positioned at the start of the body.
+        deadline: A :func:`time.monotonic` value; no chunk is read once it
+            has passed.
+
+    Returns:
+        Everything read before the deadline, up to one chunk past
+        :data:`MAX_INDEX_BYTES` (the caller enforces the exact limit).
+
+    Raises:
+        TimeoutError: When the deadline passes before the body is complete.
+    """
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        if time.monotonic() >= deadline:
+            raise TimeoutError(f"Response body not complete within {TIMEOUT}s")
+        chunk = response.read(_FETCH_CHUNK)
+        if not chunk:
+            return b"".join(chunks)
+        chunks.append(chunk)
+        total += len(chunk)
+        if total > MAX_INDEX_BYTES:
+            return b"".join(chunks)
 
 
 def decompress(data: bytes) -> bytes:
@@ -308,6 +360,15 @@ def _parse_xml(data: bytes) -> ElementTree.Element:
     """
     Parse repository metadata, refusing what only an attack would contain.
 
+    The refusal happens inside the expat parser itself - the callback expat
+    invokes the moment it sees ``<!DOCTYPE`` or an entity declaration raises
+    - rather than by searching the raw bytes for those markers first. A byte
+    search only catches an ASCII-ish encoding: a document declaring
+    ``UTF-16`` is still XML expat decodes on its own, and the same
+    ``<!DOCTYPE`` a byte search looks for is then split across null bytes it
+    never matches, which is how a 30 MB document under
+    :data:`MAX_INDEX_BYTES` still expanded past a gigabyte in memory.
+
     Args:
         data: An XML document.
 
@@ -317,11 +378,49 @@ def _parse_xml(data: bytes) -> ElementTree.Element:
     Raises:
         ValueError: When the document declares a DTD or entities, which no
             repomd or primary index does and which entity expansion attacks need.
-        ElementTree.ParseError: When it is not XML.
+        ElementTree.ParseError: When it is not well-formed XML.
     """
-    if b"<!DOCTYPE" in data or b"<!ENTITY" in data:
+
+    def _refuse_dtd(*_args: object) -> None:
         raise ValueError("Repository metadata with a DTD is refused")
-    return ElementTree.fromstring(data)  # noqa: S314 - DTDs refused above, size bounded
+
+    builder = ElementTree.TreeBuilder()
+    # The same namespace separator ElementTree's own XMLParser configures,
+    # so a qualified name arrives as "uri}local" and _fixname below turns it
+    # into ElementTree's "{uri}local" - the form _local() already expects.
+    parser = expat.ParserCreate(None, "}")
+    parser.buffer_text = True
+    parser.ordered_attributes = True
+    parser.StartDoctypeDeclHandler = _refuse_dtd
+    parser.EntityDeclHandler = _refuse_dtd
+    parser.UnparsedEntityDeclHandler = _refuse_dtd
+
+    names: dict[str, str] = {}
+
+    def _fixname(key: str) -> str:
+        try:
+            return names[key]
+        except KeyError:
+            name = "{" + key if "}" in key else key
+            names[key] = name
+            return name
+
+    def _start(tag: str, attr_list: list[str]) -> None:
+        attrib = {_fixname(attr_list[i]): attr_list[i + 1] for i in range(0, len(attr_list), 2)}
+        builder.start(_fixname(tag), attrib)
+
+    def _end(tag: str) -> None:
+        builder.end(_fixname(tag))
+
+    parser.StartElementHandler = _start
+    parser.EndElementHandler = _end
+    parser.CharacterDataHandler = builder.data
+
+    try:
+        parser.Parse(data, True)
+    except expat.ExpatError as exc:
+        raise ElementTree.ParseError(str(exc)) from exc
+    return builder.close()
 
 
 def _local(tag: str) -> str:

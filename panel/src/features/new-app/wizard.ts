@@ -319,8 +319,9 @@ function proposalPort(proposal: PlatformProposal, taken: ReadonlyMap<number, str
  * Fills in, or takes back out, what another platform's configuration proposes: its type, its
  * port, its variables (the ones .env.example does not already declare; a variable the platform
  * generates gets a random value here), and its persistent paths. Commands and the health check
- * are not part of the form: WASM runs the type's own commands, and the health check is set on
- * the application once it exists. Taking it out keeps whatever the operator changed since.
+ * are not part of the form: WASM runs the type's own commands, and the health check is sent as
+ * the proposal says it (`createAppBody`). Taking it out keeps whatever the operator changed
+ * since.
  */
 export function withProposal(form: ReviewForm, inspection: Inspection, taken: ReadonlyMap<number, string>, on: boolean): ReviewForm {
   const proposal = inspection.platform_proposal ?? null;
@@ -499,8 +500,22 @@ export function reviewProblems(form: ReviewForm, context: ReviewContext): Review
   return errors;
 }
 
-/** The request `POST /api/apps` takes, from what the operator reviewed. */
-export function createAppBody(source: SourceForm, form: ReviewForm): CreateAppBody {
+/** The fields of `POST /api/apps` that carry the health check, as its refusals name them. */
+export const HEALTH_FIELDS = ["health_path", "health_expect", "health_timeout"] as const;
+
+/** The health check a proposal asks for, as `POST /api/apps` takes it: only what it says. */
+function proposalHealth(proposal: PlatformProposal): Pick<CreateAppBody, "health_path" | "health_timeout"> {
+  const path = proposal.health_path ?? null;
+  const timeout = proposal.health_timeout ?? null;
+  return { ...(path !== null ? { health_path: path } : {}), ...(timeout !== null ? { health_timeout: timeout } : {}) };
+}
+
+/**
+ * The request `POST /api/apps` takes, from what the operator reviewed. The health check
+ * another platform's configuration proposes goes with it while that proposal is used, so the
+ * first deploy is already gated on it.
+ */
+export function createAppBody(source: SourceForm, form: ReviewForm, proposal: PlatformProposal | null = null): CreateAppBody {
   const env: Record<string, string> = {};
   for (const row of form.env) {
     const name = row.name.trim();
@@ -525,6 +540,7 @@ export function createAppBody(source: SourceForm, form: ReviewForm): CreateAppBo
     memory_max_mb: limits.memory_max_mb,
     cpu_quota_percent: limits.cpu_quota_percent,
     tasks_max: limits.tasks_max,
+    ...(form.useProposal && proposal !== null ? proposalHealth(proposal) : {}),
     env_vars: env,
     skip_database: false,
   };

@@ -18,7 +18,7 @@ import { PersistentPathsField } from "./PersistentPathsField";
 import { PlatformProposalPanel } from "./PlatformProposalPanel";
 import { ResourceLimitsFields } from "./ResourceLimitsFields";
 import { useDomainDnsCheck } from "./useDomainDnsCheck";
-import { hasPort, platformName, typeName, typeOptions, withProposal } from "./wizard";
+import { HEALTH_FIELDS, hasPort, platformName, typeName, typeOptions, withProposal } from "./wizard";
 import type { AppTypeOption, Inspection, Layout, ReviewErrors, ReviewForm, WebServer } from "./wizard";
 
 const LAYOUTS: readonly { value: Layout; label: PlainKey; description: PlainKey }[] = [
@@ -146,7 +146,12 @@ export function ReviewStep({ inspection, types, taken, cores, source, form, erro
       <InspectionReadout inspection={inspection} types={types} source={source} />
 
       {proposal !== null ? (
-        <PlatformProposalPanel proposal={proposal} used={form.useProposal} onUse={(used) => onChange(withProposal(form, inspection, taken, used))} />
+        <PlatformProposalPanel
+          proposal={proposal}
+          used={form.useProposal}
+          onUse={(used) => onChange(withProposal(form, inspection, taken, used))}
+          healthErrors={HEALTH_FIELDS.flatMap((field) => errors[field] ?? [])}
+        />
       ) : null}
 
       <Field

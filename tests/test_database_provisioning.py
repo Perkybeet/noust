@@ -235,7 +235,7 @@ def test_provision_is_idempotent_on_retry(
     assert len(store.list_databases(engine="postgresql")) == 1
 
 
-def test_provision_refuses_existing_user_with_unknown_password(
+def test_provision_refuses_an_existing_user_it_did_not_create(
     store: WASMStore, secrets_root: Path, logger: Logger, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     manager = FakeManager("postgresql", "PostgreSQL")
@@ -253,8 +253,10 @@ def test_provision_refuses_existing_user_with_unknown_password(
             secret_store=secret_store,
         )
 
-    assert "does not know its password" in str(excinfo.value)
-    assert "wasm db user-delete app_user --engine postgresql" in excinfo.value.details
+    # WASM did not create it, so dropping it is not WASM's advice to give
+    # (see tests/test_database_ownership.py for the user WASM did create).
+    assert "WASM did not create" in str(excinfo.value)
+    assert "user-delete" not in excinfo.value.details
 
 
 def test_provision_refuses_database_owned_by_another_app(

@@ -13,9 +13,11 @@ import { useEffect, useRef, useState } from "react";
 
 import { buildPath, expireSession, isApiError } from "../api/client";
 import { wsTicket } from "../api/queries/auth";
+import { getLocale } from "../app/locale";
 import { jobKeys } from "../api/queries/jobs";
 import type { Job } from "../api/queries/jobs";
 import type { LogLine } from "../components/ui/LogViewer";
+import { translate } from "../i18n/translate";
 import { reconnectDelay } from "./backoff";
 
 export type SocketStatus = "connecting" | "open" | "reconnecting" | "closed";
@@ -248,7 +250,7 @@ export function useLogStream(domain: string | null, options: LogStreamOptions = 
           case "error":
             setState((current) => ({
               ...current,
-              error: typeof frame["message"] === "string" ? frame["message"] : "The log stream failed.",
+              error: typeof frame["message"] === "string" ? frame["message"] : translate(getLocale(), "common.streams.logFailed"),
             }));
             return;
           default:
@@ -308,7 +310,7 @@ export function useJobStream(
         if (type === "error") {
           setState((current) => ({
             ...current,
-            error: typeof frame["message"] === "string" ? frame["message"] : "The job stream failed.",
+            error: typeof frame["message"] === "string" ? frame["message"] : translate(getLocale(), "common.streams.jobFailed"),
           }));
           return;
         }

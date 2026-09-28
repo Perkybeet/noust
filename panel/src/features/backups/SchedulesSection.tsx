@@ -140,7 +140,7 @@ export function SchedulesSection() {
     >
       <QueryState
         query={schedules}
-        label="backup schedules"
+        label={t("backups.schedules.queryLabel")}
         skeleton={
           <div aria-hidden="true" className="flex flex-col gap-2">
             {[0, 1].map((i) => (

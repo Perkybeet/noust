@@ -91,6 +91,19 @@
           deny all;
       }
   
+      # Only .php reaches PHP (below); every other PHP extension would be sent
+      # as text, source and credentials included, so it is refused instead.
+      location ~* \.(?:phtml|phar|php[0-9]|inc)$ {
+          deny all;
+      }
+  
+      # What an installation leaves lying around: logs (WordPress's
+      # debug.log), database dumps, editor and backup copies of the
+      # configuration. None of it is ever a page or an asset.
+      location ~* (?:\.(?:log|sql|sqlite3?|bak|backup|old|orig|save|swp|swo|dist)|~)$ {
+          deny all;
+      }
+  
       location ~ \.php$ {
           # Only files that exist: without this, /image.jpg/x.php would ask
           # PHP to run an uploaded image.
@@ -254,6 +267,19 @@
       # A PHP file in an upload directory is somebody's payload, never code
       # the application shipped: it is refused before it can reach PHP.
       location ~* /(?:uploads|files)/.*\.php$ {
+          deny all;
+      }
+  
+      # Only .php reaches PHP (below); every other PHP extension would be sent
+      # as text, source and credentials included, so it is refused instead.
+      location ~* \.(?:phtml|phar|php[0-9]|inc)$ {
+          deny all;
+      }
+  
+      # What an installation leaves lying around: logs (WordPress's
+      # debug.log), database dumps, editor and backup copies of the
+      # configuration. None of it is ever a page or an asset.
+      location ~* (?:\.(?:log|sql|sqlite3?|bak|backup|old|orig|save|swp|swo|dist)|~)$ {
           deny all;
       }
   

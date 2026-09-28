@@ -651,6 +651,40 @@ describe("formatChartTime", () => {
     const midnight = new Date(2026, 8, 25, 0, 0).getTime() / 1000;
     expect(formatChartTime(midnight, true)).toBe("Sep 25");
   });
+  it("writes the date in the language it is given", () => {
+    const midnight = new Date(2026, 8, 25, 0, 0).getTime() / 1000;
+    expect(formatChartTime(local, false, "es")).toBe("14:00");
+    expect(formatChartTime(local, true, "es")).toBe("25 sept 14:00");
+    expect(formatChartTime(midnight, true, "es")).toBe("25 sept");
+  });
+});
+
+describe("Chart in Spanish", () => {
+  // Local fields, so the text does not depend on the machine's time zone; over two days apart,
+  // so the readout, the axis and the table carry a date.
+  const start = new Date(2026, 8, 25, 14, 0).getTime() / 1000;
+  const days = [start, start + 86_400, start + 3 * 86_400];
+
+  it("dates the readout, the axis and the table in Spanish", async () => {
+    await act(() => setLocale("es"));
+    render(
+      <Chart
+        title="CPU"
+        description="Últimos 7 días"
+        timestamps={days}
+        series={[{ label: "shop.example.com", values: [12, 48, 30] }]}
+        formatValue={(v) => `${String(v)} %`}
+        yRange={[0, 100]}
+      />,
+    );
+    hover(pagePlot(), 1);
+    const time = readoutTime().querySelector("time");
+    expect(time?.querySelector('[aria-hidden="true"]')).toHaveTextContent("26 sept 14:00");
+    expect(time?.querySelector(".sr-only")).toHaveTextContent("26 sept 2026, 14:00:00");
+
+    const axes = pagePlot().options["axes"] as { values: (u: unknown, splits: number[]) => string[] }[];
+    expect(axes[0]?.values(null, [start])).toEqual(["25 sept 14:00"]);
+  });
 });
 
 describe("markersInRange", () => {

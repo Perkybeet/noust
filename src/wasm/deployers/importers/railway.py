@@ -11,8 +11,8 @@ the builder, the commands and the health check, and says so for the rest.
 
 from __future__ import annotations
 
-import re
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -24,7 +24,9 @@ from wasm.deployers.importers.base import (
     read_json_object,
     read_text,
     text_value,
+    too_deep,
 )
+from wasm.deployers.importers.toml_fallback import load_toml_fallback
 
 PLATFORM = "railway"
 FILES = ("railway.toml", "railway.json")
@@ -64,7 +66,7 @@ def read(root: Path) -> Proposal:
     text = read_text(root, "railway.toml")
     if text is not None:
         proposal.files.append("railway.toml")
-        config = load_toml(text, name="railway.toml")
+        config = load_toml(text, name="railway.toml", warn=proposal.warn)
     else:
         config = read_json_object(root, "railway.json")
         if config is not None:
@@ -180,128 +182,54 @@ def _deploy_settings(deploy: dict[str, Any], proposal: Proposal) -> None:
 
 # TOML ----------------------------------------------------------------------
 
-_TABLE = re.compile(r"^\[\s*([A-Za-z0-9_.\-\"]+)\s*\]$")
-_PAIR = re.compile(r"^([A-Za-z0-9_\-\"]+)\s*=\s*(.+)$")
 
-
-def load_toml(text: str, *, name: str) -> dict[str, Any]:
+def load_toml(text: str, *, name: str, warn: Callable[[str], None] | None = None) -> dict[str, Any]:
     """
-    Parse a TOML file with the standard library, or a subset of it on 3.10.
+    Parse a TOML file with the standard library, or WASM's own reader on 3.10.
 
     ``tomllib`` arrived in Python 3.11; Ubuntu 22.04 ships 3.10 and no TOML
-    parser WASM may depend on, so there :func:`_load_simple_toml` reads the
-    shape ``railway.toml`` is written in.
+    parser WASM may depend on, so there :func:`_load_simple_toml` reads it.
 
     Args:
         text: The file's text.
         name: The file's name, for the error.
+        warn: Where the 3.10 reader reports what it leaves out.
 
     Returns:
         The document.
 
     Raises:
-        ValidationError: The text is not TOML (or, on 3.10, not the subset).
+        ValidationError: The text is not TOML, or nests deeper than a
+            parser follows.
     """
-    if sys.version_info >= (3, 11):
-        import tomllib
+    try:
+        if sys.version_info >= (3, 11):
+            import tomllib
 
-        try:
-            return tomllib.loads(text)
-        except tomllib.TOMLDecodeError as exc:
-            raise ValidationError(f"{name} is not valid TOML", details=str(exc)) from exc
-    return _load_simple_toml(text, name=name)
+            try:
+                return tomllib.loads(text)
+            except tomllib.TOMLDecodeError as exc:
+                raise ValidationError(f"{name} is not valid TOML", details=str(exc)) from exc
+        return _load_simple_toml(text, name=name, warn=warn)
+    except RecursionError as exc:
+        raise too_deep(name) from exc
 
 
-def _load_simple_toml(text: str, *, name: str) -> dict[str, Any]:
+def _load_simple_toml(
+    text: str, *, name: str, warn: Callable[[str], None] | None = None
+) -> dict[str, Any]:
     """
-    Read tables of ``key = value`` lines: strings, numbers, booleans, arrays.
+    Read TOML without ``tomllib``; see :mod:`wasm.deployers.importers.toml_fallback`.
 
     Args:
         text: The file's text.
         name: The file's name, for the error.
+        warn: Where arrays of tables and dates, which it leaves out, are reported.
 
     Returns:
         The document.
 
     Raises:
-        ValidationError: A line is outside the subset.
+        ValidationError: The text is not TOML.
     """
-    document: dict[str, Any] = {}
-    table = document
-    for number, raw in enumerate(text.splitlines(), start=1):
-        line = _strip_comment(raw).strip()
-        if not line:
-            continue
-        header = _TABLE.match(line)
-        if header:
-            table = document
-            for part in header.group(1).split("."):
-                nested = table.setdefault(part.strip('"'), {})
-                if not isinstance(nested, dict):
-                    raise ValidationError(f"{name} line {number}: {part} is not a table")
-                table = nested
-            continue
-        pair = _PAIR.match(line)
-        if pair is None:
-            raise ValidationError(
-                f"{name} line {number} is not a key = value pair WASM can read",
-                details="On Python 3.10 WASM reads a subset of TOML: tables and key = value "
-                "lines of strings, numbers, booleans and arrays.",
-            )
-        table[pair.group(1).strip('"')] = _toml_value(pair.group(2).strip(), name, number)
-    return document
-
-
-def _strip_comment(line: str) -> str:
-    """
-    Remove a ``#`` comment that is not inside a string.
-
-    Args:
-        line: One line.
-
-    Returns:
-        The line without its comment.
-    """
-    quote: str | None = None
-    for index, char in enumerate(line):
-        if quote:
-            if char == quote:
-                quote = None
-        elif char in "\"'":
-            quote = char
-        elif char == "#":
-            return line[:index]
-    return line
-
-
-def _toml_value(value: str, name: str, number: int) -> Any:
-    """
-    Read one value of the subset.
-
-    Args:
-        value: The text after ``=``.
-        name: The file's name, for the error.
-        number: The line number, for the error.
-
-    Returns:
-        The value.
-
-    Raises:
-        ValidationError: It is outside the subset.
-    """
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
-        return value[1:-1]
-    if value in ("true", "false"):
-        return value == "true"
-    if re.fullmatch(r"[+-]?\d+", value):
-        return int(value)
-    if re.fullmatch(r"[+-]?\d+\.\d+", value):
-        return float(value)
-    if value.startswith("[") and value.endswith("]"):
-        inner = value[1:-1].strip()
-        if not inner:
-            return []
-        return [
-            _toml_value(item.strip(), name, number) for item in inner.split(",") if item.strip()
-        ]
-    raise ValidationError(f"{name} line {number}: cannot read the value {value}")
+    return load_toml_fallback(text, name=name, warn=warn)

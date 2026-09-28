@@ -143,7 +143,7 @@ export function UsersPanel({ engines, loading = false, engine, onEngineChange }:
       ) : (
         <QueryState
           query={users}
-          label="users"
+          label={t("databases.queryLabels.users")}
           skeleton={
             <DataTable
               columns={columns}

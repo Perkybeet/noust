@@ -28,6 +28,7 @@ from typing import Any
 from wasm.core.config import Config
 from wasm.core.exceptions import EmailError
 from wasm.core.logger import Logger
+from wasm.core.messages import Locale, message, normalize_locale
 from wasm.monitor.models import SEVERITY_WARNING, ProcessObservation
 
 #: Deadline for every SMTP socket operation, in seconds. Long enough for a slow
@@ -162,6 +163,22 @@ class EmailNotifier:
         if isinstance(recipients, str):
             return [recipients]
         return list(recipients or [])
+
+    def _locale(self) -> Locale:
+        """
+        Language this notifier's own subjects and bodies render in.
+
+        Read from the same configuration object every other reader of
+        ``notifications.language`` shares (:class:`~wasm.core.config.Config`
+        is a singleton), so a language switched in the panel takes effect
+        from the next report this notifier sends - the same lag every other
+        setting read from this instance's ``self.config`` already has, since
+        it is loaded once in :meth:`__init__` rather than reloaded per call.
+
+        Returns:
+            ``notifications.language``, normalised.
+        """
+        return normalize_locale(self.config.get("notifications.language"))
 
     def _redact(self, text: str) -> str:
         """
@@ -308,22 +325,30 @@ class EmailNotifier:
         Returns:
             The message to send.
         """
+        locale = self._locale()
         hostname = self._hostname()
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        count = len(observations)
         warnings = sum(1 for o in observations if o.severity == SEVERITY_WARNING)
 
-        subject = f"[WASM] {len(observations)} process observation(s) on {hostname}"
+        subject = message("email_observations_subject", locale, count=count, hostname=hostname)
+        heading = message("email_observations_heading", locale)
+        server_line = message("email_server_line", locale, hostname=hostname)
+        time_line = message("email_time_line", locale, timestamp=timestamp)
+        noted_line = message(
+            "email_observations_noted_line", locale, count=count, warnings=warnings
+        )
+        disclaimer = message("email_observations_disclaimer", locale)
 
         lines = [
-            "WASM monitor - process observations",
+            heading,
             "=" * 60,
             "",
-            f"Server: {hostname}",
-            f"Time:   {timestamp}",
-            f"Noted:  {len(observations)} process(es), {warnings} of them as warnings",
+            server_line,
+            time_line,
+            noted_line,
             "",
-            "The monitor reports only. No process was signalled and no file was",
-            "touched. Review each entry before taking any action.",
+            disclaimer,
             "",
             "-" * 60,
         ]
@@ -360,14 +385,13 @@ class EmailNotifier:
 
         html = f"""<!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"><title>{subject}</title></head>
+<head><meta charset="utf-8"><title>{escape(subject)}</title></head>
 <body style="font-family: system-ui, sans-serif; color: #222;">
-    <h2>WASM monitor - process observations</h2>
-    <p><strong>Server:</strong> {hostname}<br>
-       <strong>Time:</strong> {timestamp}<br>
-       <strong>Noted:</strong> {len(observations)} process(es), {warnings} as warnings</p>
-    <p>The monitor reports only. No process was signalled and no file was touched.
-       Review each entry before taking any action.</p>
+    <h2>{escape(heading)}</h2>
+    <p>{escape(server_line)}<br>
+       {escape(time_line)}<br>
+       {escape(noted_line)}</p>
+    <p>{escape(disclaimer)}</p>
     <table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse;">
         <tr><th>Severity</th><th>Process</th><th>User</th><th>CPU</th><th>Memory</th><th>Why</th></tr>{rows}
     </table>
@@ -408,30 +432,31 @@ class EmailNotifier:
         Raises:
             EmailError: When delivery fails.
         """
+        locale = self._locale()
         hostname = self._hostname()
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        text = (
-            "WASM monitor - test email\n"
-            "=========================\n\n"
-            f"Server: {hostname}\n"
-            f"Time:   {timestamp}\n\n"
-            "Receiving this means monitor notifications are configured correctly."
-        )
+        subject = message("email_test_subject", locale, hostname=hostname)
+        heading = message("email_test_heading", locale)
+        server_line = message("email_server_line", locale, hostname=hostname)
+        time_line = message("email_time_line", locale, timestamp=timestamp)
+        body = message("email_test_body", locale)
+
+        text = f"{heading}\n{'=' * len(heading)}\n\n{server_line}\n{time_line}\n\n{body}"
         html = f"""<!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"><title>WASM monitor test email</title></head>
+<head><meta charset="utf-8"><title>{escape(heading)}</title></head>
 <body style="font-family: system-ui, sans-serif; color: #222;">
-    <h2>WASM monitor - test email</h2>
-    <p><strong>Server:</strong> {hostname}<br>
-       <strong>Time:</strong> {timestamp}</p>
-    <p>Receiving this means monitor notifications are configured correctly.</p>
+    <h2>{escape(heading)}</h2>
+    <p>{escape(server_line)}<br>
+       {escape(time_line)}</p>
+    <p>{escape(body)}</p>
 </body>
 </html>"""
 
         return self._send(
             EmailContent(
-                subject=f"[WASM] Test email - {hostname}",
+                subject=subject,
                 text=text,
                 html=html,
             )

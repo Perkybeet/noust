@@ -221,6 +221,26 @@ def read_text(root: Path, name: str) -> str | None:
         raise ValidationError(f"Cannot read {name}", details=str(exc)) from exc
 
 
+def too_deep(name: str) -> ValidationError:
+    """
+    Build the refusal for a file nested deeper than a parser follows.
+
+    Python's JSON, YAML and TOML parsers recurse once per level and raise
+    ``RecursionError`` past the interpreter's limit; turned into this, it is
+    an unreadable file like any other instead of a crash of the inspection.
+
+    Args:
+        name: The file, relative to the repository.
+
+    Returns:
+        The error.
+    """
+    return ValidationError(
+        f"{name} nests too deeply to be read",
+        details="A configuration file nests a few levels; check it is the one the platform reads.",
+    )
+
+
 def read_json_object(root: Path, name: str) -> dict[str, Any] | None:
     """
     Read a JSON configuration file that must hold an object.
@@ -233,8 +253,8 @@ def read_json_object(root: Path, name: str) -> dict[str, Any] | None:
         The object, or None when the file does not exist.
 
     Raises:
-        ValidationError: The file cannot be read, is not JSON, or is not an
-            object.
+        ValidationError: The file cannot be read, is not JSON (or nests too
+            deeply to parse), or is not an object.
     """
     text = read_text(root, name)
     if text is None:
@@ -243,6 +263,8 @@ def read_json_object(root: Path, name: str) -> dict[str, Any] | None:
         data = json.loads(text)
     except json.JSONDecodeError as exc:
         raise ValidationError(f"{name} is not valid JSON", details=str(exc)) from exc
+    except RecursionError as exc:
+        raise too_deep(name) from exc
     if not isinstance(data, dict):
         raise ValidationError(f"{name} does not hold a JSON object")
     return data

@@ -24,6 +24,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import re
+import sys
 from collections.abc import Callable
 from pathlib import Path
 
@@ -31,7 +32,7 @@ import click
 
 from wasm.cli.app import Context, WasmGroup, global_flags, json_option, pass_context
 from wasm.cli.commands.webapp import _create_app, _read_env_file
-from wasm.core.exceptions import DeploymentError, WASMError
+from wasm.core.exceptions import DeploymentError, ValidationError, WASMError
 from wasm.core.fs import SECRET_MODE, get_fs
 from wasm.core.logger import Logger
 from wasm.core.store import MAX_DRAIN_SECONDS, App, DeploymentTrigger, get_store
@@ -559,6 +560,7 @@ def cli_deploy(logger: Logger) -> Callable[[CreateSpec], None]:
                 cpu_quota_percent=spec.cpu_quota_percent,
                 tasks_max=spec.tasks_max,
             ),
+            initial_health=spec.initial_health,
         )
         if code != 0:
             raise DeploymentError(
@@ -591,6 +593,8 @@ def print_import_plan(logger: Logger, plan: ImportPlan) -> None:
         logger.list_item(line)
     for skipped in plan.skipped:
         logger.warning(f"Will not apply {skipped.part}: {skipped.detail}")
+    for reason in plan.confirm:
+        logger.warning(f"The import {reason}")
 
 
 def print_import_report(logger: Logger, report: ImportReport) -> None:
@@ -611,15 +615,52 @@ def print_import_report(logger: Logger, report: ImportReport) -> None:
         logger.list_item(f"{step.part}: {step.detail}")
 
 
-def run_import(ctx: Context, plan: ImportPlan) -> None:
+def _interactive() -> bool:
+    """Whether someone is at the terminal to answer a question."""
+    return sys.stdin.isatty() and sys.stdout.isatty()
+
+
+def confirm_import(ctx: Context, plan: ImportPlan, yes: bool) -> None:
+    """
+    Have the operator agree to what a document may do as root.
+
+    A document can create cron jobs, which run its commands on a schedule
+    (as root, if it says so), and turn on previews, which deploy pull
+    requests with the application's variables. The plan shows each; this
+    asks for a yes, or ``--yes``, before any of it runs.
+
+    Args:
+        ctx: The command's context.
+        plan: The plan, already shown.
+        yes: ``--yes`` was given.
+
+    Raises:
+        ValidationError: Nobody is at the terminal to confirm and ``--yes``
+            was not given.
+        click.Abort: The operator said no.
+    """
+    if yes or not plan.confirm:
+        return
+    reasons = "; ".join(plan.confirm)
+    if ctx.json_output or not _interactive():
+        raise ValidationError(
+            f"The import needs confirming: it {reasons}",
+            details="Review the plan with --dry-run, then run the import again with --yes.",
+        )
+    click.confirm(f"Import {plan.domain}? It {reasons}", abort=True)
+
+
+def run_import(ctx: Context, plan: ImportPlan, *, yes: bool = False) -> None:
     """
     Show a plan, then carry it out unless this is a rehearsal.
 
-    Shared by ``wasm app import`` and ``wasm import --deploy``.
+    Shared by ``wasm app import`` and ``wasm import --deploy``. A plan that
+    creates cron jobs or previews runs only after :func:`confirm_import`.
 
     Args:
         ctx: The command's context.
         plan: The plan.
+        yes: Do not ask for confirmation.
     """
     if ctx.dry_run:
         if ctx.json_output:
@@ -630,6 +671,7 @@ def run_import(ctx: Context, plan: ImportPlan) -> None:
         return
     if not ctx.json_output:
         print_import_plan(ctx.logger, plan)
+    confirm_import(ctx, plan, yes)
     report = apply_import(plan, deploy=cli_deploy(ctx.logger), logger=ctx.logger)
     if ctx.json_output:
         click.echo(json.dumps({"plan": plan_summary(plan), "result": report_summary(report)}))
@@ -667,6 +709,14 @@ def export_command(ctx: Context, domain: str, with_secrets: bool, output: Path |
     """
     text = dumps(export_app(domain, with_secrets=with_secrets))
     if output is None:
+        if with_secrets:
+            # On stderr, so a redirect to a file still gets the document alone.
+            click.echo(
+                "Warning: the export carries secret values in clear. Write it with -o FILE, "
+                "which is created readable by root only (0600), rather than through a "
+                "terminal or a redirect.",
+                err=True,
+            )
         click.echo(text, nl=False)
         return
     fs = get_fs()
@@ -696,6 +746,13 @@ def export_command(ctx: Context, domain: str, with_secrets: bool, output: Path |
     metavar="NAME=VALUE",
     help="A variable's value, over the export and --env-file. Repeat for several.",
 )
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Do not ask before creating the export's cron jobs and previews.",
+)
 @global_flags
 @json_option("Print the plan and what was applied as JSON.")
 @pass_context
@@ -706,6 +763,7 @@ def import_command(
     source: str | None,
     env_file: Path | None,
     env_pairs: tuple[str, ...],
+    yes: bool,
 ) -> None:
     """
     Create an application from a 'wasm app export' document.
@@ -714,8 +772,11 @@ def import_command(
     then its domains, health check, retention, secret marks, cron jobs,
     backup schedule, previews and zero-downtime are applied. What cannot be
     applied here is listed at the end. With --dry-run, only the plan is shown.
+    An export that creates cron jobs or previews is confirmed first: every
+    job is shown with its user, directory and command; --yes skips the
+    question, and without a terminal it is required.
     """
     document = load_document(file.read_text(encoding="utf-8"))
     env = gather_env(env_file, env_pairs, ctx.logger)
     plan = plan_import(document, domain=domain, source=source, env=env)
-    run_import(ctx, plan)
+    run_import(ctx, plan, yes=yes)

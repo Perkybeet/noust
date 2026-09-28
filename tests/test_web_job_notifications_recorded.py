@@ -43,7 +43,7 @@ def make_job(
     job_type: JobType,
     *,
     job_id: str = "job-1",
-    domain: str = "example.com",
+    domain: str | None = "example.com",
     error: str | None = None,
 ) -> Job:
     """
@@ -53,21 +53,23 @@ def make_job(
         status: Its status.
         job_type: Its type.
         job_id: Its id.
-        domain: The application it is about.
+        domain: The application it is about, or None for a job whose
+            metadata carries no domain at all.
         error: The failure, verbatim.
 
     Returns:
         The job.
     """
+    name = f"{job_type.value.capitalize()} {domain}" if domain else job_type.value.capitalize()
     return Job(
         id=job_id,
         type=job_type,
-        name=f"{job_type.value.capitalize()} {domain}",
+        name=name,
         description="",
         status=status,
         completed_at=datetime.now() if status in (JobStatus.COMPLETED, JobStatus.FAILED) else None,
         error=error,
-        metadata={"domain": domain},
+        metadata={"domain": domain} if domain else {},
     )
 
 
@@ -109,6 +111,7 @@ def run(
     events: list[DeployEvent],
     witness: DeploymentWitness,
     job_id: str = "job-1",
+    domain: str | None = "example.com",
     error: str = "Application example.com is busy: deploy (pid 42)",
 ) -> None:
     """
@@ -120,12 +123,14 @@ def run(
         events: Deployment events published while it runs.
         witness: Where the events go.
         job_id: The job's id.
+        domain: The application it is about, or None for a job whose
+            metadata carries no domain.
         error: The failure.
     """
-    subscriber(make_job(JobStatus.RUNNING, job_type, job_id=job_id))
+    subscriber(make_job(JobStatus.RUNNING, job_type, job_id=job_id, domain=domain))
     for event in events:
         witness.on_deploy_event(event)
-    subscriber(make_job(JobStatus.FAILED, job_type, job_id=job_id, error=error))
+    subscriber(make_job(JobStatus.FAILED, job_type, job_id=job_id, domain=domain, error=error))
 
 
 @pytest.mark.parametrize("job_type", [JobType.DEPLOY, JobType.UPDATE, JobType.ROLLBACK])
@@ -163,6 +168,39 @@ def test_an_unrecorded_failure_is_announced_in_the_configured_language(
     assert sent[0].title == "No se ha podido desplegar example.com"
     # The tool's own words are never translated.
     assert "is busy" in sent[0].body
+
+
+def test_an_unrecorded_failure_with_no_domain_names_the_job_instead(
+    subscriber: Any,
+    witness: DeploymentWitness,
+    sent: list[NotificationEvent],
+) -> None:
+    """
+    No domain in metadata: the job's own English name is the fallback, but it
+    still goes through wasm.core.messages rather than a bare f-string, so a
+    Spanish operator reads a Spanish sentence around it.
+    """
+    run(subscriber, JobType.DEPLOY, events=[], witness=witness, domain=None)
+
+    assert len(sent) == 1
+    assert sent[0].domain is None
+    assert sent[0].title == "Deploy failed"
+
+
+def test_an_unrecorded_failure_with_no_domain_in_spanish(
+    subscriber: Any,
+    witness: DeploymentWitness,
+    sent: list[NotificationEvent],
+    config: Config,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config.set("notifications.language", "es")
+    monkeypatch.setattr(server_module, "fresh_config", lambda: config)
+
+    run(subscriber, JobType.DEPLOY, events=[], witness=witness, domain=None)
+
+    assert len(sent) == 1
+    assert sent[0].title == "Deploy ha fallado"
 
 
 def test_a_job_whose_deployment_was_recorded_is_left_to_the_recorder(

@@ -13,7 +13,7 @@ import { ErrorBlock } from "../../components/page/QueryState";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { Spinner } from "../../components/ui/Spinner";
 import { useT } from "../../i18n";
-import { NoteText } from "./ExternalLink";
+import { NoteText } from "./NoteText";
 import { useDeploymentLanding } from "./useDeploymentLanding";
 import type { LandingTarget } from "./useDeploymentLanding";
 

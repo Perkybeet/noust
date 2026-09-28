@@ -138,7 +138,7 @@ describe("the metrics tab", { timeout: 20_000 }, () => {
     expect(await screen.findByText(/Media 250 MB, pico 300 MB a las .*, última 300 MB, límite 512 MB\./)).toBeInTheDocument();
     const deploys = screen.getByRole("region", { name: "Despliegues en este rango" });
     // The status word itself comes from a shared, not-yet-translated helper (components/page/status.ts).
-    expect(within(deploys).getByRole("link", { name: /^Despliegue 25, succeeded/ })).toHaveAttribute("href", `/apps/${TAB_DOMAIN}/deployments/25`);
+    expect(within(deploys).getByRole("link", { name: /^Despliegue 25, correcto/ })).toHaveAttribute("href", `/apps/${TAB_DOMAIN}/deployments/25`);
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 });

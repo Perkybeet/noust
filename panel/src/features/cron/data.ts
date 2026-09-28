@@ -106,12 +106,12 @@ export function filterJobs(jobs: readonly CronJob[], search: CronSearch): CronJo
  * the way a next-run list should read next to the relative time the rest of the console uses.
  * Falls back to the raw value on anything `parseTimestamp` cannot place in time.
  */
-export function absoluteWithOffset(value: string): string {
+export function absoluteWithOffset(value: string, locale: Locale = getLocale()): string {
   const date = parseTimestamp(value);
   if (date === null) return value;
   // Explicit fields, not `dateStyle`/`timeStyle`: mixed with `timeZoneName` those throw
   // ("Invalid option") on the ICU build this ships with, even though both are valid alone.
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(locale, {
     year: "numeric",
     month: "short",
     day: "numeric",

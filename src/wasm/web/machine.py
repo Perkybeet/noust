@@ -216,7 +216,9 @@ def _count_apps(services: list[dict[str, Any]]) -> AppTally:
     """
     Tally applications by state, from the unit list the unit tally also reads.
 
-    Each application either has no unit at all - it is static, served
+    A PHP application is counted by its pool (the file, and whether its
+    socket accepts a connection: no systemctl call per application). Any
+    other application either has no unit at all - it is static, served
     directly by the web server, and asking systemd about it would always say
     "not running" - or runs as the units the listing attributes to it (its
     ``app`` field, from
@@ -249,11 +251,21 @@ def _count_apps(services: list[dict[str, Any]]) -> AppTally:
                 service
             )
 
+    from wasm.deployers.helpers.php_fpm import is_php_fpm
     from wasm.managers.service_manager import ServiceManager
 
     manager: ServiceManager | None = None
     running = failed = stopped = static = 0
     for app in apps:
+        if is_php_fpm(app):
+            # Stored as static, but its pool runs it: counted by the pool.
+            from wasm.deployers.php_fpm import pool_serving
+
+            bucket = pool_serving(app)
+            running += bucket == "active"
+            failed += bucket == "failed"
+            stopped += bucket == "stopped"
+            continue
         if app.is_static:
             static += 1
             continue

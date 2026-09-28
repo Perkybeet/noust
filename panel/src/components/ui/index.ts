@@ -22,6 +22,8 @@ export { Drawer } from "./Drawer";
 export type { DrawerProps } from "./Drawer";
 export { EmptyState } from "./EmptyState";
 export type { EmptyStateProps } from "./EmptyState";
+export { ExternalLink } from "./ExternalLink";
+export type { ExternalLinkProps } from "./ExternalLink";
 export { Field } from "./Field";
 export type { FieldProps } from "./Field";
 export { IconButton } from "./IconButton";

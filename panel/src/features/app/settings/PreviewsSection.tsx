@@ -70,14 +70,15 @@ function Need({ icon, title, children }: { icon: ReactNode; title: string; child
  */
 function Needs({ domain, base }: { domain: string; base: string | null }) {
   const t = useT();
-  const example = `pr-12-${appNameOf(domain)}.${base ?? "<base domain>"}`;
+  const shownBase = base ?? t("appSettings.previews.baseDomainUnset");
+  const example = `pr-12-${appNameOf(domain)}.${shownBase}`;
   return (
     <div className="flex flex-col gap-3">
       <ul aria-label={t("appSettings.previews.needsLabel")} className="flex flex-col gap-3">
         <Need icon={<Globe />} title={t("appSettings.previews.needWildcardTitle")}>
           <p>
             {t.rich("appSettings.previews.needWildcardBody", {
-              record: <code translate="no" className="text-12 text-fg">{`*.${base ?? "<base domain>"}`}</code>,
+              record: <code translate="no" className="text-12 text-fg">{`*.${shownBase}`}</code>,
               example: (
                 <code translate="no" className="text-12 break-all text-fg">
                   {example}

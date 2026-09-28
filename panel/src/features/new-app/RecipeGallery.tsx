@@ -8,9 +8,9 @@ import type { RecipeSummary } from "../../api/queries/recipes";
 import { CommandHint } from "../../components/page/CommandHint";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
+import { ExternalLink } from "../../components/ui/ExternalLink";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
-import { ExternalLink } from "./ExternalLink";
 
 /** The host of a project's website, as the link's text: "wordpress.org". */
 function hostOf(url: string): string {
@@ -62,7 +62,7 @@ function RecipeCard({ recipe, opening, disabled, onChoose }: { recipe: RecipeSum
         </div>
       )}
       <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <ExternalLink href={recipe.homepage} className="text-12">
+        <ExternalLink href={recipe.homepage} inline unlinked="text" className="text-12">
           {hostOf(recipe.homepage)}
         </ExternalLink>
         {recipe.available ? (

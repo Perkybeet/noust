@@ -827,6 +827,12 @@ READ_ONLY_SUBCOMMANDS: dict[str, frozenset[str]] = {
     "apt-cache": frozenset({"policy", "show", "madison"}),
     "dpkg": frozenset({"--print-architecture"}),
     "rpm": frozenset({"-q", "--query"}),
+    # Narrowly "info": the update checker's cache-only probe
+    # (wasm.core.package_index.rpm_latest). "install", "upgrade" and
+    # everything else that names these programs still counts as mutating.
+    "dnf": frozenset({"info"}),
+    "yum": frozenset({"info"}),
+    "zypper": frozenset({"info"}),
 }
 
 

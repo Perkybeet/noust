@@ -62,6 +62,7 @@ def make_job(
     job_id: str = "job-1",
     domain: str | None = "example.com",
     error: str | None = None,
+    backup_id: str | None = None,
 ) -> Job:
     """
     Build a job the way the job manager records one.
@@ -76,10 +77,17 @@ def make_job(
         job_id: Identifier.
         domain: Resource the job acted on, or None for a job about nothing.
         error: Failure message, verbatim from the tool.
+        backup_id: The backup a restore job reads from, the way
+            POST /api/backups/{id}/restore sets it in the job's metadata.
 
     Returns:
         The job.
     """
+    metadata: dict[str, str] = {}
+    if domain:
+        metadata["domain"] = domain
+    if backup_id:
+        metadata["backup_id"] = backup_id
     return Job(
         id=job_id,
         type=job_type,
@@ -88,7 +96,7 @@ def make_job(
         status=status,
         completed_at=datetime.now(),
         error=error,
-        metadata={"domain": domain} if domain else {},
+        metadata=metadata,
     )
 
 
@@ -122,6 +130,27 @@ class TestDeploymentNotification:
         assert event is not None
         assert event.kind == "deploy_success"
         assert event.domain == "example.com"
+
+    def test_a_completed_restore_body_carries_the_backup_id(self) -> None:
+        """
+        v2.2.1 put the backup id in job.description, reused as the body; 2.3
+        builds the title fresh from wasm.core.messages instead (job.description
+        is untranslated console text), so the id must still reach the body
+        through the catalog rather than being silently dropped.
+        """
+        event = deployment_notification(
+            make_job(JobStatus.COMPLETED, backup_id="backup-2026-01-01-0000")
+        )
+
+        assert event is not None
+        assert event.body == "Restored from backup backup-2026-01-01-0000."
+
+    def test_a_completed_restore_without_a_backup_id_has_an_empty_body(self) -> None:
+        """A job whose metadata never carried the id must not format 'None'."""
+        event = deployment_notification(make_job(JobStatus.COMPLETED))
+
+        assert event is not None
+        assert event.body == ""
 
     def test_a_deploy_or_an_update_job_is_never_announced_here(self) -> None:
         """The deployment recorder already announced it; this would be twice."""
@@ -212,6 +241,18 @@ class TestDeploymentNotificationInSpanish:
 
         assert event is not None
         assert event.title == "Se ha restaurado example.com"
+
+    def test_a_completed_restore_body_carries_the_backup_id(
+        self, config: Config, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._wired(config, monkeypatch)
+
+        event = deployment_notification(
+            make_job(JobStatus.COMPLETED, backup_id="backup-2026-01-01-0000")
+        )
+
+        assert event is not None
+        assert event.body == "Restaurado a partir de la copia de seguridad backup-2026-01-01-0000."
 
     def test_a_failed_backup(self, config: Config, monkeypatch: pytest.MonkeyPatch) -> None:
         self._wired(config, monkeypatch)

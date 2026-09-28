@@ -53,6 +53,15 @@ MESSAGES: dict[str, dict[Locale, str]] = {
         "en": "{domain} failed to deploy",
         "es": "No se ha podido desplegar {domain}",
     },
+    # wasm.web.server.JobNotificationSubscriber's fallback for a deploy,
+    # update or rollback job that failed before the recorder opened and
+    # carries no domain in its metadata - the job's own English name (console
+    # text, out of scope per the module docstring) is the placeholder rather
+    # than a paraphrase of it.
+    "deploy_failed_title_no_domain": {
+        "en": "{name} failed",
+        "es": "{name} ha fallado",
+    },
     "deploy_rolled_back_title": {
         "en": "{domain} rolled back",
         "es": "Se ha vuelto a la versión anterior de {domain}",
@@ -81,6 +90,14 @@ MESSAGES: dict[str, dict[Locale, str]] = {
     "restore_succeeded_title_no_domain": {
         "en": "Restore completed",
         "es": "Restauración completada",
+    },
+    # v2.2.1 carried the backup id in the job's own description, reused
+    # verbatim as the notification body; that text is English-only console
+    # copy, out of scope for a translated notification (see the module
+    # docstring), so the backup id travels as a placeholder here instead.
+    "restore_succeeded_body": {
+        "en": "Restored from backup {backup_id}.",
+        "es": "Restaurado a partir de la copia de seguridad {backup_id}.",
     },
     "restore_failed_title": {
         "en": "{domain} restore failed",
@@ -151,7 +168,7 @@ MESSAGES: dict[str, dict[Locale, str]] = {
     },
     "cert_expiring_body": {
         "en": "{covers} expires on {expiry}. Renew it with: wasm cert renew {name}",
-        "es": "{covers} caduca el {expiry}. Renúévalo con: wasm cert renew {name}",
+        "es": "{covers} caduca el {expiry}. Renuévalo con: wasm cert renew {name}",
     },
     "unit_failed_title_failed": {
         "en": "Unit {unit} failed",
@@ -177,6 +194,53 @@ MESSAGES: dict[str, dict[Locale, str]] = {
     "test_notification_body": {
         "en": "Receiving this means the {channel} channel is configured correctly.",
         "es": "Si recibes esto, el canal {channel} está bien configurado.",
+    },
+    # -- The monitor's own SMTP report (wasm.monitor.email_notifier) --------
+    # This is a second delivery path from wasm.core.notifier's multi-channel
+    # one above: EmailNotifier renders its own EmailContent directly, rather
+    # than a NotificationEvent already built from this catalog, so it reads
+    # notifications.language for itself.
+    "email_observations_subject": {
+        "en": "[WASM] {count} process observation(s) on {hostname}",
+        "es": "[WASM] {count} observación(es) de proceso en {hostname}",
+    },
+    "email_observations_heading": {
+        "en": "WASM monitor - process observations",
+        "es": "WASM monitor - observaciones de procesos",
+    },
+    "email_server_line": {
+        "en": "Server: {hostname}",
+        "es": "Servidor: {hostname}",
+    },
+    "email_time_line": {
+        "en": "Time: {timestamp}",
+        "es": "Hora: {timestamp}",
+    },
+    "email_observations_noted_line": {
+        "en": "Noted: {count} process(es), {warnings} of them as warnings",
+        "es": "Detectados: {count} proceso(s), {warnings} de ellos marcados como aviso",
+    },
+    "email_observations_disclaimer": {
+        "en": (
+            "The monitor reports only. No process was signalled and no file was "
+            "touched. Review each entry before taking any action."
+        ),
+        "es": (
+            "El monitor solo informa. No se ha enviado ninguna señal a ningún proceso "
+            "ni se ha tocado ningún archivo. Revisa cada entrada antes de actuar."
+        ),
+    },
+    "email_test_subject": {
+        "en": "[WASM] Test email - {hostname}",
+        "es": "[WASM] Correo de prueba - {hostname}",
+    },
+    "email_test_heading": {
+        "en": "WASM monitor - test email",
+        "es": "WASM monitor - correo de prueba",
+    },
+    "email_test_body": {
+        "en": "Receiving this means monitor notifications are configured correctly.",
+        "es": "Si recibes esto, las notificaciones del monitor están bien configuradas.",
     },
 }
 

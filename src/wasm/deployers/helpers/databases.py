@@ -17,6 +17,15 @@ Idempotency matters because a deploy that fails after provisioning and is
 retried must not fail again for "database already exists": the database, the
 user and its password (kept in the secret store, never regenerated once
 written) are reused rather than recreated.
+
+Reuse is only ever of what is recorded as the requesting application's. The
+names can come from a repository (a monorepo's ``docker-compose.yml``), and
+reusing a user by name alone once handed one application another's password.
+The store's database rows say which application a database, and the user it
+names, belongs to; a record beside each password
+(``databases/<engine>/<user>.owner``) names the owning domain for the cases
+the store cannot: a recipe provisions before its application row exists, and
+a failed new deploy deletes its row.
 """
 
 from __future__ import annotations
@@ -210,39 +219,202 @@ def generate_database_password(length: int = 32) -> str:
     return "".join(password)
 
 
-def _owning_row(store: WASMStore, engine: str, name: str, domain: str | None) -> Database | None:
+#: Names no application's database or user may take. These are the engines'
+#: own databases and superuser accounts: granting an application ALL on
+#: ``postgres`` or handing it root's password is taking over the server.
+#: Compared case-insensitively, because MySQL's names are not case-sensitive
+#: on every platform and a repository controls the case it asks for.
+RESERVED_NAMES: frozenset[str] = frozenset(
+    {
+        "postgres",
+        "root",
+        "mysql",
+        "template0",
+        "template1",
+        "information_schema",
+        "performance_schema",
+        "sys",
+    }
+)
+
+
+def _refuse_reserved(name: str, *, kind: str, display_name: str) -> None:
     """
-    Check whether an existing database row belongs to another application.
+    Refuse a database or user name reserved by the engine itself.
+
+    Args:
+        name: Candidate name.
+        kind: "database" or "user", for the message.
+        display_name: The engine's display name, for the message.
+
+    Raises:
+        DatabaseError: The name is reserved.
+    """
+    if name.lower() in RESERVED_NAMES:
+        raise DatabaseError(
+            f"{name!r} is a reserved {display_name} {kind} name",
+            details=f"Choose another {kind} name; WASM never gives an application "
+            f"the server's own {kind}s.",
+        )
+
+
+def _password_secret(engine: str, user: str) -> str:
+    """Name the secret holding a provisioned user's password."""
+    return f"databases/{engine}/{user}"
+
+
+def _owner_secret(engine: str, user: str) -> str:
+    """
+    Name the record of which application a provisioned user belongs to.
+
+    It sits beside the password because the store cannot hold it: a recipe
+    provisions before its application row exists, and a failed new deploy
+    deletes its row, which unlinks the database. The domain survives both.
+    A user name never contains a dot, so this never collides with a password.
+    """
+    return f"databases/{engine}/{user}.owner"
+
+
+def _owner_key(domain: str | None) -> str:
+    """The value an owner record holds for ``domain`` (empty for none)."""
+    return domain or ""
+
+
+def _domain_of(store: WASMStore, app_id: int) -> str:
+    """The domain of an application id, for messages."""
+    owner = store.get_app_by_id(app_id)
+    return owner.domain if owner is not None else "another application"
+
+
+def _check_database(
+    store: WASMStore,
+    manager: BaseDatabaseManager,
+    engine: str,
+    *,
+    name: str,
+    user: str,
+    domain: str | None,
+    app_id: int | None,
+    user_owner: str | None,
+) -> Database | None:
+    """
+    Refuse a database that is not the requesting application's to use.
+
+    A database is this application's when its row is linked to it, or when
+    its row is unlinked, names ``user`` and ``user`` is recorded as this
+    application's (a recipe's database before its first deploy succeeds, or
+    one whose failed new deploy removed the application row).
 
     Args:
         store: The store.
+        manager: The engine's manager.
         engine: Canonical engine name.
         name: Database name.
-        domain: The application asking for the database, or None when no
-            application owns this provisioning attempt.
+        user: The user the database is being provisioned for.
+        domain: The requesting application's domain, or None.
+        app_id: The requesting application's id, when it has a row.
+        user_owner: The owner recorded for ``user``, or None when none is.
 
     Returns:
-        The existing row, or None when there is none.
+        The database's row, or None when it has none and does not exist.
 
     Raises:
-        DatabaseError: The row is linked to an application other than
-            ``domain``'s, or the row is linked while ``domain``'s application
-            does not exist.
+        DatabaseError: The database belongs to another application, was
+            created outside an application, or exists and WASM did not
+            create it.
     """
     row = store.get_database(name, engine)
-    if row is None or row.app_id is None:
+    if row is None:
+        if manager.database_exists(name):
+            raise DatabaseError(
+                f"The {manager.DISPLAY_NAME} database {name!r} already exists and "
+                "WASM did not create it",
+                details="Choose another database name; WASM does not give an application "
+                "a database it did not provision for it.",
+            )
+        return None
+    if row.app_id is not None:
+        if app_id is not None and row.app_id == app_id:
+            return row
+        raise DatabaseError(
+            f"The {engine} database {name!r} already belongs to {_domain_of(store, row.app_id)}",
+            details="Choose another name, or provision the database for that application instead.",
+        )
+    if row.username == user and user_owner == _owner_key(domain):
         return row
-
-    requesting_app = store.get_app(domain) if domain else None
-    if requesting_app is not None and requesting_app.id == row.app_id:
-        return row
-
-    owner = store.get_app_by_id(row.app_id)
-    owner_domain = owner.domain if owner is not None else "another application"
     raise DatabaseError(
-        f"The {engine} database {name!r} already belongs to {owner_domain}",
-        details="Choose another name, or provision the database for that application instead.",
+        f"The {engine} database {name!r} is not recorded as {domain or 'this deployment'}'s",
+        details="It was created outside this application (with `wasm db create`, or by "
+        "an application since deleted). Choose another database name.",
     )
+
+
+def _check_user(
+    store: WASMStore,
+    manager: BaseDatabaseManager,
+    engine: str,
+    *,
+    user: str,
+    domain: str | None,
+    app_id: int | None,
+    user_owner: str | None,
+) -> bool:
+    """
+    Refuse a user that is not the requesting application's to use.
+
+    A user is this application's when a database row linked to it names
+    the user (what every WASM before 2.3 recorded), or when the owner record
+    beside its password names this application's domain. A user linked to
+    another application, or recorded for another domain, is refused even if
+    it is also linked here: its password would reach this application's
+    ``.env``.
+
+    Args:
+        store: The store.
+        manager: The engine's manager.
+        engine: Canonical engine name.
+        user: User name.
+        domain: The requesting application's domain, or None.
+        app_id: The requesting application's id, when it has a row.
+        user_owner: The owner recorded for ``user``, or None when none is.
+
+    Returns:
+        Whether the user exists on the server (and is this application's).
+
+    Raises:
+        DatabaseError: The user belongs to another application, or exists
+            and WASM did not create it.
+    """
+    exists = manager.user_exists(user)
+    linked = {
+        row.app_id
+        for row in store.list_databases(engine=engine)
+        if row.username == user and row.app_id is not None
+    }
+    foreign = linked - {app_id}
+    if foreign:
+        raise DatabaseError(
+            f"The {manager.DISPLAY_NAME} user {user!r} already belongs to "
+            f"{_domain_of(store, min(foreign))}",
+            details="Choose another user name; an application never gets another's credentials.",
+        )
+    if not exists:
+        # A record left by a user dropped by hand is stale, not an owner:
+        # there is nothing left to take over, and a new password is generated.
+        return False
+    if user_owner is not None and user_owner != _owner_key(domain):
+        raise DatabaseError(
+            f"The {manager.DISPLAY_NAME} user {user!r} already belongs to "
+            f"{user_owner or 'a database provisioned without an application'}",
+            details="Choose another user name; an application never gets another's credentials.",
+        )
+    if user_owner is None and app_id not in linked:
+        raise DatabaseError(
+            f"The {manager.DISPLAY_NAME} user {user!r} already exists and WASM did not create it",
+            details="Choose another user name; WASM does not take over a user it did not "
+            "provision for this application.",
+        )
+    return True
 
 
 def provision_database(
@@ -260,35 +432,41 @@ def provision_database(
     Create a database and user, or reuse them if a previous attempt already did.
 
     Safe to call again after a deploy that provisioned a database and then
-    failed at a later step: the database, the user and its password (kept in
-    the secret store) are reused rather than recreated, so a retry never
-    generates a password that no longer matches the user WASM already made.
+    failed at a later step, the grant included: the database, the user and
+    its password (kept in the secret store) are recorded as the requesting
+    application's before they are created, so a retry reuses them rather
+    than generating a password that no longer matches the user WASM made.
+
+    Both names can come from a repository (a monorepo's
+    ``docker-compose.yml``), so neither is trusted: only a database and a user
+    recorded as ``domain``'s are ever reused, and the engine's own databases
+    and accounts are refused outright.
 
     Args:
         engine: Engine name or alias ("mariadb" resolves to "mysql").
         name: Database name.
         user: User name.
         domain: The application this database is for, when there is one.
-            Used to own the store's record of the database and to tell one
-            application's database from another's.
+            Owns the store's record of the database and the record of the
+            user, and tells one application's database from another's.
         createdb: Grant CREATEDB when creating the user. PostgreSQL only
             (Prisma's shadow database needs it); ignored on MySQL, whose
             ``create_user`` takes and ignores unknown keyword arguments.
         logger: Where progress is reported.
         store: The store to record the database in. Defaults to the
             process-wide store.
-        secret_store: Where the user's password is kept. Defaults to one
-            rooted at the store's own secrets directory.
+        secret_store: Where the user's password and owner are kept. Defaults
+            to one rooted at the store's own secrets directory.
 
     Returns:
         The credentials to reach the database with.
 
     Raises:
         DatabaseError: The engine is unknown or unsupported, is not
-            installed, either name is invalid, the database belongs to
-            another application, the user already exists with a password
-            WASM does not know, or creating the database, the user or the
-            grant fails.
+            installed, either name is invalid or reserved, the database or
+            the user belongs to another application or was not created by
+            WASM, the user is this application's but WASM does not know its
+            password, or creating the database, the user or the grant fails.
     """
     canonical, manager = _resolve_manager(engine)
     if not manager.is_installed():
@@ -299,21 +477,35 @@ def provision_database(
 
     manager.validate_database_name(name)
     manager.validate_user_name(user)
+    _refuse_reserved(name, kind="database", display_name=manager.DISPLAY_NAME)
+    _refuse_reserved(user, kind="user", display_name=manager.DISPLAY_NAME)
 
     store = store or get_store()
     secret_store = secret_store or SecretStore()
+    app = store.get_app(domain) if domain else None
+    app_id = app.id if app is not None else None
+    password_secret = _password_secret(canonical, user)
+    owner_secret = _owner_secret(canonical, user)
+    user_owner = secret_store.read(owner_secret)
 
-    existing_row = _owning_row(store, canonical, name, domain)
+    # Every check runs before anything is created, granted or read from the
+    # secret store: a refused request must not have touched the server.
+    user_exists = _check_user(
+        store, manager, canonical, user=user, domain=domain, app_id=app_id, user_owner=user_owner
+    )
+    existing_row = _check_database(
+        store,
+        manager,
+        canonical,
+        name=name,
+        user=user,
+        domain=domain,
+        app_id=app_id,
+        user_owner=user_owner,
+    )
 
-    if manager.database_exists(name):
-        logger.substep(f"Reusing existing {manager.DISPLAY_NAME} database: {name}")
-    else:
-        manager.create_database(name)
-        logger.substep(f"Created {manager.DISPLAY_NAME} database: {name}")
-
-    secret_name = f"databases/{canonical}/{user}"
-    if manager.user_exists(user):
-        password = secret_store.read(secret_name)
+    if user_exists:
+        password = secret_store.read(password_secret)
         if password is None:
             raise DatabaseError(
                 f"The {manager.DISPLAY_NAME} user {user} already exists and "
@@ -324,22 +516,24 @@ def provision_database(
                 ),
             )
     else:
-        # A previous attempt may have written the password and then crashed
-        # before creating the user; reuse it instead of orphaning it.
-        password = secret_store.read(secret_name) or generate_database_password()
+        # A previous attempt by this same application may have written the
+        # password and then crashed before creating the user; reuse it. One
+        # recorded for anyone else is not this application's to learn.
+        stored = secret_store.read(password_secret) if user_owner == _owner_key(domain) else None
+        password = stored or generate_database_password()
         # Written before the user exists: a crash between the two must not
         # lose the only copy of a password WASM just committed to using.
-        secret_store.write(secret_name, password)
-        manager.create_user(user, password=password, createdb=createdb)
-        logger.substep(f"Created {manager.DISPLAY_NAME} user: {user}")
-
-    manager.grant_privileges(username=user, database=name)
+        secret_store.write(password_secret, password)
+    # Recorded before the user or the database is created, so a failure at
+    # any later step (the grant, say) leaves both recognisably this
+    # application's and the retry reuses them.
+    if user_owner != _owner_key(domain):
+        secret_store.write(owner_secret, _owner_key(domain))
 
     if existing_row is None:
-        app = store.get_app(domain) if domain else None
         store.create_database(
             Database(
-                app_id=app.id if app is not None else None,
+                app_id=app_id,
                 name=name,
                 engine=canonical,
                 host="localhost",
@@ -347,10 +541,20 @@ def provision_database(
                 username=user,
             )
         )
-    elif existing_row.app_id is None and domain:
-        app = store.get_app(domain)
-        if app is not None:
-            store.link_database_to_app(name, canonical, domain)
+    elif existing_row.app_id is None and app is not None and domain:
+        store.link_database_to_app(name, canonical, domain)
+
+    if manager.database_exists(name):
+        logger.substep(f"Reusing existing {manager.DISPLAY_NAME} database: {name}")
+    else:
+        manager.create_database(name)
+        logger.substep(f"Created {manager.DISPLAY_NAME} database: {name}")
+
+    if not user_exists:
+        manager.create_user(user, password=password, createdb=createdb)
+        logger.substep(f"Created {manager.DISPLAY_NAME} user: {user}")
+
+    manager.grant_privileges(username=user, database=name)
 
     return DatabaseCredentials(
         engine=canonical,

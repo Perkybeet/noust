@@ -106,6 +106,18 @@ export function formatCount(value: number, locale: Locale = getLocale()): string
     : numberFormat(locale, { notation: "compact", maximumFractionDigits: 1 }).format(value);
 }
 
+/** A plain number with at most one decimal: "1,284.5" ("1284,5" in Spanish). */
+export function formatDecimal(value: number, locale: Locale = getLocale()): string {
+  if (!Number.isFinite(value)) return "-";
+  return numberFormat(locale, { maximumFractionDigits: 1 }).format(value);
+}
+
+/** A load average, to two decimals like `uptime` prints it: "0.52" ("0,52" in Spanish). */
+export function formatLoad(value: number, locale: Locale = getLocale()): string {
+  if (!Number.isFinite(value)) return "-";
+  return fixed(value, 2, locale);
+}
+
 /**
  * A span of time in seconds as the two largest units: "3 ms", "2.4s", "14s", "2m 05s",
  * "1h 12m", "3d 4h" ("2 min 05 s", "1 h 12 min" in Spanish: the unit words are the
@@ -185,6 +197,28 @@ function pad(value: number): string {
  */
 export function formatDate(date: Date, { year = true }: { year?: boolean } = {}, locale: Locale = getLocale()): string {
   return dateFormat(locale, year ? { year: "numeric", month: "short", day: "numeric" } : { month: "short", day: "numeric" }).format(date);
+}
+
+/** A 24-hour clock, "14:05": the way server logs print time, and short enough for an axis. */
+export function formatClock(date: Date, locale: Locale = getLocale()): string {
+  return dateFormat(locale, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(date);
+}
+
+/**
+ * A moment in words, to the second: "Sep 25, 2026, 14:32:05" ("25 sept 2026, 14:32:05"), for
+ * assistive technology. Explicit fields rather than `dateStyle`/`timeStyle`, which cannot be
+ * combined with other fields (and throw with `timeZoneName` on the ICU build this ships with).
+ */
+export function formatMoment(date: Date, locale: Locale = getLocale()): string {
+  return dateFormat(locale, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).format(date);
 }
 
 /**

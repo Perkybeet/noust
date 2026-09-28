@@ -49,6 +49,7 @@ from wasm.deployers.docker_compose import DockerComposeDeployer
 from wasm.deployers.helpers.env_manager import EnvManager
 from wasm.deployers.helpers.layout import CONFIGURED, LAYOUTS, choose_layout
 from wasm.deployers.helpers.package_manager import SUPPORTED_PACKAGE_MANAGERS
+from wasm.deployers.helpers.php_fpm import is_php_fpm
 from wasm.deployers.lifecycle import (
     NOTHING_NEW_HINT,
     check_upstream,
@@ -56,6 +57,7 @@ from wasm.deployers.lifecycle import (
     update_app,
 )
 from wasm.deployers.monorepo import MonorepoDeployer
+from wasm.deployers.php_fpm import control_pool
 from wasm.deployers.registry import available_types
 from wasm.managers.apache_manager import ApacheManager
 from wasm.managers.nginx_manager import NginxManager
@@ -203,6 +205,7 @@ def _create_app(
     env_vars: dict[str, str] | None = None,
     env_secret_marks: dict[str, bool] | None = None,
     limits: ResourceLimits | None = None,
+    initial_health: tuple[str | None, str | None, int | None] | None = None,
 ) -> int:
     """
     Deploy an application.
@@ -236,6 +239,9 @@ def _create_app(
             with, so its first build's log is already scrubbed of them.
         limits: The unit's memory, CPU and task limits from the start; None
             creates it without any.
+        initial_health: ``(path, expect, timeout)`` a new application's
+            health check starts with, so its first deployment's gate already
+            asks it (an import's); None leaves the defaults.
 
     Returns:
         Exit code.
@@ -348,7 +354,7 @@ def _create_app(
         layout=layout or CONFIGURED,
         persistent_paths=list(persist) if persist else None,
         replace_existing=replace_existing,
-        **_import_options(env_secret_marks, limits),
+        **_import_options(env_secret_marks, limits, initial_health),
     )
     deployer.deploy()
 
@@ -356,7 +362,9 @@ def _create_app(
 
 
 def _import_options(
-    env_secret_marks: dict[str, bool] | None, limits: ResourceLimits | None
+    env_secret_marks: dict[str, bool] | None,
+    limits: ResourceLimits | None,
+    initial_health: tuple[str | None, str | None, int | None] | None = None,
 ) -> dict[str, Any]:
     """
     The deployer options only an import gives.
@@ -367,11 +375,14 @@ def _import_options(
     Args:
         env_secret_marks: The secret marks the new row starts with, or None.
         limits: The unit's limits, or None.
+        initial_health: The health check the new row starts with, or None.
 
     Returns:
         Keyword arguments for ``configure``.
     """
     options: dict[str, Any] = {}
+    if initial_health is not None:
+        options["initial_health"] = initial_health
     if env_secret_marks:
         options["env_secret_marks"] = env_secret_marks
     if limits is not None:
@@ -913,6 +924,13 @@ def _control_service(domain: str, action: str, logger: Logger) -> int:
     app_name = domain_to_app_name(domain)
 
     app = store.get_app(domain)
+    if app and is_php_fpm(app):
+        # Stored as static, but its pool runs it: the pool is what starts,
+        # stops and restarts.
+        logger.info(f"{present} {domain}...")
+        logger.info(control_pool(app, action, logger=logger))
+        logger.success(f"Application {past}: {domain}")
+        return 0
     if app and app.is_static:
         logger.info(f"Static application - no service to {action}: {domain}")
         return 0

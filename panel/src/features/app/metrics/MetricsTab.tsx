@@ -19,11 +19,11 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { STATUS, StatusGlyph } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
-import type { T } from "../../../i18n";
+import type { T, PlainKey } from "../../../i18n";
 import { cx } from "../../../lib/cx";
 import { formatBytes, formatPercent, parseTimestamp } from "../../../lib/format";
 import { appLimits } from "../../apps/data";
-import { alignSeries, resolutionWords } from "../../overview/series";
+import { alignSeries, resolutionCategory } from "../../overview/series";
 import { RANGES, clip, momentWords, rangeSpec, rangeWords, sentence, summarise } from "./ranges";
 import type { MetricRange, Points } from "./ranges";
 
@@ -151,7 +151,7 @@ function MetricChart({
       <Frame>
         <div className="flex flex-col gap-1">
           <h3 className="text-13 font-medium text-fg">{spec.title}</h3>
-          <p className="text-13 text-fg-muted">{t("appPages.metrics.noReadings", { range: words.toLowerCase() })}</p>
+          <p className="text-13 text-fg-muted">{t(NO_READINGS[range])}</p>
         </div>
       </Frame>
     );
@@ -168,13 +168,15 @@ function MetricChart({
   ];
 
   const format = (value: number) => spec.format(value, t.locale);
+  const category = resolutionCategory(series.data.resolution);
+  const spacing = category === "minute" ? t("appPages.metrics.minuteAverages") : category === "hour" ? t("appPages.metrics.hourlyAverages") : null;
 
   return (
     <Frame>
       <div className="flex flex-col gap-3">
         <Chart
           title={spec.title}
-          description={`${[words, resolutionWords(series.data.resolution)].filter((part) => part !== null).join(", ")}. ${spec.unit}.`}
+          description={`${[words, spacing].filter((part) => part !== null).join(", ")}. ${spec.unit}.`}
           timestamps={aligned.timestamps}
           series={lines}
           formatValue={format}
@@ -225,6 +227,15 @@ function DeployList({ domain, marks, t }: { domain: string; marks: readonly Depl
     </Section>
   );
 }
+
+
+/** A sentence per range: "in the last hour" is not a lowercased "Last hour" in every language. */
+const NO_READINGS: Readonly<Record<MetricRange, PlainKey>> = {
+  "1h": "appPages.metrics.noReadings.1h",
+  "24h": "appPages.metrics.noReadings.24h",
+  "7d": "appPages.metrics.noReadings.7d",
+  "30d": "appPages.metrics.noReadings.30d",
+};
 
 export interface MetricsTabProps {
   domain: string;
@@ -308,7 +319,7 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
     if (at === null) return [];
     const seconds = Math.floor(at.getTime() / 1000);
     if (seconds <= from || seconds > now) return [];
-    const status = deployStatus(deploy.status).label.toLowerCase();
+    const status = deployStatus(deploy.status, t.locale).label.toLowerCase();
     const when = momentWords(seconds, range, t.locale);
     return [{ id: deploy.id, at: seconds, status: deploy.status, when, label: t("appPages.metrics.deployMarkLabel", { id: String(deploy.id), status, when }) }];
   });

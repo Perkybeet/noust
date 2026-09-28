@@ -3,6 +3,10 @@ import type { Catalog } from "../types";
 
 export const settings: Catalog<typeof en> = {
   area: "Ajustes",
+  page: {
+    title: "Ajustes",
+    description: "Cómo funciona WASM en esta máquina y quién puede acceder a la consola.",
+  },
   shared: {
     cancel: "Cancelar",
     done: "Hecho",

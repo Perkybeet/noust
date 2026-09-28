@@ -154,7 +154,9 @@ class UpdateInfo(BaseModel):
     #: "checked" when the check actually ran (or the cache was used),
     #: "disabled" when the operator turned off ``updates.check`` - the panel
     #: shows that as the reason nothing about a new release is known, rather
-    #: than a check that silently never happens.
+    #: than a check that silently never happens - and "checking" when a
+    #: concurrent call is already fetching and there is no cached result yet
+    #: to answer with instead (:class:`~wasm.core.update_checker.UpdateCheckInProgress`).
     status: str = "checked"
 
 
@@ -599,15 +601,20 @@ def check_version(session: Annotated[dict, Depends(get_current_session)]) -> Upd
         session: The authenticated session.
 
     Returns:
-        The version comparison and how to update, or ``status="disabled"``
-        and nothing else when the operator turned ``updates.check`` off.
+        The version comparison and how to update, ``status="disabled"`` and
+        nothing else when the operator turned ``updates.check`` off, or
+        ``status="checking"`` when another call is already fetching and
+        there is no cached result yet to answer with instead.
     """
-    from wasm.core.update_checker import UpdateChecker
+    from wasm.core.update_checker import UpdateChecker, UpdateCheckInProgress
 
     if not UpdateChecker.enabled():
         return UpdateInfo(current_version=__version__, has_update=False, status="disabled")
 
-    check = UpdateChecker.check()
+    try:
+        check = UpdateChecker.check()
+    except UpdateCheckInProgress:
+        return UpdateInfo(current_version=__version__, has_update=False, status="checking")
     state = check.state
     return UpdateInfo(
         current_version=__version__,
@@ -615,7 +622,11 @@ def check_version(session: Annotated[dict, Depends(get_current_session)]) -> Upd
         has_update=state == "update_available",
         published_version=check.published,
         update_state=state,
-        update_command=check.update_command if state != "up_to_date" else None,
+        # Only "update_available" names something installable: "on_the_way"
+        # is a GitHub release the package manager has not built yet, and the
+        # CLI banner (UpdateChecker._show_update_message) shows the command
+        # for exactly the same state.
+        update_command=check.update_command if state == "update_available" else None,
         release_url=check.release_url,
     )
 

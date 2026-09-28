@@ -15,7 +15,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusGlyph, StatusPill, stateTextClass } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
-import { formatBytes, formatPercent } from "../../lib/format";
+import { formatBytes, formatLoad, formatPercent } from "../../lib/format";
 import { MonitorCard } from "./MonitorCard";
 import { checkName, checkView, healthReasons, verdictText, verdictView } from "./data";
 import type { HealthCheck, HealthReason } from "./data";
@@ -239,9 +239,9 @@ function SystemInfo() {
           value={formatPercent(cpu.percent)}
           detail={t("server.system.cpuDetail", {
             cores: cpu.cores,
-            load1: cpu.load_1min.toFixed(2),
-            load5: cpu.load_5min.toFixed(2),
-            load15: cpu.load_15min.toFixed(2),
+            load1: formatLoad(cpu.load_1min, t.locale),
+            load5: formatLoad(cpu.load_5min, t.locale),
+            load15: formatLoad(cpu.load_15min, t.locale),
           })}
         />
         <StatTile

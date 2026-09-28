@@ -9,6 +9,7 @@ import type { GitHubRepository, GitHubStatus } from "../../api/queries/github";
 import { announce } from "../../app/Announcer";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
+import { ExternalLink } from "../../components/ui/ExternalLink";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
@@ -16,7 +17,6 @@ import type { SelectOption } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
-import { ExternalAnchor } from "../settings/github/ExternalAnchor";
 import { splitFullName } from "../settings/github/github";
 import type { SourceErrors, SourceForm } from "./wizard";
 
@@ -332,9 +332,9 @@ export function GitHubSource({ status, form, errors, onChange, disabled }: GitHu
       <div className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-surface p-4 shadow-raised">
         <p className="text-13 text-pretty text-fg">{t("newApp.github.notInstalled")}</p>
         <div className="flex flex-wrap items-center gap-3">
-          <ExternalAnchor href={status.install_url} button="primary">
+          <ExternalLink href={status.install_url} button="primary">
             {t("newApp.github.install")}
-          </ExternalAnchor>
+          </ExternalLink>
           <Link to="/settings/integrations" className="rounded-[4px] text-13 font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus">
             {t("newApp.github.integrations")}
           </Link>

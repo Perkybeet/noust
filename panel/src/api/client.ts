@@ -14,7 +14,10 @@
  * backend declares their response model, the generated types sharpen with no change here.
  */
 
+import { getLocale } from "../app/locale";
 import { toast } from "../components/ui/toast";
+import { translate } from "../i18n/translate";
+import type { Locale } from "../i18n/types";
 import type { paths } from "./schema.gen";
 import { ElevationCancelledError, errorFromResponse, unreachable } from "./errors";
 
@@ -111,10 +114,10 @@ function delay(ms: number): Promise<void> {
 /** Reusing this id updates one toast in place instead of stacking a new one per request. */
 const RATE_LIMIT_TOAST_ID = "rate-limited";
 
-function waitDescription(retryAfter: number | null): string {
-  if (retryAfter === null) return "shortly";
-  if (retryAfter < 60) return `${String(retryAfter)}s`;
-  return `${String(Math.ceil(retryAfter / 60))}m`;
+/** How long a rate limit asks to wait, compactly: "30s", "2m". */
+function waitWords(locale: Locale, retryAfter: number): string {
+  if (retryAfter < 60) return translate(locale, "time.duration.seconds", { value: retryAfter });
+  return translate(locale, "time.duration.minutes", { value: Math.ceil(retryAfter / 60) });
 }
 
 async function send(
@@ -159,12 +162,16 @@ async function send(
     // caller to report instead of silently repeating a write. TanStack Query is told never to
     // retry a 4xx (see createQueryClient), so this is the one retry that happens, not a storm.
     const retrying = method === "GET" && mayRetryRateLimit && error.retryAfter !== null;
-    toast.warning("Too many requests", {
+    const locale = getLocale();
+    const wait = error.retryAfter === null ? null : waitWords(locale, error.retryAfter);
+    toast.warning(translate(locale, "common.rateLimit.title"), {
       id: RATE_LIMIT_TOAST_ID,
       detail: error.detail,
-      description: retrying
-        ? `Retrying automatically in ${waitDescription(error.retryAfter)}.`
-        : (error.hint ?? `Try again in ${waitDescription(error.retryAfter)}.`),
+      description:
+        retrying && wait !== null
+          ? translate(locale, "common.rateLimit.retrying", { wait })
+          : (error.hint ??
+            (wait === null ? translate(locale, "common.rateLimit.tryAgainShortly") : translate(locale, "common.rateLimit.tryAgain", { wait }))),
     });
     if (retrying) {
       await delay(error.retryAfter * 1000);
