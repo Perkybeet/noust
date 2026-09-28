@@ -97,6 +97,10 @@ class _FakeServices:
         """
         return [] if app.is_static else [domain_to_app_name(app.domain)]
 
+    def serving_units(self, app: Any) -> list[str]:
+        """The units serving now: every unit, outside zero-downtime mode."""
+        return self.app_units(app)
+
     def get_status(self, name: str) -> dict[str, Any]:
         """
         Report a unit's state.

@@ -16,7 +16,7 @@ import hmac
 import logging
 from typing import Any
 
-from wasm.core.forge_events import Forge, PullRequestAction, PullRequestEvent, PushEvent
+from wasm.core.forge_events import Forge, PushEvent
 from wasm.core.store import App, get_store
 from wasm.integrations.github.app import forget_tokens
 from wasm.integrations.github.client import json_object
@@ -29,13 +29,6 @@ _SIGNATURE_PREFIX = "sha256="
 
 #: GitHub's pull request actions, reduced to what a preview does about them.
 #: Anything else (labeled, edited, review_requested...) changes no code.
-PULL_REQUEST_ACTIONS: dict[str, PullRequestAction] = {
-    "opened": PullRequestAction.OPENED,
-    "reopened": PullRequestAction.OPENED,
-    "ready_for_review": PullRequestAction.OPENED,
-    "synchronize": PullRequestAction.UPDATED,
-    "closed": PullRequestAction.CLOSED,
-}
 
 
 def verify_signature(secret: str, body: bytes, header: str | None) -> bool:
@@ -98,50 +91,6 @@ def parse_push(payload: dict[str, Any]) -> PushEvent | None:
         clone_url=str(repository.get("clone_url") or f"https://github.com/{full_name}.git"),
         branch=ref.removeprefix("refs/heads/"),
         head_sha=head,
-        installation_id=_installation_id(payload),
-    )
-
-
-def parse_pull_request(payload: dict[str, Any]) -> PullRequestEvent | None:
-    """
-    Read a ``pull_request`` event.
-
-    Args:
-        payload: GitHub's payload.
-
-    Returns:
-        The event, or None for an action that changes no code, or a payload
-        missing what a pull request has.
-    """
-    action = PULL_REQUEST_ACTIONS.get(str(payload.get("action")))
-    if action is None:
-        return None
-    pull = json_object(payload.get("pull_request"))
-    head = json_object(pull.get("head"))
-    base = json_object(pull.get("base"))
-    head_repo = json_object(head.get("repo"))
-    base_repo = json_object(base.get("repo")) or json_object(payload.get("repository"))
-    repository = base_repo.get("full_name")
-    number = pull.get("number", payload.get("number"))
-    if not isinstance(repository, str) or not isinstance(number, int):
-        return None
-    head_name = head_repo.get("full_name")
-    return PullRequestEvent(
-        forge=Forge.GITHUB,
-        action=action,
-        repository=repository,
-        clone_url=str(
-            head_repo.get("clone_url")
-            or base_repo.get("clone_url")
-            or f"https://github.com/{repository}.git"
-        ),
-        number=number,
-        title=str(pull.get("title") or ""),
-        branch=str(head.get("ref") or ""),
-        base_branch=str(base.get("ref") or ""),
-        head_sha=str(head.get("sha") or ""),
-        # A deleted fork has no head repository: not this repository either.
-        from_fork=head_name != repository,
         installation_id=_installation_id(payload),
     )
 

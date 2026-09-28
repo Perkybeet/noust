@@ -771,23 +771,6 @@ _ports_guard = threading.Lock()
 _reserved_ports: set[int] = set()
 
 
-def _port_taken_by_apps() -> set[int]:
-    """
-    List the ports stored applications own.
-
-    Returns:
-        Every application's port, and the second port of each application in
-        zero-downtime mode, whose other instance may not be running now.
-    """
-    taken: set[int] = set()
-    for app in get_store().list_apps():
-        if app.port:
-            taken.add(app.port)
-            if app.zero_downtime:
-                taken.add(app.port + 1)
-    return taken
-
-
 def _reserve_port() -> int:
     """
     Pick a free port for a new preview and hold it until its deployment ends.
@@ -802,7 +785,7 @@ def _reserve_port() -> int:
     Raises:
         DeploymentError: No port in the range is free.
     """
-    taken = _port_taken_by_apps()
+    taken = get_store().ports_owned_by_apps()
     with _ports_guard:
         start, end = _PORT_RANGE
         while start < end:
@@ -881,6 +864,7 @@ def _deploy(parent: App, record: PreviewRecord, context: JobContext) -> dict[str
             layout="releases",
             memory_max_mb=PREVIEW_MEMORY_MB,
             cpu_quota_percent=PREVIEW_CPU_PERCENT,
+            trigger=DeploymentTrigger.WEBHOOK.value,
             job_context=context,
         )
     finally:

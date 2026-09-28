@@ -170,7 +170,9 @@ def serving_port(app: App) -> int | None:
     """
     if not app.port:
         return None
-    if app.zero_downtime and app.active_color in BLUE_GREEN_COLORS:
+    # getattr: callers hand this rows of their own shape (the list and the
+    # health report take any record with a domain and a port).
+    if getattr(app, "zero_downtime", False) and app.active_color in BLUE_GREEN_COLORS:
         return color_port(app, app.active_color)
     return app.port
 
@@ -981,10 +983,9 @@ def _refresh_site(app: App) -> None:
         DeploymentError: nginx did not reload.
     """
     # Imported here: the domains module builds deployers, which build this.
-    from wasm.deployers.domains import _serves_tls, _site_deployer
+    from wasm.deployers.domains import refresh_site
 
-    deployer = _site_deployer(app, verbose=False)
-    deployer.refresh_site(with_ssl=_serves_tls(app, deployer))
+    refresh_site(app)
 
 
 # ---------------------------------------------------------------------------

@@ -369,3 +369,55 @@ def test_rollback_job_hands_the_panel_trigger_to_the_rollback(
     rollback_app_job("app.example.com", backup_id="backup-1", job_context=_job_context())
 
     assert captured["trigger"] == "panel"
+
+
+def test_the_wizard_s_github_installation_reaches_the_job(
+    client: TestClient, queued: list[Any]
+) -> None:
+    """The installation the repository list named is what later updates clone with."""
+    client.post("/api/apps", json={**PAYLOAD, "github_installation_id": 77})
+
+    assert queued[0]["kwargs"]["github_installation_id"] == 77
+
+
+def test_the_deploy_job_links_the_application_to_its_installation(
+    monkeypatch: pytest.MonkeyPatch, store: Any, tmp_path: Path
+) -> None:
+    """Once the application exists, its row records the installation."""
+    from wasm.core.store import App
+    from wasm.web.jobs import deploy_app_job
+
+    class FakeDeployer:
+        """Creates the row a real deploy would, and nothing else."""
+
+        last_deployment_id = None
+
+        def configure(self, **kwargs: Any) -> None:
+            self.domain = kwargs["domain"]
+
+        def deploy(self) -> bool:
+            store.create_app(App(domain=self.domain, app_path=str(tmp_path / "app")))
+            return True
+
+    monkeypatch.setattr("wasm.deployers.get_deployer", lambda *a, **k: FakeDeployer())
+
+    deploy_app_job(
+        "app.example.com",
+        "github:you/app",
+        "nodejs",
+        github_installation_id=77,
+        job_context=_job_context(),
+    )
+
+    assert store.get_app("app.example.com").github_installation_id == 77
+
+
+def test_new_ports_skip_the_second_port_of_a_blue_green_application(store: Any) -> None:
+    """The idle instance's port is taken even while nothing listens on it."""
+    from wasm.core.store import App
+
+    store.create_app(App(domain="bg.example.com", app_path="/x", port=3000))
+    store.set_zero_downtime("bg.example.com", True)
+    store.create_app(App(domain="plain.example.com", app_path="/y", port=3005))
+
+    assert store.ports_owned_by_apps() == {3000, 3001, 3005}

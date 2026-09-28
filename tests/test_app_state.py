@@ -56,6 +56,10 @@ class _Services:
         """
         return [] if app.is_static else [domain_to_app_name(app.domain)]
 
+    def serving_units(self, app: App) -> list[str]:
+        """The units serving now: every unit, outside zero-downtime mode."""
+        return self.app_units(app)
+
     def get_status(self, name: str) -> dict[str, Any]:
         """
         Args:
@@ -345,3 +349,44 @@ def test_resolve_states_with_status_of_no_applications_asks_nothing() -> None:
 
     assert resolve_states_with_status([], services) == {}
     assert services.asked == []
+
+
+class _BlueGreenServices(_Services):
+    """Two instances, the serving one first, as ServiceManager names them."""
+
+    def app_units(self, app: App) -> list[str]:
+        """
+        Args:
+            app: The application.
+
+        Returns:
+            Both instances, the serving one first.
+        """
+        return ["example-com@green", "example-com@blue"]
+
+    def serving_units(self, app: App) -> list[str]:
+        """The real rule, over this double's units."""
+        from wasm.managers.service_manager import ServiceManager
+
+        return ServiceManager.serving_units(self, app)  # type: ignore[arg-type]
+
+
+def test_a_blue_green_application_is_as_healthy_as_its_serving_instance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The idle instance is stopped by design; the serving one's port is the one asked."""
+    probed: list[int] = []
+    monkeypatch.setattr(
+        "wasm.core.app_state.port_answers", lambda port: probed.append(port) or True
+    )
+    app = _app()
+    app.zero_downtime, app.active_color = True, "green"
+    services = _BlueGreenServices(
+        {"example-com@green": _active(), "example-com@blue": {"exists": True, "active": False}}
+    )
+
+    result = resolve_state(app, services, probe=True)
+
+    assert result.label == RUNNING
+    assert services.asked == ["example-com@green"]
+    assert probed == [3001]

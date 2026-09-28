@@ -27,10 +27,11 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from wasm.core.forge_events import Forge, PullRequestAction, PullRequestEvent
+from wasm.core.forge_events import parse_pull_request as pull_request_event
 from wasm.core.store import App, PreviewRecord, PreviewSettings, WASMStore
 from wasm.managers import previews
 from wasm.web.api import hooks as hooks_module
-from wasm.web.api.hooks import mint_webhook_secret, pull_request_event
+from wasm.web.api.hooks import mint_webhook_secret
 from wasm.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from wasm.web.jobs import JobType
 from wasm.web.server import create_app, get_token_manager

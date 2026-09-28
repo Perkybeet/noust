@@ -185,6 +185,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # to link to a deployment's page; nothing else reads it today. Must
         # be absolute https - see _validate_public_url.
         "public_url": "",
+        # The public base of /hooks/ that code hosts deliver to, written by
+        # `wasm web expose-hooks`; unset while webhooks can only reach this
+        # server through an address of the operator's own. See
+        # _validate_hooks_url.
+        "hooks_url": "",
         # These values are enforced by wasm.web.auth.SecurityConfig, whose
         # dataclass defaults must say the same numbers - core cannot import
         # the web layer to share one constant, so the agreement is pinned by
@@ -623,12 +628,43 @@ def _validate_public_url(value: Any) -> str:
     return text.rstrip("/")
 
 
+def _validate_hooks_url(value: Any) -> str:
+    """
+    Accept the public base URL of ``/hooks/``, or leave it unset.
+
+    http is allowed, unlike ``web.public_url``: a delivery is signed, so a
+    reader in the middle learns what was pushed but cannot forge one, and
+    ``wasm web expose-hooks --no-ssl`` exists for a server without a
+    certificate yet.
+
+    Args:
+        value: The candidate value.
+
+    Returns:
+        The value without a trailing slash, or ``""`` when unset.
+
+    Raises:
+        ConfigError: When it is set and is not an absolute http(s) URL.
+    """
+    text = "" if value is None else str(value).strip()
+    if not text:
+        return ""
+    parsed = urlparse(text)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        raise ConfigError(
+            "web.hooks_url must be an absolute http(s):// URL",
+            details=f"Got {text!r}. Set it with 'wasm web expose-hooks DOMAIN'.",
+        )
+    return text.rstrip("/")
+
+
 _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "webserver": _validate_webserver,
     "backup.max_per_app": _int_range_validator("backup.max_per_app", 1, 100),
     "web.port": _int_range_validator("web.port", 1, 65535),
     "web.session_timeout": _int_range_validator("web.session_timeout", 300, 86400),
     "web.public_url": _validate_public_url,
+    "web.hooks_url": _validate_hooks_url,
     # The one key every deployer, wasm.core.config.Config.apps_directory and
     # the panel's disk usage meter read. "apps.directory" is a deprecated
     # dotted alias, resolved to this key by _canonical_key() before a

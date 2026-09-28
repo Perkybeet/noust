@@ -32,7 +32,7 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from wasm.core.exceptions import WASMError
-from wasm.core.forge_events import PushEvent
+from wasm.core.forge_events import PushEvent, parse_pull_request
 from wasm.core.secrets import SecretStore
 from wasm.core.store import DeploymentTrigger, get_store
 from wasm.integrations.github import webhooks
@@ -212,7 +212,7 @@ async def deliver(request: Request) -> JSONResponse:
         return JSONResponse(status_code=202, content={"status": "queued", "jobs": jobs})
 
     if event == "pull_request":
-        pull = webhooks.parse_pull_request(payload)
+        pull = parse_pull_request("github", payload)
         if pull is None:
             _record(request, "ignored", f"pull_request {payload.get('action')}")
             return JSONResponse(status_code=200, content={"status": "ignored", "reason": "action"})

@@ -175,3 +175,22 @@ class TestGitHub:
         assert store.get_github_app() is None
         assert store.list_github_installations() == []
         assert app(store).github_installation_id is None
+
+
+class TestDeletingAnApplicationWithPreviews:
+    """lifecycle's check for previews to remove before an application goes."""
+
+    def test_settings_a_record_or_a_child_app_each_count(self, store: WASMStore) -> None:
+        from wasm.deployers.lifecycle import _has_previews
+
+        assert not _has_previews(store, DOMAIN)
+
+        store.save_preview_settings(PreviewSettings(app_domain=DOMAIN, base_domain="p.example.com"))
+        assert _has_previews(store, DOMAIN)
+        store.delete_preview_settings(DOMAIN)
+
+        child = "pr-1-shop-example-com.p.example.com"
+        store.create_app(App(domain=child, app_path="/x"))
+        store.set_preview_parent(child, DOMAIN)
+        assert _has_previews(store, DOMAIN)
+        assert not _has_previews(store, child)

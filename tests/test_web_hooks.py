@@ -745,3 +745,16 @@ def test_webhook_update_job_updates_with_webhook_trigger(
     assert result["trigger"] == "webhook"
     assert [call["domain"] for call in calls] == [DOMAIN]
     assert calls[0]["trigger"] == "webhook"
+
+
+def test_the_hook_url_given_out_is_the_public_one_when_exposed(
+    admin: TestClient, seeded: App, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A code host cannot deliver to the tunnel's localhost the console was opened at."""
+    monkeypatch.setattr(
+        "wasm.integrations.hooks_site.public_hooks_url", lambda: "https://hooks.example.net/hooks"
+    )
+
+    minted = admin.post(f"/api/apps/{DOMAIN}/webhook-secret")
+
+    assert minted.json()["hook_url"] == f"https://hooks.example.net/hooks/deploy/{DOMAIN}"

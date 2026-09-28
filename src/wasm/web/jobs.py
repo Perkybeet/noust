@@ -118,6 +118,7 @@ class JobType(str, Enum):
     SITE_ACTION = "site_action"
     DELETE = "delete"
     MIGRATE = "migrate"
+    ZERO_DOWNTIME = "zero_downtime"
     CUSTOM = "custom"
 
 
@@ -946,6 +947,8 @@ def deploy_app_job(
     cpu_quota_percent: int | None = None,
     tasks_max: int | None = None,
     package_manager: str | None = None,
+    trigger: str = "panel",
+    github_installation_id: int | None = None,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
     """
@@ -987,6 +990,12 @@ def deploy_app_job(
             (npm, pnpm, yarn, bun); None detects it from the project's lock
             file. Ignored by deployers that do not use one (monorepo and
             docker-compose install through their own tooling).
+        trigger: What the deployment history says started it: ``panel``
+            for the console's new-application wizard, ``webhook`` for a
+            preview a pull request asked for.
+        github_installation_id: The GitHub App installation the wizard read
+            the repository through, recorded on the application once it
+            exists so every update clones with it.
         job_context: Injected by the job manager.
 
     Returns:
@@ -1018,7 +1027,7 @@ def deploy_app_job(
         skip_database=skip_database,
         compose_file=compose_file,
         compose_profiles=compose_profiles,
-        trigger="panel",
+        trigger=trigger,
         layout=layout or CONFIGURED_LAYOUT,
         job_id=context.job_id,
         include_www=include_www,
@@ -1036,6 +1045,8 @@ def deploy_app_job(
             f"Deployment failed for {domain}",
             details="Check the job log and 'journalctl -u wasm-*' for the failing step.",
         )
+    if github_installation_id is not None:
+        get_store().set_github_installation(domain, github_installation_id)
 
     context.update("Deployment complete", 100)
     return {

@@ -280,6 +280,11 @@ class CreateAppRequest(BaseModel):
         "omitted or null detects it from the project's lock file. Ignored by app types that "
         "do not use one (monorepo, docker-compose).",
     )
+    github_installation_id: int | None = Field(
+        default=None,
+        description="GitHub App installation that clones this application's repository, "
+        "as the repository list returned it; kept for every later update",
+    )
 
 
 class AppActionResponse(BaseModel):
@@ -777,7 +782,9 @@ def create_app(
     if body.port is not None:
         port: int | None = validate_port(body.port)
     else:
-        port = find_available_port(preferred=DEFAULT_PORT)
+        port = find_available_port(
+            preferred=DEFAULT_PORT, exclude=get_store().ports_owned_by_apps()
+        )
         if port is None:
             raise HTTPException(status_code=503, detail="No available port found")
 
@@ -820,6 +827,7 @@ def create_app(
             "cpu_quota_percent": body.cpu_quota_percent,
             "tasks_max": body.tasks_max,
             "package_manager": body.package_manager,
+            "github_installation_id": body.github_installation_id,
         },
         metadata={"domain": domain, "app_type": body.app_type, "port": port},
         actor=actor_label(session),
@@ -838,6 +846,11 @@ class InspectSourceRequest(BaseModel):
 
     source: str = Field(..., description="Git URL, archive URL or local path")
     branch: str | None = Field(default=None, description="Git branch to inspect")
+    github_installation_id: int | None = Field(
+        default=None,
+        description="GitHub App installation to read a private github.com repository with, "
+        "as the repository list returned it. Omitted: the installation on the owner's account",
+    )
 
 
 class EnvKeyResponse(BaseModel):
@@ -1002,7 +1015,12 @@ async def inspect_app_source(
 
     def work() -> SourceInspection:
         _require_local_source_privilege(request, session, body.source)
-        return inspect_source(body.source, branch=body.branch, cancel=cancel)
+        return inspect_source(
+            body.source,
+            branch=body.branch,
+            cancel=cancel,
+            github_installation_id=body.github_installation_id,
+        )
 
     try:
         result = await _run_until_disconnected(request, cancel, work)

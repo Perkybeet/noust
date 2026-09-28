@@ -2386,6 +2386,23 @@ def delete_app(
         )
 
 
+def _has_previews(store: WASMStore, domain: str) -> bool:
+    """
+    Say whether an application has previews, or had them turned on.
+
+    Args:
+        store: The store.
+        domain: The application's domain.
+
+    Returns:
+        True when there is anything of its previews to remove.
+    """
+    if store.get_preview_settings(domain) is not None or store.list_previews(domain):
+        return True
+    # getattr: callers and tests hand this rows of their own shape.
+    return any(getattr(app, "preview_parent", None) == domain for app in store.list_apps())
+
+
 def _delete_app(
     domain: str,
     *,
@@ -2453,6 +2470,18 @@ def _delete_app(
     else:
         phase(1, DELETE_PHASES, "Stopping the application")
 
+    if app is not None and not is_rehearsal() and _has_previews(store, domain):
+        # A preview copies this application's source and secrets; none may
+        # outlive it. Before its own units go, so a failure here is reported
+        # with the application still whole.
+        from wasm.managers.previews import remove_previews_of
+
+        try:
+            for removed in remove_previews_of(domain, logger=log):
+                log.substep(f"Removed preview {removed}")
+        except WASMError as exc:
+            failed("Some of its previews were not removed", exc)
+
     phase(2, DELETE_PHASES, "Removing its units")
     units = [s.name for s in store.list_services() if app is not None and s.app_id == app.id]
     if not units:
@@ -2501,6 +2530,8 @@ def _delete_app(
         for unit in units:
             store.delete_service(unit)
         store.delete_app(domain)
+        # Deleting a preview directly: its record goes with it.
+        store.delete_preview(domain)
 
     return AppDeletion(
         domain=domain,

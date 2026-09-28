@@ -3,6 +3,7 @@ Port validation for WASM.
 """
 
 import socket
+from collections.abc import Collection
 
 from wasm.core.exceptions import PortError
 
@@ -154,6 +155,7 @@ def find_available_port(
     start: int = 3000,
     end: int = 9000,
     preferred: int | None = None,
+    exclude: Collection[int] = (),
 ) -> int | None:
     """
     Find an available port.
@@ -162,17 +164,19 @@ def find_available_port(
         start: Start of range to search.
         end: End of range to search.
         preferred: Preferred port to try first.
+        exclude: Ports to skip even when nothing listens on them, such as
+            :meth:`~wasm.core.store.WASMStore.ports_owned_by_apps`.
 
     Returns:
         Available port number or None.
     """
     # Try preferred port first
-    if preferred and is_port_available(preferred):
+    if preferred and preferred not in exclude and is_port_available(preferred):
         return preferred
 
     # Search range
     for port in range(start, end):
-        if is_port_available(port):
+        if port not in exclude and is_port_available(port):
             return port
 
     return None

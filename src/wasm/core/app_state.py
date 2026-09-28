@@ -164,7 +164,9 @@ def resolve_state_with_status(
     # The unit(s) come from the one mapping of an application to its units:
     # the legacy prefix, a monorepo's workspaces and Compose are resolved
     # there. An application with several units is as healthy as its worst.
-    units = service_manager.app_units(app) or [domain_to_app_name(app.domain)]
+    # serving_units: in zero-downtime mode the idle instance is stopped by
+    # design, and must not make a serving application read as stopped.
+    units = service_manager.serving_units(app) or [domain_to_app_name(app.domain)]
     resolved: list[tuple[AppState, dict[str, Any]]] = []
     for unit in units:
         try:
@@ -214,11 +216,16 @@ def _state_from_status(app: App, status: dict[str, Any], *, probe: bool) -> AppS
 
     # systemd is satisfied. That only means a process exists, so ask the
     # application itself.
-    if probe and app.port and not port_answers(app.port):
+    # The serving instance's port: in zero-downtime mode green answers on
+    # the port after the application's.
+    from wasm.deployers.bluegreen import serving_port
+
+    port = serving_port(app)
+    if probe and port and not port_answers(port):
         return AppState(
             NOT_RESPONDING,
             healthy=False,
-            detail=f"the unit is up but nothing accepts connections on port {app.port}",
+            detail=f"the unit is up but nothing accepts connections on port {port}",
         )
 
     if restarts:

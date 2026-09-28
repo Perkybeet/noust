@@ -549,7 +549,7 @@ class ServiceManager(BaseManager):
         return candidate.removeprefix(self.LEGACY_PREFIX) or candidate
 
     #: Units WASM runs for itself, not for an application.
-    OWN_UNITS: ClassVar[frozenset[str]] = frozenset({"wasm-web", "wasm-monitor"})
+    OWN_UNITS: ClassVar[frozenset[str]] = frozenset({"wasm-web", "wasm-monitor", "wasm-previews"})
     #: Prefixes of the units WASM writes for scheduled work.
     OWN_UNIT_PREFIXES: ClassVar[tuple[str, ...]] = ("wasm-cron-", "wasm-backup-")
 

@@ -3600,6 +3600,26 @@ class WASMStore:
             )
             return cursor.rowcount > 0
 
+    def ports_owned_by_apps(self) -> set[int]:
+        """
+        List the ports stored applications own, whether or not they listen now.
+
+        A port nothing listens on can still be an application's: one that is
+        stopped, or the idle instance of one in zero-downtime mode, which
+        answers on the port after its own. Every port picker skips these.
+
+        Returns:
+            Every application's port, and the second port of each application
+            in zero-downtime mode.
+        """
+        taken: set[int] = set()
+        for app in self.list_apps():
+            if app.port:
+                taken.add(app.port)
+                if app.zero_downtime:
+                    taken.add(app.port + 1)
+        return taken
+
     def set_zero_downtime(
         self, domain: str, enabled: bool, *, drain_seconds: int | None = None
     ) -> bool:

@@ -399,6 +399,10 @@ def test_sync_writes_back_only_what_changed(
             """
             return [] if app.is_static else [domain_to_app_name(app.domain)]
 
+        def serving_units(self, app: Any) -> list[str]:
+            """The units serving now: every unit, outside zero-downtime mode."""
+            return self.app_units(app)
+
         def get_status(self, name: str) -> dict[str, bool]:
             """
             Args:

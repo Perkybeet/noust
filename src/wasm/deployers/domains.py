@@ -398,6 +398,27 @@ def _application(app_domain: str) -> App:
     return app
 
 
+def refresh_site(app: App, *, verbose: bool = False) -> None:
+    """
+    Render an application's site again, exactly as a deploy would.
+
+    For a change that lives in the web server's configuration only, such as
+    blue/green moving the site to its upstream and back: the names, the
+    redirects and TLS stay what they are.
+
+    Args:
+        app: The application.
+        verbose: Whether the deployer reports its steps.
+
+    Raises:
+        ValidationError: The application's type writes its own web server
+            configuration, or the web server refused the new site (the old
+            file is back).
+    """
+    deployer = _site_deployer(app, verbose=verbose)
+    deployer.refresh_site(with_ssl=_serves_tls(app, deployer))
+
+
 def _site_deployer(app: App, *, verbose: bool) -> BaseDeployer:
     """
     Build the deployer that renders an application's site, configured from its row.

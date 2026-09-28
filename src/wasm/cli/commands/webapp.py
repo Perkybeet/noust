@@ -242,7 +242,7 @@ def _create_app(
     if port:
         port = validate_port(port)
     else:
-        port = find_available_port(preferred=3000)
+        port = find_available_port(preferred=3000, exclude=get_store().ports_owned_by_apps())
         if not port:
             raise DeploymentError(
                 "No available port found",

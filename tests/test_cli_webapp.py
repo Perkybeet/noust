@@ -157,6 +157,10 @@ class ServiceSpy:
         """
         return [] if app.is_static else [domain_to_app_name(app.domain)]
 
+    def serving_units(self, app: Any) -> list[str]:
+        """The units serving now: every unit, outside zero-downtime mode."""
+        return self.app_units(app)
+
     def get_status(self, name: str) -> dict[str, Any]:
         """
         Args:
@@ -269,6 +273,24 @@ class StoreSpy:
             name: Service name.
         """
         self.deleted.append(("service", name))
+
+    def get_preview_settings(self, domain: str) -> None:
+        """No application here previews anything."""
+        return None
+
+    def list_previews(self, parent_domain: str | None = None) -> list[Any]:
+        """No previews."""
+        return []
+
+    def delete_preview(self, domain: str) -> bool:
+        """
+        Args:
+            domain: The preview's domain.
+
+        Returns:
+            False: there are none.
+        """
+        return False
 
 
 class DeployerSpy:

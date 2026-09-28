@@ -224,7 +224,7 @@ def put_zero_downtime(
         check_eligible(app)
     verb = "on" if body.enabled else "off"
     job = get_job_manager().create_job(
-        job_type=JobType.CUSTOM,
+        job_type=JobType.ZERO_DOWNTIME,
         name=f"Zero downtime {verb} for {validated}",
         description=f"Turning blue/green activation {verb} for {validated}",
         func=zero_downtime_job,

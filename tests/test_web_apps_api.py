@@ -59,6 +59,10 @@ class _FakeServiceManager:
         """
         return [] if app.is_static else [domain_to_app_name(app.domain)]
 
+    def serving_units(self, app: Any) -> list[str]:
+        """The units serving now: every unit, outside zero-downtime mode."""
+        return self.app_units(app)
+
     def get_status(self, name: str) -> dict[str, Any]:
         """
         Args:
@@ -628,7 +632,13 @@ def test_the_inspection_carries_the_compatibility_verdict(
 
     seen: dict[str, Any] = {}
 
-    def inspected(source: str, *, branch: str | None = None, cancel: Any = None) -> Any:
+    def inspected(
+        source: str,
+        *,
+        branch: str | None = None,
+        cancel: Any = None,
+        github_installation_id: int | None = None,
+    ) -> Any:
         seen["cancel"] = cancel
         return _inspection(
             compatible=False,
@@ -716,7 +726,13 @@ def test_the_endpoint_answers_499_once_the_cancelled_inspection_stopped(
 
     from wasm.core.runner import CommandCancelled
 
-    def inspected(source: str, *, branch: str | None = None, cancel: Any = None) -> Any:
+    def inspected(
+        source: str,
+        *,
+        branch: str | None = None,
+        cancel: Any = None,
+        github_installation_id: int | None = None,
+    ) -> Any:
         assert cancel is not None and cancel.wait(timeout=10)
         raise CommandCancelled("Inspection cancelled")
 

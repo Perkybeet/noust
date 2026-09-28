@@ -58,6 +58,10 @@ class FakeUnits:
     def app_units(self, app: App) -> list[str]:
         return [] if app.is_static else [domain_to_app_name(app.domain)]
 
+    def serving_units(self, app: App) -> list[str]:
+        """The units serving now: every unit, outside zero-downtime mode."""
+        return self.app_units(app)
+
     def get_service_config(self, name: str) -> str | None:
         return self.bodies.get(name)
 
