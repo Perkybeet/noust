@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" color="#18181b" fill="none">
   <title>Noust</title>
-  <g id="noust-icon" stroke-linecap="round" stroke-linejoin="round">
+  <g id="noust-icon" fill="none" stroke-linecap="round" stroke-linejoin="round">
     <path d="M2 16H5C8 16 9 24 12 24H20C23 24 24 16 27 16H30M2 10H4.5M27.5 10H30" stroke="currentColor" stroke-width="4"/>
     <path d="M8 9.5A1.5 1.5 0 0 1 10.7 8.6C11.9 10.2 12.5 12 16 12C19.5 12 20.1 10.2 21.3 8.6A1.5 1.5 0 0 1 24 9.5C24 16.5 21 20 16 20C11 20 8 16.5 8 9.5ZM11 12C12.5 14.25 14 15 16 15C18 15 19.5 14.25 21 12C19.5 15.25 18 17 16 17C14 17 12.5 15.25 11 12Z" fill="#7b61ff" fill-rule="evenodd"/>
   </g>

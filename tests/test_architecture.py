@@ -1433,3 +1433,32 @@ class TestBrandCopies:
         dark = (REPO / "docs/brand/noust-wordmark-dark.svg").read_text(encoding="utf-8")
         assert dark == light.replace('color="#18181b"', 'color="#fafafa"', 1)
         assert dark != light
+
+    def test_every_drawing_group_says_it_has_no_fill(self):
+        """
+        The console draws the logo with ``<use href="file.svg#noust-...">``, which clones the
+        group and not the file's root ``<svg fill="none">``: a group without its own
+        ``fill="none"`` fills every stroked path in black (the shore line, the letters).
+        """
+        brand = REPO / "panel/src/assets/brand"
+        for path in [*sorted(brand.glob("*.svg")), REPO / "panel/public/favicon.svg"]:
+            svg = path.read_text(encoding="utf-8")
+            assert re.search(r'<g id="noust-[a-z]+" fill="none"', svg), path.name
+
+    def test_the_slabs_are_two_mirrored_stacks_of_centred_equal_steps(self):
+        brand = REPO / "panel/src/assets/brand"
+        for name in ("noust-mark", "noust-mark-mono", "noust-wordmark", "noust-wordmark-mono"):
+            svg = (brand / f"{name}.svg").read_text(encoding="utf-8")
+            slabs = [
+                (float(x1), float(y), float(x2))
+                for x1, y, x2 in re.findall(r"M([\d.]+) ([\d.]+)H([\d.]+)", svg)
+                if float(y) in (3, 11, 19)
+            ]
+            left = sorted((s for s in slabs if s[2] < 70), key=lambda s: s[1])
+            right = sorted((s for s in slabs if s[0] > 70), key=lambda s: s[1])
+            assert len(left) == len(right) == 3, name
+            assert [(140 - x2, y, 140 - x1) for x1, y, x2 in left] == right, name
+            centres = {(x1 + x2) / 2 for x1, _, x2 in left}
+            assert len(centres) == 1, f"{name}: each slab sits on the one below's centre"
+            widths = [x2 - x1 for x1, _, x2 in reversed(left)]  # bottom slab first
+            assert widths[0] - widths[1] == widths[1] - widths[2] > 0, f"{name}: equal steps"

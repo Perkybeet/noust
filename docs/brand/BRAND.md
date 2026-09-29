@@ -33,7 +33,13 @@ them with `?url&no-inline`: `<use>` cannot reference the data: URL Vite would ot
 - Ground at y = 26, dipping to y = 34 between x = 40 and 100 (cubic S, handles 7 and 8 long, no tighter than the stroke).
 - Hull: one even-odd path, tips of radius 1.25 whose inner edge leaves at 3:4, keel bottom at
   y = 31, one unit above the hollow. The two cuts are lenses running parallel to the sheer.
-- Slabs: 34, 27 and 20 wide from the bottom, offset by up to one unit, as dry stone is.
+- Slabs: 34, 26 and 18 wide from the bottom (round caps included), each centred on the one
+  below and stepping in 4 units a side, the right stack the mirror of the left. An earlier cut
+  offset them by up to a unit, as dry stone is; at logo sizes that read as a mistake, not as
+  stone, and a test now holds the stacks to this geometry.
+- Each drawing's group carries its own `fill="none"`: the console references the group with
+  `<use>`, which does not inherit the root `<svg>`'s attributes, and every stroked path would
+  otherwise be filled with the ink.
 - Icon: `viewBox 0 0 32 32`, weights 4 on even coordinates so 16 and 32 px land on whole pixels.
 - Wordmark: x-height 18, stroke 4.5, baseline on the ground's lower edge (y = 28); "noust"
   starts 14 units after the mark. The whole lockup is `viewBox 0 0 254 36`.
