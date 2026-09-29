@@ -214,7 +214,11 @@ class NodeClient:
         Args:
             actor: Who on the central acts, such as ``cli:root``; omitted when None.
             actor_scope: That operator's scope on the central; omitted when
-                None, which the node reads as ``admin``.
+                None, which the node reads as ``read`` (fails closed), never
+                ``admin``. A caller with no human actor to narrow to (a
+                status poll) should still pass ``read`` explicitly, and one
+                acting with this central's own full authority (the CLI,
+                which already runs as local root) passes ``admin``.
             elevated: Whether that operator is confirmed in sudo mode.
 
         Returns:

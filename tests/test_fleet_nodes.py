@@ -173,6 +173,10 @@ class TestAdd:
         assert fleet.secrets.read(secret_name("web-2", TOKEN_LEAF)) == TOKEN
         assert fleet.node.requests[0].url.path == "/api/system/version"
         assert fleet.node.requests[0].headers["X-Noust-Actor"] == "cli:root@nas"
+        # A version check is read-only: it must not ask the node for admin,
+        # which the fleet token's actor scope is narrowed to (noust.web.auth
+        # fails closed to 'read' when this header is absent).
+        assert fleet.node.requests[0].headers["X-Noust-Actor-Scope"] == "read"
 
     def test_the_ssh_port_defaults_to_the_code_s(self, fleet):
         fleet.added(ssh_port=2200)
@@ -296,6 +300,9 @@ class TestRemoveAndTest:
         assert fleet.node.revoked
         revoke = fleet.node.requests[-1]
         assert (revoke.method, revoke.url.path) == ("POST", "/api/auth/fleet/revoke")
+        # The node requires admin scope for this write (noust.web.auth
+        # required_scope), and there is no lesser scope that revokes a token.
+        assert revoke.headers["X-Noust-Actor-Scope"] == "admin"
         assert len(warnings) == 1 and "noust fleet deauthorize --name nas" in warnings[0]
         assert _leftovers(fleet) == []
         assert fleet.keys.public_key("web-2") is None
@@ -352,12 +359,30 @@ class TestRemoveAndTest:
         assert (refused["reachable"], refused["status"]) == (False, "refused")
         assert fleet.manager.get("web-2").status == "refused"
 
+        fleet.node.revoked = False
         fleet.tunnels.close("web-2")
-        fleet.runner.script(["ssh"], exit_code=255, stderr="Permission denied (publickey).")
+        fleet.runner.script(
+            ["ssh"], exit_code=255, stderr="ssh: connect to host: Connection refused"
+        )
         down = fleet.manager.test("web-2")
         assert (down["reachable"], down["status"]) == (False, "unreachable")
-        assert down["details"] == "Permission denied (publickey)."
+        assert down["details"] == "ssh: connect to host: Connection refused"
         assert fleet.manager.get("web-2").version == "3.0.1"
+
+    def test_a_revoked_ssh_key_is_recorded_as_refused_too(self, fleet):
+        """
+        Not only a revoked fleet token (HTTP 401): a revoked SSH key answers
+        "Permission denied" opening the tunnel, and the node is recorded
+        refused exactly the same way, not merely unreachable.
+        """
+        fleet.added()
+        fleet.tunnels.close("web-2")
+        fleet.runner.script(["ssh"], exit_code=255, stderr="Permission denied (publickey).")
+
+        result = fleet.manager.test("web-2")
+
+        assert (result["reachable"], result["status"]) == (False, "refused")
+        assert fleet.manager.get("web-2").status == "refused"
 
 
 class TestFleetStatus:
@@ -382,6 +407,11 @@ class TestFleetStatus:
         assert not down["reachable"] and down["status"] == "unreachable"
         assert "Connection refused" in down["details"]
         assert fleet.manager.get("web-3").status == "unreachable"
+        # A status poll has no human actor behind it: read is enough, and is
+        # what it must ask for so a fleet token narrowed to it still works.
+        status_requests = [r for r in fleet.node.requests if r.url.path.startswith("/api/system")]
+        assert status_requests
+        assert all(r.headers["X-Noust-Actor-Scope"] == "read" for r in status_requests)
 
     def test_a_part_that_fails_is_a_warning(self, fleet):
         fleet.added()

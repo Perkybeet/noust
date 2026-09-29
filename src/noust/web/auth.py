@@ -213,6 +213,14 @@ DEPLOY_SCOPE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"^/api/apps/[^/]+/deployments/[0-9]+/(rebuild|rollback)$"),
 )
 
+#: A node-proxied path's prefix (``/api/nodes/{node}/api/...``, from
+#: ``noust.web.api.node_proxy``), before the node's own path takes over.
+#: Stripped before the table above is matched, so a request through a node
+#: is scored the same way it would be against that node's own API: the node
+#: still enforces its own scope, narrowed from ``X-Noust-Actor-Scope``, so
+#: nothing here needs to trust what the central decided.
+_NODE_PROXY_PATH = re.compile(r"^/api/nodes/[^/]+(/api/.*)$")
+
 # ---------------------------------------------------------------- the fleet
 #
 # A central reaches this server through an SSH tunnel that ends on
@@ -3664,7 +3672,11 @@ def admit_fleet(payload: dict[str, Any], connection: HTTPConnection | None) -> d
     narrowed to ``X-Noust-Actor-Scope``, and ``X-Noust-Elevated`` records
     whether the central confirmed that operator's sudo mode. The raw
     ``fleet`` scope is replaced, so a payload that skipped this satisfies no
-    scope at all (see :func:`scope_satisfies`).
+    scope at all (see :func:`scope_satisfies`). Missing or invalid,
+    ``X-Noust-Actor-Scope`` grants ``read``, never ``admin``: an older
+    central, or a caller on this central with no human actor to narrow to
+    (a status poll), must ask for admin explicitly rather than receive it by
+    omission.
 
     Args:
         payload: The raw payload of a fleet token. Modified in place.
@@ -3696,7 +3708,11 @@ def admit_fleet(payload: dict[str, Any], connection: HTTPConnection | None) -> d
             "The central sends its operator's label; check the central's version.",
         )
 
-    granted = "admin"
+    # Fail closed: absent or malformed, the grant is the lowest scope, not
+    # the highest. An older central omitting the header, or a request this
+    # central makes with no operator behind it, gets read, never admin by
+    # accident.
+    granted = "read"
     actor_scope = connection.headers.get(FLEET_ACTOR_SCOPE_HEADER)
     if actor_scope is not None:
         if actor_scope not in SCOPE_RANK:
@@ -3706,9 +3722,7 @@ def admit_fleet(payload: dict[str, Any], connection: HTTPConnection | None) -> d
                 f"{FLEET_ACTOR_SCOPE_HEADER} must be one of: {', '.join(API_TOKEN_SCOPES)}.",
                 "The central sends its operator's scope; check the central's version.",
             )
-        # Never above admin, whatever the central says: min() over ranks.
-        if SCOPE_RANK[actor_scope] < SCOPE_RANK[granted]:
-            granted = actor_scope
+        granted = actor_scope
 
     payload["fleet"] = True
     payload["scope"] = granted
@@ -3888,11 +3902,16 @@ def required_scope(method: str, path: str) -> str:
 
     Args:
         method: The HTTP method.
-        path: The request path.
+        path: The request path. A node-proxied path
+            (``/api/nodes/{node}/api/...``) is judged by what follows the
+            node, exactly as it would be judged locally.
 
     Returns:
         The minimum scope.
     """
+    proxied = _NODE_PROXY_PATH.match(path)
+    if proxied is not None:
+        path = proxied.group(1)
     verb = method.upper()
     if verb in SAFE_METHODS:
         return "read"

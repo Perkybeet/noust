@@ -280,6 +280,23 @@ def test_a_deploy_scope_is_enough_to_activate_a_release_and_nothing_near_it() ->
     assert required_scope("PATCH", f"/api/apps/{DOMAIN}/limits") == "admin"
 
 
+def test_the_same_scope_applies_through_a_node_proxy() -> None:
+    """
+    /api/nodes/{node}/api/... is the same operation on that node's own API;
+    a deploy-scoped token must clear the proxy exactly as it would locally,
+    not need admin merely because /api/nodes/{node} is in front of it.
+    """
+    from noust.web.auth import required_scope
+
+    path = f"/api/apps/{DOMAIN}/releases/{RELEASE_A}/activate"
+    assert required_scope("POST", f"/api/nodes/web-2{path}") == "deploy"
+    assert required_scope("GET", f"/api/nodes/web-2/api/apps/{DOMAIN}/releases") == "read"
+    assert required_scope("POST", "/api/nodes/web-2/api/jobs/update") == "deploy"
+    # Still admin for what is admin locally: the prefix changes nothing else.
+    assert required_scope("POST", "/api/nodes/web-2/api/apps") == "admin"
+    assert required_scope("DELETE", f"/api/nodes/web-2{path}") == "admin"
+
+
 # ---------------------------------------------------------------------------
 # Migration
 # ---------------------------------------------------------------------------

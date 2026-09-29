@@ -265,6 +265,40 @@ def _job_context() -> Any:
     return JobContext(job, lambda _job: None)
 
 
+def test_a_failed_deploy_names_the_application_not_a_stale_wasm_unit_glob(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    The error used to say "journalctl -u wasm-*", a unit glob from before the
+    rename that never matched a real Noust unit (and never named the app that
+    actually failed).
+    """
+    from noust.core.exceptions import DeploymentError
+    from noust.web.jobs import deploy_app_job
+
+    class FakeDeployer:
+        def configure(self, **kwargs: Any) -> None:
+            pass
+
+        def deploy(self) -> bool:
+            return False
+
+        last_deployment_id = None
+
+    monkeypatch.setattr("noust.deployers.get_deployer", lambda *a, **k: FakeDeployer())
+
+    with pytest.raises(DeploymentError) as caught:
+        deploy_app_job(
+            "app.example.com",
+            "https://github.com/you/app",
+            "nodejs",
+            job_context=_job_context(),
+        )
+
+    assert "wasm-*" not in caught.value.details
+    assert "application's unit" in caught.value.details
+
+
 def test_deploy_job_hands_the_panel_trigger_to_the_deployer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

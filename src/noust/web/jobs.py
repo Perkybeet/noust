@@ -1089,7 +1089,8 @@ def deploy_app_job(
     if not deployer.deploy():
         raise DeploymentError(
             f"Deployment failed for {domain}",
-            details="Check the job log and 'journalctl -u wasm-*' for the failing step.",
+            details="Check the job log and the application's unit "
+            "(journalctl -u <unit>; 'noust service list' names it) for the failing step.",
         )
     if github_installation_id is not None:
         get_store().set_github_installation(domain, github_installation_id)

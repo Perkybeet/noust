@@ -183,7 +183,7 @@ class GitHubClient:
         headers = {
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": API_VERSION,
-            "User-Agent": f"wasm/{__version__}",
+            "User-Agent": f"noust/{__version__}",
         }
         if data is not None:
             headers["Content-Type"] = "application/json"

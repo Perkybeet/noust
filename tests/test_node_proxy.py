@@ -22,7 +22,7 @@ import time
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import replace
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 import uvicorn
@@ -65,6 +65,9 @@ class FakeNode:
         self.seen: list[dict[str, Any]] = []
         self.schema_fetches = 0
         self.handshakes: list[dict[str, str]] = []
+        #: When set, /api/openapi.json serves this many bytes of padding
+        #: instead of a real schema, to exercise the central's size cap.
+        self.oversized_schema_bytes: int | None = None
         self.app = self._build()
 
     def _build(self) -> FastAPI:
@@ -72,21 +75,28 @@ class FakeNode:
         node = self
 
         @app.get("/api/openapi.json")
-        def schema() -> dict[str, Any]:
+        def schema() -> Response:
             node.schema_fetches += 1
-            return {
-                "openapi": "3.1.0",
-                "info": {"title": "node", "version": "3.0.0"},
-                "paths": {
-                    "/api/apps": {"get": {}},
-                    "/api/apps/import": {"post": {}},
-                    "/api/apps/{domain}": {
-                        "get": {},
-                        "delete": {ELEVATION_EXTENSION: True},
+            if node.oversized_schema_bytes is not None:
+                return Response(
+                    content=b"[" + b"0" * node.oversized_schema_bytes + b"]",
+                    media_type="application/json",
+                )
+            return JSONResponse(
+                {
+                    "openapi": "3.1.0",
+                    "info": {"title": "node", "version": "3.0.0"},
+                    "paths": {
+                        "/api/apps": {"get": {}},
+                        "/api/apps/import": {"post": {}},
+                        "/api/apps/{domain}": {
+                            "get": {},
+                            "delete": {ELEVATION_EXTENSION: True},
+                        },
+                        "/api/echo/{rest}": {"get": {}, "post": {}},
                     },
-                    "/api/echo/{rest}": {"get": {}, "post": {}},
-                },
-            }
+                }
+            )
 
         @app.api_route("/api/echo/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
         async def echo(rest: str, request: Request) -> Response:
@@ -358,6 +368,7 @@ def node(fake_node: tuple[FakeNode, int]) -> FakeNode:
     fake.seen.clear()
     fake.handshakes.clear()
     fake.schema_fetches = 0
+    fake.oversized_schema_bytes = None
     node_proxy.node_schemas.forget()
     return fake
 
@@ -704,6 +715,22 @@ class TestScopes:
         assert response.status_code == 403
         assert node.seen == []
 
+    def test_a_deploy_token_clears_the_proxy_for_a_deploy_scoped_path(
+        self, central: TestClient, node: FakeNode
+    ) -> None:
+        # /api/jobs/update is a deploy-scope path locally; through the proxy
+        # it is /api/nodes/web-2/api/jobs/update, and must be judged the
+        # same way. The fake node has no such route, so reaching it (a 404
+        # from the node, not a 403 from the central) is what proves the
+        # scope table matched on the path after the /api/nodes/{node}
+        # prefix, not before it.
+        response = proxied(
+            central, "POST", "jobs/update", json={}, headers=token_headers("deploy", "deployer")
+        )
+
+        assert response.status_code == 404, response.text
+        assert node.seen == []
+
 
 class TestElevation:
     def test_an_elevated_operation_needs_the_centrals_sudo_mode(
@@ -741,6 +768,24 @@ class TestElevation:
 
         assert node.schema_fetches == 2
 
+    def test_a_schema_over_the_size_cap_is_a_clean_502_not_a_memory_blowout(
+        self, central: TestClient, master: dict[str, str], node: FakeNode
+    ) -> None:
+        node.oversized_schema_bytes = node_proxy._MAX_SCHEMA_BYTES + 1
+
+        response = proxied(central, "GET", "echo/x", headers=master)
+
+        assert response.status_code == 502
+        assert response.json()["error"] == "node_unreachable"
+        assert node.seen == []
+
+    def test_the_cap_has_ample_headroom_over_nousts_own_schema(self) -> None:
+        # Noust's own openapi.json (committed at panel/openapi.json) is what
+        # a node this size actually serves; the cap must clear it many times
+        # over, not merely exceed it.
+        openapi = Path(__file__).resolve().parents[1] / "panel" / "openapi.json"
+        assert node_proxy._MAX_SCHEMA_BYTES >= openapi.stat().st_size * 4
+
     def test_matching_follows_the_nodes_route_order(self) -> None:
         schema = node_proxy.compile_schema(
             {
@@ -758,6 +803,17 @@ class TestElevation:
         assert not schema.requires_elevation("GET", "/api/apps/shop.example.com")
         assert not schema.requires_elevation("POST", "/api/apps/a/releases/b/activate")
         assert not schema.requires_elevation("POST", "/api/apps/a/b")
+
+    def test_a_trailing_or_doubled_slash_matches_the_same_as_the_plain_path(self) -> None:
+        schema = node_proxy.compile_schema(
+            {"paths": {"/api/apps/{domain}": {"delete": {ELEVATION_EXTENSION: True}}}},
+            "3.0.0",
+        )
+
+        assert schema.requires_elevation("DELETE", "/api/apps/x")
+        assert schema.requires_elevation("DELETE", "/api/apps/x/")
+        assert schema.requires_elevation("DELETE", "/api//apps/x")
+        assert schema.requires_elevation("DELETE", "/api/apps/x//")
 
 
 class TestEvents:
@@ -916,6 +972,67 @@ class TestWebSockets:
         assert node_proxy.relayable_close_code(1005) == 1000
         assert node_proxy.relayable_close_code(1006) == 1011
         assert node_proxy.relayable_close_code(None) == 1011
+
+    def test_an_unexpected_relay_error_is_logged_not_swallowed(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """
+        asyncio.gather(..., return_exceptions=True) in _pump's finally block
+        collects every task's outcome so cancelling the others cannot raise
+        past it; that must not mean a real bug in the relay (anything but
+        the ConnectionClosed each task already handles, or the
+        CancelledError cancelling its siblings causes) vanishes silently.
+        """
+
+        class BoomUpstream:
+            close_code = None
+            close_reason = None
+
+            def __aiter__(self) -> BoomUpstream:
+                return self
+
+            async def __anext__(self) -> str:
+                raise RuntimeError("boom from the node")
+
+            async def send(self, message: str | bytes) -> None:
+                pass
+
+            async def close(self, code: int = 1000, reason: str = "") -> None:
+                pass
+
+        class _State:
+            name = "CONNECTED"
+
+        class HangingBrowserSocket:
+            client_state = _State()
+
+            async def receive(self) -> dict[str, Any]:
+                await asyncio.sleep(60)
+                raise AssertionError("never reached")
+
+            async def accept(self) -> None:
+                pass
+
+            async def close(self, code: int = 1000, reason: str = "") -> None:
+                pass
+
+        async def exercise() -> None:
+            await node_proxy._pump(
+                cast(WebSocket, HangingBrowserSocket()),
+                cast(node_proxy.NodeSocket, BoomUpstream()),
+                {},
+            )
+
+        with caplog.at_level("WARNING", logger="noust.web.api.node_proxy"):
+            asyncio.run(exercise())
+
+        warnings = [r for r in caplog.records if r.levelname == "WARNING"]
+        # Only the one genuine failure is logged, not the two siblings
+        # asyncio.CancelledError leaves behind when it cancels them.
+        assert len(warnings) == 1
+        record = warnings[0]
+        exc_text = str(record.exc_info[1]) if record.exc_info else ""
+        assert "boom from the node" in (record.getMessage() + exc_text)
 
 
 def test_stopping_the_server_closes_every_tunnel(monkeypatch: pytest.MonkeyPatch) -> None:

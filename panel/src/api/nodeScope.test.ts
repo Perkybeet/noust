@@ -2,9 +2,12 @@ import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 
 import { createQueryClient } from "../app/App";
+import { CENTRAL_ONLY_PATHS } from "../app/nodeRoute";
 import { fakeBackend, json } from "../test/fakes";
 import {
   activeNode,
+  CENTRAL_API_PREFIXES,
+  CENTRAL_QUERY_ROOTS,
   installNodeSource,
   isCentralApiPath,
   nodeApiPath,
@@ -103,5 +106,38 @@ describe("the query cache, per server", () => {
     const client = new QueryClient();
     client.setQueryData(["apps"], 1);
     expect(client.getQueryData(["apps"])).toBe(1);
+  });
+});
+
+describe("the central-only lists agree with each other", () => {
+  // CENTRAL_ONLY_PATHS (nodeRoute.ts, which page never carries a node),
+  // CENTRAL_API_PREFIXES and CENTRAL_QUERY_ROOTS (here, which calls and cache
+  // entries are always the central's) are three hand-maintained lists of the
+  // same underlying fact, in three different vocabularies (a route, an API
+  // prefix, a query key root) that cannot be mechanically generated from one
+  // another in general - "/settings" and "/login" read the central's own
+  // /api/auth, and "/integrations" has no query root of its own at all. But
+  // where a name is shared, verbatim, across two of them, it must stay
+  // shared: a fleet or server page whose entry silently stopped being
+  // treated as the central's own would start being scoped to whichever node
+  // happens to be on screen, mixing that data between servers.
+
+  it("CENTRAL_QUERY_ROOTS is CENTRAL_API_PREFIXES' own names, plus the one documented exception", () => {
+    const fromApiPrefixes = new Set(CENTRAL_API_PREFIXES.map((prefix) => prefix.replace(/^\/api\//, "")));
+    const queryRoots = new Set(CENTRAL_QUERY_ROOTS);
+    // The Servers page reads /api/nodes, but partitions its own cache entries
+    // under a query root named for the page, not the endpoint.
+    expect(queryRoots.has("servers")).toBe(true);
+    queryRoots.delete("servers");
+    expect(queryRoots).toEqual(fromApiPrefixes);
+  });
+
+  it("the fleet and servers routes keep the same name in the query cache", () => {
+    expect(CENTRAL_ONLY_PATHS).toContain("/fleet");
+    expect(CENTRAL_QUERY_ROOTS.has("fleet")).toBe(true);
+    expect(CENTRAL_API_PREFIXES).toContain("/api/fleet");
+
+    expect(CENTRAL_ONLY_PATHS).toContain("/servers");
+    expect(CENTRAL_QUERY_ROOTS.has("servers")).toBe(true);
   });
 });

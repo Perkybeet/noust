@@ -81,6 +81,7 @@ from typing import Any, ClassVar
 from jinja2 import Environment, PackageLoader, TemplateNotFound
 from jinja2 import TemplateError as JinjaTemplateError
 
+from noust.central import require_server_role
 from noust.core import paths
 from noust.core.config import SYSTEMD_DIR
 from noust.core.exceptions import NoustError, ServiceError, TemplateError, ValidationError
@@ -492,6 +493,27 @@ class ServiceManager(BaseManager):
             # create_service keeps working.
             self.logger.debug(f"Systemd template environment unavailable: {exc}")
             self.jinja_env = None
+
+    @property
+    def runner(self) -> CommandRunner:
+        """
+        The process runner. Resolved per call so tests can swap it in.
+
+        Every systemd operation - starting, stopping, creating or deleting a
+        unit, even checking whether systemd is installed at all - asks for
+        the runner here, so this is where a hub refuses local services: a
+        hub (a NAS or the container image) manages other servers and runs
+        none of its own. The CLI already refuses ``noust service`` and
+        ``noust monitor`` on a hub before dispatch, but the console's API and
+        interactive mode reach this manager directly, so the guard belongs
+        at the chokepoint every one of them passes through, mirroring
+        :meth:`noust.managers.database.base.BaseDatabaseManager.runner`.
+
+        Raises:
+            RoleError: When this Noust is a hub.
+        """
+        require_server_role("Services")
+        return super().runner
 
     def _exec(self, argv: list[str], *, timeout: int = DEFAULT_TIMEOUT) -> CommandResult:
         """

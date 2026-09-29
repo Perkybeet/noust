@@ -281,8 +281,11 @@ class NodeManager:
             self._keys.pin_host_key(name, record.host_key)
             self._secrets.write(secret_name(name, TOKEN), code.token)
             self.store.save_node(record)
+            # A version check is read-only, and this call carries no scope a
+            # human actor granted: it asks for read, not the admin a missing
+            # header used to grant by accident.
             info = self.client(name, retry_refused=True).get_json(
-                VERSION_PATH, actor=actor or cli_actor()
+                VERSION_PATH, actor=actor or cli_actor(), actor_scope="read"
             )
             version = info.get("current_version") if isinstance(info, dict) else None
             self.store.set_node_status(
@@ -353,8 +356,11 @@ class NodeManager:
             Warnings; empty when the node revoked it, or no longer accepts it.
         """
         try:
+            # Revoking a token is a write the node requires admin scope for
+            # (noust.web.auth.required_scope); nothing lesser reaches it, and
+            # this is the one call a fleet token may make about itself.
             response = self.client(name, timeout=15.0).request(
-                "POST", FLEET_REVOKE_PATH, actor=actor
+                "POST", FLEET_REVOKE_PATH, actor=actor, actor_scope="admin"
             )
         except NodeRefusedError as exc:
             if exc.status_code == 401:
@@ -399,8 +405,9 @@ class NodeManager:
         started = time.monotonic()
         try:
             # The one call that asks a refused node again: the operator asked.
+            # It is a status check: read is enough.
             info = self.client(name, retry_refused=True).get_json(
-                VERSION_PATH, actor=actor or cli_actor()
+                VERSION_PATH, actor=actor or cli_actor(), actor_scope="read"
             )
         except NodeRefusedError as exc:
             self.store.set_node_status(name, "refused")

@@ -284,24 +284,131 @@ def remove_plaintext_copies(root: Path) -> None:
         get_fs().remove_tree(copies)
 
 
+#: Set once this process has logged that a sealed store's plaintext copies
+#: land on disk-backed storage; logged once, not on every unlock.
+_disk_backed_warned = False
+_disk_backed_warning_lock = threading.Lock()
+
+
+def _mount_fstype(path: Path, mounts_file: Path = Path("/proc/mounts")) -> str | None:
+    """
+    Look up the filesystem type of the mount a path resolves under.
+
+    Args:
+        path: The directory to check, such as ``/run``.
+        mounts_file: Where the kernel's mount table is read from.
+
+    Returns:
+        The type of the longest matching mount point in the table (the one
+        the kernel would actually resolve ``path`` under), or None when the
+        table cannot be read or nothing matches.
+    """
+    try:
+        lines = mounts_file.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    target = str(path)
+    best: tuple[int, str] | None = None
+    for line in lines:
+        parts = line.split()
+        if len(parts) < 3:
+            continue
+        mount_point, fstype = parts[1], parts[2]
+        stripped = mount_point.rstrip("/") or "/"
+        if target == stripped or target.startswith(stripped + "/"):
+            if best is None or len(stripped) > best[0]:
+                best = (len(stripped), fstype)
+    return best[1] if best else None
+
+
+def _warn_disk_backed_once(root: Path) -> None:
+    """
+    Log, once per process, that a sealed store's plaintext copies are on disk.
+
+    Args:
+        root: The secrets directory, named in the message.
+    """
+    global _disk_backed_warned
+    with _disk_backed_warning_lock:
+        if _disk_backed_warned:
+            return
+        _disk_backed_warned = True
+    logger.warning(
+        "No memory-backed directory is available for %s's decrypted copies: no "
+        "XDG_RUNTIME_DIR is set, /run is not tmpfs or not writable, and /dev/shm is "
+        "missing or not writable. They are written to the temporary directory instead, "
+        "which can be disk-backed. Set XDG_RUNTIME_DIR to a tmpfs directory to avoid this.",
+        root,
+    )
+
+
+def _plaintext_base(
+    root: Path,
+    *,
+    run_mount: Path = Path("/run"),
+    run_dir: Path | None = None,
+    shm_dir: Path = Path("/dev/shm"),  # noqa: S108 - checked for writability, never written blindly
+    mounts_file: Path = Path("/proc/mounts"),
+) -> str:
+    """
+    Pick a directory for a sealed store's decrypted copies, memory-backed if at all possible.
+
+    Order: ``$XDG_RUNTIME_DIR`` (what a login session or systemd user manager
+    sets, always a tmpfs); ``/run/noust`` (created 0700), only when this
+    process is root and ``/run`` is itself tmpfs, which is true on every
+    systemd-booted host but not inside the container image, where ``/run`` is
+    not writable under its read-only root filesystem; ``/dev/shm``, which
+    Docker mounts as tmpfs in every container regardless, present and
+    writable; and only then the temporary directory, which can be
+    disk-backed on a bare VPS - logged once, since it is a real weakening of
+    what sealing promises.
+
+    This only chooses a path; it creates nothing (``run_dir`` included).
+    :func:`plaintext_copy_dir`'s callers always pair it with
+    :func:`ensure_private_dir`, which creates the directory through the
+    filesystem seam - so a rehearsal creates nothing here either - and
+    refuses one that is a symlink, belongs to someone else, or is open to
+    other users.
+
+    Args:
+        root: The secrets directory, for the warning message.
+        run_mount: Checked for being tmpfs before ``run_dir`` is chosen.
+        run_dir: The private directory under ``run_mount``; ``run_mount /
+            "noust"`` by default.
+        shm_dir: The shared-memory directory to try next.
+        mounts_file: Where the kernel's mount table is read from.
+
+    Returns:
+        The directory.
+    """
+    xdg = os.environ.get("XDG_RUNTIME_DIR")
+    if xdg:
+        return xdg
+    target_run_dir = run_dir if run_dir is not None else run_mount / "noust"
+    if os.getuid() == 0 and _mount_fstype(run_mount, mounts_file) == "tmpfs":
+        return str(target_run_dir)
+    if shm_dir.is_dir() and os.access(shm_dir, os.W_OK):
+        return str(shm_dir)
+    _warn_disk_backed_once(root)
+    return tempfile.gettempdir()
+
+
 def plaintext_copy_dir(root: Path) -> Path:
     """
     Return where decrypted copies of a sealed store's files are put.
 
     ``ssh -i`` and ``UserKnownHostsFile`` want a path, and on a sealed store
-    the file at the secret's path holds ciphertext. The copy goes to the
-    user's runtime directory (``$XDG_RUNTIME_DIR``, else the temporary
-    directory, a tmpfs in the container), which is memory-backed and private,
-    under a name derived from the secrets directory so two stores never
-    share copies.
+    the file at the secret's path holds ciphertext. The copy goes to a
+    memory-backed directory (see :func:`_plaintext_base`) under a name
+    derived from the secrets directory, so two stores never share copies.
 
     Args:
         root: The secrets directory.
 
     Returns:
-        The directory (not created here).
+        The directory (not created here; see :func:`ensure_private_dir`).
     """
-    base = os.environ.get("XDG_RUNTIME_DIR") or tempfile.gettempdir()
+    base = _plaintext_base(root)
     digest = hashlib.sha256(_ring_key(root).encode("utf-8")).hexdigest()[:16]
     return Path(base) / f"noust-{os.getuid()}" / digest
 

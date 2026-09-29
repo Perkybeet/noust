@@ -89,6 +89,43 @@ class TestSession:
 
         assert central.get("/api/auth/session").json()["central"]["role"] == "hub"
 
+
+class TestHubRefusesServices:
+    """
+    A hub has no systemd of its own (it manages other servers' services
+    through the fleet proxy, /api/nodes/{node}/api/services); the console's
+    own /api/services must be refused too, not only the CLI's 'noust service'
+    and 'noust monitor'.
+    """
+
+    def test_listing_services_is_refused(
+        self, central: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("NOUST_CENTRAL_ROLE", "hub")
+        Config.reset_instance()
+        sign_in(central)
+
+        response = central.get("/api/services")
+
+        assert response.status_code == 409, response.text
+        assert response.json()["error"] == "hub_role"
+        assert "Services" in response.json()["detail"]
+
+    def test_creating_a_service_is_refused(
+        self, central: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("NOUST_CENTRAL_ROLE", "hub")
+        Config.reset_instance()
+        elevate(central, sign_in(central))
+
+        response = central.post(
+            "/api/services",
+            json={"name": "example", "command": "/usr/bin/true", "working_directory": "/tmp"},
+        )
+
+        assert response.status_code == 409, response.text
+        assert response.json()["error"] == "hub_role"
+
     def test_sign_in_and_sudo_mode_work_while_locked(
         self, central: TestClient, sealed: Path
     ) -> None:

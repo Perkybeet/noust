@@ -151,6 +151,34 @@ class TestAuthorizeCommand:
         }
         assert _audit(state_dir)[-1]["action"] == "fleet.deauthorize"
 
+    def test_dry_run_authorize_mints_no_token_and_leaves_authorized_keys_alone(
+        self, node, state_dir
+    ):
+        result = CliRunner().invoke(
+            root_cli,
+            ["--dry-run", "fleet", "authorize", "--central-key", CENTRAL_KEY, "--name", "nas"],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "Rehearsal: this join code's token was not saved" in result.output
+        assert node.tokens.list_api_tokens() == []
+        assert not node.keys_file().exists()
+
+    def test_dry_run_deauthorize_revokes_nothing(self, node, state_dir):
+        CliRunner().invoke(
+            root_cli, ["fleet", "authorize", "--central-key", CENTRAL_KEY, "--name", "nas"]
+        )
+        before_tokens = node.tokens.list_api_tokens()
+        before_keys = node.keys_file().read_text()
+
+        result = CliRunner().invoke(
+            root_cli, ["--dry-run", "fleet", "deauthorize", "--name", "nas"]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert node.tokens.list_api_tokens() == before_tokens
+        assert node.keys_file().read_text() == before_keys
+
 
 class TestConsoleOnLoopback:
     @pytest.fixture
@@ -298,6 +326,36 @@ class TestNodeCommands:
         )
         assert isinstance(result.exception, NodeError)
         assert _audit(state_dir)[-1]["result"] == "failure"
+
+    def test_dry_run_add_registers_nothing(self, fleet):
+        key = fleet.manager.central_public_key("web-2")
+        result = CliRunner().invoke(
+            root_cli,
+            [
+                "--dry-run",
+                "node",
+                "add",
+                "web-2",
+                "--ssh",
+                "root@web2.example.com",
+                "--join-code",
+                "-",
+            ],
+            input=join_code(key) + "\n",
+        )
+
+        assert result.exit_code == 0, result.output
+        assert fleet.manager.list() == []
+        assert fleet.node.requests == []
+
+    def test_dry_run_remove_removes_nothing(self, fleet):
+        self._add(fleet)
+
+        result = CliRunner().invoke(root_cli, ["--dry-run", "node", "remove", "web-2", "-f"])
+
+        assert result.exit_code == 0, result.output
+        assert fleet.manager.get("web-2") is not None
+        assert not fleet.node.revoked
 
     def test_list_show_test_json(self, fleet):
         self._add(fleet)

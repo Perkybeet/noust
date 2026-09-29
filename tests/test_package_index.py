@@ -462,6 +462,29 @@ def test_a_redirect_to_a_private_host_is_refused(resolve) -> None:
         )  # type: ignore[arg-type]
 
 
+def test_fetch_identifies_itself_as_noust(resolve, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The User-Agent must name Noust, not the pre-rename project."""
+    import urllib.request
+
+    resolve({"pkg.example.com": "93.184.216.34"})
+    captured: dict[str, object] = {}
+
+    class StopOpen(Exception):
+        pass
+
+    class FakeOpener:
+        def open(self, request: urllib.request.Request, timeout: float | None = None) -> None:
+            captured["headers"] = dict(request.header_items())
+            raise StopOpen
+
+    monkeypatch.setattr(urllib.request, "build_opener", lambda *a, **k: FakeOpener())
+
+    with pytest.raises(StopOpen):
+        package_index.fetch("https://pkg.example.com/index")
+
+    assert captured["headers"]["User-agent"] == "noust-update-check"
+
+
 class _TricklingResponse:
     """
     Answers one byte per ``.read()`` call, forever.

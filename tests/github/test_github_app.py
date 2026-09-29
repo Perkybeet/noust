@@ -157,6 +157,7 @@ def test_installation_tokens_are_cached_until_five_minutes_before_expiry(
     assert exchange.headers["authorization"].startswith("Bearer ")
     assert exchange.headers["x-github-api-version"] == "2022-11-28"
     assert exchange.headers["accept"] == "application/vnd.github+json"
+    assert exchange.headers["user-agent"].startswith("noust/")
 
 
 def test_forgetting_tokens_forces_a_new_exchange(

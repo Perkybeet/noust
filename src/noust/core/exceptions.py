@@ -362,8 +362,10 @@ class NodeUnreachableError(NodeError):
     """
     Raised when a node cannot be reached: the SSH tunnel did not open, or died.
 
-    The message says why in a sentence (host key changed, key refused,
-    connection timed out); ``details`` carries ssh's own stderr verbatim.
+    The message says why in a sentence (host key changed, connection timed
+    out, nothing answers); ``details`` carries ssh's own stderr verbatim. A
+    revoked SSH key is :class:`NodeRefusedError` instead: the node did answer,
+    and said no.
     """
 
     pass
@@ -371,13 +373,19 @@ class NodeUnreachableError(NodeError):
 
 class NodeRefusedError(NodeError):
     """
-    Raised when a node answered 401 or 403 to the fleet token.
+    Raised when the node refused this central's credential outright.
 
-    Usually the token was revoked on the node (``noust fleet deauthorize`` or
-    ``noust token revoke``); the node's own answer is carried verbatim.
+    Either layer: the fleet token answered 401 or 403 over HTTP, or ssh said
+    "Permission denied (publickey)" opening the tunnel - both mean the same
+    thing happened on the node (``noust fleet deauthorize``, or the token
+    revoked on its own), and both are persisted the same way
+    (``noust.fleet.client.NodeClient.mark_refused``,
+    ``noust.fleet.tunnels.TunnelManager`` on a revoked key) so nothing keeps
+    presenting a credential the node has already said no to.
 
     Attributes:
-        status_code: The HTTP status the node answered, 401 or 403.
+        status_code: The HTTP status the node answered, 401 or 403 - only
+            set when the refusal came over HTTP; None for a revoked SSH key.
     """
 
     status_code: int | None = None

@@ -160,6 +160,7 @@ class TestWebhookChannel:
         assert request.get_method() == "POST"
         assert request.get_header("Content-type") == "application/json"
         assert request.get_header("User-agent") == USER_AGENT
+        assert USER_AGENT.startswith("noust-notifier/")
         assert opener.timeouts == [NOTIFY_TIMEOUT]
 
         payload = json.loads(request.data)

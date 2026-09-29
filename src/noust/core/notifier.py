@@ -98,7 +98,7 @@ logger = logging.getLogger(__name__)
 NOTIFY_TIMEOUT = 10
 
 #: Identifies Noust to the receiving endpoint.
-USER_AGENT = f"wasm-notifier/{__version__}"
+USER_AGENT = f"noust-notifier/{__version__}"
 
 #: Event kinds an operator can switch off under ``notifications.events``.
 #: ``DEFAULT_CONFIG["notifications"]["events"]`` spells out the same names;

@@ -1742,7 +1742,7 @@ def _missing_console_html() -> str:
 </head>
 <body>
     <h1>The Noust console is not installed</h1>
-    <p>This package was built without the console in <code>wasm/web/static/</code>.
+    <p>This package was built without the console in <code>noust/web/static/</code>.
     Reinstall Noust from a release package, or build it from a checkout with
     <code>cd panel &amp;&amp; npm ci &amp;&amp; npm run build</code>.</p>
     <p>The API is available: authenticate by posting your access token to

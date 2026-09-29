@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import json
 import logging
 import re
 import time
@@ -147,6 +148,12 @@ UNVERSIONED_SCHEMA_TTL_SECONDS = 300.0
 
 #: The largest error body read from a node to carry in a translated error.
 _MAX_ERROR_BODY = 64 * 1024
+
+#: The largest OpenAPI document read from a node. Noust's own (committed at
+#: panel/openapi.json) is a few hundred KiB; this gives it ample headroom
+#: without letting a misbehaving or hostile node make the central buffer an
+#: unbounded body in memory for every proxied call.
+_MAX_SCHEMA_BYTES = 8 * 1024 * 1024
 
 #: A path template parameter in an OpenAPI path.
 _TEMPLATE_PARAMETER = re.compile(r"\{[^/{}]+\}")
@@ -364,13 +371,41 @@ class NodeSchema:
             True when the first operation matching the path and the method, as
             the node would route it, carries the extension. An operation the
             schema does not name is not elevated here; the node still refuses
-            it if it is and the central did not vouch.
+            it if it is and the central did not vouch. A trailing slash or a
+            doubled one matches exactly as the plain path does (see
+            :func:`_normalize_node_path`): ``node_path`` already refuses an
+            empty path segment before a proxied call reaches this check, so
+            this only matters to a caller that does not go through it, but it
+            must never silently read as unelevated instead.
         """
         verb = method.upper()
+        normalized = _normalize_node_path(path)
         for pattern, methods in self.operations:
-            if verb in methods and pattern.fullmatch(path):
+            if verb in methods and pattern.fullmatch(normalized):
                 return methods[verb]
         return False
+
+
+def _normalize_node_path(path: str) -> str:
+    """
+    Normalise a node path before matching it against a schema.
+
+    Duplicate slashes are collapsed and one trailing slash is stripped, so
+    ``/api/apps/x/`` and ``/api//apps/x`` match the same operation as
+    ``/api/apps/x``: the node treats them the same route, and the elevation
+    check must agree with it rather than read a differently-spelled path as
+    an operation the schema never named.
+
+    Args:
+        path: The path, starting with ``/``.
+
+    Returns:
+        The normalised path.
+    """
+    collapsed = re.sub(r"/{2,}", "/", path)
+    if len(collapsed) > 1 and collapsed.endswith("/"):
+        collapsed = collapsed[:-1]
+    return collapsed
 
 
 def compile_schema(document: dict[str, Any], version: str | None) -> NodeSchema:
@@ -442,24 +477,56 @@ class NodeSchemas:
             The map.
 
         Raises:
-            HTTPException: 502 when the node does not serve its schema.
+            HTTPException: 502 when the node does not serve its schema, or
+                serves one larger than :data:`_MAX_SCHEMA_BYTES`.
         """
         schema = self.cached(node)
         if schema is not None:
             return schema
-        response = await client.get("/api/openapi.json", headers=upstream.headers)
-        if response.status_code == 401:
-            raise await refused_by(node, response.text[:_MAX_ERROR_BODY])
-        if response.status_code != 200:
-            raise _error(
-                502,
-                "node_unreachable",
-                f"Node {node.name} did not serve its API schema (HTTP {response.status_code}).",
-                "The central reads it to know which calls need sudo mode. Check the "
-                "node's version with `noust node test " + node.name + "`.",
-                output=response.text[:_MAX_ERROR_BODY],
-            )
-        schema = compile_schema(response.json(), node.version)
+        # Streamed and capped while reading, not after: a node's own claimed
+        # Content-Length is not trusted, so the only way to bound how much of
+        # a hostile or broken node's answer the central ever buffers is to
+        # stop reading once the cap is passed.
+        request = client.build_request("GET", "/api/openapi.json", headers=upstream.headers)
+        response = await client.send(request, stream=True)
+        try:
+            if response.status_code == 401:
+                body = (await response.aread()).decode("utf-8", "replace")[:_MAX_ERROR_BODY]
+                raise await refused_by(node, body)
+            if response.status_code != 200:
+                body = (await response.aread()).decode("utf-8", "replace")[:_MAX_ERROR_BODY]
+                raise _error(
+                    502,
+                    "node_unreachable",
+                    f"Node {node.name} did not serve its API schema (HTTP {response.status_code}).",
+                    "The central reads it to know which calls need sudo mode. Check the "
+                    "node's version with `noust node test " + node.name + "`.",
+                    output=body,
+                )
+            raw = bytearray()
+            async for chunk in response.aiter_bytes():
+                raw += chunk
+                if len(raw) > _MAX_SCHEMA_BYTES:
+                    raise _error(
+                        502,
+                        "node_unreachable",
+                        f"Node {node.name} served an API schema larger than "
+                        f"{_MAX_SCHEMA_BYTES // (1024 * 1024)} MiB.",
+                        "This is larger than any schema Noust generates; check the node's "
+                        "version with `noust node test " + node.name + "`.",
+                    )
+            try:
+                document = json.loads(raw.decode("utf-8"))
+            except (UnicodeDecodeError, ValueError) as exc:
+                raise _error(
+                    502,
+                    "node_unreachable",
+                    f"Node {node.name} served an API schema that is not valid JSON.",
+                    "Check the node's version with `noust node test " + node.name + "`.",
+                ) from exc
+        finally:
+            await response.aclose()
+        schema = compile_schema(document, node.version)
         self._schemas[node.name] = schema
         return schema
 
@@ -1028,16 +1095,28 @@ async def _pump(websocket: WebSocket, upstream: NodeSocket, session: dict[str, A
             if shutting_down() or not await run_in_threadpool(credential_is_current, session):
                 return
 
-    node_task = asyncio.create_task(from_node())
-    browser_task = asyncio.create_task(from_browser())
-    watch_task = asyncio.create_task(watch_credential())
+    node_task = asyncio.create_task(from_node(), name="relay-from-node")
+    browser_task = asyncio.create_task(from_browser(), name="relay-from-browser")
+    watch_task = asyncio.create_task(watch_credential(), name="relay-watch-credential")
     tasks = (node_task, browser_task, watch_task)
     try:
         await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
     finally:
         for task in tasks:
             task.cancel()
-        await asyncio.gather(*tasks, return_exceptions=True)
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        # return_exceptions=True is what lets cancelling the other two tasks
+        # never raise past this block; it also means a real bug in one of
+        # them - anything but the ConnectionClosed each already handles, or
+        # the CancelledError cancelling its siblings causes - would vanish
+        # with no trace at all unless logged here.
+        for finished_task, result in zip(tasks, results, strict=True):
+            if isinstance(result, BaseException) and not isinstance(result, asyncio.CancelledError):
+                logger.warning(
+                    "WebSocket relay task %s ended with an unexpected error",
+                    finished_task.get_name(),
+                    exc_info=result,
+                )
 
     if browser_task.done() and not browser_task.cancelled() and browser_task.exception() is None:
         await upstream.close(code=relayable_close_code(browser_task.result()))

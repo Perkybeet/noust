@@ -129,6 +129,14 @@ def add_command(ctx: Context, name: str, ssh_target: str, join_code: str | None)
     """
     from noust.fleet.audit import audit
 
+    if ctx.dry_run:
+        # NodeManager.add() pins a host key, stores the token, writes the
+        # node's row and opens a real tunnel to call the node - too much to
+        # rehearse truthfully, so nothing runs at all, the same way
+        # 'noust central run' and 'noust central seal' answer under
+        # --dry-run without reaching their own real work.
+        ctx.logger.info(f"would register node {name} at {ssh_target} from the join code")
+        return
     code = _read_join_code(join_code)
     try:
         record = _manager().add(name, ssh_target=ssh_target, join_code=code)
@@ -254,6 +262,15 @@ def remove_command(ctx: Context, name: str, no_revoke: bool, force: bool) -> Non
 
     manager = _manager()
     manager.get(name)
+    if ctx.dry_run:
+        # remove() revokes the token over a real call to the node, closes
+        # the tunnel and deletes secrets and the store row: rehearsed the
+        # same way 'noust node add' is, by not running any of it.
+        ctx.logger.info(
+            f"would forget node {name}"
+            + ("" if no_revoke else " and ask it to revoke this central's token")
+        )
+        return
     if not force and not click.confirm(
         f"Stop managing {name}? This central forgets its key and token", default=False
     ):

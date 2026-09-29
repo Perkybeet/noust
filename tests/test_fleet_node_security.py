@@ -114,8 +114,36 @@ def audit_of(sandbox: Path, action: str) -> list[dict[str, Any]]:
 class TestOnlyFromTheTunnel:
     """A fleet token is accepted from loopback, and only as the tunnel delivers it."""
 
-    def test_from_the_tunnel_it_is_an_admin(self, app: Any, fleet_token: str) -> None:
+    def test_from_the_tunnel_without_a_scope_header_it_reads_only(
+        self, app: Any, fleet_token: str
+    ) -> None:
+        # Fail closed: a central that forgets X-Noust-Actor-Scope (an older
+        # version, or a caller with no human actor) gets the lowest scope,
+        # never admin.
+        response = client_from(app).get("/api/auth/verify", headers=fleet_headers(fleet_token))
+
+        assert response.status_code == 200, response.text
+
+    def test_from_the_tunnel_without_a_scope_header_it_cannot_reach_admin_only(
+        self, app: Any, fleet_token: str
+    ) -> None:
         response = client_from(app).get("/api/audit", headers=fleet_headers(fleet_token))
+
+        assert response.status_code == 403
+
+    def test_from_the_tunnel_without_a_scope_header_it_cannot_write(
+        self, app: Any, fleet_token: str
+    ) -> None:
+        response = client_from(app).post("/api/apps", json={}, headers=fleet_headers(fleet_token))
+
+        assert response.status_code == 403
+
+    def test_from_the_tunnel_an_explicit_admin_scope_still_reaches_admin_only(
+        self, app: Any, fleet_token: str
+    ) -> None:
+        response = client_from(app).get(
+            "/api/audit", headers=fleet_headers(fleet_token, **{FLEET_ACTOR_SCOPE_HEADER: "admin"})
+        )
 
         assert response.status_code == 200, response.text
 
@@ -302,7 +330,10 @@ class TestRefusedOperations:
             method,
             path,
             json={},
-            headers=fleet_headers(fleet_token, **{FLEET_ELEVATED_HEADER: "1"}),
+            headers=fleet_headers(
+                fleet_token,
+                **{FLEET_ELEVATED_HEADER: "1", FLEET_ACTOR_SCOPE_HEADER: "admin"},
+            ),
         )
 
         assert response.status_code == 403, response.text
@@ -317,7 +348,10 @@ class TestRefusedOperations:
         response = client_from(app).patch(
             "/api/config",
             json={"path": key, "value": []},
-            headers=fleet_headers(fleet_token, **{FLEET_ELEVATED_HEADER: "1"}),
+            headers=fleet_headers(
+                fleet_token,
+                **{FLEET_ELEVATED_HEADER: "1", FLEET_ACTOR_SCOPE_HEADER: "admin"},
+            ),
         )
 
         assert response.status_code == 403
@@ -326,7 +360,10 @@ class TestRefusedOperations:
         response = client_from(app).patch(
             "/api/config",
             json={"path": "notifications.enabled", "value": True},
-            headers=fleet_headers(fleet_token, **{FLEET_ELEVATED_HEADER: "1"}),
+            headers=fleet_headers(
+                fleet_token,
+                **{FLEET_ELEVATED_HEADER: "1", FLEET_ACTOR_SCOPE_HEADER: "admin"},
+            ),
         )
 
         assert response.status_code == 200, response.text
@@ -364,7 +401,8 @@ class TestElevation:
         self, app: Any, fleet_token: str
     ) -> None:
         response = client_from(app).delete(
-            "/api/apps/shop.example.com", headers=fleet_headers(fleet_token)
+            "/api/apps/shop.example.com",
+            headers=fleet_headers(fleet_token, **{FLEET_ACTOR_SCOPE_HEADER: "admin"}),
         )
 
         assert response.status_code == 403
@@ -374,7 +412,10 @@ class TestElevation:
     def test_with_it_the_action_runs(self, app: Any, fleet_token: str) -> None:
         response = client_from(app).delete(
             "/api/apps/shop.example.com",
-            headers=fleet_headers(fleet_token, **{FLEET_ELEVATED_HEADER: "1"}),
+            headers=fleet_headers(
+                fleet_token,
+                **{FLEET_ELEVATED_HEADER: "1", FLEET_ACTOR_SCOPE_HEADER: "admin"},
+            ),
         )
 
         # Past sudo mode: the application simply does not exist.
@@ -417,7 +458,10 @@ class TestSelfRevocation:
     def test_a_fleet_token_revokes_itself(self, app: Any, fleet_token: str, sandbox: Path) -> None:
         client = client_from(app)
 
-        response = client.post("/api/auth/fleet/revoke", headers=fleet_headers(fleet_token))
+        response = client.post(
+            "/api/auth/fleet/revoke",
+            headers=fleet_headers(fleet_token, **{FLEET_ACTOR_SCOPE_HEADER: "admin"}),
+        )
 
         assert response.status_code == 200, response.text
         assert response.json()["revoked"] == "fleet-nas"
@@ -445,7 +489,8 @@ class TestARetiredFleetTokenLocksNobodyOut:
     @staticmethod
     def _retire(app: Any, fleet_token: str) -> None:
         response = client_from(app).post(
-            "/api/auth/fleet/revoke", headers=fleet_headers(fleet_token)
+            "/api/auth/fleet/revoke",
+            headers=fleet_headers(fleet_token, **{FLEET_ACTOR_SCOPE_HEADER: "admin"}),
         )
         assert response.status_code == 200, response.text
 

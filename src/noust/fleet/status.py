@@ -94,7 +94,7 @@ def node_summary(
     actor = actor or cli_actor()
     started = time.monotonic()
     try:
-        info = client.get_json(VERSION_PATH, actor=actor)
+        info = client.get_json(VERSION_PATH, actor=actor, actor_scope="read")
     except NodeRefusedError as exc:
         manager.store.set_node_status(record.name, "refused")
         summary.update(status="refused", error=exc.message, details=exc.details or None)
@@ -113,7 +113,7 @@ def node_summary(
     summary.update(status="reachable", reachable=True)
 
     try:
-        machine = client.get_json(MACHINE_PATH, actor=actor)
+        machine = client.get_json(MACHINE_PATH, actor=actor, actor_scope="read")
     except NodeError as exc:
         summary["warnings"].append(f"Machine snapshot: {exc.message}")
     else:
@@ -124,7 +124,7 @@ def node_summary(
             summary["units"] = _counts(machine.get("units"), ("running", "failed", "stopped"))
 
     try:
-        certs = client.get_json(CERTS_PATH, actor=actor)
+        certs = client.get_json(CERTS_PATH, actor=actor, actor_scope="read")
     except NodeError as exc:
         summary["warnings"].append(f"Certificates: {exc.message}")
     else:

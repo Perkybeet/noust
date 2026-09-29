@@ -282,7 +282,7 @@ def fetch(url: str, *, accept: str | None = None) -> bytes:
         http.client.HTTPException: When the response is malformed.
     """
     require_public_https(url)
-    headers = {"User-Agent": "wasm-update-check"}
+    headers = {"User-Agent": "noust-update-check"}
     if accept:
         headers["Accept"] = accept
     request = urllib.request.Request(url, headers=headers)

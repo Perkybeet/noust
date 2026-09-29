@@ -865,10 +865,12 @@ class Migrator:
         report.steps.append(step)
         path = self._config_file()
         text = path.read_text(encoding="utf-8")
+        skipped_backup_dir = False
         for key, (old, new) in CONFIG_DEFAULTS.items():
             if key == "backup.directory" and _is_real_dir(self.layout.legacy_backup_dir):
                 # The backups did not move: pointing the setting at the new,
                 # empty directory would hide every one of them.
+                skipped_backup_dir = _config_has(text, old)
                 continue
             text = _config_replace(text, old, new)
         try:
@@ -876,6 +878,22 @@ class Migrator:
         except OSError as exc:
             step.status = "failed"
             step.detail = f"{exc}. The old paths keep working through their links."
+            return
+        if skipped_backup_dir:
+            # Whatever else in CONFIG_DEFAULTS matched was still rewritten
+            # above; only this one key is left pointing at the legacy path,
+            # so the step is not simply "done" - it must say what it left
+            # behind and why, not claim completion it did not reach.
+            step.status = "skipped"
+            step.detail = (
+                f"backup.directory still points at {self.layout.legacy_backup_dir}: it "
+                f"holds real backups, and pointing it at {self.layout.backup_dir} would hide "
+                "them. Move them there yourself, then run the migration again to finish this."
+            )
+            self.announce(
+                "pointed config.yaml at Noust's default paths, except backup.directory: "
+                f"real backups are still at {self.layout.legacy_backup_dir}"
+            )
             return
         step.status = "done"
         self.announce("pointed config.yaml at Noust's default paths")

@@ -285,6 +285,24 @@ class TestFullMigration:
         assert not (machine.state_dir / paths.LEGACY_STORE_NAME).exists()
         assert not Path(f"{machine.state_dir / paths.LEGACY_STORE_NAME}-wal").exists()
 
+    def test_the_legacy_per_user_store_is_moved_and_renamed_too(self, machine: Layout) -> None:
+        """
+        /root/.local/share/wasm is WASM's per-user fallback: 'noust list' fell
+        back to it when the system store was not writable (see store.py's own
+        precedence), so a server that has one must have it moved and its
+        store renamed exactly as the primary one is, not silently left behind.
+        """
+        make_store(machine.legacy_user_data_dir / paths.LEGACY_STORE_NAME, ("cli-only-app",))
+
+        report = migrator(machine, quiet_runner()).run()
+
+        assert report.complete, report.as_dict()
+        store = machine.user_data_dir / paths.STORE_NAME
+        assert app_names(store) == ["cli-only-app"]
+        assert not (machine.user_data_dir / paths.LEGACY_STORE_NAME).exists()
+        assert machine.legacy_user_data_dir.is_symlink()
+        assert machine.legacy_user_data_dir.resolve() == machine.user_data_dir.resolve()
+
     def test_config_defaults_are_rewritten_and_the_rest_kept(self, machine: Layout) -> None:
         migrator(machine, quiet_runner()).run()
 
@@ -445,6 +463,16 @@ class TestRefusals:
         # backup.directory still names the backups where they are.
         text = (machine.config_dir / "config.yaml").read_text()
         assert "directory: /var/backups/wasm\n" in text
+        # logging.file and monitor.log_file, unrelated to the backups, were
+        # still rewritten: the config step is not a clean failure.
+        assert "file: /var/log/noust/noust.log\n" in text
+        assert "log_file: '/var/log/noust/monitor.log'\n" in text
+        # But it must not claim to be simply "done" either: backup.directory
+        # was deliberately left alone, and that has to be visible and say why.
+        config_step = next(s for s in report.steps if s.kind == "config")
+        assert config_step.status == "skipped"
+        assert "backup.directory" in config_step.detail
+        assert str(machine.legacy_backup_dir) in config_step.detail
 
     def test_a_store_held_open_is_not_moved(self, machine: Layout) -> None:
         holder = sqlite3.connect(machine.legacy_state_dir / "wasm.db")

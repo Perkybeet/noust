@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import pwd
 import stat
+import threading
 from pathlib import Path
 
 import pytest
@@ -21,6 +22,7 @@ from noust.core.runner import FakeRunner
 from noust.fleet.authorize import (
     FORCED_COMMAND,
     NO_LISTEN,
+    AuthorizedKeys,
     SshdSettings,
     authorize,
     authorized_key_line,
@@ -372,6 +374,134 @@ class TestTokenAndJoinCode:
         with pytest.raises(NodeError) as caught:
             node.authorize()
         assert "ssh-keygen -A" in caught.value.details
+
+
+class TestDryRun:
+    def test_authorize_creates_no_token_and_leaves_authorized_keys_alone(self, node):
+        path = node.keys_file()
+        path.parent.mkdir(mode=0o700)
+        path.write_text("ssh-ed25519 AAAAexisting me@laptop\n")
+        before = path.read_text()
+
+        result = authorize(
+            central_key=CENTRAL_KEY,
+            central="nas",
+            tokens=node.tokens,
+            ensure_console=node.console,
+            confirm_replace=lambda names: True,
+            runner=node.runner,
+            host_key_file=node.host_key_file,
+            sshd_config=node.sshd_config,
+            passwd=node.passwd,
+            dry_run=True,
+        )
+
+        assert node.tokens.list_api_tokens() == []
+        assert path.read_text() == before
+        assert result.key_changed
+        assert result.token_name == "fleet-nas"
+        code = JoinCode.decode(result.join_code)
+        assert node.tokens.verify_api_token(code.token, "127.0.0.1") is None
+
+    def test_authorize_dry_run_does_not_revoke_an_older_token(self, node):
+        node.authorize()
+        before_tokens = node.tokens.list_api_tokens()
+
+        result = authorize(
+            central_key=OTHER_CENTRAL_KEY,
+            central="nas",
+            tokens=node.tokens,
+            ensure_console=node.console,
+            confirm_replace=lambda names: True,
+            runner=node.runner,
+            host_key_file=node.host_key_file,
+            sshd_config=node.sshd_config,
+            passwd=node.passwd,
+            dry_run=True,
+        )
+
+        assert node.tokens.list_api_tokens() == before_tokens
+        assert result.replaced_tokens == ["fleet-nas"]
+
+    def test_deauthorize_removes_nothing_and_revokes_nothing(self, node):
+        node.authorize()
+        path = node.keys_file()
+        before = path.read_text()
+        before_tokens = node.tokens.list_api_tokens()
+
+        result = deauthorize(
+            central="nas",
+            tokens=node.tokens,
+            runner=node.runner,
+            sshd_config=node.sshd_config,
+            passwd=node.passwd,
+            dry_run=True,
+        )
+
+        assert path.read_text() == before
+        assert node.tokens.list_api_tokens() == before_tokens
+        assert result.removed_keys == 1
+        assert result.revoked_tokens == ["fleet-nas"]
+
+
+class TestConcurrentWrites:
+    def test_concurrent_installs_for_different_centrals_lose_no_line(self, tmp_path):
+        path = tmp_path / "home" / "authorized_keys"
+        path.parent.mkdir(mode=0o700)
+        key = parse_public_key(CENTRAL_KEY)
+        centrals = [f"central-{i}" for i in range(30)]
+        barrier = threading.Barrier(len(centrals))
+
+        def worker(name: str) -> None:
+            barrier.wait()
+            AuthorizedKeys(path, None).install(authorized_key_line(name, key, 8080), name)
+
+        threads = [threading.Thread(target=worker, args=(name,)) for name in centrals]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        content = path.read_text()
+        for name in centrals:
+            assert f"noust-central:{name}" in content, f"lost the line for {name}"
+        assert content.count("noust-central:") == len(centrals)
+
+    def test_concurrent_install_and_remove_serialise(self, tmp_path):
+        path = tmp_path / "home" / "authorized_keys"
+        path.parent.mkdir(mode=0o700)
+        key = parse_public_key(CENTRAL_KEY)
+        AuthorizedKeys(path, None).install(authorized_key_line("steady", key, 8080), "steady")
+        barrier = threading.Barrier(2)
+
+        def install_many() -> None:
+            for i in range(15):
+                barrier.wait() if i == 0 else None
+                AuthorizedKeys(path, None).install(
+                    authorized_key_line(f"c-{i}", key, 8080), f"c-{i}"
+                )
+
+        def remove_and_reinstall() -> None:
+            for i in range(15):
+                barrier.wait() if i == 0 else None
+                AuthorizedKeys(path, None).remove("steady")
+                AuthorizedKeys(path, None).install(
+                    authorized_key_line("steady", key, 8080), "steady"
+                )
+
+        threads = [
+            threading.Thread(target=install_many),
+            threading.Thread(target=remove_and_reinstall),
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        content = path.read_text()
+        assert "noust-central:steady" in content
+        for i in range(15):
+            assert f"noust-central:c-{i}" in content
 
 
 class TestDeauthorize:

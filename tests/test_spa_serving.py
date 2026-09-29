@@ -181,6 +181,8 @@ def test_a_missing_build_explains_itself(
     assert response.status_code == 503
     assert "npm run build" in response.text
     assert "<script" not in response.text
+    assert "noust/web/static" in response.text
+    assert "wasm/web/static" not in response.text
 
 
 # ---------------------------------------------------------------------------

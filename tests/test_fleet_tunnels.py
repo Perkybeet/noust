@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from noust.core.exceptions import NodeError, NodeUnreachableError
+from noust.core.exceptions import NodeError, NodeRefusedError, NodeUnreachableError
 from noust.core.store import NodeRecord
 from noust.fleet.keys import host_key_alias, known_hosts_line
 from noust.fleet.tunnels import BACKOFF_MAX, explain_ssh_failure, ssh_argv
@@ -251,6 +251,45 @@ class TestTunnels:
         fleet.clock.advance(BACKOFF_MAX)
         fleet.tunnels.endpoint("web-2")
         assert fleet.tunnels.status("web-2")["failures"] == 0
+
+    def test_a_revoked_key_is_a_persisted_refusal_not_a_retriable_unreachability(self, fleet):
+        _register(fleet)
+        fleet.runner.script(
+            ["ssh"], exit_code=255, stderr="root@web2: Permission denied (publickey)."
+        )
+
+        with pytest.raises(NodeRefusedError) as caught:
+            fleet.tunnels.endpoint("web-2")
+
+        assert "refused this central's key" in caught.value.message
+        assert not isinstance(caught.value, NodeUnreachableError)
+        # Persisted like the HTTP 401 path's mark_refused(), so every other
+        # caller through NodeClient (the fleet's one funnel to a node) stops
+        # presenting the key at once instead of dialling ssh again on a
+        # doubling backoff forever.
+        assert fleet.store.get_node("web-2").status == "refused"
+
+    def test_a_revoked_key_does_not_dial_ssh_again_through_the_client(self, fleet):
+        fleet.added()
+        # add() already opened a live tunnel; close it so the next call
+        # actually redials ssh instead of reusing it.
+        fleet.tunnels.close("web-2")
+        fleet.runner.script(
+            ["ssh"], exit_code=255, stderr="root@web2: Permission denied (publickey)."
+        )
+        client = fleet.manager.client("web-2")
+
+        with pytest.raises(NodeRefusedError):
+            client.get_json("/api/system/version", actor="cli:root@nas", actor_scope="read")
+        opened = len(fleet.runner.processes)
+        assert opened >= 1
+
+        fleet.clock.advance(BACKOFF_MAX * 1000)
+        with pytest.raises(NodeRefusedError) as second:
+            client.get_json("/api/system/version", actor="cli:root@nas", actor_scope="read")
+
+        assert second.value.status_code == 401
+        assert len(fleet.runner.processes) == opened, "ssh must not be dialled again"
 
     def test_a_tunnel_that_never_listens_times_out_and_is_stopped(self, fleet):
         _register(fleet)

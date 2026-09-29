@@ -37,7 +37,7 @@ from pathlib import Path
 from typing import Any
 
 from noust.core import sealing
-from noust.core.exceptions import NodeError, NodeUnreachableError
+from noust.core.exceptions import NodeError, NodeRefusedError, NodeUnreachableError
 from noust.core.runner import CommandRunner, ProcessHandle, get_runner
 from noust.core.store import NodeRecord, NoustStore, get_store
 from noust.fleet.keys import NodeKeys, host_key_alias
@@ -66,6 +66,34 @@ SERVER_ALIVE_COUNT = 3
 CONNECT_TIMEOUT = 10
 
 LOOPBACK = "127.0.0.1"
+
+#: Test seam: node name to a local port its tunnel resolves to without dialling ssh.
+#: Empty in every process but the one ``scripts/console_server.py`` builds for the fleet's
+#: end-to-end coverage, where a second sandboxed backend stands in for a node and ssh cannot
+#: run in the sandbox at all. Never set from product code or from configuration: the only
+#: caller is :func:`set_loopback_for_testing`, and the only thing that calls that is
+#: ``console_server.py`` itself. See ``endpoint()``, the one place this is read.
+_LOOPBACK_OVERRIDE: dict[str, int] = {}
+
+
+def set_loopback_for_testing(node: str, port: int | None) -> None:
+    """
+    Make a node's tunnel resolve straight to a local port, without ssh.
+
+    Test seam, not a feature: ``scripts/console_server.py`` is the only caller, when it runs
+    two sandboxed backends side by side to stand in for a central and a node for Playwright.
+    Every other check ``endpoint()`` normally does - the node being registered, this central
+    being unlocked - still runs; only the ssh dial itself is skipped.
+
+    Args:
+        node: The node's name.
+        port: The local loopback port already answering for it, or None to remove the
+            override and go back to dialling ssh.
+    """
+    if port is None:
+        _LOOPBACK_OVERRIDE.pop(node, None)
+    else:
+        _LOOPBACK_OVERRIDE[node] = port
 
 
 def pick_free_port() -> int:
@@ -210,6 +238,21 @@ def explain_ssh_failure(stderr: str, record: NodeRecord, exit_code: int | None) 
     return f"The SSH tunnel to {record.name} ({where}) failed{status}"
 
 
+def key_was_revoked(stderr: str) -> bool:
+    """
+    Report whether ssh's own words say the node no longer authorizes this key.
+
+    Args:
+        stderr: ssh's standard error.
+
+    Returns:
+        True for "Permission denied (publickey)": the same fact the node's
+        own HTTP 401 tells the fleet token holds, and treated the same way -
+        a refusal to persist and stop presenting, not an outage to retry.
+    """
+    return "permission denied" in stderr.lower()
+
+
 def _iso(timestamp: float | None) -> str | None:
     """
     Format a wall-clock timestamp for a status payload.
@@ -336,6 +379,9 @@ class TunnelManager:
         """
         self.reap_idle()
         self._require_unlocked()
+        override = _LOOPBACK_OVERRIDE.get(node)
+        if override is not None:
+            return LOOPBACK, override
         tunnel = self._entry(node)
         with tunnel.lock:
             if tunnel.handle is not None and tunnel.handle.is_alive():
@@ -445,6 +491,10 @@ class TunnelManager:
 
         Raises:
             NodeUnreachableError: When ssh exits or does not come up in time.
+            NodeRefusedError: When ssh's own words say the node no longer
+                authorizes this key (see :func:`key_was_revoked`); persisted
+                the same way a node's HTTP 401 is, so nothing keeps
+                presenting it on an endless backoff.
         """
         local_port = self._free_port()
         handle = self.runner.start(
@@ -458,11 +508,17 @@ class TunnelManager:
         deadline = self._clock() + self.ready_timeout
         while True:
             if not handle.is_alive():
-                self._failed(tunnel, handle.stderr_tail())
-                raise NodeUnreachableError(
-                    explain_ssh_failure(handle.stderr_tail(), record, handle.exit_code),
-                    details=handle.stderr_tail(),
-                )
+                stderr = handle.stderr_tail()
+                self._failed(tunnel, stderr)
+                message = explain_ssh_failure(stderr, record, handle.exit_code)
+                if key_was_revoked(stderr):
+                    # Mirrors NodeClient.mark_refused(): persisted at the
+                    # point of failure, not left to whichever caller's
+                    # except block runs next, so nothing overwrites it back
+                    # to a merely-retriable "unreachable".
+                    self.store.set_node_status(node, "refused")
+                    raise NodeRefusedError(message, details=stderr)
+                raise NodeUnreachableError(message, details=stderr)
             if self._probe(local_port):
                 break
             if self._clock() >= deadline:

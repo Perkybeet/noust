@@ -186,6 +186,7 @@ def authorize_command(
             tokens=token_manager(),
             ensure_console=lambda: ensure_console_on_loopback(ctx.verbose, ctx.dry_run),
             confirm_replace=confirm,
+            dry_run=ctx.dry_run,
         )
     except NodeError as exc:
         audit("fleet.authorize", "failure", resource=f"central:{central}", detail=exc.message)
@@ -214,7 +215,8 @@ def authorize_command(
     logger.key_value("Console", f"127.0.0.1:{result.console_port}")
     logger.key_value("Token", result.token_name)
     if result.replaced_tokens:
-        logger.key_value("Revoked", ", ".join(result.replaced_tokens))
+        label = "Would revoke" if ctx.dry_run else "Revoked"
+        logger.key_value(label, ", ".join(result.replaced_tokens))
     logger.blank()
     logger.info("Join code (paste it into the central; it holds a token, shown only now):")
     click.echo(result.join_code)
@@ -248,14 +250,18 @@ def deauthorize_command(ctx: Context, central: str, ssh_user: str) -> None:
     from noust.fleet.authorize import deauthorize
 
     _require_root("deauthorize")
-    result = deauthorize(central=central, ssh_user=ssh_user, tokens=token_manager())
+    result = deauthorize(
+        central=central, ssh_user=ssh_user, tokens=token_manager(), dry_run=ctx.dry_run
+    )
     audit(
         "fleet.deauthorize",
         "success",
         resource=f"central:{result.central}",
         detail=(
-            f"removed {result.removed_keys} key line(s) from {result.authorized_keys}; "
-            f"revoked {', '.join(result.revoked_tokens) or 'no token'}"
+            ("would remove" if ctx.dry_run else "removed")
+            + f" {result.removed_keys} key line(s) from {result.authorized_keys}; "
+            + ("would revoke " if ctx.dry_run else "revoked ")
+            + (", ".join(result.revoked_tokens) or "no token")
         ),
     )
 
@@ -265,6 +271,11 @@ def deauthorize_command(ctx: Context, central: str, ssh_user: str) -> None:
     logger = ctx.logger
     if not result.removed_keys and not result.revoked_tokens:
         logger.info(f"Central {result.central} held nothing on this server")
+        return
+    if ctx.dry_run:
+        logger.info(f"Rehearsal: nothing was changed for central {result.central}")
+        logger.key_value("Key lines that would be removed", f"{result.removed_keys}")
+        logger.key_value("Tokens that would be revoked", ", ".join(result.revoked_tokens) or "none")
         return
     logger.success(f"Central {result.central} is no longer authorized on this server")
     logger.key_value("Key lines removed", f"{result.removed_keys} ({result.authorized_keys})")

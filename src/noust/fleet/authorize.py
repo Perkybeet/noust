@@ -30,15 +30,20 @@ operator - the central never gets a shell here. It:
 from __future__ import annotations
 
 import errno
+import fcntl
+import hashlib
 import os
 import pwd
 import re
-from collections.abc import Callable
+import threading
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from noust import __version__
+from noust.core.applock import locks_directory
 from noust.core.exceptions import NodeError, SecurityError
 from noust.core.fs import FileSystem, get_fs
 from noust.core.runner import CommandError, CommandRunner, get_runner
@@ -88,9 +93,19 @@ SSH_DIR_MODE = 0o700
 #: Mode of ``authorized_keys``.
 AUTHORIZED_KEYS_MODE = 0o600
 
+#: Mode of the lock file :func:`_locked_for_write` takes.
+LOCK_FILE_MODE = 0o600
+
 #: The fleet token scope. Spelled here because this module must import
 #: without the console's dependencies; ``noust.web.auth.FLEET_SCOPE``.
 FLEET_SCOPE = "fleet"
+
+#: Shown as the token in a dry-run join code. Shaped like a real fleet token
+#: (``noust.web.auth.API_TOKEN_PREFIX``, spelled here for the same reason
+#: FLEET_SCOPE is) so it round-trips through :class:`~noust.fleet.joincode.JoinCode`,
+#: but it is never minted or stored, so nothing accepts it: pasting it into
+#: ``noust node add`` fails as a bad token, not a bad join code.
+DRY_RUN_TOKEN = "noust_tok_dry-run-token-was-not-issued"  # noqa: S105 - a placeholder, never issued
 
 
 @dataclass(frozen=True)
@@ -286,6 +301,83 @@ def _is_line_of(line: str, central: str) -> bool:
     return bool(fields) and fields[-1] == key_comment(central)
 
 
+#: Lock paths this thread already holds, and how many nested acquisitions are
+#: inside each: flock() locks belong to the open file description, not the
+#: process, so a second open()+flock() of the same file on the same thread
+#: would block on itself. Reentrancy lets 'authorize' hold the lock across
+#: reading the file, installing the new line and - if issuing the token
+#: fails - writing the previous content back, while 'install' taking it
+#: again for its own read-modify-write does not deadlock.
+_local = threading.local()
+
+
+def _held_locks() -> dict[Path, int]:
+    """
+    Return the authorized_keys locks this thread already holds.
+
+    Returns:
+        Lock path to nesting depth.
+    """
+    held: dict[Path, int] | None = getattr(_local, "held", None)
+    if held is None:
+        held = {}
+        _local.held = held
+    return held
+
+
+@contextmanager
+def _locked_for_write(path: Path) -> Iterator[None]:
+    """
+    Hold an exclusive lock across a read-modify-write cycle on an authorized_keys file.
+
+    ``noust fleet authorize`` for one central and ``deauthorize`` for another,
+    run at the same time for the same account, both read the file before
+    either writes it; without a lock the second write clobbers the first, and
+    whichever central's line was added or removed second is the only change
+    that survives. The lock file lives under the Noust state directory
+    (:func:`~noust.core.applock.locks_directory`, next to the store's own
+    per-application locks) rather than beside ``authorized_keys`` itself,
+    since that directory does not always exist yet, and when it is outside
+    the account's home this class does not always own it - one lock file per
+    distinct target path, named by its hash, so a different account's file
+    never contends with this one.
+
+    Args:
+        path: The ``authorized_keys`` file about to be read and written.
+
+    Yields:
+        Nothing; the lock is held until the block exits.
+    """
+    held = _held_locks()
+    if path in held:
+        held[path] += 1
+        try:
+            yield
+        finally:
+            held[path] -= 1
+        return
+
+    directory = locks_directory()
+    get_fs().make_dir(directory, mode=0o700, parents=True)
+    digest = hashlib.sha256(str(path).encode("utf-8")).hexdigest()[:16]
+    lock_path = directory / f"authorized-keys-{digest}.lock"
+    # O_NOFOLLOW: the directory is root's, but a link planted there must not
+    # turn "take a lock" into a write somewhere else.
+    descriptor = os.open(
+        lock_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC, LOCK_FILE_MODE
+    )
+    held[path] = 1
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(descriptor, fcntl.LOCK_UN)
+    finally:
+        del held[path]
+        os.close(descriptor)
+
+
 def _read_no_follow(path: Path) -> str | None:
     """
     Read a file that must not be a symlink.
@@ -406,6 +498,23 @@ class AuthorizedKeys:
         self.fs.write_text(self.path, text, mode=AUTHORIZED_KEYS_MODE)
         self._chown(self.path)
 
+    def would_change(self, line: str, central: str) -> bool:
+        """
+        Report whether :meth:`install` would change the file, without changing it.
+
+        Args:
+            line: :func:`authorized_key_line`'s output.
+            central: The central's name.
+
+        Returns:
+            True when the file holds anything other than exactly this line
+            for this central.
+        """
+        existing = self.read()
+        lines = existing.splitlines() if existing else []
+        ours = [candidate for candidate in lines if _is_line_of(candidate, central)]
+        return ours != [line]
+
     def install(self, line: str, central: str) -> bool:
         """
         Make ``line`` the one line of ``central`` in the file.
@@ -420,14 +529,29 @@ class AuthorizedKeys:
         Returns:
             True when the file changed; False when it already held exactly this.
         """
+        with _locked_for_write(self.path):
+            if not self.would_change(line, central):
+                return False
+            existing = self.read()
+            lines = existing.splitlines() if existing else []
+            kept = [candidate for candidate in lines if not _is_line_of(candidate, central)]
+            self.write("\n".join([*kept, line]) + "\n")
+            return True
+
+    def lines_of(self, central: str) -> list[str]:
+        """
+        List the file's existing lines that belong to a central, without changing anything.
+
+        Args:
+            central: The central's name.
+
+        Returns:
+            The matching lines, in file order.
+        """
         existing = self.read()
-        lines = existing.splitlines() if existing else []
-        ours = [candidate for candidate in lines if _is_line_of(candidate, central)]
-        if ours == [line]:
-            return False
-        kept = [candidate for candidate in lines if not _is_line_of(candidate, central)]
-        self.write("\n".join([*kept, line]) + "\n")
-        return True
+        if not existing:
+            return []
+        return [candidate for candidate in existing.splitlines() if _is_line_of(candidate, central)]
 
     def remove(self, central: str) -> int:
         """
@@ -439,15 +563,16 @@ class AuthorizedKeys:
         Returns:
             How many lines were removed.
         """
-        existing = self.read()
-        if not existing:
-            return 0
-        lines = existing.splitlines()
-        kept = [candidate for candidate in lines if not _is_line_of(candidate, central)]
-        removed = len(lines) - len(kept)
-        if removed:
-            self.write("\n".join(kept) + "\n" if kept else "")
-        return removed
+        with _locked_for_write(self.path):
+            existing = self.read()
+            if not existing:
+                return 0
+            lines = existing.splitlines()
+            kept = [candidate for candidate in lines if not _is_line_of(candidate, central)]
+            removed = len(lines) - len(kept)
+            if removed:
+                self.write("\n".join(kept) + "\n" if kept else "")
+            return removed
 
 
 def _account(user: str, passwd: Callable[[str], pwd.struct_passwd]) -> pwd.struct_passwd:
@@ -626,6 +751,7 @@ def authorize(
     host_key_file: Path = HOST_KEY_FILE,
     sshd_config: Path = SSHD_CONFIG,
     passwd: Callable[[str], pwd.struct_passwd] = pwd.getpwnam,
+    dry_run: bool = False,
 ) -> AuthorizeResult:
     """
     Authorize a central on this server and build its join code.
@@ -648,9 +774,12 @@ def authorize(
         host_key_file: This server's ed25519 host key.
         sshd_config: Read when ``sshd -T`` cannot run.
         passwd: Account lookup.
+        dry_run: Rehearse: every check still runs, but the key line is never
+            written and no token is minted or revoked. The join code carries
+            :data:`DRY_RUN_TOKEN` instead, which nothing accepts.
 
     Returns:
-        What was done and the join code.
+        What was done (or, under a rehearsal, what would be) and the join code.
 
     Raises:
         NodeError: When any input or precondition is wrong, the operator
@@ -674,24 +803,37 @@ def authorize(
     if blockers:
         raise NodeError("sshd would refuse the central's tunnel", details="\n".join(blockers))
     keys_file = _authorized_keys_for(account, settings, fs, runner)
-    previous = keys_file.read()
 
     older = live_fleet_tokens(tokens, central)
     if older and not confirm_replace([str(record["name"]) for record in older]):
         raise NodeError("Cancelled: nothing was changed")
 
     console_port = ensure_console()
-    changed = keys_file.install(authorized_key_line(central, key, console_port), central)
-    try:
-        issued = tokens.create_fleet_token(next_token_name(tokens, central))
-    except SecurityError as exc:
-        if changed:
-            keys_file.write(previous)
-        raise NodeError(
-            "Could not create the fleet token", details=exc.details or exc.message
-        ) from exc
-    for record in older:
-        tokens.revoke_api_token(int(record["id"]))
+    line = authorized_key_line(central, key, console_port)
+    if dry_run:
+        # Nothing is minted or written: the console step above already
+        # refused to touch the machine under a rehearsal (it threads dry_run
+        # through to 'noust web enable'), and this is the token store's own
+        # chokepoint for the same promise, since it has no fs/runner seam.
+        changed = keys_file.would_change(line, central)
+        issued = {"token": DRY_RUN_TOKEN, "name": next_token_name(tokens, central)}
+    else:
+        # Locked from the read this rollback would restore through the
+        # write that might undo it, so a concurrent authorize/deauthorize
+        # for another central can never land between them and be clobbered.
+        with _locked_for_write(keys_file.path):
+            previous = keys_file.read()
+            changed = keys_file.install(line, central)
+            try:
+                issued = tokens.create_fleet_token(next_token_name(tokens, central))
+            except SecurityError as exc:
+                if changed:
+                    keys_file.write(previous)
+                raise NodeError(
+                    "Could not create the fleet token", details=exc.details or exc.message
+                ) from exc
+        for record in older:
+            tokens.revoke_api_token(int(record["id"]))
 
     code = JoinCode(
         ssh_host_key=host_key.bare,
@@ -757,6 +899,7 @@ def deauthorize(
     fs: FileSystem | None = None,
     sshd_config: Path = SSHD_CONFIG,
     passwd: Callable[[str], pwd.struct_passwd] = pwd.getpwnam,
+    dry_run: bool = False,
 ) -> DeauthorizeResult:
     """
     Stop trusting a central: remove its key lines and revoke its tokens.
@@ -772,9 +915,11 @@ def deauthorize(
         fs: The filesystem seam.
         sshd_config: Read when ``sshd -T`` cannot run.
         passwd: Account lookup.
+        dry_run: Rehearse: report what would be removed and revoked without
+            touching ``authorized_keys`` or the token store.
 
     Returns:
-        What was removed.
+        What was removed (or, under a rehearsal, what would be).
 
     Raises:
         NodeError: When the name or the account is invalid.
@@ -782,9 +927,17 @@ def deauthorize(
     central = validate_central_name(central)
     account = _account(ssh_user, passwd)
     keys_file = _authorized_keys_for(account, read_sshd_settings(runner, sshd_config), fs, runner)
+    live = live_fleet_tokens(tokens, central)
+    if dry_run:
+        return DeauthorizeResult(
+            central=central,
+            authorized_keys=str(keys_file.path),
+            removed_keys=len(keys_file.lines_of(central)),
+            revoked_tokens=[str(record["name"]) for record in live],
+        )
     removed = keys_file.remove(central)
     revoked: list[str] = []
-    for record in live_fleet_tokens(tokens, central):
+    for record in live:
         tokens.revoke_api_token(int(record["id"]))
         revoked.append(str(record["name"]))
     return DeauthorizeResult(

@@ -178,6 +178,12 @@ def _cron(method: str, *args: Any) -> Callable[[], Any]:
     return call
 
 
+def _service() -> Any:
+    from noust.managers.service_manager import ServiceManager
+
+    return ServiceManager(runner=FakeRunner()).is_installed()
+
+
 #: Every chokepoint, and the feature its refusal names.
 CHOKEPOINTS: list[tuple[str, str, Callable[[], Any]]] = [
     ("BaseDeployer.deploy", "Applications", _deploy_base),
@@ -265,6 +271,7 @@ CHOKEPOINTS: list[tuple[str, str, Callable[[], Any]]] = [
     ("CronManager.create_job", "Scheduled jobs", _cron("create_job", UNUSED)),
     ("CronManager.enable_job", "Scheduled jobs", _cron("enable_job", "nightly")),
     ("CronManager.run_now", "Scheduled jobs", _cron("run_now", "nightly")),
+    ("ServiceManager.runner", "Services", _service),
 ]
 
 
@@ -305,6 +312,32 @@ class TestAServerIsNotRefused:
             patch.setattr("noust.managers.database.base.get_runner", lambda: runner)
             manager.database_exists("shop")
         assert runner.calls
+
+
+class TestInteractiveModeReachesTheSameGuard:
+    """
+    'noust -i' calls handle_webapp/handle_site/handle_service/handle_cert
+    directly (cli/interactive.py's _run_command), bypassing Click's
+    subcommand resolution entirely and with it refuse_command_on_hub
+    (cli/app.py resolves --interactive before any subcommand). The webapp,
+    site and cert flows are still refused because they reach the deployer,
+    NginxManager and CertManager chokepoints already in CHOKEPOINTS above,
+    whichever door calls them; this pins that the service flow is refused
+    the same way, now that ServiceManager.runner carries the guard too.
+    """
+
+    def test_the_service_flow_is_refused(
+        self, hub: None, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        from argparse import Namespace
+
+        from noust.cli.commands.service import handle_service
+
+        exit_code = handle_service(Namespace(action="list", verbose=False, all=False))
+
+        assert exit_code == 1
+        combined = "".join(capsys.readouterr())
+        assert "Services: not available on this central" in combined
 
 
 class TestTheHubKeepsItsOwn:
