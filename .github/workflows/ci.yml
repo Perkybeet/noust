@@ -256,9 +256,17 @@ jobs:
   # Content Security Policy violations. A policy is only enforced in a
   # browser, which is how the strict one once shipped and silently switched
   # features off; this job is what makes that impossible now.
+  # Split across four machines rather than more workers on one: each worker
+  # runs its own backend and browser, and a crowded runner turns the axe and
+  # stillness checks into timing flakes. Four shards take the suite from
+  # about twenty minutes to about six.
   e2e:
-    name: Console end-to-end
+    name: Console end-to-end (${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v7
 
@@ -291,13 +299,13 @@ jobs:
         working-directory: panel
         env:
           NOUST_PYTHON: python
-        run: npm run e2e
+        run: npm run e2e -- --shard=${{ matrix.shard }}/4
 
       - name: Keep the report of a failed run
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: |
             panel/playwright-report
             panel/test-results
