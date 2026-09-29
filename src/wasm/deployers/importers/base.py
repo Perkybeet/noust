@@ -241,6 +241,62 @@ def too_deep(name: str) -> ValidationError:
     )
 
 
+#: Deepest nesting a configuration file (or an export document) may have. They
+#: nest a handful of levels; anything past this is not one of them.
+MAX_NESTING = 64
+
+
+def nesting_depth(value: Any) -> int:
+    """
+    Measure how deeply lists and mappings nest, without recursing.
+
+    Python 3.14's JSON parser reads documents far deeper than the interpreter's
+    recursion limit that earlier versions stopped at, so the limit is checked
+    here, the same on every version, rather than left to the parser.
+
+    Args:
+        value: A parsed document.
+
+    Returns:
+        The depth: 0 for a scalar, 1 for a flat list or mapping.
+    """
+    deepest = 0
+    stack: list[tuple[Any, int]] = [(value, 0)]
+    while stack:
+        item, depth = stack.pop()
+        if isinstance(item, dict):
+            children: Any = item.values()
+        elif isinstance(item, list):
+            children = item
+        else:
+            continue
+        depth += 1
+        deepest = max(deepest, depth)
+        if depth > MAX_NESTING:
+            return depth
+        stack.extend((child, depth) for child in children)
+    return deepest
+
+
+def check_nesting(name: str, value: Any) -> Any:
+    """
+    Refuse a parsed file nested deeper than :data:`MAX_NESTING`.
+
+    Args:
+        name: The file, relative to the repository.
+        value: What it parsed to.
+
+    Returns:
+        ``value``, unchanged.
+
+    Raises:
+        ValidationError: It nests too deeply (see :func:`too_deep`).
+    """
+    if nesting_depth(value) > MAX_NESTING:
+        raise too_deep(name)
+    return value
+
+
 def read_json_object(root: Path, name: str) -> dict[str, Any] | None:
     """
     Read a JSON configuration file that must hold an object.
@@ -265,6 +321,7 @@ def read_json_object(root: Path, name: str) -> dict[str, Any] | None:
         raise ValidationError(f"{name} is not valid JSON", details=str(exc)) from exc
     except RecursionError as exc:
         raise too_deep(name) from exc
+    check_nesting(name, data)
     if not isinstance(data, dict):
         raise ValidationError(f"{name} does not hold a JSON object")
     return data

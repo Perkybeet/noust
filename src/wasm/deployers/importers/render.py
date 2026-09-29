@@ -20,6 +20,7 @@ from wasm.core.exceptions import ValidationError
 from wasm.deployers.importers.base import (
     Proposal,
     ProposedEnv,
+    check_nesting,
     declared_env,
     int_value,
     read_text,
@@ -81,6 +82,7 @@ def read(root: Path) -> Proposal:
         raise ValidationError("render.yaml is not valid YAML", details=str(exc)) from exc
     except RecursionError as exc:
         raise too_deep("render.yaml") from exc
+    check_nesting("render.yaml", blueprint)
     if blueprint is None:
         blueprint = {}
     if not isinstance(blueprint, dict):

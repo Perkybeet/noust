@@ -54,6 +54,7 @@ from wasm.deployers.bluegreen import set_zero_downtime
 from wasm.deployers.helpers.app_env import read_app_env
 from wasm.deployers.helpers.layout import LAYOUTS, RELEASES, code_path_for
 from wasm.deployers.importers import Proposal
+from wasm.deployers.importers.base import MAX_NESTING, nesting_depth
 from wasm.deployers.lifecycle import set_health_check, set_release_retention
 from wasm.managers.backup_scheduler import BackupSchedule, BackupScheduler
 from wasm.managers.cron_manager import CronJob, CronManager
@@ -617,6 +618,12 @@ def load_document(text: str) -> dict[str, Any]:
             details="An export nests three levels; check the file is the one 'wasm app "
             "export' wrote.",
         ) from exc
+    if nesting_depth(data) > MAX_NESTING:
+        raise ValidationError(
+            "The export document nests too deeply to be read",
+            details="An export nests three levels; check the file is the one 'wasm app "
+            "export' wrote.",
+        )
     return validate_document(data)
 
 

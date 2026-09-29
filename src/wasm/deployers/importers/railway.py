@@ -19,6 +19,7 @@ from typing import Any
 from wasm.core.exceptions import ValidationError
 from wasm.deployers.importers.base import (
     Proposal,
+    check_nesting,
     health_timeout,
     int_value,
     read_json_object,
@@ -207,7 +208,7 @@ def load_toml(text: str, *, name: str, warn: Callable[[str], None] | None = None
             import tomllib
 
             try:
-                return tomllib.loads(text)
+                return check_nesting(name, tomllib.loads(text))
             except tomllib.TOMLDecodeError as exc:
                 raise ValidationError(f"{name} is not valid TOML", details=str(exc)) from exc
         return _load_simple_toml(text, name=name, warn=warn)
