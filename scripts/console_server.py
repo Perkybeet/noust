@@ -159,6 +159,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--showcase",
+        action="store_true",
+        help=(
+            "seed tests.showcase's invented agency instead of tests.panel_factory's "
+            "example.com machine: no real project, domain or person, and no rename-era "
+            "example.com sites, for docs/assets/console's screenshots (panel/e2e/docs.spec.ts)"
+        ),
+    )
+    parser.add_argument(
         "--hostname",
         default=None,
         help=(
@@ -447,7 +456,9 @@ def redirect_system_paths(sandbox: Sandbox) -> None:
         directory.mkdir(parents=True, exist_ok=True)
 
 
-def write_config(sandbox: Sandbox, *, central_role: str | None = None) -> None:
+def write_config(
+    sandbox: Sandbox, *, central_role: str | None = None, ssl_email: str = "ops@example.com"
+) -> None:
     """
     Write the Noust configuration the sandboxed machine runs with.
 
@@ -456,6 +467,8 @@ def write_config(sandbox: Sandbox, *, central_role: str | None = None) -> None:
         central_role: ``central.role`` to write (``server`` or ``hub``), for the
             fleet's E2E suite; omitted, this server has none, which is the same
             as ``server`` (see ``noust.central.role``).
+        ssl_email: The certificate contact address to write; ``--showcase`` gives its own
+            agency's, so nothing this server writes to disk carries example.com.
     """
     import yaml
 
@@ -464,7 +477,7 @@ def write_config(sandbox: Sandbox, *, central_role: str | None = None) -> None:
         "webserver": "nginx",
         "service_user": "www-data",
         "service_group": "www-data",
-        "ssl": {"enabled": True, "provider": "certbot", "email": "ops@example.com"},
+        "ssl": {"enabled": True, "provider": "certbot", "email": ssl_email},
         "logging": {"level": "info", "file": str(sandbox.var / "log" / "noust" / "noust.log")},
         "backup": {"directory": str(sandbox.backup_dir), "max_per_app": 10},
     }
@@ -1396,6 +1409,8 @@ def seed_machine(
     sandbox: Sandbox,
     *,
     expired_certificate: bool = False,
+    showcase: bool = False,
+    hostname: str | None = None,
 ) -> tuple[dict[str, Unit], dict[str, int], dict[str, str], list[str]]:
     """
     Seed the store, then the files and units that live beside it.
@@ -1403,6 +1418,18 @@ def seed_machine(
     Args:
         sandbox: The sandbox.
         expired_certificate: Seed the first certificate as expired (``--expired-certificate``).
+        showcase: Seed :func:`tests.showcase.seed_showcase_state`'s invented agency instead
+            of :func:`tests.panel_factory.seed_console_state`'s example.com machine
+            (``--showcase``). Everything below this point reads the seeded application,
+            deployment and certificate domains off the store rather than by name, so it
+            seeds the showcase's machine exactly as it does the default one; only the
+            2.2/2.3 features that are inherently about *tests.panel_factory*'s own domains
+            (zero-downtime, previews, the GitHub App, backup destinations, the tabs'
+            release history) are skipped, since none of the documentation screenshots need
+            them.
+        hostname: With ``showcase``, which of :data:`tests.showcase.NODES` to seed
+            (``--hostname``); the agency's main server when None, matching
+            :func:`tests.showcase.seed_showcase_state`'s own default. Ignored otherwise.
 
     Returns:
         The unit model, each unit's port, each unit's domain, and the domains
@@ -1410,13 +1437,22 @@ def seed_machine(
     """
     from noust.core.store import get_store
     from noust.managers.service_manager import UNIT_MARKER
-    from tests.panel_factory import seed_console_state
 
     store = get_store(sandbox.store_file)
-    # First, so the tabs' old deploys get lower ids than the ones seeded as of now.
-    tabs_history = seed_app_tabs_history(store)
-    seed_deploylinks_commit_messages(store)
-    state = seed_console_state(store)
+    tabs_history: dict[str, _TabsApp] = {}
+    showcase_cert_alt_names: dict[str, str] | None = None
+    if showcase:
+        from tests.showcase import cert_alt_names, seed_showcase_state
+
+        state: Any = seed_showcase_state(store, node=hostname or "fra-1")
+        showcase_cert_alt_names = cert_alt_names(hostname or "fra-1")
+    else:
+        from tests.panel_factory import seed_console_state
+
+        # First, so the tabs' old deploys get lower ids than the ones seeded as of now.
+        tabs_history = seed_app_tabs_history(store)
+        seed_deploylinks_commit_messages(store)
+        state = seed_console_state(store)
 
     units: dict[str, Unit] = {}
     ports: dict[str, int] = {}
@@ -1462,22 +1498,65 @@ def seed_machine(
 
     seed_backups(sandbox, state.backup_domains + state.static_domains[:1])
     seed_cron(state.domains[0])
-    seed_overview_failed_worker(sandbox, store, units)
-    seed_monitor(sandbox, units)
+    # Only the agency's main server carries the standalone failed worker and the one
+    # benign monitor notice: "ams-3" (a couple of healthy client sites) and "lon-2" (a
+    # staging server, everything green) are calmer servers by design (coordinator review),
+    # not "fra-1" with its own findings copied onto every node in the fleet.
+    node = hostname or "fra-1"
+    showcase_calm_node = showcase and node != "fra-1"
+    if not showcase_calm_node:
+        seed_overview_failed_worker(
+            sandbox,
+            store,
+            units,
+            domain=state.domains[0] if showcase else "example.com",
+        )
+    seed_monitor(sandbox, units, showcase=showcase, showcase_notice=not showcase_calm_node)
     seed_job_history(sandbox, store, state.domains[0])
     seed_activity_audit_log(sandbox, state.domains[0])
-    seed_app_tabs(sandbox, store, units, ports, domains, tabs_history)
+    if showcase:
+        # The three generic pieces of seed_app_tabs below (despite the name: none of
+        # them reads a "tabs" domain, only the units/ports/domains models), without
+        # which every application diagnoses as "down: not listening" and every running
+        # one's port reads "No answer" (noust.core.app_state.resolve_state does a real
+        # socket connect, and nothing in the sandbox actually listens on any port).
+        _tabs_journal_model(units, domains, ports)
+        _tabs_diagnose_model(units, ports)
+        _tabs_port_model(units, ports)
+    else:
+        seed_app_tabs(sandbox, store, units, ports, domains, tabs_history)
     seed_domains_and_sources(
-        sandbox, store, units, list(state.cert_domains), expired_certificate=expired_certificate
+        sandbox,
+        store,
+        units,
+        list(state.cert_domains),
+        expired_certificate=expired_certificate,
+        # The showcase's own site already carries the alias tests.showcase gave it
+        # through store.add_domain; this is only the nginx server_name list a site's
+        # own config carries (SitesTab, not the AppDomainsTab), on one of its domains
+        # in place of the default machine's example.net.
+        server_names=(state.domains[0], ("www",))
+        if showcase
+        else ("example.net", ("www", "shop", "status")),
+        cert_alt_names=showcase_cert_alt_names,
     )
-    seed_release_22(sandbox, store, units, ports, domains)
+    if not showcase:
+        seed_release_22(sandbox, store, units, ports, domains)
     seed_release_23(sandbox)
+    if showcase:
+        seed_showcase_php_fpm_pools(sandbox, store)
+        seed_showcase_machine_metrics()
+        seed_showcase_app_metrics(store)
+        if state.failed_domains:
+            seed_showcase_nginx_error_log(sandbox, state.failed_domains[0])
     # PHP 8.3's FPM, a system unit Noust does not own, running the pools recipes write.
     units["php8.3-fpm"] = Unit(active="active", pid=912, managed=False)
     return units, ports, domains, list(state.cert_domains)
 
 
-def seed_overview_failed_worker(sandbox: Sandbox, store: Any, units: dict[str, Unit]) -> None:
+def seed_overview_failed_worker(
+    sandbox: Sandbox, store: Any, units: dict[str, Unit], *, domain: str = "example.com"
+) -> None:
     """
     Seed a Noust unit that belongs to no application and has failed.
 
@@ -1490,17 +1569,19 @@ def seed_overview_failed_worker(sandbox: Sandbox, store: Any, units: dict[str, U
         sandbox: The sandbox whose unit directory receives the unit file.
         store: The seeded store, which tracks the service.
         units: The unit model the runner answers from; gains the worker.
+        domain: The application whose tree the worker's script lives beside; one of the
+            default machine's own by default, one of ``--showcase``'s otherwise.
     """
     from noust.core.store import Service
     from noust.managers.service_manager import UNIT_MARKER
 
     name = "queue-worker"
-    command = "/usr/bin/node /var/www/apps/example.com/current/worker.js"
+    command = f"/usr/bin/node /var/www/apps/{domain}/current/worker.js"
     store.create_service(
         Service(
             name=name,
             unit_file=str(sandbox.systemd_dir / f"{name}.service"),
-            working_directory="/var/www/apps/example.com/current",
+            working_directory=f"/var/www/apps/{domain}/current",
             command=command,
             status="failed",
         )
@@ -1513,9 +1594,9 @@ def seed_overview_failed_worker(sandbox: Sandbox, store: Any, units: dict[str, U
     (sandbox.systemd_dir / f"{name}.service").write_text(
         f"# {UNIT_MARKER}\n"
         "[Unit]\n"
-        "Description=Queue worker for example.com\n\n"
+        f"Description=Queue worker for {domain}\n\n"
         "[Service]\n"
-        "WorkingDirectory=/var/www/apps/example.com/current\n"
+        f"WorkingDirectory=/var/www/apps/{domain}/current\n"
         f"ExecStart={command}\n"
         "Restart=on-failure\n",
         encoding="utf-8",
@@ -1631,7 +1712,13 @@ def seed_cron(domain: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def seed_monitor(sandbox: Sandbox, units: dict[str, Unit]) -> None:
+def seed_monitor(
+    sandbox: Sandbox,
+    units: dict[str, Unit],
+    *,
+    showcase: bool = False,
+    showcase_notice: bool = True,
+) -> None:
     """
     Install the monitor's unit and give it a short findings history.
 
@@ -1646,6 +1733,15 @@ def seed_monitor(sandbox: Sandbox, units: dict[str, Unit]) -> None:
         sandbox: The sandbox.
         units: The modelled machine's units, mutated in place so the fake
             runner reports the monitor unit as installed, active and enabled.
+        showcase: Seed at most one plausible, benign notice instead of the default
+            machine's cryptominer and raw-listener findings (``--showcase``): a
+            documentation screenshot of a small agency's server should not look actively
+            compromised, and the failed application, the failed unit and the expiring
+            certificate already carry "Needs attention" on their own.
+        showcase_notice: With ``showcase``, whether to seed even that one open notice.
+            False for a fleet node meant to read as calm and fully healthy (a second
+            region, a staging server): every open finding, not only the alarming ones,
+            counts towards "Needs attention".
     """
     from noust.monitor.models import (
         SEVERITY_NOTICE,
@@ -1671,8 +1767,29 @@ def seed_monitor(sandbox: Sandbox, units: dict[str, Unit]) -> None:
 
     now = datetime.now()
     store = ObservationStore()
-    store.save_many(
-        [
+    open_observations: list[ProcessObservation] = (
+        (
+            [
+                ProcessObservation(
+                    process=ProcessInfo(
+                        pid=2087,
+                        name="tar",
+                        user="www-data",
+                        cpu_percent=76.0,
+                        memory_percent=3.0,
+                        command="tar czf backup.tar.gz .",
+                    ),
+                    signal=SIGNAL_RESOURCE_USAGE,
+                    severity=SEVERITY_NOTICE,
+                    detail="Short CPU spike during the nightly backup",
+                    observed_at=now - timedelta(hours=3),
+                ),
+            ]
+            if showcase_notice
+            else []
+        )
+        if showcase
+        else [
             ProcessObservation(
                 process=ProcessInfo(
                     pid=41823,
@@ -1717,6 +1834,7 @@ def seed_monitor(sandbox: Sandbox, units: dict[str, Unit]) -> None:
             ),
         ]
     )
+    store.save_many(open_observations)
     # One already-dismissed row, so the observations list and "Needs
     # attention" show the difference between open and acknowledged findings.
     acknowledged_id = store.save(
@@ -3410,7 +3528,13 @@ class _DomainsWebTools:
         root = str(self.sandbox.root)
         return text[len(root) :] if text.startswith(root) else text
 
-    def seed(self, names: Sequence[str], *, first_expired: bool = False) -> None:
+    def seed(
+        self,
+        names: Sequence[str],
+        *,
+        first_expired: bool = False,
+        alt_names: dict[str, str] | None = None,
+    ) -> None:
         """
         Issue the seeded certificates: the name and its www, the expiry
         :func:`make_runner` always gave them (12, 29, 46... days).
@@ -3419,10 +3543,24 @@ class _DomainsWebTools:
             names: Certificate names, in the order the store seeded them.
             first_expired: Make the first one expired three days ago instead
                 (``--expired-certificate``), for a health report that is critical.
+            alt_names: A name's own alias, for the extra SAN it shows instead of
+                "www.<name>" (``--showcase`` only). A bare, two-label domain still gets
+                "www.<name>" regardless - that is a real certificate's own shape - but
+                "www.api.kestrelworks.io" is not: a subdomain not in this mapping gets no
+                second SAN at all, rather than one nobody would actually request
+                (coordinator review, on the domains page). None (every other caller) keeps
+                the original "name and its www" for every certificate, whatever domain it
+                is.
         """
         for offset, name in enumerate(names):
             days = -3 if first_expired and offset == 0 else 12 + offset * 17
-            self._issue(name, [name, f"www.{name}"], datetime.now() + timedelta(days=days))
+            if alt_names is None or name.count(".") == 1:
+                domains = [name, f"www.{name}"]
+            elif name in alt_names:
+                domains = [name, alt_names[name]]
+            else:
+                domains = [name]
+            self._issue(name, domains, datetime.now() + timedelta(days=days))
 
     def _issue(self, name: str, domains: list[str], expires: datetime) -> None:
         """
@@ -3924,6 +4062,8 @@ def seed_domains_and_sources(
     cert_domains: list[str],
     *,
     expired_certificate: bool = False,
+    server_names: tuple[str, Sequence[str]] = ("example.net", ("www", "shop", "status")),
+    cert_alt_names: dict[str, str] | None = None,
 ) -> None:
     """
     Seed the web server, certificates, DNS and sources the domain pages and the wizard need.
@@ -3940,6 +4080,11 @@ def seed_domains_and_sources(
         units: The modelled units, given the nginx one.
         cert_domains: The domains the store seeded with a certificate.
         expired_certificate: Seed the first certificate as expired.
+        server_names: A site's domain, and the extra names to give it (unqualified: "www",
+            not "www.<domain>") - see :func:`seed_sites_server_names`. Defaults to the
+            default machine's own "example.net"; ``--showcase`` passes one of its own.
+        cert_alt_names: See :meth:`_DomainsWebTools.seed`'s own ``alt_names``
+            (``--showcase`` only).
     """
     import functools
     import socket as socket_module
@@ -3956,7 +4101,7 @@ def seed_domains_and_sources(
 
     zones = frozenset(".".join(app.domain.split(".")[-2:]) for app in store.list_apps())
     tools = _DomainsWebTools(sandbox, zones)
-    tools.seed(cert_domains, first_expired=expired_certificate)
+    tools.seed(cert_domains, first_expired=expired_certificate, alt_names=cert_alt_names)
 
     runner = get_runner()
     original = runner.run
@@ -3998,7 +4143,7 @@ def seed_domains_and_sources(
     domains_api.check_dns = modelled  # type: ignore[assignment]
 
     _domains_site_files(store)
-    seed_sites_server_names("example.net", ["www", "shop", "status"])
+    seed_sites_server_names(*server_names)
     _domains_wizard_sources(sandbox)
 
 
@@ -4845,6 +4990,103 @@ DESTINATIONS_SCHEDULED_APP = "shop.example.net"
 DESTINATIONS_UNREACHABLE = ".invalid"
 
 
+def seed_showcase_backup_destination() -> None:
+    """
+    Register one backup destination for ``--showcase``, config only.
+
+    :func:`seed_backup_destinations` (below) models a real rclone remote's contents, on
+    disk, so the Backups page's copy and restore flows have something genuine to move -
+    none of the documentation screenshots open that page, so this only registers the
+    destination itself, through the same :class:`~noust.managers.backup_destinations.
+    BackupDestinationManager` a real ``noust backup destination add`` calls, for the
+    dataset's own sake (CLAUDE.md rule 4: even a demo goes through the real manager, never
+    a hand-written store row).
+    """
+    from noust.managers.backup_destinations import BackupDestinationManager
+
+    BackupDestinationManager().add(
+        "eu-fra-sftp",
+        "sftp",
+        {
+            "host": "backup-fra.kelmoor.dev",
+            "user": "kelmoor",
+            "port": "22",
+            "pass": "Nq37-seeded-sftp-password",
+            "path": "/srv/backups/noust",
+        },
+    )
+
+
+def seed_showcase_nginx_error_log(sandbox: Sandbox, domain: str) -> None:
+    """
+    Write one realistic nginx error log line for a failed application (``--showcase``
+    only), so the Diagnose page's nginx-log check reads real content instead of skipping
+    for want of a file: without this, every showcase machine shows "Could not read
+    <path>", which is also a path only :func:`use_showcase_diagnose_paths` cleans up, so a
+    check that actually ran is the more convincing fix either way.
+
+    Args:
+        sandbox: The sandbox; ``redirect_system_paths`` already pointed
+            ``noust.managers.diagnose.NGINX_ERROR_LOG`` at the file this writes.
+        domain: The failed application the line is about.
+    """
+    log_path = sandbox.var / "log" / "nginx" / "error.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True, mode=0o755)
+    when = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+    log_path.write_text(
+        f"{when} [error] 41231#41231: *82 connect() failed (111: Connection refused) "
+        f"while connecting to upstream, client: 127.0.0.1, server: {domain}, "
+        f'request: "GET / HTTP/1.1", upstream: "http://127.0.0.1/", host: "{domain}"\n',
+        encoding="utf-8",
+    )
+
+
+def use_showcase_diagnose_paths(sandbox: Sandbox) -> None:
+    """
+    Clean the sandbox's own temp-directory prefix out of every Diagnose check's text
+    (``--showcase`` only).
+
+    Two checks print a raw filesystem path in their summary regardless of outcome - the
+    disk-space check's "on the filesystem holding <apps directory>", and the nginx-log
+    check's "Could not read <log>" when it has nothing to read - and both paths are the
+    sandbox's, since every real path
+    (:func:`redirect_system_paths`) is redirected under a ``/tmp/noust-console-...``
+    directory a documentation screenshot has no business showing (coordinator review).
+    Wrapping every probe, not just those two, is cheap and future-proof: a check added
+    later that also happens to print a real path is cleaned the same way without anyone
+    having to notice and list it here.
+
+    ``noust.managers.diagnose._PROBES`` is read fresh (``probes = _PROBES``) each time a
+    diagnosis runs, so replacing the module attribute here reaches every call after this
+    point, the same way :func:`use_fixed_hostname` replaces a module's own ``socket``.
+
+    Args:
+        sandbox: The sandbox whose root directory is the prefix to remove.
+    """
+    import dataclasses
+
+    import noust.managers.diagnose as diagnose_module
+
+    prefix = str(sandbox.root)
+
+    def clean(text: str) -> str:
+        return text.replace(prefix, "")
+
+    def wrap(probe: Any) -> Any:
+        def wrapped(ctx: Any) -> Any:
+            check, facts = probe(ctx)
+            return (
+                dataclasses.replace(
+                    check, summary=clean(check.summary), evidence=clean(check.evidence)
+                ),
+                facts,
+            )
+
+        return wrapped
+
+    diagnose_module._PROBES = tuple((name, wrap(fn)) for name, fn in diagnose_module._PROBES)
+
+
 def seed_backup_destinations(sandbox: Sandbox, store: Any) -> None:
     """
     Add two backup destinations, copies of backups on them, and a schedule using both.
@@ -5318,6 +5560,148 @@ def _recipes_php_fpm(sandbox: Sandbox) -> None:
         php_module.socket_accepts = lambda _path, *args, **kwargs: True
 
 
+def seed_showcase_php_fpm_pools(sandbox: Sandbox, store: Any) -> None:
+    """
+    Write a pool file for each showcase PHP-FPM application (``--showcase`` only).
+
+    ``_recipes_php_fpm`` above only models the shared FPM installation, so the wizard's own
+    WordPress recipe deploy can write its pool for real and be asked over FastCGI - it never
+    creates a pool for an application that was seeded directly into the store rather than
+    deployed. ``pool_serving()`` (``noust/deployers/php_fpm.py``) reads the pool file's mere
+    existence, cheaply, on every apps list request, so without one here a showcase PHP-FPM
+    application would read as failed despite its stored status.
+
+    Args:
+        sandbox: The sandbox, with ``_recipes_php_fpm`` already run.
+        store: The seeded store.
+    """
+    from noust.core.utils import domain_to_app_name
+
+    pool_dir = sandbox.etc / "php" / "8.3" / "fpm" / "pool.d"
+    for app in store.list_apps():
+        if app.app_type != "php-fpm":
+            continue
+        name = domain_to_app_name(app.domain)
+        (pool_dir / f"noust-{name}.conf").write_text(
+            f"[{name}]\n"
+            "user = www-data\n"
+            "group = www-data\n"
+            f"listen = /run/php/noust-{name}.sock\n"
+            "pm = dynamic\n"
+            "pm.max_children = 5\n",
+            encoding="utf-8",
+        )
+
+
+def seed_showcase_machine_metrics() -> None:
+    """
+    Write a month of machine-wide history, so the Overview's charts show a curve
+    (``--showcase`` only).
+
+    The real :class:`~noust.web.metrics_collector.MetricsCollector` is a background thread
+    that samples this process every couple of seconds; a screenshot taken moments after the
+    server starts has nothing to chart yet, and every range - "Last hour" through "30d" -
+    would read "Collecting samples." Written directly into the same store, over the same
+    metric names ``MetricsCollector._system_pairs`` itself records, the way
+    :func:`_tabs_metrics` writes an application's own history: denser the more recent, a
+    daily wave, noise, and a couple of smooth spikes (a build, a burst of traffic) so the
+    chart reads as a real machine's rather than a flat line.
+
+    This only backfills the past: the collector's own ticks, from the moment it starts,
+    are real ``psutil`` reads and would read as a machine noisily unlike this one, or
+    (every seeded node being the same sandboxed host) unlike each other -
+    :func:`use_fixed_machine_stats`, called once ``serve()`` knows which node this is, is
+    what keeps those consistent with the history seeded here.
+    """
+    import math
+
+    from noust.web.metrics_collector import get_metrics_store
+
+    store = get_metrics_store()
+    now = int(time.time())
+    stamps = [
+        *range(now - 30 * 86_400, now - 86_400, 1_800),
+        *range(now - 86_400, now - 3_600, 120),
+        *range(now - 3_600, now, 10),
+    ]
+    mem_total = 16 * 1024**3
+    disk_total = 480 * 1024**3
+    # Smooth bumps (a Gaussian each), not a step: one a few minutes ago, still visible on
+    # "Last hour", and two further back that only "24h" and wider ranges will show.
+    spike_minutes_ago = (4.0, 55.0, 340.0)
+    for stamp in stamps:
+        age_days = (now - stamp) / 86_400
+        minutes_ago = (now - stamp) / 60.0
+        daily = math.sin((stamp % 86_400) / 86_400 * 2 * math.pi - math.pi / 2)
+        wobble = math.sin(stamp / 977.0) * 0.6 + math.sin(stamp / 331.0) * 0.4
+        spike = max(
+            math.exp(-(((minutes_ago - centre) / 2.4) ** 2)) for centre in spike_minutes_ago
+        )
+        cpu = max(1.0, min(96.0, 13.0 + 9.0 * daily + 4.0 * wobble + 44.0 * spike))
+        mem_used = mem_total * max(0.12, min(0.85, 0.29 + 0.05 * daily + 0.02 * wobble))
+        disk_used = disk_total * max(0.10, min(0.60, 0.235 + 0.0015 * (30 - age_days)))
+        net_rx = max(150.0, 4_200 + 2_600 * wobble + 21_000 * spike)
+        net_tx = max(90.0, 1_800 + 900 * wobble + 6_500 * spike)
+        store.record_many(
+            [
+                ("cpu.percent", cpu),
+                ("mem.used_bytes", mem_used),
+                ("mem.total_bytes", float(mem_total)),
+                ("swap.used_bytes", mem_total * 0.015),
+                ("disk.used_bytes", disk_used),
+                ("disk.total_bytes", float(disk_total)),
+                ("net.rx_bytes_s", net_rx),
+                ("net.tx_bytes_s", net_tx),
+                ("load.1m", max(0.05, 0.5 + 0.3 * wobble)),
+            ],
+            ts=stamp,
+        )
+    store.consolidate(now=now)
+
+
+def seed_showcase_app_metrics(store: Any) -> None:
+    """
+    Write a month of CPU and memory history for each showcase application that has a real
+    unit (``--showcase`` only).
+
+    Reuses :func:`_tabs_metrics`, which already writes over the metric names an
+    application's Metrics tab reads. A static site, a PHP-FPM pool and a Docker Compose
+    stack are skipped: none of them is sampled by cgroup on a real machine either (see
+    ``noust/web/metrics_collector.py``'s module docstring), so seeding history for them
+    would chart something that was never measured.
+
+    Args:
+        store: The seeded store.
+    """
+    sampled_types = {"nextjs", "nodejs", "python"}
+    base_mb = {"nextjs": 180.0, "nodejs": 120.0, "python": 150.0}
+    for app in store.list_apps():
+        if app.app_type not in sampled_types:
+            continue
+        starts = [
+            parsed
+            for record in store.list_deployments(app.domain)
+            if record.started_at and (parsed := _parse_iso(record.started_at)) is not None
+        ]
+        if not starts:
+            continue
+        _tabs_metrics(app.domain, starts, base_mb=base_mb[app.app_type])
+
+
+def _parse_iso(value: str) -> datetime | None:
+    """
+    Args:
+        value: An ISO 8601 timestamp as the store writes one.
+
+    Returns:
+        The parsed moment, or None for a value :meth:`datetime.fromisoformat` refuses.
+    """
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
+
+
 def _platform_sources(sandbox: Sandbox) -> None:
     """
     Write the wizard's source that was configured for Railway.
@@ -5593,6 +5977,94 @@ def use_fixed_hostname(hostname: str) -> None:
     auth_api.socket = fixed  # type: ignore[assignment]
 
 
+def use_fixed_machine_stats(
+    *,
+    cpu_percent: float,
+    memory_percent: float,
+    disk_percent: float,
+    uptime_s: float,
+    net_rx_bytes_s: float = 4_200.0,
+    net_tx_bytes_s: float = 1_800.0,
+    load_1m: float = 0.8,
+) -> None:
+    """
+    Make the console report fixed CPU, memory, disk, network, load and uptime readings
+    instead of this machine's real ones (``--showcase`` only).
+
+    Three independent readers need this, not one:
+
+    - Every server in the showcase's fleet is really the same sandboxed host running
+      several processes side by side, so without this, ``psutil`` answers each node's
+      machine snapshot (:func:`noust.web.machine.read_machine`, which the REST endpoint
+      and the ``/events`` push both go through) with nearly the same numbers - not a fleet
+      of different machines, three readings of the one machine running the demo
+      (coordinator review, on the fleet page).
+    - :class:`~noust.web.metrics_collector.MetricsCollector` samples the same real
+      ``psutil`` independently, every couple of seconds, for the Overview's charts - left
+      unpatched, its genuinely noisy (often near-idle) readings make a chart's last few
+      points visibly disagree with the top bar's own number (coordinator review, CPU
+      dropping to 0% beside a top bar reading in the 20-40s). Patching both to the same
+      fixed numbers is what makes a chart's tail, the top bar and every node's Fleet row
+      agree, the way one real, particular machine would.
+    - Both of those read the load average with a bare ``os.getloadavg()``, never through
+      ``psutil``, and this sandbox's real one is this whole *development machine's* -
+      running every other showcase process, several browsers and whatever else the
+      person capturing screenshots is doing at the time - which is how a "Load" reading
+      as high as 8 got into a screenshot next to others reading 0.7 (coordinator review).
+      ``os.getloadavg`` is patched globally (harmless: nothing else in this sandboxed
+      process needs the real figure) rather than on just these two modules' own
+      ``import os``, which is the whole standard library module either way.
+
+    ``psutil.net_io_counters()`` is a running total, not a live reading, so the fake counts
+    up from zero at whatever rate is given rather than returning a fixed pair - the
+    collector's own rate is a delta between two calls, and two identical totals would read
+    as no traffic at all.
+
+    Args:
+        cpu_percent: CPU utilisation to report, 0-100.
+        memory_percent: Memory used, 0-100; used/total are synthesised to match.
+        disk_percent: Disk used, 0-100; used/total are synthesised to match.
+        uptime_s: Seconds since boot to report.
+        net_rx_bytes_s: Inbound network rate to hold steady.
+        net_tx_bytes_s: Outbound network rate to hold steady.
+        load_1m: The 1-minute load average to hold steady, comfortably under 1 on a
+            machine this size; the 5- and 15-minute figures are held a little lower still,
+            the shape a load that has been steady for a while actually has.
+    """
+    import os as os_module
+
+    import noust.web.machine as machine_module
+    import noust.web.metrics_collector as metrics_collector_module
+
+    os_module.getloadavg = lambda: (load_1m, load_1m * 0.9, load_1m * 0.8)
+
+    mem_total = 16 * 1024**3
+    disk_total = 480 * 1024**3
+    boot_time = time.time() - uptime_s
+    counters_from = time.time()
+
+    def net_io_counters() -> Any:
+        elapsed = max(0.0, time.time() - counters_from)
+        return SimpleNamespace(
+            bytes_recv=int(net_rx_bytes_s * elapsed), bytes_sent=int(net_tx_bytes_s * elapsed)
+        )
+
+    fixed = SimpleNamespace(
+        cpu_percent=lambda interval=None: cpu_percent,
+        virtual_memory=lambda: SimpleNamespace(
+            used=int(mem_total * memory_percent / 100), total=mem_total, percent=memory_percent
+        ),
+        swap_memory=lambda: SimpleNamespace(used=int(mem_total * 0.015)),
+        disk_usage=lambda path=None: SimpleNamespace(
+            used=int(disk_total * disk_percent / 100), total=disk_total, percent=disk_percent
+        ),
+        boot_time=lambda: boot_time,
+        net_io_counters=net_io_counters,
+    )
+    machine_module.psutil = fixed
+    metrics_collector_module.psutil = fixed
+
+
 # ---------------------------------------------------------------------------
 # The fleet: a central and a node as two real processes, without ssh
 # ---------------------------------------------------------------------------
@@ -5680,7 +6152,7 @@ def mount_fleet_test_seam(app: Any, *, console_port: int) -> None:
         return {"join_code": code.encode()}
 
 
-def join_fleet_node(entries: list[str]) -> None:
+def join_fleet_node(entries: list[str], *, display_hosts: dict[str, str] | None = None) -> None:
     """
     Register, on this central, every node named by ``--fleet-node NAME=HOST:PORT``.
 
@@ -5710,6 +6182,13 @@ def join_fleet_node(entries: list[str]) -> None:
 
     Args:
         entries: ``["web-2=127.0.0.1:41234", ...]``, as ``--fleet-node`` collected them.
+        display_hosts: Node name to the host to *store and show* as its SSH address
+            (``--showcase`` only), in place of the loopback address the tunnel actually
+            dials: Settings > Servers otherwise shows ``root@127.0.0.1`` for every node,
+            which is this test seam showing through, not something a documentation
+            screenshot should carry (coordinator review). The tunnel keeps routing by node
+            name (:func:`~noust.fleet.tunnels.set_loopback_for_testing`, below, unaffected
+            by this), so the address stored is display-only either way.
 
     Raises:
         SystemExit: When an entry is not ``NAME=HOST:PORT``, so a typo in a test
@@ -5723,6 +6202,7 @@ def join_fleet_node(entries: list[str]) -> None:
 
     manager = NodeManager()
     this_central = central_name()
+    display_hosts = display_hosts or {}
 
     for entry in entries:
         name, sep, address = entry.partition("=")
@@ -5739,7 +6219,8 @@ def join_fleet_node(entries: list[str]) -> None:
             )
             response.raise_for_status()
             join_code = response.json()["join_code"]
-        manager.add(name, ssh_target=f"root@{host}", join_code=join_code)
+        shown_host = display_hosts.get(name, host)
+        manager.add(name, ssh_target=f"root@{shown_host}", join_code=join_code)
 
 
 def seal_sandbox_before_serving(sandbox: Sandbox) -> None:
@@ -5821,9 +6302,17 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     from noust.web.server import create_app, get_token_manager
 
     redirect_system_paths(sandbox)
-    write_config(sandbox, central_role=args.central_role)
+    if args.showcase:
+        from tests.showcase import AGENCY_DOMAIN
+
+        ssl_email = f"ops@{AGENCY_DOMAIN}"
+    else:
+        ssl_email = "ops@example.com"
+    write_config(sandbox, central_role=args.central_role, ssl_email=ssl_email)
     forbid_real_processes()
     set_fs(make_sandbox_filesystem(sandbox))
+    if args.showcase:
+        use_showcase_diagnose_paths(sandbox)
 
     # The runner has to exist before seeding (cron enables its timer through
     # it) and needs the seeded units to answer for, so it is built over empty
@@ -5851,16 +6340,24 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
             seeded_certs: list[str] = []
         else:
             seeded_units, seeded_ports, seeded_domains, seeded_certs = seed_machine(
-                sandbox, expired_certificate=args.expired_certificate
+                sandbox,
+                expired_certificate=args.expired_certificate,
+                showcase=args.showcase,
+                hostname=args.hostname,
             )
             if args.misplaced_backups:
                 seed_misplaced_backups(sandbox)
+            if args.showcase:
+                seed_showcase_backup_destination()
     model_telegram_bot_api()
     units.update(seeded_units)
     ports.update(seeded_ports)
     domains.update(seeded_domains)
     certs.extend(seeded_certs)
-    if args.central_role != "hub":
+    if args.central_role != "hub" and not args.showcase:
+        # Deploys tests.panel_factory's own "lanzamiento.example.org": nothing the
+        # documentation screenshots need, and exactly the example.org the showcase exists
+        # to keep out of them.
         with contextlib.redirect_stdout(sys.stderr):
             seed_exportable_app(sandbox)
     fleet_node_app = os.environ.get(FLEET_NODE_APP_ENV)
@@ -5888,6 +6385,18 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
         use_console_build(args.static_dir)
     if args.hostname is not None:
         use_fixed_hostname(args.hostname)
+    if args.showcase:
+        from tests.showcase import NODE_READINGS
+
+        cpu_percent, memory_percent, disk_percent, uptime_s = NODE_READINGS.get(
+            args.hostname or "", NODE_READINGS["fra-1"]
+        )
+        use_fixed_machine_stats(
+            cpu_percent=cpu_percent,
+            memory_percent=memory_percent,
+            disk_percent=disk_percent,
+            uptime_s=uptime_s,
+        )
     app = create_app(config)
     token = get_token_manager().generate_master_token()
     totp_secret, backup_codes = enable_totp(args.backup_codes) if args.totp else (None, [])
@@ -5901,7 +6410,12 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     # mount_fleet_test_seam for why this - and only this - is mounted unconditionally.
     mount_fleet_test_seam(app, console_port=port)
     if args.fleet_node:
-        join_fleet_node(args.fleet_node)
+        display_hosts = None
+        if args.showcase:
+            from tests.showcase import NODE_SSH_HOSTS
+
+            display_hosts = NODE_SSH_HOSTS
+        join_fleet_node(args.fleet_node, display_hosts=display_hosts)
     server = uvicorn.Server(
         uvicorn.Config(
             app,

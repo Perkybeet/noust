@@ -560,6 +560,8 @@ survives a refresh), a Fleet page, and Settings > Servers to add, test and remov
 central with its secrets sealed shows a lock screen until you unlock it, before it opens a
 single tunnel.
 
+![Fleet](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/assets/console/fleet.png)
+
 See [docs/CENTRAL.md](docs/CENTRAL.md) for running a central on a NAS or a VPS, sealing its
 secrets, backups and troubleshooting.
 

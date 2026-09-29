@@ -128,11 +128,13 @@ authentication under Settings > Security, or with `noust 2fa enroll` and `noust 
 
 ## Layout
 
-- **Sidebar**: Overview, Applications, Databases, Services, Cron, Domains and certificates,
-  Backups, Activity, Server, and Settings at the bottom. On a narrow screen it becomes a menu.
-- **Top bar**: the machine strip (hostname, uptime, load, CPU, memory, disk, and units running
-  and failed), the command palette, and the session menu (theme, keyboard shortcuts, sign
-  out).
+- **Sidebar**: Overview, Fleet (a central only), Applications, Databases, Services, Cron,
+  Domains and certificates, Backups, Activity, Server, and Settings at the bottom. On a narrow
+  screen it becomes a menu.
+- **Top bar**: on a central, a server selector before the machine strip - "This server" or any
+  node it manages, and `/n/<node>/...` keeps the choice across a reload; the machine strip
+  (hostname, uptime, load, CPU, memory, disk, and units running and failed), the command
+  palette, and the session menu (theme, keyboard shortcuts, sign out).
 - The browser tab is titled `<page> - <hostname> - Noust`.
 
 Colour means state and nothing else: green running, amber in progress, red failed, grey
@@ -145,7 +147,26 @@ the suggested fix above it.
 ### Overview
 
 What needs attention, machine charts, every application with its state, and the recent
-deployments. "New application" starts the wizard.
+deployments (shown at the top of this page). "New application" starts the wizard.
+
+### Fleet
+
+A [central's](CENTRAL.md) own page, hidden on a plain server. Every server it manages, side by
+side: whether it answers, its version, load, memory, disk, applications, units and
+certificates, and a "Needs attention" that merges every server's own problems, worst first,
+each opening on the server it is about. **Add a server** starts the same flow as **Settings >
+Servers**. The server selector in the top bar switches the whole console to a node - the URL
+becomes `/n/<node>/...` - and every action taken there (including a destructive one, still
+behind "Confirm it's you") reaches that node's own API through the central's tunnel, never the
+central itself.
+
+![Fleet](assets/console/fleet.png)
+
+A hub (`central.role = hub`) deploys nothing of its own: every page above is replaced by the
+Fleet, and `/` redirects there. Switched to a node, Applications (and every other page) is that
+node's own:
+
+![A node's applications](assets/console/node-apps.png)
 
 ### Applications
 
@@ -255,9 +276,12 @@ resource monitor: install, enable, start, its findings, and a test email.
 |---|---|
 | General | Applications directory, web server, certificate email, backups, and the console address that `--open` links use (it does not move the console) |
 | Security | Two-factor authentication, active sessions (sign out others), lockout policy |
+| Servers | A central only: every server it manages, its reachability, version and last-seen time; **Add a server** walks through `noust fleet authorize` and the join code, test and remove |
 | Notifications | The delivery switch, channels (webhook, Slack, Discord, Telegram, email) with a test button each, which events notify, and private destinations allowed |
 | API tokens | Issue (shown once), list and revoke |
 | About | Version and updates, installation, CLI equivalents, links |
+
+![Settings > Servers](assets/console/settings-servers.png)
 
 Writing any setting needs sudo mode.
 

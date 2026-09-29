@@ -13,6 +13,13 @@ Applications, sites, certificates, databases and the rest are refused there with
 and the console hides them. Everything else (the console, tokens, two-factor, the fleet)
 works as on any Noust.
 
+The console's own **Fleet** page (a central's, never a plain server's) is every server it
+manages side by side - whether it answers, what it runs, what needs attention on each - and a
+server selector in the top bar switches the whole console to one of them; see
+[console.md](console.md#fleet) for its pages.
+
+![Fleet](assets/console/fleet.png)
+
 What the central cannot do matters as much: its key on each server can only forward that
 server's console port. The line `noust fleet authorize` installs is
 
@@ -138,6 +145,11 @@ server**, where you are already root:
 
    The central pins `vps1`'s host key from the code, opens the tunnel and checks the token.
    From then on a changed host key cuts the tunnel instead of being accepted.
+
+**Settings > Servers** lists every server the same way, with its reachability, version and
+when it was last seen, and starts the same add flow (step 1 above) without the CLI:
+
+![Settings > Servers](assets/console/settings-servers.png)
 
 To take a server out: `noust node remove vps1` on the central, or revoke the central from the
 server itself (`noust fleet deauthorize --name nas` removes its key and revokes its tokens).
