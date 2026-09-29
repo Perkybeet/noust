@@ -17,7 +17,7 @@
 FROM python:3.12-slim-bookworm
 
 # scripts/release.py keeps this in step with pyproject.toml.
-ARG NOUST_VERSION=2.3.0
+ARG NOUST_VERSION=3.0.0
 
 LABEL org.opencontainers.image.title="Noust central" \
       org.opencontainers.image.description="Noust's console and fleet tunnels, for a NAS or any Docker host" \

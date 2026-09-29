@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wasm-cli"
-version = "2.3.0"
+version = "3.0.0"
 description = "WASM is now Noust: this package installs noust. Use `pip install noust`."
 readme = "README.md"
 license = { text = "AGPL-3.0-or-later" }
@@ -18,7 +18,7 @@ authors = [
     { name = "Yago López Prado", email = "yago.lopez.adeje@gmail.com" }
 ]
 dependencies = [
-    "noust==2.3.0",
+    "noust==3.0.0",
 ]
 classifiers = [
     "Development Status :: 7 - Inactive",

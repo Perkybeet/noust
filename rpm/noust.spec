@@ -10,7 +10,7 @@
 #
 
 Name:           noust
-Version:        2.3.0
+Version:        3.0.0
 Release:        1%{?dist}
 Summary:        Deploy and manage web applications on Linux servers
 License:        AGPL-3.0-or-later
@@ -367,6 +367,13 @@ if [ -f /etc/systemd/system/wasm-web.service ]; then
 fi
 
 %changelog
+* Tue Sep 29 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.0.0-1
+- Renamed from wasm: the package, the command and the paths are noust now; wasm remains a command alias for the whole 3.x series
+- Fleet: a central manages every server over SSH tunnels it opens outward, with a key that can only forward the node's console port and never runs a command
+- Fleet: noust fleet authorize on the node prints a join code; noust node add|list|show|test|remove and noust fleet status on the central
+- Fleet: fleet tokens are accepted only from loopback, audited on behalf of the central's operator, and the node's own elevation rules are enforced on the central
+- Central: noust central run as a hub, with a container image for a NAS, self-signed TLS, a private-network allowlist and optional sealed secrets
+- Console: server selector, Fleet page, Settings > Servers, the central's lock screen and a new logo
 * Tue Sep 29 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 2.3.0-1
 - The console in English and Spanish, with notifications in either language
 - Recipes: WordPress (PHP-FPM, MariaDB), Uptime Kuma, Umami and n8n, with pinned or checksummed sources

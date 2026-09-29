@@ -14,7 +14,7 @@
 # noust's %%pre and %%posttrans, which run on either path.
 
 Name:           wasm-cli
-Version:        2.3.0
+Version:        3.0.0
 Release:        1%{?dist}
 Summary:        Transitional package: WASM is now Noust
 License:        AGPL-3.0-or-later
@@ -43,6 +43,8 @@ package can be removed once noust is installed; with dnf, run
 %doc README
 
 %changelog
+* Tue Sep 29 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.0.0-1
+- WASM is now Noust: this package only installs noust 3.0.0 and can be removed
 * Tue Sep 29 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 2.3.0-1
 - The console in English and Spanish, with notifications in either language
 - Recipes: WordPress (PHP-FPM, MariaDB), Uptime Kuma, Umami and n8n, with pinned or checksummed sources
