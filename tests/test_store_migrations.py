@@ -515,7 +515,7 @@ class TestSchemaV11Migration:
 
         store = NoustStore(db_path, fs=RecordingFileSystem())
 
-        assert _raw_max_version(db_path) == SCHEMA_VERSION == 11
+        assert _raw_max_version(db_path) == SCHEMA_VERSION
         assert store.get_app("v8.example.com") is not None
         assert store.list_nodes() == []
         assert _raw_columns(db_path, "nodes") == self.NODE_COLUMNS
@@ -556,6 +556,41 @@ class TestSchemaV11Migration:
         assert _raw_max_version(db_path) == 10
         assert "nodes" not in _raw_tables(db_path)
 
+
+
+class TestSchemaV12Migration:
+    """Schema v12: everything Noust 3.1 stores, one fragment per area."""
+
+    def test_a_v10_database_climbs_to_the_current_version_and_keeps_its_rows(self, fresh, tmp_path):
+        db_path = tmp_path / "noust.db"
+        _create_v10_database(db_path)
+
+        store = NoustStore(db_path, fs=RecordingFileSystem())
+
+        assert _raw_max_version(db_path) == SCHEMA_VERSION == 12
+        assert store.get_app("v8.example.com") is not None
+
+    def test_the_fresh_schema_and_the_migration_agree_on_every_table(self, fresh, tmp_path):
+        migrated = tmp_path / "migrated.db"
+        _create_v10_database(migrated)
+        NoustStore(migrated, fs=RecordingFileSystem())
+        NoustStore.reset_instance()
+        NoustStore(tmp_path / "fresh.db", fs=RecordingFileSystem())
+        fresh_db = tmp_path / "fresh.db"
+
+        assert _raw_tables(migrated) == _raw_tables(fresh_db)
+        for table in _raw_tables(fresh_db):
+            assert _raw_columns(migrated, table) == _raw_columns(fresh_db, table), table
+
+    def test_the_v12_step_is_idempotent(self, fresh, tmp_path):
+        db_path = tmp_path / "noust.db"
+        store = NoustStore(db_path, fs=RecordingFileSystem())
+        before = {table: _raw_columns(db_path, table) for table in _raw_tables(db_path)}
+
+        with store._ddl_transaction() as cursor:
+            store._migrate_v11_to_v12(cursor)
+
+        assert {table: _raw_columns(db_path, table) for table in _raw_tables(db_path)} == before
 
 def _node(name: str, **overrides) -> "store_module.NodeRecord":
     """

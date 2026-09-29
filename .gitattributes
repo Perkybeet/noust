@@ -29,3 +29,6 @@ build-and-upload-obs.sh export-ignore
 # setup.py - needed for builds
 # pyproject.toml - needed for builds
 # docs/ - user documentation
+
+# Design research, specs and plans are for contributors, not for packages
+docs/superpowers/ export-ignore

@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any, NoReturn, Optional, TypeVar
 from urllib.parse import quote
 
-from noust.core import paths
+from noust.core import paths, schema_v12
 from noust.core.exceptions import DomainConflictError, DomainError, NoustError, ValidationError
 from noust.core.fs import (
     SECRET_DIR_MODE,
@@ -973,7 +973,7 @@ def _decode_object(raw: Any) -> dict[str, Any]:
 
 
 # Schema version for migrations
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 12
 
 _DEPLOYMENT_STATUSES_SQL = ", ".join(f"'{status.value}'" for status in DeploymentStatus)
 _DEPLOYMENT_TRIGGERS_SQL = ", ".join(f"'{trigger.value}'" for trigger in DeploymentTrigger)
@@ -1777,6 +1777,8 @@ class NoustStore:
         """
         with self._ddl_transaction() as cursor:
             _run_script(cursor, SCHEMA_SQL)
+            # v12 is one function for fresh and upgraded stores alike.
+            schema_v12.apply_v12(cursor, _run_script)
             cursor.execute("INSERT INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,))
 
     def _run_migrations(self, from_version: int) -> None:
@@ -1820,6 +1822,7 @@ class NoustStore:
             9: self._migrate_v8_to_v9,
             10: self._migrate_v9_to_v10,
             11: self._migrate_v10_to_v11,
+            12: self._migrate_v11_to_v12,
         }
 
         for version in range(from_version + 1, SCHEMA_VERSION + 1):
@@ -1996,6 +1999,18 @@ class NoustStore:
         """
         # CREATE TABLE IF NOT EXISTS: idempotent, like every step since v8.
         _run_script(cursor, V11_SCHEMA_SQL)
+
+    def _migrate_v11_to_v12(self, cursor: sqlite3.Cursor) -> None:
+        """
+        Add everything Noust 3.1 stores (schema v12).
+
+        The tables and columns live in :mod:`noust.core.schema_v12`, one
+        fragment per area of the release.
+
+        Args:
+            cursor: Cursor the migration runs on.
+        """
+        schema_v12.apply_v12(cursor, _run_script)
 
     # =========================================================================
     # Application CRUD
