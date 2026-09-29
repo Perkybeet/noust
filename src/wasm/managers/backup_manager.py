@@ -651,6 +651,13 @@ class BackupManager:
         app_name = domain.replace(".", "-")
         directory = self._get_app_backup_dir(app_name)
         moment = datetime.now().replace(microsecond=0)
+        # Never behind the newest id this application already had: retention
+        # may have deleted it locally while a copy with the same name lives on
+        # a remote destination, which a reused id would overwrite; and ids
+        # sort by time, so the newest backup must also have the newest id.
+        newest = self._newest_backup_moment(directory, app_name)
+        if newest is not None and moment <= newest:
+            moment = newest + timedelta(seconds=1)
         while True:
             backup_id = f"{app_name}_{moment.strftime('%Y%m%d_%H%M%S')}"
             taken = (directory / f"{backup_id}{ARCHIVE_SUFFIX}").exists() or (
@@ -659,6 +666,37 @@ class BackupManager:
             if not taken:
                 return backup_id
             moment += timedelta(seconds=1)
+
+    @staticmethod
+    def _newest_backup_moment(directory: Path, app_name: str) -> datetime | None:
+        """
+        Read the timestamp of the newest backup id an application's directory holds.
+
+        Args:
+            directory: The application's backup directory.
+            app_name: The application name the ids start with.
+
+        Returns:
+            The newest timestamp found in an archive or sidecar name, or None.
+        """
+        newest: datetime | None = None
+        prefix = f"{app_name}_"
+        try:
+            entries = list(directory.iterdir()) if directory.is_dir() else []
+        except OSError:
+            return None
+        for entry in entries:
+            name = entry.name
+            if not name.startswith(prefix):
+                continue
+            stamp = name[len(prefix) : len(prefix) + 15]
+            try:
+                moment = datetime.strptime(stamp, "%Y%m%d_%H%M%S")
+            except ValueError:
+                continue
+            if newest is None or moment > newest:
+                newest = moment
+        return newest
 
     def _calculate_checksum(self, file_path: Path) -> str:
         """

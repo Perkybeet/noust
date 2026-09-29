@@ -84,6 +84,7 @@ function ToastList({ urgent }: { urgent: boolean }) {
 
 /** Renders the toast queue. Mount once, at the app root, around everything. */
 export function ToastProvider({ children }: { children: ReactNode }) {
+  const t = useT();
   return (
     <Toast.Provider toastManager={toastManager} limit={3}>
       {children}
@@ -94,7 +95,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             toast updated in place is read again with its new words; one dismissed says
             nothing. The toasts are absolutely positioned against the viewport, so the regions
             add nothing to the layout. */}
-        <Toast.Viewport aria-live="off" className="fixed right-4 bottom-4 z-[60] w-[min(380px,calc(100vw-2rem))] outline-none">
+        <Toast.Viewport aria-live="off" aria-label={t("common.toast.region")} className="fixed right-4 bottom-4 z-[60] w-[min(380px,calc(100vw-2rem))] outline-none">
           <div aria-live="polite" aria-atomic="false" aria-relevant="additions text" data-toast-region="polite">
             <ToastList urgent={false} />
           </div>

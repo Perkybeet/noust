@@ -24,6 +24,7 @@ from wasm.managers.source_manager import (
     git_environment,
     is_git_auth_failure,
 )
+from wasm.validators.source import is_archive_url
 
 #: A repository probe answers in seconds or is not going to answer.
 GIT_PROBE_TIMEOUT = 30
@@ -60,7 +61,9 @@ def repository_unreachable(runner: CommandRunner, source: str) -> list[str]:
     Returns:
         The problems found, empty when the repository answers.
     """
-    if not source.startswith(_GIT_SCHEMES):
+    # An archive URL (a recipe's release tarball, say) is downloaded, not
+    # cloned: ls-remote would call it an unreachable repository.
+    if not source.startswith(_GIT_SCHEMES) or is_archive_url(source):
         return []
 
     # Run from a directory that is certain to exist. After `wasm delete` the

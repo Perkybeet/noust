@@ -70,6 +70,7 @@ export const common = {
     tryAgainShortly: "Try again shortly.",
   },
   toast: {
+    region: "Notifications",
     dismiss: "Dismiss notification",
     systemSaid: "What the system said",
     commandOutput: "The command's own output",

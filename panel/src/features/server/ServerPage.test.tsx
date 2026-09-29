@@ -165,7 +165,7 @@ describe("the server page", () => {
     expect(await screen.findByRole("heading", { name: "Sistema" })).toBeInTheDocument();
     expect(await screen.findByRole("region", { name: "Interfaces de red" })).toBeInTheDocument();
     const monitor = await screen.findByRole("region", { name: "Monitor de recursos" });
-    expect(within(monitor).getByText("En marcha")).toBeInTheDocument();
+    expect(within(monitor).getByText("En ejecución")).toBeInTheDocument();
     expect(within(monitor).getByText("xmrig")).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });

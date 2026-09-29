@@ -85,7 +85,7 @@ export const server: Catalog<typeof en> = {
     couldNotReadStatus: "No se pudo leer el estado del monitor",
     since: "Desde hace {uptime}",
     notInstalled: "No instalado",
-    running: "En marcha",
+    running: "En ejecución",
     stopped: "Detenido",
     installedNotRunning: "Instalado, sin ejecutarse",
     install: "Instalar",

@@ -67,6 +67,7 @@ export const common: Catalog<typeof en> = {
     tryAgainShortly: "Vuelve a intentarlo en unos momentos.",
   },
   toast: {
+    region: "Notificaciones",
     dismiss: "Descartar notificación",
     systemSaid: "Lo que dijo el sistema",
     commandOutput: "La salida propia del comando",
