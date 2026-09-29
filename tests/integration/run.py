@@ -1342,7 +1342,7 @@ def scenario_domains(sc: Scenario) -> None:
 
     Once in place and once on releases: the site of a release app is written
     against ``current``, and a domain change must render it that way too.
-    The primary cannot be removed, and a removal takes effect at once.
+    The primary cannot be removed, and a removal takes effect within seconds.
     """
     sc.run(
         "wasm create -d dom.test -s /root/fixtures/node-app -t nodejs --no-ssl --layout inplace",
@@ -1357,10 +1357,17 @@ def scenario_domains(sc: Scenario) -> None:
         timeout=60,
         label="wasm domain remove dom.test alias.dom.test",
     )
+    # nginx -s reload signals the master and returns before the new workers
+    # take connections, so an old worker may answer for a moment: the removal
+    # must take effect within seconds, not before the command returns.
+    deadline = time.monotonic() + 5
     after = curl_host(sc, "alias.dom.test").strip()
+    while after.startswith("ok ") and time.monotonic() < deadline:
+        time.sleep(0.25)
+        after = curl_host(sc, "alias.dom.test").strip()
     sc.check(
         not after.startswith("ok "),
-        f"alias.dom.test is still served by dom.test after its removal: {after!r}",
+        f"alias.dom.test is still served by dom.test 5 s after its removal: {after!r}",
     )
     sc.check(
         curl_host(sc, "dom.test").strip().startswith("ok "),
