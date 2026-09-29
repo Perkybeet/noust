@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { Box, Keyboard, LogOut, Monitor, Moon, Plus, Sun } from "lucide-react";
+import { Box, Keyboard, LogOut, Monitor, Moon, Plus, Server, Sun } from "lucide-react";
 import { useMemo } from "react";
 
 import { appsQuery } from "../api/queries/apps";
@@ -8,6 +8,9 @@ import { appStatus } from "../components/page/status";
 import { useSignOut } from "../features/auth/useSignOut";
 import { useT } from "../i18n";
 import type { PlainKey } from "../i18n";
+import { announce } from "./Announcer";
+import { useServerList } from "../nodes/servers";
+import { useNode, useSwitchNode } from "../nodes/useNode";
 import type { Command } from "./CommandPalette";
 import { NAV_GROUPS, SETTINGS_ITEM, SETTINGS_TABS } from "./nav";
 import { useTheme } from "./theme";
@@ -31,6 +34,9 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
   const [theme, setTheme] = useTheme();
   const { signOut } = useSignOut();
   const { data: apps } = useQuery({ ...appsQuery(), enabled: open });
+  const { node } = useNode();
+  const switchNode = useSwitchNode();
+  const { nodes, hostname } = useServerList();
 
   return useMemo(() => {
     const go = (to: string, params?: Record<string, string>) => () => {
@@ -122,6 +128,43 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
       },
     ];
 
-    return [...pages, ...applications, ...actions];
-  }, [apps, navigate, theme, setTheme, openShortcuts, signOut, t]);
+    // Every other server, when this one has nodes: the selector's list, by name.
+    const thisServerName = hostname ?? t("fleet.selector.thisServer");
+    const switchTo = (target: string | null, name: string) => () => {
+      void switchNode(target).then(() => {
+        announce(t("fleet.selector.switched", { name }));
+      });
+    };
+    const servers: Command[] =
+      nodes.length === 0 && node === null
+        ? []
+        : [
+            ...(node !== null
+              ? [
+                  {
+                    id: "server:this",
+                    group: "Actions" as const,
+                    label: t("fleet.selector.switchToThisServer", { name: thisServerName }),
+                    icon: <Server />,
+                    keywords: t("fleet.selector.keywords"),
+                    kind: "navigate" as const,
+                    run: switchTo(null, thisServerName),
+                  },
+                ]
+              : []),
+            ...nodes
+              .filter((candidate) => candidate.name !== node)
+              .map((candidate) => ({
+                id: `server:${candidate.name}`,
+                group: "Actions" as const,
+                label: t("fleet.selector.switchTo", { name: candidate.name }),
+                icon: <Server />,
+                keywords: t("fleet.selector.keywords"),
+                kind: "navigate" as const,
+                run: switchTo(candidate.name, candidate.name),
+              })),
+          ];
+
+    return [...pages, ...applications, ...servers, ...actions];
+  }, [apps, navigate, theme, setTheme, openShortcuts, signOut, t, node, nodes, hostname, switchNode]);
 }

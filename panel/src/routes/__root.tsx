@@ -1,7 +1,8 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { Link, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
+import { Link, Outlet, createRootRouteWithContext, retainSearchParams } from "@tanstack/react-router";
 
 import { useDocumentTitle } from "../app/documentTitle";
+import { validateNodeSearch } from "../app/nodeRoute";
 import { useT } from "../i18n";
 
 export interface RouterContext {
@@ -9,6 +10,10 @@ export interface RouterContext {
 }
 
 export const Route = createRootRouteWithContext<RouterContext>()({
+  // The selected server (app/nodeRoute.ts): declared here so every route has it, and kept by
+  // every navigation that does not set it, so each link stays on the server it was built on.
+  validateSearch: validateNodeSearch,
+  search: { middlewares: [retainSearchParams(["node"])] },
   component: Outlet,
   notFoundComponent: NotFound,
 });

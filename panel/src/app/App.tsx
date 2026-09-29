@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 
 import { isApiError } from "../api/client";
+import { fetchOnEntryNode, nodeQueryKeyHash } from "../api/nodeScope";
 import { jobKeys, keepFinishedJob } from "../api/queries/jobs";
 import { ToastProvider } from "../components/ui/Toast";
 import { TooltipProvider } from "../components/ui/Tooltip";
@@ -13,13 +14,17 @@ import type { AppRouter } from "./router";
 
 /**
  * The console's query cache. A refusal (4xx) is an answer, not a glitch, so it is never
- * retried; an unreachable or failing server gets two more tries.
+ * retried; an unreachable or failing server gets two more tries. On a central, entries are
+ * kept per server and always refetched from their own (api/nodeScope.ts): the same key on two
+ * nodes is two answers.
  */
 export function createQueryClient(): QueryClient {
   const client = new QueryClient({
     defaultOptions: {
       queries: {
         staleTime: 10_000,
+        queryKeyHashFn: nodeQueryKeyHash,
+        persister: fetchOnEntryNode,
         retry: (failures, error) => {
           if (isApiError(error) && error.status >= 400 && error.status < 500) return false;
           return failures < 2;

@@ -308,3 +308,50 @@ export class FakeWebSocket implements SocketLike {
     this.onclose?.(new CloseEvent("close", { code }));
   }
 }
+
+/** The nodes of a fake central, as GET /api/nodes lists them. */
+export const NODES = [
+  {
+    name: "web-2",
+    ssh_host: "10.0.0.12",
+    ssh_port: 22,
+    ssh_user: "noust",
+    host_key: "10.0.0.12 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeKeyForTests",
+    console_port: 8080,
+    version: "2.0.0",
+    status: "reachable",
+    last_seen: "2026-09-25T09:00:00Z",
+    allow_shell: false,
+    created_at: "2026-09-20T09:00:00Z",
+    tunnel: { open: true },
+  },
+  {
+    name: "db-1",
+    ssh_host: "10.0.0.13",
+    ssh_port: 22,
+    ssh_user: "noust",
+    host_key: "10.0.0.13 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAnotherFakeKey",
+    console_port: 8080,
+    version: "1.9.0",
+    status: "unreachable",
+    last_seen: null,
+    allow_shell: false,
+    created_at: "2026-09-21T09:00:00Z",
+    tunnel: { open: false, last_error: "ssh: connect to host 10.0.0.13 port 22: Connection refused" },
+  },
+];
+
+/**
+ * The same routes as a node answers them through the central's proxy: `GET /api/apps` becomes
+ * `GET /api/nodes/{node}/api/apps`. The central's own paths (`/api/auth`, `/api/nodes`) stay
+ * as they are, since the console never forwards them.
+ */
+export function onNode(node: string, routes: Record<string, RouteHandler>): Record<string, RouteHandler> {
+  return Object.fromEntries(
+    Object.entries(routes).map(([route, handler]) => {
+      const [method, path = ""] = route.split(" ");
+      const central = /^\/api\/(auth|nodes|fleet|central)(\/|$)/.test(path);
+      return [central ? route : `${method ?? "GET"} /api/nodes/${node}${path}`, handler];
+    }),
+  );
+}

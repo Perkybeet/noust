@@ -1,9 +1,12 @@
 import { CircleAlert, RotateCw } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { isApiError } from "../../api/client";
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { describeError } from "../../lib/errors";
+import { nodeErrorWords } from "../../nodes/nodeErrors";
+import { useNode } from "../../nodes/useNode";
 import { Button } from "../ui/Button";
 import { SystemOutput } from "../ui/SystemOutput";
 
@@ -26,12 +29,27 @@ export interface ErrorBlockProps {
 
 /**
  * A failure, the way the console always shows one: what failed, the fix above, and the
- * system's own words below in mono, verbatim, never paraphrased.
+ * system's own words below in mono, verbatim, never paraphrased. A node the central could
+ * not use is said as such ("web-2 is not answering"), whatever the page was loading: the
+ * node, not the page, is what failed.
  */
-export function ErrorBlock({ error, title, hint, onRetry, retrying = false, live = false, compact = false, className }: ErrorBlockProps) {
+export function ErrorBlock({ error, title: pageTitle, hint, onRetry, retrying = false, live = false, compact = false, className }: ErrorBlockProps) {
   const t = useT();
+  const { node } = useNode();
   const described = describeError(error);
-  const fix = described.hint ?? hint;
+  const nodeWords = nodeErrorWords(t, error, node);
+  // Two answers of the central that are not failures of the page, and say so whatever the
+  // page was trying: a hub refusing what it does not do (409 hub_role), and a sealed central
+  // that cannot reach a server until it is unlocked (423 central_locked).
+  const code = isApiError(error) ? error.error : null;
+  const central = code === "hub_role" ? "hub" : code === "central_locked" ? "locked" : null;
+  const title =
+    nodeWords?.title ??
+    (central === "hub" ? t("servers.hub.refusedTitle") : central === "locked" ? t("servers.lock.bannerTitle") : pageTitle);
+  const fix =
+    nodeWords?.hint ??
+    described.hint ??
+    (central === "hub" ? t("servers.hub.refusedHint") : central === "locked" ? t("servers.lock.bannerDescription") : hint);
   // A failing tool (psql, git, nginx) prints its own report on top of the one-line detail;
   // show both unless they are the same words twice.
   const output =

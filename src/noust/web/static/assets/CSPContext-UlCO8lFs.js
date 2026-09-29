@@ -1,1 +1,0 @@
-import{d as e,p as t}from"./cx-BfzU-xF4.js";var n=t(e(),1),r=n.createContext(void 0),i={disableStyleElements:!1};function a(){return n.useContext(r)??i}export{a as n,r as t};

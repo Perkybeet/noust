@@ -72,7 +72,7 @@ export default defineConfig(({ mode }) => {
       // The build is committed: OBS packages from `git archive HEAD` with no network and
       // never runs Node, so the Python package has to carry the console ready to serve.
       // CI rebuilds and fails when this directory differs from what the source produces.
-      outDir: "../src/wasm/web/static",
+      outDir: "../src/noust/web/static",
       emptyOutDir: true,
       assetsDir: "assets",
       // Never inline an asset as a data: URI. Vite inlines anything under 4 KiB by default,

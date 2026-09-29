@@ -16,7 +16,8 @@ export function renderConsole(path: string) {
   vi.stubGlobal("EventSource", FakeEventSource);
   const queryClient = createQueryClient();
   // A failing request in a test is the answer under test, not something to retry.
-  queryClient.setDefaultOptions({ queries: { retry: false, staleTime: 10_000 } });
+  const defaults = queryClient.getDefaultOptions();
+  queryClient.setDefaultOptions({ ...defaults, queries: { ...defaults.queries, retry: false, staleTime: 10_000 } });
   const history = createMemoryHistory({ initialEntries: [path] });
   const router = buildRouter(queryClient, history);
   const uninstall = installSessionHandling(router, queryClient);

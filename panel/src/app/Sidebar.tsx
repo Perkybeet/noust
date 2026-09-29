@@ -7,6 +7,8 @@ import { Logo } from "../components/brand/Logo";
 import { useT } from "../i18n";
 import { StatusGlyph } from "../components/ui/StatusPill";
 import { cx } from "../lib/cx";
+import { isLocalOnlyPath, useCentral } from "../features/central/central";
+import { useNode } from "../nodes";
 import { NAV_GROUPS, SETTINGS_ITEM } from "./nav";
 import type { ConsolePath, NavItem } from "./nav";
 
@@ -55,9 +57,15 @@ function NavLink({ item, failed, onNavigate }: { item: NavItem; failed?: number 
 export function SidebarNav({ onNavigate, className }: { onNavigate?: () => void; className?: string }) {
   const t = useT();
   const failures = useFailureCounts();
+  const { role } = useCentral();
+  const { node } = useNode();
+  // A hub deploys nothing of its own: its overview and local pages only redirect to the
+  // fleet, so they are not offered. On a server's pages (/n/<server>/) they are that server's.
+  const offered = (item: NavItem) => role !== "hub" || node !== null || (item.to !== "/" && !isLocalOnlyPath(item.to));
+  const groups = NAV_GROUPS.map((group) => group.filter(offered)).filter((group) => group.length > 0);
   return (
     <nav aria-label={t("nav.landmarks.main")} className={cx("flex flex-col gap-5", className)}>
-      {NAV_GROUPS.map((group) => (
+      {groups.map((group) => (
         <ul key={group[0]?.to} className="flex flex-col gap-px">
           {group.map((item) => (
             <li key={item.to}>

@@ -1,1 +1,0 @@
-import{d as e,p as t}from"./cx-B7cgLwFB.js";import{P as n,R as r}from"./errors-BXa5NnNq.js";var i=t(e(),1);function a(e,t){let a=i.useRef(e),o=n(t);r(()=>{a.current!==e&&o(a.current),a.current=e},[e,o])}export{a as t};

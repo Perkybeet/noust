@@ -1,1 +1,0 @@
-import{d as e,p as t}from"./cx-B7cgLwFB.js";var n=t(e(),1),r=n.createContext(null);function i(e){return n.useContext(r)}export{r as n,i as t};

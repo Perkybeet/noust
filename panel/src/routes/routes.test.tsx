@@ -37,6 +37,8 @@ const PAGES: [path: string, heading: string, content: string][] = [
   ["/settings/tokens", "Settings", "Tokens for automation"],
   ["/settings/about", "Settings", "Version and updates"],
   ["/settings/integrations", "Settings", "GitHub"],
+  ["/settings/servers", "Settings", "Servers"],
+  ["/fleet", "Fleet", "No servers in this fleet yet"],
 ];
 
 /** A server with no GitHub App yet: Settings > Integrations and the wizard read it. */
@@ -44,7 +46,9 @@ const NO_GITHUB_APP = { configured: false, installations: [], hooks_url: null, h
 
 describe("the route tree", () => {
   it.each(PAGES)("%s is %s", async (path, heading, content) => {
-    fakeBackend(signedInRoutes()).on("GET /api/integrations/github", () => json(200, NO_GITHUB_APP));
+    const backend = fakeBackend(signedInRoutes());
+    backend.on("GET /api/integrations/github", () => json(200, NO_GITHUB_APP));
+    backend.on("GET /api/nodes", () => json(200, { items: [] }));
     renderConsole(path);
     expect(await screen.findByRole("heading", { level: 1, name: heading })).toBeInTheDocument();
     // A section heading, or for a page that is one table, the table's region.

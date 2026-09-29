@@ -27,7 +27,7 @@ import { collectAttention } from "./attention";
 import type { AttentionItem, AttentionSummary, Severity } from "./attention";
 
 /** Turns a pure `AttentionSummary` into the sentence it stands for, in the active language. */
-function summaryText(t: T, summary: AttentionSummary): string {
+export function summaryText(t: T, summary: AttentionSummary): string {
   switch (summary.key) {
     case "serviceFailed":
       return t("overview.attention.serviceFailed");
@@ -55,7 +55,7 @@ function summaryText(t: T, summary: AttentionSummary): string {
 }
 
 /** A certificate's expiry, translated and in the console's date format. */
-function validUntilText(t: T, value: string): string {
+export function validUntilText(t: T, value: string): string {
   const date = parseTimestamp(value);
   return t("overview.attention.certValidUntil", { date: date ? formatDate(date, {}, t.locale) : value });
 }
@@ -63,7 +63,7 @@ function validUntilText(t: T, value: string): string {
 const LINK =
   "rounded-[4px] font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus";
 
-function SeverityGlyph({ severity }: { severity: Severity }) {
+export function SeverityGlyph({ severity }: { severity: Severity }) {
   return <StatusGlyph state={severity === "fail" ? "failed" : "warning"} size={14} className={severity === "fail" ? "text-fail" : "text-warn"} />;
 }
 

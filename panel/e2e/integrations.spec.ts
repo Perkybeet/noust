@@ -216,8 +216,10 @@ test("a callback this server did not start, or a code GitHub no longer honours, 
   problems.expect(/status of 502 .* \/api\/integrations\/github\/manifest\/conversions$/);
   await signIn(page, consoleServer);
   await page.goto("/integrations/github/callback?code=console-code-2&state=forged-state");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Connecting GitHub");
+  // The page asks for the code GitHub sent at once, and the "Confirm it's you" dialog that
+  // answers it is modal: the heading is only in the accessibility tree once it is closed.
   await confirmItsYou(page, consoleServer);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Connecting GitHub");
   const refused = page.getByRole("alert").filter({ hasText: "The GitHub App was not created on this server" });
   await expect(refused).toBeVisible();
   await expect(refused.getByText("This GitHub callback does not belong to an App creation started here")).toBeVisible();

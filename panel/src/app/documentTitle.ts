@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 
 import { sessionQuery } from "../api/queries/auth";
+import { useNode } from "../nodes/useNode";
 
 interface Entry {
   title: string;
@@ -25,7 +26,10 @@ function apply(hostname: string | undefined): void {
  * @param priority Higher wins when nested views both set one (a tab inside a layout).
  */
 export function useDocumentTitle(title: string | null, priority = 0): void {
-  const { data: hostname } = useQuery({ ...sessionQuery(), select: (session) => session.hostname });
+  const { data: sessionHostname } = useQuery({ ...sessionQuery(), select: (session) => session.hostname });
+  // The session is this server's; a node's pages are titled with the node's name.
+  const { node } = useNode();
+  const hostname = node ?? sessionHostname;
   useEffect(() => {
     if (title === null) return;
     const entry = { title, priority };

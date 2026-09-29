@@ -12,6 +12,7 @@ import {
   Database,
   Gauge,
   History,
+  Network,
   Server,
   Settings,
   ShieldCheck,
@@ -48,6 +49,13 @@ export const NAV_GROUPS: readonly (readonly NavItem[])[] = [
       icon: Gauge,
       shortcut: { keys: ["g", "o"], description: "nav.overview.goTo" },
       keywords: "nav.overview.keywords",
+    },
+    {
+      label: "servers.nav.fleet.label",
+      to: "/fleet",
+      icon: Network,
+      shortcut: { keys: ["g", "f"], description: "servers.nav.fleet.goTo" },
+      keywords: "servers.nav.fleet.keywords",
     },
   ],
   [
@@ -124,6 +132,12 @@ export const SETTINGS_TABS: readonly SettingsTabItem[] = [
     to: "/settings/security",
     keywords: "nav.settingsTabs.security.keywords",
     command: "nav.settingsTabs.security.command",
+  },
+  {
+    label: "servers.nav.settingsTab.label",
+    to: "/settings/servers",
+    keywords: "servers.nav.settingsTab.keywords",
+    command: "servers.nav.settingsTab.command",
   },
   {
     label: "nav.settingsTabs.notifications.label",

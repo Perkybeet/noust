@@ -2,13 +2,22 @@ import type { QueryClient } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
 import type { RouterHistory } from "@tanstack/react-router";
 
+import { installNodeSource } from "../api/nodeScope";
 import { routeTree } from "../routeTree.gen";
 import { RouteError } from "./ErrorBoundary";
+import { nodeFromSearch, nodeRewrite } from "./nodeRoute";
 
-/** Builds the router. `history` is for tests; the browser's history is the default. */
+/**
+ * Builds the router. `history` is for tests; the browser's history is the default.
+ *
+ * The router is also where the API client learns which server is selected: from the location
+ * being loaded (`latestLocation`), so a route's loader already reads the server it is about.
+ */
 export function buildRouter(queryClient: QueryClient, history?: RouterHistory) {
-  return createRouter({
+  const router = createRouter({
     routeTree,
+    // `/n/web-2/apps` is `/apps` on node web-2: see nodeRoute.ts.
+    rewrite: nodeRewrite,
     context: { queryClient },
     defaultPreload: "intent",
     // TanStack Query owns freshness; the router must not keep its own copy of loader results.
@@ -17,6 +26,8 @@ export function buildRouter(queryClient: QueryClient, history?: RouterHistory) {
     defaultErrorComponent: RouteError,
     ...(history ? { history } : {}),
   });
+  installNodeSource(() => nodeFromSearch(router.latestLocation.search));
+  return router;
 }
 
 export type AppRouter = ReturnType<typeof buildRouter>;

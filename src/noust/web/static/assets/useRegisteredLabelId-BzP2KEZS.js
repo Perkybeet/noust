@@ -1,1 +1,0 @@
-import{t as e}from"./useBaseUiId-BRoaD5cp.js";import{R as t}from"./errors-BV8sK6C5.js";function n(n,r){let i=e(n);return t(()=>(r(i),()=>{r(e=>e===i?void 0:e)}),[i,r]),i}export{n as t};

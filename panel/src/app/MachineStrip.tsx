@@ -12,6 +12,7 @@ import { StatusGlyph, StatusPill } from "../components/ui/StatusPill";
 import { Tooltip } from "../components/ui/Tooltip";
 import { cx } from "../lib/cx";
 import { formatDuration, formatLoad } from "../lib/format";
+import { useNode } from "../nodes/useNode";
 import { useStreamStatus } from "../realtime/events";
 
 /** The one sentence that says what the unit tally means, for the tooltip and the link's accessible name alike. */
@@ -108,7 +109,9 @@ export function MachineStrip({ className }: { className?: string }) {
   // so it never shows numbers from minutes ago as if they were current.
   const { data: machine, isError } = useQuery({ ...machineQuery(), refetchInterval: stream === "live" ? false : 15_000 });
   const { data: hostname } = useQuery({ ...sessionQuery(), select: (session) => session.hostname });
-  const name = machine?.hostname ?? hostname;
+  // The session is this server's: on a node, its name stands in until its machine answers.
+  const { node } = useNode();
+  const name = machine?.hostname ?? node ?? hostname;
 
   return (
     <div role="group" aria-label={t("shell.machine.landmark")} className={cx("@container min-w-0", className)}>

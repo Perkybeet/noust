@@ -4,6 +4,7 @@ import type { MouseEvent } from "react";
 
 import { Drawer } from "../components/ui/Drawer";
 import { useT } from "../i18n";
+import { NodeNotice } from "../nodes/NodeNotice";
 import { useServerEvents } from "../realtime/events";
 import { CommandPalette } from "./CommandPalette";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -159,6 +160,7 @@ export function Shell() {
               dialogs keep caps of their own. */}
           <div className="mx-auto w-full max-w-[1600px] px-4 pt-6 pb-16 sm:px-6 lg:px-8 lg:pt-8">
             <RenameNotice />
+            <NodeNotice />
             <ErrorBoundary resetKey={pathname}>
               <Outlet />
             </ErrorBoundary>

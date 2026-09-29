@@ -1,1 +1,0 @@
-function e(e){return e.startsWith(`http://`)||e.startsWith(`https://`)}export{e as t};

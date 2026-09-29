@@ -1533,6 +1533,30 @@
         "title": "BranchOut",
         "type": "object"
       },
+      "CentralInfo": {
+        "description": "What the console needs to know about the central it is signed in to.\n\nAttributes:\n    role: ``server`` (deploys applications here too) or ``hub`` (manages\n        other servers only; the console hides local deployments).\n    sealed: Whether the secret store is sealed under a passphrase.\n    locked: Whether it is sealed and this process has not been unlocked:\n        no node can be reached until it is.",
+        "properties": {
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "sealed": {
+            "title": "Sealed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "role",
+          "sealed",
+          "locked"
+        ],
+        "title": "CentralInfo",
+        "type": "object"
+      },
       "CertActionResponse": {
         "description": "Response for certificate actions that complete immediately.",
         "properties": {
@@ -8440,11 +8464,21 @@
         "type": "object"
       },
       "SessionInfo": {
-        "description": "Bootstrap information the console reads before it knows anything else.\n\nAnswered for an anonymous caller too, with ``authenticated=False``, so the\nconsole can decide between the sign-in screen and the shell from one\nrequest instead of treating a 401 as \"maybe not logged in yet\".\n\nAttributes:\n    authenticated: Whether a usable credential was presented.\n    scope: The credential's scope, or None when unauthenticated.\n    expires_at: Session expiry, ISO 8601, or None.\n    elevated_until: End of the sudo-mode confirmation window, ISO 8601,\n        or None when the session is not currently elevated.\n    totp_enabled: Whether logins require a second factor.\n    hostname: This machine's hostname, so an operator with several panels\n        open can tell them apart.\n    version: The installed Noust version.\n    csrf_header: Header name a mutation must echo the CSRF cookie in.\n    csrf_cookie: Name of the readable CSRF cookie.\n    renamed_from_wasm: Whether this server ran WASM before Noust, so the\n        console tells the operator once that the product was renamed.",
+        "description": "Bootstrap information the console reads before it knows anything else.\n\nAnswered for an anonymous caller too, with ``authenticated=False``, so the\nconsole can decide between the sign-in screen and the shell from one\nrequest instead of treating a 401 as \"maybe not logged in yet\".\n\nAttributes:\n    authenticated: Whether a usable credential was presented.\n    scope: The credential's scope, or None when unauthenticated.\n    expires_at: Session expiry, ISO 8601, or None.\n    elevated_until: End of the sudo-mode confirmation window, ISO 8601,\n        or None when the session is not currently elevated.\n    totp_enabled: Whether logins require a second factor.\n    hostname: This machine's hostname, so an operator with several panels\n        open can tell them apart.\n    version: The installed Noust version.\n    csrf_header: Header name a mutation must echo the CSRF cookie in.\n    csrf_cookie: Name of the readable CSRF cookie.\n    renamed_from_wasm: Whether this server ran WASM before Noust, so the\n        console tells the operator once that the product was renamed.\n    central: This server's role and whether its sealed secrets are\n        locked, so the console hides what a hub does not do and offers\n        the unlock form; None for an anonymous caller.",
         "properties": {
           "authenticated": {
             "title": "Authenticated",
             "type": "boolean"
+          },
+          "central": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CentralInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "csrf_cookie": {
             "default": "wasm_csrf",
@@ -9203,6 +9237,22 @@
           "backup_codes_remaining"
         ],
         "title": "TwoFactorStatus",
+        "type": "object"
+      },
+      "UnlockRequest": {
+        "description": "Body of ``POST /api/central/unlock``.\n\nAttributes:\n    passphrase: The passphrase the store was sealed with. Never logged.",
+        "properties": {
+          "passphrase": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Passphrase",
+            "type": "string"
+          }
+        },
+        "required": [
+          "passphrase"
+        ],
+        "title": "UnlockRequest",
         "type": "object"
       },
       "UpdateAppEnvRequest": {
@@ -13825,6 +13875,49 @@
         "tags": [
           "Backups"
         ]
+      }
+    },
+    "/api/central/unlock": {
+      "post": {
+        "description": "Unlock the central's sealed secrets with their passphrase.\n\nNeeds an ``admin`` credential in sudo mode; see the module docstring for\nwhy both are available while the central is locked. Tunnels open lazily\nafterwards, on the next request that needs a node.\n\nArgs:\n    body: The passphrase.\n    request: The incoming request, for the audit record and the lockout.\n    session: The authenticated, elevated session.\n\nReturns:\n    The central's state, now unlocked.\n\nRaises:\n    WrongPassphraseError: 403 ``wrong_passphrase``; counted towards the\n        lockout like a wrong credential.\n    SealError: 409 when the store is not sealed or its header is damaged.",
+        "operationId": "unlock_central_api_central_unlock_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnlockRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CentralInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unlock Central",
+        "tags": [
+          "Central"
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/certs": {

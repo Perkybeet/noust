@@ -15,6 +15,7 @@ import { Route as ConsoleIndexRouteImport } from "./routes/_console/index"
 import { Route as ConsoleActivityRouteImport } from "./routes/_console/activity"
 import { Route as ConsoleBackupsRouteImport } from "./routes/_console/backups"
 import { Route as ConsoleCronRouteImport } from "./routes/_console/cron"
+import { Route as ConsoleFleetRouteImport } from "./routes/_console/fleet"
 import { Route as ConsoleServerRouteImport } from "./routes/_console/server"
 import { Route as ConsoleSettingsRouteImport } from "./routes/_console/settings"
 import { Route as ConsoleAppsIndexRouteImport } from "./routes/_console/apps/index"
@@ -29,6 +30,7 @@ import { Route as ConsoleSettingsAboutRouteImport } from "./routes/_console/sett
 import { Route as ConsoleSettingsIntegrationsRouteImport } from "./routes/_console/settings/integrations"
 import { Route as ConsoleSettingsNotificationsRouteImport } from "./routes/_console/settings/notifications"
 import { Route as ConsoleSettingsSecurityRouteImport } from "./routes/_console/settings/security"
+import { Route as ConsoleSettingsServersRouteImport } from "./routes/_console/settings/servers"
 import { Route as ConsoleSettingsTokensRouteImport } from "./routes/_console/settings/tokens"
 import { Route as ConsoleAppsDomainIndexRouteImport } from "./routes/_console/apps/$domain/index"
 import { Route as ConsoleAppsDomainDiagnoseRouteImport } from "./routes/_console/apps/$domain/diagnose"
@@ -70,6 +72,11 @@ const ConsoleBackupsRoute = ConsoleBackupsRouteImport.update({
 const ConsoleCronRoute = ConsoleCronRouteImport.update({
   id: "/cron",
   path: "/cron",
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleFleetRoute = ConsoleFleetRouteImport.update({
+  id: "/fleet",
+  path: "/fleet",
   getParentRoute: () => ConsoleRoute,
 } as any)
 const ConsoleServerRoute = ConsoleServerRouteImport.update({
@@ -142,6 +149,11 @@ const ConsoleSettingsNotificationsRoute =
 const ConsoleSettingsSecurityRoute = ConsoleSettingsSecurityRouteImport.update({
   id: "/security",
   path: "/security",
+  getParentRoute: () => ConsoleSettingsRoute,
+} as any)
+const ConsoleSettingsServersRoute = ConsoleSettingsServersRouteImport.update({
+  id: "/servers",
+  path: "/servers",
   getParentRoute: () => ConsoleSettingsRoute,
 } as any)
 const ConsoleSettingsTokensRoute = ConsoleSettingsTokensRouteImport.update({
@@ -225,6 +237,7 @@ export interface FileRoutesByFullPath {
   "/activity": typeof ConsoleActivityRoute
   "/backups": typeof ConsoleBackupsRoute
   "/cron": typeof ConsoleCronRoute
+  "/fleet": typeof ConsoleFleetRoute
   "/server": typeof ConsoleServerRoute
   "/settings": typeof ConsoleSettingsRouteWithChildren
   "/apps/$domain": typeof ConsoleAppsDomainRouteWithChildren
@@ -234,6 +247,7 @@ export interface FileRoutesByFullPath {
   "/settings/integrations": typeof ConsoleSettingsIntegrationsRoute
   "/settings/notifications": typeof ConsoleSettingsNotificationsRoute
   "/settings/security": typeof ConsoleSettingsSecurityRoute
+  "/settings/servers": typeof ConsoleSettingsServersRoute
   "/settings/tokens": typeof ConsoleSettingsTokensRoute
   "/apps/": typeof ConsoleAppsIndexRoute
   "/databases/": typeof ConsoleDatabasesIndexRoute
@@ -258,6 +272,7 @@ export interface FileRoutesByTo {
   "/activity": typeof ConsoleActivityRoute
   "/backups": typeof ConsoleBackupsRoute
   "/cron": typeof ConsoleCronRoute
+  "/fleet": typeof ConsoleFleetRoute
   "/server": typeof ConsoleServerRoute
   "/": typeof ConsoleIndexRoute
   "/apps/new": typeof ConsoleAppsNewRoute
@@ -266,6 +281,7 @@ export interface FileRoutesByTo {
   "/settings/integrations": typeof ConsoleSettingsIntegrationsRoute
   "/settings/notifications": typeof ConsoleSettingsNotificationsRoute
   "/settings/security": typeof ConsoleSettingsSecurityRoute
+  "/settings/servers": typeof ConsoleSettingsServersRoute
   "/settings/tokens": typeof ConsoleSettingsTokensRoute
   "/apps": typeof ConsoleAppsIndexRoute
   "/databases": typeof ConsoleDatabasesIndexRoute
@@ -292,6 +308,7 @@ export interface FileRoutesById {
   "/_console/activity": typeof ConsoleActivityRoute
   "/_console/backups": typeof ConsoleBackupsRoute
   "/_console/cron": typeof ConsoleCronRoute
+  "/_console/fleet": typeof ConsoleFleetRoute
   "/_console/server": typeof ConsoleServerRoute
   "/_console/settings": typeof ConsoleSettingsRouteWithChildren
   "/_console/": typeof ConsoleIndexRoute
@@ -302,6 +319,7 @@ export interface FileRoutesById {
   "/_console/settings/integrations": typeof ConsoleSettingsIntegrationsRoute
   "/_console/settings/notifications": typeof ConsoleSettingsNotificationsRoute
   "/_console/settings/security": typeof ConsoleSettingsSecurityRoute
+  "/_console/settings/servers": typeof ConsoleSettingsServersRoute
   "/_console/settings/tokens": typeof ConsoleSettingsTokensRoute
   "/_console/apps/": typeof ConsoleAppsIndexRoute
   "/_console/databases/": typeof ConsoleDatabasesIndexRoute
@@ -329,6 +347,7 @@ export interface FileRouteTypes {
     | "/activity"
     | "/backups"
     | "/cron"
+    | "/fleet"
     | "/server"
     | "/settings"
     | "/apps/$domain"
@@ -338,6 +357,7 @@ export interface FileRouteTypes {
     | "/settings/integrations"
     | "/settings/notifications"
     | "/settings/security"
+    | "/settings/servers"
     | "/settings/tokens"
     | "/apps/"
     | "/databases/"
@@ -362,6 +382,7 @@ export interface FileRouteTypes {
     | "/activity"
     | "/backups"
     | "/cron"
+    | "/fleet"
     | "/server"
     | "/"
     | "/apps/new"
@@ -370,6 +391,7 @@ export interface FileRouteTypes {
     | "/settings/integrations"
     | "/settings/notifications"
     | "/settings/security"
+    | "/settings/servers"
     | "/settings/tokens"
     | "/apps"
     | "/databases"
@@ -395,6 +417,7 @@ export interface FileRouteTypes {
     | "/_console/activity"
     | "/_console/backups"
     | "/_console/cron"
+    | "/_console/fleet"
     | "/_console/server"
     | "/_console/settings"
     | "/_console/"
@@ -405,6 +428,7 @@ export interface FileRouteTypes {
     | "/_console/settings/integrations"
     | "/_console/settings/notifications"
     | "/_console/settings/security"
+    | "/_console/settings/servers"
     | "/_console/settings/tokens"
     | "/_console/apps/"
     | "/_console/databases/"
@@ -472,6 +496,13 @@ declare module "@tanstack/react-router" {
       path: "/cron"
       fullPath: "/cron"
       preLoaderRoute: typeof ConsoleCronRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/fleet": {
+      id: "/_console/fleet"
+      path: "/fleet"
+      fullPath: "/fleet"
+      preLoaderRoute: typeof ConsoleFleetRouteImport
       parentRoute: typeof ConsoleRoute
     }
     "/_console/server": {
@@ -570,6 +601,13 @@ declare module "@tanstack/react-router" {
       path: "/security"
       fullPath: "/settings/security"
       preLoaderRoute: typeof ConsoleSettingsSecurityRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
+    "/_console/settings/servers": {
+      id: "/_console/settings/servers"
+      path: "/servers"
+      fullPath: "/settings/servers"
+      preLoaderRoute: typeof ConsoleSettingsServersRouteImport
       parentRoute: typeof ConsoleSettingsRoute
     }
     "/_console/settings/tokens": {
@@ -671,6 +709,7 @@ interface ConsoleSettingsRouteChildren {
   ConsoleSettingsIntegrationsRoute: typeof ConsoleSettingsIntegrationsRoute
   ConsoleSettingsNotificationsRoute: typeof ConsoleSettingsNotificationsRoute
   ConsoleSettingsSecurityRoute: typeof ConsoleSettingsSecurityRoute
+  ConsoleSettingsServersRoute: typeof ConsoleSettingsServersRoute
   ConsoleSettingsTokensRoute: typeof ConsoleSettingsTokensRoute
   ConsoleSettingsIndexRoute: typeof ConsoleSettingsIndexRoute
 }
@@ -680,6 +719,7 @@ const ConsoleSettingsRouteChildren: ConsoleSettingsRouteChildren = {
   ConsoleSettingsIntegrationsRoute: ConsoleSettingsIntegrationsRoute,
   ConsoleSettingsNotificationsRoute: ConsoleSettingsNotificationsRoute,
   ConsoleSettingsSecurityRoute: ConsoleSettingsSecurityRoute,
+  ConsoleSettingsServersRoute: ConsoleSettingsServersRoute,
   ConsoleSettingsTokensRoute: ConsoleSettingsTokensRoute,
   ConsoleSettingsIndexRoute: ConsoleSettingsIndexRoute,
 }
@@ -720,6 +760,7 @@ interface ConsoleRouteChildren {
   ConsoleActivityRoute: typeof ConsoleActivityRoute
   ConsoleBackupsRoute: typeof ConsoleBackupsRoute
   ConsoleCronRoute: typeof ConsoleCronRoute
+  ConsoleFleetRoute: typeof ConsoleFleetRoute
   ConsoleServerRoute: typeof ConsoleServerRoute
   ConsoleSettingsRoute: typeof ConsoleSettingsRouteWithChildren
   ConsoleIndexRoute: typeof ConsoleIndexRoute
@@ -739,6 +780,7 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
   ConsoleActivityRoute: ConsoleActivityRoute,
   ConsoleBackupsRoute: ConsoleBackupsRoute,
   ConsoleCronRoute: ConsoleCronRoute,
+  ConsoleFleetRoute: ConsoleFleetRoute,
   ConsoleServerRoute: ConsoleServerRoute,
   ConsoleSettingsRoute: ConsoleSettingsRouteWithChildren,
   ConsoleIndexRoute: ConsoleIndexRoute,

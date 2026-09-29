@@ -6,18 +6,24 @@
  * because a browser cannot set headers on a handshake and a long-lived token in a query
  * string ends up in proxy logs. A dropped connection reconnects on the same backoff as the
  * event stream, with a new ticket each time; a close with 4401 means the session is gone.
+ *
+ * On a central with a node selected, both are the node's, relayed by the central
+ * (`/ws/nodes/{node}/logs/{domain}`). The ticket is still the central's: it authenticates the
+ * operator to the central, which authenticates itself to the node.
  */
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
 import { buildPath, expireSession, isApiError } from "../api/client";
+import { nodeSocketPath, runOnNode } from "../api/nodeScope";
 import { wsTicket } from "../api/queries/auth";
 import { getLocale } from "../app/locale";
 import { jobKeys } from "../api/queries/jobs";
 import type { Job } from "../api/queries/jobs";
 import type { LogLine } from "../components/ui/LogViewer";
 import { translate } from "../i18n/translate";
+import { useNode } from "../nodes/useNode";
 import { reconnectDelay } from "./backoff";
 
 export type SocketStatus = "connecting" | "open" | "reconnecting" | "closed";
@@ -29,6 +35,13 @@ export const WS_CLOSE_UNAUTHORIZED = 4401;
  * housekeeping, not a dropped connection, so it reconnects at once and never tells the
  * operator anything happened. */
 export const WS_CLOSE_MAX_LIFETIME = 4408;
+
+/**
+ * Close codes of the central's relay that no reconnection will change: the node refused the
+ * central (4403) or there is no such node (4404). The close reason is the central's sentence.
+ * A node that did not answer (4502) is retried like any dropped connection: tunnels come back.
+ */
+export const WS_CLOSE_FINAL: ReadonlySet<number> = new Set([4403, 4404]);
 
 /** The part of WebSocket the streams use, so tests can drive it. */
 export interface SocketLike {
@@ -42,12 +55,16 @@ export interface SocketLike {
 export interface StreamSocketOptions {
   /** Path on this origin, such as `/ws/logs/example.com` (already encoded). */
   path: string;
+  /** The server whose stream it is: a node's name, or null (the default) for this one. */
+  node?: string | null;
   /** Extra query parameters; the ticket is added to them. Read at every (re)connection. */
   query?: () => Record<string, string>;
   onFrame: (frame: Record<string, unknown>) => void;
   onStatus: (status: SocketStatus) => void;
   /** True once the stream has nothing more to say (a finished job): no reconnection. */
   isComplete?: () => boolean;
+  /** The server closed for good (WS_CLOSE_FINAL), with its reason verbatim. */
+  onRefused?: (reason: string) => void;
   getTicket?: () => Promise<string>;
   connect?: (url: string) => SocketLike;
 }
@@ -115,7 +132,8 @@ export class StreamSocket {
     }
     if (!this.running) return;
 
-    const url = socketUrl(this.options.path, { ...(this.options.query?.() ?? {}), ticket });
+    const path = nodeSocketPath(this.options.node ?? null, this.options.path);
+    const url = socketUrl(path, { ...(this.options.query?.() ?? {}), ticket });
     const socket = (this.options.connect ?? ((u) => new WebSocket(u)))(url);
     this.socket = socket;
 
@@ -141,6 +159,12 @@ export class StreamSocket {
         this.running = false;
         this.options.onStatus("closed");
         expireSession();
+        return;
+      }
+      if (WS_CLOSE_FINAL.has(event.code)) {
+        this.running = false;
+        this.options.onStatus("closed");
+        this.options.onRefused?.(event.reason);
         return;
       }
       if (event.code === WS_CLOSE_MAX_LIFETIME) {
@@ -193,6 +217,7 @@ export function useLogStream(domain: string | null, options: LogStreamOptions = 
     setState(INITIAL_LOG_STREAM);
   }
   const injected = useRef({ getTicket: options.getTicket, connect: options.connect });
+  const { node } = useNode();
 
   useEffect(() => {
     if (domain === null) return;
@@ -223,6 +248,7 @@ export function useLogStream(domain: string | null, options: LogStreamOptions = 
 
     const socket = new StreamSocket({
       path: `/ws/logs/${encodeURIComponent(domain)}`,
+      node,
       // After a reconnection, ask for one line of backlog and drop it if it is the last line
       // already shown: the full backlog again would duplicate everything on screen.
       query: () => {
@@ -232,6 +258,9 @@ export function useLogStream(domain: string | null, options: LogStreamOptions = 
       },
       onStatus: (status) => {
         setState((current) => ({ ...current, status }));
+      },
+      onRefused: (reason) => {
+        setState((current) => ({ ...current, error: reason !== "" ? reason : translate(getLocale(), "common.streams.logFailed") }));
       },
       onFrame: (frame) => {
         const text = typeof frame["data"] === "string" ? frame["data"] : null;
@@ -265,7 +294,7 @@ export function useLogStream(domain: string | null, options: LogStreamOptions = 
       socket.stop();
       if (flushTimer !== null) clearTimeout(flushTimer);
     };
-  }, [domain, backlog, cap]);
+  }, [domain, backlog, cap, node]);
 
   return state;
 }
@@ -294,6 +323,7 @@ export function useJobStream(
     setState(INITIAL_JOB_STREAM);
   }
   const injected = useRef(options);
+  const { node } = useNode();
 
   useEffect(() => {
     if (id === null) return;
@@ -301,9 +331,13 @@ export function useJobStream(
 
     const socket = new StreamSocket({
       path: `/ws/jobs/${encodeURIComponent(id)}`,
+      node,
       isComplete: () => finished,
       onStatus: (status) => {
         setState((current) => ({ ...current, status }));
+      },
+      onRefused: (reason) => {
+        setState((current) => ({ ...current, error: reason !== "" ? reason : translate(getLocale(), "common.streams.jobFailed") }));
       },
       onFrame: (frame) => {
         const type = frame["type"];
@@ -317,7 +351,7 @@ export function useJobStream(
         if (type !== "connected" && type !== "update" && type !== "finished") return;
         const job = frame["job"] as Job | undefined;
         if (!job || typeof job !== "object") return;
-        queryClient.setQueryData(jobKeys.detail(id), job);
+        runOnNode(node, () => queryClient.setQueryData(jobKeys.detail(id), job));
         if (type === "finished") finished = true;
         setState((current) => ({ ...current, job, finished: current.finished || type === "finished" }));
       },
@@ -328,7 +362,7 @@ export function useJobStream(
     return () => {
       socket.stop();
     };
-  }, [id, queryClient]);
+  }, [id, queryClient, node]);
 
   return state;
 }

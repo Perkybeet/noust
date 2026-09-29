@@ -4,7 +4,7 @@
 // the charting library into the route's eagerly preloaded "route options" chunk instead of its
 // lazily loaded component chunk.
 //
-// Never point this at the build committed at ../src/wasm/web/static: CLAUDE.md's packaging
+// Never point this at the build committed at ../src/noust/web/static: CLAUDE.md's packaging
 // notes are explicit that only `git archive` ships it and that it is produced once, by CI, not
 // rebuilt ad hoc. Build a private copy first (`npx vite build --outDir <dir> --emptyOutDir`),
 // then:

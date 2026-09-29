@@ -12,6 +12,7 @@ import { Kbd } from "../components/ui/Kbd";
 import { Mono } from "../components/ui/Mono";
 import { Popover } from "../components/ui/Popover";
 import { useSignOut } from "../features/auth/useSignOut";
+import { ServerSelector } from "../nodes/ServerSelector";
 import { useT } from "../i18n";
 import { LanguageSwitch } from "./LanguageSwitch";
 import { MachineStrip } from "./MachineStrip";
@@ -100,6 +101,8 @@ export function Topbar({ onOpenPalette, onOpenShortcuts, onOpenNav, searchTrigge
       >
         <Logo variant="icon" height={22} decorative />
       </Link>
+
+      <ServerSelector />
 
       <MachineStrip className="flex-1" />
 

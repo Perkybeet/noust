@@ -2488,6 +2488,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/central/unlock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unlock Central
+         * @description Unlock the central's sealed secrets with their passphrase.
+         *
+         *     Needs an ``admin`` credential in sudo mode; see the module docstring for
+         *     why both are available while the central is locked. Tunnels open lazily
+         *     afterwards, on the next request that needs a node.
+         *
+         *     Args:
+         *         body: The passphrase.
+         *         request: The incoming request, for the audit record and the lockout.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The central's state, now unlocked.
+         *
+         *     Raises:
+         *         WrongPassphraseError: 403 ``wrong_passphrase``; counted towards the
+         *             lockout like a wrong credential.
+         *         SealError: 409 when the store is not sealed or its header is damaged.
+         */
+        post: operations["unlock_central_api_central_unlock_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/certs": {
         parameters: {
             query?: never;
@@ -7210,6 +7247,25 @@ export interface components {
             protected: boolean;
         };
         /**
+         * CentralInfo
+         * @description What the console needs to know about the central it is signed in to.
+         *
+         *     Attributes:
+         *         role: ``server`` (deploys applications here too) or ``hub`` (manages
+         *             other servers only; the console hides local deployments).
+         *         sealed: Whether the secret store is sealed under a passphrase.
+         *         locked: Whether it is sealed and this process has not been unlocked:
+         *             no node can be reached until it is.
+         */
+        CentralInfo: {
+            /** Locked */
+            locked: boolean;
+            /** Role */
+            role: string;
+            /** Sealed */
+            sealed: boolean;
+        };
+        /**
          * CertActionResponse
          * @description Response for certificate actions that complete immediately.
          */
@@ -10865,10 +10921,14 @@ export interface components {
          *         csrf_cookie: Name of the readable CSRF cookie.
          *         renamed_from_wasm: Whether this server ran WASM before Noust, so the
          *             console tells the operator once that the product was renamed.
+         *         central: This server's role and whether its sealed secrets are
+         *             locked, so the console hides what a hub does not do and offers
+         *             the unlock form; None for an anonymous caller.
          */
         SessionInfo: {
             /** Authenticated */
             authenticated: boolean;
+            central?: components["schemas"]["CentralInfo"] | null;
             /**
              * Csrf Cookie
              * @default wasm_csrf
@@ -11287,6 +11347,17 @@ export interface components {
             enabled: boolean;
             /** Pending */
             pending: boolean;
+        };
+        /**
+         * UnlockRequest
+         * @description Body of ``POST /api/central/unlock``.
+         *
+         *     Attributes:
+         *         passphrase: The passphrase the store was sealed with. Never logged.
+         */
+        UnlockRequest: {
+            /** Passphrase */
+            passphrase: string;
         };
         /**
          * UpdateAppEnvRequest
@@ -14349,6 +14420,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VerifyBackupResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unlock_central_api_central_unlock_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnlockRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CentralInfo"];
                 };
             };
             /** @description Validation Error */

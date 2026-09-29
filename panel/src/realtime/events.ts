@@ -7,6 +7,9 @@
  * subscribers of `useServerEvent`, for pages that react to a moment (a deploy finishing)
  * rather than to data.
  *
+ * On a central with a node selected, the stream is the node's, relayed by the central
+ * (`/api/nodes/{node}/events`), and what it says is written into that node's cache entries.
+ *
  * The browser's own EventSource retry runs at a fixed interval forever; this closes the
  * source on error and reconnects on an exponential backoff instead, and checks whether the
  * session is still alive, because an EventSource cannot see the 401 that ended it.
@@ -17,6 +20,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 
 import { expireSession } from "../api/client";
+import { nodeEventsPath, runOnNode } from "../api/nodeScope";
 import { appKeys } from "../api/queries/apps";
 import type { App } from "../api/queries/apps";
 import { sessionQuery } from "../api/queries/auth";
@@ -28,6 +32,7 @@ import type { MetricsSnapshot } from "../api/queries/metrics";
 import { systemKeys } from "../api/queries/system";
 import type { Machine } from "../api/queries/system";
 import { toast } from "../components/ui/toast";
+import { useNode } from "../nodes/useNode";
 import { reconnectDelay } from "./backoff";
 
 /** A state change of one application. Carries its domain and the fields that changed. */
@@ -238,15 +243,20 @@ function publish(name: ServerEventName, data: unknown): void {
 export function useServerEvents(connect?: (url: string) => EventSourceLike): void {
   const queryClient = useQueryClient();
   const connectRef = useRef(connect);
+  const { node } = useNode();
 
   useEffect(() => {
     // Whatever happened while the stream was down (a job ending, an app failing) was said on
     // a connection nobody held: once it is back, everything on screen is read again.
     let dropped = false;
     const stream = new EventStream({
+      url: nodeEventsPath(node),
       ...(connectRef.current ? { connect: connectRef.current } : {}),
       onEvent: (name, data) => {
-        applyServerEvent(queryClient, name, data);
+        // Into the entries of the server that said it, even mid-switch.
+        runOnNode(node, () => {
+          applyServerEvent(queryClient, name, data);
+        });
         publish(name, data);
       },
       onStatus: (status) => {
@@ -274,7 +284,7 @@ export function useServerEvents(connect?: (url: string) => EventSourceLike): voi
       stream.stop();
       setStreamStatus("connecting");
     };
-  }, [queryClient]);
+  }, [queryClient, node]);
 }
 
 /** Runs `handler` for every event of one name while the component is mounted. */

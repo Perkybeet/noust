@@ -35,6 +35,8 @@ export class ApiError extends Error {
   readonly retryAfter: number | null;
   /** A failing tool's own output, verbatim, when the error carries one. Never paraphrase it. */
   readonly output: string | null;
+  /** The server that answered: a node's name, or null for this one. */
+  readonly node: string | null;
 
   constructor(
     status: number,
@@ -44,6 +46,7 @@ export class ApiError extends Error {
     fields: Record<string, string> | null = null,
     retryAfter: number | null = null,
     output: string | null = null,
+    node: string | null = null,
   ) {
     super(detail);
     this.name = "ApiError";
@@ -54,6 +57,7 @@ export class ApiError extends Error {
     this.fields = fields;
     this.retryAfter = retryAfter;
     this.output = output;
+    this.node = node;
   }
 
   /** True when the session is gone, not when a typed credential was wrong. */
@@ -78,6 +82,18 @@ export class ElevationCancelledError extends ApiError {
 
 export function isApiError(value: unknown): value is ApiError {
   return value instanceof ApiError;
+}
+
+/**
+ * The central's answers for a node it could not use (502): its tunnel did not answer, or the
+ * node refused the central's fleet token. The error's `detail` and `output` are ssh's or the
+ * node's own words.
+ */
+export const NODE_ERRORS: ReadonlySet<string> = new Set(["node_unreachable", "node_refused"]);
+
+/** True when a request failed because the central could not use the node, not because the node said no. */
+export function isNodeError(value: unknown): value is ApiError {
+  return value instanceof ApiError && NODE_ERRORS.has(value.error);
 }
 
 /** The fallback code for a response that did not carry one, mirroring the backend's table. */
@@ -119,7 +135,7 @@ function retryAfterSeconds(response: Response): number | null {
  * HTML error page, an empty 502) is still reported with its body verbatim, so the operator
  * sees what the proxy said instead of a generic message.
  */
-export async function errorFromResponse(response: Response): Promise<ApiError> {
+export async function errorFromResponse(response: Response, node: string | null = null): Promise<ApiError> {
   const text = await response.text().catch(() => "");
   const retryAfter = retryAfterSeconds(response);
   let body: unknown;
@@ -144,11 +160,12 @@ export async function errorFromResponse(response: Response): Promise<ApiError> {
       fieldMap(record["fields"]),
       retryAfter,
       stringOrNull(record["output"]),
+      node,
     );
   }
 
   const detail = text.trim() !== "" ? text.trim() : `${String(response.status)} ${response.statusText}`.trim();
-  return new ApiError(response.status, codeFor(response.status), detail, null, null, retryAfter);
+  return new ApiError(response.status, codeFor(response.status), detail, null, null, retryAfter, null, node);
 }
 
 /** The server did not answer at all: it is down, restarting, or the network is gone. */

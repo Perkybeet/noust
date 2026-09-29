@@ -8,6 +8,12 @@
  * is retried once (a write surfaces it instead, since repeating it is not free), and every
  * other failure becomes an ApiError.
  *
+ * On a central with a node selected, every call goes to that node through the central's proxy
+ * (`/api/apps` becomes `/api/nodes/{node}/api/apps`); `nodeScope.ts` decides which server and
+ * which path, here and nowhere else. Elevation is the central's: its proxy answers 403
+ * elevation_required for a node's elevated operation, "Confirm it's you" elevates the
+ * central's session (`/api/auth` is never forwarded), and the retry goes to the node again.
+ *
  * `request()` is the same call typed by the OpenAPI contract (schema.gen.ts): a path that
  * does not exist, a missing path parameter or a wrong body is a compile error, and the
  * response is typed. Endpoints that still answer a bare dict are typed `unknown`; when the
@@ -20,8 +26,9 @@ import { translate } from "../i18n/translate";
 import type { Locale } from "../i18n/types";
 import type { paths } from "./schema.gen";
 import { ElevationCancelledError, errorFromResponse, unreachable } from "./errors";
+import { activeNode, nodeApiPath, nodeOfProxyPath, resetNodeScope } from "./nodeScope";
 
-export { ApiError, ElevationCancelledError, isApiError } from "./errors";
+export { ApiError, ElevationCancelledError, isApiError, isNodeError } from "./errors";
 
 export type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -54,10 +61,11 @@ export function configureApi(next: Partial<ApiHooks>): () => void {
   };
 }
 
-/** Forgets every installed hook and any pending elevation. For tests. */
+/** Forgets every installed hook, any pending elevation and the selected server. For tests. */
 export function resetApiHooks(): void {
   hooks = DEFAULT_HOOKS;
   pendingElevation = null;
+  resetNodeScope();
 }
 
 /** Reports a lost session through the installed hook, for callers that learn it another way. */
@@ -125,6 +133,7 @@ async function send(
   path: string,
   body: unknown,
   init: ApiInit,
+  node: string | null,
   mayElevate: boolean,
   mayRetryRateLimit = true,
 ): Promise<unknown> {
@@ -150,13 +159,13 @@ async function send(
 
   if (response.ok) return readBody(response);
 
-  const error = await errorFromResponse(response);
+  const error = await errorFromResponse(response, node);
   if (error.sessionExpired) {
     hooks.onSessionExpired();
   } else if (mayElevate && error.status === 403 && error.error === "elevation_required") {
     await elevateOnce();
     // Exactly one retry: a second refusal is reported, never a second dialog.
-    return send(method, path, body, init, false);
+    return send(method, path, body, init, node, false);
   } else if (error.status === 429 && error.error === "rate_limited") {
     // Reading again is safe to repeat; a mutation is not, so it surfaces the refusal for the
     // caller to report instead of silently repeating a write. TanStack Query is told never to
@@ -175,7 +184,7 @@ async function send(
     });
     if (retrying) {
       await delay(error.retryAfter * 1000);
-      return send(method, path, body, init, mayElevate, false);
+      return send(method, path, body, init, node, mayElevate, false);
     }
   }
   throw error;
@@ -187,7 +196,12 @@ async function send(
  * @throws ApiError for any non-2xx answer or when the server cannot be reached.
  */
 export async function api<T>(method: Method, path: string, body?: unknown, init: ApiInit = {}): Promise<T> {
-  return (await send(method, path, body, init, true)) as T;
+  // Resolved once, before the first await: a retry after "Confirm it's you" or a rate limit
+  // goes to the same server, even if the operator switched in the meantime.
+  const node = activeNode();
+  const target = nodeApiPath(node, path);
+  const answeredBy = target === path ? nodeOfProxyPath(path) : node;
+  return (await send(method, target, body, init, answeredBy, true)) as T;
 }
 
 // ---------------------------------------------------------------------------------------
