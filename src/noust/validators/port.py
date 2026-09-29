@@ -1,11 +1,11 @@
 """
-Port validation for WASM.
+Port validation for Noust.
 """
 
 import socket
 from collections.abc import Collection
 
-from wasm.core.exceptions import PortError
+from noust.core.exceptions import PortError
 
 # Port ranges
 MIN_PORT = 1
@@ -165,7 +165,7 @@ def find_available_port(
         end: End of range to search.
         preferred: Preferred port to try first.
         exclude: Ports to skip even when nothing listens on them, such as
-            :meth:`~wasm.core.store.WASMStore.ports_owned_by_apps`.
+            :meth:`~noust.core.store.NoustStore.ports_owned_by_apps`.
 
     Returns:
         Available port number or None.

@@ -19,7 +19,7 @@ export type Landing =
  * Where to land once a deploy is queued: the deployment history row the deployer wrote for
  * this exact job, matched by `job_id` (`DeploymentOut.job_id`) - it appears, with the build
  * already streaming, well before the job function returns. `JobResponse.deployment_id` is only
- * filled from the job's result once it does (`wasm.web.jobs._execute_job`), so it would miss
+ * filled from the job's result once it does (`noust.web.jobs._execute_job`), so it would miss
  * the live log entirely if it were the only signal; it is used here only as a fallback, once
  * the job has ended, for the rare row a poll might have missed.
  *

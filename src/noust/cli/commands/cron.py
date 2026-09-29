@@ -2,19 +2,19 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The ``wasm cron`` command group.
+The ``noust cron`` command group.
 
 User cron jobs as systemd timers, over
-:class:`~wasm.managers.cron_manager.CronManager`, which owns the timer/service
+:class:`~noust.managers.cron_manager.CronManager`, which owns the timer/service
 unit pair, the systemctl calls, the ownership guard and every rule about what
-may be written into a root-owned unit file. :mod:`wasm.web.api.cron` is a thin
+may be written into a root-owned unit file. :mod:`noust.web.api.cron` is a thin
 client of the same manager, so a schedule or a command the panel refuses is
 refused here too, in the same words - there is exactly one implementation of
 what a cron job is allowed to be.
 
 Every command is a thin shell around a private function that takes explicit
-arguments and reports through a :class:`~wasm.core.logger.Logger`, mirroring
-how :mod:`wasm.cli.commands.db` is laid out.
+arguments and reports through a :class:`~noust.core.logger.Logger`, mirroring
+how :mod:`noust.cli.commands.db` is laid out.
 """
 
 from __future__ import annotations
@@ -24,18 +24,18 @@ from typing import Any
 
 import click
 
-from wasm.cli.app import Context, WasmGroup, json_option, pass_context
-from wasm.core.exceptions import ServiceError
-from wasm.core.logger import Logger, state, styled
-from wasm.managers.backup_scheduler import SCHEDULE_ALIASES
-from wasm.managers.cron_manager import CronJob, CronManager
+from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.exceptions import ServiceError
+from noust.core.logger import Logger, state, styled
+from noust.managers.backup_scheduler import SCHEDULE_ALIASES
+from noust.managers.cron_manager import CronJob, CronManager
 
 #: The alias each expansion came from, so a listing can say "daily" instead of
 #: making an operator parse ``*-*-* 02:00:00``. Mirrors
-#: :mod:`wasm.web.api.cron`'s own reverse lookup, built from the same source.
+#: :mod:`noust.web.api.cron`'s own reverse lookup, built from the same source.
 _ALIAS_BY_CALENDAR = {calendar: alias for alias, calendar in SCHEDULE_ALIASES.items()}
 
-#: How many runs ``wasm cron runs`` shows by default.
+#: How many runs ``noust cron runs`` shows by default.
 DEFAULT_RUN_LIMIT = 10
 
 
@@ -71,8 +71,8 @@ def _job_as_dict(entry: dict[str, Any]) -> dict[str, Any]:
     Build the JSON representation of one listed job.
 
     Same fields, in the same words, as ``GET /api/cron``'s ``CronJobInfo``:
-    both start from :meth:`~wasm.managers.cron_manager.CronManager.list_jobs`,
-    so a script reading ``wasm cron list --json`` sees what the console does.
+    both start from :meth:`~noust.managers.cron_manager.CronManager.list_jobs`,
+    so a script reading ``noust cron list --json`` sees what the console does.
 
     Args:
         entry: One entry as ``list_jobs`` returns it.
@@ -99,7 +99,7 @@ def _job_as_dict(entry: dict[str, Any]) -> dict[str, Any]:
 
 def _list(*, logger: Logger, json_output: bool = False) -> int:
     """
-    List every WASM cron job with its schedule, next run and last result.
+    List every Noust cron job with its schedule, next run and last result.
 
     Args:
         logger: Logger for the table and the empty-state message.
@@ -118,7 +118,7 @@ def _list(*, logger: Logger, json_output: bool = False) -> int:
         logger.info("No cron jobs")
         logger.blank()
         logger.info("Create one with:")
-        logger.info("  wasm cron create <name> '<command>' --schedule daily")
+        logger.info("  noust cron create <name> '<command>' --schedule daily")
         return 0
 
     headers = ["Name", "Schedule", "Enabled", "Last run", "Last result", "App", "Directory"]
@@ -154,7 +154,7 @@ def _create(
     logger: Logger,
 ) -> int:
     """
-    Create a cron job as a systemd timer, or rewrite one WASM already owns.
+    Create a cron job as a systemd timer, or rewrite one Noust already owns.
 
     Args:
         name: Job name, becomes part of two unit names.
@@ -242,7 +242,7 @@ def _run_now(name: str, *, logger: Logger) -> int:
         return 1
 
     logger.success(f"Started {unit}")
-    logger.info(f"See its result with: wasm cron runs {name}")
+    logger.info(f"See its result with: noust cron runs {name}")
     return 0
 
 
@@ -347,7 +347,7 @@ def _runs(name: str, *, limit: int, logger: Logger, json_output: bool = False) -
     return 0
 
 
-@click.group("cron", cls=WasmGroup)
+@click.group("cron", cls=NoustGroup)
 def cli() -> None:
     """Run commands on a schedule, as systemd timers."""
 
@@ -356,7 +356,7 @@ def cli() -> None:
 @json_option("Print the jobs as JSON.")
 @pass_context
 def list_jobs(ctx: Context) -> None:
-    """List every WASM cron job with its schedule and last result."""
+    """List every Noust cron job with its schedule and last result."""
     _exit(_list(logger=ctx.logger, json_output=ctx.json_output))
 
 
@@ -396,7 +396,7 @@ def create(
     app_domain: str | None,
 ) -> None:
     """
-    Create a cron job as a systemd timer, or rewrite one WASM already owns.
+    Create a cron job as a systemd timer, or rewrite one Noust already owns.
 
     COMMAND is one command line, split like a POSIX shell would split it and
     run without a shell: pipes, '&&' and globs are inert text handed to the

@@ -2,10 +2,10 @@
  * The `notifications` block of the configuration, read into something a form can hold.
  *
  * GET /api/config answers the whole file as an untyped tree with every secret replaced by
- * "" when nothing is stored and "***" when something is (wasm.core.config.redact_secrets) -
+ * "" when nothing is stored and "***" when something is (noust.core.config.redact_secrets) -
  * so the answer says whether a channel has a destination without ever showing it. The console
  * follows the same rule back: a secret field left untouched is sent as "***", which the server
- * resolves to the stored value (wasm.core.config.restore_redacted); a field the operator never
+ * resolves to the stored value (noust.core.config.restore_redacted); a field the operator never
  * touched is otherwise sent back exactly as it was read, so saving one field never blanks
  * another it shares a channel with.
  */
@@ -54,7 +54,7 @@ export interface ChannelSpec {
   fields: readonly ChannelField[];
 }
 
-/** The channel ids and their field keys, in the notifier's delivery order (wasm.core.notifier.CHANNELS). */
+/** The channel ids and their field keys, in the notifier's delivery order (noust.core.notifier.CHANNELS). */
 export const CHANNEL_IDS: readonly ChannelId[] = ["webhook", "slack", "discord", "telegram", "email"];
 
 const CHANNEL_FIELD_KEYS: Readonly<Record<ChannelId, readonly string[]>> = {
@@ -77,7 +77,7 @@ export function channels(t: T): readonly ChannelSpec[] {
           key: "webhook_url",
           label: t("settings.notifications.channels.webhook.endpointUrlLabel"),
           secret: true,
-          placeholder: "https://hooks.example.com/wasm",
+          placeholder: "https://hooks.example.com/noust",
         },
       ],
     },
@@ -136,11 +136,11 @@ export interface EventSpec {
   kind: string;
   label: string;
   description: string;
-  /** Set when this version of WASM never sends the event, so the switch changes nothing yet. */
+  /** Set when this version of Noust never sends the event, so the switch changes nothing yet. */
   unsent?: true;
 }
 
-/** The event kinds, in the notifier's order (wasm.core.notifier.EVENT_KINDS). */
+/** The event kinds, in the notifier's order (noust.core.notifier.EVENT_KINDS). */
 export const EVENT_KINDS: readonly string[] = [
   "deploy_started",
   "deploy_success",
@@ -184,7 +184,7 @@ export interface NotificationSettings {
   emailEnabled: boolean;
   allowPrivateHosts: readonly string[];
   smtp: SmtpFacts;
-  /** The language WASM writes its own notification text in ("en" or "es"). */
+  /** The language Noust writes its own notification text in ("en" or "es"). */
   language: Locale;
 }
 
@@ -255,7 +255,7 @@ export function isChannelConfigured(spec: ChannelSpec, stored: Readonly<Record<s
  * operator typed, or, for whatever they left alone, exactly what is already stored - so saving
  * one field of a multi-field channel (Telegram's chat ID beside its bot token) never sends the
  * other back blank. A secret left untouched is sent as "***", which the server resolves to the
- * stored value (wasm.core.config.restore_redacted) instead of the literal three characters.
+ * stored value (noust.core.config.restore_redacted) instead of the literal three characters.
  *
  * @param stored What the channel holds now, as `readNotificationSettings` read it: secrets
  *   already redacted, everything else in clear.
@@ -359,7 +359,7 @@ export type SmtpField = "host" | "port" | "security" | "username" | "password" |
 export const SMTP_FIELDS: readonly SmtpField[] = ["host", "port", "security", "username", "password", "from_address", "recipients"];
 
 /**
- * The model field each configuration key is validated under (wasm.core.config._KEY_VALIDATORS),
+ * The model field each configuration key is validated under (noust.core.config._KEY_VALIDATORS),
  * so a refusal naming the key lands beside the field that holds it.
  */
 export const SMTP_CONFIG_KEYS: Readonly<Record<string, SmtpField>> = {
@@ -438,7 +438,7 @@ export function portForSecurity(port: string, from: SmtpSecurity, to: SmtpSecuri
   return port.trim() === String(previous) ? String(next) : port;
 }
 
-/** The same shape `wasm.core.config._EMAIL_PATTERN` accepts: something@something.tld, no spaces. */
+/** The same shape `noust.core.config._EMAIL_PATTERN` accepts: something@something.tld, no spaces. */
 const EMAIL_SHAPE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 export function looksLikeEmail(value: string): boolean {

@@ -21,10 +21,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, TypeAlias
 
-from wasm.core.fs import FileSystem, get_fs
+from noust.core.fs import FileSystem, get_fs
 
 if TYPE_CHECKING:
-    from wasm.deployers.helpers.target import DeployTarget
+    from noust.deployers.helpers.target import DeployTarget
 
 #: Called with a short description as each update step begins.
 StepReporter: TypeAlias = Callable[[str], None]
@@ -59,7 +59,7 @@ class AppDeployer(ABC):
             only; :meth:`detect` is the authority.
         DEFAULT_PORT: Port used when the caller does not choose one.
         DETECTION_PRIORITY: Precedence when several deployers match one tree.
-        source_already_fetched: Set by :class:`~wasm.deployers.auto.AutoDeployer`
+        source_already_fetched: Set by :class:`~noust.deployers.auto.AutoDeployer`
             when it has already placed the source at ``app_path``, so the
             delegate does not re-clone (and, with ``clean=True``, delete) it.
     """
@@ -73,18 +73,18 @@ class AppDeployer(ABC):
     source_already_fetched: bool = False
 
     #: How the application directory was found when this deploy claimed it
-    #: (see :func:`~wasm.deployers.helpers.target.claim_deploy_target`).
+    #: (see :func:`~noust.deployers.helpers.target.claim_deploy_target`).
     #: Set by :meth:`deploy`, or handed over by
-    #: :class:`~wasm.deployers.auto.AutoDeployer`, which claims the
+    #: :class:`~noust.deployers.auto.AutoDeployer`, which claims the
     #: directory before it fetches into it. What a failed deploy may remove
     #: is decided from this, never from what the directory holds by then.
     deploy_target: DeployTarget | None = None
 
     #: The background job that started this deployment, when one did. A
     #: class-level default, not just one set in ``__init__``, because
-    #: ``wasm.deployers.lifecycle``'s update-rebuild helpers build a
+    #: ``noust.deployers.lifecycle``'s update-rebuild helpers build a
     #: monorepo or compose deployer and set its attributes by hand rather
-    #: than calling ``configure()``; :func:`~wasm.deployers.recorder.recorder_for`
+    #: than calling ``configure()``; :func:`~noust.deployers.recorder.recorder_for`
     #: reads this unconditionally, so an instance that never went through
     #: ``configure()`` must still answer it instead of raising.
     job_id: str | None = None
@@ -182,7 +182,7 @@ class AppDeployer(ABC):
             True when the application ended up deployed.
 
         Raises:
-            WASMError: When a step fails and could not be recovered from. The
+            NoustError: When a step fails and could not be recovered from. The
                 deployer rolls back whatever it created before re-raising.
         """
 
@@ -210,7 +210,7 @@ class AppDeployer(ABC):
 
         Raises:
             NotImplementedError: When this deployer has no in-place update.
-            WASMError: When a step fails. The application is left running on
+            NoustError: When a step fails. The application is left running on
                 its previous build wherever that is possible.
         """
         raise NotImplementedError(

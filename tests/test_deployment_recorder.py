@@ -24,15 +24,15 @@ from typing import Any
 
 import pytest
 
+from noust.core.exceptions import BackupError, BuildError
+from noust.core.fs import DryRunFileSystem, set_fs
+from noust.core.runner import FakeRunner
+from noust.core.store import DeploymentStatus, NoustStore, StoreError
+from noust.deployers.helpers.target import DeployTarget
+from noust.deployers.nodejs import NodeJSDeployer
+from noust.deployers.recorder import CapturingLogger, DeploymentRecorder
+from noust.managers.backup_manager import BackupMetadata, RollbackManager
 from tests.test_deployers import build_deployer
-from wasm.core.exceptions import BackupError, BuildError
-from wasm.core.fs import DryRunFileSystem, set_fs
-from wasm.core.runner import FakeRunner
-from wasm.core.store import DeploymentStatus, StoreError, WASMStore
-from wasm.deployers.helpers.target import DeployTarget
-from wasm.deployers.nodejs import NodeJSDeployer
-from wasm.deployers.recorder import CapturingLogger, DeploymentRecorder
-from wasm.managers.backup_manager import BackupMetadata, RollbackManager
 
 DOMAIN = "app.example.com"
 
@@ -66,10 +66,10 @@ def store(tmp_path: Path):
     Yields:
         The store the recording under test writes to.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 def happy_deployer(tmp_path: Path) -> Any:
@@ -99,7 +99,7 @@ def happy_deployer(tmp_path: Path) -> Any:
 
 
 def test_successful_deploy_records_success_with_captured_log(
-    tmp_path: Path, store: WASMStore
+    tmp_path: Path, store: NoustStore
 ) -> None:
     """The happy path leaves one success row whose log holds the pipeline lines."""
     deployer = happy_deployer(tmp_path)
@@ -129,7 +129,7 @@ def test_successful_deploy_records_success_with_captured_log(
 
 
 def test_streamed_build_output_is_captured_without_verbose(
-    tmp_path: Path, store: WASMStore
+    tmp_path: Path, store: NoustStore
 ) -> None:
     """
     The runner streams install output through ``logger.debug``, which a quiet
@@ -161,7 +161,7 @@ def test_streamed_build_output_is_captured_without_verbose(
     assert "added 42 packages in 3s" in Path(record.log_path).read_text()
 
 
-def test_failed_deploy_records_the_error_verbatim(tmp_path: Path, store: WASMStore) -> None:
+def test_failed_deploy_records_the_error_verbatim(tmp_path: Path, store: NoustStore) -> None:
     """A failure closes the row as failed, holding the build tool's own words."""
     deployer = happy_deployer(tmp_path)
     error = BuildError("Build failed", details="npm ERR! missing script: build")
@@ -185,7 +185,7 @@ def test_failed_deploy_records_the_error_verbatim(tmp_path: Path, store: WASMSto
 
 
 def test_deploy_records_git_commit_and_branch(
-    tmp_path: Path, store: WASMStore, runner: FakeRunner
+    tmp_path: Path, store: NoustStore, runner: FakeRunner
 ) -> None:
     """A deployed git checkout records what was actually checked out."""
     runner.script([*GIT, "rev-parse", "--abbrev-ref", "HEAD"], stdout="main\n")
@@ -201,7 +201,9 @@ def test_deploy_records_git_commit_and_branch(
     assert record.git_branch == "main"
 
 
-def test_job_id_is_recorded_when_a_job_started_the_deploy(tmp_path: Path, store: WASMStore) -> None:
+def test_job_id_is_recorded_when_a_job_started_the_deploy(
+    tmp_path: Path, store: NoustStore
+) -> None:
     """A deploy queued from the panel remembers which job started it."""
     recorder = DeploymentRecorder(
         store,
@@ -221,7 +223,7 @@ def test_job_id_is_recorded_when_a_job_started_the_deploy(tmp_path: Path, store:
 
 
 def test_release_id_and_commit_message_are_collected_at_finish(
-    tmp_path: Path, store: WASMStore
+    tmp_path: Path, store: NoustStore
 ) -> None:
     """
     Both are asked once recording finishes, like the commit and branch: the
@@ -248,7 +250,7 @@ def test_release_id_and_commit_message_are_collected_at_finish(
 
 
 def test_a_failing_release_id_reader_does_not_abort_recording(
-    tmp_path: Path, store: WASMStore
+    tmp_path: Path, store: NoustStore
 ) -> None:
     """A reader that cannot answer leaves the release id unknown, not the deploy broken."""
 
@@ -273,7 +275,7 @@ def test_a_failing_release_id_reader_does_not_abort_recording(
 
 
 def test_deploy_records_the_commit_subject_for_a_git_source(
-    tmp_path: Path, store: WASMStore, runner: FakeRunner
+    tmp_path: Path, store: NoustStore, runner: FakeRunner
 ) -> None:
     """A deployed git checkout records what its HEAD commit says it did."""
     runner.script([*GIT, "rev-parse", "--abbrev-ref", "HEAD"], stdout="main\n")
@@ -293,7 +295,7 @@ def test_deploy_records_the_commit_subject_for_a_git_source(
     assert record.commit_message == "Fix the login bug"
 
 
-def test_a_non_git_source_records_no_commit_message(tmp_path: Path, store: WASMStore) -> None:
+def test_a_non_git_source_records_no_commit_message(tmp_path: Path, store: NoustStore) -> None:
     """A local directory or archive has no commit to describe."""
     deployer = happy_deployer(tmp_path)
 
@@ -303,7 +305,7 @@ def test_a_non_git_source_records_no_commit_message(tmp_path: Path, store: WASMS
     assert record.commit_message is None
 
 
-def test_trigger_is_recorded_per_caller(tmp_path: Path, store: WASMStore) -> None:
+def test_trigger_is_recorded_per_caller(tmp_path: Path, store: NoustStore) -> None:
     """The trigger flows from configure() into the history row."""
     deployer = happy_deployer(tmp_path)
     deployer.configure(
@@ -325,7 +327,7 @@ def test_trigger_is_recorded_per_caller(tmp_path: Path, store: WASMStore) -> Non
 # ---------------------------------------------------------------------------
 
 
-def test_update_records_history(tmp_path: Path, store: WASMStore) -> None:
+def test_update_records_history(tmp_path: Path, store: NoustStore) -> None:
     """An in-place update leaves the same kind of row a deploy does."""
     deployer = build_deployer(NodeJSDeployer, tmp_path)
     deployer.pre_install = lambda: True
@@ -342,7 +344,7 @@ def test_update_records_history(tmp_path: Path, store: WASMStore) -> None:
     assert Path(record.log_path).exists()
 
 
-def test_failed_update_records_the_failure(tmp_path: Path, store: WASMStore) -> None:
+def test_failed_update_records_the_failure(tmp_path: Path, store: NoustStore) -> None:
     """A broken build during update is recorded as failed, error verbatim."""
     deployer = build_deployer(NodeJSDeployer, tmp_path)
     deployer.pre_install = lambda: True
@@ -367,7 +369,7 @@ def test_failed_update_records_the_failure(tmp_path: Path, store: WASMStore) -> 
 # ---------------------------------------------------------------------------
 
 
-def test_history_rotates_rows_and_log_files(tmp_path: Path, store: WASMStore) -> None:
+def test_history_rotates_rows_and_log_files(tmp_path: Path, store: NoustStore) -> None:
     """Pruning the oldest rows also deletes the log files they pointed at."""
     log_root = tmp_path / "deploy-logs"
     ids: list[int] = []
@@ -396,7 +398,7 @@ def test_history_rotates_rows_and_log_files(tmp_path: Path, store: WASMStore) ->
 
 
 def test_a_store_failure_does_not_abort_the_deploy(
-    tmp_path: Path, store: WASMStore, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A history table on fire is a warning, not a failed deploy."""
 
@@ -412,7 +414,7 @@ def test_a_store_failure_does_not_abort_the_deploy(
 
 
 def test_a_failing_finish_does_not_abort_the_deploy(
-    tmp_path: Path, store: WASMStore, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The deploy already happened; a finish that cannot be written stays a warning."""
 
@@ -429,7 +431,7 @@ def test_a_failing_finish_does_not_abort_the_deploy(
     assert record.status == DeploymentStatus.RUNNING.value, "the row simply never closed"
 
 
-def test_a_rehearsal_records_nothing(tmp_path: Path, store: WASMStore) -> None:
+def test_a_rehearsal_records_nothing(tmp_path: Path, store: NoustStore) -> None:
     """A dry run that left history rows behind would have changed the machine."""
     recorder = DeploymentRecorder(
         store,
@@ -454,7 +456,7 @@ def test_a_rehearsal_records_nothing(tmp_path: Path, store: WASMStore) -> None:
 
 
 def test_rollback_is_recorded_and_marks_the_reverted_deployment(
-    tmp_path: Path, store: WASMStore, runner: FakeRunner
+    tmp_path: Path, store: NoustStore, runner: FakeRunner
 ) -> None:
     """
     A rollback is its own history row; the build it discards turns rolled_back.
@@ -520,7 +522,7 @@ def test_rollback_is_recorded_and_marks_the_reverted_deployment(
     assert reverted.duration_s == before.duration_s
 
 
-def test_a_refused_rollback_records_nothing(tmp_path: Path, store: WASMStore) -> None:
+def test_a_refused_rollback_records_nothing(tmp_path: Path, store: NoustStore) -> None:
     """No backup to roll back to means nothing ran, so nothing is recorded."""
 
     class EmptyBackups:
@@ -574,7 +576,7 @@ def test_capturing_logger_mirrors_suppressed_detail(capsys: pytest.CaptureFixtur
 # ---------------------------------------------------------------------------
 
 
-def test_annotate_deployment_fills_only_the_given_fields(store: WASMStore) -> None:
+def test_annotate_deployment_fills_only_the_given_fields(store: NoustStore) -> None:
     """Annotation adds facts without disturbing what is already recorded."""
     deployment_id = store.record_deployment_start(DOMAIN, "cli", git_branch="main")
 
@@ -590,7 +592,7 @@ def test_annotate_deployment_fills_only_the_given_fields(store: WASMStore) -> No
     assert store.annotate_deployment(999_999, log_path="/nope") is False
 
 
-def test_mark_deployment_rolled_back_preserves_timing(store: WASMStore) -> None:
+def test_mark_deployment_rolled_back_preserves_timing(store: NoustStore) -> None:
     """Reclassifying a finished deployment must not rewrite its duration."""
     deployment_id = store.record_deployment_start(DOMAIN, "cli")
     store.finish_deployment(deployment_id, DeploymentStatus.SUCCESS.value)

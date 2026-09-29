@@ -10,7 +10,7 @@
 # wp-content (plugins, themes, uploads) is moved into shared/ on the first
 # deploy, so whatever is installed through the admin survives every release.
 # WordPress can still update its own core in place, inside the active
-# release; the next `wasm update` builds a new release from the latest
+# release; the next `noust update` builds a new release from the latest
 # archive, which is at least as new, so nothing goes backwards.
 name: wordpress
 title: WordPress
@@ -18,7 +18,7 @@ description: The website and blogging platform, on PHP-FPM with a MariaDB or MyS
 homepage: https://wordpress.org
 requires:
   - PHP-FPM 7.4 or newer with the mysqli, curl, gd, mbstring, xml, zip and intl extensions
-  - MariaDB or MySQL (wasm db install mysql)
+  - MariaDB or MySQL (noust db install mysql)
 app_type: php-fpm
 source:
   archive: https://wordpress.org/latest.tar.gz
@@ -58,5 +58,5 @@ php:
     wp-config.php: wp-config.php
 notes:
   - "Open {{ url }}/wp-admin/install.php now to choose the site title and the administrator account: until then, anyone who reaches it can."
-  - "The database settings and the salts are in the application's environment (wasm env show {{ domain }}); wp-config.php reads them from there."
+  - "The database settings and the salts are in the application's environment (noust env show {{ domain }}); wp-config.php reads them from there."
   - "Plugins, themes and uploads live in shared/wp-content and survive every release."

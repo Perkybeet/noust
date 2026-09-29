@@ -8,7 +8,7 @@ The bug this closes: the endpoint used to derive ``status`` from ``active``
 alone, so a unit systemd had given up on, or was restarting every few
 seconds, read exactly like a stopped one - the console had no way to tell an
 operator "this is broken" from "this was never running". It now goes through
-:mod:`wasm.core.app_state`, the one place that decision is made, the same one
+:mod:`noust.core.app_state`, the one place that decision is made, the same one
 ``wasm list`` and ``wasm health`` use.
 
 Also covered: the fields the console needs and the API did not carry
@@ -28,11 +28,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.core.store import App, Service, WASMStore
-from wasm.core.utils import domain_to_app_name
-from wasm.web.api import apps as apps_api
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import require_elevated
+from noust.core.store import App, NoustStore, Service
+from noust.core.utils import domain_to_app_name
+from noust.web.api import apps as apps_api
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import require_elevated
 
 DOMAIN = "shop.example.com"
 OTHER_DOMAIN = "blog.example.com"
@@ -95,17 +95,17 @@ def store(tmp_path: Path):
     Yields:
         A store the endpoints under test read, sandboxed per test.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     try:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 @pytest.fixture
-def client(store: WASMStore) -> TestClient:
+def client(store: NoustStore) -> TestClient:
     """
     Returns:
         A client for the applications router, already authenticated.
@@ -119,7 +119,7 @@ def client(store: WASMStore) -> TestClient:
 
 
 def seed_app(
-    store: WASMStore, domain: str = DOMAIN, *, is_static: bool = False, port: int | None = 3000
+    store: NoustStore, domain: str = DOMAIN, *, is_static: bool = False, port: int | None = 3000
 ) -> App:
     """
     Returns:
@@ -138,7 +138,7 @@ def seed_app(
     )
 
 
-def seed_service(store: WASMStore, app: App, *, user: str = "www-data") -> Service:
+def seed_service(store: NoustStore, app: App, *, user: str = "www-data") -> Service:
     """
     Returns:
         A stored service record for ``app``.
@@ -178,7 +178,7 @@ def _install_fake_manager(
 # ---------------------------------------------------------------------------
 
 
-def test_a_running_unit_reports_running(client: TestClient, store: WASMStore, monkeypatch) -> None:
+def test_a_running_unit_reports_running(client: TestClient, store: NoustStore, monkeypatch) -> None:
     app = seed_app(store)
     seed_service(store, app)
     _install_fake_manager(monkeypatch, {"shop-example-com": _active()})
@@ -191,7 +191,7 @@ def test_a_running_unit_reports_running(client: TestClient, store: WASMStore, mo
 
 
 def test_a_failed_unit_no_longer_reads_as_stopped(
-    client: TestClient, store: WASMStore, monkeypatch
+    client: TestClient, store: NoustStore, monkeypatch
 ) -> None:
     """The bug this task closes: a unit systemd gave up on read as "stopped"."""
     app = seed_app(store)
@@ -206,7 +206,9 @@ def test_a_failed_unit_no_longer_reads_as_stopped(
     assert body["status"] == "failed"
 
 
-def test_a_crash_loop_reports_restarting(client: TestClient, store: WASMStore, monkeypatch) -> None:
+def test_a_crash_loop_reports_restarting(
+    client: TestClient, store: NoustStore, monkeypatch
+) -> None:
     app = seed_app(store)
     seed_service(store, app)
     _install_fake_manager(
@@ -224,7 +226,7 @@ def test_a_crash_loop_reports_restarting(client: TestClient, store: WASMStore, m
 
 
 def test_a_unit_up_but_unreachable_reports_no_answer(
-    client: TestClient, store: WASMStore, monkeypatch, ports
+    client: TestClient, store: NoustStore, monkeypatch, ports
 ) -> None:
     app = seed_app(store, port=59123)
     seed_service(store, app)
@@ -237,7 +239,7 @@ def test_a_unit_up_but_unreachable_reports_no_answer(
 
 
 def test_an_inactive_unit_reports_stopped(
-    client: TestClient, store: WASMStore, monkeypatch
+    client: TestClient, store: NoustStore, monkeypatch
 ) -> None:
     app = seed_app(store)
     seed_service(store, app)
@@ -249,7 +251,7 @@ def test_an_inactive_unit_reports_stopped(
 
 
 def test_a_static_site_reports_static_and_is_never_queried(
-    client: TestClient, store: WASMStore, monkeypatch
+    client: TestClient, store: NoustStore, monkeypatch
 ) -> None:
     seed_app(store, is_static=True, port=None)
     fake = _install_fake_manager(monkeypatch, {})
@@ -266,7 +268,7 @@ def test_a_static_site_reports_static_and_is_never_queried(
 
 
 def test_webhook_enabled_is_false_with_no_secret(
-    client: TestClient, store: WASMStore, monkeypatch
+    client: TestClient, store: NoustStore, monkeypatch
 ) -> None:
     seed_app(store)
     _install_fake_manager(monkeypatch, {})
@@ -277,7 +279,7 @@ def test_webhook_enabled_is_false_with_no_secret(
 
 
 def test_webhook_enabled_is_true_once_a_secret_is_set_and_never_reveals_it(
-    client: TestClient, store: WASMStore, monkeypatch
+    client: TestClient, store: NoustStore, monkeypatch
 ) -> None:
     seed_app(store)
     store.set_webhook_secret(DOMAIN, "s3cret-value")
@@ -297,7 +299,7 @@ def test_webhook_enabled_is_true_once_a_secret_is_set_and_never_reveals_it(
 
 
 def test_unit_and_run_as_come_from_the_service_record(
-    client: TestClient, store: WASMStore, monkeypatch
+    client: TestClient, store: NoustStore, monkeypatch
 ) -> None:
     app = seed_app(store)
     seed_service(store, app, user="shop-runtime")
@@ -310,7 +312,7 @@ def test_unit_and_run_as_come_from_the_service_record(
 
 
 def test_unit_and_run_as_are_none_for_a_static_site(
-    client: TestClient, store: WASMStore, monkeypatch
+    client: TestClient, store: NoustStore, monkeypatch
 ) -> None:
     seed_app(store, is_static=True, port=None)
     _install_fake_manager(monkeypatch, {})
@@ -327,7 +329,7 @@ def test_unit_and_run_as_are_none_for_a_static_site(
 
 
 def test_last_deployment_is_none_with_no_history(
-    client: TestClient, store: WASMStore, monkeypatch
+    client: TestClient, store: NoustStore, monkeypatch
 ) -> None:
     seed_app(store)
     _install_fake_manager(monkeypatch, {})
@@ -338,7 +340,7 @@ def test_last_deployment_is_none_with_no_history(
 
 
 def test_last_deployment_is_the_newest_one_with_an_offset_on_its_timestamp(
-    client: TestClient, store: WASMStore, monkeypatch
+    client: TestClient, store: NoustStore, monkeypatch
 ) -> None:
     seed_app(store)
     _install_fake_manager(monkeypatch, {})
@@ -367,7 +369,7 @@ def test_last_deployment_is_the_newest_one_with_an_offset_on_its_timestamp(
 
 
 def test_listing_several_apps_queries_systemd_once_per_app_not_more(
-    client: TestClient, store: WASMStore, monkeypatch
+    client: TestClient, store: NoustStore, monkeypatch
 ) -> None:
     a = seed_app(store, DOMAIN)
     b = seed_app(store, OTHER_DOMAIN)
@@ -388,7 +390,7 @@ def test_listing_several_apps_queries_systemd_once_per_app_not_more(
 
 
 def test_listing_several_apps_costs_one_deployment_query_not_n(
-    client: TestClient, store: WASMStore, monkeypatch
+    client: TestClient, store: NoustStore, monkeypatch
 ) -> None:
     a = seed_app(store, DOMAIN)
     b = seed_app(store, OTHER_DOMAIN)
@@ -400,13 +402,13 @@ def test_listing_several_apps_costs_one_deployment_query_not_n(
     store.finish_deployment(store.record_deployment_start(DOMAIN, "cli"), "success")
 
     calls: list[Any] = []
-    original = WASMStore.get_latest_deployments
+    original = NoustStore.get_latest_deployments
 
-    def counting(self: WASMStore, domains: Any) -> Any:
+    def counting(self: NoustStore, domains: Any) -> Any:
         calls.append(list(domains))
         return original(self, domains)
 
-    monkeypatch.setattr(WASMStore, "get_latest_deployments", counting)
+    monkeypatch.setattr(NoustStore, "get_latest_deployments", counting)
 
     body = client.get("/api/apps").json()
 
@@ -417,7 +419,7 @@ def test_listing_several_apps_costs_one_deployment_query_not_n(
 
 
 def test_listing_several_apps_costs_one_webhook_query_not_n(
-    client: TestClient, store: WASMStore, monkeypatch
+    client: TestClient, store: NoustStore, monkeypatch
 ) -> None:
     seed_app(store, DOMAIN)
     seed_app(store, OTHER_DOMAIN)
@@ -425,13 +427,13 @@ def test_listing_several_apps_costs_one_webhook_query_not_n(
     _install_fake_manager(monkeypatch, {})
 
     calls: list[Any] = []
-    original = WASMStore.list_webhook_flags
+    original = NoustStore.list_webhook_flags
 
-    def counting(self: WASMStore, domains: Any = None) -> Any:
+    def counting(self: NoustStore, domains: Any = None) -> Any:
         calls.append(domains)
         return original(self, domains)
 
-    monkeypatch.setattr(WASMStore, "list_webhook_flags", counting)
+    monkeypatch.setattr(NoustStore, "list_webhook_flags", counting)
 
     body = client.get("/api/apps").json()
 
@@ -453,7 +455,7 @@ def test_a_missing_app_is_404(client: TestClient) -> None:
 
 
 def test_the_list_carries_source_branch_and_keep_releases_for_free(
-    client: TestClient, store: WASMStore, monkeypatch
+    client: TestClient, store: NoustStore, monkeypatch
 ) -> None:
     """These come straight off the stored row: no extra query, no N+1."""
     seed_app(store)
@@ -468,7 +470,7 @@ def test_the_list_carries_source_branch_and_keep_releases_for_free(
 
 
 def test_the_list_reports_the_deployed_start_command_from_the_service_row(
-    client: TestClient, store: WASMStore, monkeypatch
+    client: TestClient, store: NoustStore, monkeypatch
 ) -> None:
     """start_command is what the deploy recorded on the unit, not recomputed."""
     app = seed_app(store)
@@ -481,7 +483,7 @@ def test_the_list_reports_the_deployed_start_command_from_the_service_row(
 
 
 def test_a_static_app_has_no_start_command(
-    client: TestClient, store: WASMStore, monkeypatch
+    client: TestClient, store: NoustStore, monkeypatch
 ) -> None:
     seed_app(store, is_static=True, port=None)
     _install_fake_manager(monkeypatch, {})
@@ -492,7 +494,7 @@ def test_a_static_app_has_no_start_command(
 
 
 def test_the_list_never_computes_a_build_command_per_app(
-    client: TestClient, store: WASMStore, monkeypatch
+    client: TestClient, store: NoustStore, monkeypatch
 ) -> None:
     """Listing is cheap: build_command is always empty here, never instantiates a deployer."""
     seed_app(store, DOMAIN)
@@ -512,7 +514,7 @@ def test_the_list_never_computes_a_build_command_per_app(
 
 
 def test_the_detail_endpoint_computes_the_build_command(
-    client: TestClient, store: WASMStore, monkeypatch
+    client: TestClient, store: NoustStore, monkeypatch
 ) -> None:
     """Fetching one application may afford what the list must not."""
     seed_app(store)
@@ -552,7 +554,7 @@ def test_an_unreachable_source_answers_400_not_500(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A repository WASM cannot fetch is a validation problem, not a server fault."""
-    from wasm.core.exceptions import SourceError
+    from noust.core.exceptions import SourceError
 
     def broken(source: str, *, branch: str | None = None, **_: Any) -> Any:
         raise SourceError(
@@ -581,7 +583,7 @@ def test_a_source_matching_no_app_type_answers_400_not_500(
     anything - so the endpoint must translate it into the same 400 contract
     as any other bad input, with the manager's own details kept as the hint.
     """
-    from wasm.core.exceptions import DeploymentError
+    from noust.core.exceptions import DeploymentError
 
     def unmatched(source: str, *, branch: str | None = None, **_: Any) -> Any:
         raise DeploymentError(
@@ -606,7 +608,7 @@ def test_a_source_matching_no_app_type_answers_400_not_500(
 
 
 def _inspection(**overrides: Any) -> Any:
-    from wasm.deployers.inspect import SourceInspection
+    from noust.deployers.inspect import SourceInspection
 
     fields: dict[str, Any] = {
         "app_type": "python",
@@ -681,7 +683,7 @@ def test_a_client_that_leaves_cancels_the_work_and_waits_for_its_cleanup() -> No
     import threading
     import time
 
-    from wasm.core.runner import CommandCancelled
+    from noust.core.runner import CommandCancelled
 
     cancel = threading.Event()
     cleaned = threading.Event()
@@ -724,7 +726,7 @@ def test_the_endpoint_answers_499_once_the_cancelled_inspection_stopped(
     """Nobody reads it; the access log says the client closed the request."""
     import asyncio
 
-    from wasm.core.runner import CommandCancelled
+    from noust.core.runner import CommandCancelled
 
     def inspected(
         source: str,
@@ -750,7 +752,7 @@ def test_the_inspection_carries_another_platform_s_proposal(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A repository with a railway.toml: the wizard gets what it proposes, warnings included."""
-    from wasm.deployers.importers.base import Proposal
+    from noust.deployers.importers.base import Proposal
 
     proposal = Proposal(
         platform="railway",

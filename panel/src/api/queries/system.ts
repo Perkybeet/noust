@@ -45,7 +45,7 @@ export const versionQuery = () =>
     staleTime: 60 * 60_000,
   });
 
-/** The same verdict and checks `wasm health` prints, as the Server page's health card. */
+/** The same verdict and checks `noust health` prints, as the Server page's health card. */
 export const systemHealthQuery = () =>
   queryOptions({
     queryKey: systemKeys.health,

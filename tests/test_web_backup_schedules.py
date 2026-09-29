@@ -23,10 +23,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.core.runner import FakeRunner
-from wasm.managers.backup_scheduler import BackupScheduler
-from wasm.web.auth import CSRF_HEADER_NAME, SecurityConfig
-from wasm.web.server import create_app, get_token_manager
+from noust.core.runner import FakeRunner
+from noust.managers.backup_scheduler import BackupScheduler
+from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
+from noust.web.server import create_app, get_token_manager
 
 
 @pytest.fixture
@@ -84,19 +84,19 @@ def anonymous(app: FastAPI) -> TestClient:
     return TestClient(app, client=("testclient", 50000), follow_redirects=False)
 
 
-#: What ``systemctl list-timers --no-legend`` prints for one WASM timer. The
+#: What ``systemctl list-timers --no-legend`` prints for one Noust timer. The
 #: columns are the human ones a real systemd emits; the manager must find the
 #: unit by its suffix, not by position, or the service in the ACTIVATES column
 #: is mistaken for the timer.
 LIST_TIMERS_LINE = (
     "Sat 2026-08-15 02:00:00 UTC 5h left "
     "Fri 2026-08-14 02:00:00 UTC 19h ago "
-    "wasm-backup-example-com.timer wasm-backup-example-com.service\n"
+    "noust-backup-example-com.timer noust-backup-example-com.service\n"
 )
 
 #: What ``systemctl show`` answers about that timer.
 SHOW_TIMER_OUTPUT = (
-    "Description=WASM backup timer for example.com\n"
+    "Description=Noust backup timer for example.com\n"
     "TimersCalendar={ OnCalendar=*-*-* 02:00:00 ; next_elapse=Sat 2026-08-15 02:00:00 UTC }\n"
     "LastTriggerUSec=Fri 2026-08-14 02:00:00 UTC\n"
     "NextElapseUSecRealtime=Sat 2026-08-15 02:00:00 UTC\n"
@@ -135,7 +135,7 @@ def scripted_timer(runner: FakeRunner) -> None:
         runner: The fake command runner.
     """
     runner.script(("systemctl", "list-timers"), stdout=LIST_TIMERS_LINE)
-    runner.script(("systemctl", "show", "wasm-backup-example-com.timer"), stdout=SHOW_TIMER_OUTPUT)
+    runner.script(("systemctl", "show", "noust-backup-example-com.timer"), stdout=SHOW_TIMER_OUTPUT)
 
 
 def written_units(systemd_dir: Path) -> tuple[Path, Path]:
@@ -147,8 +147,8 @@ def written_units(systemd_dir: Path) -> tuple[Path, Path]:
         The paths the timer and service units land at.
     """
     return (
-        systemd_dir / "wasm-backup-example-com.timer",
-        systemd_dir / "wasm-backup-example-com.service",
+        systemd_dir / "noust-backup-example-com.timer",
+        systemd_dir / "noust-backup-example-com.service",
     )
 
 
@@ -171,9 +171,9 @@ def test_creating_a_schedule_writes_both_units_and_enables_the_timer(
     assert "OnCalendar=*-*-* 02:00:00" in timer.read_text()
     # The timer runs the schedule the store keeps, so its retention and
     # destinations apply.
-    assert "wasm backup run-schedule example.com" in service.read_text()
+    assert "backup run-schedule example.com" in service.read_text()
     assert ("systemctl", "daemon-reload") in runner.calls
-    assert ("systemctl", "enable", "--now", "wasm-backup-example-com.timer") in runner.calls
+    assert ("systemctl", "enable", "--now", "noust-backup-example-com.timer") in runner.calls
 
 
 def test_the_created_schedule_is_echoed_back(
@@ -239,8 +239,8 @@ def test_deleting_a_schedule_stops_the_timer_and_removes_both_units(
 
     assert response.status_code == 200, response.text
     assert not timer.exists() and not service.exists()
-    assert ("systemctl", "stop", "wasm-backup-example-com.timer") in runner.calls
-    assert ("systemctl", "disable", "wasm-backup-example-com.timer") in runner.calls
+    assert ("systemctl", "stop", "noust-backup-example-com.timer") in runner.calls
+    assert ("systemctl", "disable", "noust-backup-example-com.timer") in runner.calls
     assert ("systemctl", "daemon-reload") in runner.calls
 
 
@@ -254,7 +254,7 @@ def test_deleting_a_schedule_that_does_not_exist_answers_404(
     response = client.delete("/api/backup-schedules/example.com")
 
     assert response.status_code == 404
-    assert ("systemctl", "stop", "wasm-backup-example-com.timer") not in runner.calls
+    assert ("systemctl", "stop", "noust-backup-example-com.timer") not in runner.calls
 
 
 def test_deleting_a_schedule_with_the_master_token_is_exempt(

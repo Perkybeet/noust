@@ -19,6 +19,13 @@ from pathlib import Path
 
 import pytest
 
+from noust.core.exceptions import IntegrationError, ValidationError
+from noust.core.runner import FakeRunner, SubprocessRunner
+from noust.core.secrets import SecretStore
+from noust.core.store import App, GitHubInstallationRecord, NoustStore
+from noust.integrations.github import app as github_app
+from noust.integrations.github import manifest, service
+from noust.integrations.github.client import GitHubAPIError, GitHubClient
 from tests.github.fakes import (
     APP_ID,
     FAKE_SIGNATURE_HEX,
@@ -26,13 +33,6 @@ from tests.github.fakes import (
     FakeGitHub,
     token_route,
 )
-from wasm.core.exceptions import IntegrationError, ValidationError
-from wasm.core.runner import FakeRunner, SubprocessRunner
-from wasm.core.secrets import SecretStore
-from wasm.core.store import App, GitHubInstallationRecord, WASMStore
-from wasm.integrations.github import app as github_app
-from wasm.integrations.github import manifest, service
-from wasm.integrations.github.client import GitHubAPIError, GitHubClient
 
 
 def b64decode(part: str) -> bytes:
@@ -84,7 +84,7 @@ def test_an_openssl_failure_is_an_integration_error_with_its_words(tmp_path: Pat
 
 
 def test_the_jwt_never_puts_key_material_in_argv(
-    github_configured: WASMStore, openssl: FakeRunner
+    github_configured: NoustStore, openssl: FakeRunner
 ) -> None:
     """The PEM stays in its 0600 file."""
     loaded = github_app.load_app()
@@ -133,7 +133,7 @@ def test_a_real_openssl_signature_verifies(tmp_path: Path) -> None:
 
 
 def test_installation_tokens_are_cached_until_five_minutes_before_expiry(
-    github_configured: WASMStore, openssl: FakeRunner, fake_github: FakeGitHub
+    github_configured: NoustStore, openssl: FakeRunner, fake_github: FakeGitHub
 ) -> None:
     """One exchange serves every call until the refresh margin; then a new one."""
     token_route(fake_github, "ghs_first", "2030-01-01T01:00:00Z")
@@ -160,7 +160,7 @@ def test_installation_tokens_are_cached_until_five_minutes_before_expiry(
 
 
 def test_forgetting_tokens_forces_a_new_exchange(
-    github_configured: WASMStore, openssl: FakeRunner, fake_github: FakeGitHub
+    github_configured: NoustStore, openssl: FakeRunner, fake_github: FakeGitHub
 ) -> None:
     """A removed installation's token is not served from the cache."""
     token_route(fake_github)
@@ -210,7 +210,7 @@ def test_paginate_reads_every_page(fake_github: FakeGitHub) -> None:
 # -- Installation resolution and git credentials ------------------------------
 
 
-def test_the_installation_is_the_apps_own_then_the_owners(github_configured: WASMStore) -> None:
+def test_the_installation_is_the_apps_own_then_the_owners(github_configured: NoustStore) -> None:
     """An application's link wins; otherwise the owner's account decides."""
     assert github_app.installation_for("you/app") == INSTALLATION_ID
     assert github_app.installation_for("YOU/other") == INSTALLATION_ID
@@ -225,7 +225,7 @@ def test_the_installation_is_the_apps_own_then_the_owners(github_configured: WAS
 
 
 def test_git_auth_environment_carries_the_token_as_an_extra_header(
-    github_configured: WASMStore, openssl: FakeRunner, fake_github: FakeGitHub
+    github_configured: NoustStore, openssl: FakeRunner, fake_github: FakeGitHub
 ) -> None:
     """GIT_CONFIG_* scoped to github.com, basic x-access-token."""
     token_route(fake_github, "ghs_tok")
@@ -238,14 +238,14 @@ def test_git_auth_environment_carries_the_token_as_an_extra_header(
     }
 
 
-def test_no_credential_for_other_hosts_or_uncovered_owners(github_configured: WASMStore) -> None:
+def test_no_credential_for_other_hosts_or_uncovered_owners(github_configured: NoustStore) -> None:
     """Nothing is asked of GitHub when no installation covers the repository."""
     assert github_app.git_auth_environment("https://gitlab.com/you/app.git") == {}
     assert github_app.git_auth_environment("git@github.com:you/app.git") == {}
     assert github_app.git_auth_environment("https://github.com/stranger/app.git") == {}
 
 
-def test_no_credential_without_an_app(store: WASMStore) -> None:
+def test_no_credential_without_an_app(store: NoustStore) -> None:
     """A server with no App adds nothing to git's environment."""
     assert github_app.git_auth_environment("https://github.com/you/app.git") == {}
 
@@ -259,7 +259,7 @@ def test_the_app_name_is_sanitised_and_short() -> None:
     assert len(manifest.app_name("x" * 80)) == 34
 
 
-def test_manifest_without_a_public_hooks_url_has_no_webhook(store: WASMStore) -> None:
+def test_manifest_without_a_public_hooks_url_has_no_webhook(store: NoustStore) -> None:
     """Permissions and events as specified; the callback on the console's origin."""
     started = manifest.start("http://localhost:8080", hooks_url=None)
     body = started.manifest
@@ -277,7 +277,7 @@ def test_manifest_without_a_public_hooks_url_has_no_webhook(store: WASMStore) ->
     assert started.post_url == f"https://github.com/settings/apps/new?state={started.state}"
 
 
-def test_manifest_for_an_organisation_with_hooks(store: WASMStore) -> None:
+def test_manifest_for_an_organisation_with_hooks(store: NoustStore) -> None:
     """The organisation's creation page; the webhook active at the public URL."""
     started = manifest.start(
         "https://console.example.com/",
@@ -295,14 +295,14 @@ def test_manifest_for_an_organisation_with_hooks(store: WASMStore) -> None:
 @pytest.mark.parametrize(
     "origin", ["ftp://x", "http://x/path", "javascript:alert(1)", "http://u:p@x"]
 )
-def test_a_bad_origin_is_refused(store: WASMStore, origin: str) -> None:
+def test_a_bad_origin_is_refused(store: NoustStore, origin: str) -> None:
     """The origin becomes a redirect target: only a bare http(s) origin passes."""
     with pytest.raises(ValidationError):
         manifest.start(origin, hooks_url=None)
 
 
 def test_conversion_stores_the_credentials_as_secret_files(
-    store: WASMStore, fake_github: FakeGitHub
+    store: NoustStore, fake_github: FakeGitHub
 ) -> None:
     """The PEM, webhook and client secrets go to 0600 files; the record to the store."""
     started = manifest.start(
@@ -336,7 +336,7 @@ def test_conversion_stores_the_credentials_as_secret_files(
     assert status.install_url == "https://github.com/apps/wasm-box/installations/new"
 
 
-def test_a_state_is_redeemed_once(store: WASMStore, fake_github: FakeGitHub) -> None:
+def test_a_state_is_redeemed_once(store: NoustStore, fake_github: FakeGitHub) -> None:
     """A replayed or foreign callback is refused before GitHub is asked."""
     with pytest.raises(ValidationError):
         manifest.convert("abc", "never-issued")
@@ -353,7 +353,7 @@ def test_a_state_is_redeemed_once(store: WASMStore, fake_github: FakeGitHub) -> 
 
 
 def test_add_installation_asks_github_first(
-    github_configured: WASMStore, openssl: FakeRunner, fake_github: FakeGitHub
+    github_configured: NoustStore, openssl: FakeRunner, fake_github: FakeGitHub
 ) -> None:
     """An installation id from a query string is stored only once GitHub confirms it."""
     fake_github.on(
@@ -377,7 +377,7 @@ def test_add_installation_asks_github_first(
 
 
 def test_sync_makes_the_installations_githubs(
-    github_configured: WASMStore, openssl: FakeRunner, fake_github: FakeGitHub
+    github_configured: NoustStore, openssl: FakeRunner, fake_github: FakeGitHub
 ) -> None:
     """Listed ones are saved; the ones GitHub no longer lists are forgotten."""
     fake_github.on(
@@ -390,7 +390,7 @@ def test_sync_makes_the_installations_githubs(
 
 
 def test_repositories_and_branches(
-    github_configured: WASMStore, openssl: FakeRunner, fake_github: FakeGitHub
+    github_configured: NoustStore, openssl: FakeRunner, fake_github: FakeGitHub
 ) -> None:
     """Every covered repository with its deploy source; branches with their heads."""
     token_route(fake_github)
@@ -436,7 +436,7 @@ def test_repositories_and_branches(
         service.list_branches("you", "../etc")
 
 
-def test_remove_forgets_everything_and_names_the_page(github_configured: WASMStore) -> None:
+def test_remove_forgets_everything_and_names_the_page(github_configured: NoustStore) -> None:
     """Credentials, installations and links go; GitHub's page to delete it is returned."""
     github_configured.create_app(App(domain="a.example.com", source="github:you/app"))
     github_configured.set_github_installation("a.example.com", INSTALLATION_ID)
@@ -452,7 +452,7 @@ def test_remove_forgets_everything_and_names_the_page(github_configured: WASMSto
 
 
 def test_configure_webhook_sets_url_and_secret(
-    github_configured: WASMStore, openssl: FakeRunner, fake_github: FakeGitHub
+    github_configured: NoustStore, openssl: FakeRunner, fake_github: FakeGitHub
 ) -> None:
     """The URL and this server's secret are sent; activity is still unknown."""
     fake_github.on("PATCH", "/app/hook/config", {"url": "x"})

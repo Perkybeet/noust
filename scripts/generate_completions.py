@@ -11,7 +11,7 @@ on every distribution and every architecture. One missing entry failed all
 twenty-two OBS targets at once.
 
 Committing them costs nothing, because Click's scripts contain no command
-names: each is a fixed shim that asks ``wasm`` what to complete when the
+names: each is a fixed shim that asks ``noust`` what to complete when the
 operator presses tab. They cannot drift from the command tree the way the
 2,295 hand-written lines they replaced did, and a new subcommand needs no
 regeneration at all. Only a Click upgrade can change them, which is what
@@ -29,30 +29,29 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-COMPLETIONS_DIR = ROOT / "src/wasm/completions"
+COMPLETIONS_DIR = ROOT / "src/noust/completions"
 
-#: Shell to the file name each distribution expects.
-SHELLS = {
-    "bash": "wasm.bash",
-    "zsh": "_wasm",
-    "fish": "wasm.fish",
+#: (program, completion variable) to the file each shell expects, per shell.
+#: ``noust`` is the command; ``wasm`` is the name it had until 3.0 and keeps as
+#: an alias through 3.x, so it gets the same completions under its own name.
+#: The names are fixed rather than taken from argv0: asking the CLI through
+#: `python -m noust` names the function after the module and produces a
+#: different file from the one the installed script produces, so the check
+#: would fail depending on how it was invoked.
+PROGRAMS = {
+    ("noust", "_NOUST_COMPLETE"): {"bash": "noust.bash", "zsh": "_noust", "fish": "noust.fish"},
+    ("wasm", "_WASM_COMPLETE"): {"bash": "wasm.bash", "zsh": "_wasm", "fish": "wasm.fish"},
 }
 
 
-#: The name the completion binds to. Fixed rather than taken from argv0: asking
-#: the CLI through `python -m wasm` names the function after the module and
-#: produces a different file from the one the installed `wasm` script produces,
-#: so the check would fail depending on how it was invoked.
-PROGRAM = "wasm"
-COMPLETE_VAR = "_WASM_COMPLETE"
-
-
-def render(shell: str) -> str:
+def render(shell: str, program: str, complete_var: str) -> str:
     """
     Ask Click for a shell's completion script.
 
     Args:
         shell: One of bash, zsh or fish.
+        program: The command the script completes.
+        complete_var: The variable the script sets to ask for completions.
 
     Returns:
         The script, with a trailing newline.
@@ -62,14 +61,43 @@ def render(shell: str) -> str:
     """
     from click.shell_completion import get_completion_class
 
-    from wasm.cli.app import cli
+    from noust.cli.app import cli
 
     completion_class = get_completion_class(shell)
     if completion_class is None:
         raise SystemExit(f"Click does not support {shell} completion")
 
-    source = completion_class(cli, {}, PROGRAM, COMPLETE_VAR).source()
+    source = completion_class(cli, {}, program, complete_var).source()
     return source if source.endswith("\n") else source + "\n"
+
+
+def _write(files: dict[str, str], program: str, complete_var: str, *, check: bool) -> list[str]:
+    """
+    Write (or check) one program's scripts.
+
+    Args:
+        files: Shell to file name.
+        program: The command the scripts complete.
+        complete_var: The variable they set.
+        check: Only compare, write nothing.
+
+    Returns:
+        The file names that are stale (always empty when writing).
+    """
+    stale = []
+    for shell, filename in files.items():
+        target = COMPLETIONS_DIR / filename
+        content = render(shell, program, complete_var)
+
+        if check:
+            if not target.exists() or target.read_text(encoding="utf-8") != content:
+                stale.append(filename)
+            continue
+
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+        print(f"  wrote {target.relative_to(ROOT)}")
+    return stale
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -87,18 +115,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     stale = []
-    for shell, filename in SHELLS.items():
-        target = COMPLETIONS_DIR / filename
-        content = render(shell)
-
-        if args.check:
-            if not target.exists() or target.read_text(encoding="utf-8") != content:
-                stale.append(filename)
-            continue
-
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
-        print(f"  wrote {target.relative_to(ROOT)}")
+    for (program, complete_var), files in PROGRAMS.items():
+        stale.extend(_write(files, program, complete_var, check=args.check))
 
     if args.check:
         if stale:

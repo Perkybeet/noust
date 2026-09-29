@@ -72,7 +72,7 @@ const READING: Readonly<Record<SourceKind, PlainKey>> = {
   unknown: "newApp.source.reading.unknown",
 };
 
-/** Codes of a source that was fetched and read, but is not something WASM deploys as it is. */
+/** Codes of a source that was fetched and read, but is not something Noust deploys as it is. */
 const VERDICT_ERRORS: ReadonlySet<string> = new Set(["validationerror", "deploymenterror"]);
 
 /**
@@ -192,7 +192,7 @@ const INTRO: Readonly<Record<SourceMode, PlainKey>> = {
 };
 
 /**
- * Step one: where the code is. WASM fetches it into a throwaway checkout and reads it, so the
+ * Step one: where the code is. Noust fetches it into a throwaway checkout and reads it, so the
  * next step proposes real commands, a real port and the variables the project declares.
  */
 export function SourceStep({
@@ -353,7 +353,7 @@ export function SourceStep({
             <InspectFailure failure={failure} source={shown} onManual={onManual} />
           ) : null}
 
-          <CommandHint command={`wasm create --domain example.com --source ${shown === "" ? "https://github.com/you/app.git" : shown}`} label={t("newApp.source.terminal")} />
+          <CommandHint command={`noust create --domain example.com --source ${shown === "" ? "https://github.com/you/app.git" : shown}`} label={t("newApp.source.terminal")} />
         </form>
       )}
     </div>

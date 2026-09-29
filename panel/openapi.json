@@ -320,7 +320,7 @@
         "type": "object"
       },
       "AppEnvResponse": {
-        "description": "An application's environment, as recorded in its ``.env`` file.\n\nAttributes:\n    domain: Domain of the application.\n    variables: Name to value mapping. Unless ``unmasked`` is true, a\n        secret-looking name and a URL credential embedded in a value are\n        both replaced by the fixed :data:`~wasm.core.config.REDACTED`\n        placeholder, exactly as ``wasm env show`` does on the terminal.\n    unmasked: Whether this response carries values in clear.\n    secrets: Every variable's classification, from\n        :func:`~wasm.core.secret_detection.classify` - present whether or\n        not ``unmasked`` is true, so the console can label a variable\n        (and let the operator override it) without asking to see its\n        value. For a credential below admin scope, a value-based\n        verdict's ``reason`` never names the vendor it matched (see\n        :class:`EnvSecrecyOut`).",
+        "description": "An application's environment, as recorded in its ``.env`` file.\n\nAttributes:\n    domain: Domain of the application.\n    variables: Name to value mapping. Unless ``unmasked`` is true, a\n        secret-looking name and a URL credential embedded in a value are\n        both replaced by the fixed :data:`~noust.core.config.REDACTED`\n        placeholder, exactly as ``noust env show`` does on the terminal.\n    unmasked: Whether this response carries values in clear.\n    secrets: Every variable's classification, from\n        :func:`~noust.core.secret_detection.classify` - present whether or\n        not ``unmasked`` is true, so the console can label a variable\n        (and let the operator override it) without asking to see its\n        value. For a credential below admin scope, a value-based\n        verdict's ``reason`` never names the vendor it matched (see\n        :class:`EnvSecrecyOut`).",
         "properties": {
           "domain": {
             "title": "Domain",
@@ -395,7 +395,7 @@
         "type": "object"
       },
       "AppExportDocument": {
-        "description": "An application's definition, as ``wasm app export`` writes it.",
+        "description": "An application's definition, as ``noust app export`` writes it.",
         "properties": {
           "app": {
             "$ref": "#/components/schemas/ExportApp"
@@ -501,7 +501,7 @@
         "type": "object"
       },
       "AppInfo": {
-        "description": "A deployed application and the live state of its service.\n\nAttributes:\n    name: Application name, which is its domain.\n    domain: Domain the application is served on.\n    status: What is true about it right now, resolved by\n        :func:`wasm.core.app_state.resolve_state` - the one place the CLI\n        and the panel agree on this: ``running``, ``restarting`` (systemd\n        is crash-looping the unit), ``no_answer`` (the unit is up but\n        nothing accepts connections on its port), ``stopped``, ``failed``\n        (systemd gave up on it), ``static`` (served directly by the web\n        server, there is no unit) or ``unknown`` (systemd could not be\n        asked).\n    active: Whether the unit is active.\n    enabled: Whether the unit starts on boot.\n    pid: Main PID when running.\n    uptime: How long the unit has been up.\n    port: Upstream port.\n    app_type: Deployer that owns it.\n    path: Application directory.\n    source: Git URL or local path it was deployed from.\n    branch: Git branch it tracks, or None for a source that has none.\n    layout: ``inplace`` or ``releases``.\n    keep_releases: Release directories kept before older ones are pruned.\n        Meaningful only on ``releases``; the in-place default otherwise.\n    build_command: Argv the deployer runs to build the project, read off\n        the same ``get_build_command()`` the deploy used. Empty in a\n        list response - computing it means instantiating the deployer\n        once per application, which this endpoint does not do for a\n        list - and filled in when this application is fetched on its own.\n    start_command: What its unit runs, exactly as the deploy recorded it\n        on the service row. None for a static site, which has no unit.\n    memory_max_mb: Memory limit of its unit, in MB, or None.\n    cpu_quota_percent: CPU quota of its unit, in percent of one CPU, or None.\n    tasks_max: Task limit of its unit, or None.\n    health_path: Path the health gate probes, or None for ``/``.\n    health_expect: Statuses the health gate accepts, such as\n        ``200-399``, or None for any status below 500.\n    health_timeout: Seconds the health gate waits, or None for its\n        default of 30.\n    webhook_enabled: Whether a webhook secret is set for it. The secret\n        itself is never part of this or any other response; it is set\n        through ``POST /api/apps/{domain}/webhook-secret`` and cleared\n        through the ``DELETE`` of the same path.\n    unit: The systemd unit that runs it, or None for a static site.\n    run_as: The account its unit runs as, or None for a static site.\n    last_deployment: Its most recent deployment attempt, or None when\n        nothing has ever been recorded for it.\n    zero_downtime: Whether it runs as two instances behind an nginx\n        upstream (blue/green); details at ``/zero-downtime``.\n    preview_parent: The application it previews a pull request of, or\n        None when it is not a preview.",
+        "description": "A deployed application and the live state of its service.\n\nAttributes:\n    name: Application name, which is its domain.\n    domain: Domain the application is served on.\n    status: What is true about it right now, resolved by\n        :func:`noust.core.app_state.resolve_state` - the one place the CLI\n        and the panel agree on this: ``running``, ``restarting`` (systemd\n        is crash-looping the unit), ``no_answer`` (the unit is up but\n        nothing accepts connections on its port), ``stopped``, ``failed``\n        (systemd gave up on it), ``static`` (served directly by the web\n        server, there is no unit) or ``unknown`` (systemd could not be\n        asked).\n    active: Whether the unit is active.\n    enabled: Whether the unit starts on boot.\n    pid: Main PID when running.\n    uptime: How long the unit has been up.\n    port: Upstream port.\n    app_type: Deployer that owns it.\n    path: Application directory.\n    source: Git URL or local path it was deployed from.\n    branch: Git branch it tracks, or None for a source that has none.\n    layout: ``inplace`` or ``releases``.\n    keep_releases: Release directories kept before older ones are pruned.\n        Meaningful only on ``releases``; the in-place default otherwise.\n    build_command: Argv the deployer runs to build the project, read off\n        the same ``get_build_command()`` the deploy used. Empty in a\n        list response - computing it means instantiating the deployer\n        once per application, which this endpoint does not do for a\n        list - and filled in when this application is fetched on its own.\n    start_command: What its unit runs, exactly as the deploy recorded it\n        on the service row. None for a static site, which has no unit.\n    memory_max_mb: Memory limit of its unit, in MB, or None.\n    cpu_quota_percent: CPU quota of its unit, in percent of one CPU, or None.\n    tasks_max: Task limit of its unit, or None.\n    health_path: Path the health gate probes, or None for ``/``.\n    health_expect: Statuses the health gate accepts, such as\n        ``200-399``, or None for any status below 500.\n    health_timeout: Seconds the health gate waits, or None for its\n        default of 30.\n    webhook_enabled: Whether a webhook secret is set for it. The secret\n        itself is never part of this or any other response; it is set\n        through ``POST /api/apps/{domain}/webhook-secret`` and cleared\n        through the ``DELETE`` of the same path.\n    unit: The systemd unit that runs it, or None for a static site.\n    run_as: The account its unit runs as, or None for a static site.\n    last_deployment: Its most recent deployment attempt, or None when\n        nothing has ever been recorded for it.\n    zero_downtime: Whether it runs as two instances behind an nginx\n        upstream (blue/green); details at ``/zero-downtime``.\n    preview_parent: The application it previews a pull request of, or\n        None when it is not a preview.",
         "properties": {
           "active": {
             "title": "Active",
@@ -829,7 +829,7 @@
         "type": "object"
       },
       "AppTypesResponse": {
-        "description": "Every application type WASM can deploy.",
+        "description": "Every application type Noust can deploy.",
         "properties": {
           "types": {
             "items": {
@@ -1030,7 +1030,7 @@
         "type": "object"
       },
       "BackendInfo": {
-        "description": "One backend WASM can build a destination for.",
+        "description": "One backend Noust can build a destination for.",
         "properties": {
           "backend": {
             "title": "Backend",
@@ -1102,7 +1102,7 @@
         "description": "Backup configuration.",
         "properties": {
           "directory": {
-            "default": "/var/backups/wasm",
+            "default": "/var/backups/noust",
             "description": "Backup storage directory: an absolute path, or empty for the default",
             "title": "Directory",
             "type": "string"
@@ -1416,7 +1416,7 @@
         "type": "object"
       },
       "BackupStorageResponse": {
-        "description": "Response describing how much disk the backups take.\n\nAttributes:\n    domains: The applications holding backups in ``path``; directories\n        with no WASM backup in them are not listed.\n    misplaced: Backups found elsewhere - in the old default directory, or\n        where an empty ``backup.directory`` sent them - each with the\n        ``wasm backup import`` command that moves them into ``path``.\n    filesystem_total: Size in bytes of the filesystem ``path`` is on, or\n        None when it could not be read.\n    filesystem_free: Bytes free on that filesystem, or None when it\n        could not be read.",
+        "description": "Response describing how much disk the backups take.\n\nAttributes:\n    domains: The applications holding backups in ``path``; directories\n        with no Noust backup in them are not listed.\n    misplaced: Backups found elsewhere - in the old default directory, or\n        where an empty ``backup.directory`` sent them - each with the\n        ``noust backup import`` command that moves them into ``path``.\n    filesystem_total: Size in bytes of the filesystem ``path`` is on, or\n        None when it could not be read.\n    filesystem_free: Bytes free on that filesystem, or None when it\n        could not be read.",
         "properties": {
           "backup_count": {
             "title": "Backup Count",
@@ -2238,7 +2238,7 @@
         "type": "object"
       },
       "CreateCertRequest": {
-        "description": "Request to obtain a certificate.\n\nAttributes:\n    email: Registration and expiry-notice address.\n    domains: Extra domains (SANs) to cover, beyond the primary domain in\n        the path and the ``www`` alias ``include_www`` may add.\n    method: How to prove control of the domain. One of \"nginx\", \"apache\",\n        \"webroot\" or \"standalone\". Omitted lets WASM pick.\n    webroot: Webroot path, used when ``method`` is \"webroot\".\n    include_www: Also cover the ``www`` subdomain.\n    expand: Expand an existing certificate even when it already covers\n        every requested domain.",
+        "description": "Request to obtain a certificate.\n\nAttributes:\n    email: Registration and expiry-notice address.\n    domains: Extra domains (SANs) to cover, beyond the primary domain in\n        the path and the ``www`` alias ``include_www`` may add.\n    method: How to prove control of the domain. One of \"nginx\", \"apache\",\n        \"webroot\" or \"standalone\". Omitted lets Noust pick.\n    webroot: Webroot path, used when ``method`` is \"webroot\".\n    include_www: Also cover the ``www`` subdomain.\n    expand: Expand an existing certificate even when it already covers\n        every requested domain.",
         "properties": {
           "domains": {
             "items": {
@@ -2684,7 +2684,7 @@
         "type": "object"
       },
       "CreateUserResponse": {
-        "description": "Response after creating a user.\n\nThe password is returned exactly once, at creation: WASM stores only what\nthe engine stores, which is a hash, so there is nowhere to read it from\nlater. It is deliberately absent from every other response.",
+        "description": "Response after creating a user.\n\nThe password is returned exactly once, at creation: Noust stores only what\nthe engine stores, which is a hash, so there is nowhere to read it from\nlater. It is deliberately absent from every other response.",
         "properties": {
           "message": {
             "title": "Message",
@@ -2737,7 +2737,7 @@
         "type": "object"
       },
       "CronJobInfo": {
-        "description": "One cron job as systemd reports it.\n\nAttributes:\n    name: Job name the ``wasm-cron-{name}`` unit names are built from.\n    command: The command as the operator typed it (what the unit runs, before systemd escaping).\n    user: Unix user the command runs as.\n    working_directory: Directory the command runs in, empty when unset.\n    app_domain: Domain of the associated application, empty when none.\n    schedule: The schedule in words: an alias such as ``daily`` when the\n        expression matches one, ``custom`` otherwise.\n    on_calendar: The systemd ``OnCalendar`` expression, verbatim.\n    enabled: Whether the timer is enabled.\n    next_run: When the timer fires next, as systemd prints it, or\n        ``pending`` when it cannot say.\n    last_run: When the timer last fired, or ``never``.\n    last_exit_code: Exit code of the last run, or None when the job never\n        ran.\n    last_result: Systemd's ``Result`` for the last run, or ``never ran``.",
+        "description": "One cron job as systemd reports it.\n\nAttributes:\n    name: Job name the ``noust-cron-{name}`` unit names are built from.\n    command: The command as the operator typed it (what the unit runs, before systemd escaping).\n    user: Unix user the command runs as.\n    working_directory: Directory the command runs in, empty when unset.\n    app_domain: Domain of the associated application, empty when none.\n    schedule: The schedule in words: an alias such as ``daily`` when the\n        expression matches one, ``custom`` otherwise.\n    on_calendar: The systemd ``OnCalendar`` expression, verbatim.\n    enabled: Whether the timer is enabled.\n    next_run: When the timer fires next, as systemd prints it, or\n        ``pending`` when it cannot say.\n    last_run: When the timer last fired, or ``never``.\n    last_exit_code: Exit code of the last run, or None when the job never\n        ran.\n    last_result: Systemd's ``Result`` for the last run, or ``never ran``.",
         "properties": {
           "app_domain": {
             "title": "App Domain",
@@ -3408,7 +3408,7 @@
         "type": "object"
       },
       "DiagnoseCheck": {
-        "description": "One diagnostic probe's result.\n\nMirrors :class:`wasm.managers.diagnose.Check` field for field: this module\nonly translates it to HTTP, it does not reinterpret it.\n\nAttributes:\n    name: Stable identifier for the probe, such as ``\"unit\"`` or ``\"port\"``.\n    status: ``\"ok\"``, ``\"warn\"``, ``\"fail\"`` or ``\"skip\"``.\n    summary: One line, in WASM's own words.\n    evidence: Raw output the probe collected, verbatim.",
+        "description": "One diagnostic probe's result.\n\nMirrors :class:`noust.managers.diagnose.Check` field for field: this module\nonly translates it to HTTP, it does not reinterpret it.\n\nAttributes:\n    name: Stable identifier for the probe, such as ``\"unit\"`` or ``\"port\"``.\n    status: ``\"ok\"``, ``\"warn\"``, ``\"fail\"`` or ``\"skip\"``.\n    summary: One line, in Noust's own words.\n    evidence: Raw output the probe collected, verbatim.",
         "properties": {
           "evidence": {
             "default": "",
@@ -3437,7 +3437,7 @@
         "type": "object"
       },
       "DiagnoseResponse": {
-        "description": "The full answer to \"why is this app down\".\n\nMirrors :class:`wasm.managers.diagnose.Diagnosis`, which is also what\n``wasm diagnose --json`` prints - the console and the CLI read the same\nshape.\n\nAttributes:\n    domain: The domain that was diagnosed.\n    verdict: ``\"healthy\"``, ``\"degraded\"`` or ``\"down\"``.\n    probable_cause: One sentence naming the most likely explanation, or\n        ``None`` when the checks disagree with each other or are all clean.\n    checks: Every probe that ran, in the order it ran in.",
+        "description": "The full answer to \"why is this app down\".\n\nMirrors :class:`noust.managers.diagnose.Diagnosis`, which is also what\n``noust diagnose --json`` prints - the console and the CLI read the same\nshape.\n\nAttributes:\n    domain: The domain that was diagnosed.\n    verdict: ``\"healthy\"``, ``\"degraded\"`` or ``\"down\"``.\n    probable_cause: One sentence naming the most likely explanation, or\n        ``None`` when the checks disagree with each other or are all clean.\n    checks: Every probe that ran, in the order it ran in.",
         "properties": {
           "checks": {
             "items": {
@@ -3832,7 +3832,7 @@
         "type": "object"
       },
       "EnvSecrecyOut": {
-        "description": "Why one environment variable is, or is not, treated as a secret.\n\nAttributes:\n    secret: Whether the value must not be shown or logged in clear.\n    reason: One of ``\"marked secret\"``, ``\"marked not secret\"``,\n        ``\"name\"``, ``\"value: <kind>\"``, ``\"value\"``, ``\"url\n        credentials\"`` or ``\"plain\"`` - see\n        :class:`~wasm.core.secret_detection.Secrecy`. ``\"value: <kind>\"``\n        names the vendor a value's shape matched (``\"value: stripe\"``),\n        which is itself a fact about the value; a credential below admin\n        scope gets the generic ``\"value\"`` instead (see\n        :func:`~wasm.web.api.apps._secrets_map`).\n    marked: Whether this came from an operator's own mark rather than\n        from the variable's name or value.",
+        "description": "Why one environment variable is, or is not, treated as a secret.\n\nAttributes:\n    secret: Whether the value must not be shown or logged in clear.\n    reason: One of ``\"marked secret\"``, ``\"marked not secret\"``,\n        ``\"name\"``, ``\"value: <kind>\"``, ``\"value\"``, ``\"url\n        credentials\"`` or ``\"plain\"`` - see\n        :class:`~noust.core.secret_detection.Secrecy`. ``\"value: <kind>\"``\n        names the vendor a value's shape matched (``\"value: stripe\"``),\n        which is itself a fact about the value; a credential below admin\n        scope gets the generic ``\"value\"`` instead (see\n        :func:`~noust.web.api.apps._secrets_map`).\n    marked: Whether this came from an operator's own mark rather than\n        from the variable's name or value.",
         "properties": {
           "marked": {
             "title": "Marked",
@@ -5105,7 +5105,7 @@
         "type": "object"
       },
       "LastDeploymentOut": {
-        "description": "An application's most recent deployment attempt.\n\nAttributes:\n    id: Deployment id, the store's own primary key.\n    status: One of :class:`~wasm.core.store.DeploymentStatus`: ``queued``,\n        ``running``, ``success``, ``failed`` or ``rolled_back``.\n    finished_at: When it finished, ISO 8601 with an explicit UTC offset;\n        None while it is still running.\n    git_commit: Short commit it deployed, when the source is git.",
+        "description": "An application's most recent deployment attempt.\n\nAttributes:\n    id: Deployment id, the store's own primary key.\n    status: One of :class:`~noust.core.store.DeploymentStatus`: ``queued``,\n        ``running``, ``success``, ``failed`` or ``rolled_back``.\n    finished_at: When it finished, ISO 8601 with an explicit UTC offset;\n        None while it is still running.\n    git_commit: Short commit it deployed, when the source is git.",
         "properties": {
           "finished_at": {
             "anyOf": [
@@ -5353,7 +5353,7 @@
         "type": "object"
       },
       "MachineOut": {
-        "description": "The machine snapshot the console's topbar reads, and the ``machine`` SSE\nevent carries every five seconds. One implementation,\n:func:`wasm.web.machine.read_machine`, composes it; this only describes\nits shape for the OpenAPI contract, so a REST poll and the stream can\nnever disagree about what a field means.",
+        "description": "The machine snapshot the console's topbar reads, and the ``machine`` SSE\nevent carries every five seconds. One implementation,\n:func:`noust.web.machine.read_machine`, composes it; this only describes\nits shape for the OpenAPI contract, so a REST poll and the stream can\nnever disagree about what a field means.",
         "properties": {
           "apps": {
             "$ref": "#/components/schemas/MachineApps"
@@ -5419,7 +5419,7 @@
         "type": "object"
       },
       "MachineUnits": {
-        "description": "How many WASM-managed systemd units are in each state.",
+        "description": "How many Noust-managed systemd units are in each state.",
         "properties": {
           "failed": {
             "title": "Failed",
@@ -5828,7 +5828,7 @@
         "type": "object"
       },
       "MisplacedBackupsInfo": {
-        "description": "WASM backups found outside the backup directory, and how to bring them in.",
+        "description": "Noust backups found outside the backup directory, and how to bring them in.",
         "properties": {
           "command": {
             "title": "Command",
@@ -6149,7 +6149,7 @@
         "type": "object"
       },
       "PlatformProposalResponse": {
-        "description": "What another platform's configuration says, in WASM's terms.",
+        "description": "What another platform's configuration says, in Noust's terms.",
         "properties": {
           "app_type": {
             "anyOf": [
@@ -6710,7 +6710,7 @@
         "properties": {
           "generated": {
             "default": false,
-            "description": "The platform generates it; WASM generates one in its place",
+            "description": "The platform generates it; Noust generates one in its place",
             "title": "Generated",
             "type": "boolean"
           },
@@ -6882,7 +6882,7 @@
         "type": "object"
       },
       "RecipeEnvOut": {
-        "description": "One variable a recipe sets.\n\nAttributes:\n    name: The variable.\n    generated: Whether WASM generates its value (a secret, a database\n        credential, the domain); either way ``env_vars`` overrides it.",
+        "description": "One variable a recipe sets.\n\nAttributes:\n    name: The variable.\n    generated: Whether Noust generates its value (a secret, a database\n        credential, the domain); either way ``env_vars`` overrides it.",
         "properties": {
           "generated": {
             "title": "Generated",
@@ -7444,7 +7444,7 @@
         "type": "object"
       },
       "RemovalOut": {
-        "description": "What removing the integration did.\n\nAttributes:\n    removed: Whether there was an App to forget.\n    settings_url: The App's page on GitHub, where it is uninstalled and\n        deleted; WASM cannot do that itself.",
+        "description": "What removing the integration did.\n\nAttributes:\n    removed: Whether there was an App to forget.\n    settings_url: The App's page on GitHub, where it is uninstalled and\n        deleted; Noust cannot do that itself.",
         "properties": {
           "removed": {
             "title": "Removed",
@@ -7726,7 +7726,7 @@
         "type": "object"
       },
       "SMTPConfig": {
-        "description": "SMTP settings for the monitor's email notifications and test message.\n\n``password`` is write-only: it is never sent back by ``GET /config/smtp``\n(see :class:`SMTPSettingsResponse`), so unlike a secret round-tripped\nthrough the generic ``PUT``/``PATCH /api/config`` there is no\n:data:`~wasm.core.config.REDACTED` placeholder for the console to echo\nback untouched. Instead an empty ``password`` keeps whatever is already\nstored - but only while it would still go where it went before: the same\nhost, port, username and transport. Changing any of those with a blank\npassword is refused (see :func:`_refuse_smtp_password_move`), so a\ncredential that may write this section but never saw the password cannot\npoint it at a server of its own and send itself a test email. There is no\nway to explicitly blank the password through this endpoint; ``wasm config\nset monitor.smtp.password ''`` still does that directly.",
+        "description": "SMTP settings for the monitor's email notifications and test message.\n\n``password`` is write-only: it is never sent back by ``GET /config/smtp``\n(see :class:`SMTPSettingsResponse`), so unlike a secret round-tripped\nthrough the generic ``PUT``/``PATCH /api/config`` there is no\n:data:`~noust.core.config.REDACTED` placeholder for the console to echo\nback untouched. Instead an empty ``password`` keeps whatever is already\nstored - but only while it would still go where it went before: the same\nhost, port, username and transport. Changing any of those with a blank\npassword is refused (see :func:`_refuse_smtp_password_move`), so a\ncredential that may write this section but never saw the password cannot\npoint it at a server of its own and send itself a test email. There is no\nway to explicitly blank the password through this endpoint; ``noust config\nset monitor.smtp.password ''`` still does that directly.",
         "properties": {
           "from_address": {
             "default": "",
@@ -8066,7 +8066,7 @@
         "type": "object"
       },
       "ServiceInfo": {
-        "description": "Service information.\n\nAttributes:\n    managed: Whether WASM manages this unit. False only when listing with\n        ``wasm_only=false``, which walks every unit on the host; such a\n        row carries systemd's state fields and nothing else (``enabled``\n        false, no PID, memory or uptime), read from the one listing.\n    active_state: Systemd's own ``ActiveState`` (``active``, ``failed``,\n        ``activating``, ...). Distinguishes a unit systemd is repeatedly\n        restarting from one that is cleanly stopped, which ``active``\n        alone cannot: both report ``active=false`` between attempts.\n    sub_state: Systemd's own ``SubState`` (``running``, ``dead``,\n        ``auto-restart``, ...), the finer-grained half of the same story.\n    result: Systemd's own ``Result`` for the last run (``success``,\n        ``exit-code``, ``signal``, ...).",
+        "description": "Service information.\n\nAttributes:\n    managed: Whether Noust manages this unit. False only when listing with\n        ``noust_only=false``, which walks every unit on the host; such a\n        row carries systemd's state fields and nothing else (``enabled``\n        false, no PID, memory or uptime), read from the one listing.\n    active_state: Systemd's own ``ActiveState`` (``active``, ``failed``,\n        ``activating``, ...). Distinguishes a unit systemd is repeatedly\n        restarting from one that is cleanly stopped, which ``active``\n        alone cannot: both report ``active=false`` between attempts.\n    sub_state: Systemd's own ``SubState`` (``running``, ``dead``,\n        ``auto-restart``, ...), the finer-grained half of the same story.\n    result: Systemd's own ``Result`` for the last run (``success``,\n        ``exit-code``, ``signal``, ...).",
         "properties": {
           "active": {
             "title": "Active",
@@ -8262,7 +8262,7 @@
         "type": "object"
       },
       "SessionInfo": {
-        "description": "Bootstrap information the console reads before it knows anything else.\n\nAnswered for an anonymous caller too, with ``authenticated=False``, so the\nconsole can decide between the sign-in screen and the shell from one\nrequest instead of treating a 401 as \"maybe not logged in yet\".\n\nAttributes:\n    authenticated: Whether a usable credential was presented.\n    scope: The credential's scope, or None when unauthenticated.\n    expires_at: Session expiry, ISO 8601, or None.\n    elevated_until: End of the sudo-mode confirmation window, ISO 8601,\n        or None when the session is not currently elevated.\n    totp_enabled: Whether logins require a second factor.\n    hostname: This machine's hostname, so an operator with several panels\n        open can tell them apart.\n    version: The installed WASM version.\n    csrf_header: Header name a mutation must echo the CSRF cookie in.\n    csrf_cookie: Name of the readable CSRF cookie.",
+        "description": "Bootstrap information the console reads before it knows anything else.\n\nAnswered for an anonymous caller too, with ``authenticated=False``, so the\nconsole can decide between the sign-in screen and the shell from one\nrequest instead of treating a 401 as \"maybe not logged in yet\".\n\nAttributes:\n    authenticated: Whether a usable credential was presented.\n    scope: The credential's scope, or None when unauthenticated.\n    expires_at: Session expiry, ISO 8601, or None.\n    elevated_until: End of the sudo-mode confirmation window, ISO 8601,\n        or None when the session is not currently elevated.\n    totp_enabled: Whether logins require a second factor.\n    hostname: This machine's hostname, so an operator with several panels\n        open can tell them apart.\n    version: The installed Noust version.\n    csrf_header: Header name a mutation must echo the CSRF cookie in.\n    csrf_cookie: Name of the readable CSRF cookie.\n    renamed_from_wasm: Whether this server ran WASM before Noust, so the\n        console tells the operator once that the product was renamed.",
         "properties": {
           "authenticated": {
             "title": "Authenticated",
@@ -8303,6 +8303,11 @@
           "hostname": {
             "title": "Hostname",
             "type": "string"
+          },
+          "renamed_from_wasm": {
+            "default": false,
+            "title": "Renamed From Wasm",
+            "type": "boolean"
           },
           "scope": {
             "anyOf": [
@@ -8550,7 +8555,7 @@
         "type": "object"
       },
       "SourceInspectionResponse": {
-        "description": "What a repository is, discovered before anything is deployed from it.\n\nAttributes:\n    app_type: The application type the new-app wizard would deploy as;\n        the first entry of ``detected_types``.\n    detected_types: Every registered application type that recognised\n        the repository, most specific first (registry priority order).\n    package_manager: The Node package manager the repository's lock file\n        implies, or None when it is not a Node project.\n    install_command: Argv the chosen deployer would run to install\n        dependencies. Empty when the type has none.\n    build_command: Argv the chosen deployer would run to build the\n        project. Empty when there is nothing to build.\n    start_command: Shell command the chosen deployer would run as the\n        service's ``ExecStart``. Empty for a static site.\n    default_port: Port the chosen deployer uses when none is requested.\n    env_keys: Environment variables discovered from ``.env.example``.\n    branch: The branch inspected, or the checkout's current branch when\n        none was requested.\n    commit: Short commit hash of the checkout, empty when the source is\n        not a Git repository.\n    compatible: Whether this server can deploy it as ``app_type`` as it\n        is: false when a program the type needs is missing.\n    verdict: What WASM found, in a sentence.\n    suggestion: What to do before deploying, when there is something.",
+        "description": "What a repository is, discovered before anything is deployed from it.\n\nAttributes:\n    app_type: The application type the new-app wizard would deploy as;\n        the first entry of ``detected_types``.\n    detected_types: Every registered application type that recognised\n        the repository, most specific first (registry priority order).\n    package_manager: The Node package manager the repository's lock file\n        implies, or None when it is not a Node project.\n    install_command: Argv the chosen deployer would run to install\n        dependencies. Empty when the type has none.\n    build_command: Argv the chosen deployer would run to build the\n        project. Empty when there is nothing to build.\n    start_command: Shell command the chosen deployer would run as the\n        service's ``ExecStart``. Empty for a static site.\n    default_port: Port the chosen deployer uses when none is requested.\n    env_keys: Environment variables discovered from ``.env.example``.\n    branch: The branch inspected, or the checkout's current branch when\n        none was requested.\n    commit: Short commit hash of the checkout, empty when the source is\n        not a Git repository.\n    compatible: Whether this server can deploy it as ``app_type`` as it\n        is: false when a program the type needs is missing.\n    verdict: What Noust found, in a sentence.\n    suggestion: What to do before deploying, when there is something.",
         "properties": {
           "app_type": {
             "title": "App Type",
@@ -8655,7 +8660,7 @@
                 "type": "null"
               }
             ],
-            "description": "What WASM found, in a sentence",
+            "description": "What Noust found, in a sentence",
             "title": "Verdict"
           }
         },
@@ -8694,7 +8699,7 @@
         "type": "object"
       },
       "SystemHealthOut": {
-        "description": "The same verdict and checks ``wasm health`` prints, as JSON.\n\n:func:`wasm.managers.health.collect_health_report` is the one\nimplementation this and the CLI command both read; this model only\ndescribes its shape for the OpenAPI contract.",
+        "description": "The same verdict and checks ``noust health`` prints, as JSON.\n\n:func:`noust.managers.health.collect_health_report` is the one\nimplementation this and the CLI command both read; this model only\ndescribes its shape for the OpenAPI contract.",
         "properties": {
           "checks": {
             "items": {
@@ -8818,7 +8823,7 @@
         "type": "object"
       },
       "TelegramChatsResult": {
-        "description": "Every chat :meth:`~wasm.core.notifier.Notifier.list_telegram_chats` found.",
+        "description": "Every chat :meth:`~noust.core.notifier.Notifier.list_telegram_chats` found.",
         "properties": {
           "chats": {
             "items": {
@@ -9903,7 +9908,7 @@
         "title": "ZeroDowntimeResponse",
         "type": "object"
       },
-      "wasm__web__api__backups__BackupListResponse": {
+      "noust__web__api__backups__BackupListResponse": {
         "description": "Response for listing backups.",
         "properties": {
           "backups": {
@@ -9925,7 +9930,7 @@
         "title": "BackupListResponse",
         "type": "object"
       },
-      "wasm__web__api__backups__CreateBackupRequest": {
+      "noust__web__api__backups__CreateBackupRequest": {
         "description": "Request to create a backup.",
         "properties": {
           "description": {
@@ -9998,7 +10003,7 @@
         "title": "CreateBackupRequest",
         "type": "object"
       },
-      "wasm__web__api__backups__RestoreBackupRequest": {
+      "noust__web__api__backups__RestoreBackupRequest": {
         "description": "Request to restore a backup.",
         "properties": {
           "restore_env": {
@@ -10029,7 +10034,7 @@
         "title": "RestoreBackupRequest",
         "type": "object"
       },
-      "wasm__web__api__databases__BackupListResponse": {
+      "noust__web__api__databases__BackupListResponse": {
         "description": "Response for listing database backups.",
         "properties": {
           "backups": {
@@ -10051,7 +10056,7 @@
         "title": "BackupListResponse",
         "type": "object"
       },
-      "wasm__web__api__databases__CreateBackupRequest": {
+      "noust__web__api__databases__CreateBackupRequest": {
         "description": "Request to dump a database.",
         "properties": {
           "compress": {
@@ -10078,7 +10083,7 @@
         "title": "CreateBackupRequest",
         "type": "object"
       },
-      "wasm__web__api__databases__RestoreBackupRequest": {
+      "noust__web__api__databases__RestoreBackupRequest": {
         "description": "Request to restore a database.\n\nAttributes:\n    database: Database to restore into.\n    engine: Engine that owns it.\n    backup_name: File name of the dump, which must be one of the engine's\n        own backups. A full path is not accepted: it would let the panel\n        read any file on the host as the database superuser.\n    drop_existing: Drop the database before restoring.",
         "properties": {
           "backup_name": {
@@ -10111,7 +10116,7 @@
         "title": "RestoreBackupRequest",
         "type": "object"
       },
-      "wasm__web__api__monitor__ProcessListResponse": {
+      "noust__web__api__monitor__ProcessListResponse": {
         "description": "Processes visible to the panel.\n\nAttributes:\n    total: Number of processes seen.\n    processes: The page requested.",
         "properties": {
           "processes": {
@@ -10133,7 +10138,7 @@
         "title": "ProcessListResponse",
         "type": "object"
       },
-      "wasm__web__api__system__ProcessListResponse": {
+      "noust__web__api__system__ProcessListResponse": {
         "description": "Response for the process listing.",
         "properties": {
           "processes": {
@@ -10158,15 +10163,15 @@
     }
   },
   "info": {
-    "description": "Web-based dashboard for WASM - Web App System Management",
-    "title": "WASM Web Interface",
+    "description": "Web-based dashboard for Noust - Web App System Management",
+    "title": "Noust Web Interface",
     "version": "unversioned"
   },
   "openapi": "3.1.0",
   "paths": {
     "/api/apps": {
       "get": {
-        "description": "List every deployed application.\n\nEvery application's service record, webhook flag and last deployment\ncome from one store query each, and every application's systemd status\nis read concurrently through :func:`~wasm.core.app_state.resolve_states_with_status`\n- so this endpoint costs a handful of queries and one round of systemctl\ncalls, not four times the number of applications deployed.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The applications, each with the live state of its service.",
+        "description": "List every deployed application.\n\nEvery application's service record, webhook flag and last deployment\ncome from one store query each, and every application's systemd status\nis read concurrently through :func:`~noust.core.app_state.resolve_states_with_status`\n- so this endpoint costs a handful of queries and one round of systemctl\ncalls, not four times the number of applications deployed.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The applications, each with the live state of its service.",
         "operationId": "list_apps_api_apps_get",
         "responses": {
           "200": {
@@ -10186,7 +10191,7 @@
         ]
       },
       "post": {
-        "description": "Queue the deployment of a new application.\n\nAdmin scope, through the blanket policy: the build runs as root. A local\npath as the source is further reserved to the operator in person; see\n:func:`_require_local_source_privilege`.\n\nArgs:\n    body: The deployment request.\n    request: The incoming request, for the audit record of a refusal.\n    session: The authenticated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 409 when the domain is already deployed, 503 when no\n        port is free, 403 when the source is a local path and the\n        credential may not deploy one.\n    PortError: When the requested port is not usable.\n    DomainError: When the domain is not acceptable.\n    ValidationError: A resource limit is out of range (400, with the\n        range) - the same check ``PATCH .../limits`` runs, so a limit\n        given at creation cannot be more permissive than one set later -\n        or ``package_manager`` names one WASM does not drive, or neither a\n        source nor a recipe was given.\n    RecipeError: The recipe does not exist or is not available, or a\n        source or a type was given with it (400).",
+        "description": "Queue the deployment of a new application.\n\nAdmin scope, through the blanket policy: the build runs as root. A local\npath as the source is further reserved to the operator in person; see\n:func:`_require_local_source_privilege`.\n\nArgs:\n    body: The deployment request.\n    request: The incoming request, for the audit record of a refusal.\n    session: The authenticated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 409 when the domain is already deployed, 503 when no\n        port is free, 403 when the source is a local path and the\n        credential may not deploy one.\n    PortError: When the requested port is not usable.\n    DomainError: When the domain is not acceptable.\n    ValidationError: A resource limit is out of range (400, with the\n        range) - the same check ``PATCH .../limits`` runs, so a limit\n        given at creation cannot be more permissive than one set later -\n        or ``package_manager`` names one Noust does not drive, or neither a\n        source nor a recipe was given.\n    RecipeError: The recipe does not exist or is not available, or a\n        source or a type was given with it (400).",
         "operationId": "create_app_api_apps_post",
         "requestBody": {
           "content": {
@@ -10270,7 +10275,7 @@
     },
     "/api/apps/inspect": {
       "post": {
-        "description": "Preview what a repository is before deploying it.\n\nFetches what detection needs (for git, ``ls-remote`` and a sparse,\nblobless checkout of the files the detectors read), detects the\napplication type, and reports the commands, port and environment\nvariables a deployment would use and whether this server can deploy it,\nso the new-app wizard has something real to show instead of a guess.\nNothing is written outside the scratch checkout, which is removed before\nthis returns, and no application, domain or unit is created.\n\nA client that disconnects (the wizard's Cancel aborts the fetch) cancels\nthe inspection: the git command running is killed and the checkout\nremoved at once, instead of the clone running on to its deadline.\n\nAdmin scope, like creating one: fetching runs as root and reads back what\nit fetched. A local path is reserved to the operator in person, exactly\nas it is for ``POST /api/apps``.\n\nArgs:\n    body: The source to inspect and the branch to check out.\n    request: The incoming request, for the audit record of a refusal.\n    session: The authenticated session.\n\nReturns:\n    The inspection result, or an empty 499 once a cancelled inspection\n    has stopped (nobody is there to read it).\n\nRaises:\n    HTTPException: 403 when the source is a local path and the credential\n        may not read one.\n    SourceError: The source is invalid, or fetching it failed. Answered\n        as 400: the operator gave a source WASM cannot reach, not a\n        server fault.\n    ValidationError: The checkout matches no registered application\n        type. ``inspect_source`` raises ``DeploymentError`` for this -\n        right for the CLI, where it means the whole operation failed -\n        but here it is the wizard's input that could not be classified,\n        so it is translated to the API's validation-error contract\n        (400 with details) instead of the 500 an unqualified\n        ``DeploymentError`` would answer.",
+        "description": "Preview what a repository is before deploying it.\n\nFetches what detection needs (for git, ``ls-remote`` and a sparse,\nblobless checkout of the files the detectors read), detects the\napplication type, and reports the commands, port and environment\nvariables a deployment would use and whether this server can deploy it,\nso the new-app wizard has something real to show instead of a guess.\nNothing is written outside the scratch checkout, which is removed before\nthis returns, and no application, domain or unit is created.\n\nA client that disconnects (the wizard's Cancel aborts the fetch) cancels\nthe inspection: the git command running is killed and the checkout\nremoved at once, instead of the clone running on to its deadline.\n\nAdmin scope, like creating one: fetching runs as root and reads back what\nit fetched. A local path is reserved to the operator in person, exactly\nas it is for ``POST /api/apps``.\n\nArgs:\n    body: The source to inspect and the branch to check out.\n    request: The incoming request, for the audit record of a refusal.\n    session: The authenticated session.\n\nReturns:\n    The inspection result, or an empty 499 once a cancelled inspection\n    has stopped (nobody is there to read it).\n\nRaises:\n    HTTPException: 403 when the source is a local path and the credential\n        may not read one.\n    SourceError: The source is invalid, or fetching it failed. Answered\n        as 400: the operator gave a source Noust cannot reach, not a\n        server fault.\n    ValidationError: The checkout matches no registered application\n        type. ``inspect_source`` raises ``DeploymentError`` for this -\n        right for the CLI, where it means the whole operation failed -\n        but here it is the wizard's input that could not be classified,\n        so it is translated to the API's validation-error contract\n        (400 with details) instead of the 500 an unqualified\n        ``DeploymentError`` would answer.",
         "operationId": "inspect_app_source_api_apps_inspect_post",
         "requestBody": {
           "content": {
@@ -10312,7 +10317,7 @@
     },
     "/api/apps/types": {
       "get": {
-        "description": "List the application types WASM can deploy.\n\n:func:`~wasm.deployers.registry.available_types` is the one source of\ntruth - the CLI's ``--type`` choices come from it too - so a deployer\nregistered with :meth:`~wasm.deployers.registry.DeployerRegistry.register`\nreaches the wizard the moment it exists, instead of needing a second,\nhand-kept copy of the list in the console.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Every registered type, most specific first, ``auto`` last.",
+        "description": "List the application types Noust can deploy.\n\n:func:`~noust.deployers.registry.available_types` is the one source of\ntruth - the CLI's ``--type`` choices come from it too - so a deployer\nregistered with :meth:`~noust.deployers.registry.DeployerRegistry.register`\nreaches the wizard the moment it exists, instead of needing a second,\nhand-kept copy of the list in the console.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Every registered type, most specific first, ``auto`` last.",
         "operationId": "list_app_types_api_apps_types_get",
         "responses": {
           "200": {
@@ -10490,7 +10495,7 @@
     },
     "/api/apps/{domain}/deployments/{deployment_id}/rollback": {
       "post": {
-        "description": "Queue going back to what a deployment produced.\n\nOn releases its release is activated behind the health gate. In place in\na git checkout its commit is rebuilt where the application runs, behind\nthe same gate; in place without history its snapshot backup (taken by\nthe update that followed it) is restored after a safety backup, rebuilt\nand gated, keeping the deployed ``.env``. See\n:func:`~wasm.deployers.lifecycle.rollback_to_deployment`.\n\nArgs:\n    domain: Domain of the application.\n    deployment_id: The deployment to go back to.\n    session: The authenticated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 for an unknown deployment of the application, 409\n        ``rollback_unavailable`` with the reason when it cannot be gone\n        back to.",
+        "description": "Queue going back to what a deployment produced.\n\nOn releases its release is activated behind the health gate. In place in\na git checkout its commit is rebuilt where the application runs, behind\nthe same gate; in place without history its snapshot backup (taken by\nthe update that followed it) is restored after a safety backup, rebuilt\nand gated, keeping the deployed ``.env``. See\n:func:`~noust.deployers.lifecycle.rollback_to_deployment`.\n\nArgs:\n    domain: Domain of the application.\n    deployment_id: The deployment to go back to.\n    session: The authenticated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 for an unknown deployment of the application, 409\n        ``rollback_unavailable`` with the reason when it cannot be gone\n        back to.",
         "operationId": "rollback_deployment_api_apps__domain__deployments__deployment_id__rollback_post",
         "parameters": [
           {
@@ -10542,7 +10547,7 @@
     },
     "/api/apps/{domain}/diagnose": {
       "get": {
-        "description": "Correlate everything WASM can read about a domain into one diagnosis.\n\nRuns the same probes as ``wasm diagnose <domain>``: the systemd unit, the\nport, an HTTP probe direct to the app and through the web server, its last\njournal lines, the web server's own error log, its certificate, its last\ndeployment, OOM kills and disk space - and reports the most likely cause\nfirst. Every probe only reads; nothing here changes the machine. An\nunknown domain is not a 404: the probes report it as the most likely\ncause instead, exactly as the CLI does.\n\nArgs:\n    domain: Domain to diagnose.\n    session: Authenticated session, injected.\n\nReturns:\n    Every probe's result and the verdict derived from them.",
+        "description": "Correlate everything Noust can read about a domain into one diagnosis.\n\nRuns the same probes as ``noust diagnose <domain>``: the systemd unit, the\nport, an HTTP probe direct to the app and through the web server, its last\njournal lines, the web server's own error log, its certificate, its last\ndeployment, OOM kills and disk space - and reports the most likely cause\nfirst. Every probe only reads; nothing here changes the machine. An\nunknown domain is not a 404: the probes report it as the most likely\ncause instead, exactly as the CLI does.\n\nArgs:\n    domain: Domain to diagnose.\n    session: Authenticated session, injected.\n\nReturns:\n    Every probe's result and the verdict derived from them.",
         "operationId": "diagnose_app_api_apps__domain__diagnose_get",
         "parameters": [
           {
@@ -10783,7 +10788,7 @@
     },
     "/api/apps/{domain}/env": {
       "get": {
-        "description": "Read an application's environment from its ``.env`` file.\n\nThis reads the file :mod:`wasm.deployers.helpers.app_env` writes, the\nsame one ``wasm env show`` reads on the terminal - not the snapshot the\nstore recorded at deploy time, which can drift the moment anyone edits\nthe file by hand. On the release layout that is ``shared/.env``.\n\nArgs:\n    domain: Domain of the application.\n    request: The incoming request, for the audit record.\n    session: The authenticated session.\n    unmask: When true, values are returned in clear instead of redacted.\n        Every such read is audited, naming the caller but never a value.\n\nReturns:\n    The stored variables, redacted unless unmask was asked for.\n\nRaises:\n    HTTPException: 403 when unmasking with less than an admin credential,\n        404 when the application is unknown.",
+        "description": "Read an application's environment from its ``.env`` file.\n\nThis reads the file :mod:`noust.deployers.helpers.app_env` writes, the\nsame one ``noust env show`` reads on the terminal - not the snapshot the\nstore recorded at deploy time, which can drift the moment anyone edits\nthe file by hand. On the release layout that is ``shared/.env``.\n\nArgs:\n    domain: Domain of the application.\n    request: The incoming request, for the audit record.\n    session: The authenticated session.\n    unmask: When true, values are returned in clear instead of redacted.\n        Every such read is audited, naming the caller but never a value.\n\nReturns:\n    The stored variables, redacted unless unmask was asked for.\n\nRaises:\n    HTTPException: 403 when unmasking with less than an admin credential,\n        404 when the application is unknown.",
         "operationId": "get_app_env_api_apps__domain__env_get",
         "parameters": [
           {
@@ -10834,7 +10839,7 @@
         ]
       },
       "put": {
-        "description": "Replace an application's ``.env`` file wholesale.\n\nEvery name and value is validated against what can safely reach a\nsystemd unit (:mod:`wasm.validators.environment`) before anything is\nwritten, so a rejected variable leaves the file on disk untouched. The\nwrite goes through :func:`~wasm.deployers.helpers.app_env.write_app_env`,\nthe same function ``wasm env configure`` uses, so the file lands 0600,\nowned by the service account, in ``shared/`` on the release layout - and\na mark on a name the write drops is pruned there too, not just here.\n\nThe application is not restarted: a process already running keeps the\nenvironment it started with until it is, so the caller is told a restart\nis required rather than one being queued silently underneath it.\n\nArgs:\n    domain: Domain of the application.\n    body: The complete name to value mapping to write.\n    request: The incoming request, for the audit record.\n    session: The authenticated session.\n\nReturns:\n    Confirmation that a restart is required to pick up the change.\n\nRaises:\n    HTTPException: 404 when the application is unknown, 422 when a name\n        or a value is not safe to write into a systemd unit, or when the\n        request tries to set PORT or NODE_ENV, which the unit sets inline\n        and are refused by :func:`~wasm.deployers.helpers.app_env.write_app_env`.",
+        "description": "Replace an application's ``.env`` file wholesale.\n\nEvery name and value is validated against what can safely reach a\nsystemd unit (:mod:`noust.validators.environment`) before anything is\nwritten, so a rejected variable leaves the file on disk untouched. The\nwrite goes through :func:`~noust.deployers.helpers.app_env.write_app_env`,\nthe same function ``noust env configure`` uses, so the file lands 0600,\nowned by the service account, in ``shared/`` on the release layout - and\na mark on a name the write drops is pruned there too, not just here.\n\nThe application is not restarted: a process already running keeps the\nenvironment it started with until it is, so the caller is told a restart\nis required rather than one being queued silently underneath it.\n\nArgs:\n    domain: Domain of the application.\n    body: The complete name to value mapping to write.\n    request: The incoming request, for the audit record.\n    session: The authenticated session.\n\nReturns:\n    Confirmation that a restart is required to pick up the change.\n\nRaises:\n    HTTPException: 404 when the application is unknown, 422 when a name\n        or a value is not safe to write into a systemd unit, or when the\n        request tries to set PORT or NODE_ENV, which the unit sets inline\n        and are refused by :func:`~noust.deployers.helpers.app_env.write_app_env`.",
         "operationId": "update_app_env_api_apps__domain__env_put",
         "parameters": [
           {
@@ -11207,7 +11212,7 @@
     },
     "/api/apps/{domain}/migrate/plan": {
       "get": {
-        "description": "Show what migrating an in-place application to releases would do. Changes nothing.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n    persist: Paths to keep in ``shared/``; repeat the parameter for each.\n\nReturns:\n    The plan, from :func:`wasm.deployers.migrate.plan_migration`.\n\nRaises:\n    HTTPException: 404 when the application is unknown, 409 when it is on\n        releases already.\n    ValidationError: A path in ``persist`` is not inside the application.\n    DeploymentError: Its type cannot use releases.",
+        "description": "Show what migrating an in-place application to releases would do. Changes nothing.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n    persist: Paths to keep in ``shared/``; repeat the parameter for each.\n\nReturns:\n    The plan, from :func:`noust.deployers.migrate.plan_migration`.\n\nRaises:\n    HTTPException: 404 when the application is unknown, 409 when it is on\n        releases already.\n    ValidationError: A path in ``persist`` is not inside the application.\n    DeploymentError: Its type cannot use releases.",
         "operationId": "get_migration_plan_api_apps__domain__migrate_plan_get",
         "parameters": [
           {
@@ -11353,7 +11358,7 @@
         ]
       },
       "put": {
-        "description": "Turn previews on for an application, or change their settings.\n\nInstalls ``wasm-previews.timer`` the first time any application turns\npreviews on. A preview is built as root, like every deployment, with a\ncopy of the application's environment minus ``exclude_env``; only pull\nrequests from people trusted with the repository get one (see\n:func:`wasm.managers.previews.handle_pull_request`).\n\nArgs:\n    domain: The application.\n    body: The settings.\n    request: The request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The settings as stored.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: A value is refused (400, with the reason).\n    ServiceError: The sweep timer could not be installed.",
+        "description": "Turn previews on for an application, or change their settings.\n\nInstalls ``noust-previews.timer`` the first time any application turns\npreviews on. A preview is built as root, like every deployment, with a\ncopy of the application's environment minus ``exclude_env``; only pull\nrequests from people trusted with the repository get one (see\n:func:`noust.managers.previews.handle_pull_request`).\n\nArgs:\n    domain: The application.\n    body: The settings.\n    request: The request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The settings as stored.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: A value is refused (400, with the reason).\n    ServiceError: The sweep timer could not be installed.",
         "operationId": "put_preview_settings_api_apps__domain__previews_settings_put",
         "parameters": [
           {
@@ -11458,7 +11463,7 @@
     },
     "/api/apps/{domain}/releases": {
       "get": {
-        "description": "List an application's releases, newest first.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The releases, from :func:`wasm.deployers.lifecycle.list_releases`,\n    the same listing ``wasm releases list`` prints.\n\nRaises:\n    HTTPException: 404 when the application is unknown, 409 when it is\n        deployed in place.",
+        "description": "List an application's releases, newest first.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The releases, from :func:`noust.deployers.lifecycle.list_releases`,\n    the same listing ``noust releases list`` prints.\n\nRaises:\n    HTTPException: 404 when the application is unknown, 409 when it is\n        deployed in place.",
         "operationId": "get_app_releases_api_apps__domain__releases_get",
         "parameters": [
           {
@@ -11649,7 +11654,7 @@
     },
     "/api/apps/{domain}/rollback-points": {
       "get": {
-        "description": "List the backups an application can be rolled back to.\n\nDeliberately not gated on the application still being deployed: a backup\nfor a domain WASM no longer serves is still a rollback point until it is\npruned, the same reasoning that keeps deployment history around after an\napplication is deleted (see :mod:`wasm.web.views.deployments`).\n\nArgs:\n    domain: Domain whose rollback points are asked for.\n    session: The authenticated session.\n\nReturns:\n    The points, newest first, from\n    :meth:`~wasm.managers.backup_manager.RollbackManager.list_rollback_points`\n    - the one implementation, shared with ``wasm backup rollback --list``.",
+        "description": "List the backups an application can be rolled back to.\n\nDeliberately not gated on the application still being deployed: a backup\nfor a domain Noust no longer serves is still a rollback point until it is\npruned, the same reasoning that keeps deployment history around after an\napplication is deleted (see :mod:`noust.web.views.deployments`).\n\nArgs:\n    domain: Domain whose rollback points are asked for.\n    session: The authenticated session.\n\nReturns:\n    The points, newest first, from\n    :meth:`~noust.managers.backup_manager.RollbackManager.list_rollback_points`\n    - the one implementation, shared with ``noust backup rollback --list``.",
         "operationId": "list_rollback_points_api_apps__domain__rollback_points_get",
         "parameters": [
           {
@@ -12139,7 +12144,7 @@
     },
     "/api/auth/2fa/backup-codes": {
       "post": {
-        "description": "Replace the backup codes with a fresh set, shown exactly once.\n\nEvery code issued before this call stops working: a set an operator can\nno longer account for - lost, or shown on a screen they no longer trust -\nis worthless as a recovery path if the old ones stay live alongside it.\n\nArgs:\n    request: The incoming request.\n    session: The authenticated session, elevated (D5): a cookie session\n        must have called ``POST /api/auth/elevate`` recently.\n\nReturns:\n    The new backup codes, in clear.\n\nRaises:\n    HTTPException: 403 with ``error: \"elevation_required\"`` per\n        :func:`wasm.web.api.deps.require_elevated`.\n    SecurityError: 400 when two-factor authentication is not enabled.",
+        "description": "Replace the backup codes with a fresh set, shown exactly once.\n\nEvery code issued before this call stops working: a set an operator can\nno longer account for - lost, or shown on a screen they no longer trust -\nis worthless as a recovery path if the old ones stay live alongside it.\n\nArgs:\n    request: The incoming request.\n    session: The authenticated session, elevated (D5): a cookie session\n        must have called ``POST /api/auth/elevate`` recently.\n\nReturns:\n    The new backup codes, in clear.\n\nRaises:\n    HTTPException: 403 with ``error: \"elevation_required\"`` per\n        :func:`noust.web.api.deps.require_elevated`.\n    SecurityError: 400 when two-factor authentication is not enabled.",
         "operationId": "regenerate_backup_codes_api_auth_2fa_backup_codes_post",
         "responses": {
           "200": {
@@ -12161,7 +12166,7 @@
     },
     "/api/auth/2fa/confirm": {
       "post": {
-        "description": "Verify a code from the authenticator and activate the second factor.\n\nSudo mode, like enrolling: this is the step that switches the second\nfactor on and hands out the backup codes.\n\nArgs:\n    request: The incoming request.\n    body: The code the app shows for the pending secret.\n    session: The authenticated session, elevated.\n\nReturns:\n    The backup codes, in clear, exactly once.\n\nRaises:\n    HTTPException: 403 with ``error: \"elevation_required\"`` per\n        :func:`wasm.web.api.deps.require_elevated`. 400 when the code\n        does not verify. Not counted by the lockout: the pending secret\n        is on the operator's own screen, so a wrong code here proves a\n        typo, not a guess at a credential.",
+        "description": "Verify a code from the authenticator and activate the second factor.\n\nSudo mode, like enrolling: this is the step that switches the second\nfactor on and hands out the backup codes.\n\nArgs:\n    request: The incoming request.\n    body: The code the app shows for the pending secret.\n    session: The authenticated session, elevated.\n\nReturns:\n    The backup codes, in clear, exactly once.\n\nRaises:\n    HTTPException: 403 with ``error: \"elevation_required\"`` per\n        :func:`noust.web.api.deps.require_elevated`. 400 when the code\n        does not verify. Not counted by the lockout: the pending secret\n        is on the operator's own screen, so a wrong code here proves a\n        typo, not a guess at a credential.",
         "operationId": "two_factor_confirm_api_auth_2fa_confirm_post",
         "requestBody": {
           "content": {
@@ -12245,7 +12250,7 @@
     },
     "/api/auth/2fa/enroll": {
       "post": {
-        "description": "Begin enrolment: generate a pending secret. Nothing is enforced yet.\n\nSudo mode, confirmed with the master token (two-factor is off, or there\nwould be nothing to enrol): the factor enrolled here is the one every\nlater confirmation asks for, so a session nobody re-confirmed must not be\nable to bind its own authenticator.\n\nArgs:\n    request: The incoming request.\n    session: The authenticated session, elevated.\n\nReturns:\n    The secret and its provisioning URI, shown to the operator once.\n\nRaises:\n    HTTPException: 403 with ``error: \"elevation_required\"`` per\n        :func:`wasm.web.api.deps.require_elevated`.",
+        "description": "Begin enrolment: generate a pending secret. Nothing is enforced yet.\n\nSudo mode, confirmed with the master token (two-factor is off, or there\nwould be nothing to enrol): the factor enrolled here is the one every\nlater confirmation asks for, so a session nobody re-confirmed must not be\nable to bind its own authenticator.\n\nArgs:\n    request: The incoming request.\n    session: The authenticated session, elevated.\n\nReturns:\n    The secret and its provisioning URI, shown to the operator once.\n\nRaises:\n    HTTPException: 403 with ``error: \"elevation_required\"`` per\n        :func:`noust.web.api.deps.require_elevated`.",
         "operationId": "two_factor_enroll_api_auth_2fa_enroll_post",
         "responses": {
           "200": {
@@ -12267,7 +12272,7 @@
     },
     "/api/auth/elevate": {
       "post": {
-        "description": "Confirm the caller's identity again, opening sudo mode for ten minutes.\n\nD5: deleting an application, a database, a service or a site, writing raw\nconfiguration or a unit file, running a write against a database console,\nrevealing a ``.env`` in clear, issuing an API token and turning\ntwo-factor authentication off all require a cookie session to have\ncalled this recently; see :func:`wasm.web.api.deps.require_elevated`.\nThe factor asked for is the same a login would ask for - a TOTP or backup\ncode when two-factor authentication is enabled, the master token\notherwise - and a wrong one is counted by the same lockout a login\nfailure is, through the same chokepoint.\n\nArgs:\n    request: The incoming request.\n    body: The code or the master token.\n    session: The authenticated session being elevated.\n\nReturns:\n    The new elevation deadline.\n\nRaises:\n    HTTPException: 401 with ``error`` ``totp_required`` when two-factor\n        authentication is on and no code was sent, or ``invalid_totp``\n        or ``invalid_token`` when the factor presented does not verify.",
+        "description": "Confirm the caller's identity again, opening sudo mode for ten minutes.\n\nD5: deleting an application, a database, a service or a site, writing raw\nconfiguration or a unit file, running a write against a database console,\nrevealing a ``.env`` in clear, issuing an API token and turning\ntwo-factor authentication off all require a cookie session to have\ncalled this recently; see :func:`noust.web.api.deps.require_elevated`.\nThe factor asked for is the same a login would ask for - a TOTP or backup\ncode when two-factor authentication is enabled, the master token\notherwise - and a wrong one is counted by the same lockout a login\nfailure is, through the same chokepoint.\n\nArgs:\n    request: The incoming request.\n    body: The code or the master token.\n    session: The authenticated session being elevated.\n\nReturns:\n    The new elevation deadline.\n\nRaises:\n    HTTPException: 401 with ``error`` ``totp_required`` when two-factor\n        authentication is on and no code was sent, or ``invalid_totp``\n        or ``invalid_token`` when the factor presented does not verify.",
         "operationId": "elevate_api_auth_elevate_post",
         "requestBody": {
           "content": {
@@ -12373,7 +12378,7 @@
     },
     "/api/auth/session": {
       "get": {
-        "description": "Report whether the caller is signed in, without demanding that they are.\n\nEvery other endpoint under ``/api`` requires ``require_auth`` and answers\n401 to an anonymous caller; this one exists so the console has something\nto call before it knows which of those two things it is. A caller that\npresents nothing is not guessing anything and is not counted. A caller\nthat presents a credential is checked exactly as ``require_auth`` checks\none, through :func:`~wasm.web.auth.verify_credential`, and a wrong one is\ncounted towards the lockout: the answer here says whether the value was\nthe master token, so without counting this was a guessing oracle with no\nlimit. A session cookie this server signed but that has since expired is\nnot a guess and is not counted.\n\nArgs:\n    request: The incoming request.\n\nReturns:\n    The session's bootstrap information, ``authenticated=False`` and\n    nothing else populated when no credential, or an expired or revoked\n    one, was presented.",
+        "description": "Report whether the caller is signed in, without demanding that they are.\n\nEvery other endpoint under ``/api`` requires ``require_auth`` and answers\n401 to an anonymous caller; this one exists so the console has something\nto call before it knows which of those two things it is. A caller that\npresents nothing is not guessing anything and is not counted. A caller\nthat presents a credential is checked exactly as ``require_auth`` checks\none, through :func:`~noust.web.auth.verify_credential`, and a wrong one is\ncounted towards the lockout: the answer here says whether the value was\nthe master token, so without counting this was a guessing oracle with no\nlimit. A session cookie this server signed but that has since expired is\nnot a guess and is not counted.\n\nArgs:\n    request: The incoming request.\n\nReturns:\n    The session's bootstrap information, ``authenticated=False`` and\n    nothing else populated when no credential, or an expired or revoked\n    one, was presented.",
         "operationId": "get_session_info_api_auth_session_get",
         "responses": {
           "200": {
@@ -12524,7 +12529,7 @@
         ]
       },
       "post": {
-        "description": "Issue a named, scoped API token, returned in clear exactly once.\n\nArgs:\n    request: The incoming request.\n    body: Name, scope and optional expiry.\n    session: The authenticated session, admin scope required.\n    _elevated: Unused beyond the check it performs: a cookie session must\n        have called ``POST /api/auth/elevate`` recently (D5). Issuing a\n        token is a standing credential, the same category of action as\n        deleting something.\n\nReturns:\n    The record, including the one and only clear copy of the token.\n\nRaises:\n    SecurityError: When the name is taken or the scope is not a scope. The\n        audit record names the token; the token itself never reaches the\n        audit log.\n    HTTPException: 403 with ``error: \"elevation_required\"`` per\n        :func:`wasm.web.api.deps.require_elevated`.",
+        "description": "Issue a named, scoped API token, returned in clear exactly once.\n\nArgs:\n    request: The incoming request.\n    body: Name, scope and optional expiry.\n    session: The authenticated session, admin scope required.\n    _elevated: Unused beyond the check it performs: a cookie session must\n        have called ``POST /api/auth/elevate`` recently (D5). Issuing a\n        token is a standing credential, the same category of action as\n        deleting something.\n\nReturns:\n    The record, including the one and only clear copy of the token.\n\nRaises:\n    SecurityError: When the name is taken or the scope is not a scope. The\n        audit record names the token; the token itself never reaches the\n        audit log.\n    HTTPException: 403 with ``error: \"elevation_required\"`` per\n        :func:`noust.web.api.deps.require_elevated`.",
         "operationId": "create_api_token_api_auth_tokens_post",
         "requestBody": {
           "content": {
@@ -12631,7 +12636,7 @@
     },
     "/api/auth/ws-ticket": {
       "post": {
-        "description": "Issue a single-use ticket for opening a WebSocket.\n\nBrowsers cannot set headers on a WebSocket handshake, so clients that\ncannot rely on cookies use this instead of putting a long-lived token in a\nquery string that proxies and access logs record.\n\nAny credential may ask: a session, the master token or an API token. The\nticket redeems as that same credential, with its scope, and only while it\nis still valid - see :meth:`wasm.web.auth.TokenManager.consume_ws_ticket`.\n\nArgs:\n    request: The incoming request.\n    session: The authenticated session.\n\nReturns:\n    The ticket and its lifetime.",
+        "description": "Issue a single-use ticket for opening a WebSocket.\n\nBrowsers cannot set headers on a WebSocket handshake, so clients that\ncannot rely on cookies use this instead of putting a long-lived token in a\nquery string that proxies and access logs record.\n\nAny credential may ask: a session, the master token or an API token. The\nticket redeems as that same credential, with its scope, and only while it\nis still valid - see :meth:`noust.web.auth.TokenManager.consume_ws_ticket`.\n\nArgs:\n    request: The incoming request.\n    session: The authenticated session.\n\nReturns:\n    The ticket and its lifetime.",
         "operationId": "create_ws_ticket_api_auth_ws_ticket_post",
         "responses": {
           "200": {
@@ -12715,7 +12720,7 @@
     },
     "/api/backup-destinations/backends": {
       "get": {
-        "description": "Describe every backend's destination form.\n\nDeclared before ``/{name}`` so the literal path wins.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Every backend WASM can build a destination for, with its fields.",
+        "description": "Describe every backend's destination form.\n\nDeclared before ``/{name}`` so the literal path wins.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Every backend Noust can build a destination for, with its fields.",
         "operationId": "list_backends_api_backup_destinations_backends_get",
         "responses": {
           "200": {
@@ -13133,7 +13138,7 @@
     },
     "/api/backup-schedules/{domain}": {
       "delete": {
-        "description": "Remove an application's backup schedule.\n\nRemoving the units stops future backups from ever running, silently -\nD5's sudo mode list treats it the same as any other destructive delete,\nso a cookie session has to confirm itself first; an admin-scoped Bearer\ncredential is exempt, per :func:`wasm.web.api.deps.ensure_elevated`.\n\nArgs:\n    domain: Domain whose schedule is removed.\n    session: The authenticated, elevated session.\n\nReturns:\n    The action outcome.\n\nRaises:\n    HTTPException: 404 when no schedule exists for the domain, so deleting\n        a schedule that was never created does not report success.",
+        "description": "Remove an application's backup schedule.\n\nRemoving the units stops future backups from ever running, silently -\nD5's sudo mode list treats it the same as any other destructive delete,\nso a cookie session has to confirm itself first; an admin-scoped Bearer\ncredential is exempt, per :func:`noust.web.api.deps.ensure_elevated`.\n\nArgs:\n    domain: Domain whose schedule is removed.\n    session: The authenticated, elevated session.\n\nReturns:\n    The action outcome.\n\nRaises:\n    HTTPException: 404 when no schedule exists for the domain, so deleting\n        a schedule that was never created does not report success.",
         "operationId": "delete_schedule_api_backup_schedules__domain__delete",
         "parameters": [
           {
@@ -13266,7 +13271,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/wasm__web__api__backups__BackupListResponse"
+                  "$ref": "#/components/schemas/noust__web__api__backups__BackupListResponse"
                 }
               }
             },
@@ -13295,7 +13300,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/wasm__web__api__backups__CreateBackupRequest"
+                "$ref": "#/components/schemas/noust__web__api__backups__CreateBackupRequest"
               }
             }
           },
@@ -13437,7 +13442,7 @@
     },
     "/api/backups/{backup_id}/push": {
       "post": {
-        "description": "Queue an upload of a local backup to a remote destination.\n\nSudo mode: this sends application data, potentially including its\ndatabase dump, to a remote WASM does not control past the point of\nupload.\n\nArgs:\n    backup_id: Backup identifier.\n    data: Which destination to upload to.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.",
+        "description": "Queue an upload of a local backup to a remote destination.\n\nSudo mode: this sends application data, potentially including its\ndatabase dump, to a remote Noust does not control past the point of\nupload.\n\nArgs:\n    backup_id: Backup identifier.\n    data: Which destination to upload to.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.",
         "operationId": "push_backup_api_backups__backup_id__push_post",
         "parameters": [
           {
@@ -13490,7 +13495,7 @@
     },
     "/api/backups/{backup_id}/restore": {
       "post": {
-        "description": "Queue a restore of an application from a backup.\n\nRestoring overwrites whatever the target domain currently has running -\nD5's sudo mode list treats it the same as deleting an application, so a\ncookie session has to confirm itself first; an admin-scoped Bearer\ncredential is exempt, per :func:`wasm.web.api.deps.ensure_elevated`.\n\nArgs:\n    backup_id: Backup identifier.\n    data: Restore options.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.",
+        "description": "Queue a restore of an application from a backup.\n\nRestoring overwrites whatever the target domain currently has running -\nD5's sudo mode list treats it the same as deleting an application, so a\ncookie session has to confirm itself first; an admin-scoped Bearer\ncredential is exempt, per :func:`noust.web.api.deps.ensure_elevated`.\n\nArgs:\n    backup_id: Backup identifier.\n    data: Restore options.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.",
         "operationId": "restore_backup_api_backups__backup_id__restore_post",
         "parameters": [
           {
@@ -13509,7 +13514,7 @@
               "schema": {
                 "anyOf": [
                   {
-                    "$ref": "#/components/schemas/wasm__web__api__backups__RestoreBackupRequest"
+                    "$ref": "#/components/schemas/noust__web__api__backups__RestoreBackupRequest"
                   },
                   {
                     "type": "null"
@@ -13664,7 +13669,7 @@
     },
     "/api/certs/{domain}": {
       "delete": {
-        "description": "Delete a certificate without revoking it.\n\nDeleting removes the certificate files for good, so a cookie session must\nhave confirmed it's them recently (D5), the same rule\n``POST /{domain}/revoke`` applies. See\n:func:`~wasm.web.api.deps.require_elevated`.\n\nArgs:\n    domain: Certificate name.\n    session: The authenticated session.\n\nReturns:\n    The action outcome.\n\nRaises:\n    CertificateError: When certbot refuses the deletion.\n    HTTPException: 403 with ``error: \"elevation_required\"`` per\n        :func:`~wasm.web.api.deps.require_elevated`.",
+        "description": "Delete a certificate without revoking it.\n\nDeleting removes the certificate files for good, so a cookie session must\nhave confirmed it's them recently (D5), the same rule\n``POST /{domain}/revoke`` applies. See\n:func:`~noust.web.api.deps.require_elevated`.\n\nArgs:\n    domain: Certificate name.\n    session: The authenticated session.\n\nReturns:\n    The action outcome.\n\nRaises:\n    CertificateError: When certbot refuses the deletion.\n    HTTPException: 403 with ``error: \"elevation_required\"`` per\n        :func:`~noust.web.api.deps.require_elevated`.",
         "operationId": "delete_certificate_api_certs__domain__delete",
         "parameters": [
           {
@@ -13866,7 +13871,7 @@
     },
     "/api/certs/{domain}/revoke": {
       "post": {
-        "description": "Revoke a certificate and delete its files.\n\nRevoking takes the certificate down at the CA and cannot be undone, so a\ncookie session must have confirmed it's them recently (D5); a Bearer\ncredential is exempt, as issuing it already required that confirmation\nonce. See :func:`~wasm.web.api.deps.require_elevated`.\n\nArgs:\n    domain: Certificate name.\n    session: The authenticated session.\n\nReturns:\n    The action outcome.\n\nRaises:\n    CertificateError: When certbot refuses the revocation.\n    HTTPException: 403 with ``error: \"elevation_required\"`` per\n        :func:`~wasm.web.api.deps.require_elevated`.",
+        "description": "Revoke a certificate and delete its files.\n\nRevoking takes the certificate down at the CA and cannot be undone, so a\ncookie session must have confirmed it's them recently (D5); a Bearer\ncredential is exempt, as issuing it already required that confirmation\nonce. See :func:`~noust.web.api.deps.require_elevated`.\n\nArgs:\n    domain: Certificate name.\n    session: The authenticated session.\n\nReturns:\n    The action outcome.\n\nRaises:\n    CertificateError: When certbot refuses the revocation.\n    HTTPException: 403 with ``error: \"elevation_required\"`` per\n        :func:`~noust.web.api.deps.require_elevated`.",
         "operationId": "revoke_certificate_api_certs__domain__revoke_post",
         "parameters": [
           {
@@ -13929,7 +13934,7 @@
         ]
       },
       "patch": {
-        "description": "Update a single configuration value addressed by a dotted path.\n\nThe stored value is echoed back redacted, so a secret does not travel twice.\n\nA string value is coerced against the key's schema exactly as ``wasm\nconfig set`` coerces argv: a key with a default is parsed as that\ndefault's type, and a key with none is parsed as a JSON scalar or list,\nfalling back to a plain string. Without it, a caller that posts\nform-shaped data - everything a string, such as a boolean field posted as\n\"false\" - would store the literal string rather than the value it looks\nlike. A value that already arrived as JSON's own boolean, number or array\nis left exactly as it was decoded.\n\nArgs:\n    body: Body carrying the dotted path and the new value.\n    request: The incoming request, for the audit record.\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    Confirmation message, the path written and the resulting value.\n\nRaises:\n    HTTPException: If the configuration cannot be written.",
+        "description": "Update a single configuration value addressed by a dotted path.\n\nThe stored value is echoed back redacted, so a secret does not travel twice.\n\nA string value is coerced against the key's schema exactly as ``noust\nconfig set`` coerces argv: a key with a default is parsed as that\ndefault's type, and a key with none is parsed as a JSON scalar or list,\nfalling back to a plain string. Without it, a caller that posts\nform-shaped data - everything a string, such as a boolean field posted as\n\"false\" - would store the literal string rather than the value it looks\nlike. A value that already arrived as JSON's own boolean, number or array\nis left exactly as it was decoded.\n\nArgs:\n    body: Body carrying the dotted path and the new value.\n    request: The incoming request, for the audit record.\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    Confirmation message, the path written and the resulting value.\n\nRaises:\n    HTTPException: If the configuration cannot be written.",
         "operationId": "patch_config_api_config_patch",
         "requestBody": {
           "content": {
@@ -13969,7 +13974,7 @@
         ]
       },
       "put": {
-        "description": "Replace the full configuration.\n\nPlaceholders sent back for secrets keep the stored value, and settings the\ncode no longer honours are dropped. ``Config.replace`` refuses a value that\n``wasm config set`` or the typed endpoints below would also refuse - an\nunsupported web server, a relative apps directory - so a whole-config body\nis not a back door around either.\n\nArgs:\n    body: Body carrying the new configuration.\n    request: The incoming request, for the audit record.\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    Confirmation message and the path that was written.\n\nRaises:\n    HTTPException: If the configuration cannot be written.",
+        "description": "Replace the full configuration.\n\nPlaceholders sent back for secrets keep the stored value, and settings the\ncode no longer honours are dropped. ``Config.replace`` refuses a value that\n``noust config set`` or the typed endpoints below would also refuse - an\nunsupported web server, a relative apps directory - so a whole-config body\nis not a back door around either.\n\nArgs:\n    body: Body carrying the new configuration.\n    request: The incoming request, for the audit record.\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    Confirmation message and the path that was written.\n\nRaises:\n    HTTPException: If the configuration cannot be written.",
         "operationId": "update_config_api_config_put",
         "requestBody": {
           "content": {
@@ -14093,7 +14098,7 @@
         ]
       },
       "put": {
-        "description": "Update backup configuration.\n\nArgs:\n    body: Body carrying the backup directory and retention limit.\n    request: The incoming request, for the audit record.\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    Confirmation message.\n\nRaises:\n    ConfigError: When the directory is a relative path; an empty one is\n        stored as the default. The rule is Config.set's, the same one\n        'wasm config set backup.directory' meets.\n    HTTPException: If the configuration cannot be written.",
+        "description": "Update backup configuration.\n\nArgs:\n    body: Body carrying the backup directory and retention limit.\n    request: The incoming request, for the audit record.\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    Confirmation message.\n\nRaises:\n    ConfigError: When the directory is a relative path; an empty one is\n        stored as the default. The rule is Config.set's, the same one\n        'noust config set backup.directory' meets.\n    HTTPException: If the configuration cannot be written.",
         "operationId": "update_backup_config_api_config_backup_put",
         "requestBody": {
           "content": {
@@ -14221,7 +14226,7 @@
     },
     "/api/config/notifications/telegram/chats": {
       "post": {
-        "description": "List the chats the configured Telegram bot has seen.\n\nFinding a chat id today means opening the Bot API's ``getUpdates`` URL by\nhand and reading raw JSON, or asking an assistant to do it. This is that\nlookup, using the bot token already saved, over the notifier's own HTTP\npath - the same SSRF guard and timeout as every other channel.\n\nPlain ``get_current_session``, not :func:`require_elevated`: this only\nreads what Telegram has queued for the bot, the same reasoning\n:func:`test_notification_channel` already applies to sending a message -\nneither one changes anything WASM manages.\n\nArgs:\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    Every chat found.\n\nRaises:\n    HTTPException: 400 when no bot token is configured, the token does\n        not have the Bot API's shape, or the Bot API could not be reached\n        or answered with an error - in its own words.",
+        "description": "List the chats the configured Telegram bot has seen.\n\nFinding a chat id today means opening the Bot API's ``getUpdates`` URL by\nhand and reading raw JSON, or asking an assistant to do it. This is that\nlookup, using the bot token already saved, over the notifier's own HTTP\npath - the same SSRF guard and timeout as every other channel.\n\nPlain ``get_current_session``, not :func:`require_elevated`: this only\nreads what Telegram has queued for the bot, the same reasoning\n:func:`test_notification_channel` already applies to sending a message -\nneither one changes anything Noust manages.\n\nArgs:\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    Every chat found.\n\nRaises:\n    HTTPException: 400 when no bot token is configured, the token does\n        not have the Bot API's shape, or the Bot API could not be reached\n        or answered with an error - in its own words.",
         "operationId": "list_telegram_chats_api_config_notifications_telegram_chats_post",
         "responses": {
           "200": {
@@ -14243,7 +14248,7 @@
     },
     "/api/config/notifications/{channel}/test": {
       "post": {
-        "description": "Send a test message through one notification channel.\n\nIgnores the master switch and the per-event filters on purpose - the\nbutton exists to try a channel before notifications are turned on - and\nnever echoes the remote server's response body back to the client:\n:meth:`~wasm.core.notifier.Notifier.test_channel` already refuses a\nprivate destination and scrubs configured secrets out of any failure it\nreports.\n\nArgs:\n    channel: Channel name, one of the notifier's channels.\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    ``ok=True`` with a confirmation, or ``ok=False`` with the failure in\n    the receiving server's own words.",
+        "description": "Send a test message through one notification channel.\n\nIgnores the master switch and the per-event filters on purpose - the\nbutton exists to try a channel before notifications are turned on - and\nnever echoes the remote server's response body back to the client:\n:meth:`~noust.core.notifier.Notifier.test_channel` already refuses a\nprivate destination and scrubs configured secrets out of any failure it\nreports.\n\nArgs:\n    channel: Channel name, one of the notifier's channels.\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    ``ok=True`` with a confirmation, or ``ok=False`` with the failure in\n    the receiving server's own words.",
         "operationId": "test_notification_channel_api_config_notifications__channel__test_post",
         "parameters": [
           {
@@ -14328,7 +14333,7 @@
         ]
       },
       "put": {
-        "description": "Update the monitor's SMTP settings.\n\nGoes through :meth:`~wasm.core.config.Config.set`, so the same rule 'wasm\nconfig set monitor.smtp.*' enforces - a hostname for ``host``, a port in\nrange, ``use_ssl`` and ``use_tls`` not both on, a valid address for\n``from_address`` and every recipient - rejects a value here too, in the\nsame words. An empty ``password`` is translated to the\n:data:`~wasm.core.config.REDACTED` placeholder before the write, which is\nwhat actually keeps the stored password, and is refused when the\npassword would go somewhere else: see :class:`SMTPConfig`.\n\nArgs:\n    body: Body carrying the SMTP settings.\n    request: The incoming request, for the audit record.\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    Confirmation message.\n\nRaises:\n    ConfigError: 400, through the error boundary, for a host that is not\n        a hostname, a port out of range, both ``use_ssl`` and ``use_tls``\n        enabled, or an invalid ``from_address`` or recipient.\n    HTTPException: 422 on ``password`` when it is blank, a password is\n        stored, and the host, port, username or transport changed; or if\n        the configuration cannot be written.",
+        "description": "Update the monitor's SMTP settings.\n\nGoes through :meth:`~noust.core.config.Config.set`, so the same rule 'noust\nconfig set monitor.smtp.*' enforces - a hostname for ``host``, a port in\nrange, ``use_ssl`` and ``use_tls`` not both on, a valid address for\n``from_address`` and every recipient - rejects a value here too, in the\nsame words. An empty ``password`` is translated to the\n:data:`~noust.core.config.REDACTED` placeholder before the write, which is\nwhat actually keeps the stored password, and is refused when the\npassword would go somewhere else: see :class:`SMTPConfig`.\n\nArgs:\n    body: Body carrying the SMTP settings.\n    request: The incoming request, for the audit record.\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    Confirmation message.\n\nRaises:\n    ConfigError: 400, through the error boundary, for a host that is not\n        a hostname, a port out of range, both ``use_ssl`` and ``use_tls``\n        enabled, or an invalid ``from_address`` or recipient.\n    HTTPException: 422 on ``password`` when it is blank, a password is\n        stored, and the host, port, username or transport changed; or if\n        the configuration cannot be written.",
         "operationId": "update_smtp_config_api_config_smtp_put",
         "requestBody": {
           "content": {
@@ -14556,7 +14561,7 @@
     },
     "/api/cron": {
       "get": {
-        "description": "List every WASM cron job with its next run and last result.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The jobs as systemd reports them.",
+        "description": "List every Noust cron job with its next run and last result.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The jobs as systemd reports them.",
         "operationId": "list_jobs_api_cron_get",
         "responses": {
           "200": {
@@ -14576,7 +14581,7 @@
         ]
       },
       "post": {
-        "description": "Create a cron job as a systemd timer, or rewrite one WASM already owns.\n\nSudo mode, creating or rewriting alike: either way the result is a\ncommand of the caller's choosing that runs as root on a timer.\n\nArgs:\n    data: The job request. Its calendar expression was already checked\n        against the manager's own rules by the request model.\n    session: The authenticated session, elevated.\n\nReturns:\n    The action outcome, carrying the job as created.\n\nRaises:\n    ServiceError: When a value is unusable, a unit belongs to someone\n        else, or the timer cannot be written or enabled.",
+        "description": "Create a cron job as a systemd timer, or rewrite one Noust already owns.\n\nSudo mode, creating or rewriting alike: either way the result is a\ncommand of the caller's choosing that runs as root on a timer.\n\nArgs:\n    data: The job request. Its calendar expression was already checked\n        against the manager's own rules by the request model.\n    session: The authenticated session, elevated.\n\nReturns:\n    The action outcome, carrying the job as created.\n\nRaises:\n    ServiceError: When a value is unusable, a unit belongs to someone\n        else, or the timer cannot be written or enabled.",
         "operationId": "create_job_api_cron_post",
         "requestBody": {
           "content": {
@@ -14660,7 +14665,7 @@
     },
     "/api/cron/{name}": {
       "delete": {
-        "description": "Remove a cron job's timer and service units.\n\nDeleting the units is as destructive as deleting the application they\nwere scheduled for - D5's sudo mode list treats it the same way, so a\ncookie session has to confirm itself first; an admin-scoped Bearer\ncredential is exempt, per :func:`wasm.web.api.deps.ensure_elevated`.\n\nArgs:\n    name: Job name.\n    session: The authenticated, elevated session.\n\nReturns:\n    The action outcome.\n\nRaises:\n    HTTPException: 404 when no owned job exists for the name, so deleting\n        a job that was never created does not report success.\n    ServiceError: When the units are not WASM's.",
+        "description": "Remove a cron job's timer and service units.\n\nDeleting the units is as destructive as deleting the application they\nwere scheduled for - D5's sudo mode list treats it the same way, so a\ncookie session has to confirm itself first; an admin-scoped Bearer\ncredential is exempt, per :func:`noust.web.api.deps.ensure_elevated`.\n\nArgs:\n    name: Job name.\n    session: The authenticated, elevated session.\n\nReturns:\n    The action outcome.\n\nRaises:\n    HTTPException: 404 when no owned job exists for the name, so deleting\n        a job that was never created does not report success.\n    ServiceError: When the units are not Noust's.",
         "operationId": "delete_job_api_cron__name__delete",
         "parameters": [
           {
@@ -14932,7 +14937,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/wasm__web__api__databases__BackupListResponse"
+                  "$ref": "#/components/schemas/noust__web__api__databases__BackupListResponse"
                 }
               }
             },
@@ -14961,7 +14966,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/wasm__web__api__databases__CreateBackupRequest"
+                "$ref": "#/components/schemas/noust__web__api__databases__CreateBackupRequest"
               }
             }
           },
@@ -14997,13 +15002,13 @@
     },
     "/api/databases/backups/restore": {
       "post": {
-        "description": "Restore a database from one of the engine's own dumps.\n\nThe dump is named, not pathed: the file is resolved inside the engine's\nbackup directory, so the endpoint cannot be talked into reading\n``/etc/shadow`` as the database superuser.\n\nRestoring overwrites whatever the target database currently holds - D5's\nsudo mode list treats it the same as dropping a database, so a cookie\nsession has to confirm itself first; an admin-scoped Bearer credential is\nexempt, per :func:`wasm.web.api.deps.ensure_elevated`.\n\nArgs:\n    request: The restore request.\n    session: The authenticated, elevated session.\n\nReturns:\n    The action outcome.\n\nRaises:\n    HTTPException: 404 when the named dump does not exist.\n    DatabaseBackupError: When the restore fails.",
+        "description": "Restore a database from one of the engine's own dumps.\n\nThe dump is named, not pathed: the file is resolved inside the engine's\nbackup directory, so the endpoint cannot be talked into reading\n``/etc/shadow`` as the database superuser.\n\nRestoring overwrites whatever the target database currently holds - D5's\nsudo mode list treats it the same as dropping a database, so a cookie\nsession has to confirm itself first; an admin-scoped Bearer credential is\nexempt, per :func:`noust.web.api.deps.ensure_elevated`.\n\nArgs:\n    request: The restore request.\n    session: The authenticated, elevated session.\n\nReturns:\n    The action outcome.\n\nRaises:\n    HTTPException: 404 when the named dump does not exist.\n    DatabaseBackupError: When the restore fails.",
         "operationId": "restore_backup_api_databases_backups_restore_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/wasm__web__api__databases__RestoreBackupRequest"
+                "$ref": "#/components/schemas/noust__web__api__databases__RestoreBackupRequest"
               }
             }
           },
@@ -15287,7 +15292,7 @@
     },
     "/api/databases/engines": {
       "get": {
-        "description": "List every engine WASM can manage and its state on this host.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The engines.",
+        "description": "List every engine Noust can manage and its state on this host.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The engines.",
         "operationId": "list_engines_api_databases_engines_get",
         "responses": {
           "200": {
@@ -15407,7 +15412,7 @@
     },
     "/api/databases/engines/{engine}/privileges": {
       "get": {
-        "description": "List the privileges an engine's grant dialog may offer.\n\nThe manager's own whitelist is the one definition of what WASM will\ngrant - see :data:`wasm.managers.database.base.BaseDatabaseManager.VALID_PRIVILEGES` -\nso the console reads it from here instead of keeping its own copy that\ncould drift.\n\nArgs:\n    engine: Engine name.\n    session: The authenticated session.\n\nReturns:\n    The engine's valid privileges, sorted for a stable listing.",
+        "description": "List the privileges an engine's grant dialog may offer.\n\nThe manager's own whitelist is the one definition of what Noust will\ngrant - see :data:`noust.managers.database.base.BaseDatabaseManager.VALID_PRIVILEGES` -\nso the console reads it from here instead of keeping its own copy that\ncould drift.\n\nArgs:\n    engine: Engine name.\n    session: The authenticated session.\n\nReturns:\n    The engine's valid privileges, sorted for a stable listing.",
         "operationId": "get_engine_privileges_api_databases_engines__engine__privileges_get",
         "parameters": [
           {
@@ -15622,7 +15627,7 @@
     },
     "/api/databases/engines/{engine}/uninstall": {
       "post": {
-        "description": "Queue the removal of an engine.\n\nRemoving an engine can take every database it hosts with it - D5's sudo\nmode list treats it the same as dropping a single database, so a cookie\nsession has to confirm itself first; an admin-scoped Bearer credential is\nexempt, per :func:`wasm.web.api.deps.ensure_elevated`.\n\nArgs:\n    engine: Engine name.\n    purge: Also remove configuration and data.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.",
+        "description": "Queue the removal of an engine.\n\nRemoving an engine can take every database it hosts with it - D5's sudo\nmode list treats it the same as dropping a single database, so a cookie\nsession has to confirm itself first; an admin-scoped Bearer credential is\nexempt, per :func:`noust.web.api.deps.ensure_elevated`.\n\nArgs:\n    engine: Engine name.\n    purge: Also remove configuration and data.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.",
         "operationId": "uninstall_engine_api_databases_engines__engine__uninstall_post",
         "parameters": [
           {
@@ -16111,7 +16116,7 @@
     },
     "/api/deployments/{deployment_id}/log": {
       "get": {
-        "description": "Read a deployment's captured build log.\n\nArgs:\n    deployment_id: The row's id.\n    session: The authenticated session.\n    tail: Bytes to return, counted from the end of the file. Defaults to\n        :data:`wasm.deployers.logs.DEFAULT_TAIL_BYTES`.\n\nReturns:\n    The log, or the reason there is nothing to show.\n\nRaises:\n    HTTPException: 404 when no deployment has this id.",
+        "description": "Read a deployment's captured build log.\n\nArgs:\n    deployment_id: The row's id.\n    session: The authenticated session.\n    tail: Bytes to return, counted from the end of the file. Defaults to\n        :data:`noust.deployers.logs.DEFAULT_TAIL_BYTES`.\n\nReturns:\n    The log, or the reason there is nothing to show.\n\nRaises:\n    HTTPException: 404 when no deployment has this id.",
         "operationId": "get_deployment_log_api_deployments__deployment_id__log_get",
         "parameters": [
           {
@@ -16173,7 +16178,7 @@
     },
     "/api/domains/dns": {
       "get": {
-        "description": "Check whether a domain resolves to this server, before it is any application's.\n\nThe same check :func:`get_domain_dns` runs for a domain already added to\nan application, through the same :func:`wasm.deployers.domains.check_dns`\n- the new-app wizard needs an answer before anything is created, and there\nis no application yet to hang the path off.\n\nArgs:\n    session: Authenticated session, injected.\n    name: The domain to resolve.\n\nReturns:\n    What it resolves to, compared with this server's addresses.",
+        "description": "Check whether a domain resolves to this server, before it is any application's.\n\nThe same check :func:`get_domain_dns` runs for a domain already added to\nan application, through the same :func:`noust.deployers.domains.check_dns`\n- the new-app wizard needs an answer before anything is created, and there\nis no application yet to hang the path off.\n\nArgs:\n    session: Authenticated session, injected.\n    name: The domain to resolve.\n\nReturns:\n    What it resolves to, compared with this server's addresses.",
         "operationId": "get_bare_dns_api_domains_dns_get",
         "parameters": [
           {
@@ -16721,7 +16726,7 @@
     },
     "/api/jobs/delete": {
       "post": {
-        "description": "Queue a deletion.\n\nRuns the same :func:`~wasm.web.jobs.delete_app_job` that\n``DELETE /api/apps/{domain}`` queues, so it is guarded the same way: a\ncookie session must have confirmed recently (see\n:func:`~wasm.web.api.deps.require_elevated`), the same as any other\nirreversible action. A stale client still calling this route instead of\nthe app-level one gets no less protection for it.\n\nArgs:\n    request: The deletion request.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.",
+        "description": "Queue a deletion.\n\nRuns the same :func:`~noust.web.jobs.delete_app_job` that\n``DELETE /api/apps/{domain}`` queues, so it is guarded the same way: a\ncookie session must have confirmed recently (see\n:func:`~noust.web.api.deps.require_elevated`), the same as any other\nirreversible action. A stale client still calling this route instead of\nthe app-level one gets no less protection for it.\n\nArgs:\n    request: The deletion request.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.",
         "operationId": "create_delete_job_api_jobs_delete_post",
         "requestBody": {
           "content": {
@@ -17187,7 +17192,7 @@
     },
     "/api/monitor/observations": {
       "get": {
-        "description": "Read stored observations, newest first.\n\nA scan runs as admin, but this endpoint is a plain GET and needs only\nread scope - so it is the actual route by which a lesser credential could\nread another process's argv, stored by an admin-run scan days earlier.\nThe command line is only included for an admin-scoped *reader*; see\n:func:`_visible_command`.\n\nArgs:\n    limit: Maximum number of rows to return.\n    include_acknowledged: Include rows an operator already dismissed.\n    severity: Restrict to notice or warning.\n    session: Authenticated session, injected.\n\nReturns:\n    The requested page and the store totals.\n\nRaises:\n    WASMError: When the store cannot be read; caught by ``WASMErrorRoute``.\n    HTTPException: 500 for a filesystem error the store itself did not\n        wrap - OSError is not a WASMError, so it would otherwise crash.",
+        "description": "Read stored observations, newest first.\n\nA scan runs as admin, but this endpoint is a plain GET and needs only\nread scope - so it is the actual route by which a lesser credential could\nread another process's argv, stored by an admin-run scan days earlier.\nThe command line is only included for an admin-scoped *reader*; see\n:func:`_visible_command`.\n\nArgs:\n    limit: Maximum number of rows to return.\n    include_acknowledged: Include rows an operator already dismissed.\n    severity: Restrict to notice or warning.\n    session: Authenticated session, injected.\n\nReturns:\n    The requested page and the store totals.\n\nRaises:\n    NoustError: When the store cannot be read; caught by ``NoustErrorRoute``.\n    HTTPException: 500 for a filesystem error the store itself did not\n        wrap - OSError is not a NoustError, so it would otherwise crash.",
         "operationId": "get_observations_api_monitor_observations_get",
         "parameters": [
           {
@@ -17260,7 +17265,7 @@
     },
     "/api/monitor/observations/{observation_id}/acknowledge": {
       "post": {
-        "description": "Mark an observation as seen.\n\nAcknowledging changes a flag in WASM's own database. It does nothing to the\nprocess the observation is about.\n\nArgs:\n    observation_id: Row identifier.\n    session: Authenticated session, injected.\n\nReturns:\n    A success payload.\n\nRaises:\n    WASMError: When the store is unreadable; caught by ``WASMErrorRoute``.\n    HTTPException: 404 when the row does not exist, 500 for a filesystem\n        error the store itself did not wrap.",
+        "description": "Mark an observation as seen.\n\nAcknowledging changes a flag in Noust's own database. It does nothing to the\nprocess the observation is about.\n\nArgs:\n    observation_id: Row identifier.\n    session: Authenticated session, injected.\n\nReturns:\n    A success payload.\n\nRaises:\n    NoustError: When the store is unreadable; caught by ``NoustErrorRoute``.\n    HTTPException: 404 when the row does not exist, 500 for a filesystem\n        error the store itself did not wrap.",
         "operationId": "acknowledge_observation_api_monitor_observations__observation_id__acknowledge_post",
         "parameters": [
           {
@@ -17335,7 +17340,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/wasm__web__api__monitor__ProcessListResponse"
+                  "$ref": "#/components/schemas/noust__web__api__monitor__ProcessListResponse"
                 }
               }
             },
@@ -17404,7 +17409,7 @@
     },
     "/api/monitor/status": {
       "get": {
-        "description": "Report what systemd knows about the monitor unit.\n\nArgs:\n    session: Authenticated session, injected.\n\nReturns:\n    The unit state, plus the scope note the panel displays.\n\nRaises:\n    WASMError: When systemd could not be queried; caught by\n        ``WASMErrorRoute`` and answered as a 500.",
+        "description": "Report what systemd knows about the monitor unit.\n\nArgs:\n    session: Authenticated session, injected.\n\nReturns:\n    The unit state, plus the scope note the panel displays.\n\nRaises:\n    NoustError: When systemd could not be queried; caught by\n        ``NoustErrorRoute`` and answered as a 500.",
         "operationId": "get_monitor_status_api_monitor_status_get",
         "responses": {
           "200": {
@@ -17470,7 +17475,7 @@
     },
     "/api/monitor/uninstall": {
       "post": {
-        "description": "Remove the systemd unit WASM wrote.\n\nArgs:\n    session: Authenticated session, injected.\n\nReturns:\n    A success payload.",
+        "description": "Remove the systemd unit Noust wrote.\n\nArgs:\n    session: Authenticated session, injected.\n\nReturns:\n    A success payload.",
         "operationId": "uninstall_monitor_api_monitor_uninstall_post",
         "responses": {
           "200": {
@@ -17581,19 +17586,45 @@
     },
     "/api/services": {
       "get": {
-        "description": "List services.\n\n``wasm_only`` (the default) lists the units WASM manages - the one\ndefinition in :meth:`~wasm.managers.service_manager.ServiceManager.managed_units`\nthe console's top bar counts too, so the two always agree. Set it to false\nfor a full inventory of every unit on the host, each flagged ``managed``,\nwhich is how a diagnostics view tells a foreign unit's own crash loop from\none of WASM's own. A foreign unit carries only its state: it is listed\nfrom systemd's own listing, never probed or acted on.",
+        "description": "List services.\n\n``noust_only`` (the default; ``wasm_only`` before 3.0, still read) lists\nthe units Noust manages - the one\ndefinition in :meth:`~noust.managers.service_manager.ServiceManager.managed_units`\nthe console's top bar counts too, so the two always agree. Set it to false\nfor a full inventory of every unit on the host, each flagged ``managed``,\nwhich is how a diagnostics view tells a foreign unit's own crash loop from\none of Noust's own. A foreign unit carries only its state: it is listed\nfrom systemd's own listing, never probed or acted on.",
         "operationId": "list_services_api_services_get",
         "parameters": [
           {
-            "description": "Only show WASM services",
+            "description": "Only show the units Noust manages (the default)",
+            "in": "query",
+            "name": "noust_only",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only show the units Noust manages (the default)",
+              "title": "Noust Only"
+            }
+          },
+          {
+            "deprecated": true,
+            "description": "The name noust_only had before 3.0; read when noust_only is absent",
             "in": "query",
             "name": "wasm_only",
             "required": false,
             "schema": {
-              "default": true,
-              "description": "Only show WASM services",
-              "title": "Wasm Only",
-              "type": "boolean"
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "deprecated": true,
+              "description": "The name noust_only had before 3.0; read when noust_only is absent",
+              "title": "Wasm Only"
             }
           }
         ],
@@ -17750,7 +17781,7 @@
         ]
       },
       "get": {
-        "description": "Get details for a specific service.\n\nAnswers for a unit WASM manages, whether or not the store's services\ntable has a row for it (since 0.14.1 an application's unit is named after\nthe application and may have none). Any other unit is a 404, which is how\nthe console knows to describe it from the all-units listing instead;\nsystemd's own escaped names (``systemd-fsck@dev-disk-by\\x2dlabel-BOOT``)\narrive URL-encoded and get that 404, not a 400.",
+        "description": "Get details for a specific service.\n\nAnswers for a unit Noust manages, whether or not the store's services\ntable has a row for it (since 0.14.1 an application's unit is named after\nthe application and may have none). Any other unit is a 404, which is how\nthe console knows to describe it from the all-units listing instead;\nsystemd's own escaped names (``systemd-fsck@dev-disk-by\\x2dlabel-BOOT``)\narrive URL-encoded and get that 404, not a 400.",
         "operationId": "get_service_api_services__name__get",
         "parameters": [
           {
@@ -17973,7 +18004,7 @@
     },
     "/api/services/{name}/logs": {
       "get": {
-        "description": "Get service logs from journalctl.\n\nThe console's and the monitor's journals need an admin credential, not\nthe ``read`` a GET would otherwise ask for: the console logs every SQL\nstatement run from it (``wasm.audit``), the paths and client addresses of\nevery request, and the verbatim output of failed git, certbot and\nnotification calls; the monitor logs what it saw of other processes.\nAn application's journal is its own output and stays ``read``.",
+        "description": "Get service logs from journalctl.\n\nThe console's and the monitor's journals need an admin credential, not\nthe ``read`` a GET would otherwise ask for: the console logs every SQL\nstatement run from it (``noust.audit``), the paths and client addresses of\nevery request, and the verbatim output of failed git, certbot and\nnotification calls; the monitor logs what it saw of other processes.\nAn application's journal is its own output and stays ``read``.",
         "operationId": "get_service_logs_api_services__name__logs_get",
         "parameters": [
           {
@@ -18241,7 +18272,7 @@
     },
     "/api/sites/templates": {
       "get": {
-        "description": "List the site templates available for the detected web server.\n\nRegistered before ``/{domain}`` so the literal path wins, the same reason\n``/reload`` is declared here rather than after it: the templates\ndirectory :meth:`~wasm.managers.webserver.WebServerManager.list_templates`\nreads is the one source of truth this shares with ``POST /api/sites``,\nwhich refuses a template not on this list.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The template names and the web server they belong to.",
+        "description": "List the site templates available for the detected web server.\n\nRegistered before ``/{domain}`` so the literal path wins, the same reason\n``/reload`` is declared here rather than after it: the templates\ndirectory :meth:`~noust.managers.webserver.WebServerManager.list_templates`\nreads is the one source of truth this shares with ``POST /api/sites``,\nwhich refuses a template not on this list.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The template names and the web server they belong to.",
         "operationId": "list_site_templates_api_sites_templates_get",
         "responses": {
           "200": {
@@ -18441,7 +18472,7 @@
     },
     "/api/sites/{domain}/config/test": {
       "post": {
-        "description": "Try a candidate configuration against the web server, without saving it.\n\nReuses :meth:`~wasm.managers.webserver.WebServerManager.test_config_text`,\nthe exact staging and syntax check ``PUT /{domain}/config`` validates\nthrough before it writes anything - one implementation, so the answer\nthis gives is the answer saving would get. The site named in the path\nneed not exist yet: this only asks the web server about the text, it\nnever reads or touches the file on disk.\n\nArgs:\n    domain: Domain the configuration is meant for.\n    data: The candidate configuration.\n    session: The authenticated session.\n\nReturns:\n    Whether the web server would accept it, and its own output verbatim.\n\nRaises:\n    DomainError: When the domain is not acceptable.\n    NginxError: When the nginx snippet cannot be staged.\n    ApacheError: When the apache snippet cannot be staged.",
+        "description": "Try a candidate configuration against the web server, without saving it.\n\nReuses :meth:`~noust.managers.webserver.WebServerManager.test_config_text`,\nthe exact staging and syntax check ``PUT /{domain}/config`` validates\nthrough before it writes anything - one implementation, so the answer\nthis gives is the answer saving would get. The site named in the path\nneed not exist yet: this only asks the web server about the text, it\nnever reads or touches the file on disk.\n\nArgs:\n    domain: Domain the configuration is meant for.\n    data: The candidate configuration.\n    session: The authenticated session.\n\nReturns:\n    Whether the web server would accept it, and its own output verbatim.\n\nRaises:\n    DomainError: When the domain is not acceptable.\n    NginxError: When the nginx snippet cannot be staged.\n    ApacheError: When the apache snippet cannot be staged.",
         "operationId": "test_site_config_api_sites__domain__config_test_post",
         "parameters": [
           {
@@ -18650,7 +18681,7 @@
     },
     "/api/system/health": {
       "get": {
-        "description": "Report the same health verdict and checks as ``wasm health``.\n\nCalls :func:`wasm.managers.health.collect_health_report`, the function the\nCLI command itself calls, so the server card in the console can never\ndisagree with what an operator sees at the terminal.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The verdict, every check that ran, and the issues and warnings behind it.",
+        "description": "Report the same health verdict and checks as ``noust health``.\n\nCalls :func:`noust.managers.health.collect_health_report`, the function the\nCLI command itself calls, so the server card in the console can never\ndisagree with what an operator sees at the terminal.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The verdict, every check that ran, and the issues and warnings behind it.",
         "operationId": "get_system_health_api_system_health_get",
         "responses": {
           "200": {
@@ -18769,7 +18800,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/wasm__web__api__system__ProcessListResponse"
+                  "$ref": "#/components/schemas/noust__web__api__system__ProcessListResponse"
                 }
               }
             },

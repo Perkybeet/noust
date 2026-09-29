@@ -22,7 +22,7 @@ from typing import Any
 import pytest
 import yaml
 
-from wasm.core.config import DEFAULT_CONFIG, Config
+from noust.core.config import DEFAULT_CONFIG, Config
 
 CUSTOM_APPS = "/srv/custom-apps"
 
@@ -32,7 +32,7 @@ def config_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Pat
     """A config.yaml that moves apps_directory away from the default."""
     path = tmp_path / "config.yaml"
     path.write_text(yaml.safe_dump({"apps_directory": CUSTOM_APPS}))
-    monkeypatch.setattr("wasm.core.config.DEFAULT_CONFIG_PATH", path)
+    monkeypatch.setattr("noust.core.config.DEFAULT_CONFIG_PATH", path)
     monkeypatch.delenv("WASM_APPS_DIR", raising=False)
     Config.reset_instance()
     try:

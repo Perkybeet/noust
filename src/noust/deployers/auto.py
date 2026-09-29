@@ -20,20 +20,20 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from wasm.core.applock import app_lock
-from wasm.core.config import Config
-from wasm.core.exceptions import DeploymentError
-from wasm.core.fs import FileSystem
-from wasm.core.logger import Logger
-from wasm.core.store import App, get_store
-from wasm.core.utils import domain_to_app_name
-from wasm.deployers.helpers.layout import INPLACE, RELEASES, choose_layout
-from wasm.deployers.helpers.release_build import discard_release, stage_release
-from wasm.deployers.helpers.target import DeployTarget, claim_deploy_target
-from wasm.deployers.interface import AppDeployer
-from wasm.deployers.registry import DeployerRegistry
-from wasm.deployers.releases import ReleaseManager
-from wasm.managers.source_manager import SourceManager
+from noust.core.applock import app_lock
+from noust.core.config import Config
+from noust.core.exceptions import DeploymentError
+from noust.core.fs import FileSystem
+from noust.core.logger import Logger
+from noust.core.store import App, get_store
+from noust.core.utils import domain_to_app_name
+from noust.deployers.helpers.layout import INPLACE, RELEASES, choose_layout
+from noust.deployers.helpers.release_build import discard_release, stage_release
+from noust.deployers.helpers.target import DeployTarget, claim_deploy_target
+from noust.deployers.interface import AppDeployer
+from noust.deployers.registry import DeployerRegistry
+from noust.deployers.releases import ReleaseManager
+from noust.managers.source_manager import SourceManager
 
 
 class AutoDeployer(AppDeployer):
@@ -333,7 +333,7 @@ class AutoDeployer(AppDeployer):
             True if the application ended up deployed.
 
         Raises:
-            WASMError: Whatever the chosen deployer raised.
+            NoustError: Whatever the chosen deployer raised.
             AppBusyError: Another operation is running on the application.
         """
         if not self.domain:

@@ -26,9 +26,9 @@ from typing import Any
 import pytest
 from fastapi import FastAPI
 
-from wasm.web import events as events_module
-from wasm.web import server as server_module
-from wasm.web.events import _stream, begin_shutdown, shutting_down
+from noust.web import events as events_module
+from noust.web import server as server_module
+from noust.web.events import _stream, begin_shutdown, shutting_down
 
 
 @pytest.fixture(autouse=True)
@@ -196,7 +196,7 @@ def _quiet_lifespan(monkeypatch: pytest.MonkeyPatch) -> None:
     Args:
         monkeypatch: Patching helper, scoped to the test.
     """
-    from wasm.web import metrics_collector
+    from noust.web import metrics_collector
 
     monkeypatch.setattr(metrics_collector, "start_metrics_collector", lambda: None)
     monkeypatch.setattr(metrics_collector, "stop_metrics_collector", lambda: None)
@@ -207,7 +207,7 @@ def _quiet_lifespan(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(server_module, "get_token_manager", Tokens)
 
-    from wasm.deployers import inspect as inspect_module
+    from noust.deployers import inspect as inspect_module
 
     # The sweep of the machine's temporary directory is not this suite's to run.
     monkeypatch.setattr(inspect_module, "remove_stale_checkouts", lambda: [])
@@ -215,7 +215,7 @@ def _quiet_lifespan(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_the_lifespan_sweeps_stale_inspection_checkouts(monkeypatch: pytest.MonkeyPatch) -> None:
     """A console killed mid-inspection left a checkout; the next start removes it."""
-    from wasm.deployers import inspect as inspect_module
+    from noust.deployers import inspect as inspect_module
 
     _quiet_lifespan(monkeypatch)
     swept: list[bool] = []

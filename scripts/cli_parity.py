@@ -110,7 +110,7 @@ def compare(subtree: str | None) -> int:
     Returns:
         Process exit code.
     """
-    from wasm.cli.app import cli
+    from noust.cli.app import cli
 
     contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
     actual = click_tree(cli)

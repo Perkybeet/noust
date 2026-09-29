@@ -24,7 +24,7 @@ describe("the shell", () => {
     const strip = screen.getByRole("group", { name: "This machine" });
     expect(await within(strip).findByText("web-01")).toBeInTheDocument();
     expect(within(strip).getByRole("meter", { name: "CPU" })).toBeInTheDocument();
-    expect(document.title).toBe("Applications - web-01 - WASM");
+    expect(document.title).toBe("Applications - web-01 - Noust");
   });
 
   it("has no accessibility violations", async () => {
@@ -43,7 +43,7 @@ describe("the shell", () => {
     });
     expect(await within(strip).findByText("web-02")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Services 3 failed" })).toBeInTheDocument();
-    expect(within(strip).getByRole("link", { name: "WASM units: 9 running, 3 failed, 2 stopped" })).toBeInTheDocument();
+    expect(within(strip).getByRole("link", { name: "Noust units: 9 running, 3 failed, 2 stopped" })).toBeInTheDocument();
   });
 
   it("sends an anonymous visitor to sign in, remembering where they were going", async () => {

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Global configuration management for WASM.
+Global configuration management for Noust.
 
 The configuration file holds credentials (MySQL root password, SMTP account,
 and, in a file an older version wrote, an OpenAI API key that is no longer a
@@ -26,9 +26,9 @@ This is the only writer of ``config.yaml``. The web API and the CLI both go
 through :class:`Config`; a second writer is how the hardening was lost once
 already.
 
-Every change to the filesystem goes through :mod:`wasm.core.fs`. Nothing here
+Every change to the filesystem goes through :mod:`noust.core.fs`. Nothing here
 calls ``mkdir``, ``chmod`` or ``open`` for writing directly, because a
-``--dry-run`` that writes half of ``/etc/wasm/config.yaml`` is worse than no
+``--dry-run`` that writes half of ``/etc/noust/config.yaml`` is worse than no
 rehearsal at all: the operator has already been told nothing would change.
 """
 
@@ -48,25 +48,30 @@ from urllib.parse import urlparse
 
 import yaml  # type: ignore[import-untyped]
 
-from wasm.core.exceptions import ConfigError, SecurityError
-from wasm.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
-from wasm.validators.domain import is_valid_domain
+from noust.core import paths
+from noust.core.exceptions import ConfigError, SecurityError
+from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
+from noust.validators.domain import is_valid_domain
 
 logger = logging.getLogger(__name__)
 
-#: Files holding secrets are owner-only. The value lives in :mod:`wasm.core.fs`
+#: Files holding secrets are owner-only. The value lives in :mod:`noust.core.fs`
 #: so the seam and the callers that ask it for a mode cannot drift apart; the
 #: name is kept because the rest of the codebase imports it from here.
 SECRET_FILE_MODE = SECRET_MODE
 
-# Default paths
-DEFAULT_CONFIG_PATH = Path("/etc/wasm/config.yaml")
+# Default paths. The directories come from noust.core.paths, which reads
+# WASM's /etc/wasm and /var/backups/wasm in place on a server that has not
+# been migrated yet (and through their compatibility symlinks after).
+DEFAULT_CONFIG_PATH = paths.config_dir() / "config.yaml"
 DEFAULT_APPS_DIR = Path("/var/www/apps")
-DEFAULT_LOG_DIR = Path("/var/log/wasm")
+#: Logs start afresh under the new name: nothing reads an old log file back,
+#: so /var/log/noust is left where it is as history rather than moved.
+DEFAULT_LOG_DIR = paths.LOG_DIR
 #: Where backups go when ``backup.directory`` is unset or empty. It lives here,
 #: not in the backup manager, so the config chokepoint and every reader resolve
 #: an empty value to the same place.
-DEFAULT_BACKUP_DIR = Path("/var/backups/wasm")
+DEFAULT_BACKUP_DIR = paths.backup_dir()
 
 # Nginx paths
 NGINX_SITES_AVAILABLE = Path("/etc/nginx/sites-available")
@@ -92,7 +97,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
     "logging": {
         "level": "info",
-        "file": str(DEFAULT_LOG_DIR / "wasm.log"),
+        "file": str(DEFAULT_LOG_DIR / "noust.log"),
     },
     "nodejs": {
         "default_version": "20",
@@ -111,7 +116,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "layout": "releases",
     },
     "updates": {
-        # Whether wasm asks GitHub for the latest release: the CLI's
+        # Whether noust asks GitHub for the latest release: the CLI's
         # background check on every command and the panel's GET
         # /api/system/version. On by default; an operator on an airgapped or
         # firewalled server turns it off here rather than have every command
@@ -141,7 +146,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "email_recipients": [],
     },
     "notifications": {
-        # Multi-channel event notifications, delivered by wasm.core.notifier.
+        # Multi-channel event notifications, delivered by noust.core.notifier.
         # Off until the operator turns them on; every event kind defaults to
         # on so enabling the feature is one switch, not nine - except
         # deploy_started, which fires once per deployment attempt with no
@@ -151,9 +156,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # because this module cannot import the notifier (the notifier reads
         # its settings from here).
         "enabled": False,
-        # Language WASM's own words in a notification are rendered in - the
+        # Language Noust's own words in a notification are rendered in - the
         # evidence they carry (a health gate's probes, rclone's or
-        # certbot's own output) never is. wasm.core.messages is the catalog;
+        # certbot's own output) never is. noust.core.messages is the catalog;
         # see _validate_notification_language for the accepted values.
         "language": "en",
         "events": {
@@ -191,11 +196,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # be absolute https - see _validate_public_url.
         "public_url": "",
         # The public base of /hooks/ that code hosts deliver to, written by
-        # `wasm web expose-hooks`; unset while webhooks can only reach this
+        # `noust web expose-hooks`; unset while webhooks can only reach this
         # server through an address of the operator's own. See
         # _validate_hooks_url.
         "hooks_url": "",
-        # These values are enforced by wasm.web.auth.SecurityConfig, whose
+        # These values are enforced by noust.web.auth.SecurityConfig, whose
         # dataclass defaults must say the same numbers - core cannot import
         # the web layer to share one constant, so the agreement is pinned by
         # a test in tests/test_cli_web.py. They used to disagree, which went
@@ -246,9 +251,9 @@ REMOVED_KEYS: dict[str, Any] = {
     "monitor.dry_run": True,
 }
 
-# Web servers WASM can actually front a site with. wasm.web.api.config keeps
+# Web servers Noust can actually front a site with. noust.web.api.config keeps
 # its own copy for its dedicated /config/webserver endpoint; this is the one
-# both wasm.cli.commands.config's `set` and the generic PATCH /api/config
+# both noust.cli.commands.config's `set` and the generic PATCH /api/config
 # enforce, because that generic path is the one that had no rule of its own -
 # it wrote whatever value it was given straight into the unit and site
 # templates.
@@ -257,7 +262,7 @@ SUPPORTED_WEBSERVERS = frozenset({"nginx", "apache"})
 
 def _validate_webserver(value: Any) -> Any:
     """
-    Refuse a web server WASM has no manager for.
+    Refuse a web server Noust has no manager for.
 
     Args:
         value: The candidate value, from either front end.
@@ -266,7 +271,7 @@ def _validate_webserver(value: Any) -> Any:
         The value unchanged, once it is known to be usable.
 
     Raises:
-        ConfigError: When the value is not a web server WASM can manage.
+        ConfigError: When the value is not a web server Noust can manage.
     """
     if value not in SUPPORTED_WEBSERVERS:
         raise ConfigError(
@@ -316,7 +321,7 @@ def resolve_backup_directory(value: Any, default: Path = DEFAULT_BACKUP_DIR) -> 
     working directory, and ``backup.directory: ''`` - written by the 1.x
     panel's settings form, whose field rendered empty because the section had
     no default - sent every backup to ``/root/<app>/`` when an operator ran
-    wasm from ``/root`` and to ``/<app>/`` when a timer did. So empty means
+    noust from ``/root`` and to ``/<app>/`` when a timer did. So empty means
     the default, and a relative path is refused, never resolved against
     whatever directory the caller happens to be in.
 
@@ -339,8 +344,8 @@ def resolve_backup_directory(value: Any, default: Path = DEFAULT_BACKUP_DIR) -> 
         raise ConfigError(
             "backup.directory must be an absolute path",
             details=(
-                f"Got {text!r}, which would depend on the directory wasm is started from. "
-                f"Run 'wasm config set backup.directory {DEFAULT_BACKUP_DIR}' (or any path "
+                f"Got {text!r}, which would depend on the directory noust is started from. "
+                f"Run 'noust config set backup.directory {DEFAULT_BACKUP_DIR}' (or any path "
                 "starting with '/'), or set it to '' to use the default."
             ),
         )
@@ -370,7 +375,7 @@ def _forget_blank_backup_directory(tree: dict[str, Any]) -> None:
     The file is deliberately not rewritten here. The configuration is loaded
     by every command, read-only ones and ``--dry-run`` included, and by the
     console while the CLI may be writing the same file: a write on load would
-    change ``/etc/wasm/config.yaml`` without anyone asking, would behave
+    change ``/etc/noust/config.yaml`` without anyone asking, would behave
     differently under a rehearsal, and could race the real writer. Dropping
     the key gives exactly the behaviour a rewrite would, and the next write
     through :meth:`Config.set` or :meth:`Config.replace` persists it.
@@ -392,7 +397,7 @@ def _int_range_validator(label: str, low: int, high: int) -> Callable[[Any], int
     Build a validator that requires a whole number in a closed range.
 
     Accepting the raw value rather than only an ``int`` is what lets
-    ``wasm config set`` reuse this directly: argv never hands it anything but
+    ``noust config set`` reuse this directly: argv never hands it anything but
     a string, and ``int("8080")`` is exactly the conversion a human typing a
     port number expects.
 
@@ -419,7 +424,7 @@ def _int_range_validator(label: str, low: int, high: int) -> Callable[[Any], int
 
 #: A loose but real email address: something@something.tld. This is a syntax
 #: check, not a mailbox check - the only way to know an address actually
-#: receives mail is to send it one, which 'wasm config set' and a PUT of the
+#: receives mail is to send it one, which 'noust config set' and a PUT of the
 #: monitor's SMTP settings have no business doing.
 _EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -471,7 +476,7 @@ def _validate_email_list(label: str) -> Callable[[Any], list[str]]:
     """
     Build a validator that requires a list of email addresses.
 
-    Accepts a comma-separated string too, the same shape 'wasm config set'
+    Accepts a comma-separated string too, the same shape 'noust config set'
     would otherwise need ``--list`` for, so a caller that bypasses the CLI's
     own coercion (a direct :meth:`Config.set` call, or a future front end that
     posts a string) is still refused rather than silently storing a single
@@ -511,7 +516,7 @@ def _validate_smtp_host(value: Any) -> str:
     """
     Accept an SMTP server hostname, or leave it unset.
 
-    Reuses :func:`~wasm.validators.domain.is_valid_domain`, the same check a
+    Reuses :func:`~noust.validators.domain.is_valid_domain`, the same check a
     site's domain goes through - loose enough to accept ``localhost`` and a
     bare IP octet by shape, strict enough to catch a URL or a value with a
     stray path or space pasted in by mistake.
@@ -542,7 +547,7 @@ def _validate_smtp_section(smtp: dict[str, Any]) -> None:
     Refuse an SMTP configuration that cannot describe a real connection.
 
     Applied to the whole ``monitor.smtp`` section as it would end up after any
-    write that touches it - a single ``wasm config set monitor.smtp.use_tls
+    write that touches it - a single ``noust config set monitor.smtp.use_tls
     true`` and a full ``PUT /api/config/smtp`` both funnel through
     :meth:`Config.set`, so a contradiction cannot land in the file through one
     and not the other.
@@ -567,10 +572,10 @@ def _validate_smtp_section(smtp: dict[str, Any]) -> None:
         )
 
 
-# Validation wasm.web.api.config applies through its own typed endpoints
+# Validation noust.web.api.config applies through its own typed endpoints
 # (WebserverConfig, BackupConfig, WebConfig, SMTPConfig), reproduced here
 # against the dotted key each endpoint actually writes so a value the panel
-# would reject cannot be waved through by using 'wasm config set' or the
+# would reject cannot be waved through by using 'noust config set' or the
 # generic PATCH /api/config instead.
 def _validate_telegram_chat_id(value: Any) -> str:
     """
@@ -586,7 +591,7 @@ def _validate_telegram_chat_id(value: Any) -> str:
         ConfigError: When it is neither an integer id nor an ``@channelname``,
             including the id of a group written without its minus sign.
     """
-    from wasm.validators.telegram import validate_telegram_chat_id
+    from noust.validators.telegram import validate_telegram_chat_id
 
     text = "" if value is None else str(value).strip()
     if not text:
@@ -602,10 +607,10 @@ def _validate_telegram_chat_id(value: Any) -> str:
 
 def _validate_notification_language(value: Any) -> str:
     """
-    Accept the language WASM's own notification texts are rendered in.
+    Accept the language Noust's own notification texts are rendered in.
 
     Only ``"en"`` and ``"es"`` are catalogued in
-    :data:`wasm.core.messages.MESSAGES`; a third value would index that dict
+    :data:`noust.core.messages.MESSAGES`; a third value would index that dict
     into a ``KeyError`` the next time a deploy or the monitor tries to send
     something, not at the moment an operator mistypes it here.
 
@@ -631,7 +636,7 @@ def _validate_public_url(value: Any) -> str:
     """
     Accept the console's public URL, or leave it unset.
 
-    Read by :mod:`wasm.core.deploy_notifications` to link a deployment
+    Read by :mod:`noust.core.deploy_notifications` to link a deployment
     notification back to its page in the console. Restricted to https,
     unlike the bind address it is next to in ``web.*``: this value is handed
     to an operator's phone or chat client, and an ``http://`` link there is a
@@ -666,7 +671,7 @@ def _validate_hooks_url(value: Any) -> str:
 
     http is allowed, unlike ``web.public_url``: a delivery is signed, so a
     reader in the middle learns what was pushed but cannot forge one, and
-    ``wasm web expose-hooks --no-ssl`` exists for a server without a
+    ``noust web expose-hooks --no-ssl`` exists for a server without a
     certificate yet.
 
     Args:
@@ -685,7 +690,7 @@ def _validate_hooks_url(value: Any) -> str:
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
         raise ConfigError(
             "web.hooks_url must be an absolute http(s):// URL",
-            details=f"Got {text!r}. Set it with 'wasm web expose-hooks DOMAIN'.",
+            details=f"Got {text!r}. Set it with 'noust web expose-hooks DOMAIN'.",
         )
     return text.rstrip("/")
 
@@ -697,7 +702,7 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "web.session_timeout": _int_range_validator("web.session_timeout", 300, 86400),
     "web.public_url": _validate_public_url,
     "web.hooks_url": _validate_hooks_url,
-    # The one key every deployer, wasm.core.config.Config.apps_directory and
+    # The one key every deployer, noust.core.config.Config.apps_directory and
     # the panel's disk usage meter read. "apps.directory" is a deprecated
     # dotted alias, resolved to this key by _canonical_key() before a
     # validator is even looked up - see KEY_ALIASES.
@@ -785,7 +790,7 @@ def _validate_known_sections_in(tree: dict[str, Any]) -> None:
     more than one key of the same container, so :meth:`Config.replace` enforces
     it too: a full ``PUT /api/config`` carrying a contradictory
     ``monitor.smtp`` section must be refused exactly as a typed endpoint or
-    ``wasm config set`` would refuse it.
+    ``noust config set`` would refuse it.
 
     Args:
         tree: Resolved configuration about to be stored.
@@ -807,7 +812,7 @@ def _validate_known_sections_in(tree: dict[str, Any]) -> None:
 
 # Deprecated dotted spellings, mapped to the flat key every deployer and the
 # rest of the codebase actually reads. "apps.directory" used to be treated as
-# a second, independent setting: wasm.web.machine's disk meter and the
+# a second, independent setting: noust.web.machine's disk meter and the
 # command the panel told an operator to run both addressed it, while every
 # deployer read "apps_directory" - so the disk meter always reported the
 # hard-coded default, no matter what the apps directory was really set to.
@@ -815,7 +820,7 @@ def _validate_known_sections_in(tree: dict[str, Any]) -> None:
 # doing anything else, so there is exactly one setting on disk and every
 # reader agrees on it, whichever spelling wrote it.
 #
-# "logging.directory" is the same defect in miniature: obs/wasm.default.yaml
+# "logging.directory" is the same defect in miniature: obs/noust.default.yaml
 # shipped it while DEFAULT_CONFIG named the setting "logging.file", so a
 # packaged install and the code disagreed about which key held the log
 # location. A config.yaml written by that packaging keeps loading - and
@@ -914,13 +919,13 @@ FALSE_WORDS = frozenset({"0", "false", "no", "off"})
 
 def coerce_config_value(existing: Any, raw: str) -> Any:
     """
-    Parse a string value the way ``wasm config set`` and ``PATCH /api/config``
+    Parse a string value the way ``noust config set`` and ``PATCH /api/config``
     both have to: against the type of the key's default, or, when there is no
     default, as a JSON scalar or list.
 
     Argv only ever hands a command a string, and a caller sending
     form-shaped data (everything a string, no JSON types) has the same
-    problem: without this, ``wasm config set ssl.enabled false`` or a PATCH
+    problem: without this, ``noust config set ssl.enabled false`` or a PATCH
     body ``{"path": "ssl.enabled", "value": "false"}`` stores the literal
     string ``"false"``, which is truthy. A key whose current or default value
     is a list also accepts a JSON array (``["a@example.com"]``) or a plain
@@ -959,7 +964,7 @@ def coerce_config_value(existing: Any, raw: str) -> Any:
             return parsed
         # Not JSON, or valid JSON that parsed to something other than a list
         # (a bare number, for instance): fall back to the same comma-separated
-        # shape '--list' produces for a key with no default, so 'wasm config
+        # shape '--list' produces for a key with no default, so 'noust config
         # set monitor.email_recipients a@x.com,b@y.com' stores a list instead
         # of the literal string - argv has no native list type, and a value
         # already shaped like one is the whole reason this key has a default
@@ -1061,7 +1066,7 @@ def is_secret_key(key: str) -> bool:
     Report whether a configuration key's leaf name holds a secret.
 
     The public entry point to the same classification :func:`redact_secrets`
-    uses, for a caller outside this module - ``wasm config set`` warning that
+    uses, for a caller outside this module - ``noust config set`` warning that
     a secret typed in argv lands in shell history and ``ps``, for one - that
     needs the answer without depending on a private name.
 
@@ -1231,7 +1236,7 @@ def secure_directory(path: Path, fs: FileSystem | None = None) -> None:
     Every level that is missing is created with :data:`SECRET_DIR_MODE`;
     ``mkdir(parents=True)`` applies the mode to the last level only and leaves
     the intermediate ones at ``0777 & ~umask``, which is exactly what
-    :meth:`~wasm.core.fs.FileSystem.make_dir` exists to avoid. Directories that
+    :meth:`~noust.core.fs.FileSystem.make_dir` exists to avoid. Directories that
     already exist are left alone, except the leaf, which is tightened when it
     belongs to the current user and is not a shared directory (sticky bit):
     tightening ``/tmp`` or another shared location would break the system for
@@ -1309,7 +1314,7 @@ def _refuse_symlink(path: Path) -> None:
 
     The write itself lands on a fresh file that is renamed over ``path``, so a
     link could not redirect the content anyway; refusing loudly is still the
-    right answer, because a symlink where WASM expects its own file means
+    right answer, because a symlink where Noust expects its own file means
     somebody is trying something and silently unlinking their link would hide
     it.
 
@@ -1339,7 +1344,7 @@ def secure_write(
     """
     Write a file that holds secrets, owner-readable only.
 
-    The write goes through :meth:`~wasm.core.fs.FileSystem.write_text`, which
+    The write goes through :meth:`~noust.core.fs.FileSystem.write_text`, which
     creates a temporary file with :data:`SECRET_FILE_MODE` already applied and
     renames it over the destination. That buys three things at once: the file is
     never briefly world readable, a reader never sees a half-written config, and
@@ -1398,20 +1403,23 @@ def _strip_removed_keys(config: dict[str, Any]) -> dict[str, Any]:
 
 def _apply_env_overrides(config: dict[str, Any]) -> None:
     """
-    Apply the ``WASM_*`` environment overrides to a configuration mapping.
+    Apply the ``NOUST_*`` environment overrides to a configuration mapping.
+
+    The ``WASM_*`` spelling each had before 3.0 is still read when the new
+    one is absent, so an operator's existing environment keeps working.
 
     Args:
         config: The mapping being built; modified in place.
     """
     env_mappings: dict[str, str | tuple[str, str]] = {
-        "WASM_APPS_DIR": "apps_directory",
-        "WASM_WEBSERVER": "webserver",
-        "WASM_SERVICE_USER": "service_user",
-        "WASM_SSL_EMAIL": ("ssl", "email"),
+        "APPS_DIR": "apps_directory",
+        "WEBSERVER": "webserver",
+        "SERVICE_USER": "service_user",
+        "SSL_EMAIL": ("ssl", "email"),
     }
 
     for env_var, config_key in env_mappings.items():
-        value = os.environ.get(env_var)
+        value = paths.getenv(env_var)
         if value:
             if isinstance(config_key, tuple):
                 config[config_key[0]][config_key[1]] = value
@@ -1421,7 +1429,7 @@ def _apply_env_overrides(config: dict[str, Any]) -> None:
 
 class Config:
     """
-    Configuration manager for WASM.
+    Configuration manager for Noust.
 
     Handles loading, saving, and accessing configuration values from
     the global config file and environment variables.
@@ -1603,7 +1611,7 @@ class Config:
         writing back what it was shown.
 
         A handful of keys carry the same rule
-        :mod:`wasm.web.api.config` enforces through its own typed endpoints
+        :mod:`noust.web.api.config` enforces through its own typed endpoints
         (``webserver``, ``backup.max_per_app``, ``web.port``,
         ``web.session_timeout``, the ``monitor.smtp`` fields and
         ``monitor.email_recipients``); a value one of them rejects is rejected
@@ -1655,7 +1663,7 @@ class Config:
         # A rule spanning more than one key of the same container (again,
         # monitor.smtp's use_ssl/use_tls) must also catch a single leaf write
         # such as "monitor.smtp.use_tls" - the dict branch above only sees a
-        # whole section written at once, and "wasm config set
+        # whole section written at once, and "noust config set
         # monitor.smtp.use_tls true" never presents one. The section is
         # checked as it will read after this write, siblings included.
         container_key = ".".join(keys[:-1])
@@ -1680,7 +1688,7 @@ class Config:
         the redacted dump; removed settings are dropped, because a stale form
         must not be able to reintroduce them; and every key in
         :data:`_KEY_VALIDATORS` that is present is checked against the same
-        rule :meth:`set` enforces. Without that last step a value ``wasm
+        rule :meth:`set` enforces. Without that last step a value ``noust
         config set`` or ``PATCH /api/config`` would refuse - an unsupported
         web server, a relative apps directory - sailed through a full
         ``PUT /api/config`` untouched, because ``replace`` wrote the mapping

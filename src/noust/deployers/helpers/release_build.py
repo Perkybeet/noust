@@ -4,9 +4,9 @@
 """
 Filling a new release: its source, and the dependencies it can take over.
 
-:class:`~wasm.deployers.releases.ReleaseManager` knows the layout; this module
+:class:`~noust.deployers.releases.ReleaseManager` knows the layout; this module
 knows what goes into a release before it is built. Both the deploy pipeline
-and :class:`~wasm.deployers.auto.AutoDeployer`, which has to look at the source
+and :class:`~noust.deployers.auto.AutoDeployer`, which has to look at the source
 before it knows which deployer builds it, stage a release through here, so
 there is one way a release gets its code.
 
@@ -23,15 +23,15 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from wasm.core.exceptions import WASMError
-from wasm.core.fs import FileSystem
-from wasm.core.logger import Logger
-from wasm.core.runner import CommandRunner
-from wasm.deployers.helpers.health import failure_output
-from wasm.deployers.helpers.package_manager import PackageManagerHelper
-from wasm.deployers.releases import REPO_CACHE_DIR, Release, ReleaseManager
-from wasm.managers.source_manager import SourceManager
-from wasm.validators.source import validate_source
+from noust.core.exceptions import NoustError
+from noust.core.fs import FileSystem
+from noust.core.logger import Logger
+from noust.core.runner import CommandRunner
+from noust.deployers.helpers.health import failure_output
+from noust.deployers.helpers.package_manager import PackageManagerHelper
+from noust.deployers.releases import REPO_CACHE_DIR, Release, ReleaseManager
+from noust.managers.source_manager import SourceManager
+from noust.validators.source import validate_source
 
 __all__ = [
     "DEPENDENCY_DIRS",
@@ -131,7 +131,7 @@ def stage_release(
         The staged release.
 
     Raises:
-        WASMError: If the source cannot be fetched or exported.
+        NoustError: If the source cannot be fetched or exported.
     """
     source_type, _ = validate_source(source)
     cache = releases.app_path / REPO_CACHE_DIR
@@ -150,7 +150,7 @@ def stage_release(
             source_manager.fetch(source, release, branch=branch, clean=False)
         elif commit is not None:
             source_manager.export_commit(cache, commit, release)
-    except (WASMError, OSError):
+    except (NoustError, OSError):
         # A half-filled directory named like a release is a release to
         # everything that lists them, rollback included.
         discard_release(release, releases=releases, logger=logger)

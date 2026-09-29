@@ -24,11 +24,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.monitor.timeseries import MetricsStore
-from wasm.web import metrics_collector
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.metrics import WINDOWS
-from wasm.web.api.metrics import router as metrics_router
+from noust.monitor.timeseries import MetricsStore
+from noust.web import metrics_collector
+from noust.web.api.auth import get_current_session
+from noust.web.api.metrics import WINDOWS
+from noust.web.api.metrics import router as metrics_router
 
 #: A fixed "now" the store's injected clock reports.
 NOW = 1_700_002_800
@@ -168,7 +168,7 @@ def test_the_response_states_its_resolution(
 
 def test_every_window_maps_onto_a_retention_tier() -> None:
     """The vocabulary and the store's tiers must not drift apart."""
-    from wasm.monitor.timeseries import (
+    from noust.monitor.timeseries import (
         HOUR_RETENTION_SECONDS,
         MINUTE_RETENTION_SECONDS,
         RAW_RETENTION_SECONDS,
@@ -183,8 +183,8 @@ def test_every_window_maps_onto_a_retention_tier() -> None:
 
 def test_the_endpoints_demand_a_session(tmp_path: Path) -> None:
     """Metric names alone reveal every application on the machine."""
-    from wasm.web.auth import SecurityConfig
-    from wasm.web.server import create_app
+    from noust.web.auth import SecurityConfig
+    from noust.web.server import create_app
 
     app = create_app(SecurityConfig(state_dir=tmp_path / "state"))
     anonymous = TestClient(app, client=("testclient", 50000))

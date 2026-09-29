@@ -35,15 +35,15 @@ from typing import Any
 
 import pytest
 
-from wasm.core.config import Config
-from wasm.core.exceptions import DeploymentError
-from wasm.core.runner import CommandResult, FakeRunner, set_runner
-from wasm.core.store import App, DeploymentStatus, WASMStore
-from wasm.deployers import base as base_module
-from wasm.deployers import lifecycle
-from wasm.deployers.interface import UpdateResult
-from wasm.managers.backup_manager import BackupManager, BackupMetadata, RollbackManager
-from wasm.managers.service_manager import WASM_UNIT_MARKER, ServiceManager
+from noust.core.config import Config
+from noust.core.exceptions import DeploymentError
+from noust.core.runner import CommandResult, FakeRunner, set_runner
+from noust.core.store import App, DeploymentStatus, NoustStore
+from noust.deployers import base as base_module
+from noust.deployers import lifecycle
+from noust.deployers.interface import UpdateResult
+from noust.managers.backup_manager import BackupManager, BackupMetadata, RollbackManager
+from noust.managers.service_manager import UNIT_MARKER, ServiceManager
 
 DOMAIN = "shop.example.com"
 APP = "shop-example-com"
@@ -173,12 +173,12 @@ def world(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
 
     units = tmp_path / "systemd"
     units.mkdir()
-    (units / f"{APP}.service").write_text(f"# {WASM_UNIT_MARKER}\n[Service]\n")
+    (units / f"{APP}.service").write_text(f"# {UNIT_MARKER}\n[Service]\n")
     monkeypatch.setattr(ServiceManager, "SYSTEMD_DIR", units)
     monkeypatch.setattr(ServiceManager, "UNIT_SEARCH_DIRS", (units,))
 
-    WASMStore.reset_instance()
-    store = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    store = NoustStore(tmp_path / "wasm.db")
     machine = Machine(root)
     set_runner(machine)
     probe = Probe()
@@ -203,12 +203,12 @@ def world(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
         yield w
     finally:
         set_runner(None)
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
         for key, value in previous.items():
             config.set(key, value if value is not None else "")
 
 
-def register(store: WASMStore, root: Path, *, app_type: str = "nodejs", git: bool = True) -> App:
+def register(store: NoustStore, root: Path, *, app_type: str = "nodejs", git: bool = True) -> App:
     """The application's row and its tree at NEW, as the last update left it."""
     for name, content in Machine(root).trees[NEW].items():
         (root / name).write_text(content)
@@ -228,7 +228,7 @@ def register(store: WASMStore, root: Path, *, app_type: str = "nodejs", git: boo
     )
 
 
-def finished(store: WASMStore, status: str, commit: str | None) -> int:
+def finished(store: NoustStore, status: str, commit: str | None) -> int:
     """A finished deployment row."""
     deployment_id = store.record_deployment_start(DOMAIN, "cli", git_commit=commit)
     store.finish_deployment(deployment_id, status)
@@ -451,7 +451,7 @@ def test_a_snapshot_that_does_not_answer_names_the_safety_backup(world: Any) -> 
 
     details = caught.value.details or ""
     assert "HTTP 502" in details
-    assert f"wasm rollback {DOMAIN} " in details
+    assert f"noust rollback {DOMAIN} " in details
     assert world.store.list_deployments(DOMAIN)[0].status == DeploymentStatus.FAILED.value
 
 
@@ -466,7 +466,7 @@ def test_a_snapshot_is_not_offered_for_types_that_cannot_rebuild_in_place(
 
     reason = lifecycle.rollback_availability([world.store.get_deployment(target)])[target]
 
-    assert reason is not None and "wasm rollback" in reason
+    assert reason is not None and "noust rollback" in reason
 
 
 # ---------------------------------------------------------------------------

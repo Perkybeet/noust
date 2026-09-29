@@ -1,9 +1,9 @@
-"""Validators for WASM input validation."""
+"""Validators for Noust input validation."""
 
-from wasm.validators.domain import is_valid_domain, validate_domain
-from wasm.validators.port import is_port_available, validate_port
-from wasm.validators.source import is_git_url, is_local_path, validate_source
-from wasm.validators.ssh import (
+from noust.validators.domain import is_valid_domain, validate_domain
+from noust.validators.port import is_port_available, validate_port
+from noust.validators.source import is_git_url, is_local_path, validate_source
+from noust.validators.ssh import (
     ensure_ssh_setup,
     generate_ssh_key,
     get_public_key,

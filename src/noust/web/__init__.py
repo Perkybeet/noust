@@ -1,11 +1,11 @@
 """
-WASM Web Interface Module.
+Noust Web Interface Module.
 
-Provides a secure web-based dashboard for managing WASM deployments.
+Provides a secure web-based dashboard for managing Noust deployments.
 """
 
-from wasm.web.auth import SecurityConfig, TokenManager
-from wasm.web.server import create_app, run_server
+from noust.web.auth import SecurityConfig, TokenManager
+from noust.web.server import create_app, run_server
 
 __all__ = [
     "SecurityConfig",

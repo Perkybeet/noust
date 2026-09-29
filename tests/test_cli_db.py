@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The ``wasm db`` command group, after the move to Click.
+The ``noust db`` command group, after the move to Click.
 
 Three things are checked here, and they are the three ways a CLI migration
 goes wrong:
@@ -28,10 +28,10 @@ import pytest
 import yaml
 from click.testing import CliRunner
 
-from wasm.cli import app as cli_app
-from wasm.cli.commands import db as db_cli
-from wasm.core.exceptions import WASMError
-from wasm.core.logger import Logger
+from noust.cli import app as cli_app
+from noust.cli.commands import db as db_cli
+from noust.core.exceptions import NoustError
+from noust.core.logger import Logger
 
 #: Every subcommand the frozen surface promises, with the arguments that make
 #: it parse. Used to prove the command exists and does not explode on --help.
@@ -224,7 +224,7 @@ def _guard_outcome(guard: Any, statement: str) -> str:
     """
     try:
         return guard(statement)
-    except WASMError:
+    except NoustError:
         return "refused"
 
 
@@ -242,7 +242,7 @@ def logged(monkeypatch: pytest.MonkeyPatch) -> io.StringIO:
     """
     Capture what a command reports through the logger.
 
-    :class:`~wasm.core.logger.Logger` binds ``sys.stdout`` as a default
+    :class:`~noust.core.logger.Logger` binds ``sys.stdout`` as a default
     argument at import time, so neither the CliRunner nor capsys ever sees it.
 
     Args:
@@ -278,7 +278,7 @@ def forgotten(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
         def delete_database(self, name: str, engine: str) -> None:
             deleted.append((name, engine))
 
-    monkeypatch.setattr("wasm.core.store.get_store", lambda: FakeStore())
+    monkeypatch.setattr("noust.core.store.get_store", lambda: FakeStore())
     return deleted
 
 
@@ -301,8 +301,8 @@ def isolated_panel_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Pa
     Yields:
         The configuration file the test may write.
     """
-    from wasm.cli.commands import web as web_module
-    from wasm.core import config as config_module
+    from noust.cli.commands import web as web_module
+    from noust.core import config as config_module
 
     path = tmp_path / "config.yaml"
     monkeypatch.setattr(config_module, "DEFAULT_CONFIG_PATH", path)
@@ -322,7 +322,7 @@ def _configure_panel(path: Path, **settings: Any) -> None:
         **settings: Overrides for the ``web`` section; ``enabled``, ``host``
             and ``port`` fall back to a plain local panel when not given.
     """
-    from wasm.core.config import Config
+    from noust.core.config import Config
 
     settings.setdefault("enabled", True)
     settings.setdefault("host", "127.0.0.1")
@@ -396,7 +396,7 @@ class TestSurface:
             }
             assert not declared & GLOBAL_FLAGS, (
                 f"'db {name}' redeclares {sorted(declared & GLOBAL_FLAGS)}. "
-                "Global state belongs to wasm.cli.app.Context."
+                "Global state belongs to noust.cli.app.Context."
             )
 
             taken = {param.name for param in command.params}
@@ -807,7 +807,7 @@ class TestQuery:
 
         assert result.exit_code == 1
         assert manager.names_called() == []
-        assert "wasm db connect" in logged.getvalue()
+        assert "noust db connect" in logged.getvalue()
 
     def test_the_guard_matches_the_one_the_panel_applies(self):
         """
@@ -816,7 +816,7 @@ class TestQuery:
         They are two front doors to the same root-level console; a rule that
         holds at one of them only is the rule not holding.
         """
-        from wasm.web.api import databases as databases_api
+        from noust.web.api import databases as databases_api
 
         for statement in ("SELECT 1;", "  SELECT 1  ", "SELECT ';'", "SELECT 1; DROP TABLE t"):
             cli_result = _guard_outcome(db_cli._single_statement, statement)

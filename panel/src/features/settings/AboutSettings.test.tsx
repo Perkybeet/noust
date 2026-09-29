@@ -11,7 +11,7 @@ function aboutRoutes(version: Record<string, unknown>): Record<string, RouteHand
   return {
     ...signedInRoutes(),
     "GET /api/system/version": () => json(200, version),
-    "GET /api/config": () => json(200, { config: {}, path: "/etc/wasm/config.yaml", writable: true }),
+    "GET /api/config": () => json(200, { config: {}, path: "/etc/noust/config.yaml", writable: true }),
   };
 }
 
@@ -35,7 +35,7 @@ describe("Settings > About", () => {
       "href",
       "https://github.com/Perkybeet/wasm/releases/tag/v2.1.0",
     );
-    expect(screen.getByText("wasm config show")).toBeInTheDocument();
+    expect(screen.getByText("noust config show")).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 
@@ -110,7 +110,7 @@ describe("Settings > About in Spanish", () => {
       "https://github.com/Perkybeet/wasm/releases/tag/v2.1.0",
     );
     expect(screen.getByRole("region", { name: "Esta instalación" })).toBeInTheDocument();
-    expect(screen.getByText("wasm config show")).toBeInTheDocument();
+    expect(screen.getByText("noust config show")).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 });

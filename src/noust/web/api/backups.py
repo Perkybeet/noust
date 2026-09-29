@@ -1,7 +1,7 @@
 """
 Backups API endpoints.
 
-A thin client of :class:`~wasm.managers.backup_manager.BackupManager`. Three
+A thin client of :class:`~noust.managers.backup_manager.BackupManager`. Three
 things changed:
 
 - **Creating and restoring a backup are jobs.** Both tar or untar a whole
@@ -10,10 +10,10 @@ things changed:
   ``202 Accepted`` with a job id.
 - **Storage usage comes from the manager.** The endpoint used to walk the
   backup directory itself and format sizes with its own thresholds, so the
-  panel and ``wasm backup`` disagreed about how much disk backups used.
+  panel and ``noust backup`` disagreed about how much disk backups used.
 - **Identifiers are validated.** A backup id names a file inside the backup
   directory, so it goes through
-  :func:`wasm.validators.names.validate_filename` before it reaches the
+  :func:`noust.validators.names.validate_filename` before it reaches the
   manager.
 """
 
@@ -26,21 +26,21 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from wasm.managers.backup_manager import BackupManager, BackupMetadata
-from wasm.validators.names import validate_filename
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import JobAcceptedResponse, WASMErrorRoute, require_elevated, strict_domain
-from wasm.web.auth import actor_label
-from wasm.web.jobs import (
+from noust.managers.backup_manager import BackupManager, BackupMetadata
+from noust.validators.names import validate_filename
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated, strict_domain
+from noust.web.auth import actor_label
+from noust.web.jobs import (
     JobType,
     backup_app_job,
     get_job_manager,
     push_backup_job,
     restore_backup_job,
 )
-from wasm.web.pydantic_compat import iso_offset_validator
+from noust.web.pydantic_compat import iso_offset_validator
 
-router = APIRouter(route_class=WASMErrorRoute)
+router = APIRouter(route_class=NoustErrorRoute)
 
 #: Size unit thresholds, largest first.
 _SIZE_UNITS: tuple[tuple[int, str], ...] = (
@@ -91,7 +91,7 @@ class BackupListResponse(BaseModel):
 
 
 class MisplacedBackupsInfo(BaseModel):
-    """WASM backups found outside the backup directory, and how to bring them in."""
+    """Noust backups found outside the backup directory, and how to bring them in."""
 
     directory: str
     count: int
@@ -104,10 +104,10 @@ class BackupStorageResponse(BaseModel):
 
     Attributes:
         domains: The applications holding backups in ``path``; directories
-            with no WASM backup in them are not listed.
+            with no Noust backup in them are not listed.
         misplaced: Backups found elsewhere - in the old default directory, or
             where an empty ``backup.directory`` sent them - each with the
-            ``wasm backup import`` command that moves them into ``path``.
+            ``noust backup import`` command that moves them into ``path``.
         filesystem_total: Size in bytes of the filesystem ``path`` is on, or
             None when it could not be read.
         filesystem_free: Bytes free on that filesystem, or None when it
@@ -444,7 +444,7 @@ def restore_backup(
     Restoring overwrites whatever the target domain currently has running -
     D5's sudo mode list treats it the same as deleting an application, so a
     cookie session has to confirm itself first; an admin-scoped Bearer
-    credential is exempt, per :func:`wasm.web.api.deps.ensure_elevated`.
+    credential is exempt, per :func:`noust.web.api.deps.ensure_elevated`.
 
     Args:
         backup_id: Backup identifier.
@@ -494,7 +494,7 @@ def push_backup(
     Queue an upload of a local backup to a remote destination.
 
     Sudo mode: this sends application data, potentially including its
-    database dump, to a remote WASM does not control past the point of
+    database dump, to a remote Noust does not control past the point of
     upload.
 
     Args:

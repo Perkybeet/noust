@@ -27,7 +27,7 @@ Four rules the old code broke and this one keeps:
   ``--dry-run`` most needs to be honest about, and none of them is a subprocess.
 - **Nothing crosses a boundary as a dict with magic keys.** ``get_status`` and
   ``list_sites`` return records whose field names are part of a type.
-- **A domain is validated before it becomes a path.** WASM runs as root, so a
+- **A domain is validated before it becomes a path.** Noust runs as root, so a
   domain that carries a slash is an arbitrary file write, not a typo.
 """
 
@@ -48,30 +48,31 @@ from typing import Any
 from jinja2 import Environment, PackageLoader, TemplateNotFound
 from jinja2 import TemplateError as JinjaTemplateError
 
-from wasm.core.config import (
+from noust.core import paths
+from noust.core.config import (
     APACHE_SITES_AVAILABLE,
     APACHE_SITES_ENABLED,
     NGINX_SITES_AVAILABLE,
     NGINX_SITES_ENABLED,
 )
-from wasm.core.exceptions import (
+from noust.core.exceptions import (
     ApacheError,
     CertificateError,
     DomainError,
     NginxError,
+    NoustError,
     SiteError,
     TemplateError,
     ValidationError,
-    WASMError,
 )
-from wasm.core.fs import FileSystem
-from wasm.core.runner import CommandRunner
-from wasm.core.store import DomainKind, Site, WASMStore, WebServer, get_store
-from wasm.core.utils import domain_to_app_name
-from wasm.managers.base_manager import BaseManager, MappingRecord
-from wasm.managers.cert_manager import CertManager
-from wasm.validators.domain import is_valid_domain, should_include_www
-from wasm.validators.names import resolve_within, validate_filename
+from noust.core.fs import FileSystem
+from noust.core.runner import CommandRunner
+from noust.core.store import DomainKind, NoustStore, Site, WebServer, get_store
+from noust.core.utils import domain_to_app_name
+from noust.managers.base_manager import BaseManager, MappingRecord
+from noust.managers.cert_manager import CertManager
+from noust.validators.domain import is_valid_domain, should_include_www
+from noust.validators.names import resolve_within, validate_filename
 
 #: Module logger for the orchestration functions below. They are not manager
 #: methods, so they have no ``self.logger``; this is the same standard-library
@@ -92,8 +93,9 @@ _CONFIG_MODE = 0o644
 #: Where nginx finds the upstream of each application in zero-downtime mode:
 #: one file per application, naming the one instance that serves. Outside
 #: ``conf.d`` on purpose: it is included by the application's own site, and
-#: only while that site exists.
-NGINX_UPSTREAMS_DIR = Path("/etc/nginx/wasm-upstreams")
+#: only while that site exists. ``/etc/nginx/noust-upstreams``, or Noust's
+#: ``wasm-upstreams`` on a server whose sites the migration has not rewritten.
+NGINX_UPSTREAMS_DIR = paths.nginx_upstreams_dir()
 
 #: Prefix of the upstream name, so it cannot collide with the upstreams an
 #: advanced or monorepo site names after its routes and workspaces.
@@ -181,7 +183,7 @@ class WebServerBackend:
         sites_enabled: Directory holding the enabled ones.
         config_suffix: Suffix appended to the domain to name the file.
         template_package: Package directory holding the Jinja templates.
-        default_site_names: Distribution-provided sites that WASM does not own.
+        default_site_names: Distribution-provided sites that Noust does not own.
         enable_site_program: Program that enables a site, or None when enabling
             means writing a symlink into ``sites_enabled``.
         disable_site_program: Counterpart of ``enable_site_program``.
@@ -227,7 +229,7 @@ class WebServerBackend:
 #: skeleton and nothing else: including the live nginx.conf instead would make
 #: the new snippet collide with the site it is about to replace.
 _NGINX_VALIDATION_WRAPPER = """\
-# Written by WASM to check one virtual host without touching the live
+# Written by Noust to check one virtual host without touching the live
 # configuration. Deleted as soon as nginx -t has answered.
 events {
 }
@@ -240,7 +242,7 @@ http {
 #: module set is loaded first: a vhost using ProxyPass is only valid with
 #: mod_proxy present, exactly as it will be at the next reload.
 _APACHE_VALIDATION_WRAPPER = """\
-# Written by WASM to check one virtual host without touching the live
+# Written by Noust to check one virtual host without touching the live
 # configuration. Deleted as soon as the syntax check has answered.
 ServerRoot "$server_root"
 IncludeOptional $server_root/mods-enabled/*.load
@@ -330,7 +332,7 @@ class WebServerManager(BaseManager):
     # -- Wiring ------------------------------------------------------------
 
     @cached_property
-    def store(self) -> WASMStore:
+    def store(self) -> NoustStore:
         """
         The persistence layer, opened on first use.
 
@@ -356,7 +358,7 @@ class WebServerManager(BaseManager):
         """
         try:
             return Environment(
-                loader=PackageLoader("wasm", self.backend.template_package),
+                loader=PackageLoader("noust", self.backend.template_package),
                 trim_blocks=True,
                 lstrip_blocks=True,
                 autoescape=False,  # noqa: S701 - web server config, not markup
@@ -366,7 +368,7 @@ class WebServerManager(BaseManager):
                 f"Could not load {self.backend.name} templates",
                 details=(
                     f"Package directory {self.backend.template_package} is missing. "
-                    "Reinstall the wasm package."
+                    "Reinstall the noust package."
                 ),
             ) from exc
 
@@ -550,7 +552,7 @@ class WebServerManager(BaseManager):
         Resolve the configuration file a domain maps to.
 
         This is the only place a domain becomes a path, and it is where the
-        domain is checked. WASM writes these files as root, so a name carrying a
+        domain is checked. Noust writes these files as root, so a name carrying a
         slash, a newline or a ``..`` segment is an arbitrary file write; the
         allowlist rejects it before it reaches the filesystem, and
         :func:`resolve_within` catches the case where the name is clean but a
@@ -637,7 +639,7 @@ class WebServerManager(BaseManager):
         List the sites this backend serves.
 
         Returns:
-            One record per virtual host file WASM considers its own, in a stable
+            One record per virtual host file Noust considers its own, in a stable
             alphabetical order.
         """
         sites: list[SiteInfo] = []
@@ -830,12 +832,12 @@ class WebServerManager(BaseManager):
         # conflict nginx settles by file order, with a warning nobody reads.
         try:
             owner = self.store.domain_owner(domain.strip().lower())
-        except (WASMError, sqlite3.Error) as exc:
+        except (NoustError, sqlite3.Error) as exc:
             # No store to ask - a rehearsal on a machine that has none yet.
             self.logger.debug(f"Could not check who owns {domain}: {exc}")
             owner = None
         if owner is not None and owner[1] != DomainKind.PRIMARY.value:
-            raise WASMStore.conflict(domain.strip().lower(), owner)
+            raise NoustStore.conflict(domain.strip().lower(), owner)
 
         for module in self.backend.required_modules:
             self.enable_module(module)
@@ -937,12 +939,12 @@ class WebServerManager(BaseManager):
             ``server_names`` and ``redirect_domains`` for the template when the
             domain is an application's, overriding whatever the caller passed;
             empty for a site that is no application's, which keeps the names
-            it was given (``wasm site create --www``), and for a store that
+            it was given (``noust site create --www``), and for a store that
             cannot be read, which is reported.
         """
         try:
             records = self.store.list_domains(domain)
-        except (WASMError, sqlite3.Error) as exc:
+        except (NoustError, sqlite3.Error) as exc:
             # A rehearsal on a machine with no database yet has no rows to
             # read; anything worse has already failed whoever called this.
             self.logger.warning(f"Could not read the domains of {domain}: {exc}")
@@ -982,7 +984,7 @@ class WebServerManager(BaseManager):
             return {}
         try:
             app = self.store.get_app(domain)
-        except (WASMError, sqlite3.Error) as exc:
+        except (NoustError, sqlite3.Error) as exc:
             self.logger.debug(f"Could not read {domain} from the store: {exc}")
             return {}
         if app is None or not app.zero_downtime:
@@ -1055,7 +1057,7 @@ class WebServerManager(BaseManager):
         """
         return (
             f"# Upstream of {domain.strip().lower()}: the blue/green instance that serves\n"
-            "# Generated by WASM; rewritten on every activation.\n"
+            f"# {paths.UNIT_MARKER}; rewritten on every activation.\n"
             f"upstream {self.upstream_name(domain)} {{\n"
             f"    server 127.0.0.1:{int(port)};\n"
             "}\n"
@@ -1120,7 +1122,7 @@ class WebServerManager(BaseManager):
         if path.is_symlink() or (path.parent.exists() and path.parent.is_symlink()):
             raise self.backend.error(
                 f"Refusing to write {path}: it is a symlink",
-                details=f"Remove the link; WASM writes the upstream of {domain} itself.",
+                details=f"Remove the link; Noust writes the upstream of {domain} itself.",
             )
         previous = self.read_upstream(domain)
         try:
@@ -1229,7 +1231,7 @@ class WebServerManager(BaseManager):
                     enabled=self.site_enabled(domain),
                 )
             )
-        except (WASMError, sqlite3.Error) as exc:
+        except (NoustError, sqlite3.Error) as exc:
             self.logger.debug(f"Could not register site in store: {exc}")
 
     def enable_site(self, domain: str) -> bool:
@@ -1333,7 +1335,7 @@ class WebServerManager(BaseManager):
             if site is not None:
                 site.enabled = enabled
                 self.store.update_site(site)
-        except (WASMError, sqlite3.Error) as exc:
+        except (NoustError, sqlite3.Error) as exc:
             self.logger.debug(f"Could not update site in store: {exc}")
 
     def delete_site(self, domain: str) -> bool:
@@ -1367,7 +1369,7 @@ class WebServerManager(BaseManager):
 
         try:
             self.store.delete_site(domain)
-        except (WASMError, sqlite3.Error) as exc:
+        except (NoustError, sqlite3.Error) as exc:
             self.logger.debug(f"Could not remove site from store: {exc}")
 
         self.logger.debug(f"Deleted site: {domain}")
@@ -1803,7 +1805,7 @@ def create_secured_site(
                 apache=webserver == "apache",
                 additional_domains=additional_domains,
             )
-        except WASMError as exc:
+        except NoustError as exc:
             certificate_error = str(exc)
 
     if certificate_error is not None:

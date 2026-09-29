@@ -4,7 +4,7 @@ What every endpoint in this package needs before it may call a manager.
 Three things live here because they used to be repeated, inconsistently, in
 every module of the API:
 
-- **The error boundary.** Managers raise :class:`~wasm.core.exceptions.WASMError`
+- **The error boundary.** Managers raise :class:`~noust.core.exceptions.NoustError`
   subclasses carrying an actionable message. Each handler used to wrap its
   manager call in ``try/except Exception`` and answer 500, which is how a
   rejected domain name and a dead certbot ended up as the same HTTP status. The
@@ -18,8 +18,8 @@ every module of the API:
   the server-rendered pages this application still has raise the same
   exceptions and must keep answering exactly as they did.
 - **Strict identifier checks.** The panel runs as root, so a name arriving in a
-  path segment or a JSON body is validated with :mod:`wasm.validators.names`
-  and :mod:`wasm.validators.domain` before it becomes a path, a unit name or
+  path segment or a JSON body is validated with :mod:`noust.validators.names`
+  and :mod:`noust.validators.domain` before it becomes a path, a unit name or
   SQL. Validation that only normalises is not enough here: ``sub/dir`` must be
   refused, not silently turned into ``sub``.
 
@@ -47,24 +47,24 @@ from fastapi.routing import APIRoute
 from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from wasm.core.applock import AppBusyError
-from wasm.core.exceptions import (
+from noust.core.applock import AppBusyError
+from noust.core.exceptions import (
     ConfigError,
     DatabaseExistsError,
     DatabaseNotFoundError,
     DomainConflictError,
     DomainError,
     IntegrationError,
+    NoustError,
     SecurityError,
     SourceError,
     ValidationError,
-    WASMError,
 )
-from wasm.core.exceptions import (
-    PermissionError as WASMPermissionError,
+from noust.core.exceptions import (
+    PermissionError as NoustPermissionError,
 )
-from wasm.validators.domain import validate_domain
-from wasm.web.auth import (
+from noust.validators.domain import validate_domain
+from noust.web.auth import (
     SCOPE_RANK,
     actor_label,
     ensure_scope,
@@ -73,7 +73,7 @@ from wasm.web.auth import (
     is_elevated,
     require_auth,
 )
-from wasm.web.pydantic_compat import dump_model
+from noust.web.pydantic_compat import dump_model
 
 #: Requests under this prefix are the JSON API and answer in the contract this
 #: module defines. Everything else - server-rendered pages, the webhook
@@ -94,7 +94,7 @@ _ERROR_BY_STATUS: dict[int, str] = {
     429: "rate_limited",
 }
 
-#: Status used for a WASMError with no more specific mapping. A manager that
+#: Status used for a NoustError with no more specific mapping. A manager that
 #: raises anything else is reporting that the operation failed on the server,
 #: not that the request was malformed.
 DEFAULT_ERROR_STATUS = 500
@@ -102,7 +102,7 @@ DEFAULT_ERROR_STATUS = 500
 #: HTTP status per error class, most specific first: the first entry the
 #: exception is an instance of wins, so a subclass must be listed before its
 #: base class.
-_STATUS_BY_ERROR: tuple[tuple[type[WASMError], int], ...] = (
+_STATUS_BY_ERROR: tuple[tuple[type[NoustError], int], ...] = (
     (DatabaseNotFoundError, 404),
     (DatabaseExistsError, 409),
     (DomainConflictError, 409),
@@ -112,7 +112,7 @@ _STATUS_BY_ERROR: tuple[tuple[type[WASMError], int], ...] = (
     (DomainError, 400),
     (ConfigError, 400),
     (SourceError, 400),
-    (WASMPermissionError, 403),
+    (NoustPermissionError, 403),
     # GitHub refused or could not be reached: the fault is upstream.
     (IntegrationError, 502),
 )
@@ -124,7 +124,7 @@ _STATUS_BY_ERROR: tuple[tuple[type[WASMError], int], ...] = (
 #: the running job instead of an error, and the exception's own details are
 #: written for a terminal ("retry the command") rather than for a screen that
 #: can link to the job.
-_CONTRACT_BY_ERROR: tuple[tuple[type[WASMError], str, str], ...] = (
+_CONTRACT_BY_ERROR: tuple[tuple[type[NoustError], str, str], ...] = (
     (AppBusyError, "app_busy", "Wait for it to finish, or follow it in Jobs"),
 )
 
@@ -139,9 +139,9 @@ class ErrorResponse(BaseModel):
             code path.
         hint: How to fix it, when the manager supplied one.
         error: Machine-readable error code, for clients that branch on it:
-            the lowercased :class:`~wasm.core.exceptions.WASMError` subclass
+            the lowercased :class:`~noust.core.exceptions.NoustError` subclass
             name, or one of the fixed values in :data:`_ERROR_BY_STATUS` for
-            an error that never became a WASM exception.
+            an error that never became a Noust exception.
         fields: Field name to message, for a validation failure that names
             more than one field. ``None`` for every other kind of error.
         output: The failing tool's own output, verbatim, when the error
@@ -173,9 +173,9 @@ class JobAcceptedResponse(BaseModel):
     job: dict[str, Any] = Field(default_factory=dict)
 
 
-def status_for(exc: WASMError) -> int:
+def status_for(exc: NoustError) -> int:
     """
-    Map a WASM error onto an HTTP status.
+    Map a Noust error onto an HTTP status.
 
     Args:
         exc: The raised error.
@@ -189,7 +189,7 @@ def status_for(exc: WASMError) -> int:
     return DEFAULT_ERROR_STATUS
 
 
-def _fields_of(exc: WASMError) -> dict[str, str] | None:
+def _fields_of(exc: NoustError) -> dict[str, str] | None:
     """
     Key an error by the request field it is about, when it names one.
 
@@ -203,9 +203,9 @@ def _fields_of(exc: WASMError) -> dict[str, str] | None:
     return {field: exc.message} if field else None
 
 
-def error_response(exc: WASMError) -> JSONResponse:
+def error_response(exc: NoustError) -> JSONResponse:
     """
-    Render a WASM error as the API's error body.
+    Render a Noust error as the API's error body.
 
     Args:
         exc: The raised error.
@@ -213,13 +213,13 @@ def error_response(exc: WASMError) -> JSONResponse:
     Returns:
         The JSON response, with the status implied by the error class.
     """
-    # WASMError.__str__ appends "\n  Details: ..." when details is set, which
+    # NoustError.__str__ appends "\n  Details: ..." when details is set, which
     # would repeat the hint inside detail too; .message is the bare sentence,
-    # and details travels only in hint.  WASMError defaults ``details`` to an
+    # and details travels only in hint.  NoustError defaults ``details`` to an
     # empty string; an empty hint is no hint, and the client should not have
     # to know the difference.
     # Lowercased so a client branches on one casing convention regardless of
-    # whether the code came from a WASM exception or from the fixed
+    # whether the code came from a Noust exception or from the fixed
     # vocabulary in _ERROR_BY_STATUS.
     error = type(exc).__name__.lower()
     hint: str | None = getattr(exc, "details", None) or None
@@ -241,11 +241,11 @@ def error_response(exc: WASMError) -> JSONResponse:
     )
 
 
-class WASMErrorRoute(APIRoute):
+class NoustErrorRoute(APIRoute):
     """
-    Route that answers a :class:`WASMError` instead of crashing on it.
+    Route that answers a :class:`NoustError` instead of crashing on it.
 
-    Every router in this package is built with ``route_class=WASMErrorRoute``,
+    Every router in this package is built with ``route_class=NoustErrorRoute``,
     which is the only way to attach an error boundary to a router rather than
     to the whole application.
     """
@@ -262,7 +262,7 @@ class WASMErrorRoute(APIRoute):
         async def wrapped(request: Request) -> Response:
             try:
                 return await handler(request)
-            except WASMError as exc:
+            except NoustError as exc:
                 return error_response(exc)
 
         return wrapped
@@ -292,7 +292,7 @@ def _default_error_for_status(status_code: int) -> str:
     Returns:
         ``"internal"`` for a server error, ``"validation_error"`` otherwise -
         a bare ``HTTPException`` below 500 is always a rejected request, never
-        a mapped WASM exception (those go through :func:`error_response`).
+        a mapped Noust exception (those go through :func:`error_response`).
     """
     return "internal" if status_code >= 500 else "validation_error"
 
@@ -394,7 +394,7 @@ def install_error_handlers(app: FastAPI) -> None:
 
     async def handle(request: Request, exc: Exception) -> Response:
         """
-        Render a WASM error, re-raising anything else.
+        Render a Noust error, re-raising anything else.
 
         Args:
             request: The request being served. Unused; Starlette's handler
@@ -405,11 +405,11 @@ def install_error_handlers(app: FastAPI) -> None:
             The error response.
 
         Raises:
-            Exception: The original exception, when it is not a WASM error.
+            Exception: The original exception, when it is not a Noust error.
                 Starlette types handlers against ``Exception``, so this
                 narrowing is the handler's own guard rather than an assertion.
         """
-        if not isinstance(exc, WASMError):
+        if not isinstance(exc, NoustError):
             raise exc
         return error_response(exc)
 
@@ -457,7 +457,7 @@ def install_error_handlers(app: FastAPI) -> None:
             raise exc
         return await handle_validation_error(request, exc)
 
-    app.add_exception_handler(WASMError, handle)
+    app.add_exception_handler(NoustError, handle)
     app.add_exception_handler(StarletteHTTPException, handle_http)
     app.add_exception_handler(RequestValidationError, handle_validation)
 
@@ -467,7 +467,7 @@ def require_scope(scope: str) -> Callable[..., Coroutine[Any, Any, dict[str, Any
     Build a dependency that demands a minimum credential scope.
 
     The blanket policy already runs where the credential is resolved -
-    :func:`wasm.web.auth.required_scope` at the ``require_auth`` chokepoint -
+    :func:`noust.web.auth.required_scope` at the ``require_auth`` chokepoint -
     so most endpoints declare nothing. This is for the ones whose need is
     stricter than the method implies: listing the API tokens is a GET, and a
     ``read`` token must still not see it. It can only tighten; the chokepoint
@@ -595,7 +595,7 @@ def strict_domain(value: str) -> str:
     """
     Validate a domain that is about to become a file name or a certificate name.
 
-    :func:`wasm.validators.domain.validate_domain` normalises as well as
+    :func:`noust.validators.domain.validate_domain` normalises as well as
     validates: it strips a scheme, a port and everything after the first ``/``,
     so ``evil/../..`` would come back as ``evil`` and the caller would act on a
     resource the client never named. Anything that changes here beyond case and

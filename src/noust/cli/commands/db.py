@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The ``wasm db`` command group.
+The ``noust db`` command group.
 
 Engine installation, databases, users, privileges, backups and the query
 console. Every command is a thin shell around
-:mod:`wasm.managers.database`: this module parses, confirms and prints, and
+:mod:`noust.managers.database`: this module parses, confirms and prints, and
 never speaks to an engine itself.
 
 Three things are deliberate here:
@@ -18,7 +18,7 @@ Three things are deliberate here:
 - **Nothing spawns a process.** The one exception is :func:`_open_client`,
   which hands the terminal to ``psql`` or ``mysql`` and is documented where it
   is defined.
-- **Read-only means one statement.** ``wasm db query`` defaults to the engine's
+- **Read-only means one statement.** ``noust db query`` defaults to the engine's
   read-only transaction, and :func:`_single_statement` is what stops a request
   from carrying a second statement that closes it. Without that rule the
   default is decoration: ``SELECT 1; COMMIT; DROP TABLE users`` commits the
@@ -36,12 +36,12 @@ from typing import Any, NoReturn
 
 import click
 
-from wasm.cli.app import Context, WasmGroup, json_option, pass_context
-from wasm.cli.panel_links import open_in_panel
-from wasm.core.config import Config
-from wasm.core.exceptions import DatabaseError, DatabaseQueryError
-from wasm.core.logger import Logger
-from wasm.managers.database import (
+from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.cli.panel_links import open_in_panel
+from noust.core.config import Config
+from noust.core.exceptions import DatabaseError, DatabaseQueryError
+from noust.core.logger import Logger
+from noust.managers.database import (
     BaseDatabaseManager,
     DatabaseRegistry,
     get_db_manager,
@@ -189,7 +189,7 @@ def _open_client(argv: Sequence[str]) -> NoReturn:
     CommandRunner, and it has to be. The runner captures output and returns
     when the process is done, which turns a ``psql`` session into a hang with
     no prompt and no way to type into it. A client that owns the terminal is
-    the whole point of ``wasm db connect``, so this process steps aside for it.
+    the whole point of ``noust db connect``, so this process steps aside for it.
 
     Args:
         argv: Program and arguments, as the manager built them.
@@ -346,7 +346,7 @@ def _start(engine: str, *, logger: Logger) -> int:
     try:
         if not manager.is_installed():
             logger.error(f"{manager.DISPLAY_NAME} is not installed")
-            logger.info(f"Install with: wasm db install {manager.ENGINE_NAME}")
+            logger.info(f"Install with: noust db install {manager.ENGINE_NAME}")
             return 1
 
         if manager.is_running():
@@ -419,7 +419,7 @@ def _restart(engine: str, *, logger: Logger) -> int:
 
 def _engines(*, json_output: bool, logger: Logger) -> int:
     """
-    List the engines WASM knows how to manage.
+    List the engines Noust knows how to manage.
 
     Args:
         json_output: Print the list as JSON.
@@ -495,12 +495,12 @@ def _create(
 
         if not manager.is_running():
             logger.error(f"{manager.DISPLAY_NAME} is not running")
-            logger.info(f"Start with: wasm db start {manager.ENGINE_NAME}")
+            logger.info(f"Start with: noust db start {manager.ENGINE_NAME}")
             return 1
 
         info = manager.create_database(name, owner=owner, encoding=encoding)
 
-        from wasm.core.store import Database, get_store
+        from noust.core.store import Database, get_store
 
         store = get_store()
 
@@ -559,7 +559,7 @@ def _drop(name: str, *, engine: str, force: bool, logger: Logger) -> int:
 
         manager.drop_database(name, force=force)
 
-        from wasm.core.store import get_store
+        from noust.core.store import get_store
 
         store = get_store()
         store.delete_database(name, manager.ENGINE_NAME)
@@ -584,7 +584,7 @@ def _list(*, engine: str | None, json_output: bool, logger: Logger) -> int:
     Returns:
         Process exit code.
     """
-    from wasm.core.store import get_store
+    from noust.core.store import get_store
 
     store = get_store()
 
@@ -607,7 +607,7 @@ def _list(*, engine: str | None, json_output: bool, logger: Logger) -> int:
             for db in databases:
                 db_dict = db.to_dict()
 
-                # A database WASM created is marked, and so is the app it was
+                # A database Noust created is marked, and so is the app it was
                 # created for, because that is the association the operator
                 # cannot get from the engine itself.
                 store_db = store.get_database(db.name, manager.ENGINE_NAME)
@@ -653,7 +653,7 @@ def _list(*, engine: str | None, json_output: bool, logger: Logger) -> int:
             click.echo(f"  [{tracked}] {entry['name']}{size_str}{tables_str}{linked}")
 
     click.echo("")
-    click.echo("  [*] = tracked by WASM")
+    click.echo("  [*] = tracked by Noust")
     return 0
 
 
@@ -756,7 +756,7 @@ def _user_create(
                 logger.info(f"  Granted privileges on: {database}")
             except Exception as e:
                 # The user exists either way; a failed grant is reported and
-                # fixed with `wasm db grant`, not by rolling the user back.
+                # fixed with `noust db grant`, not by rolling the user back.
                 logger.warning(f"  Could not grant privileges: {e}")
 
         return 0
@@ -1141,7 +1141,7 @@ def _single_statement(query: str) -> str:
             details=(
                 f"The console accepts at most {MAX_QUERY_LENGTH} characters. "
                 "Put a longer script in a file and feed it to the engine's own client "
-                "with 'wasm db connect'."
+                "with 'noust db connect'."
             ),
         )
 
@@ -1180,7 +1180,7 @@ def _query(database: str, query: str, *, engine: str, read_only: bool, logger: L
     if read_only and manager.ENGINE_NAME.lower() not in READ_ONLY_ENGINES:
         logger.error(f"Read-only mode is not available for {manager.DISPLAY_NAME}")
         logger.info(
-            "WASM can only hold PostgreSQL and MySQL to a read-only transaction. "
+            "Noust can only hold PostgreSQL and MySQL to a read-only transaction. "
             "Re-run with --write if you accept that the statement may change data."
         )
         return 1
@@ -1302,7 +1302,7 @@ def _connection_string(
 
 def _config(*, engine: str, user: str | None, password: str | None, logger: Logger) -> int:
     """
-    Store the administrative credentials WASM uses for an engine.
+    Store the administrative credentials Noust uses for an engine.
 
     Args:
         engine: Engine name or alias.
@@ -1332,8 +1332,8 @@ def _config(*, engine: str, user: str | None, password: str | None, logger: Logg
 
 #: How each legacy action reaches the function that does the work. The lambdas
 #: exist so :func:`handle_db` and the Click tree share one implementation.
-#: ``wasm.cli.parser`` is gone and nothing in WASM calls :func:`handle_db`
-#: anymore - :mod:`wasm.cli.interactive` has no database menu - but the tests
+#: ``noust.cli.parser`` is gone and nothing in Noust calls :func:`handle_db`
+#: anymore - :mod:`noust.cli.interactive` has no database menu - but the tests
 #: still exercise it directly, and this table is what keeps it from growing a
 #: second copy of the logic if it is ever wired up again.
 _LEGACY_ACTIONS: dict[str, Callable[[Namespace, Logger], int]] = {
@@ -1452,7 +1452,7 @@ def handle_db(args: Namespace) -> int:
     """
     Route a parsed argparse namespace to the right database action.
 
-    ``wasm.cli.parser`` is gone and nothing calls this in production; it is
+    ``noust.cli.parser`` is gone and nothing calls this in production; it is
     kept, and tested directly, so a change to the Click commands cannot drift
     from :data:`_LEGACY_ACTIONS` unnoticed. It delegates to the same functions
     the Click commands call.
@@ -1469,7 +1469,7 @@ def handle_db(args: Namespace) -> int:
 
     if not action:
         logger.error("No action specified")
-        logger.info("Use: wasm db --help")
+        logger.info("Use: noust db --help")
         return 1
 
     handler = _LEGACY_ACTIONS.get(action)
@@ -1483,11 +1483,11 @@ def handle_db(args: Namespace) -> int:
 # ==================== The Click front end ====================
 
 
-class DatabaseGroup(WasmGroup):
+class DatabaseGroup(NoustGroup):
     """
     The ``db`` group, with the shorthand its subcommands have always had.
 
-    ``wasm db ls`` is in scripts and in muscle memory, so it resolves here
+    ``noust db ls`` is in scripts and in muscle memory, so it resolves here
     rather than being a second registration that drifts from the first.
     """
 
@@ -1568,7 +1568,7 @@ def restart(ctx: Context, engine: str) -> None:
 @json_option("Print the engine list as JSON.")
 @pass_context
 def engines(ctx: Context) -> None:
-    """List the engines WASM can manage, and their versions."""
+    """List the engines Noust can manage, and their versions."""
     _exit(_engines(json_output=ctx.json_output, logger=ctx.logger))
 
 
@@ -1873,5 +1873,5 @@ def connection_string(
 @click.option("--password", "-p", help="Administrative password.")
 @pass_context
 def config(ctx: Context, engine: str, user: str | None, password: str | None) -> None:
-    """Store the administrative credentials WASM uses for an engine."""
+    """Store the administrative credentials Noust uses for an engine."""
     _exit(_config(engine=engine, user=user, password=password, logger=ctx.logger))

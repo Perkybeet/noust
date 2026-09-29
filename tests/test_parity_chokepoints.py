@@ -39,12 +39,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.core.fs import RecordingFileSystem, set_fs
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, Service, WASMStore
-from wasm.managers.backup_manager import BackupManager, RollbackManager
-from wasm.managers.service_manager import ServiceManager
-from wasm.managers.webserver import (
+from noust.core.fs import RecordingFileSystem, set_fs
+from noust.core.runner import FakeRunner
+from noust.core.store import App, NoustStore, Service
+from noust.managers.backup_manager import BackupManager, RollbackManager
+from noust.managers.service_manager import ServiceManager
+from noust.managers.webserver import (
     APACHE_BACKEND,
     NGINX_BACKEND,
     WebServerBackend,
@@ -52,13 +52,13 @@ from wasm.managers.webserver import (
     create_secured_site,
     delete_site_completely,
 )
-from wasm.web.api import backups as backups_api
-from wasm.web.api import certs as certs_api
-from wasm.web.api import services as services_api
-from wasm.web.api import sites as sites_api
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import require_elevated
-from wasm.web.jobs import (
+from noust.web.api import backups as backups_api
+from noust.web.api import certs as certs_api
+from noust.web.api import services as services_api
+from noust.web.api import sites as sites_api
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import require_elevated
+from noust.web.jobs import (
     Job,
     JobContext,
     JobType,
@@ -80,13 +80,13 @@ def store(tmp_path: Path):
     Yields:
         The store the chokepoints under test read and write.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     try:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 def _job_context(job_type: JobType = JobType.CUSTOM) -> JobContext:
@@ -143,7 +143,7 @@ class TestServiceDeleteRemovesTheStoreRow:
     """DELETE /api/services/{name} goes through ServiceManager.delete_service."""
 
     def test_delete_removes_the_unit_and_the_store_row(
-        self, tmp_path: Path, store: WASMStore, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+        self, tmp_path: Path, store: NoustStore, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         unit_dir = tmp_path / "systemd"
         unit_dir.mkdir()
@@ -206,7 +206,7 @@ class TestSiteDeleteWalksBothEnginesAndTheCertificate:
     def test_both_backends_and_the_certificate_are_removed(
         self, tmp_path: Path, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr("wasm.managers.webserver.get_store", lambda: _FakeStore())
+        monkeypatch.setattr("noust.managers.webserver.get_store", lambda: _FakeStore())
 
         nginx = WebServerManager(_sandbox_backend(NGINX_BACKEND, tmp_path, "nginx"))
         apache = WebServerManager(_sandbox_backend(APACHE_BACKEND, tmp_path, "apache"))
@@ -230,7 +230,7 @@ class TestSiteDeleteWalksBothEnginesAndTheCertificate:
     def test_nothing_to_delete_reports_nothing_removed(
         self, tmp_path: Path, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr("wasm.managers.webserver.get_store", lambda: _FakeStore())
+        monkeypatch.setattr("noust.managers.webserver.get_store", lambda: _FakeStore())
         nginx = WebServerManager(_sandbox_backend(NGINX_BACKEND, tmp_path, "nginx"))
         apache = WebServerManager(_sandbox_backend(APACHE_BACKEND, tmp_path, "apache"))
 
@@ -251,7 +251,7 @@ class TestSiteDeleteWalksBothEnginesAndTheCertificate:
 
         def fake_delete_site_completely(domain: str, **kwargs: Any):
             calls.append(domain)
-            from wasm.managers.webserver import SiteDeletion
+            from noust.managers.webserver import SiteDeletion
 
             return SiteDeletion(
                 domain=domain, nginx_removed=True, apache_removed=True, certificate_removed=True
@@ -299,7 +299,7 @@ class TestSiteCreateWithSslCallsCertManager:
     def test_ssl_true_obtains_a_certificate_before_rendering_it(
         self, tmp_path: Path, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr("wasm.managers.webserver.get_store", lambda: _FakeStore())
+        monkeypatch.setattr("noust.managers.webserver.get_store", lambda: _FakeStore())
         manager = WebServerManager(_sandbox_backend(NGINX_BACKEND, tmp_path, "nginx"))
 
         outcome = create_secured_site("example.com", manager=manager, webserver="nginx", ssl=True)
@@ -312,7 +312,7 @@ class TestSiteCreateWithSslCallsCertManager:
     def test_ssl_false_never_touches_certbot(
         self, tmp_path: Path, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr("wasm.managers.webserver.get_store", lambda: _FakeStore())
+        monkeypatch.setattr("noust.managers.webserver.get_store", lambda: _FakeStore())
         manager = WebServerManager(_sandbox_backend(NGINX_BACKEND, tmp_path, "nginx"))
 
         outcome = create_secured_site("example.com", manager=manager, webserver="nginx", ssl=False)
@@ -328,7 +328,7 @@ class TestSiteCreateWithSslCallsCertManager:
 
         def fake_create_secured_site(domain: str, **kwargs: Any):
             calls.append({"domain": domain, **kwargs})
-            from wasm.managers.webserver import SecuredSite
+            from noust.managers.webserver import SecuredSite
 
             return SecuredSite(
                 domain=domain, webserver=kwargs["webserver"], ssl_requested=True, ssl_enabled=True
@@ -409,7 +409,7 @@ class TestRollbackLeavesASafetyBackup:
     """RollbackManager.rollback takes the safety backup itself."""
 
     def test_rollback_creates_a_safety_backup_before_restoring(
-        self, tmp_path: Path, store: WASMStore, sandboxed_backups: BackupManager
+        self, tmp_path: Path, store: NoustStore, sandboxed_backups: BackupManager
     ) -> None:
         app_path = tmp_path / "apps" / "example-com"
         app_path.mkdir(parents=True)
@@ -445,7 +445,7 @@ class TestRollbackLeavesASafetyBackup:
         ), create_calls
 
     def test_a_backup_manager_that_cannot_take_the_safety_backup_does_not_abort_the_rollback(
-        self, store: WASMStore
+        self, store: NoustStore
     ) -> None:
         """
         A failed safety backup is a warning, not a reason to refuse the
@@ -459,11 +459,11 @@ class TestRollbackLeavesASafetyBackup:
         cannot be taken (an explicit failure would be tested at the
         BackupManager level, not by making a double misbehave).
         """
-        from wasm.core.store import DeploymentTrigger
+        from noust.core.store import DeploymentTrigger
 
         class _Restoring:
             def get_backup(self, backup_id: str) -> Any:
-                from wasm.managers.backup_manager import BackupMetadata
+                from noust.managers.backup_manager import BackupMetadata
 
                 return BackupMetadata(
                     id=backup_id,
@@ -510,7 +510,7 @@ class _RecordingBackupManager:
 
     def create(self, **kwargs: Any) -> Any:
         self.create_calls.append(kwargs)
-        from wasm.managers.backup_manager import BackupMetadata
+        from noust.managers.backup_manager import BackupMetadata
 
         return BackupMetadata(
             id="b1",
@@ -526,7 +526,7 @@ class _RecordingBackupManager:
         )
 
     def get_backup(self, backup_id: str) -> Any:
-        from wasm.managers.backup_manager import BackupMetadata
+        from noust.managers.backup_manager import BackupMetadata
 
         return BackupMetadata(
             id=backup_id,
@@ -551,7 +551,7 @@ class TestBackupOptionsReachTheManager:
 
     def test_create_forwards_the_full_option_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
         fake = _RecordingBackupManager()
-        monkeypatch.setattr("wasm.managers.backup_manager.BackupManager", lambda **kw: fake)
+        monkeypatch.setattr("noust.managers.backup_manager.BackupManager", lambda **kw: fake)
 
         backup_app_job(
             domain="example.com",
@@ -579,7 +579,7 @@ class TestBackupOptionsReachTheManager:
 
     def test_restore_forwards_restore_env_and_verify(self, monkeypatch: pytest.MonkeyPatch) -> None:
         fake = _RecordingBackupManager()
-        monkeypatch.setattr("wasm.managers.backup_manager.BackupManager", lambda **kw: fake)
+        monkeypatch.setattr("noust.managers.backup_manager.BackupManager", lambda **kw: fake)
 
         restore_backup_job(
             backup_id="b1",
@@ -664,7 +664,7 @@ class TestBackupOptionsReachTheManager:
 
 
 def _backup_stub() -> Any:
-    from wasm.managers.backup_manager import BackupMetadata
+    from noust.managers.backup_manager import BackupMetadata
 
     return BackupMetadata(
         id="b1",
@@ -773,7 +773,7 @@ class TestCertOptionsReachTheManager:
 
 class TestDeleteAppJobRoutesThroughTheChokepoints:
     def test_files_are_removed_through_the_filesystem_seam(
-        self, tmp_path: Path, store: WASMStore, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+        self, tmp_path: Path, store: NoustStore, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         app_path = tmp_path / "apps" / "example-com"
         app_path.mkdir(parents=True)
@@ -796,7 +796,7 @@ class TestDeleteAppJobRoutesThroughTheChokepoints:
         assert not app_path.exists()
 
     def test_both_backends_are_checked(
-        self, tmp_path: Path, store: WASMStore, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+        self, tmp_path: Path, store: NoustStore, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         app_path = tmp_path / "apps" / "example-com"
         app_path.mkdir(parents=True)
@@ -807,13 +807,13 @@ class TestDeleteAppJobRoutesThroughTheChokepoints:
         def fake_delete_site_completely(domain: str, **kwargs: Any):
             calls.append(domain)
             assert kwargs["delete_certificate"] is True
-            from wasm.managers.webserver import SiteDeletion
+            from noust.managers.webserver import SiteDeletion
 
             return SiteDeletion(domain=domain)
 
         # The job removes through lifecycle.delete_app, the one deletion.
         monkeypatch.setattr(
-            "wasm.deployers.lifecycle.delete_site_completely", fake_delete_site_completely
+            "noust.deployers.lifecycle.delete_site_completely", fake_delete_site_completely
         )
 
         set_fs(RecordingFileSystem())

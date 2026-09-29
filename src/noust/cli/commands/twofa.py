@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The ``wasm 2fa`` command group: two-factor authentication for panel logins.
+The ``noust 2fa`` command group: two-factor authentication for panel logins.
 
 Enrolling, confirming and disabling the second factor used to be reachable
 only from the panel's settings screen. This is a thin front end over
-:class:`~wasm.web.auth.TokenManager`, the exact manager every
+:class:`~noust.web.auth.TokenManager`, the exact manager every
 ``/api/auth/2fa/*`` endpoint calls, built over the panel's own on-disk state -
 turning the second factor on from here is turning it on for the panel, not a
 separate copy of the feature.
@@ -22,11 +22,11 @@ import json
 
 import click
 
-from wasm.cli.app import Context, WasmGroup, json_option, pass_context
-from wasm.cli.web_state import token_manager
+from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.cli.web_state import token_manager
 
 
-@click.group("2fa", cls=WasmGroup)
+@click.group("2fa", cls=NoustGroup)
 def cli() -> None:
     """Enrol, confirm, disable or recover two-factor authentication for logins."""
 
@@ -53,9 +53,9 @@ def status_command(ctx: Context) -> None:
 def enroll_command(ctx: Context) -> None:
     """
     Begin enrolment: generate a pending secret. Nothing is enforced until
-    'wasm 2fa confirm CODE' verifies it.
+    'noust 2fa confirm CODE' verifies it.
     """
-    from wasm.web.api.auth import enrollment_uri
+    from noust.web.api.auth import enrollment_uri
 
     secret = token_manager().begin_totp_enrollment()
 
@@ -67,7 +67,7 @@ def enroll_command(ctx: Context) -> None:
     logger.blank()
     logger.info(
         "Add the secret to an authenticator app, then confirm with the code it shows: "
-        "wasm 2fa confirm <code>"
+        "noust 2fa confirm <code>"
     )
 
 

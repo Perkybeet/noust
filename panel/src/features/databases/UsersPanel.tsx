@@ -74,7 +74,7 @@ export interface UsersPanelProps {
   onEngineChange: (engine: string) => void;
 }
 
-/** The users of one engine, with grant, revoke and delete - engine-scoped, like the CLI's `wasm db user` commands. */
+/** The users of one engine, with grant, revoke and delete - engine-scoped, like the CLI's `noust db user` commands. */
 export function UsersPanel({ engines, loading = false, engine, onEngineChange }: UsersPanelProps) {
   const t = useT();
   const users = useQuery({ ...databaseUsersQuery(engine), enabled: engine !== "" });

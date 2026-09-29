@@ -4,7 +4,7 @@
 """
 One place that attaches a UTC offset to a timestamp the store wrote naively.
 
-:class:`~wasm.core.store.WASMStore` and the job manager both write
+:class:`~noust.core.store.NoustStore` and the job manager both write
 ``datetime.now().isoformat()`` for most of their timestamp columns - naive,
 in whatever zone the machine that wrote it happens to be set to. That was
 never a problem for the CLI: it reads the string back on the same machine, in

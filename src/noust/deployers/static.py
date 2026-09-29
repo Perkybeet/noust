@@ -1,17 +1,17 @@
 """
-Static site deployer for WASM.
+Static site deployer for Noust.
 """
 
 from pathlib import Path
 from typing import ClassVar
 
-from wasm.core.fs import FileSystem
-from wasm.core.logger import Icons
-from wasm.core.runner import CommandRunner
-from wasm.deployers.base import BaseDeployer
-from wasm.deployers.pipeline import DeployStep
-from wasm.deployers.registry import DeployerRegistry
-from wasm.validators.environment import validate_environment
+from noust.core.fs import FileSystem
+from noust.core.logger import Icons
+from noust.core.runner import CommandRunner
+from noust.deployers.base import BaseDeployer
+from noust.deployers.pipeline import DeployStep
+from noust.deployers.registry import DeployerRegistry
+from noust.validators.environment import validate_environment
 
 
 class StaticDeployer(BaseDeployer):

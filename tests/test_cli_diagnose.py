@@ -5,14 +5,14 @@
 Tests for ``wasm diagnose``.
 
 The command itself does no correlation - that is
-:mod:`wasm.managers.diagnose`'s job, covered in ``tests/test_diagnose.py`` -
+:mod:`noust.managers.diagnose`'s job, covered in ``tests/test_diagnose.py`` -
 so what is pinned here is the presentation contract: the verdict line, the
 probable cause in bold above the checks, each check's evidence printed
 verbatim and indented underneath it, ``--json`` (both the command's own flag
 and the global one) emitting the dataclasses as JSON, and the exit code
 signalling "down" the way ``wasm health`` signals an issue.
 
-Every probe this pulls in is faked: :class:`~wasm.core.runner.FakeRunner` for
+Every probe this pulls in is faked: :class:`~noust.core.runner.FakeRunner` for
 everything that would otherwise shell out, a fake HTTP getter so no probe
 opens a socket, and a fake ``shutil.disk_usage`` so no probe reads the real
 disk.
@@ -28,11 +28,11 @@ from typing import Any
 import pytest
 from click.testing import CliRunner, Result
 
-from wasm.cli.app import cli as root_cli
-from wasm.core.logger import Logger
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, DeploymentRecord, Service
-from wasm.managers import diagnose as diagnose_module
+from noust.cli.app import cli as root_cli
+from noust.core.logger import Logger
+from noust.core.runner import FakeRunner
+from noust.core.store import App, DeploymentRecord, Service
+from noust.managers import diagnose as diagnose_module
 
 DOMAIN = "example.com"
 APP_NAME = "example-com"
@@ -90,7 +90,7 @@ def log(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     """
     Collect what the command reports to the operator.
 
-    :class:`~wasm.core.logger.Logger` binds ``sys.stdout`` dynamically, but
+    :class:`~noust.core.logger.Logger` binds ``sys.stdout`` dynamically, but
     the write itself is intercepted here rather than read back from the
     stream, matching the pattern the rest of the CLI test suite uses.
     """
@@ -103,8 +103,8 @@ def log(monkeypatch: pytest.MonkeyPatch) -> list[str]:
 def store(monkeypatch: pytest.MonkeyPatch) -> FakeStore:
     """Install a fake store as both the diagnose module and ServiceManager see it."""
     fake = FakeStore()
-    monkeypatch.setattr("wasm.managers.diagnose.get_store", lambda: fake)
-    monkeypatch.setattr("wasm.managers.service_manager.get_store", lambda: fake)
+    monkeypatch.setattr("noust.managers.diagnose.get_store", lambda: fake)
+    monkeypatch.setattr("noust.managers.service_manager.get_store", lambda: fake)
     return fake
 
 

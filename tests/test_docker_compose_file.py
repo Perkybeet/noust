@@ -19,9 +19,9 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.exceptions import DeploymentError
-from wasm.core.runner import FakeRunner
-from wasm.deployers.docker_compose import DockerComposeDeployer, compose_project_name
+from noust.core.exceptions import DeploymentError
+from noust.core.runner import FakeRunner
+from noust.deployers.docker_compose import DockerComposeDeployer, compose_project_name
 
 DOMAIN = "stack.example.com"
 COMPOSE = "services:\n  web:\n    image: nginx\n"
@@ -175,7 +175,7 @@ def test_a_link_that_stays_inside_the_application_is_accepted(
 
 def rendered_unit(compose_file: str | None) -> str:
     """The docker-compose unit exactly as ServiceManager renders it."""
-    from wasm.managers.service_manager import ServiceManager
+    from noust.managers.service_manager import ServiceManager
 
     env = ServiceManager().jinja_env
     assert env is not None
@@ -194,13 +194,13 @@ def rendered_unit(compose_file: str | None) -> str:
 )
 def test_the_compose_file_is_read_back_from_the_unit_the_deploy_wrote(compose_file: str) -> None:
     """Whatever the template escaped, reading it back gives the same relative path."""
-    from wasm.deployers.docker_compose import compose_file_from_unit
+    from noust.deployers.docker_compose import compose_file_from_unit
 
     assert compose_file_from_unit(rendered_unit(compose_file)) == compose_file
 
 
 def test_a_unit_without_a_compose_file_names_none() -> None:
-    from wasm.deployers.docker_compose import compose_file_from_unit
+    from noust.deployers.docker_compose import compose_file_from_unit
 
     assert compose_file_from_unit(rendered_unit(None)) is None
     assert compose_file_from_unit(None) is None
@@ -211,9 +211,9 @@ def test_an_update_rebuilds_with_the_compose_file_the_deploy_chose(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Without this an update rediscovered only the root-level default names."""
-    from wasm.deployers import lifecycle
-    from wasm.deployers.interface import UpdateResult
-    from wasm.managers.service_manager import ServiceManager
+    from noust.deployers import lifecycle
+    from noust.deployers.interface import UpdateResult
+    from noust.managers.service_manager import ServiceManager
 
     seen: list[str | None] = []
 

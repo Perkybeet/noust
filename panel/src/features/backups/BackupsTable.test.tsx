@@ -33,7 +33,7 @@ function backupsRoutes(backups: Record<string, unknown>[], extra: Record<string,
   return {
     ...signedInRoutes(),
     "GET /api/backups": () => json(200, { backups, total: backups.length }),
-    "GET /api/backups/storage": () => json(200, { path: "/var/backups/wasm", total_size: 0, total_size_human: "0 B", backup_count: 0, domains: [] }),
+    "GET /api/backups/storage": () => json(200, { path: "/var/backups/noust", total_size: 0, total_size_human: "0 B", backup_count: 0, domains: [] }),
     "GET /api/backup-schedules": () => json(200, { schedules: [], total: 0 }),
     "GET /api/backup-destinations": () => json(200, { destinations: [], total: 0 }),
     ...extra,

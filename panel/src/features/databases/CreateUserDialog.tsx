@@ -21,7 +21,7 @@ export interface CreateUserDialogProps {
 
 /**
  * Creates a database user. The password the engine assigns comes back exactly once, in the
- * response of this one call - WASM stores only what the engine stores, a hash, so there is
+ * response of this one call - Noust stores only what the engine stores, a hash, so there is
  * nowhere to read it back from afterwards. The dialog holds the created user until the
  * operator closes it on purpose, rather than a toast that could be missed.
  */

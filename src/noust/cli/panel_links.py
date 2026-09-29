@@ -10,8 +10,8 @@ command just printed. ``--open`` is the same idea: a handful of read commands
 ``cert list``, ``db list``) can print the panel URL for what they just showed,
 and hand it to a browser when one is plausibly available.
 
-The panel is optional - ``wasm web start`` needs fastapi and uvicorn, and
-:mod:`wasm.cli.commands.web` only imports them lazily inside the functions
+The panel is optional - ``noust web start`` needs fastapi and uvicorn, and
+:mod:`noust.cli.commands.web` only imports them lazily inside the functions
 that actually start it - so this module must not force that dependency onto
 every other command. It only reads ``web.*`` off the layered configuration
 and, best-effort, the self-signed certificate path that command mints; both
@@ -24,10 +24,10 @@ from __future__ import annotations
 import os
 import socket
 
-from wasm.core.config import Config
-from wasm.core.logger import Logger
-from wasm.core.net import ALL_INTERFACES
-from wasm.core.runner import get_runner
+from noust.core.config import Config
+from noust.core.logger import Logger
+from noust.core.net import ALL_INTERFACES
+from noust.core.runner import get_runner
 
 #: Deadline for ``xdg-open``. It only has to hand the URL to a browser and
 #: return; anything slower than this is not going to open a window either.
@@ -39,8 +39,8 @@ def _panel_serves_tls() -> bool:
     Report whether the panel's self-signed certificate pair is on disk.
 
     Best-effort, and deliberately narrow: a certificate the operator brought
-    with ``--tls-cert``/``--tls-key`` to ``wasm web start`` leaves no trace in
-    configuration, so this can only see the pair WASM mints itself. A panel
+    with ``--tls-cert``/``--tls-key`` to ``noust web start`` leaves no trace in
+    configuration, so this can only see the pair Noust mints itself. A panel
     started that way is reported as plain HTTP here; the link still opens the
     right host and port, just with the wrong scheme in front of them.
 
@@ -49,9 +49,9 @@ def _panel_serves_tls() -> bool:
     """
     # Imported lazily, and from a CLI command module rather than duplicated,
     # so this stays the one place that knows where that pair lives. The
-    # import is cheap: wasm.cli.commands.web does not touch fastapi or
+    # import is cheap: noust.cli.commands.web does not touch fastapi or
     # uvicorn until a function that actually starts the server runs.
-    from wasm.cli.commands.web import PANEL_TLS_CERT, PANEL_TLS_KEY
+    from noust.cli.commands.web import PANEL_TLS_CERT, PANEL_TLS_KEY
 
     return PANEL_TLS_CERT.exists() and PANEL_TLS_KEY.exists()
 
@@ -62,7 +62,7 @@ def panel_url(path: str) -> str | None:
 
     The host and port come from the ``web.*`` section of ``config.yaml``,
     which is what the panel's own settings page writes to, not from the flags
-    a ``wasm web start`` invocation happened to use: those are not persisted
+    a ``noust web start`` invocation happened to use: those are not persisted
     anywhere this command could read them back from.
 
     Args:
@@ -107,7 +107,7 @@ def open_in_panel(path: str, *, logger: Logger) -> None:
     url = panel_url(path)
     if url is None:
         logger.warning("The panel is not configured on this server (web.enabled is off).")
-        logger.info("Configure and start it with: wasm web start")
+        logger.info("Configure and start it with: noust web start")
         return
 
     logger.key_value("Panel", url)

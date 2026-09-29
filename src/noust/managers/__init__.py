@@ -1,13 +1,13 @@
-"""Managers for WASM."""
+"""Managers for Noust."""
 
-from wasm.managers.apache_manager import ApacheManager
-from wasm.managers.backup_manager import BackupError, BackupManager, RollbackManager
-from wasm.managers.base_manager import BaseManager
-from wasm.managers.cert_manager import CertManager
-from wasm.managers.cron_manager import CronJob, CronManager
-from wasm.managers.nginx_manager import NginxManager
-from wasm.managers.service_manager import ServiceManager
-from wasm.managers.source_manager import SourceManager
+from noust.managers.apache_manager import ApacheManager
+from noust.managers.backup_manager import BackupError, BackupManager, RollbackManager
+from noust.managers.base_manager import BaseManager
+from noust.managers.cert_manager import CertManager
+from noust.managers.cron_manager import CronJob, CronManager
+from noust.managers.nginx_manager import NginxManager
+from noust.managers.service_manager import ServiceManager
+from noust.managers.source_manager import SourceManager
 
 __all__ = [
     "ApacheManager",

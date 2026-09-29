@@ -32,7 +32,7 @@ export interface ActivityPageProps {
 type SearchPatch = { [K in keyof ActivitySearch]?: ActivitySearch[K] | undefined };
 
 /**
- * Every job WASM has run and every action the audit log recorded, merged into one filterable,
+ * Every job Noust has run and every action the audit log recorded, merged into one filterable,
  * newest-first timeline. A job row opens its captured log; an audit row has none. A session
  * without the `admin` scope gets 403 from the audit log - this shows jobs only then, with a
  * quiet note instead of an error, since a read-scoped operator did nothing wrong.
@@ -149,7 +149,7 @@ export function ActivityPage({ search, onSearchChange }: ActivityPageProps) {
           icon={<History />}
           title={t("activity.emptyTitle")}
           description={t("activity.emptyDescription")}
-          command="wasm jobs list"
+          command="noust jobs list"
           className="py-16"
         />
       ) : (

@@ -4,12 +4,12 @@
 """
 Reading and writing the environment of a deployed application.
 
-``wasm env`` and the panel's environment editor are two surfaces over the same
+``noust env`` and the panel's environment editor are two surfaces over the same
 file, so they share this module rather than each joining a directory with
 ``".env"``. That join is how the release layout broke both: its ``.env`` lives
 in ``shared/``, and ``<app>/.env`` read nothing and wrote a stray file the
 application never saw. Where the file is comes from
-:func:`~wasm.deployers.helpers.layout.env_file_for`; what is done with it is
+:func:`~noust.deployers.helpers.layout.env_file_for`; what is done with it is
 here.
 """
 
@@ -18,41 +18,41 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 
-from wasm.core.config import Config
-from wasm.core.exceptions import DeploymentError
-from wasm.core.fs import SECRET_MODE, FileSystem, get_fs
-from wasm.core.logger import Logger
-from wasm.core.runner import CommandRunner, get_runner
-from wasm.core.store import App, get_store
-from wasm.core.utils import domain_to_app_name
-from wasm.deployers.helpers.env_manager import EnvManager
-from wasm.deployers.helpers.layout import (
+from noust.core.config import Config
+from noust.core.exceptions import DeploymentError
+from noust.core.fs import SECRET_MODE, FileSystem, get_fs
+from noust.core.logger import Logger
+from noust.core.runner import CommandRunner, get_runner
+from noust.core.store import App, get_store
+from noust.core.utils import domain_to_app_name
+from noust.deployers.helpers.env_manager import EnvManager
+from noust.deployers.helpers.layout import (
     RELEASES,
     app_root,
     env_file_for,
     layout_on_disk,
 )
-from wasm.deployers.helpers.permissions import hand_over_file
-from wasm.deployers.releases import ReleaseManager
-from wasm.validators.environment import EnvironmentValidationError, validate_environment
+from noust.deployers.helpers.permissions import hand_over_file
+from noust.deployers.releases import ReleaseManager
+from noust.validators.environment import EnvironmentValidationError, validate_environment
 
 #: Variables the unit sets inline with ``Environment=`` (see
-#: :meth:`~wasm.deployers.base.BaseDeployer._unit_environment`). systemd lets
+#: :meth:`~noust.deployers.base.BaseDeployer._unit_environment`). systemd lets
 #: ``EnvironmentFile=`` override ``Environment=``, so an edit here would
 #: silently take over from what the unit - and nginx, which proxies to the
-#: port WASM recorded - expect. A fresh deploy already keeps them out of the
+#: port Noust recorded - expect. A fresh deploy already keeps them out of the
 #: file it generates; this is the guard for every edit made after that, where
 #: silently dropping the value would look like it was accepted.
 _MANAGED_ENV_VAR_HINTS: dict[str, str] = {
     "PORT": (
-        "PORT is managed by WASM: the unit loads it with Environment=, which "
+        "PORT is managed by Noust: the unit loads it with Environment=, which "
         "EnvironmentFile= would override if the .env file set it too, silently "
         "moving the application off the port nginx and systemd expect. Change "
-        "the port by redeploying, for example 'wasm create -d <domain> -s <source> "
+        "the port by redeploying, for example 'noust create -d <domain> -s <source> "
         "--port <port>' (or POST /api/apps with the new port)."
     ),
     "NODE_ENV": (
-        "NODE_ENV is managed by WASM and fixed to 'production' in the unit; "
+        "NODE_ENV is managed by Noust and fixed to 'production' in the unit; "
         "EnvironmentFile= would override that Environment= the same way, so it "
         "cannot be set from the environment file either."
     ),
@@ -157,7 +157,7 @@ def write_app_env(
     unit and every other reader of it trusts.
 
     A mark an operator set on a name this write drops is pruned here too,
-    the one place every writer - ``wasm env configure``, the panel's editor -
+    the one place every writer - ``noust env configure``, the panel's editor -
     shares. Left in the store, a "not secret" mark would silently reattach
     itself to a later variable that reused the same name and was, unlike the
     one that earned the mark, an actual secret.
@@ -175,7 +175,7 @@ def write_app_env(
 
     Raises:
         EnvironmentValidationError: If a name or value is not safe to write
-            (see :func:`~wasm.validators.environment.validate_environment`),
+            (see :func:`~noust.validators.environment.validate_environment`),
             or if values adds PORT or NODE_ENV, or changes one already on
             disk; both are loaded into the unit inline and
             ``EnvironmentFile=`` would let this file silently override them.

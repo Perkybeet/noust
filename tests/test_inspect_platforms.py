@@ -18,20 +18,20 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.store import WASMStore
-from wasm.deployers.importers import PLATFORM_FILES
-from wasm.deployers.inspect import inspect_source, sparse_patterns
+from noust.core.store import NoustStore
+from noust.deployers.importers import PLATFORM_FILES
+from noust.deployers.inspect import inspect_source, sparse_patterns
 
 PACKAGE_JSON = json.dumps({"name": "shop", "scripts": {"start": "node server.js"}})
 
 
 @pytest.fixture(autouse=True)
-def store(tmp_path: Path) -> Iterator[WASMStore]:
+def store(tmp_path: Path) -> Iterator[NoustStore]:
     """Detection builds deployers, which read the store."""
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 def project(root: Path, files: dict[str, str]) -> Path:

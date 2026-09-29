@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-GitHub deployments and deployment statuses for WASM's deployments.
+GitHub deployments and deployment statuses for Noust's deployments.
 
-A default subscriber of :mod:`wasm.deployers.deploy_events`: when an
+A default subscriber of :mod:`noust.deployers.deploy_events`: when an
 application whose source is a github.com repository covered by this server's
 App starts deploying, a GitHub deployment is created for the commit (or
 branch) and marked in progress; when it ends, the same deployment is marked
@@ -12,11 +12,11 @@ success, or failure (with "rolled back" when what served before was put
 back).
 
 Nothing here may slow or fail a deployment. The subscriber only reads the
-store and hands the event to one worker (:mod:`wasm.core.background`), which
+store and hands the event to one worker (:mod:`noust.core.background`), which
 talks to GitHub in order - a deployment's end is never reported before its
 start - logs whatever goes wrong, and is drained, under a hard cap, when the
 process exits, so a CLI deploy's statuses are not abandoned mid-request.
-Which GitHub deployment belongs to which WASM deployment, and where it is
+Which GitHub deployment belongs to which Noust deployment, and where it is
 reported, is remembered in memory from the start: the events of one
 deployment are published by the process that runs it, and a first deploy
 that fails forgets the application's records before its end is published.
@@ -32,12 +32,12 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import quote
 
-from wasm.core.background import BackgroundQueue
-from wasm.core.exceptions import WASMError
-from wasm.core.store import get_store
-from wasm.deployers.deploy_events import DeployEvent, DeployEventKind
-from wasm.integrations.github.app import GitHubApp, installation_for, load_app
-from wasm.validators.source import github_repository
+from noust.core.background import BackgroundQueue
+from noust.core.exceptions import NoustError
+from noust.core.store import get_store
+from noust.deployers.deploy_events import DeployEvent, DeployEventKind
+from noust.integrations.github.app import GitHubApp, installation_for, load_app
+from noust.validators.source import github_repository
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +82,7 @@ def target_for(domain: str) -> Target | None:
         if store.get_github_app() is None:
             return None
         app = store.get_app(domain)
-    except (WASMError, sqlite3.Error) as exc:
+    except (NoustError, sqlite3.Error) as exc:
         logger.debug("Could not read %s for GitHub statuses: %s", domain, exc)
         return None
     if app is None:
@@ -188,8 +188,8 @@ class StatusReporter:
         """
         try:
             self.report(target, event)
-        except (WASMError, sqlite3.Error, OSError, ValueError) as exc:
-            # IntegrationError is a WASMError; the rest is a store or a
+        except (NoustError, sqlite3.Error, OSError, ValueError) as exc:
+            # IntegrationError is a NoustError; the rest is a store or a
             # secret file that could not be read. None of it may end the
             # worker, which the next deployment still needs.
             logger.warning(
@@ -233,10 +233,10 @@ class StatusReporter:
 
     def _remember(self, key: tuple[str, int | None], deployment: int) -> None:
         """
-        Remember which GitHub deployment a WASM deployment is.
+        Remember which GitHub deployment a Noust deployment is.
 
         Args:
-            key: The domain and WASM deployment id.
+            key: The domain and Noust deployment id.
             deployment: GitHub's deployment id.
         """
         self._deployments[key] = deployment
@@ -245,7 +245,7 @@ class StatusReporter:
 
     def _create(self, app: GitHubApp, target: Target, event: DeployEvent) -> int | None:
         """
-        Create the GitHub deployment for a WASM deployment.
+        Create the GitHub deployment for a Noust deployment.
 
         Args:
             app: The App.
@@ -271,7 +271,7 @@ class StatusReporter:
                 "environment": target.environment,
                 "auto_merge": False,
                 "required_contexts": [],
-                "description": f"WASM deploy of {event.domain}"[:_MAX_DESCRIPTION],
+                "description": f"Noust deploy of {event.domain}"[:_MAX_DESCRIPTION],
                 "transient_environment": preview,
                 "production_environment": not preview,
             },

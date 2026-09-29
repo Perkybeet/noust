@@ -1,6 +1,6 @@
 # Domains
 
-An application in WASM 2.0 answers on one primary domain and any number of aliases and
+An application in Noust answers on one primary domain and any number of aliases and
 redirects. Every name is a row in the store, the web server site is rendered from those rows,
 and one certificate covers all of them.
 
@@ -18,13 +18,13 @@ application's alias, redirect or primary is refused.
 ## Commands
 
 ```bash
-wasm domain list shop.example.com                        # primary, then aliases, then redirects
-wasm domain add shop.example.com shop.example.org        # alias (the default kind)
-wasm domain add shop.example.com old-shop.example.com --kind redirect
-wasm domain remove shop.example.com shop.example.org
+noust domain list shop.example.com                       # primary, then aliases, then redirects
+noust domain add shop.example.com shop.example.org       # alias (the default kind)
+noust domain add shop.example.com old-shop.example.com --kind redirect
+noust domain remove shop.example.com shop.example.org
 ```
 
-`wasm domain list` takes `--json`. `wasm domain add` takes `--no-cert` to skip extending the
+`noust domain list` takes `--json`. `noust domain add` takes `--no-cert` to skip extending the
 certificate now; run the same command again later to extend it.
 
 Each change goes through the same steps, in this order:
@@ -45,38 +45,38 @@ application.
 
 ### `www`
 
-`wasm create --www` records `www.<domain>` as a **redirect** to the domain. To serve the
+`noust create --www` records `www.<domain>` as a **redirect** to the domain. To serve the
 `www` name as the canonical one instead, create the application on `www.example.com` and add
 `example.com` as a redirect:
 
 ```bash
-wasm create -d www.example.com -s git@github.com:you/site.git
-wasm domain add www.example.com example.com --kind redirect
+noust create -d www.example.com -s git@github.com:you/site.git
+noust domain add www.example.com example.com --kind redirect
 ```
 
-`wasm site create --www` (a bare site, not an application) is unchanged: it serves both names
+`noust site create --www` (a bare site, not an application) is unchanged: it serves both names
 and covers both with the certificate.
 
-### Applications deployed before 2.0
+### Applications deployed before WASM 2.0
 
 The store migration gives every existing application its primary domain and nothing else,
-because whether a 1.x deploy also served `www` was never recorded. The live site is not
-changed by the upgrade: a 1.x application deployed with `--www` keeps serving both names.
+because whether a WASM 1.x deploy also served `www` was never recorded. The live site is not
+changed by the upgrade: a WASM 1.x application deployed with `--www` keeps serving both names.
 
-The first `wasm domain add` or `wasm domain remove` on such an application reads the names its
+The first `noust domain add` or `noust domain remove` on such an application reads the names its
 live site answers on and records the ones the store does not have as aliases (the result
 reports them as `adopted`), so adding one name never silently drops another. To turn an
 adopted `www` alias into a redirect, remove it and add it back with `--kind redirect`.
 
 ## Certificates
 
-- When an application serves TLS, `wasm domain add` extends its certificate to the new name
+- When an application serves TLS, `noust domain add` extends its certificate to the new name
   right away. If certbot fails (typically because DNS does not point here yet), the domain is
   kept, the site keeps serving TLS with the certificate it had, and certbot's own output is
-  shown. Run the same `wasm domain add` again once DNS is right: adding a name the application
+  shown. Run the same `noust domain add` again once DNS is right: adding a name the application
   already has retries its certificate.
 - When an application does not serve TLS, a new name is served over plain HTTP like the rest
-  of it. Obtain the first certificate with `wasm cert create -d <primary> -d <alias> ...`.
+  of it. Obtain the first certificate with `noust cert create -d <primary> -d <alias> ...`.
 - Removing a name does not revoke anything. The certificate keeps covering the removed name
   until it is next issued with a different set of names.
 - Through the API, `POST /api/apps/{domain}/domains` returns as soon as the name is recorded
@@ -118,15 +118,15 @@ Known false negatives:
 - **Behind a proxying CDN** such as Cloudflare with the proxy enabled, the name resolves to
   the CDN's addresses, and the check reports it as not pointing here.
 
-In both cases the check is advisory. `wasm domain add` runs it first and prints a warning with
-both address lists when the name does not point here, then goes ahead; `wasm cert create`
+In both cases the check is advisory. `noust domain add` runs it first and prints a warning with
+both address lists when the name does not point here, then goes ahead; `noust cert create`
 does not run it. Certbot is the final judge.
 
 ## Limitations
 
 - Monorepo and Docker Compose applications write the web server configuration of their
-  services themselves, and do not support aliases or redirects yet. `wasm domain add`
+  services themselves, and do not support aliases or redirects yet. `noust domain add`
   refuses them; serve another name with its own application or site instead.
-- `wasm domain` changes need an application deployed by WASM. For a bare site, use
-  `wasm site` and `wasm cert`.
+- `noust domain` changes need an application deployed by Noust. For a bare site, use
+  `noust site` and `noust cert`.
 - Wildcard names (`*.example.com`) are not accepted as domains.

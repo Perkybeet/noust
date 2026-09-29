@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The ``wasm sessions`` command group: active panel logins.
+The ``noust sessions`` command group: active panel logins.
 
 Listing and revoking a session used to require the panel's own settings
 screen; an operator locked out of the browser but still with shell access -
 the exact moment a stray session is worth revoking - had no way to do it. This
-is a thin front end over :class:`~wasm.web.auth.TokenManager`, the manager
+is a thin front end over :class:`~noust.web.auth.TokenManager`, the manager
 every ``/api/auth/sessions*`` endpoint calls, built over the panel's own
 on-disk state.
 
@@ -23,8 +23,8 @@ from datetime import datetime
 
 import click
 
-from wasm.cli.app import Context, WasmGroup, json_option, pass_context
-from wasm.cli.web_state import token_manager
+from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.cli.web_state import token_manager
 
 
 def _fmt(timestamp: float | None) -> str:
@@ -42,7 +42,7 @@ def _fmt(timestamp: float | None) -> str:
     return datetime.fromtimestamp(timestamp).isoformat(sep=" ", timespec="seconds")
 
 
-@click.group("sessions", cls=WasmGroup)
+@click.group("sessions", cls=NoustGroup)
 def cli() -> None:
     """Manage active panel sessions."""
 
@@ -87,7 +87,7 @@ def list_command(ctx: Context) -> None:
 def revoke_command(ctx: Context, prefix: str) -> None:
     """
     Revoke one session, named by a unique PREFIX of its id, as listed by
-    'wasm sessions list'.
+    'noust sessions list'.
     """
     revoked = token_manager().revoke_session_by_prefix(prefix)
     if revoked is None:

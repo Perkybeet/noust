@@ -2,15 +2,15 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The ``wasm cert`` command group.
+The ``noust cert`` command group.
 
 Everything an operator does to a Let's Encrypt certificate goes through here:
 obtaining one, listing what the machine holds, renewing, revoking and deleting.
 
 The commands are thin. Each one validates what the user typed, builds a
-:class:`~wasm.managers.cert_manager.CertManager` and calls a single private
+:class:`~noust.managers.cert_manager.CertManager` and calls a single private
 function that both this Click tree and the argparse-shaped handler
-:mod:`wasm.cli.interactive` still calls for its certificate menu share, so the
+:mod:`noust.cli.interactive` still calls for its certificate menu share, so the
 two front ends cannot drift.
 
 Two rules shape the code:
@@ -32,17 +32,17 @@ from pathlib import Path
 
 import click
 
-from wasm.cli.app import Context, WasmGroup, json_option, pass_context
-from wasm.cli.panel_links import open_in_panel
-from wasm.core.exceptions import CertificateError, DomainError, WASMError
-from wasm.core.logger import Logger
-from wasm.managers.cert_manager import CertManager
-from wasm.validators.domain import validate_domain
+from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.cli.panel_links import open_in_panel
+from noust.core.exceptions import CertificateError, DomainError, NoustError
+from noust.core.logger import Logger
+from noust.managers.cert_manager import CertManager
+from noust.validators.domain import validate_domain
 
 #: Alternative spellings of the subcommands. They are in scripts, in the
 #: published documentation and in muscle memory, so removing one is a breaking
 #: change. The root group resolves the aliases of the group itself (``ssl``,
-#: ``certificate``); these are local to ``wasm cert``.
+#: ``certificate``); these are local to ``noust cert``.
 COMMAND_ALIASES: dict[str, str] = {
     "new": "create",
     "obtain": "create",
@@ -53,7 +53,7 @@ COMMAND_ALIASES: dict[str, str] = {
 }
 
 
-class CertGroup(WasmGroup):
+class CertGroup(NoustGroup):
     """A group that also answers to the older spellings of its subcommands."""
 
     def get_command(self, ctx: click.Context, name: str) -> click.Command | None:
@@ -287,7 +287,7 @@ def _show_certificate(
     if not info:
         raise CertificateError(
             f"Certificate not found: {domain}",
-            details="Run 'wasm cert list' to see what this machine holds.",
+            details="Run 'noust cert list' to see what this machine holds.",
         )
 
     test = manager.test_cert(domain)
@@ -479,7 +479,7 @@ def create_command(
     Obtain a certificate for one or more domains.
 
     The first --domain names the certificate; the rest travel on it as extra
-    names. Without --standalone, --nginx, --apache or --webroot, WASM picks the
+    names. Without --standalone, --nginx, --apache or --webroot, Noust picks the
     method that suits the web server it finds running.
     """
     manager = _manager(ctx.verbose)
@@ -598,14 +598,14 @@ def delete_command(ctx: Context, domain: str, force: bool) -> None:
     _delete_certificate(_manager(ctx.verbose), ctx.logger, domain)
 
 
-# -- The argparse-shaped front end, called by wasm.cli.interactive ------------
+# -- The argparse-shaped front end, called by noust.cli.interactive ------------
 
 
 def handle_cert(args: Namespace) -> int:
     """
     Handle cert commands coming from an argparse-shaped ``Namespace``.
 
-    ``wasm.cli.parser`` is gone; :mod:`wasm.cli.interactive` is what still
+    ``noust.cli.parser`` is gone; :mod:`noust.cli.interactive` is what still
     builds one of these and calls this for its certificate menu.
 
     Args:
@@ -636,7 +636,7 @@ def handle_cert(args: Namespace) -> int:
 
     try:
         return handler(args)
-    except WASMError as exc:
+    except NoustError as exc:
         logger = Logger(verbose=args.verbose)
         logger.error(str(exc))
         if exc.details:

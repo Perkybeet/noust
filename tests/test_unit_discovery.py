@@ -35,21 +35,21 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from tests.test_web_auth import build_client
-from tests.test_web_websockets import token_subprotocols
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, Service, WASMStore, get_store
-from wasm.core.utils import domain_to_app_name
-from wasm.managers.service_manager import (
+from noust.core.runner import FakeRunner
+from noust.core.store import App, NoustStore, Service, get_store
+from noust.core.utils import domain_to_app_name
+from noust.managers.service_manager import (
     LIST_UNITS_ARGV,
-    WASM_UNIT_MARKER,
+    UNIT_MARKER,
     ServiceManager,
     readable_unit_name,
 )
-from wasm.web.api import services as services_api
-from wasm.web.api.auth import get_current_session
-from wasm.web.machine import AppTally, UnitTally, read_machine
-from wasm.web.server import get_token_manager
+from noust.web.api import services as services_api
+from noust.web.api.auth import get_current_session
+from noust.web.machine import AppTally, UnitTally, read_machine
+from noust.web.server import get_token_manager
+from tests.test_web_auth import build_client
+from tests.test_web_websockets import token_subprotocols
 
 LIST_UNITS = list(LIST_UNITS_ARGV)
 
@@ -78,19 +78,19 @@ def unit_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path
 
 
 @pytest.fixture
-def store() -> Iterator[WASMStore]:
+def store() -> Iterator[NoustStore]:
     """
     The process-wide store, at the per-test location conftest redirects it to.
 
     Yields:
         The store every manager and endpoint in the test reads.
     """
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
     instance = get_store()
     try:
         yield instance
     finally:
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 def marked(unit_dirs: dict[str, Path], name: str) -> Path:
@@ -105,11 +105,11 @@ def marked(unit_dirs: dict[str, Path], name: str) -> Path:
         The file.
     """
     path = unit_dirs["managed"] / f"{name}.service"
-    path.write_text(f"# Systemd service for {name}\n# {WASM_UNIT_MARKER}\n[Service]\n")
+    path.write_text(f"# Systemd service for {name}\n# {UNIT_MARKER}\n[Service]\n")
     return path
 
 
-def deploy(store: WASMStore, domain: str, **fields: Any) -> App:
+def deploy(store: NoustStore, domain: str, **fields: Any) -> App:
     """
     Record an application.
 
@@ -167,7 +167,7 @@ def api() -> TestClient:
 
 
 def test_app_units_without_prefix_or_store_row_are_counted(
-    runner: FakeRunner, unit_dirs: dict[str, Path], store: WASMStore
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
 ) -> None:
     """The top bar said "Units 1" on a machine running fifteen applications."""
     for domain in ("example.net", "tienda.example.com", "broken.example.com"):
@@ -198,7 +198,7 @@ def test_app_units_without_prefix_or_store_row_are_counted(
 
 
 def test_the_listing_asks_systemd_for_full_unit_names(
-    runner: FakeRunner, unit_dirs: dict[str, Path], store: WASMStore
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
 ) -> None:
     """list-units matches globs against "name.service": a bare name matches nothing."""
     deploy(store, "example.net")
@@ -216,7 +216,7 @@ def test_the_listing_asks_systemd_for_full_unit_names(
 
 
 def test_a_stopped_disabled_unit_systemd_has_not_loaded_is_still_listed(
-    runner: FakeRunner, unit_dirs: dict[str, Path], store: WASMStore
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
 ) -> None:
     """systemd forgets a unit nothing uses; its file says it is there."""
     marked(unit_dirs, "idle-example-com")
@@ -236,7 +236,7 @@ def test_a_stopped_disabled_unit_systemd_has_not_loaded_is_still_listed(
 
 
 def test_a_file_without_any_signal_is_not_listed(
-    runner: FakeRunner, unit_dirs: dict[str, Path], store: WASMStore
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
 ) -> None:
     """A unit an operator wrote by hand next to ours is not ours."""
     (unit_dirs["managed"] / "ollama.service").write_text("[Service]\nExecStart=/bin/ollama\n")
@@ -246,7 +246,7 @@ def test_a_file_without_any_signal_is_not_listed(
 
 
 def test_a_marked_file_shadowing_a_distribution_unit_is_not_listed(
-    runner: FakeRunner, unit_dirs: dict[str, Path], store: WASMStore
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
 ) -> None:
     """The same rule inspect_unit applies: eclipsing nginx is a takeover, not a unit of ours."""
     marked(unit_dirs, "nginx")
@@ -256,7 +256,7 @@ def test_a_marked_file_shadowing_a_distribution_unit_is_not_listed(
 
 
 def test_the_top_bar_tally_equals_the_services_list(
-    runner: FakeRunner, unit_dirs: dict[str, Path], store: WASMStore, api: TestClient
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore, api: TestClient
 ) -> None:
     """Two implementations disagreed; now both read managed_units."""
     deploy(store, "one.example.com")
@@ -295,7 +295,7 @@ def test_the_top_bar_tally_equals_the_services_list(
 
 
 def test_the_services_page_describes_every_managed_unit_in_one_call(
-    runner: FakeRunner, unit_dirs: dict[str, Path], store: WASMStore, api: TestClient
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore, api: TestClient
 ) -> None:
     """PID, memory and boot setting come from one systemctl show, not three calls per unit."""
     marked(unit_dirs, "one-example-com")
@@ -333,7 +333,7 @@ def test_the_services_page_describes_every_managed_unit_in_one_call(
 
 
 def test_a_monorepo_runs_as_its_workspace_units(
-    runner: FakeRunner, unit_dirs: dict[str, Path], store: WASMStore
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
 ) -> None:
     """The services table records a row per workspace, carrying the app's id."""
     app = deploy(store, "mono.example.com", app_type="monorepo")
@@ -360,7 +360,7 @@ def test_a_monorepo_runs_as_its_workspace_units(
 
 
 def test_a_monorepo_without_rows_is_found_from_its_unit_files(
-    runner: FakeRunner, unit_dirs: dict[str, Path], store: WASMStore
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
 ) -> None:
     """A store that was moved or rebuilt has no rows; the marked files remain."""
     app = deploy(store, "mono.example.com", app_type="monorepo")
@@ -371,7 +371,7 @@ def test_a_monorepo_without_rows_is_found_from_its_unit_files(
 
 
 def test_a_legacy_prefixed_unit_belongs_to_its_application(
-    runner: FakeRunner, unit_dirs: dict[str, Path], store: WASMStore
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
 ) -> None:
     """Units from before 0.14.1 are named wasm-<app>."""
     app = deploy(store, "old.example.com")
@@ -384,7 +384,7 @@ def test_a_legacy_prefixed_unit_belongs_to_its_application(
 
 
 def test_a_legacy_unit_systemd_lists_but_whose_file_is_unseen_still_matches(
-    runner: FakeRunner, unit_dirs: dict[str, Path], store: WASMStore
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
 ) -> None:
     """What systemd is running is the authority when the file is not visible."""
     deploy(store, "old.example.com")
@@ -398,7 +398,7 @@ def test_a_legacy_unit_systemd_lists_but_whose_file_is_unseen_still_matches(
 
 
 def test_a_compose_application_is_named_after_it(
-    runner: FakeRunner, unit_dirs: dict[str, Path], store: WASMStore
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
 ) -> None:
     """A Compose project's unit carries the application's name, like any other."""
     app = deploy(store, "stack.example.com", app_type="docker-compose")
@@ -407,7 +407,7 @@ def test_a_compose_application_is_named_after_it(
     assert ServiceManager().app_units(app) == ["stack-example-com"]
 
 
-def test_a_static_site_has_no_unit(store: WASMStore, unit_dirs: dict[str, Path]) -> None:
+def test_a_static_site_has_no_unit(store: NoustStore, unit_dirs: dict[str, Path]) -> None:
     """Even when a unit was left behind from the type it had before."""
     app = deploy(store, "static.example.com", app_type="static", is_static=False)
     marked(unit_dirs, "static-example-com")
@@ -416,7 +416,7 @@ def test_a_static_site_has_no_unit(store: WASMStore, unit_dirs: dict[str, Path])
 
 
 def test_an_app_unit_without_the_marker_is_managed_through_the_store(
-    runner: FakeRunner, unit_dirs: dict[str, Path], store: WASMStore
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
 ) -> None:
     """inspect_unit and the listing apply one rule, the application signal included."""
     deploy(store, "plain.example.com")
@@ -432,7 +432,7 @@ def test_an_app_unit_without_the_marker_is_managed_through_the_store(
 
 
 def test_all_units_lists_systemd_escaped_names_without_probing_them(
-    runner: FakeRunner, unit_dirs: dict[str, Path], store: WASMStore, api: TestClient
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore, api: TestClient
 ) -> None:
     """Listing every unit used to fail as a whole on 'systemd-fsck@dev-disk-by\\x2dlabel-BOOT'."""
     marked(unit_dirs, "one-example-com")
@@ -464,7 +464,7 @@ def test_all_units_lists_systemd_escaped_names_without_probing_them(
 
 
 def test_the_detail_of_an_escaped_foreign_unit_is_a_404_not_a_400(
-    runner: FakeRunner, unit_dirs: dict[str, Path], store: WASMStore, api: TestClient
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore, api: TestClient
 ) -> None:
     """The console reads the 404 as "describe it from the all-units list"."""
     response = api.get(f"/api/services/{quote(ESCAPED, safe='')}")
@@ -473,7 +473,7 @@ def test_the_detail_of_an_escaped_foreign_unit_is_a_404_not_a_400(
 
 
 def test_the_detail_of_an_app_unit_without_a_store_row_answers(
-    runner: FakeRunner, unit_dirs: dict[str, Path], store: WASMStore, api: TestClient
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore, api: TestClient
 ) -> None:
     """It used to 404, and the console then showed WASM's own unit as a foreign one."""
     marked(unit_dirs, "example-net")
@@ -487,7 +487,7 @@ def test_the_detail_of_an_app_unit_without_a_store_row_answers(
 
 
 def test_a_mutation_on_a_foreign_unit_is_still_refused(
-    runner: FakeRunner, unit_dirs: dict[str, Path], store: WASMStore, api: TestClient
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore, api: TestClient
 ) -> None:
     """Accepting systemd's names for reading does not make them WASM's to act on."""
     response = api.post(f"/api/services/{quote(ESCAPED, safe='')}/restart")
@@ -505,7 +505,7 @@ def test_readable_unit_name_accepts_what_systemd_writes(name: str) -> None:
 @pytest.mark.parametrize("name", ["", "*", "a b", "../x", "-x", "a/b", "a\nb", "x" * 300])
 def test_readable_unit_name_still_refuses_what_is_not_a_unit(name: str) -> None:
     """Nothing that could be a glob, a path or an option reaches argv."""
-    from wasm.core.exceptions import ValidationError
+    from noust.core.exceptions import ValidationError
 
     with pytest.raises(ValidationError):
         readable_unit_name(name)
@@ -516,7 +516,7 @@ def test_readable_unit_name_still_refuses_what_is_not_a_unit(name: str) -> None:
 
 @pytest.mark.parametrize("verb", ["start", "restart"])
 def test_a_deliberate_start_clears_the_start_limit_first(
-    runner: FakeRunner, unit_dirs: dict[str, Path], store: WASMStore, verb: str
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore, verb: str
 ) -> None:
     """After a crash loop, the rollback's restart was refused as "repeated too quickly"."""
     marked(unit_dirs, "wasm-example")
@@ -530,10 +530,10 @@ def test_a_deliberate_start_clears_the_start_limit_first(
 
 
 def test_reset_failed_is_never_sent_to_a_foreign_unit(
-    runner: FakeRunner, unit_dirs: dict[str, Path], store: WASMStore
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
 ) -> None:
     """The guard runs first."""
-    from wasm.core.exceptions import ServiceError
+    from noust.core.exceptions import ServiceError
 
     (unit_dirs["distro"] / "ssh.service").write_text("[Service]\n")
 
@@ -617,7 +617,7 @@ def test_the_log_stream_follows_an_application_s_legacy_unit(
     sandbox: Path,
     runner: FakeRunner,
     unit_dirs: dict[str, Path],
-    store: WASMStore,
+    store: NoustStore,
     journal: dict[str, Any],
 ) -> None:
     """domain_to_app_name alone named a unit that does not exist and refused the stream."""
@@ -635,7 +635,7 @@ def test_the_log_stream_follows_every_workspace_of_a_monorepo(
     sandbox: Path,
     runner: FakeRunner,
     unit_dirs: dict[str, Path],
-    store: WASMStore,
+    store: NoustStore,
     journal: dict[str, Any],
 ) -> None:
     """All workspaces in one journalctl, interleaved by time."""
@@ -661,7 +661,7 @@ def test_the_log_stream_of_a_workspace_unit_by_name(
     sandbox: Path,
     runner: FakeRunner,
     unit_dirs: dict[str, Path],
-    store: WASMStore,
+    store: NoustStore,
     journal: dict[str, Any],
 ) -> None:
     """The Services page streams one unit by its own name."""
@@ -676,7 +676,7 @@ def test_a_static_site_has_no_process_to_stream(
     sandbox: Path,
     runner: FakeRunner,
     unit_dirs: dict[str, Path],
-    store: WASMStore,
+    store: NoustStore,
     journal: dict[str, Any],
 ) -> None:
     """Nothing is spawned, and the reason is said."""
@@ -693,7 +693,7 @@ def test_journalctl_s_own_error_reaches_the_client(
     sandbox: Path,
     runner: FakeRunner,
     unit_dirs: dict[str, Path],
-    store: WASMStore,
+    store: NoustStore,
     journal: dict[str, Any],
 ) -> None:
     """The console showed "The journal stream failed" with journalctl's reason thrown away."""
@@ -710,7 +710,7 @@ def test_journalctl_s_own_error_reaches_the_client(
 
 
 def test_a_sibling_application_named_like_a_workspace_is_not_the_monorepos(
-    runner: FakeRunner, unit_dirs: dict[str, Path], store: WASMStore
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
 ) -> None:
     """
     Monorepo shop.com's fallback matches ``shop-com-*``; the application
@@ -740,7 +740,7 @@ def test_a_sibling_application_named_like_a_workspace_is_not_the_monorepos(
 
 
 def test_a_unit_owned_by_another_applications_row_is_not_a_workspace(
-    runner: FakeRunner, unit_dirs: dict[str, Path], store: WASMStore
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
 ) -> None:
     """The services table says whose a unit is, whatever its name."""
     mono = deploy(store, "shop.com", app_type="monorepo")

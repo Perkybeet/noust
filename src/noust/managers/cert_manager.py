@@ -5,9 +5,9 @@
 SSL certificates, driven through certbot.
 
 Certificate data crosses two module boundaries: ``certbot certificates`` is
-parsed here and read by the CLI and by ``wasm health``. It travels as a
+parsed here and read by the CLI and by ``noust health``. It travels as a
 :class:`CertificateInfo`, so the field names are stated once instead of being
-guessed at each end - ``wasm health`` spent several releases looking for an
+guessed at each end - ``noust health`` spent several releases looking for an
 ``expires`` key that this module never wrote, and a plain dict answered that
 with ``None`` forever. Asking one of these records for a field it does not have
 is now a :class:`KeyError`, not a silent miss.
@@ -38,12 +38,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal, overload
 
-from wasm.core.exceptions import CertificateError, WASMError
-from wasm.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem
-from wasm.core.runner import DEFAULT_TIMEOUT, CommandResult, CommandRunner
-from wasm.core.store import WASMStore, get_store
-from wasm.managers.base_manager import BaseManager, MappingRecord
-from wasm.validators.domain import is_valid_domain, should_include_www
+from noust.core.exceptions import CertificateError, NoustError
+from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem
+from noust.core.runner import DEFAULT_TIMEOUT, CommandResult, CommandRunner
+from noust.core.store import NoustStore, get_store
+from noust.managers.base_manager import BaseManager, MappingRecord
+from noust.validators.domain import is_valid_domain, should_include_www
 
 #: Issuing or renewing a certificate involves ACME round trips.
 _ISSUE_TIMEOUT = 300
@@ -89,7 +89,7 @@ _CHALLENGE_FAILURE_MARKERS = (
 #: accessor the CLI and the health check still read certificates through.
 _TextField = Literal["name", "expiry", "expiry_full", "cert_path", "key_path", "issuer"]
 
-#: Validity of a certificate WASM mints for itself. Long on purpose: it is
+#: Validity of a certificate Noust mints for itself. Long on purpose: it is
 #: self-signed, so an early expiry adds no security and only breaks a restart
 #: years later, when nobody remembers where the pair came from.
 _SELF_SIGNED_DAYS = 3650
@@ -179,7 +179,7 @@ def _diagnose_domain_dns(domain: str) -> tuple[str, str] | None:
     """
     Find the DNS reason an ACME challenge against one domain would fail.
 
-    Reuses :func:`wasm.deployers.domains.check_dns`, the one implementation of
+    Reuses :func:`noust.deployers.domains.check_dns`, the one implementation of
     "does this name resolve to this machine" - imported here rather than at
     module level because ``deployers.domains`` imports ``deployers.base``,
     which imports this module: a lazy import breaks the cycle without moving
@@ -193,11 +193,11 @@ def _diagnose_domain_dns(domain: str) -> tuple[str, str] | None:
         None when the domain resolves here (the failure has another cause) or
         its DNS cannot be evaluated at all.
     """
-    from wasm.deployers.domains import check_dns
+    from noust.deployers.domains import check_dns
 
     try:
         result = check_dns(domain)
-    except WASMError:
+    except NoustError:
         return None
     if result.points_here:
         return None
@@ -405,7 +405,7 @@ class CertManager(BaseManager):
         self._plugin_available: dict[str, bool] = {}
 
     @property
-    def store(self) -> WASMStore:
+    def store(self) -> NoustStore:
         """
         The persistence layer.
 
@@ -424,7 +424,7 @@ class CertManager(BaseManager):
         Run a certbot-adjacent command through the shared runner.
 
         Certbot reads and writes ``/etc/letsencrypt``, which only root can do,
-        and WASM requires root (decision D6): there is no unprivileged install
+        and Noust requires root (decision D6): there is no unprivileged install
         to accommodate and no ``sudo`` to reach for, on a box that may not even
         have it. A manager that re-elevated here would either be redundant or,
         on a minimal Debian or Ubuntu server with no ``sudo`` package, break
@@ -675,7 +675,7 @@ class CertManager(BaseManager):
         answers on - aliases, and redirects too, since a redirect is served on
         443 and a browser shown the wrong certificate never sees it. Reading
         them where the list is built, not at each caller, is what keeps the
-        deploy step, ``wasm cert create``, the panel and a domain change from
+        deploy step, ``noust cert create``, the panel and a domain change from
         each asking for a different set and expanding the lineage back and
         forth.
 
@@ -690,7 +690,7 @@ class CertManager(BaseManager):
         """
         try:
             records = self.store.list_domains(primary)
-        except (WASMError, sqlite3.Error) as exc:
+        except (NoustError, sqlite3.Error) as exc:
             self.logger.warning(f"Could not read the domains of {primary}: {exc}")
             return []
         return [record.domain for record in records if record.domain != primary]
@@ -1064,7 +1064,7 @@ class CertManager(BaseManager):
                 app.ssl_certificate = certificate
                 app.ssl_key = key
                 self.store.update_app(app)
-        except (WASMError, sqlite3.Error) as exc:
+        except (NoustError, sqlite3.Error) as exc:
             self.logger.debug(f"Could not update SSL in store: {exc}")
 
     # -- Self-signed material ------------------------------------------------

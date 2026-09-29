@@ -5,7 +5,9 @@ Propagate the project version from pyproject.toml to every packaging file.
 The version used to live as a hand-edited literal in six places, kept in step
 by a checklist in CLAUDE.md. Checklists fail, and this one already caused
 corrective releases. Here ``[project].version`` in pyproject.toml is the single
-source of truth and everything else is derived from it.
+source of truth and everything else is derived from it: the noust packages,
+the transitional wasm/wasm-cli packages that carry users of the old name over,
+and the container image.
 
 Usage:
     scripts/release.py --check          Verify every file agrees. Used by CI.
@@ -35,6 +37,24 @@ MAINTAINER_EMAIL = "yago.lopez.adeje@gmail.com"
 
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
 
+#: The Debian source name of the product, and the one it had before 3.0.0.
+PACKAGE = "noust"
+FORMER_PACKAGE = "wasm"
+
+#: Written as the first changelog bullet of the first release under the new
+#: name, which is the one whose previous Debian entry still carries the old one.
+RENAME_ENTRY = (
+    "Renamed from wasm: the package, the command and the paths are noust now; "
+    "wasm remains a command alias for the whole 3.x series"
+)
+
+#: The transitional packages' changelogs say the same thing every release.
+TRANSITIONAL_ENTRY = (
+    "WASM is now Noust: this package only installs noust {version} and can be removed"
+)
+
+TRANSITIONAL_DIR = "packaging/transitional/wasm"
+
 
 @dataclass(frozen=True)
 class Site:
@@ -43,15 +63,18 @@ class Site:
 
     Attributes:
         path: File relative to the repository root.
-        pattern: Regex with a single group capturing the version.
+        pattern: Regex capturing the version in group ``group``.
         template: Replacement string, with ``{version}`` substituted.
         label: Human-readable name for error messages.
+        group: The group of ``pattern`` holding the version; the others are
+            kept by ``template`` through back-references.
     """
 
     path: str
     pattern: str
     template: str
     label: str
+    group: int = 1
 
     def read(self) -> str | None:
         """
@@ -64,7 +87,7 @@ class Site:
         if not file.exists():
             return None
         match = re.search(self.pattern, file.read_text(encoding="utf-8"), re.MULTILINE)
-        return match.group(1) if match else None
+        return match.group(self.group) if match else None
 
     def write(self, version: str) -> bool:
         """
@@ -89,63 +112,100 @@ class Site:
         return True
 
 
+# Templates use \g<N>, never \N: "\1" followed by a version starting with a
+# digit reads as group 11 (see tests/test_release_script.py).
 SITES: tuple[Site, ...] = (
     Site(
         path="setup.py",
         pattern=r'^(\s*)version="([^"]+)"',
         template=r'\g<1>version="{version}"',
         label="setup.py",
+        group=2,
     ),
     Site(
-        path="src/wasm/__init__.py",
+        path="src/noust/__init__.py",
         pattern=r'^_FALLBACK_VERSION = "([^"]+)"',
         template='_FALLBACK_VERSION = "{version}"',
         label="package fallback",
     ),
     Site(
-        path="rpm/wasm.spec",
+        path="rpm/noust.spec",
         pattern=r"^Version:(\s+)(\S+)",
         template=r"Version:\g<1>{version}",
         label="RPM spec",
+        group=2,
     ),
     Site(
-        path="obs/wasm.dsc",
+        path="obs/noust.dsc",
         pattern=r"^Version: (\S+)-\d+",
         template="Version: {version}-1",
         label="Debian source control",
     ),
     Site(
-        path="obs/wasm.dsc",
+        path="obs/noust.dsc",
+        pattern=r"^ (\w{32}) (\d+) noust-(\S+)\.tar\.gz",
+        template=r" \g<1> \g<2> noust-{version}.tar.gz",
+        label="Debian source tarball name",
+        group=3,
+    ),
+    Site(
+        path=f"{TRANSITIONAL_DIR}/wasm.spec",
+        pattern=r"^Version:(\s+)(\S+)",
+        template=r"Version:\g<1>{version}",
+        label="transitional RPM spec",
+        group=2,
+    ),
+    Site(
+        path=f"{TRANSITIONAL_DIR}/wasm.dsc",
+        pattern=r"^Version: (\S+)-\d+",
+        template="Version: {version}-1",
+        label="transitional Debian source control",
+    ),
+    Site(
+        path=f"{TRANSITIONAL_DIR}/wasm.dsc",
         pattern=r"^ (\w{32}) (\d+) wasm-(\S+)\.tar\.gz",
         template=r" \g<1> \g<2> wasm-{version}.tar.gz",
-        label="Debian source tarball name",
+        label="transitional Debian source tarball name",
+        group=3,
+    ),
+    Site(
+        path="packaging/transitional/wasm-cli/pyproject.toml",
+        pattern=r'^version = "([^"]+)"',
+        template='version = "{version}"',
+        label="transitional PyPI package",
+    ),
+    Site(
+        path="packaging/transitional/wasm-cli/pyproject.toml",
+        pattern=r'^(\s*)"noust==([^"]+)"',
+        template=r'\g<1>"noust=={version}"',
+        label="transitional PyPI dependency",
+        group=2,
+    ),
+    Site(
+        path="packaging/container/Dockerfile",
+        pattern=r"^ARG NOUST_VERSION=(\S+)",
+        template="ARG NOUST_VERSION={version}",
+        label="container image",
+    ),
+    Site(
+        path="packaging/container/compose.yaml",
+        pattern=r"^(\s*)image: ghcr\.io/perkybeet/noust:(\S+)",
+        template=r"\g<1>image: ghcr.io/perkybeet/noust:{version}",
+        label="container compose example",
+        group=2,
     ),
 )
 
-# setup.py's pattern has the indentation as group 1, so the version is group 2.
-_GROUP_OVERRIDES = {"setup.py": 2, "rpm/wasm.spec": 2}
-_TARBALL_GROUP = 3
+#: Debian changelogs, each with its top entry at the current version.
+DEBIAN_CHANGELOGS: tuple[str, ...] = (
+    "obs/debian.changelog",
+    f"{TRANSITIONAL_DIR}/debian.changelog",
+)
 
+#: RPM specs, each with a %changelog entry for the current version.
+RPM_SPECS: tuple[str, ...] = ("rpm/noust.spec", f"{TRANSITIONAL_DIR}/wasm.spec")
 
-def _read_version(site: Site) -> str | None:
-    """
-    Read a version from a site, accounting for patterns with extra groups.
-
-    Args:
-        site: The site to inspect.
-
-    Returns:
-        The recorded version, or None when it cannot be found.
-    """
-    file = ROOT / site.path
-    if not file.exists():
-        return None
-    match = re.search(site.pattern, file.read_text(encoding="utf-8"), re.MULTILINE)
-    if not match:
-        return None
-    if site.label == "Debian source tarball name":
-        return match.group(_TARBALL_GROUP)
-    return match.group(_GROUP_OVERRIDES.get(site.path, 1))
+DEBIAN_ENTRY = re.compile(r"^(\S+) \((\S+?)-\d+\)")
 
 
 def source_of_truth() -> str:
@@ -156,7 +216,25 @@ def source_of_truth() -> str:
         The canonical project version.
     """
     with (ROOT / "pyproject.toml").open("rb") as handle:
-        return tomllib.load(handle)["project"]["version"]
+        return str(tomllib.load(handle)["project"]["version"])
+
+
+def _top_debian_entry(path: str) -> tuple[str, str] | None:
+    """
+    Read the package name and upstream version of a Debian changelog's top entry.
+
+    Args:
+        path: The changelog, relative to the repository root.
+
+    Returns:
+        ``(package, version)``, or None when the file is missing or unparseable.
+    """
+    file = ROOT / path
+    if not file.exists():
+        return None
+    lines = file.read_text(encoding="utf-8").splitlines()
+    match = DEBIAN_ENTRY.match(lines[0]) if lines else None
+    return (match.group(1), match.group(2)) if match else None
 
 
 def check() -> int:
@@ -170,26 +248,25 @@ def check() -> int:
     problems: list[str] = []
 
     for site in SITES:
-        found = _read_version(site)
+        found = site.read()
         if found is None:
             problems.append(f"{site.label} ({site.path}): version not found")
         elif found != expected:
             problems.append(f"{site.label} ({site.path}): {found}, expected {expected}")
 
-    changelog = ROOT / "obs/debian.changelog"
-    if changelog.exists():
-        first = changelog.read_text(encoding="utf-8").splitlines()[0]
-        match = re.match(r"wasm \((\S+?)-\d+\)", first)
-        if not match:
-            problems.append("obs/debian.changelog: top entry is not parseable")
-        elif match.group(1) != expected:
-            problems.append(
-                f"obs/debian.changelog: top entry is {match.group(1)}, expected {expected}"
-            )
+    for path in DEBIAN_CHANGELOGS:
+        top = _top_debian_entry(path)
+        if top is None:
+            problems.append(f"{path}: top entry is missing or not parseable")
+        elif top[1] != expected:
+            problems.append(f"{path}: top entry is {top[1]}, expected {expected}")
 
-    spec = ROOT / "rpm/wasm.spec"
-    if spec.exists() and f"- {expected}-1" not in spec.read_text(encoding="utf-8"):
-        problems.append(f"rpm/wasm.spec: no %changelog entry for {expected}")
+    for path in RPM_SPECS:
+        spec = ROOT / path
+        if not spec.exists():
+            problems.append(f"{path}: missing")
+        elif f"- {expected}-1" not in spec.read_text(encoding="utf-8"):
+            problems.append(f"{path}: no %changelog entry for {expected}")
 
     tag = _current_tag()
     if tag and tag.lstrip("v") != expected:
@@ -226,39 +303,67 @@ def _current_tag() -> str | None:
     return result.stdout.strip() or None
 
 
-def _prepend_debian_changelog(version: str, entries: list[str]) -> None:
+def _prepend_debian_changelog(path: str, package: str, version: str, entries: list[str]) -> None:
     """
-    Add a Debian changelog entry at the top of the file.
+    Add a Debian changelog entry at the top of a file.
 
     Args:
+        path: The changelog, relative to the repository root.
+        package: The source package name the entry is for.
         version: The version being released.
         entries: Bullet lines describing the release.
     """
-    changelog = ROOT / "obs/debian.changelog"
+    changelog = ROOT / path
     stamp = datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S +0000")
     body = "\n".join(f"  * {entry}" for entry in entries)
     block = (
-        f"wasm ({version}-1) unstable; urgency=medium\n\n"
+        f"{package} ({version}-1) unstable; urgency=medium\n\n"
         f"{body}\n\n"
         f" -- {MAINTAINER} <{MAINTAINER_EMAIL}>  {stamp}\n\n"
     )
     changelog.write_text(block + changelog.read_text(encoding="utf-8"), encoding="utf-8")
 
 
-def _prepend_rpm_changelog(version: str, entries: list[str]) -> None:
+def _prepend_rpm_changelog(path: str, version: str, entries: list[str]) -> None:
     """
     Add an RPM %changelog entry directly below the %changelog directive.
 
     Args:
+        path: The spec, relative to the repository root.
         version: The version being released.
         entries: Bullet lines describing the release.
     """
-    spec = ROOT / "rpm/wasm.spec"
+    spec = ROOT / path
     text = spec.read_text(encoding="utf-8")
     stamp = datetime.now(timezone.utc).strftime("%a %b %d %Y")
     body = "\n".join(f"- {entry}" for entry in entries)
     block = f"%changelog\n* {stamp} {MAINTAINER} <{MAINTAINER_EMAIL}> - {version}-1\n{body}\n"
     spec.write_text(text.replace("%changelog\n", block, 1), encoding="utf-8")
+
+
+def _write_changelogs(version: str, entries: list[str]) -> None:
+    """
+    Write this release's entries into every changelog.
+
+    The product's changelogs get the operator's bullets, preceded by
+    :data:`RENAME_ENTRY` on the first release after the rename; the
+    transitional packages' get :data:`TRANSITIONAL_ENTRY`.
+
+    Args:
+        version: The version being released.
+        entries: The operator's bullet lines.
+    """
+    top = _top_debian_entry("obs/debian.changelog")
+    if top is not None and top[0] == FORMER_PACKAGE:
+        entries = [RENAME_ENTRY, *entries]
+    _prepend_debian_changelog("obs/debian.changelog", PACKAGE, version, entries)
+    _prepend_rpm_changelog("rpm/noust.spec", version, entries)
+
+    transitional = [TRANSITIONAL_ENTRY.format(version=version)]
+    _prepend_debian_changelog(
+        f"{TRANSITIONAL_DIR}/debian.changelog", FORMER_PACKAGE, version, transitional
+    )
+    _prepend_rpm_changelog(f"{TRANSITIONAL_DIR}/wasm.spec", version, transitional)
 
 
 def bump(version: str, entries: list[str]) -> int:
@@ -291,8 +396,7 @@ def bump(version: str, entries: list[str]) -> int:
             print(f"  updated {site.label}")
 
     if entries:
-        _prepend_debian_changelog(version, entries)
-        _prepend_rpm_changelog(version, entries)
+        _write_changelogs(version, entries)
         print("  updated changelogs")
 
     print(f"\nVersion set to {version}. Now:")
@@ -312,7 +416,7 @@ def main(argv: list[str] | None = None) -> int:
     Returns:
         Process exit code.
     """
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[1])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").strip().splitlines()[0])
     parser.add_argument("version", nargs="?", help="new version, as X.Y.Z")
     parser.add_argument("--check", action="store_true", help="verify consistency without writing")
     parser.add_argument(

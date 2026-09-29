@@ -6,7 +6,7 @@ Tests for WASM SQLite persistence store.
 
 Beyond the CRUD surface, this file pins two properties that were not properties
 before: the database and its directory are created through the
-:mod:`wasm.core.fs` seam, so ``--dry-run`` cannot leave one behind, and they end
+:mod:`noust.core.fs` seam, so ``--dry-run`` cannot leave one behind, and they end
 up 0600 inside 0700, because ``apps.env_vars`` holds DATABASE_URL and API keys.
 """
 
@@ -18,15 +18,15 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core import store as store_module
-from wasm.core.exceptions import DomainConflictError, DomainError, ValidationError
-from wasm.core.fs import (
+from noust.core import store as store_module
+from noust.core.exceptions import DomainConflictError, DomainError, ValidationError
+from noust.core.fs import (
     SECRET_DIR_MODE,
     SECRET_MODE,
     DryRunFileSystem,
     RecordingFileSystem,
 )
-from wasm.core.store import (
+from noust.core.store import (
     SCHEMA_VERSION,
     App,
     AppStatus,
@@ -34,10 +34,10 @@ from wasm.core.store import (
     Database,
     DatabaseEngine,
     DatabaseUser,
+    NoustStore,
     Service,
     Site,
     StoreError,
-    WASMStore,
     WebServer,
     get_store,
 )
@@ -52,9 +52,9 @@ def fresh():
         Nothing; the singleton is reset before and after the test so an
         injected filesystem is actually the one used.
     """
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
     yield
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture
@@ -64,14 +64,14 @@ def temp_db():
         db_path = Path(f.name)
 
     # Reset singleton
-    WASMStore.reset_instance()
-    store = WASMStore(db_path)
+    NoustStore.reset_instance()
+    store = NoustStore(db_path)
 
     yield store
 
     # Cleanup
     store.close()
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
     db_path.unlink(missing_ok=True)
 
 
@@ -132,11 +132,11 @@ def populated_store(temp_db):
     return store
 
 
-class TestWASMStore:
-    """Tests for WASMStore class."""
+class TestNoustStore:
+    """Tests for NoustStore class."""
 
     def test_singleton_pattern(self, temp_db):
-        """Test that WASMStore is a singleton."""
+        """Test that NoustStore is a singleton."""
         store1 = get_store(temp_db.db_path)
         store2 = get_store(temp_db.db_path)
         assert store1 is store2
@@ -315,7 +315,7 @@ class TestSchemaV2Migration:
         db_path = tmp_path / "wasm.db"
         self._create_v1_database(db_path)
 
-        store = WASMStore(db_path, fs=RecordingFileSystem())
+        store = NoustStore(db_path, fs=RecordingFileSystem())
 
         with store._transaction() as cursor:
             # The chain does not stop at v2: a v1 database walks every
@@ -332,7 +332,7 @@ class TestSchemaV2Migration:
         db_path = tmp_path / "wasm.db"
         self._create_v1_database(db_path)
 
-        store = WASMStore(db_path, fs=RecordingFileSystem())
+        store = NoustStore(db_path, fs=RecordingFileSystem())
 
         with store._transaction() as cursor:
             cursor.execute(
@@ -349,7 +349,7 @@ class TestSchemaV2Migration:
         """Migration produces a table the new API can actually use."""
         db_path = tmp_path / "wasm.db"
         self._create_v1_database(db_path)
-        store = WASMStore(db_path, fs=RecordingFileSystem())
+        store = NoustStore(db_path, fs=RecordingFileSystem())
 
         deployment_id = store.record_deployment_start("v1.example.com", "cli")
 
@@ -414,7 +414,7 @@ class TestSchemaV3Migration:
         finally:
             conn.close()
 
-    def _apps_columns(self, store: WASMStore) -> set[str]:
+    def _apps_columns(self, store: NoustStore) -> set[str]:
         """
         Args:
             store: The store to inspect.
@@ -431,7 +431,7 @@ class TestSchemaV3Migration:
         db_path = tmp_path / "wasm.db"
         self._create_v2_database(db_path)
 
-        store = WASMStore(db_path, fs=RecordingFileSystem())
+        store = NoustStore(db_path, fs=RecordingFileSystem())
 
         with store._transaction() as cursor:
             cursor.execute("SELECT MAX(version) FROM schema_version")
@@ -444,7 +444,7 @@ class TestSchemaV3Migration:
         db_path = tmp_path / "wasm.db"
         self._create_v2_database(db_path)
 
-        store = WASMStore(db_path, fs=RecordingFileSystem())
+        store = NoustStore(db_path, fs=RecordingFileSystem())
 
         assert store.get_webhook_secret("v2.example.com") is None
 
@@ -459,7 +459,7 @@ class TestSchemaV3Migration:
         finally:
             conn.close()
 
-        store = WASMStore(db_path, fs=RecordingFileSystem())
+        store = NoustStore(db_path, fs=RecordingFileSystem())
 
         with store._transaction() as cursor:
             cursor.execute("SELECT MAX(version) FROM schema_version")
@@ -502,7 +502,7 @@ class TestSchemaV4Migration:
         db_path = tmp_path / "wasm.db"
         self._create_v3_database(db_path)
 
-        store = WASMStore(db_path, fs=RecordingFileSystem())
+        store = NoustStore(db_path, fs=RecordingFileSystem())
 
         with store._transaction() as cursor:
             cursor.execute("SELECT MAX(version) FROM schema_version")
@@ -514,7 +514,7 @@ class TestSchemaV4Migration:
         db_path = tmp_path / "wasm.db"
         self._create_v3_database(db_path)
 
-        store = WASMStore(db_path, fs=RecordingFileSystem())
+        store = NoustStore(db_path, fs=RecordingFileSystem())
 
         with store._transaction() as cursor:
             cursor.execute(
@@ -531,7 +531,7 @@ class TestSchemaV4Migration:
         """Migration produces a table the job manager can actually use."""
         db_path = tmp_path / "wasm.db"
         self._create_v3_database(db_path)
-        store = WASMStore(db_path, fs=RecordingFileSystem())
+        store = NoustStore(db_path, fs=RecordingFileSystem())
 
         store.create_job(
             store_module.JobRecord(
@@ -558,7 +558,7 @@ class TestSchemaV4Migration:
         finally:
             conn.close()
 
-        store = WASMStore(db_path, fs=RecordingFileSystem())
+        store = NoustStore(db_path, fs=RecordingFileSystem())
 
         with store._transaction() as cursor:
             cursor.execute("SELECT MAX(version) FROM schema_version")
@@ -626,7 +626,7 @@ class TestSchemaV5Migration:
         finally:
             conn.close()
 
-    def _columns(self, store: WASMStore, table: str) -> dict[str, tuple[str, int, str | None]]:
+    def _columns(self, store: NoustStore, table: str) -> dict[str, tuple[str, int, str | None]]:
         """
         Args:
             store: The store to inspect.
@@ -642,7 +642,7 @@ class TestSchemaV5Migration:
                 for row in cursor.fetchall()
             }
 
-    def _migrated(self, tmp_path: Path, name: str = "wasm.db") -> WASMStore:
+    def _migrated(self, tmp_path: Path, name: str = "wasm.db") -> NoustStore:
         """
         Args:
             tmp_path: Directory for the database.
@@ -653,7 +653,7 @@ class TestSchemaV5Migration:
         """
         db_path = tmp_path / name
         self._create_v4_database(db_path)
-        return WASMStore(db_path, fs=RecordingFileSystem())
+        return NoustStore(db_path, fs=RecordingFileSystem())
 
     def test_a_v4_database_migrates_to_v5_keeping_every_row(self, fresh, tmp_path):
         """A 1.6.x server keeps its inventory, and its apps stay in place."""
@@ -675,9 +675,9 @@ class TestSchemaV5Migration:
         tables = ("apps", "releases")
         migrated = self._migrated(tmp_path, "migrated.db")
         upgraded = {table: self._columns(migrated, table) for table in tables}
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
-        installed = WASMStore(tmp_path / "fresh.db", fs=RecordingFileSystem())
+        installed = NoustStore(tmp_path / "fresh.db", fs=RecordingFileSystem())
 
         assert {table: self._columns(installed, table) for table in tables} == upgraded
 
@@ -787,7 +787,7 @@ class TestSchemaV6Migration:
         finally:
             conn.close()
 
-    def _migrated(self, tmp_path: Path, name: str = "wasm.db") -> WASMStore:
+    def _migrated(self, tmp_path: Path, name: str = "wasm.db") -> NoustStore:
         """
         Args:
             tmp_path: Directory for the database.
@@ -798,9 +798,9 @@ class TestSchemaV6Migration:
         """
         db_path = tmp_path / name
         self._create_v5_database(db_path)
-        return WASMStore(db_path, fs=RecordingFileSystem())
+        return NoustStore(db_path, fs=RecordingFileSystem())
 
-    def _schema(self, store: WASMStore) -> dict[str, object]:
+    def _schema(self, store: NoustStore) -> dict[str, object]:
         """
         Args:
             store: The store to inspect.
@@ -846,9 +846,9 @@ class TestSchemaV6Migration:
     def test_the_fresh_schema_and_the_migration_agree(self, fresh, tmp_path):
         """Both paths to v6 produce the same table and the same indexes."""
         upgraded = self._schema(self._migrated(tmp_path, "migrated.db"))
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
-        installed = self._schema(WASMStore(tmp_path / "fresh.db", fs=RecordingFileSystem()))
+        installed = self._schema(NoustStore(tmp_path / "fresh.db", fs=RecordingFileSystem()))
 
         assert installed == upgraded
         assert "idx_domains_one_primary" in installed["indexes"]
@@ -889,7 +889,7 @@ class TestSchemaV7Migration:
         db_path = tmp_path / "wasm.db"
         self._create_v6_database(db_path)
 
-        store = WASMStore(db_path, fs=RecordingFileSystem())
+        store = NoustStore(db_path, fs=RecordingFileSystem())
 
         with store._transaction() as cursor:
             cursor.execute("SELECT MAX(version) FROM schema_version")
@@ -903,7 +903,7 @@ class TestSchemaV7Migration:
         """The column is usable immediately after migrating, not just present."""
         db_path = tmp_path / "wasm.db"
         self._create_v6_database(db_path)
-        store = WASMStore(db_path, fs=RecordingFileSystem())
+        store = NoustStore(db_path, fs=RecordingFileSystem())
 
         store.create_job(
             store_module.JobRecord(
@@ -917,13 +917,13 @@ class TestSchemaV7Migration:
         """Both paths to v7 give the jobs table the same actor column."""
         db_path = tmp_path / "migrated.db"
         self._create_v6_database(db_path)
-        migrated = WASMStore(db_path, fs=RecordingFileSystem())
+        migrated = NoustStore(db_path, fs=RecordingFileSystem())
         with migrated._transaction() as cursor:
             cursor.execute("PRAGMA table_info(jobs)")
             upgraded_columns = {row["name"] for row in cursor.fetchall()}
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
-        fresh_store = WASMStore(tmp_path / "fresh.db", fs=RecordingFileSystem())
+        fresh_store = NoustStore(tmp_path / "fresh.db", fs=RecordingFileSystem())
         with fresh_store._transaction() as cursor:
             cursor.execute("PRAGMA table_info(jobs)")
             fresh_columns = {row["name"] for row in cursor.fetchall()}
@@ -969,7 +969,7 @@ class TestSchemaV8Migration:
         db_path = tmp_path / "wasm.db"
         self._create_v7_database(db_path)
 
-        store = WASMStore(db_path, fs=RecordingFileSystem())
+        store = NoustStore(db_path, fs=RecordingFileSystem())
 
         with store._transaction() as cursor:
             cursor.execute("SELECT MAX(version) FROM schema_version")
@@ -984,7 +984,7 @@ class TestSchemaV8Migration:
         """The columns are usable immediately after migrating, not just present."""
         db_path = tmp_path / "wasm.db"
         self._create_v7_database(db_path)
-        store = WASMStore(db_path, fs=RecordingFileSystem())
+        store = NoustStore(db_path, fs=RecordingFileSystem())
 
         deployment_id = store.record_deployment_start("new.example.com", "panel", job_id="ab12cd34")
         store.annotate_deployment(
@@ -1000,13 +1000,13 @@ class TestSchemaV8Migration:
         """Both paths to v8 give the deployments table the same columns."""
         db_path = tmp_path / "migrated.db"
         self._create_v7_database(db_path)
-        migrated = WASMStore(db_path, fs=RecordingFileSystem())
+        migrated = NoustStore(db_path, fs=RecordingFileSystem())
         with migrated._transaction() as cursor:
             cursor.execute("PRAGMA table_info(deployments)")
             upgraded_columns = {row["name"] for row in cursor.fetchall()}
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
-        fresh_store = WASMStore(tmp_path / "fresh.db", fs=RecordingFileSystem())
+        fresh_store = NoustStore(tmp_path / "fresh.db", fs=RecordingFileSystem())
         with fresh_store._transaction() as cursor:
             cursor.execute("PRAGMA table_info(deployments)")
             fresh_columns = {row["name"] for row in cursor.fetchall()}
@@ -1018,7 +1018,7 @@ class TestSchemaV8Migration:
 class TestDomains:
     """The store is the chokepoint for which application answers on which name."""
 
-    def _app(self, store: WASMStore, domain: str = "example.com") -> App:
+    def _app(self, store: NoustStore, domain: str = "example.com") -> App:
         """
         Args:
             store: The store to write to.
@@ -1379,7 +1379,7 @@ class TestJobRecordCRUD:
 class TestWebhookSecret:
     """The webhook secret is written and read only through its own methods."""
 
-    def _seed(self, store: WASMStore) -> App:
+    def _seed(self, store: NoustStore) -> App:
         """
         Args:
             store: The store to seed.
@@ -2093,7 +2093,7 @@ class TestThreadSafety:
 
     def test_connections_use_wal_and_wait_for_locks(self, fresh, tmp_path: Path) -> None:
         """The panel and the CLI write at once; the default journal fails the second writer."""
-        store = WASMStore(tmp_path / "wasm.db")
+        store = NoustStore(tmp_path / "wasm.db")
         conn = store._get_connection()
 
         assert conn.execute("PRAGMA journal_mode").fetchone()[0].lower() == "wal"
@@ -2106,18 +2106,18 @@ class TestThreadSafety:
         import threading
 
         calls: list[int] = []
-        original = WASMStore._ensure_schema
+        original = NoustStore._ensure_schema
 
         def counting(self) -> None:
             calls.append(1)
             return original(self)
 
-        monkeypatch.setattr(WASMStore, "_ensure_schema", counting)
+        monkeypatch.setattr(NoustStore, "_ensure_schema", counting)
         barrier = threading.Barrier(8)
 
         def worker() -> None:
             barrier.wait()
-            WASMStore(tmp_path / "wasm.db")
+            NoustStore(tmp_path / "wasm.db")
 
         threads = [threading.Thread(target=worker) for _ in range(8)]
         for t in threads:
@@ -2168,7 +2168,7 @@ class TestStoreFilePermissions:
         """The whole point: a store full of passwords readable by everyone."""
         db_path = tmp_path / "lib" / "wasm" / "wasm.db"
 
-        store = WASMStore(db_path, fs=RecordingFileSystem())
+        store = NoustStore(db_path, fs=RecordingFileSystem())
 
         assert store.db_path.stat().st_mode & 0o777 == SECRET_MODE
         assert db_path.parent.stat().st_mode & 0o777 == SECRET_DIR_MODE
@@ -2177,14 +2177,14 @@ class TestStoreFilePermissions:
         """mkdir(parents=True) applies the mode to the leaf and leaks the rest."""
         db_path = tmp_path / "lib" / "wasm" / "wasm.db"
 
-        WASMStore(db_path, fs=RecordingFileSystem())
+        NoustStore(db_path, fs=RecordingFileSystem())
 
         assert (tmp_path / "lib").stat().st_mode & 0o077 == 0
 
     def test_the_mode_survives_sqlite_creating_the_schema(self, fresh, tmp_path):
         """SQLite opens the file itself; it must not widen what we created."""
         db_path = tmp_path / "wasm.db"
-        store = WASMStore(db_path, fs=RecordingFileSystem())
+        store = NoustStore(db_path, fs=RecordingFileSystem())
 
         store.create_app(App(domain="perm.com", app_type="nodejs", app_path="/perm"))
 
@@ -2193,11 +2193,11 @@ class TestStoreFilePermissions:
     def test_a_database_left_lax_by_an_older_version_is_tightened(self, fresh, tmp_path):
         """Upgrading must repair what the previous release created 0644."""
         db_path = tmp_path / "wasm.db"
-        WASMStore(db_path, fs=RecordingFileSystem())
-        WASMStore.reset_instance()
+        NoustStore(db_path, fs=RecordingFileSystem())
+        NoustStore.reset_instance()
         db_path.chmod(0o644)
 
-        WASMStore(db_path, fs=RecordingFileSystem())
+        NoustStore(db_path, fs=RecordingFileSystem())
 
         assert db_path.stat().st_mode & 0o777 == SECRET_MODE
 
@@ -2206,7 +2206,7 @@ class TestStoreFilePermissions:
         recorder = RecordingFileSystem()
         db_path = tmp_path / "lib" / "wasm.db"
 
-        WASMStore(db_path, fs=recorder)
+        NoustStore(db_path, fs=recorder)
 
         assert ("mkdir", db_path.parent) in recorder.changes
         assert ("write", db_path) in recorder.changes
@@ -2219,7 +2219,7 @@ class TestStoreUnderADryRun:
         """The previous version created directory and file regardless."""
         db_path = tmp_path / "lib" / "wasm" / "wasm.db"
 
-        WASMStore(db_path, fs=DryRunFileSystem())
+        NoustStore(db_path, fs=DryRunFileSystem())
 
         assert not db_path.exists()
         assert not db_path.parent.exists()
@@ -2228,7 +2228,7 @@ class TestStoreUnderADryRun:
     def test_sqlite_does_not_create_the_database_behind_the_seam(self, fresh, tmp_path):
         """Connecting with the default rwc is how a dry run leaves a file."""
         db_path = tmp_path / "wasm.db"
-        store = WASMStore(db_path, fs=DryRunFileSystem())
+        store = NoustStore(db_path, fs=DryRunFileSystem())
 
         with pytest.raises(StoreError):
             store.list_apps()
@@ -2238,7 +2238,7 @@ class TestStoreUnderADryRun:
     def test_an_existing_database_is_neither_deleted_nor_rewritten(self, fresh, tmp_path):
         """The file on a real server must come out of a rehearsal untouched."""
         db_path = tmp_path / "wasm.db"
-        real = WASMStore(db_path, fs=RecordingFileSystem())
+        real = NoustStore(db_path, fs=RecordingFileSystem())
         real.create_app(App(domain="keep.com", app_type="nodejs", app_path="/keep"))
         # WAL keeps a committed write in wasm.db-wal until the last connection
         # closes; snapshotting the main file before that checkpoint would
@@ -2246,9 +2246,9 @@ class TestStoreUnderADryRun:
         # begin with, unrelated to anything the rehearsal below does.
         real.close()
         before = db_path.read_bytes()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
-        store = WASMStore(db_path, fs=DryRunFileSystem())
+        store = NoustStore(db_path, fs=DryRunFileSystem())
 
         assert db_path.exists()
         assert db_path.read_bytes() == before
@@ -2257,11 +2257,11 @@ class TestStoreUnderADryRun:
     def test_a_lax_database_is_not_chmodded_during_a_rehearsal(self, fresh, tmp_path):
         """chmod is a change to this machine, so --dry-run must skip it too."""
         db_path = tmp_path / "wasm.db"
-        WASMStore(db_path, fs=RecordingFileSystem())
-        WASMStore.reset_instance()
+        NoustStore(db_path, fs=RecordingFileSystem())
+        NoustStore.reset_instance()
         db_path.chmod(0o644)
 
-        WASMStore(db_path, fs=DryRunFileSystem())
+        NoustStore(db_path, fs=DryRunFileSystem())
 
         assert db_path.stat().st_mode & 0o777 == 0o644
 
@@ -2269,7 +2269,7 @@ class TestStoreUnderADryRun:
         """An operator only trusts the rehearsal if it says what it skipped."""
         dry = DryRunFileSystem()
 
-        WASMStore(tmp_path / "lib" / "wasm.db", fs=dry)
+        NoustStore(tmp_path / "lib" / "wasm.db", fs=dry)
 
         assert any("wasm.db" in line for line in dry.skipped)
 
@@ -2283,7 +2283,7 @@ class TestResolvingThePathChangesNothing:
         system_db = tmp_path / "var" / "lib" / "wasm" / "wasm.db"
         monkeypatch.setattr(store_module, "USER_DB_PATH", user_db)
         monkeypatch.setattr(store_module, "DEFAULT_DB_PATH", system_db)
-        store = WASMStore(tmp_path / "explicit.db", fs=RecordingFileSystem())
+        store = NoustStore(tmp_path / "explicit.db", fs=RecordingFileSystem())
 
         resolved = store._resolve_db_path()
 
@@ -2300,7 +2300,7 @@ class TestResolvingThePathChangesNothing:
         # Pinned too, or the resolver sees whatever database the developer
         # running the suite happens to have in their own home directory.
         monkeypatch.setattr(store_module, "USER_DB_PATH", tmp_path / "home" / "wasm.db")
-        store = WASMStore(tmp_path / "explicit.db", fs=RecordingFileSystem())
+        store = NoustStore(tmp_path / "explicit.db", fs=RecordingFileSystem())
 
         assert store._resolve_db_path() == system_db
 
@@ -2327,7 +2327,7 @@ class TestResolvingThePathChangesNothing:
 
         monkeypatch.setattr(store_module, "USER_DB_PATH", user_db)
         monkeypatch.setattr(store_module, "DEFAULT_DB_PATH", system_db)
-        store = WASMStore(tmp_path / "explicit.db", fs=RecordingFileSystem())
+        store = NoustStore(tmp_path / "explicit.db", fs=RecordingFileSystem())
 
         assert store._resolve_db_path() == user_db
 
@@ -2350,7 +2350,7 @@ class TestResolvingThePathChangesNothing:
 
         monkeypatch.setattr(store_module, "USER_DB_PATH", user_db)
         monkeypatch.setattr(store_module, "DEFAULT_DB_PATH", system_db)
-        store = WASMStore(tmp_path / "explicit.db", fs=RecordingFileSystem())
+        store = NoustStore(tmp_path / "explicit.db", fs=RecordingFileSystem())
 
         assert store._resolve_db_path() == system_db
 
@@ -2364,7 +2364,7 @@ class TestResolvingThePathChangesNothing:
 
         monkeypatch.setattr(store_module, "USER_DB_PATH", user_db)
         monkeypatch.setattr(store_module, "DEFAULT_DB_PATH", system_db)
-        store = WASMStore(tmp_path / "explicit.db", fs=RecordingFileSystem())
+        store = NoustStore(tmp_path / "explicit.db", fs=RecordingFileSystem())
 
         assert store._resolve_db_path() == system_db
 
@@ -2386,7 +2386,7 @@ class TestResolvingThePathChangesNothing:
 
         monkeypatch.setattr(store_module, "USER_DB_PATH", user_db)
         monkeypatch.setattr(store_module, "DEFAULT_DB_PATH", system_db)
-        store = WASMStore(tmp_path / "explicit.db", fs=RecordingFileSystem())
+        store = NoustStore(tmp_path / "explicit.db", fs=RecordingFileSystem())
 
         try:
             assert store._resolve_db_path() == user_db
@@ -2484,7 +2484,7 @@ class TestNoMutationEscapesTheSeam:
         return found
 
     def test_the_store_never_writes_outside_the_seam(self):
-        """Every mkdir, chmod and file creation goes through wasm.core.fs."""
+        """Every mkdir, chmod and file creation goes through noust.core.fs."""
         module = Path(store_module.__file__)
 
         assert self._offenders(module) == []

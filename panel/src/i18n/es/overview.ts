@@ -13,7 +13,7 @@ export const overview: Catalog<typeof en> = {
     caption: "Aplicaciones en esta máquina",
     emptyTitle: "Despliega tu primera aplicación",
     emptyDescription:
-      "Indica a WASM un repositorio Git o un directorio: detecta la pila, la compila y la sirve con un certificado.",
+      "Indica a Noust un repositorio Git o un directorio: detecta la pila, la compila y la sirve con un certificado.",
   },
   attention: {
     title: "Requiere atención",
@@ -47,8 +47,8 @@ export const overview: Catalog<typeof en> = {
     unitFailed: "La unidad ha fallado",
     unitRestarting: "systemd sigue reiniciando la unidad",
     unitsFailedCount: {
-      one: "systemd informa de {count} unidad de WASM con fallos",
-      other: "systemd informa de {count} unidades de WASM con fallos",
+      one: "systemd informa de {count} unidad de Noust con fallos",
+      other: "systemd informa de {count} unidades de Noust con fallos",
     },
     monitorFinding: "Monitor {severity}: {signal}",
   },

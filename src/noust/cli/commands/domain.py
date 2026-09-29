@@ -2,20 +2,20 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-``wasm domain``: the names an application answers on.
+``noust domain``: the names an application answers on.
 
-A presentation layer over :mod:`wasm.deployers.domains`, the functions the
+A presentation layer over :mod:`noust.deployers.domains`, the functions the
 panel's ``/api/apps/{domain}/domains`` endpoints call too. An alias serves the
 application exactly like its primary domain; a redirect sends visitors to the
 primary with a permanent redirect. Every change re-renders the site the way a
 deploy does, is tested by the web server before it is reloaded, and extends
-the certificate when the site serves TLS. ``wasm create --www`` records
+the certificate when the site serves TLS. ``noust create --www`` records
 ``www.<domain>`` as a redirect.
 
 An application deployed before 2.0 starts with only its primary domain on
 record: the ``www`` a 1.x ``--www`` deploy served lived only in the web
 server's configuration. The first change made here keeps it, recording it as
-an alias, and ``wasm domain list`` shows it from then on.
+an alias, and ``noust domain list`` shows it from then on.
 """
 
 from __future__ import annotations
@@ -24,11 +24,11 @@ import json
 
 import click
 
-from wasm.cli.app import Context, WasmGroup, json_option, pass_context
-from wasm.core.exceptions import DependencyError
-from wasm.core.logger import Logger
-from wasm.core.store import DomainRecord
-from wasm.deployers.domains import (
+from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.exceptions import DependencyError
+from noust.core.logger import Logger
+from noust.core.store import DomainRecord
+from noust.deployers.domains import (
     ADDABLE_KINDS,
     DomainChange,
     add_domain,
@@ -92,17 +92,17 @@ def _warn_about_dns(logger: Logger, domain: str) -> None:
     logger.info("Visitors and the certificate authority reach it only once DNS points here.")
 
 
-@click.group("domain", cls=WasmGroup)
+@click.group("domain", cls=NoustGroup)
 def cli() -> None:
     """
     Serve an application on more domains: aliases and redirects.
 
     An alias serves the application like its primary domain; a redirect sends
-    visitors to the primary with a permanent redirect. 'wasm create --www'
+    visitors to the primary with a permanent redirect. 'noust create --www'
     records www.<domain> as a redirect.
 
     An application deployed before 2.0 starts with only its primary domain on
-    record. If it was deployed with --www, the first 'wasm domain add' or
+    record. If it was deployed with --www, the first 'noust domain add' or
     'remove' keeps www, recording it as an alias.
     """
 
@@ -168,9 +168,9 @@ def add_command(ctx: Context, app_domain: str, domain: str, kind: str, no_cert: 
         logger.error(
             "The certificate was not extended to cover it", details=change.certificate_error
         )
-        logger.info(f"Once DNS points here, run again: wasm domain add {change.app} {domain}")
+        logger.info(f"Once DNS points here, run again: noust domain add {change.app} {domain}")
     elif change.tls and no_cert:
-        logger.info(f"Extend the certificate later with: wasm domain add {change.app} {domain}")
+        logger.info(f"Extend the certificate later with: noust domain add {change.app} {domain}")
     _report(logger, change)
 
 

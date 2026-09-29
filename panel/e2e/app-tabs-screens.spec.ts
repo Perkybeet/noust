@@ -3,9 +3,9 @@
  * projects), a 1440px desktop and a 390px phone. Tagged @screens, so left out of the default
  * run; write them with
  *
- *     WASM_SCREENS=1 npx playwright test e2e/app-tabs-screens.spec.ts
+ *     NOUST_SCREENS=1 npx playwright test e2e/app-tabs-screens.spec.ts
  *
- * into $WASM_TABS_SCREENS (default /tmp/console-tabs/<theme>/). A deployment is found by
+ * into $NOUST_TABS_SCREENS (default /tmp/console-tabs/<theme>/). A deployment is found by
  * asking the API, since seeded ids depend on what else the machine was seeded with.
  *
  * The pages still pass the CSP and console gates of every test, so a screenshot is never of
@@ -17,7 +17,7 @@ import path from "node:path";
 
 import { expect, settle, signIn, test } from "./fixtures";
 
-const OUT = process.env.WASM_TABS_SCREENS ?? "/tmp/console-tabs";
+const OUT = process.env.NOUST_TABS_SCREENS ?? "/tmp/console-tabs";
 
 const DESKTOP = { width: 1440, height: 900 };
 const PHONE = { width: 390, height: 844 };

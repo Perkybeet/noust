@@ -10,7 +10,7 @@ channel, and ``@everyone`` a whole Discord server. Slack's control sequences
 are neutralised by escaping ``&``, ``<`` and ``>`` (what Slack itself asks
 for), Discord's by breaking the mention and by telling Discord to parse none.
 
-:func:`~wasm.core.notifier.notify_in_background` puts every notification on
+:func:`~noust.core.notifier.notify_in_background` puts every notification on
 one worker per process, first in first out, reading the configuration file
 afresh without reloading the instance every other thread shares.
 """
@@ -26,10 +26,10 @@ from typing import Any
 
 import pytest
 
+from noust.core import notifier as notifier_module
+from noust.core.config import Config
+from noust.core.notifier import NotificationEvent, Notifier, notify_in_background
 from tests.test_notifier import CapturingOpener, config, public_dns  # noqa: F401
-from wasm.core import notifier as notifier_module
-from wasm.core.config import Config
-from wasm.core.notifier import NotificationEvent, Notifier, notify_in_background
 
 SLACK_URL = "https://hooks.slack.com/services/T000/B000/XXXX"
 DISCORD_URL = "https://discord.com/api/webhooks/1/abc"

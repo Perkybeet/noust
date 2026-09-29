@@ -32,16 +32,16 @@ from urllib.parse import quote
 import pytest
 from fastapi.testclient import TestClient
 
+from noust.core.exceptions import ConfigError
+from noust.web.auth import CSRF_COOKIE_NAME, CSRF_HEADER_NAME
+from noust.web.server import create_app, get_token_manager
 from tests.test_web_auth import build_client, enable_totp, login, make_config
-from wasm.core.exceptions import ConfigError
-from wasm.web.auth import CSRF_COOKIE_NAME, CSRF_HEADER_NAME
-from wasm.web.server import create_app, get_token_manager
 
 #: Every module under this package that declares an ``APIRouter``. Walked by
 #: :func:`test_every_api_router_uses_the_error_route` rather than imported,
 #: so the guard does not itself require importing (and therefore partially
 #: initialising) every router module.
-API_PACKAGE_DIR = Path(__file__).resolve().parents[1] / "src" / "wasm" / "web" / "api"
+API_PACKAGE_DIR = Path(__file__).resolve().parents[1] / "src" / "noust" / "web" / "api"
 
 
 @pytest.fixture
@@ -49,7 +49,7 @@ def client(sandbox: Path, runner: object) -> TestClient:
     """
     A signed-in client against the real application.
 
-    Depends on ``runner`` (a :class:`~wasm.core.runner.FakeRunner`) because
+    Depends on ``runner`` (a :class:`~noust.core.runner.FakeRunner`) because
     the missing-page screen renders the machine strip, which shells out to
     ``systemctl``; without it a real subprocess would be attempted and the
     test would fail on that, not on the behaviour under test.
@@ -120,17 +120,17 @@ class TestValidationErrors:
 
 
 class TestManagerErrors:
-    """A WASMError answers with its own status, not a bare 500."""
+    """A NoustError answers with its own status, not a bare 500."""
 
     def test_a_config_error_is_json_not_a_bare_500(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """``config.py`` had no ``WASMErrorRoute``; a ``ConfigError`` crashed the request."""
+        """``config.py`` had no ``NoustErrorRoute``; a ``ConfigError`` crashed the request."""
 
         def raise_config_error(self: object, *_args: object, **_kwargs: object) -> None:
             raise ConfigError("bad key", details="use apps.directory")
 
-        monkeypatch.setattr("wasm.core.config.Config.replace", raise_config_error)
+        monkeypatch.setattr("noust.core.config.Config.replace", raise_config_error)
 
         response = client.put("/api/config", json={"config": {"x": 1}}, headers=csrf(client))
 
@@ -144,7 +144,7 @@ class TestManagerErrors:
         }
 
     def test_a_service_not_found_uses_the_contract(self, client: TestClient) -> None:
-        """``services.py`` had no ``WASMErrorRoute`` either; this is a plain ``HTTPException``."""
+        """``services.py`` had no ``NoustErrorRoute`` either; this is a plain ``HTTPException``."""
         response = client.get("/api/services/does-not-exist", headers=csrf(client))
 
         assert response.status_code == 404
@@ -246,11 +246,11 @@ class TestHtmlRoutesAreUntouched:
 
 
 class TestErrorRouteGuard:
-    """Every router under ``wasm.web.api`` must install the error boundary."""
+    """Every router under ``noust.web.api`` must install the error boundary."""
 
     def test_every_api_router_uses_the_error_route(self) -> None:
         """
-        A router built without ``route_class=WASMErrorRoute`` answers Starlette's
+        A router built without ``route_class=NoustErrorRoute`` answers Starlette's
         shape, not ours, for anything raised inside its own handlers.
 
         Walked with ``ast`` instead of imported: a module that constructs its
@@ -272,10 +272,10 @@ class TestErrorRouteGuard:
                 has_error_route = any(
                     keyword.arg == "route_class"
                     and isinstance(keyword.value, ast.Name)
-                    and keyword.value.id == "WASMErrorRoute"
+                    and keyword.value.id == "NoustErrorRoute"
                     for keyword in node.keywords
                 )
                 if not has_error_route:
                     offenders.append(f"{path.name}:{node.lineno}")
 
-        assert offenders == [], f"routers missing route_class=WASMErrorRoute: {offenders}"
+        assert offenders == [], f"routers missing route_class=NoustErrorRoute: {offenders}"

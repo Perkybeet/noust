@@ -5,7 +5,7 @@ A build runs with the application's environment, so ``echo $API_KEY`` in a
 build script - or a tool that prints its configuration on failure - writes the
 secret into the captured deployment log, the deployment's error text, the
 job's log lines, its log file and its error. All of those are readable with
-the ``read`` scope. One scrubber, :class:`wasm.core.redact.Scrubber`, built
+the ``read`` scope. One scrubber, :class:`noust.core.redact.Scrubber`, built
 from the application's secret-looking values and WASM's own credentials,
 replaces them everywhere that text is persisted or published.
 """
@@ -18,22 +18,22 @@ from typing import Any
 
 import pytest
 
-from tests.test_deployers import build_deployer
-from wasm.core.exceptions import BuildError
-from wasm.core.fs import set_fs
-from wasm.core.redact import (
+from noust.core.exceptions import BuildError
+from noust.core.fs import set_fs
+from noust.core.redact import (
     MIN_SECRET_LENGTH,
     Scrubber,
     app_secret_values,
     config_secret_values,
     secret_env_values,
 )
-from wasm.core.runner import FakeRunner
-from wasm.core.secret_detection import name_looks_secret
-from wasm.core.store import App, WASMStore
-from wasm.deployers.nodejs import NodeJSDeployer
-from wasm.deployers.recorder import CapturingLogger, DeploymentRecorder
-from wasm.web.jobs import Job, JobContext, JobManager, JobType
+from noust.core.runner import FakeRunner
+from noust.core.secret_detection import name_looks_secret
+from noust.core.store import App, NoustStore
+from noust.deployers.nodejs import NodeJSDeployer
+from noust.deployers.recorder import CapturingLogger, DeploymentRecorder
+from noust.web.jobs import Job, JobContext, JobManager, JobType
+from tests.test_deployers import build_deployer
 
 DOMAIN = "app.example.com"
 SECRET = "sk_live_9f8e7d6c5b4a"
@@ -64,13 +64,13 @@ def store(tmp_path: Path) -> Any:
     Yields:
         The store.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     try:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 @pytest.fixture(autouse=True)
@@ -90,7 +90,7 @@ def fresh_job_manager(store: Any) -> Any:
 
 
 @pytest.fixture
-def deployed_app(tmp_path: Path, store: WASMStore) -> App:
+def deployed_app(tmp_path: Path, store: NoustStore) -> App:
     """
     Register an application whose ``.env`` holds secrets.
 
@@ -224,7 +224,7 @@ class TestScrubbingStaysASupersetOfTheNameOnlyRule:
     def test_every_name_2_1_would_have_scrubbed_is_still_scrubbed(self, name: str) -> None:
         value = "a-plain-looking-value-matching-no-value-pattern-0123456789"
         # Sanity: this is exactly the rule 2.1 scrubbed by (see v2.1.0's
-        # wasm.core.redact.secret_env_values, before classify() existed).
+        # noust.core.redact.secret_env_values, before classify() existed).
         assert name_looks_secret(name)
 
         assert value in secret_env_values({name: value})
@@ -261,7 +261,7 @@ class TestScrubbingStaysASupersetOfTheNameOnlyRule:
 
 
 def test_a_build_that_echoes_a_secret_leaves_no_secret_in_the_history(
-    tmp_path: Path, store: WASMStore
+    tmp_path: Path, store: NoustStore
 ) -> None:
     fake = FakeRunner()
     fake.script(["npm", "ci"], stdout=f"> echo $API_KEY\n{SECRET}\nadded 42 packages\n")
@@ -302,7 +302,7 @@ def test_a_build_that_echoes_a_secret_leaves_no_secret_in_the_history(
 
 
 def test_a_secret_generated_during_the_deploy_is_scrubbed_too(
-    tmp_path: Path, store: WASMStore
+    tmp_path: Path, store: NoustStore
 ) -> None:
     # .env.example generation replaces env_vars mid-pipeline; the build that
     # follows runs with the new values, so the scrubber must follow them.
@@ -326,7 +326,7 @@ def test_a_secret_generated_during_the_deploy_is_scrubbed_too(
 
 
 def test_every_recording_scrubs_the_applications_env(
-    tmp_path: Path, store: WASMStore, deployed_app: App
+    tmp_path: Path, store: NoustStore, deployed_app: App
 ) -> None:
     # Update, rollback and release activation build their recorder directly,
     # not through recorder_for; the application's .env is known to all of them.
@@ -371,7 +371,7 @@ def _run_job(manager: JobManager, func: Any, kwargs: dict[str, Any] | None = Non
     return job
 
 
-def _assert_job_is_clean(job: Job, store: WASMStore, secret: str) -> None:
+def _assert_job_is_clean(job: Job, store: NoustStore, secret: str) -> None:
     """
     Check every place a job's text is kept for a secret.
 
@@ -389,7 +389,7 @@ def _assert_job_is_clean(job: Job, store: WASMStore, secret: str) -> None:
     assert secret not in Path(record.log_path).read_text()
 
 
-def test_a_job_for_an_application_scrubs_its_secrets(store: WASMStore, deployed_app: App) -> None:
+def test_a_job_for_an_application_scrubs_its_secrets(store: NoustStore, deployed_app: App) -> None:
     def job(job_context: JobContext | None = None) -> None:
         assert job_context is not None
         job_context.set_metadata("domain", DOMAIN)
@@ -405,7 +405,7 @@ def test_a_job_for_an_application_scrubs_its_secrets(store: WASMStore, deployed_
     assert "API_KEY=***" in finished.error
 
 
-def test_secrets_passed_to_the_job_are_scrubbed(store: WASMStore) -> None:
+def test_secrets_passed_to_the_job_are_scrubbed(store: NoustStore) -> None:
     # A fresh deploy: the application has no .env yet, the secrets arrive in
     # the request's env_vars and reach the build's environment from there.
     def deploy(env_vars: dict[str, str], job_context: JobContext | None = None) -> None:
@@ -418,8 +418,8 @@ def test_secrets_passed_to_the_job_are_scrubbed(store: WASMStore) -> None:
     _assert_job_is_clean(finished, store, SECRET)
 
 
-def test_wasms_own_credentials_are_scrubbed(store: WASMStore, monkeypatch) -> None:
-    monkeypatch.setattr("wasm.core.redact.known_credentials", lambda: [DB_PASSWORD])
+def test_wasms_own_credentials_are_scrubbed(store: NoustStore, monkeypatch) -> None:
+    monkeypatch.setattr("noust.core.redact.known_credentials", lambda: [DB_PASSWORD])
 
     def job(job_context: JobContext | None = None) -> None:
         assert job_context is not None

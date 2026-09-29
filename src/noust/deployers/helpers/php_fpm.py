@@ -7,7 +7,7 @@ PHP-FPM on this machine: where a pool goes, which service runs it, and asking it
 A PHP application has no process of its own. It is a pool in the distribution's
 PHP-FPM, one file per application in the pool directory, listening on its own
 socket and running as the service user. Three things differ between the
-distributions WASM supports, and :func:`find_fpm` is the one place that knows
+distributions Noust supports, and :func:`find_fpm` is the one place that knows
 them:
 
 - Debian and Ubuntu install one FPM per PHP version: pools in
@@ -44,17 +44,23 @@ from pathlib import Path
 from jinja2 import Environment, PackageLoader, StrictUndefined
 from jinja2 import TemplateError as JinjaTemplateError
 
-from wasm.core.exceptions import DeploymentError, TemplateError, ValidationError
-from wasm.core.fs import FileSystem
-from wasm.core.logger import Logger
-from wasm.core.runner import CommandResult, CommandRunner
+from noust.core import paths
+from noust.core.exceptions import DeploymentError, TemplateError, ValidationError
+from noust.core.fs import FileSystem
+from noust.core.logger import Logger
+from noust.core.runner import CommandResult, CommandRunner
 
 #: The application type served by a PHP-FPM pool.
 PHP_FPM_TYPE = "php-fpm"
 
-#: Every pool and socket WASM writes carries this prefix, so one never
+#: Every pool and socket Noust writes carries this prefix, so one never
 #: collides with the distribution's own ``www`` pool or another tool's.
-POOL_PREFIX = "wasm-"
+POOL_PREFIX = paths.PHP_POOL_PREFIX
+#: The prefix WASM gave them. A pool written before 3.0 keeps its names (file,
+#: pool, socket, and the socket its site passes requests to) until the
+#: migration from WASM renames all four together; until then every lookup
+#: below finds it under the old prefix.
+LEGACY_POOL_PREFIX = paths.LEGACY_PHP_POOL_PREFIX
 
 #: What a stopped application's pool file is renamed with: every
 #: distribution's FPM includes ``*.conf`` from the pool directory only, so the
@@ -151,6 +157,23 @@ class FpmInstallation:
     socket_dir: Path
     version: str | None = None
 
+    def prefix(self, app_name: str) -> str:
+        """
+        Say which prefix an application's pool carries.
+
+        Args:
+            app_name: The application name.
+
+        Returns:
+            :data:`LEGACY_POOL_PREFIX` when only a pool WASM wrote exists
+            (enabled or stopped), else :data:`POOL_PREFIX`.
+        """
+        for prefix in (POOL_PREFIX, LEGACY_POOL_PREFIX):
+            pool = self.pool_dir / f"{prefix}{app_name}.conf"
+            if pool.is_file() or _disabled(pool).is_file():
+                return prefix
+        return POOL_PREFIX
+
     def pool_file(self, app_name: str) -> Path:
         """
         Say where an application's pool is written.
@@ -159,9 +182,10 @@ class FpmInstallation:
             app_name: The application name.
 
         Returns:
-            ``<pool_dir>/wasm-<app_name>.conf``.
+            ``<pool_dir>/noust-<app_name>.conf`` (``wasm-`` for a pool Noust
+            wrote and the migration has not renamed).
         """
-        return self.pool_dir / f"{POOL_PREFIX}{app_name}.conf"
+        return self.pool_dir / f"{self.prefix(app_name)}{app_name}.conf"
 
     def disabled_pool_file(self, app_name: str) -> Path:
         """
@@ -184,9 +208,10 @@ class FpmInstallation:
             app_name: The application name.
 
         Returns:
-            ``<socket_dir>/wasm-<app_name>.sock``.
+            ``<socket_dir>/noust-<app_name>.sock`` (or ``wasm-``, as
+            :meth:`pool_file`).
         """
-        return self.socket_dir / f"{POOL_PREFIX}{app_name}.sock"
+        return self.socket_dir / f"{self.prefix(app_name)}{app_name}.sock"
 
 
 def is_php_fpm(app: object) -> bool:
@@ -245,7 +270,7 @@ def find_fpm(root: Path = Path("/")) -> FpmInstallation:
     Find the PHP-FPM pools are written for.
 
     On Debian and Ubuntu the newest PHP version whose FPM binary is installed
-    wins; an older one kept beside it serves nothing WASM writes.
+    wins; an older one kept beside it serves nothing Noust writes.
 
     Args:
         root: The filesystem root, for tests.
@@ -428,7 +453,7 @@ def prepare_tmp_dir(
         if directory.is_symlink() or (os.path.lexists(directory) and not directory.is_dir()):
             raise DeploymentError(
                 f"Refusing to use {directory}: it is not a plain directory",
-                details="WASM keeps each PHP pool's temporary files there. Remove what is "
+                details="Noust keeps each PHP pool's temporary files there. Remove what is "
                 "in the way and deploy again.",
             )
         fs.make_dir(directory, mode=mode, parents=True)
@@ -505,14 +530,14 @@ def pool_env_lines(env: Mapping[str, str]) -> list[tuple[str, str]]:
                 f"{key} cannot be passed to PHP-FPM",
                 details="PHP-FPM replaces a value that starts with '$' with its own "
                 "environment variable of that name, so PHP would never see this one. "
-                f"Change the value so it does not start with '$': wasm env set <domain> {key}=...",
+                f"Change the value so it does not start with '$': noust env set <domain> {key}=...",
             )
         if "'" in value or "\n" in value or "\r" in value or "\0" in value:
             raise ValidationError(
                 f"{key} cannot be passed to PHP-FPM",
                 details="A PHP-FPM pool carries each variable as a single-quoted value, "
                 "which cannot contain a single quote or a line break. Change the value "
-                f"with: wasm env set <domain> {key}=...",
+                f"with: noust env set <domain> {key}=...",
             )
         lines.append((key, value))
     return lines
@@ -537,11 +562,11 @@ def render_pool(spec: PoolSpec) -> str:
         raise ValidationError(
             f"{unsafe} cannot be written into a PHP-FPM pool",
             details="The application directory must be an absolute path of letters, digits, "
-            "'.', '_', '-' and '/'. Change apps_directory in the WASM configuration.",
+            "'.', '_', '-' and '/'. Change apps_directory in the Noust configuration.",
         )
     try:
         environment = Environment(
-            loader=PackageLoader("wasm", "templates/php"),
+            loader=PackageLoader("noust", "templates/php"),
             trim_blocks=True,
             lstrip_blocks=True,
             undefined=StrictUndefined,
@@ -549,7 +574,9 @@ def render_pool(spec: PoolSpec) -> str:
             autoescape=False,  # noqa: S701
         )
         return environment.get_template("pool.conf.j2").render(
-            pool=f"{POOL_PREFIX}{spec.app_name}",
+            # The pool is named like its socket, whichever prefix that
+            # carries: FpmInstallation.prefix decided it for both.
+            pool=Path(spec.socket).stem,
             domain=spec.domain,
             user=spec.user,
             group=spec.group,
@@ -565,7 +592,7 @@ def render_pool(spec: PoolSpec) -> str:
     except (ValueError, ImportError, JinjaTemplateError) as exc:
         raise TemplateError(
             "Could not render the PHP-FPM pool",
-            details=f"{exc}. Reinstall the wasm package if templates/php is missing.",
+            details=f"{exc}. Reinstall the noust package if templates/php is missing.",
         ) from exc
 
 
@@ -784,7 +811,7 @@ class FpmService:
             if not aside.is_file():
                 raise DeploymentError(
                     f"There is no PHP-FPM pool at {path}",
-                    details="Write it again by redeploying the application: wasm update <domain>",
+                    details="Write it again by redeploying the application: noust update <domain>",
                 )
             self._fs.move(aside, path)
             restored = True
@@ -1088,7 +1115,7 @@ def fastcgi_probe(
     Build a health probe that asks a pool over FastCGI.
 
     The probe has the signature of
-    :func:`~wasm.deployers.helpers.health.wait_until_healthy`, so the health
+    :func:`~noust.deployers.helpers.health.wait_until_healthy`, so the health
     gate drives it exactly as it drives an HTTP probe: the same attempts, the
     same expectation, the same wall-clock limit.
 

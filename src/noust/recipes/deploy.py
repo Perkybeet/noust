@@ -4,7 +4,7 @@
 """
 Turning a recipe into an ordinary deployment, and finishing it.
 
-The one implementation ``wasm create --recipe`` and ``POST /api/apps`` with a
+The one implementation ``noust create --recipe`` and ``POST /api/apps`` with a
 ``recipe`` share: :func:`plan_recipe` provisions the database, renders the
 variables and the source, and answers the arguments of a deployer's
 ``configure``; the caller deploys exactly as it deploys anything else; then
@@ -14,8 +14,8 @@ answers the notes for the operator.
 The database is provisioned before the deployment, because the variables
 carry its credentials and a build may need them (Umami migrates during its
 build). A deployment that fails leaves the database in place, and running the
-recipe again reuses it and the password WASM stored for it
-(:func:`~wasm.deployers.helpers.databases.provision_database`).
+recipe again reuses it and the password Noust stored for it
+(:func:`~noust.deployers.helpers.databases.provision_database`).
 """
 
 from __future__ import annotations
@@ -24,21 +24,21 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from wasm.core.config import Config
-from wasm.core.exceptions import DeploymentError
-from wasm.core.fs import get_fs
-from wasm.core.logger import Logger
-from wasm.core.store import WASMStore, get_store
-from wasm.core.utils import domain_to_app_name
-from wasm.deployers.helpers.databases import (
+from noust.core.config import Config
+from noust.core.exceptions import DeploymentError
+from noust.core.fs import get_fs
+from noust.core.logger import Logger
+from noust.core.store import NoustStore, get_store
+from noust.core.utils import domain_to_app_name
+from noust.deployers.helpers.databases import (
     DatabaseCredentials,
     database_identifiers,
     provision_database,
 )
-from wasm.recipes import Recipe, RecipeError, get_recipe, read_asset
-from wasm.recipes.render import render_value
-from wasm.validators.domain import validate_domain
-from wasm.validators.environment import validate_environment
+from noust.recipes import Recipe, RecipeError, get_recipe, read_asset
+from noust.recipes.render import render_value
+from noust.validators.domain import validate_domain
+from noust.validators.environment import validate_environment
 
 #: Directory, beside the store, that holds the sources rendered from a
 #: recipe's templates: a deployment copies its release from there, and so
@@ -134,7 +134,7 @@ class RecipePlan:
         return merged if any(value is not None for value in merged) else None
 
 
-def recipe_source_dir(app_name: str, store: WASMStore | None = None) -> Path:
+def recipe_source_dir(app_name: str, store: NoustStore | None = None) -> Path:
     """
     Say where the source rendered from a recipe's templates is kept.
 
@@ -181,7 +181,7 @@ def plan_recipe(
     ssl: bool,
     env_overrides: dict[str, str] | None = None,
     logger: Logger,
-    store: WASMStore | None = None,
+    store: NoustStore | None = None,
 ) -> RecipePlan:
     """
     Resolve a recipe for a new application: database, variables, source.
@@ -210,13 +210,13 @@ def plan_recipe(
     if not recipe.available:
         raise RecipeError(
             f"{recipe.title} is not available in this release",
-            details=recipe.unavailable_reason or "See: wasm recipe list",
+            details=recipe.unavailable_reason or "See: noust recipe list",
         )
     domain = validate_domain(domain)
     if store.get_app(domain) is not None:
         raise DeploymentError(
             f"{domain} is already deployed",
-            details=f"A recipe creates a new application. Update this one with: wasm update "
+            details=f"A recipe creates a new application. Update this one with: noust update "
             f"{domain}",
         )
     overrides = validate_environment(env_overrides or {})
@@ -293,7 +293,7 @@ def plan_recipe(
 
 
 def _render_template_source(
-    recipe: Recipe, app_name: str, context: dict[str, Any], store: WASMStore
+    recipe: Recipe, app_name: str, context: dict[str, Any], store: NoustStore
 ) -> Path:
     """
     Write the files a template source is made of.
@@ -321,7 +321,9 @@ def _render_template_source(
     return directory
 
 
-def finish_recipe(plan: RecipePlan, *, logger: Logger, store: WASMStore | None = None) -> list[str]:
+def finish_recipe(
+    plan: RecipePlan, *, logger: Logger, store: NoustStore | None = None
+) -> list[str]:
     """
     Link what the deployment created to the recipe's database.
 

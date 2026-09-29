@@ -40,23 +40,23 @@ from typing import Any
 
 import pytest
 
-from wasm.core.exceptions import (
+from noust.core.exceptions import (
     ApacheError,
     CertificateError,
     DomainConflictError,
     DomainError,
     NginxError,
+    NoustError,
     SecurityError,
     ValidationError,
-    WASMError,
 )
-from wasm.core.fs import DryRunFileSystem, set_fs
-from wasm.core.runner import FakeRunner
-from wasm.core.store import DomainRecord, StoreError
-from wasm.managers.apache_manager import ApacheManager
-from wasm.managers.cert_manager import CertificateInfo, CertManager
-from wasm.managers.nginx_manager import NginxManager
-from wasm.managers.webserver import (
+from noust.core.fs import DryRunFileSystem, set_fs
+from noust.core.runner import FakeRunner
+from noust.core.store import DomainRecord, StoreError
+from noust.managers.apache_manager import ApacheManager
+from noust.managers.cert_manager import CertificateInfo, CertManager
+from noust.managers.nginx_manager import NginxManager
+from noust.managers.webserver import (
     APACHE_BACKEND,
     NGINX_BACKEND,
     SiteInfo,
@@ -209,8 +209,8 @@ def store(monkeypatch: pytest.MonkeyPatch) -> FakeStore:
         The fake store.
     """
     fake = FakeStore()
-    monkeypatch.setattr("wasm.managers.webserver.get_store", lambda: fake)
-    monkeypatch.setattr("wasm.managers.cert_manager.get_store", lambda: fake)
+    monkeypatch.setattr("noust.managers.webserver.get_store", lambda: fake)
+    monkeypatch.setattr("noust.managers.cert_manager.get_store", lambda: fake)
     return fake
 
 
@@ -1422,12 +1422,12 @@ def test_the_health_check_consumes_the_record_this_manager_produces(
 ) -> None:
     """The reader is run against the writer's output, not against a fixture."""
     try:
-        from wasm.managers import health
+        from noust.managers import health
     except Exception as exc:
         # The contract under test is the field names, and the sibling test above
         # checks those from source. An unrelated import failure elsewhere in the
         # CLI must not be reported as a certificate defect.
-        pytest.skip(f"wasm.cli.commands.health cannot be imported: {exc}")
+        pytest.skip(f"noust.cli.commands.health cannot be imported: {exc}")
 
     expiry = (datetime.now() + timedelta(days=3)).strftime("%Y-%m-%d")
     runner.script(
@@ -1466,7 +1466,7 @@ def test_every_field_the_health_check_reads_is_a_field_of_the_record(
     """
     import re as _re
 
-    source = (Path(__file__).resolve().parents[1] / "src/wasm/managers/health.py").read_text()
+    source = (Path(__file__).resolve().parents[1] / "src/noust/managers/health.py").read_text()
     keys = set(_re.findall(r'cert(?:_info)?(?:\.get\(|\[)"([a-z_]+)"', source))
 
     assert keys, "the health check no longer reads certificate fields by name"
@@ -1698,7 +1698,7 @@ def test_deleting_an_absent_certificate_is_not_an_error(
 @pytest.mark.parametrize("domain", ["../../etc/passwd", "exam ple.com", "a.com; rm -rf /"])
 def test_a_hostile_domain_never_reaches_certbot(certs: CertManager, domain: str) -> None:
     """A lineage name becomes a directory under /etc/letsencrypt."""
-    with pytest.raises((CertificateError, WASMError)):
+    with pytest.raises((CertificateError, NoustError)):
         certs.obtain(domain, email="ops@example.com")
 
 
@@ -1828,7 +1828,7 @@ def test_auto_renewal_under_dry_run_installs_no_cron_entry(
 ) -> None:
     """The cron fallback writes into /etc/cron.d; a rehearsal must not."""
     cron_file = tmp_path / "cron.d/certbot-renew"
-    monkeypatch.setattr("wasm.managers.cert_manager._CRON_FILE", cron_file)
+    monkeypatch.setattr("noust.managers.cert_manager._CRON_FILE", cron_file)
     # Without a certbot.timer the manager falls through to the cron entry, which
     # is the only path in this manager that writes a file.
     runner.script(["systemctl", "enable", "certbot.timer"], exit_code=1)
@@ -1845,7 +1845,7 @@ def test_auto_renewal_writes_the_cron_entry_through_the_seam(
 ) -> None:
     """The real path still has to work, and cron ignores a writable file."""
     cron_file = tmp_path / "cron.d/certbot-renew"
-    monkeypatch.setattr("wasm.managers.cert_manager._CRON_FILE", cron_file)
+    monkeypatch.setattr("noust.managers.cert_manager._CRON_FILE", cron_file)
     runner.script(["systemctl", "enable", "certbot.timer"], exit_code=1)
 
     assert CertManager().setup_auto_renewal() is True

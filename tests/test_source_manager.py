@@ -1,5 +1,5 @@
 """
-Tests for :mod:`wasm.managers.source_manager`.
+Tests for :mod:`noust.managers.source_manager`.
 
 This module pulls third-party code onto a machine where WASM runs as root, so
 the tests here are mostly adversarial: archives that try to write outside the
@@ -21,11 +21,11 @@ from typing import Any
 
 import pytest
 
-from wasm.core.exceptions import SourceError
-from wasm.core.fs import DryRunFileSystem, RecordingFileSystem
-from wasm.core.runner import FakeRunner
-from wasm.managers import source_manager as sm
-from wasm.managers.source_manager import SourceManager
+from noust.core.exceptions import SourceError
+from noust.core.fs import DryRunFileSystem, RecordingFileSystem
+from noust.core.runner import FakeRunner
+from noust.managers import source_manager as sm
+from noust.managers.source_manager import SourceManager
 
 #: Largest value a plain ustar size field can hold: eleven octal digits.
 #: Bigger sizes need the GNU or pax extensions, which is a different test.
@@ -913,7 +913,7 @@ def test_flatten_moves_nothing_in_a_rehearsal(tmp_path: Path, dry: DryRunFileSys
 
 # The guard that keeps them there ------------------------------------------
 
-#: Calls that change the filesystem without going through wasm.core.fs.
+#: Calls that change the filesystem without going through noust.core.fs.
 DIRECT_MUTATORS = frozenset(
     {
         "shutil.rmtree",
@@ -1072,7 +1072,7 @@ def test_no_filesystem_mutation_bypasses_the_seam() -> None:
             continue
         offenders.append(f"{module.name}:{line} {function}() calls {call}")
 
-    assert offenders == [], "Filesystem mutations outside wasm.core.fs:\n" + "\n".join(offenders)
+    assert offenders == [], "Filesystem mutations outside noust.core.fs:\n" + "\n".join(offenders)
 
     stale = {key for key in SEAM_EXEMPTIONS if key[0] == module.name} - used
     assert stale == set(), f"Exemptions that are no longer needed: {sorted(stale)}"

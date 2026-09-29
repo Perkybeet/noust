@@ -22,18 +22,18 @@ from typing import Any
 
 import pytest
 
-from wasm.core.exceptions import DomainConflictError, ServiceError, ValidationError
-from wasm.core.store import (
+from noust.core.exceptions import DomainConflictError, ServiceError, ValidationError
+from noust.core.store import (
     App,
     BackupDestinationRecord,
     BackupScheduleRecord,
     Database,
+    NoustStore,
     PreviewSettings,
-    WASMStore,
     get_store,
 )
-from wasm.deployers import app_export
-from wasm.deployers.app_export import (
+from noust.deployers import app_export
+from noust.deployers.app_export import (
     FORMAT,
     VERSION,
     CreateSpec,
@@ -47,10 +47,10 @@ from wasm.deployers.app_export import (
     report_summary,
     validate_document,
 )
-from wasm.deployers.helpers.layout import env_file_for
-from wasm.deployers.importers.base import Proposal, ProposedEnv
-from wasm.managers import previews
-from wasm.managers.cron_manager import CronJob
+from noust.deployers.helpers.layout import env_file_for
+from noust.deployers.importers.base import Proposal, ProposedEnv
+from noust.managers import previews
+from noust.managers.cron_manager import CronJob
 
 DOMAIN = "shop.example.com"
 NEW = "store.example.org"
@@ -93,12 +93,12 @@ class FakeCron:
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> Iterator[WASMStore]:
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+def store(tmp_path: Path) -> Iterator[NoustStore]:
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     yield instance
     instance.close()
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture(autouse=True)
@@ -119,7 +119,7 @@ def cron() -> FakeCron:
 
 
 @pytest.fixture
-def shop(store: WASMStore, tmp_path: Path, cron: FakeCron) -> App:
+def shop(store: NoustStore, tmp_path: Path, cron: FakeCron) -> App:
     """An application with a bit of everything."""
     app = store.create_app(
         App(
@@ -256,7 +256,7 @@ def test_export_withholds_secrets_and_never_carries_wasm_credentials(
     assert env["INTERNAL_ID"] == {"secret": True, "value": None}, "marked secret"
     assert env["APP_NAME"] == {"secret": False, "value": "Shop"}
     assert env["PUBLIC_URL"]["value"] == "https://cdn.example.net"
-    assert "PORT" not in env, "managed by WASM"
+    assert "PORT" not in env, "managed by Noust"
     text = dumps(doc)
     for leaked in (TOKEN, STRIPE, "whsec_", "bucket", "1234"):
         assert leaked not in text
@@ -278,12 +278,12 @@ def test_export_is_deterministic(shop: App, cron: FakeCron) -> None:
     assert list(first["env"]) == sorted(first["env"])
 
 
-def test_export_of_an_unknown_application(store: WASMStore) -> None:
+def test_export_of_an_unknown_application(store: NoustStore) -> None:
     with pytest.raises(Exception, match="Application not found"):
         export_app("nothing.example.com", cron=FakeCron())  # type: ignore[arg-type]
 
 
-def test_export_of_a_bare_application(store: WASMStore, tmp_path: Path) -> None:
+def test_export_of_a_bare_application(store: NoustStore, tmp_path: Path) -> None:
     store.create_app(App(domain="bare.example.com", app_type="static", source="/srv/site"))
     doc = export_app("bare.example.com", cron=FakeCron())  # type: ignore[arg-type]
     assert doc["backup"] is None and doc["previews"] is None
@@ -305,8 +305,8 @@ def minimal(**app: Any) -> dict[str, Any]:
 @pytest.mark.parametrize(
     ("document", "message"),
     [
-        ({"format": "other", "version": 1, "app": {}}, "not a WASM application export"),
-        ({**minimal(), "version": 2}, "this WASM reads version 1"),
+        ({"format": "other", "version": 1, "app": {}}, "not a Noust application export"),
+        ({**minimal(), "version": 2}, "this Noust reads version 1"),
         ({**minimal(), "version": "1"}, "version must be a whole number"),
         (minimal(port="3000"), "app.port must be a whole number"),
         (minimal(layout="sideways"), "app.layout must be one of"),
@@ -392,7 +392,7 @@ def test_plan_takes_secrets_given_and_names_what_it_will_skip(shop: App, cron: F
 
 
 @pytest.fixture
-def engine(monkeypatch: pytest.MonkeyPatch, store: WASMStore) -> list[str]:
+def engine(monkeypatch: pytest.MonkeyPatch, store: NoustStore) -> list[str]:
     """Stand in for the managers that touch the machine, writing what they own."""
     calls: list[str] = []
 
@@ -444,7 +444,7 @@ def engine(monkeypatch: pytest.MonkeyPatch, store: WASMStore) -> list[str]:
     return calls
 
 
-def fake_deploy(store: WASMStore, tmp_path: Path, calls: list[str]) -> Any:
+def fake_deploy(store: NoustStore, tmp_path: Path, calls: list[str]) -> Any:
     """A deploy that records the row and the .env as the real one would."""
 
     def deploy(spec: CreateSpec) -> None:
@@ -475,7 +475,7 @@ def fake_deploy(store: WASMStore, tmp_path: Path, calls: list[str]) -> Any:
 
 
 def test_an_import_round_trips_under_a_new_domain(
-    shop: App, cron: FakeCron, engine: list[str], store: WASMStore, tmp_path: Path
+    shop: App, cron: FakeCron, engine: list[str], store: NoustStore, tmp_path: Path
 ) -> None:
     source = "https://github.com/acme/shop.git"
     before = export_app(DOMAIN, with_secrets=True, cron=cron)  # type: ignore[arg-type]
@@ -522,9 +522,9 @@ def test_a_failed_deploy_applies_nothing_else(shop: App, cron: FakeCron, engine:
     plan = plan_import(doc, domain=NEW, source="https://github.com/acme/shop.git")
 
     def deploy(spec: CreateSpec) -> None:
-        raise app_export.WASMError("build failed")
+        raise app_export.NoustError("build failed")
 
-    with pytest.raises(app_export.WASMError, match="build failed"):
+    with pytest.raises(app_export.NoustError, match="build failed"):
         apply_import(plan, deploy=deploy, cron=cron)  # type: ignore[arg-type]
     assert engine == []
 
@@ -533,7 +533,7 @@ def test_a_refused_step_is_reported_and_the_rest_goes_on(
     shop: App,
     cron: FakeCron,
     engine: list[str],
-    store: WASMStore,
+    store: NoustStore,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -559,7 +559,7 @@ def test_a_refused_step_is_reported_and_the_rest_goes_on(
 # Other platforms --------------------------------------------------------------
 
 
-def test_a_proposal_becomes_a_document_the_plan_accepts(store: WASMStore) -> None:
+def test_a_proposal_becomes_a_document_the_plan_accepts(store: NoustStore) -> None:
     proposal = Proposal(
         platform="render",
         app_type="python",

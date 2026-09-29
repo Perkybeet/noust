@@ -2,7 +2,7 @@
  * The resource limits form: what each field accepts and how its value reaches
  * `PATCH /api/apps/{domain}/limits`.
  *
- * The bounds and the words mirror `wasm.managers.service_manager.ResourceLimits.validate`,
+ * The bounds and the words mirror `noust.managers.service_manager.ResourceLimits.validate`,
  * which is the check that counts; this one only saves a round trip. An empty field removes the
  * limit, exactly as a null does in the request.
  *
@@ -104,7 +104,7 @@ export function changed(draft: LimitsDraft, current: LimitsDraft): boolean {
   return draft.memory.trim() !== current.memory || draft.cpu.trim() !== current.cpu || draft.tasks.trim() !== current.tasks;
 }
 
-/** The limits as systemd directives, the way `wasm app limits` prints them. */
+/** The limits as systemd directives, the way `noust app limits` prints them. */
 export function directives(values: Partial<LimitsValues>): string[] {
   const lines: string[] = [];
   if (values.memory_max_mb) lines.push(`MemoryMax=${String(values.memory_max_mb)}M`);

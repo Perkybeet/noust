@@ -25,7 +25,7 @@ import { SettingsSection } from "../SettingsForm";
 import { CreateGitHubApp } from "./CreateGitHubApp";
 import { accountTypeWords, hooksState, repositorySelectionWords } from "./github";
 
-const EXPOSE_COMMAND = "wasm web expose-hooks hooks.example.com";
+const EXPOSE_COMMAND = "noust web expose-hooks hooks.example.com";
 
 function installationColumns(t: T): readonly Column<GitHubInstallation>[] {
   return [
@@ -281,7 +281,7 @@ export function GitHubIntegration() {
       <SettingsSection
         title={t("settings.integrations.github.title")}
         description={t("settings.integrations.github.description")}
-        commands={["wasm github status", "wasm github installations --sync"]}
+        commands={["noust github status", "noust github installations --sync"]}
       >
         <div className="flex min-w-0 flex-col gap-6">
           {removedAt !== undefined && query.data?.configured !== true ? (
@@ -310,7 +310,7 @@ export function GitHubIntegration() {
         <SettingsSection
           title={t("settings.integrations.github.webhook.title")}
           description={t("settings.integrations.github.webhook.description")}
-          commands={["wasm web status"]}
+          commands={["noust web status"]}
         >
           <WebhookState status={query.data} />
         </SettingsSection>

@@ -5,11 +5,11 @@
 Tests for ``GET /api/system/health``.
 
 The endpoint is a thin translation of
-:func:`wasm.managers.health.collect_health_report` to HTTP - the checks
+:func:`noust.managers.health.collect_health_report` to HTTP - the checks
 themselves (disk space, web servers, applications, certificates, memory) are
 pinned once, against ``wasm health``, in ``tests/test_cli_health.py``. What
 this module owns: the route calls the shared function and serialises
-:class:`~wasm.managers.health.HealthReport` field for field, so the console's
+:class:`~noust.managers.health.HealthReport` field for field, so the console's
 server card can never disagree with what the CLI reports.
 """
 
@@ -21,11 +21,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from noust.core.runner import FakeRunner
+from noust.managers.health import HealthCheck, HealthReport
+from noust.web.api import system as system_api
+from noust.web.api.auth import get_current_session
 from tests.test_web_auth import build_client
-from wasm.core.runner import FakeRunner
-from wasm.managers.health import HealthCheck, HealthReport
-from wasm.web.api import system as system_api
-from wasm.web.api.auth import get_current_session
 
 
 @pytest.fixture
@@ -47,7 +47,7 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
 
 def _stub(monkeypatch: pytest.MonkeyPatch, report: HealthReport) -> None:
     """
-    Replace :func:`wasm.managers.health.collect_health_report` with a stub.
+    Replace :func:`noust.managers.health.collect_health_report` with a stub.
 
     Args:
         monkeypatch: Patching helper, scoped to the test.

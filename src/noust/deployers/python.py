@@ -1,5 +1,5 @@
 """
-Python deployer for WASM.
+Python deployer for Noust.
 """
 
 import os
@@ -7,10 +7,10 @@ import re
 from pathlib import Path
 from typing import ClassVar
 
-from wasm.core.fs import FileSystem
-from wasm.core.runner import CommandRunner
-from wasm.deployers.base import BaseDeployer
-from wasm.deployers.registry import DeployerRegistry
+from noust.core.fs import FileSystem
+from noust.core.runner import CommandRunner
+from noust.deployers.base import BaseDeployer
+from noust.deployers.registry import DeployerRegistry
 
 
 class PythonDeployer(BaseDeployer):

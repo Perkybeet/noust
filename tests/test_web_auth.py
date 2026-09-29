@@ -22,18 +22,18 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from wasm.cli.commands.web import add_start_arguments, build_security_config
-from wasm.core import totp
-from wasm.core.exceptions import SecurityError
-from wasm.web import auth as auth_module
-from wasm.web.auth import (
+from noust.cli.commands.web import add_start_arguments, build_security_config
+from noust.core import totp
+from noust.core.exceptions import SecurityError
+from noust.web import auth as auth_module
+from noust.web.auth import (
     CSRF_HEADER_NAME,
     SESSION_COOKIE_NAME,
     SecurityConfig,
     TokenManager,
     require_auth,
 )
-from wasm.web.server import _uvicorn_kwargs, create_app, get_token_manager
+from noust.web.server import _uvicorn_kwargs, create_app, get_token_manager
 
 #: Endpoints that answer without credentials, on purpose.
 PUBLIC_API_PATHS = frozenset({"/api/auth/login", "/api/auth/session"})
@@ -472,7 +472,7 @@ def test_every_lockout_path_is_a_real_route(sandbox: Path) -> None:
     The reported defect: AUTH_PATHS named ``/api/auth/token``, which does not
     exist, so the entry guarded nothing and read as if it did.
     """
-    from wasm.web.server import AUTH_PATHS
+    from noust.web.server import AUTH_PATHS
 
     app = create_app(make_config(sandbox))
     posts = {path for path, route in iter_api_routes(app.routes) if "POST" in route.methods}
@@ -487,7 +487,7 @@ def test_every_endpoint_that_counts_a_failure_is_behind_the_lockout() -> None:
     Every handler that feeds :func:`record_auth_failure` names its path; each
     of those paths has to be one the middleware refuses a locked-out address.
     """
-    from wasm.web.server import AUTH_PATHS
+    from noust.web.server import AUTH_PATHS
 
     api_dir = Path(auth_module.__file__).parent / "api"
     counted = {
@@ -512,7 +512,7 @@ def test_a_locked_out_address_cannot_elevate_even_with_a_session(sandbox: Path) 
     token = get_token_manager().generate_master_token()
     body = login(client, token)
 
-    from wasm.web.server import get_brute_force
+    from noust.web.server import get_brute_force
 
     for _ in range(3):
         get_brute_force().record_failure("testclient")
@@ -1479,23 +1479,23 @@ def test_a_read_token_reads_but_cannot_mutate_and_the_refusal_is_audited(
         sandbox: Per-test temporary directory.
         runner: The fake command runner, so listing apps reaches no process.
     """
-    from wasm.core.store import WASMStore
+    from noust.core.store import NoustStore
 
     client = build_client(sandbox)
     master = get_token_manager().generate_master_token()
     csrf = login(client, master)["csrf_token"]
     issued = issue_token(client, csrf, master, name="reader", scope="read")
-    assert issued["token"].startswith("wasm_tok_")
+    assert issued["token"].startswith("noust_tok_")
     assert issued["scope"] == "read"
 
-    WASMStore.reset_instance()
-    store = WASMStore(sandbox / "wasm.db")
+    NoustStore.reset_instance()
+    store = NoustStore(sandbox / "wasm.db")
     try:
         allowed = client.get("/api/apps", headers=bearer(issued["token"]))
         assert allowed.status_code == 200, allowed.text
     finally:
         store.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
     refused = client.post("/api/jobs/update", headers=bearer(issued["token"]), json={})
     assert refused.status_code == 403
@@ -1507,6 +1507,38 @@ def test_a_read_token_reads_but_cannot_mutate_and_the_refusal_is_audited(
     assert denied[-1]["result"] == "denied"
     assert denied[-1]["actor"] == "token:reader"
     assert issued["token"] not in (sandbox / "state" / "web-audit.log").read_text()
+
+
+def test_tokens_issued_by_wasm_keep_working(
+    sandbox: Path, runner: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    An API token and a master token WASM 2.x issued (``wasm_tok_...``,
+    ``wasm_...``) authenticate after the upgrade; only new ones say noust.
+
+    Args:
+        sandbox: Per-test temporary directory.
+        runner: The fake command runner.
+        monkeypatch: Used to issue tokens the way 2.x did.
+    """
+    import secrets
+
+    client = build_client(sandbox)
+    manager = get_token_manager()
+    old_master = f"wasm_{secrets.token_urlsafe(32)}"
+    with monkeypatch.context() as patch:
+        patch.setattr(secrets, "token_urlsafe", lambda _n=32: old_master.removeprefix("wasm_"))
+        patch.setattr(auth_module.paths, "NAME", "wasm")
+        assert manager.generate_master_token() == old_master
+
+    csrf = login(client, old_master)["csrf_token"]
+    with monkeypatch.context() as patch:
+        patch.setattr(auth_module, "API_TOKEN_PREFIX", "wasm_tok_")
+        legacy = issue_token(client, csrf, old_master, name="legacy", scope="read")["token"]
+    assert legacy.startswith("wasm_tok_")
+
+    assert client.get("/api/auth/verify", headers=bearer(legacy)).status_code == 200
+    assert client.get("/api/auth/verify", headers=bearer(old_master)).status_code == 200
 
 
 def test_a_read_token_cannot_unmask_an_environment(sandbox: Path, runner: object) -> None:
@@ -1624,10 +1656,10 @@ def test_a_deploy_token_queues_deployments_but_cannot_delete(
             return None
 
     fake = type("FakeJobs", (), {"create_job": staticmethod(create_job)})()
-    monkeypatch.setattr("wasm.web.api.apps.get_job_manager", lambda: fake)
-    monkeypatch.setattr("wasm.web.api.apps.get_store", lambda: FakeStore())
+    monkeypatch.setattr("noust.web.api.apps.get_job_manager", lambda: fake)
+    monkeypatch.setattr("noust.web.api.apps.get_store", lambda: FakeStore())
 
-    monkeypatch.setattr("wasm.web.api.jobs.get_job_manager", lambda: fake)
+    monkeypatch.setattr("noust.web.api.jobs.get_job_manager", lambda: fake)
 
     accepted = client.post(
         "/api/jobs/update", headers=bearer(issued["token"]), json={"domain": "app.example.com"}

@@ -28,7 +28,7 @@ interface KnownState {
  *   `failed`, `static`, `unknown` (resolved from systemd), and `deploying` while a deploy or
  *   update job runs;
  * - the store's `AppStatus`: `deploying`, `running`, `stopped`, `failed`, `unknown`;
- * - `wasm.core.app_state` (what `wasm list` and `wasm health` print): `Running`,
+ * - `noust.core.app_state` (what `noust list` and `noust health` print): `Running`,
  *   `Restarting`, `No answer`, `Stopped`, `Failed`, `Static`, `Unknown`.
  *
  * Matching is case-insensitive. A stopped app is not a problem by itself (an operator stops

@@ -49,7 +49,7 @@ export const RECIPES: RecipeList = {
       available: true,
       app_type: "php-fpm",
       database: "mysql",
-      requires: ["PHP-FPM 7.4 or newer", "MariaDB or MySQL (wasm db install mysql)"],
+      requires: ["PHP-FPM 7.4 or newer", "MariaDB or MySQL (noust db install mysql)"],
     },
     {
       name: "uptime-kuma",

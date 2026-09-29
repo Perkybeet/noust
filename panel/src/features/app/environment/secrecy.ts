@@ -1,8 +1,8 @@
 /**
- * Why WASM treats one environment variable as a secret or not, in the operator's own words,
+ * Why Noust treats one environment variable as a secret or not, in the operator's own words,
  * and the three choices an operator can make about it.
  *
- * Mirrors `wasm.core.secret_detection.classify`: GET /api/apps/{domain}/env answers `secret`
+ * Mirrors `noust.core.secret_detection.classify`: GET /api/apps/{domain}/env answers `secret`
  * (whether the value is masked), `reason` (why, in the classifier's own vocabulary) and
  * `marked` (whether an operator's own choice, rather than the name or the value, is why) for
  * every variable. PUT /api/apps/{domain}/env/marks sets or clears the operator's own choice:
@@ -36,7 +36,7 @@ export function markFor(choice: SecrecyChoice): boolean | null {
 /**
  * What a value pattern the classifier matched is called, in words an operator did not have to
  * learn the classifier's vocabulary to read. Keys are exactly the kinds
- * `wasm.core.secret_detection._value_pattern_kind` returns, sent over the wire as
+ * `noust.core.secret_detection._value_pattern_kind` returns, sent over the wire as
  * `"value: <kind>"`.
  */
 const VALUE_KIND_KEYS: Readonly<Record<string, MessageKey>> = {

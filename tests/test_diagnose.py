@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Tests for :mod:`wasm.managers.diagnose`.
+Tests for :mod:`noust.managers.diagnose`.
 
-Every probe is scripted through :class:`~wasm.core.runner.FakeRunner`, never a
+Every probe is scripted through :class:`~noust.core.runner.FakeRunner`, never a
 real process, and the HTTP and disk probes are given fakes directly, never a
 real socket or a real filesystem: that is the whole point of the injectable
 seams this module exposes.
@@ -25,12 +25,12 @@ from typing import Any
 
 import pytest
 
-from wasm.core.exceptions import ValidationError
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, DeploymentRecord, Service
-from wasm.managers import diagnose as diagnose_module
-from wasm.managers.diagnose import Check, Diagnosis, diagnose
-from wasm.managers.service_manager import ServiceManager
+from noust.core.exceptions import ValidationError
+from noust.core.runner import FakeRunner
+from noust.core.store import App, DeploymentRecord, Service
+from noust.managers import diagnose as diagnose_module
+from noust.managers.diagnose import Check, Diagnosis, diagnose
+from noust.managers.service_manager import ServiceManager
 
 DOMAIN = "example.com"
 APP_NAME = "example-com"
@@ -193,7 +193,7 @@ def _diagnose(
     if services is None:
         services = [Service(name=APP_NAME)]
     store = FakeStore(app=app, deployments=deployments, services=services)
-    monkeypatch.setattr("wasm.managers.service_manager.get_store", lambda: store)
+    monkeypatch.setattr("noust.managers.service_manager.get_store", lambda: store)
     monkeypatch.setattr(diagnose_module, "NGINX_ERROR_LOG", nginx_log_path or NONEXISTENT_LOG)
 
     return diagnose(
@@ -339,7 +339,7 @@ def test_port_mismatch_names_both_ports(
     result = _diagnose(monkeypatch, runner, app=_app(port=3000))
 
     assert result.verdict == "down"
-    assert result.probable_cause == "Listening on 4000, WASM routes to 3000."
+    assert result.probable_cause == "Listening on 4000, Noust routes to 3000."
 
 
 def test_nginx_cannot_reach_a_healthy_app(
@@ -490,7 +490,7 @@ def test_probe_that_raises_wasm_error_becomes_skip(
     _no_findings(runner)
 
     # A ServiceManager that cannot resolve the unit at all raises a
-    # ValidationError (a WASMError). unit, port and journal all depend on that
+    # ValidationError (a NoustError). unit, port and journal all depend on that
     # resolution and must each degrade to a skip independently.
     def _raise(self: ServiceManager, _name: str):
         raise ValidationError("bad name")

@@ -1,24 +1,24 @@
 # Releases
 
-WASM 2.0 builds every deploy of a new application in its own directory, switches to it
+Noust builds every deploy of a new application in its own directory, switches to it
 atomically, keeps it only if it answers, and can go back to any release still on disk in
 seconds. This page describes that layout, how a deploy moves through it, and how an
-application deployed by 1.x is moved onto it.
+application deployed by WASM 1.x is moved onto it.
 
 ## Two layouts
 
 | Layout | Who gets it | Deploy | Rollback |
 |---|---|---|---|
-| `releases` | Every application created by 2.0, unless told otherwise | A new directory per deploy, health-gated activation, automatic rollback | Re-point `current` and restart: seconds |
-| `inplace` | Every application deployed by 1.x, and types that cannot build releases yet | Backup, pull and rebuild over the tree the service is running, restart. A failed health check after the restart is reported, not rolled back, except for Docker Compose and monorepo applications, which [go back automatically](#docker-compose-and-monorepo-applications). | Rebuild an earlier deployment's commit behind the health gate, or restore a backup ([rolling back to a deployment](#rolling-back-to-a-deployment)) |
+| `releases` | Every application created by WASM 2.0 or later, unless told otherwise | A new directory per deploy, health-gated activation, automatic rollback | Re-point `current` and restart: seconds |
+| `inplace` | Every application deployed by WASM 1.x, and types that cannot build releases yet | Backup, pull and rebuild over the tree the service is running, restart. A failed health check after the restart is reported, not rolled back, except for Docker Compose and monorepo applications, which [go back automatically](#docker-compose-and-monorepo-applications). | Rebuild an earlier deployment's commit behind the health gate, or restore a backup ([rolling back to a deployment](#rolling-back-to-a-deployment)) |
 
-The layout of a new application comes from `--layout` on `wasm create` (or `layout` on
+The layout of a new application comes from `--layout` on `noust create` (or `layout` on
 `POST /api/apps`), and otherwise from the `deploy.layout` setting, which defaults to
 `releases`:
 
 ```bash
-wasm config get deploy.layout
-wasm config set deploy.layout inplace    # new applications build in place, as in 1.x
+noust config get deploy.layout
+noust config set deploy.layout inplace   # new applications build in place, as in WASM 1.x
 ```
 
 An existing application always keeps the layout it has. A deploy or an update never changes
@@ -57,8 +57,8 @@ release directly, so the same unit and site serve whichever release is active.
 
 ## What a deploy does
 
-For an application on `releases`, a deploy (`wasm create`, the new-application wizard) and an
-update (`wasm update`, the console's Update button, `POST /api/jobs/update`, a push webhook)
+For an application on `releases`, a deploy (`noust create`, the new-application wizard) and an
+update (`noust update`, the console's Update button, `POST /api/jobs/update`, a push webhook)
 run the same sequence:
 
 1. **Fetch into a new release.** The source is exported into `releases/<id>/`. The running
@@ -76,12 +76,12 @@ run the same sequence:
 4. **Build** inside the release.
 5. **Hand the tree over** to the service user.
 6. **Write the site, the certificate and the unit**, all pointing at `current`. Only a
-   deploy (`wasm create`, `POST /api/apps`) does this; an update skips it, because the unit
+   deploy (`noust create`, `POST /api/apps`) does this; an update skips it, because the unit
    and the site already point at `current`.
 7. **Activate behind the health gate.** See the next two sections.
 8. **Prune** releases beyond the retention.
 
-`wasm update` on an application on `releases` takes no backup first: the release that was
+`noust update` on an application on `releases` takes no backup first: the release that was
 serving stays on disk and is what an automatic or manual rollback returns to.
 
 ## The health gate
@@ -97,7 +97,7 @@ Then the unit is restarted and probed.
 
 The same gate judges a deploy, an update, an instant rollback, a migration and a change of
 resource limits with `--restart`, so none of them can activate something another would have
-refused. `wasm diagnose` and the console's Diagnose page probe the same path and judge the
+refused. `noust diagnose` and the console's Diagnose page probe the same path and judge the
 answer by the same statuses.
 
 ### Configuring the health check
@@ -112,10 +112,10 @@ up can say so. Three settings, each with the default above when unset:
 | Timeout | Seconds from 5 to 600 the release gets to answer, wall-clock: one probe every 2 seconds until they run out. | 30 |
 
 ```bash
-wasm app health shop.example.com                                   # the current settings, defaults marked
-wasm app health shop.example.com --path /healthz --expect 200-299
-wasm app health shop.example.com --timeout 120                     # options not named keep their value
-wasm app health shop.example.com --reset                           # back to every default
+noust app health shop.example.com                                  # the current settings, defaults marked
+noust app health shop.example.com --path /healthz --expect 200-299
+noust app health shop.example.com --timeout 120                    # options not named keep their value
+noust app health shop.example.com --reset                          # back to every default
 ```
 
 Over the API, `PATCH /api/apps/{domain}/health` sets the three together (a field left out or
@@ -135,16 +135,16 @@ When a new release fails the gate:
    consecutive failures folded into one line) and the last 40 lines of the unit's journal.
 
 The error says which release is active again and whether it answered. A failed release stays
-in `wasm releases list` for a while, marked as not on disk, and cannot be activated. If the
+in `noust releases list` for a while, marked as not on disk, and cannot be activated. If the
 very first release of an application fails, there is nothing to go back to and the deploy
 fails; a first deploy that fails undoes the steps it ran.
 
 ## Instant rollback
 
 ```bash
-wasm releases list shop.example.com                  # newest first; the active one has an asterisk
-wasm releases rollback shop.example.com              # the release created just before the active one
-wasm releases rollback shop.example.com 20260924-101500-9f8e7d6
+noust releases list shop.example.com                 # newest first; the active one has an asterisk
+noust releases rollback shop.example.com             # the release created just before the active one
+noust releases rollback shop.example.com 20260924-101500-9f8e7d6
 ```
 
 Nothing is rebuilt: `current` is re-pointed and the unit restarted, behind the same health
@@ -163,19 +163,19 @@ curl -X POST -H "Authorization: Bearer $TOKEN" \
 This needs a token with the `deploy` scope, the same as queueing an update. See
 [api.md](api.md).
 
-Release statuses, as `wasm releases list --json` and `GET /api/apps/{domain}/releases`
+Release statuses, as `noust releases list --json` and `GET /api/apps/{domain}/releases`
 report them: `active`, `superseded`, `rolled_back`, `failed`, `built`. `active` is whatever
 `current` points at, regardless of what the store row says.
 
 ### Releases and backups
 
-`wasm releases rollback` and `wasm rollback` are different tools:
+`noust releases rollback` and `noust rollback` are different tools:
 
-- `wasm releases rollback` switches between builds that are already on disk. It is instant,
+- `noust releases rollback` switches between builds that are already on disk. It is instant,
   and it does not touch `shared/`: the environment and uploaded files are the same before and
   after.
-- `wasm rollback` restores a backup archive, taking a safety backup of the current state
-  first. It is the recovery tool for data and for in-place applications. See `wasm backup`.
+- `noust rollback` restores a backup archive, taking a safety backup of the current state
+  first. It is the recovery tool for data and for in-place applications. See `noust backup`.
 
 ## Rebuilding a deployment's commit
 
@@ -183,7 +183,7 @@ Update pulls the head of the branch. To deploy exactly the commit an earlier dep
 built from, name it:
 
 ```bash
-wasm update shop.example.com --commit 9f8e7d6      # full or abbreviated, at least 4 characters
+noust update shop.example.com --commit 9f8e7d6     # full or abbreviated, at least 4 characters
 ```
 
 In the console, "Redeploy" on a deployment's page does the same:
@@ -199,20 +199,20 @@ for more characters; one that names none is an error. `--commit` does not combin
 
 - **On releases**, when a release built from that commit is still on disk, is not the
   active one and did not fail its health gate when it was last activated, it is activated
-  behind the health gate, as `wasm releases rollback` would: nothing is built. Otherwise, including when the commit is the one that is live, the commit
+  behind the health gate, as `noust releases rollback` would: nothing is built. Otherwise, including when the commit is the one that is live, the commit
   is exported from `repo/` into a new release and built like any update. Rebuilding the live
   commit is how a changed environment or a broken dependency install gets a clean build.
 - **In place**, the pre-update backup is taken, the checkout is detached at the commit
   (`git checkout --force --detach`: tracked files are rewritten, untracked ones such as
   uploads stay), and the tree is rebuilt and restarted. The branch the checkout was on is
   remembered in the repository's own configuration (`wasm.branch`), so the next
-  `wasm update` without `--commit` checks that branch out again and pulls it: the
+  `noust update` without `--commit` checks that branch out again and pulls it: the
   application follows its branch again. The deployment history records that branch, not
   `HEAD`.
 
 ## Nothing new to deploy
 
-Before an update from the console or from `wasm update`, WASM asks the remote for the head
+Before an update from the console or from `noust update`, Noust asks the remote for the head
 of the branch the application follows (`git ls-remote`: nothing is downloaded) and compares
 it with the commit that is live: the active release's on releases, and in place the commit
 of the last successful deployment (the checkout's own commit only when the history recorded
@@ -230,7 +230,7 @@ When they are the same:
   `detail` "No new commits on main since 9f8e7d6, which is live" and a hint: rebuilding the
   same commit still makes sense when the environment or the dependencies changed, or the
   last build broke. Sending `{"domain": ..., "force": true}` rebuilds anyway.
-- `wasm update` says the same and asks whether to rebuild anyway. `-y` or `--force` skips
+- `noust update` says the same and asks whether to rebuild anyway. `-y` or `--force` skips
   the question. Without a terminal (a script, cron) there is nobody to ask: it rebuilds and
   says so.
 
@@ -253,7 +253,7 @@ answers `409 rollback_unavailable` with the reason.
   commit instead.
 - **In place, in a git checkout** (every type, monorepos and Docker Compose included), going
   back rebuilds the deployment's commit where the application runs: exactly
-  `wasm update <domain> --commit <commit>`, recorded as a rollback. The pre-update backup is
+  `noust update <domain> --commit <commit>`, recorded as a rollback. The pre-update backup is
   taken, the checkout is detached at the commit (tracked files are rewritten; `.git`, uploads,
   SQLite files, the `.env` and anything else untracked stay as they are), and the tree is
   rebuilt. The restart passes the health gate: one that does not answer fails the rollback,
@@ -274,12 +274,12 @@ answers `409 rollback_unavailable` with the reason.
   deployment must know the commit, and agree on it. An update that never finished leaves its
   row `running` and the tree half-changed, and only the commit tells that apart; so a tree
   without history gets no new snapshots, and this path serves the snapshots linked before 2.1.
-  Going back restores the snapshot with `wasm rollback`'s machinery, held to what a deploy is
+  Going back restores the snapshot with `noust rollback`'s machinery, held to what a deploy is
   held to: a safety backup of the current state first, the restore (keeping `.git` if the tree
   has one, and the deployed `.env` unless `restore_env` is asked for), a rebuild that must
   succeed, the tree handed back to the service user, and the health gate. A failed rebuild or
   a gate that does not pass fails the rollback, and the error names the safety backup that
-  holds what served before it (`wasm rollback <domain> <backup>`). A restore puts back the
+  holds what served before it (`noust rollback <domain> <backup>`). A restore puts back the
   whole tree as it was: files the application wrote into it since (uploads, a SQLite file)
   go back in time too, which is why a git checkout is never gone back to this way. Monorepo
   and Docker Compose applications without history are not offered it: a restored tree does not
@@ -292,17 +292,17 @@ Anything an application writes for itself that must survive a deploy (user uploa
 SQLite file, `storage/`) has to live in `shared/`, because every deploy starts from a fresh
 release directory.
 
-- `.env` is always shared. `wasm env`, the console's Environment tab and the backups read
+- `.env` is always shared. `noust env`, the console's Environment tab and the backups read
   and write `shared/.env` for an application on `releases`, and `.env` in the application
   directory for one in place.
-- Other paths are declared per application: `wasm create --persist storage --persist
+- Other paths are declared per application: `noust create --persist storage --persist
   public/uploads`, or `persistent_paths` on `POST /api/apps`. Paths are relative to the
   application root and may not be absolute or contain `..`.
 - If a release already contains something at a persistent path (usually a file tracked in the
   repository), it is left exactly as it is and reported as a conflict in the deploy log. The
   tracked copy wins; untrack it or drop it from the persistent paths.
-- WASM never writes through a symlink found inside a release or under `shared/`. A
-  repository is untrusted input, and a tracked link to `/etc` must not become a place WASM
+- Noust never writes through a symlink found inside a release or under `shared/`. A
+  repository is untrusted input, and a tracked link to `/etc` must not become a place Noust
   writes to as root.
 
 ## Retention
@@ -310,13 +310,13 @@ release directory.
 After a successful activation, releases beyond the newest `N` are deleted, oldest first, where
 `N` is the application's retention (5 unless it was changed). The active release is never
 deleted, even when a rollback made it older than the newest `N`, and neither is the release
-just before it, which is what `wasm releases rollback` goes back to. So even a retention of 1
+just before it, which is what `noust releases rollback` goes back to. So even a retention of 1
 keeps the way back. Rows of failed releases stay listed while they are among the newest `N`
 and are forgotten after that.
 
 ```bash
-wasm releases keep shop.example.com        # how many it keeps
-wasm releases keep shop.example.com 10     # keep ten, from 1 to 50
+noust releases keep shop.example.com       # how many it keeps
+noust releases keep shop.example.com 10    # keep ten, from 1 to 50
 ```
 
 Changing it prunes at once rather than at the next deploy, and says which releases were
@@ -327,13 +327,13 @@ releases, so it has no retention to set.
 
 ## Moving an in-place application onto releases
 
-An application deployed by 1.x keeps running and updating in place after the upgrade, exactly
+An application deployed by WASM 1.x keeps running and updating in place after the upgrade, exactly
 as before. Moving it onto releases is an explicit operation, one application at a time:
 
 ```bash
-wasm --dry-run app migrate shop.example.com     # the plan, and a rehearsal that changes nothing
-wasm app migrate shop.example.com               # asks for confirmation; -y to skip it
-wasm app migrate shop.example.com --persist storage --persist public/uploads
+noust --dry-run app migrate shop.example.com    # the plan, and a rehearsal that changes nothing
+noust app migrate shop.example.com              # asks for confirmation; -y to skip it
+noust app migrate shop.example.com --persist storage --persist public/uploads
 ```
 
 `--dry-run` is a global option and goes before the command. The console offers the same
@@ -347,12 +347,12 @@ What the migration does:
    states this downtime; it lasts until the health gate passes, usually seconds.
 2. **The live tree becomes the first release.** It is moved, not copied: every change is a
    rename inside the application directory, or the creation of a directory or a link.
-3. **The environment moves to `shared/`.** `.env` and WASM's inventory of it (`.wasm`) are
+3. **The environment moves to `shared/`.** `.env` and Noust's inventory of it (`.wasm`) are
    moved to `shared/` and linked into the release.
 4. **What the application wrote for itself moves to `shared/`.** In a git checkout that is
    every untracked directory, ignored or not (`git status --ignored`), minus build output
    (`node_modules`, `.next`, `dist`, `build`, `.venv`, `__pycache__` and similar). Without
-   git, WASM cannot tell uploads from code: it keeps whichever of `uploads`,
+   git, Noust cannot tell uploads from code: it keeps whichever of `uploads`,
    `public/uploads`, `storage` and `data` exist, and warns you to name the rest. `--persist`
    replaces detection entirely. SQLite databases are found by their file header wherever
    they are (outside build output) and always move to `shared/`, with their `-wal`, `-shm`
@@ -375,7 +375,7 @@ Read the plan before confirming. Two warnings in it matter:
 
 The migration refuses an application that is already on releases, one whose type cannot build
 releases (monorepo, Docker Compose), and one whose directory is missing. After it, the first
-`wasm update` builds a second release from the recorded source through `repo/`.
+`noust update` builds a second release from the recorded source through `repo/`.
 
 ## Docker Compose and monorepo applications
 
@@ -439,20 +439,20 @@ commit's are already applied), `pnpm build`, and the tree handed back to the ser
 Then every unit is restarted and probed again. When the rebuild of the previous commit fails,
 nothing is restarted on the half-built tree and the error says so, with the build's output.
 
-Why a checkout and a rebuild rather than restoring the backup `wasm update` takes first: the
+Why a checkout and a rebuild rather than restoring the backup `noust update` takes first: the
 backup leaves out `node_modules`, `.git` and the build output, so restoring it needs the same
 install and build anyway; restoring replaces the whole tree, losing whatever the application
 wrote into it since; and the update goes on without a backup when one cannot be taken. A
 checkout rewrites tracked files only and leaves `.env` files and uploads where they are.
 
 A monorepo that is not a git checkout has no commit to go back to: the update fails, the
-workspaces keep running the new build, and the error names `wasm rollback <domain>`, which
+workspaces keep running the new build, and the error names `noust rollback <domain>`, which
 restores the backup taken before the update.
 
 ### Either type
 
-The checkout after a failed update is detached at the previous commit, like `wasm update
---commit`; the next `wasm update` follows the branch again. Local changes to tracked files in
+The checkout after a failed update is detached at the previous commit, like `noust update
+--commit`; the next `noust update` follows the branch again. Local changes to tracked files in
 the tree are overwritten by the checkout, as they are by the update's own pull. A build that
 fails before anything was restarted is not rolled back for a monorepo: the units keep running
 the processes they had, and the tree is left at the new commit for the next update to fix.

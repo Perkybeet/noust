@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The ``wasm web`` command group.
+The ``noust web`` command group.
 
 This is the only way the panel is started in practice, so the security posture
 of a deployment is decided here. These rules follow from the panel being a
@@ -14,7 +14,7 @@ root shell with a login form:
 - **Binding beyond loopback without TLS is an error, not a warning.** A
   warning scrolls past; the operator wanted the panel up, and it comes up. So
   ``--host 0.0.0.0`` is refused unless the panel terminates TLS itself - with
-  a pair the operator brings, or a self-signed one WASM mints - or cleartext
+  a pair the operator brings, or a self-signed one Noust mints - or cleartext
   is accepted in so many words with ``--insecure-http``. A whitelist restricts
   who may connect but encrypts nothing, so it does not lift the requirement.
   The decision is made about the address that would be bound, not about the
@@ -22,11 +22,11 @@ root shell with a login form:
   are all the same socket, and a set of known-good host strings recognised one
   of them.
 - **A console that must survive a reboot is a systemd unit, not a daemon.**
-  ``wasm web enable`` writes ``wasm-web.service`` through ServiceManager,
+  ``noust web enable`` writes ``noust-web.service`` through ServiceManager,
   validated by the same rules as ``start``, and prints the token on the
-  operator's terminal. The unit runs ``wasm web start --under-systemd``, which
+  operator's terminal. The unit runs ``noust web start --under-systemd``, which
   prints no token: its standard output is the journal.
-- **``wasm web token`` reports; it does not rotate.** The command people run to
+- **``noust web token`` reports; it does not rotate.** The command people run to
   look the root credential up cannot be the command that revokes it. Issuing
   takes ``--new`` and a confirmation that names what stops working.
 
@@ -35,13 +35,13 @@ Two structural notes about the Click migration:
 - The command bodies hold no logic. Every command parses its options and hands
   them to a private ``_start`` / ``_stop`` / ``_token`` helper, which is also
   what the surviving ``handle_web`` argparse-shaped entry point calls. One
-  implementation, two front doors: ``wasm.cli.parser`` itself is gone, but
+  implementation, two front doors: ``noust.cli.parser`` itself is gone, but
   ``handle_web`` is kept and tested directly so it cannot drift from the Click
   commands.
 - ``--verbose``, ``--dry-run`` and ``--no-color`` are accepted after the
   subcommand, as they always were, but they do not become per-command
   parameters: :func:`global_flags` declares them with ``expose_value=False`` and
-  folds them into the shared :class:`~wasm.cli.app.Context`. That is what
+  folds them into the shared :class:`~noust.cli.app.Context`. That is what
   distinguishes re-exposing a global flag from redeclaring it, and redeclaring
   it is the argparse bug this migration exists to remove.
 """
@@ -66,12 +66,13 @@ from typing import TYPE_CHECKING, Any, NoReturn, TypeVar
 
 import click
 
-from wasm.cli.app import Context, WasmGroup, global_flags, json_option, pass_context
-from wasm.core.config import Config
-from wasm.core.exceptions import SecurityError, ServiceError, WASMError
-from wasm.core.fs import get_fs
-from wasm.core.logger import Logger
-from wasm.core.net import (
+from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
+from noust.core import paths
+from noust.core.config import Config
+from noust.core.exceptions import NoustError, SecurityError, ServiceError
+from noust.core.fs import get_fs
+from noust.core.logger import Logger
+from noust.core.net import (
     ALL_INTERFACES,
     host_addresses,
     is_loopback_host,
@@ -79,22 +80,25 @@ from wasm.core.net import (
     normalize_host,
     strip_brackets,
 )
-from wasm.core.runner import get_runner
-from wasm.core.utils import find_wasm_executable
+from noust.core.runner import get_runner
+from noust.core.utils import find_noust_executable
 
 if TYPE_CHECKING:
-    from wasm.web.auth import SecurityConfig
+    from noust.web.auth import SecurityConfig
 
 log = logging.getLogger(__name__)
 
-# PID file location
-PID_FILE = Path("/var/run/wasm-web.pid")
-PID_FILE_USER = Path.home() / ".wasm" / "web.pid"
+# PID file location. A console started by WASM before 3.0 wrote the legacy
+# name, which is still read so it can be stopped after the upgrade.
+PID_FILE = paths.WEB_PID_FILE
+LEGACY_PID_FILE = paths.LEGACY_WEB_PID_FILE
+PID_FILE_USER = Path.home() / f".{paths.NAME}" / "web.pid"
+LEGACY_PID_FILE_USER = Path.home() / f".{paths.LEGACY_NAME}" / "web.pid"
 
 #: Where the pair minted by ``--self-signed`` lives. A fixed place, so the
 #: pair is reused across restarts and an operator can point a monitoring
 #: check, or a replacement certificate, at it.
-PANEL_TLS_DIR = Path("/etc/wasm/panel-tls")
+PANEL_TLS_DIR = paths.config_dir() / "panel-tls"
 PANEL_TLS_CERT = PANEL_TLS_DIR / "panel.crt"
 PANEL_TLS_KEY = PANEL_TLS_DIR / "panel.key"
 
@@ -110,15 +114,18 @@ RESTART_PAUSE = 1
 #: operator is still reading the error.
 PORT_SUGGESTION_SPAN = 20
 
-#: The unit ``wasm web enable`` writes. It keeps the ``wasm-`` prefix that
-#: marks WASM's own units, next to ``wasm-monitor``.
-WEB_UNIT = "wasm-web"
+#: The unit ``noust web enable`` writes. It carries the ``noust-`` prefix that
+#: marks Noust's own units, next to ``noust-monitor``.
+WEB_UNIT = paths.WEB_UNIT
 WEB_UNIT_FILE = f"{WEB_UNIT}.service"
+#: What WASM called it. Until the migration renames it, a 2.x server's console
+#: still runs under this name, and status, stop and disable find it there.
+LEGACY_WEB_UNIT = paths.LEGACY_WEB_UNIT
 
 #: The template it is rendered from, under ``templates/systemd``.
-WEB_UNIT_TEMPLATE = "wasm-web"
+WEB_UNIT_TEMPLATE = "noust-web"
 
-#: How long ``wasm web enable`` waits for the service to listen before it
+#: How long ``noust web enable`` waits for the service to listen before it
 #: calls the start a failure. A console comes up in a second or two; the
 #: margin is for a slow disk importing FastAPI cold.
 SERVICE_START_TIMEOUT = 30
@@ -136,8 +143,8 @@ _daemon_option = click.option(
     "-d",
     "--daemon",
     is_flag=True,
-    help="Run in the background, until 'wasm web stop' or the next reboot. "
-    "'wasm web enable' survives reboots.",
+    help="Run in the background, until 'noust web stop' or the next reboot. "
+    "'noust web enable' survives reboots.",
 )
 
 
@@ -146,11 +153,16 @@ def get_pid_file() -> Path:
     Return the PID file this process may write.
 
     Returns:
-        ``/var/run/wasm-web.pid`` for root, a path under ``~/.wasm`` otherwise.
+        ``/run/noust-web.pid`` for root, a path under ``~/.noust`` otherwise;
+        the WASM name instead while only it exists, which is a console a 2.x
+        release started and this one must still be able to stop.
     """
-    if os.geteuid() == 0:
-        return PID_FILE
-    return PID_FILE_USER
+    current, legacy = (
+        (PID_FILE, LEGACY_PID_FILE) if os.geteuid() == 0 else (PID_FILE_USER, LEGACY_PID_FILE_USER)
+    )
+    if not current.exists() and legacy.is_file():
+        return legacy
+    return current
 
 
 def _exit(code: int) -> NoReturn:
@@ -186,12 +198,12 @@ class StartOptions:
             is missing.
         tls_cert: Path to the certificate chain.
         tls_key: Path to the private key.
-        self_signed: Serve TLS with a pair minted under ``/etc/wasm/panel-tls``.
+        self_signed: Serve TLS with a pair minted under ``/etc/noust/panel-tls``.
         insecure_http: Serve cleartext beyond loopback, in so many words.
         allow_ip: Addresses or CIDRs allowed to connect, empty for anyone.
         trusted_proxy: Peers whose forwarding headers are believed.
-        under_systemd: Run as ``wasm-web.service`` runs it: serve the token
-            ``wasm web enable`` issued and print none, since standard output
+        under_systemd: Run as ``noust-web.service`` runs it: serve the token
+            ``noust web enable`` issued and print none, since standard output
             is the journal; write no PID file, since systemd tracks the
             process; and do not refuse to start because the service is up,
             since this is the service.
@@ -215,7 +227,7 @@ def _option_argv(options: StartOptions, *, explicit: bool = True) -> list[str]:
     Spell exposure options back as the command line flags that produce them.
 
     One spelling serves both places the options are written down: the
-    ``ExecStart`` of ``wasm-web.service`` and the ``wasm web enable`` line a
+    ``ExecStart`` of ``noust-web.service`` and the ``noust web enable`` line a
     foreground start suggests. TLS paths are made absolute, because systemd
     starts the service from ``/`` and the operator typed them relative to a
     shell it never sees.
@@ -281,7 +293,7 @@ def add_start_arguments(parser: ArgumentParser) -> None:
     parser.add_argument(
         "--self-signed",
         action="store_true",
-        help="Serve TLS with a self-signed certificate, minted under /etc/wasm/panel-tls "
+        help="Serve TLS with a self-signed certificate, minted under /etc/noust/panel-tls "
         "and reused while it is valid",
     )
     parser.add_argument(
@@ -337,11 +349,11 @@ def _web_config_overrides() -> dict[str, Any]:
 
     These keys have no command line flag of their own, so config.yaml is the
     only place an operator can set them - which is exactly why ignoring them
-    silently was a defect: the file accepted the value, ``wasm config show``
+    silently was a defect: the file accepted the value, ``noust config show``
     displayed it, and the panel ran with something else.
 
     Returns:
-        :class:`~wasm.web.auth.SecurityConfig` field overrides for every key
+        :class:`~noust.web.auth.SecurityConfig` field overrides for every key
         the configuration answers.
     """
     overrides: dict[str, Any] = {}
@@ -377,13 +389,13 @@ def _build_security_config(options: StartOptions) -> SecurityConfig:
 
     Keys that exist both as a flag and in config.yaml follow one precedence,
     decided per key: an explicit command line flag wins, then the ``web.*``
-    section of ``/etc/wasm/config.yaml``, then the shipped default.
+    section of ``/etc/noust/config.yaml``, then the shipped default.
     ``web.host`` and ``web.port`` are deliberately not read from the file: how
     far the panel reaches is decided by the operator, in the same command that
     refuses an unsafe exposure.
 
     Serving beyond loopback requires the panel to terminate TLS - with a pair
-    the operator brings (``--tls-cert``/``--tls-key``) or one WASM mints
+    the operator brings (``--tls-cert``/``--tls-key``) or one Noust mints
     (``--self-signed``) - unless cleartext is accepted in so many words with
     ``--insecure-http``. A whitelist restricts who may connect but encrypts
     nothing, so it does not lift the requirement.
@@ -399,7 +411,7 @@ def _build_security_config(options: StartOptions) -> SecurityConfig:
             a network unprotected, or when the TLS options contradict each
             other.
     """
-    from wasm.web.auth import SecurityConfig
+    from noust.web.auth import SecurityConfig
 
     # Normalised first, so the exposure decision, the message and the address
     # that is finally bound all talk about the same thing.
@@ -416,7 +428,7 @@ def _build_security_config(options: StartOptions) -> SecurityConfig:
             raise SecurityError(
                 "--self-signed and --tls-cert/--tls-key contradict each other",
                 details=(
-                    "Bring your own pair with --tls-cert and --tls-key, or let WASM "
+                    "Bring your own pair with --tls-cert and --tls-key, or let Noust "
                     "mint one with --self-signed. Not both."
                 ),
             )
@@ -455,13 +467,13 @@ def _build_security_config(options: StartOptions) -> SecurityConfig:
 
     if not local_only and not serves_tls and not options.insecure_http:
         unresolved = (
-            f"WASM could not resolve {host!r}, so it cannot show that only this machine "
+            f"Noust could not resolve {host!r}, so it cannot show that only this machine "
             "would reach the panel, and treats it as exposed.\n"
             if not host_addresses(host)
             else ""
         )
         raise SecurityError(
-            f"Refusing to expose the WASM panel on {host} without TLS",
+            f"Refusing to expose the Noust panel on {host} without TLS",
             details=(
                 "The panel drives systemd, nginx and certbot as root, and over plain "
                 "HTTP its access token and session cookie cross the network readable "
@@ -469,10 +481,10 @@ def _build_security_config(options: StartOptions) -> SecurityConfig:
                 f"{unresolved}"
                 "Pick one:\n"
                 "  - keep it local and reach it over SSH: "
-                f"wasm web start --host 127.0.0.1 --port {port} "
+                f"noust web start --host 127.0.0.1 --port {port} "
                 f"(then 'ssh -L {port}:127.0.0.1:{port} user@server')\n"
                 "  - bring a certificate: --tls-cert CERT --tls-key KEY\n"
-                f"  - let WASM mint one: --self-signed (kept under {PANEL_TLS_DIR}; "
+                f"  - let Noust mint one: --self-signed (kept under {PANEL_TLS_DIR}; "
                 "browsers warn until you trust it)\n"
                 "  - accept cleartext in so many words: --insecure-http\n"
                 "--allow-ip restricts who may connect but encrypts nothing, so it does "
@@ -658,7 +670,7 @@ def _install_with_apt(packages: list[str], verbose: bool = False) -> bool:
 
     logger.info(f"Installing: {' '.join(packages)}")
 
-    # WASM requires root; there is no sudo to escalate with and nothing to
+    # Noust requires root; there is no sudo to escalate with and nothing to
     # escalate from. See the v1 design note on privilege.
     result = get_runner().run(
         ["apt-get", "install", "-y", *packages],
@@ -808,11 +820,11 @@ def _report_taken_port(host: str, port: int, logger: Logger) -> None:
         logger: Logger for the report.
     """
     logger.error(f"Something is already listening on {host}:{port}")
-    logger.info("WASM does not move the panel to another port on its own:")
+    logger.info("Noust does not move the panel to another port on its own:")
     logger.info("  the port is what your SSH tunnel, proxy and bookmarks point at,")
     logger.info("  and moving it would hide a panel that is still running here.")
     logger.info("If it is a panel this machine has forgotten about:")
-    logger.info("  wasm web stop")
+    logger.info("  noust web stop")
     logger.info("To see what holds the port:")
     logger.info(f"  ss -ltnp 'sport = :{port}'")
 
@@ -824,7 +836,7 @@ def _report_taken_port(host: str, port: int, logger: Logger) -> None:
         )
         return
     logger.info(f"Or serve on {free}, which is free right now:")
-    logger.info(f"  wasm web start --port {free}")
+    logger.info(f"  noust web start --port {free}")
 
 
 def _self_signed_subject(host: str) -> str:
@@ -840,7 +852,7 @@ def _self_signed_subject(host: str) -> str:
     """
     bare = strip_brackets(host)
     if bare in (ALL_INTERFACES, "::"):
-        return socket.gethostname() or "wasm-panel"
+        return socket.gethostname() or "noust-panel"
     return bare
 
 
@@ -854,9 +866,9 @@ def _ensure_self_signed(host: str, logger: Logger, verbose: bool) -> None:
         verbose: Whether the certificate manager should log verbosely.
 
     Raises:
-        WASMError: When the pair cannot be created.
+        NoustError: When the pair cannot be created.
     """
-    from wasm.managers.cert_manager import CertManager
+    from noust.managers.cert_manager import CertManager
 
     subject = _self_signed_subject(host)
     minted = CertManager(verbose=verbose).generate_self_signed(
@@ -896,7 +908,7 @@ def _print_banner(config: SecurityConfig, token: str, notes: Sequence[str]) -> N
     Print the banner that hands the operator the console: token, address, notes.
 
     Every front door that issues a token prints through here - the foreground
-    start, the background start and ``wasm web enable`` - so the handover is
+    start, the background start and ``noust web enable`` - so the handover is
     the same whichever way the console runs. The SSH tunnel line, the only way
     to open a loopback console from another machine, is set apart so it is not
     read past; ``notes`` say how this console stops and whether it survives a
@@ -907,7 +919,7 @@ def _print_banner(config: SecurityConfig, token: str, notes: Sequence[str]) -> N
         token: The access token issued for it.
         notes: Lines closing the banner, before its last rule.
     """
-    from wasm.web.server import banner_address, startup_banner
+    from noust.web.server import banner_address, startup_banner
 
     scheme = "https" if config.require_https else "http"
     address = banner_address(config.host)
@@ -921,7 +933,7 @@ def _print_banner(config: SecurityConfig, token: str, notes: Sequence[str]) -> N
 
 def _enable_hint(options: StartOptions | None) -> str:
     """
-    Spell the ``wasm web enable`` that would keep this console running.
+    Spell the ``noust web enable`` that would keep this console running.
 
     Args:
         options: The options this console was started with, when known.
@@ -930,7 +942,7 @@ def _enable_hint(options: StartOptions | None) -> str:
         A command line to paste.
     """
     flags = _option_argv(options, explicit=False) if options is not None else []
-    return shlex.join(["wasm", "web", "enable", *flags])
+    return shlex.join([paths.NAME, "web", "enable", *flags])
 
 
 def _report_daemon_started(
@@ -952,27 +964,27 @@ def _report_daemon_started(
         pid: Process id of the panel.
         token: The access token issued for this start.
         logger: Logger for the report.
-        options: The options it was started with, for the ``wasm web enable``
+        options: The options it was started with, for the ``noust web enable``
             line that keeps it running across reboots.
     """
     _print_banner(
         config,
         token,
         (
-            "Runs in the background until 'wasm web stop' or the next reboot.",
-            f"To keep it running across reboots: wasm web stop && {_enable_hint(options)}",
+            "Runs in the background until 'noust web stop' or the next reboot.",
+            f"To keep it running across reboots: noust web stop && {_enable_hint(options)}",
         ),
     )
     logger.success(f"Web server started in background (PID: {pid})")
-    logger.info("Use 'wasm web status' to check status")
-    logger.info("Use 'wasm web stop' to stop the server")
+    logger.info("Use 'noust web status' to check status")
+    logger.info("Use 'noust web stop' to stop the server")
 
 
 def _dependencies_ready(logger: Logger, verbose: bool, *, dry_run: bool) -> bool:
     """
     Check the console's packages, offering to install what is missing.
 
-    Checked before anything else: SecurityConfig lives in wasm.web.auth, which
+    Checked before anything else: SecurityConfig lives in noust.web.auth, which
     imports fastapi, so building the configuration on a host without the
     panel's packages would answer a missing dependency with an ImportError
     traceback.
@@ -1007,7 +1019,7 @@ def _dependencies_ready(logger: Logger, verbose: bool, *, dry_run: bool) -> bool
     for instruction in _get_install_instructions(missing_apt, missing_pip):
         logger.info(f"  {instruction}")
     logger.blank()
-    logger.info("Or run: wasm web install")
+    logger.info("Or run: noust web install")
     return False
 
 
@@ -1039,23 +1051,47 @@ def _service_manager(verbose: bool) -> Any:
         verbose: Whether to log verbosely.
 
     Returns:
-        A :class:`~wasm.managers.service_manager.ServiceManager`.
+        A :class:`~noust.managers.service_manager.ServiceManager`.
     """
-    from wasm.managers.service_manager import ServiceManager
+    from noust.managers.service_manager import ServiceManager
 
     return ServiceManager(verbose=verbose)
 
 
-def _service_unit_path() -> Path:
+def _installed_web_unit() -> str:
     """
-    Where ``wasm web enable`` writes the console's unit.
+    Name the console's installed unit: ``noust-web``, or WASM's ``wasm-web``.
+
+    A 2.x server keeps running ``wasm-web.service`` until the migration from
+    WASM renames it; until then status, stop and disable must act on that one
+    rather than report that no console is installed.
 
     Returns:
-        ``wasm-web.service`` in the directory ServiceManager manages.
+        ``noust-web`` when its file exists or neither does; ``wasm-web`` when
+        only the WASM unit is installed.
     """
-    from wasm.managers.service_manager import ServiceManager
+    from noust.managers.service_manager import ServiceManager
 
-    return Path(ServiceManager.SYSTEMD_DIR) / WEB_UNIT_FILE
+    directory = Path(ServiceManager.SYSTEMD_DIR)
+    if (directory / WEB_UNIT_FILE).exists():
+        return WEB_UNIT
+    if (directory / f"{LEGACY_WEB_UNIT}.service").exists():
+        return LEGACY_WEB_UNIT
+    return WEB_UNIT
+
+
+def _service_unit_path() -> Path:
+    """
+    Where the console's unit is: the one ``noust web enable`` writes, or the
+    one WASM wrote on a server not migrated yet.
+
+    Returns:
+        ``noust-web.service`` (or ``wasm-web.service``) in the directory
+        ServiceManager manages.
+    """
+    from noust.managers.service_manager import ServiceManager
+
+    return Path(ServiceManager.SYSTEMD_DIR) / f"{_installed_web_unit()}.service"
 
 
 def _service_status(verbose: bool) -> dict[str, Any] | None:
@@ -1063,25 +1099,25 @@ def _service_status(verbose: bool) -> dict[str, Any] | None:
     Ask systemd about the console's unit, when it is installed.
 
     The file is checked first, and only then is ServiceManager asked: the
-    manager resolves ``wasm-web`` to ``web`` when only ``web.service`` exists,
+    manager resolves ``noust-web`` to ``web`` when only ``web.service`` exists,
     and an application named ``web`` is not the console.
 
     Args:
         verbose: Whether to log verbosely.
 
     Returns:
-        :meth:`~wasm.managers.service_manager.ServiceManager.get_status`'s
+        :meth:`~noust.managers.service_manager.ServiceManager.get_status`'s
         answer, or None when the unit is not installed.
     """
     if not _service_unit_path().exists():
         return None
-    status: dict[str, Any] = _service_manager(verbose).get_status(WEB_UNIT)
+    status: dict[str, Any] = _service_manager(verbose).get_status(_installed_web_unit())
     return status
 
 
 def _refuse_while_service_runs(verbose: bool, *, action: str) -> None:
     """
-    Refuse to bring up a second console while ``wasm-web.service`` runs.
+    Refuse to bring up a second console while ``noust-web.service`` runs.
 
     A second console would print a new token, retiring the one the service's
     operator holds, and then fail to bind the port the service holds.
@@ -1099,11 +1135,11 @@ def _refuse_while_service_runs(verbose: bool, *, action: str) -> None:
     raise ServiceError(
         f"Refusing to {action} a second console: it already runs as {WEB_UNIT_FILE}",
         details=(
-            "The service holds its port and serves the token 'wasm web enable' printed.\n"
-            "  - to change its options: wasm web enable <new options>\n"
-            "  - to stop it and remove it: wasm web disable\n"
+            "The service holds its port and serves the token 'noust web enable' printed.\n"
+            "  - to change its options: noust web enable <new options>\n"
+            "  - to stop it and remove it: noust web disable\n"
             f"  - to stop it until the next boot: systemctl stop {WEB_UNIT}\n"
-            "  - to see how it runs: wasm web status"
+            "  - to see how it runs: noust web status"
         ),
     )
 
@@ -1118,7 +1154,7 @@ def _issue_token(config: SecurityConfig) -> str:
     Returns:
         The token, the only readable copy there is.
     """
-    from wasm.web.auth import TokenManager
+    from noust.web.auth import TokenManager
 
     manager = TokenManager(config)
     try:
@@ -1142,7 +1178,7 @@ def _start(options: StartOptions, verbose: bool, *, dry_run: bool = False) -> in
 
     Raises:
         SecurityError: When the requested exposure is not protected.
-        ServiceError: When the console already runs as ``wasm-web.service``.
+        ServiceError: When the console already runs as ``noust-web.service``.
     """
     logger = Logger(verbose=verbose)
 
@@ -1163,7 +1199,7 @@ def _start(options: StartOptions, verbose: bool, *, dry_run: bool = False) -> in
     running = _running_daemon_pid()
     if running is not None:
         logger.warning(f"Web server already running (PID: {running})")
-        logger.info("Use 'wasm web stop' to stop it first")
+        logger.info("Use 'noust web stop' to stop it first")
         return 1
 
     # The PID file only catches a panel this machine still has a record of. A
@@ -1230,21 +1266,21 @@ def _start_foreground(
     say how this console stops and how to keep it running; the server then
     serves that token and issues none. Under systemd no token is issued at
     all: standard output is the journal, and the token the service serves is
-    the one ``wasm web enable`` printed on the operator's terminal.
+    the one ``noust web enable`` printed on the operator's terminal.
 
     Args:
         config: The security configuration to serve with.
         insecure_http: Whether cleartext beyond loopback was accepted in so
-            many words, forwarded to :func:`wasm.web.server.run_server` - the
+            many words, forwarded to :func:`noust.web.server.run_server` - the
             chokepoint that actually binds the socket, and which refuses the
             exposure again on its own if this is not passed through.
         options: The options it was started with: whether it runs under
-            systemd, and what ``wasm web enable`` would need to be told.
+            systemd, and what ``noust web enable`` would need to be told.
 
     Returns:
         Exit code.
     """
-    from wasm.web.server import run_server, verify_tls_material
+    from noust.web.server import run_server, verify_tls_material
 
     under_systemd = options is not None and options.under_systemd
     scheme = "https" if config.require_https else "http"
@@ -1259,9 +1295,9 @@ def _start_foreground(
 
     if under_systemd:
         print(
-            f"WASM console serving {scheme}://{config.host}:{config.port} as {WEB_UNIT_FILE}. "
-            "Sign in with the token 'wasm web enable' printed; "
-            "'wasm web token --new' issues another.",
+            f"Noust console serving {scheme}://{config.host}:{config.port} as {WEB_UNIT_FILE}. "
+            "Sign in with the token 'noust web enable' printed; "
+            "'noust web token --new' issues another.",
             flush=True,
         )
     else:
@@ -1274,7 +1310,7 @@ def _start_foreground(
             ),
         )
         # systemd tracks the service's process itself; a PID file next to it
-        # would only invite 'wasm web stop' to kill what systemd supervises.
+        # would only invite 'noust web stop' to kill what systemd supervises.
         fs.make_dir(pid_file.parent)
         fs.write_text(pid_file, str(os.getpid()))
 
@@ -1302,7 +1338,7 @@ def _start_daemon(
     """
     Start the web server as a daemon, printing the access token it serves.
 
-    The same banner a foreground start prints: ``wasm web start -d`` used to
+    The same banner a foreground start prints: ``noust web start -d`` used to
     print no token at all while the child issued one nobody saw, retiring the
     one the operator held.
 
@@ -1310,8 +1346,8 @@ def _start_daemon(
         config: The security configuration to serve with.
         verbose: Whether to log verbosely.
         insecure_http: Whether cleartext beyond loopback was accepted in so
-            many words, forwarded to :func:`wasm.web.server.run_server`.
-        options: The options it was started with, for the ``wasm web enable``
+            many words, forwarded to :func:`noust.web.server.run_server`.
+        options: The options it was started with, for the ``noust web enable``
             line the banner suggests.
 
     Returns:
@@ -1347,9 +1383,9 @@ def _start_daemon(
 
     fs = get_fs()
 
-    log_file = Path("/var/log/wasm/web.log")
+    log_file = paths.LOG_DIR / "web.log"
     if not log_file.parent.exists():
-        log_file = Path.home() / ".wasm" / "web.log"
+        log_file = PID_FILE_USER.parent / "web.log"
     fs.make_dir(log_file.parent)
 
     with open(log_file, "a") as log:
@@ -1363,7 +1399,7 @@ def _start_daemon(
 
     # Start server
     try:
-        from wasm.web.server import run_server
+        from noust.web.server import run_server
 
         run_server(
             host=config.host,
@@ -1383,7 +1419,7 @@ def _stop(verbose: bool, *, dry_run: bool = False) -> int:
     Stop the running panel.
 
     Only the background console is this command's to stop. A console running
-    as ``wasm-web.service`` is named instead: killing systemd's process would
+    as ``noust-web.service`` is named instead: killing systemd's process would
     leave a unit that comes back at the next boot, and saying "not running"
     next to it would be false.
 
@@ -1403,7 +1439,7 @@ def _stop(verbose: bool, *, dry_run: bool = False) -> int:
         status = _service_status(verbose)
         if status is not None and status["active"]:
             logger.error(f"The console runs as {WEB_UNIT_FILE}, not as a background process")
-            logger.info("To stop it and remove it:  wasm web disable")
+            logger.info("To stop it and remove it:  noust web disable")
             logger.info(f"To stop it until the next boot:  systemctl stop {WEB_UNIT}")
             return 1
         logger.info("Web server is not running")
@@ -1442,7 +1478,7 @@ def _stop(verbose: bool, *, dry_run: bool = False) -> int:
 
 def _service_payload(status: dict[str, Any] | None) -> dict[str, Any]:
     """
-    Describe the console's unit for ``wasm web status``.
+    Describe the console's unit for ``noust web status``.
 
     Args:
         status: What systemd said, or None when the unit is not installed.
@@ -1504,7 +1540,7 @@ def _status(verbose: bool, *, json_output: bool = False) -> int:
         Exit code.
 
     Raises:
-        WASMError: The PID file exists but does not hold a PID, and JSON was
+        NoustError: The PID file exists but does not hold a PID, and JSON was
             asked for - the ordinary error path, not an invalid JSON body.
     """
     logger = Logger(verbose=verbose)
@@ -1528,8 +1564,8 @@ def _status(verbose: bool, *, json_output: bool = False) -> int:
                 get_fs().remove(pid_file, missing_ok=True)
             except ValueError:
                 if json_output:
-                    raise WASMError("Invalid PID file") from None
-                logger.header("WASM Web Interface Status")
+                    raise NoustError("Invalid PID file") from None
+                logger.header("Noust Web Interface Status")
                 logger.error("Invalid PID file")
                 return 1
             else:
@@ -1542,7 +1578,7 @@ def _status(verbose: bool, *, json_output: bool = False) -> int:
         click.echo(json.dumps(payload))
         return 0
 
-    logger.header("WASM Web Interface Status")
+    logger.header("Noust Web Interface Status")
     logger.key_value("Status", payload["status"])
     if payload["mode"] == "service":
         boot = "starts at boot" if service and service["enabled"] else "does not start at boot"
@@ -1561,7 +1597,7 @@ def _status(verbose: bool, *, json_output: bool = False) -> int:
         logger.key_value("Service", f"{WEB_UNIT_FILE} is {state}")
         logger.info(f"See why: journalctl -u {WEB_UNIT} -n 50")
     elif payload["mode"] == "daemon":
-        logger.info("To keep it running across reboots: wasm web stop && wasm web enable")
+        logger.info("To keep it running across reboots: noust web stop && noust web enable")
     return 0
 
 
@@ -1579,8 +1615,8 @@ def _restart(options: StartOptions, verbose: bool, *, dry_run: bool = False) -> 
 
     Raises:
         SecurityError: When the requested exposure is not protected.
-        ServiceError: When the console runs as ``wasm-web.service``, which
-            'wasm web enable' restarts with new options.
+        ServiceError: When the console runs as ``noust-web.service``, which
+            'noust web enable' restarts with new options.
     """
     logger = Logger(verbose=verbose)
 
@@ -1600,9 +1636,9 @@ def _restart(options: StartOptions, verbose: bool, *, dry_run: bool = False) -> 
     return _start(options, verbose, dry_run=dry_run)
 
 
-def _wasm_executable() -> str:
+def _noust_executable() -> str:
     """
-    Locate the wasm entry point the unit's ExecStart runs.
+    Locate the noust entry point the unit's ExecStart runs.
 
     systemd has no PATH of the operator's, so a relative command in a unit is
     a service that never starts.
@@ -1611,15 +1647,15 @@ def _wasm_executable() -> str:
         The absolute path ``shutil.which`` finds.
 
     Raises:
-        ServiceError: When wasm is not on PATH.
+        ServiceError: When noust is not on PATH.
     """
-    found = find_wasm_executable()
+    found = find_noust_executable()
     if not found:
         raise ServiceError(
-            "Could not find the wasm executable to run from the systemd unit",
+            "Could not find the noust executable to run from the systemd unit",
             details=(
-                "Install WASM system-wide (the distribution package, or pip install "
-                "wasm-cli as root) so that 'wasm' is on PATH, then run 'wasm web enable' again."
+                "Install Noust system-wide (the distribution package, or pip install "
+                "noust as root) so that 'noust' is on PATH, then run 'noust web enable' again."
             ),
         )
     return found
@@ -1627,7 +1663,7 @@ def _wasm_executable() -> str:
 
 def _service_exec_start(options: StartOptions) -> str:
     """
-    Build the unit's ExecStart: this machine's wasm, running the console.
+    Build the unit's ExecStart: this machine's noust, running the console.
 
     Args:
         options: The exposure the operator asked for, already validated.
@@ -1636,14 +1672,14 @@ def _service_exec_start(options: StartOptions) -> str:
         The value written after ``ExecStart=``.
 
     Raises:
-        ServiceError: When wasm is not on PATH.
+        ServiceError: When noust is not on PATH.
         ValidationError: When a value carries a character a unit line cannot
             hold.
     """
-    from wasm.managers.cron_manager import CronManager
-    from wasm.validators.environment import validate_unit_value
+    from noust.managers.cron_manager import CronManager
+    from noust.validators.environment import validate_unit_value
 
-    argv = [_wasm_executable(), "web", "start", "--under-systemd", *_option_argv(options)]
+    argv = [_noust_executable(), "web", "start", "--under-systemd", *_option_argv(options)]
     for value in argv:
         validate_unit_value(value, field="ExecStart")
         if "$" in value:
@@ -1686,8 +1722,8 @@ def _wait_until_serving(manager: Any, host: str, port: int) -> None:
             )
             # The fix first, then systemd's own words, verbatim.
             advice = (
-                "Fix what the journal says and run 'wasm web enable' again, or remove "
-                f"the unit with 'wasm web disable'. More: journalctl -u {WEB_UNIT} -n 100"
+                "Fix what the journal says and run 'noust web enable' again, or remove "
+                f"the unit with 'noust web disable'. More: journalctl -u {WEB_UNIT} -n 100"
             )
             raise ServiceError(
                 f"{WEB_UNIT_FILE} {what}",
@@ -1698,9 +1734,9 @@ def _wait_until_serving(manager: Any, host: str, port: int) -> None:
 
 def _enable(options: StartOptions, verbose: bool, *, dry_run: bool = False) -> int:
     """
-    Run the console as ``wasm-web.service``: started now, and at every boot.
+    Run the console as ``noust-web.service``: started now, and at every boot.
 
-    The options are validated by the very function ``wasm web start`` uses, so
+    The options are validated by the very function ``noust web start`` uses, so
     a service cannot be written for an exposure a start would refuse. The
     token is issued here, before the restart, so the one it replaces stops
     working at once, and printed on this terminal once the service listens;
@@ -1718,7 +1754,7 @@ def _enable(options: StartOptions, verbose: bool, *, dry_run: bool = False) -> i
 
     Raises:
         SecurityError: When the requested exposure is not protected.
-        ServiceError: When the unit is not WASM's to write, wasm is not on
+        ServiceError: When the unit is not Noust's to write, noust is not on
             PATH, or the service does not come up.
     """
     logger = Logger(verbose=verbose)
@@ -1726,13 +1762,23 @@ def _enable(options: StartOptions, verbose: bool, *, dry_run: bool = False) -> i
     if not _dependencies_ready(logger, verbose, dry_run=dry_run):
         return 1
 
+    if _installed_web_unit() == LEGACY_WEB_UNIT:
+        # Writing noust-web next to Noust's running noust-web would start a
+        # second console on the same port; the migration renames the unit
+        # (and keeps it running) instead.
+        raise ServiceError(
+            f"The console still runs as WASM's {LEGACY_WEB_UNIT}.service",
+            details="Move this server onto Noust's names first: noust migrate-from-wasm. "
+            "It renames the unit and keeps the console running; then run this again.",
+        )
+
     config = _build_security_config(options)
     host = config.host
 
     running = _running_daemon_pid()
     if running is not None:
         logger.error(f"A console already runs in the background (PID: {running})")
-        logger.info("Stop it first, so the service can take its port:  wasm web stop")
+        logger.info("Stop it first, so the service can take its port:  noust web stop")
         return 1
 
     previous = _service_status(verbose)
@@ -1773,7 +1819,7 @@ def _enable(options: StartOptions, verbose: bool, *, dry_run: bool = False) -> i
     except ServiceError as exc:
         retired = (
             "The previous access token no longer works. Once the console serves, "
-            "the next 'wasm web enable' prints a new one (or 'wasm web token --new')."
+            "the next 'noust web enable' prints a new one (or 'noust web token --new')."
         )
         exc.details = f"{retired}\n{exc.details}" if exc.details else retired
         raise
@@ -1783,8 +1829,8 @@ def _enable(options: StartOptions, verbose: bool, *, dry_run: bool = False) -> i
         token,
         (
             f"Runs as {WEB_UNIT_FILE}: started at boot, restarted if it fails.",
-            "Change its options with 'wasm web enable'; stop and remove it with "
-            "'wasm web disable'.",
+            "Change its options with 'noust web enable'; stop and remove it with "
+            "'noust web disable'.",
         ),
     )
     logger.success(f"{WEB_UNIT_FILE} {'restarted' if was_active else 'enabled and started'}")
@@ -1795,9 +1841,9 @@ def _enable(options: StartOptions, verbose: bool, *, dry_run: bool = False) -> i
 
 def _disable(verbose: bool, *, dry_run: bool = False) -> int:
     """
-    Stop ``wasm-web.service``, keep it from starting at boot, and remove it.
+    Stop ``noust-web.service``, keep it from starting at boot, and remove it.
 
-    The access token and the console's state under ``/etc/wasm`` stay: the
+    The access token and the console's state under ``/etc/noust`` stay: the
     next start, of either kind, issues a new token anyway.
 
     Args:
@@ -1809,25 +1855,26 @@ def _disable(verbose: bool, *, dry_run: bool = False) -> int:
         Exit code.
 
     Raises:
-        ServiceError: When the unit at that path is not WASM's.
+        ServiceError: When the unit at that path is not Noust's.
     """
     logger = Logger(verbose=verbose)
 
     # Checked before ServiceManager is asked anything: it falls back from
-    # wasm-web to web.service, which may well be an application's unit.
+    # noust-web to web.service, which may well be an application's unit.
     if not _service_unit_path().exists():
         logger.info(f"The console is not installed as a service ({WEB_UNIT_FILE})")
         return 0
 
-    _service_manager(verbose).delete_service(WEB_UNIT)
+    unit = _installed_web_unit()
+    _service_manager(verbose).delete_service(unit)
 
     if dry_run:
-        logger.info(f"would stop, disable and remove {WEB_UNIT_FILE}")
+        logger.info(f"would stop, disable and remove {unit}.service")
         return 0
 
-    logger.success(f"{WEB_UNIT_FILE} stopped, disabled and removed")
+    logger.success(f"{unit}.service stopped, disabled and removed")
     logger.info(
-        "Start the console by hand with 'wasm web start', or again at boot with 'wasm web enable'."
+        "Start the console by hand with 'noust web start', or again at boot with 'noust web enable'."
     )
     return 0
 
@@ -1877,12 +1924,12 @@ def _token_status(config: SecurityConfig, logger: Logger) -> int:
     Returns:
         Exit code.
     """
-    logger.header("WASM Web Access Token")
+    logger.header("Noust Web Access Token")
 
     if not config.token_file.exists():
         logger.key_value("Status", "no token has been issued yet")
         logger.blank()
-        logger.info("Issue the first one with: wasm web token --new")
+        logger.info("Issue the first one with: noust web token --new")
         return 0
 
     issued = datetime.fromtimestamp(config.token_file.stat().st_mtime)
@@ -1892,7 +1939,7 @@ def _token_status(config: SecurityConfig, logger: Logger) -> int:
     logger.blank()
     logger.info(
         "The token is stored as a salted hash, so it cannot be read back here. "
-        "If you have lost it, issue a new one with 'wasm web token --new'; "
+        "If you have lost it, issue a new one with 'noust web token --new'; "
         "the token currently in use stops working."
     )
     return 0
@@ -1912,7 +1959,7 @@ def _token(
     Showing is the default because that is what operators run this for. The
     stored token is a salted hash and cannot be read back, so issuing a new one
     is the only way to hold a token again - and it invalidates the one in use,
-    which is far too much to do to somebody who only typed ``wasm web token``.
+    which is far too much to do to somebody who only typed ``noust web token``.
     So it takes ``--new`` (or ``--regenerate``) and a confirmation.
 
     Args:
@@ -1941,10 +1988,10 @@ def _token(
         for instruction in _get_install_instructions(missing_apt, missing_pip):
             logger.info(f"  {instruction}")
         logger.blank()
-        logger.info("Or run: wasm web install")
+        logger.info("Or run: noust web install")
         return 1
 
-    from wasm.web.auth import SecurityConfig, TokenManager
+    from noust.web.auth import SecurityConfig, TokenManager
 
     config = SecurityConfig()
 
@@ -1986,8 +2033,8 @@ def _token(
         )
         logger.warning(
             "Every API token and TOTP backup code was hashed with the signing key just "
-            "replaced and no longer verifies. Issue new ones with 'wasm token create NAME' "
-            "and 'wasm 2fa backup-codes'."
+            "replaced and no longer verifies. Issue new ones with 'noust token create NAME' "
+            "and 'noust 2fa backup-codes'."
         )
     else:
         logger.warning(
@@ -2013,7 +2060,7 @@ def _install(use_apt: bool, use_pip: bool, verbose: bool) -> int:
     """
     logger = Logger(verbose=verbose)
 
-    logger.header("Installing WASM Web Dependencies")
+    logger.header("Installing Noust Web Dependencies")
 
     # Check if already installed
     all_installed, missing_apt, missing_pip = _check_dependencies()
@@ -2058,7 +2105,7 @@ def _install(use_apt: bool, use_pip: bool, verbose: bool) -> int:
             if all_installed:
                 logger.success("Web dependencies installed successfully!")
                 logger.blank()
-                logger.info("You can now start the web server with: wasm web start")
+                logger.info("You can now start the web server with: noust web start")
                 return 0
             else:
                 logger.warning("Some packages may not be available via apt")
@@ -2078,7 +2125,7 @@ def _install(use_apt: bool, use_pip: bool, verbose: bool) -> int:
             if all_installed:
                 logger.success("Web dependencies installed successfully!")
                 logger.blank()
-                logger.info("You can now start the web server with: wasm web start")
+                logger.info("You can now start the web server with: noust web start")
                 return 0
         logger.error("Failed to install dependencies")
         return 1
@@ -2146,7 +2193,7 @@ def _exposure_options(command: F) -> F:
             "--self-signed",
             is_flag=True,
             help="Serve TLS with a self-signed certificate, minted under "
-            "/etc/wasm/panel-tls and reused while it is valid.",
+            "/etc/noust/panel-tls and reused while it is valid.",
         ),
         click.option(
             "--insecure-http",
@@ -2174,7 +2221,7 @@ def _exposure_options(command: F) -> F:
     return command
 
 
-@click.group(name="web", cls=WasmGroup)
+@click.group(name="web", cls=NoustGroup)
 @global_flags
 def cli() -> None:
     """
@@ -2182,7 +2229,7 @@ def cli() -> None:
 
     The panel acts as root, so it listens on 127.0.0.1 unless you give it TLS;
     reach it from your machine with 'ssh -L 8080:127.0.0.1:8080 user@server'.
-    'wasm web enable' keeps it running across reboots.
+    'noust web enable' keeps it running across reboots.
     """
 
 
@@ -2193,8 +2240,8 @@ def cli() -> None:
     "--under-systemd",
     is_flag=True,
     hidden=True,
-    help="Run as wasm-web.service does: print no token, write no PID file. "
-    "Written into the unit by 'wasm web enable'; not for interactive use.",
+    help="Run as noust-web.service does: print no token, write no PID file. "
+    "Written into the unit by 'noust web enable'; not for interactive use.",
 )
 @global_flags
 @pass_context
@@ -2216,7 +2263,7 @@ def start_command(
     Start the panel and print an access token.
 
     It runs in the foreground until Ctrl+C, or with -d in the background until
-    'wasm web stop' or the next reboot. 'wasm web enable' takes the same
+    'noust web stop' or the next reboot. 'noust web enable' takes the same
     options and keeps it running across reboots.
     """
     if under_systemd and daemon:
@@ -2258,7 +2305,7 @@ def enable_command(
     """
     Run the panel as a systemd service that survives reboots.
 
-    Writes wasm-web.service with these options (the same ones 'wasm web start'
+    Writes noust-web.service with these options (the same ones 'noust web start'
     takes and checks), enables and starts it, and prints the access token.
     Run it again to change the options.
     """
@@ -2288,7 +2335,7 @@ def disable_command(ctx: Context) -> NoReturn:
 @global_flags
 @pass_context
 def stop_command(ctx: Context) -> NoReturn:
-    """Stop the panel started with 'wasm web start -d'."""
+    """Stop the panel started with 'noust web start -d'."""
     _exit(_stop(ctx.verbose, dry_run=ctx.dry_run))
 
 
@@ -2360,7 +2407,7 @@ def token_command(ctx: Context, issue: bool, regenerate: bool, assume_yes: bool)
     Show the state of the access token, or issue a new one with --new.
 
     Showing is the default: issuing a token invalidates the one the panel is
-    being used with right now, and nobody types 'wasm web token' meaning that.
+    being used with right now, and nobody types 'noust web token' meaning that.
     """
     _exit(
         _token(
@@ -2438,7 +2485,7 @@ def _expose_hooks(
     Returns:
         Exit code.
     """
-    from wasm.integrations import hooks_site
+    from noust.integrations import hooks_site
 
     logger = Logger(verbose=verbose)
     if remove:
@@ -2457,7 +2504,7 @@ def _expose_hooks(
     if service is None or not service["active"]:
         result.notes.append(
             "The console is not running as a service, so nothing answers the hooks when it "
-            "is stopped: run 'wasm web enable'."
+            "is stopped: run 'noust web enable'."
         )
     if json_output:
         click.echo(json.dumps(result.to_dict()))
@@ -2484,7 +2531,7 @@ def _expose_hooks(
     "--port",
     type=int,
     default=None,
-    help="The console's port on loopback; read from wasm-web.service by default.",
+    help="The console's port on loopback; read from noust-web.service by default.",
 )
 @global_flags
 @json_option("Print the outcome as JSON.")
@@ -2500,7 +2547,7 @@ def expose_hooks_command(
     records https://DOMAIN/hooks as the public URL the GitHub App and the
     per-application webhooks use. DOMAIN must already point at this server and
     must not be an application's. The console should run as a service
-    ('wasm web enable'), or nothing answers when it is stopped.
+    ('noust web enable'), or nothing answers when it is stopped.
     """
     _exit(
         _expose_hooks(
@@ -2645,7 +2692,7 @@ def handle_web(args: Namespace) -> int:
     """
     Route a ``web`` subcommand parsed by a legacy argparse-shaped namespace.
 
-    ``wasm.cli.parser`` is gone and nothing calls this in production; it is
+    ``noust.cli.parser`` is gone and nothing calls this in production; it is
     kept, and tested directly, sharing every implementation with the Click
     commands above rather than duplicating them.
 
@@ -2675,7 +2722,7 @@ def handle_web(args: Namespace) -> int:
 
     try:
         return handler(args)
-    except WASMError as e:
+    except NoustError as e:
         logger = Logger(verbose=args.verbose)
         logger.error(str(e))
         return 1

@@ -36,7 +36,7 @@ const test = base.extend<object, { consoleServer: ConsoleServer }>({
 });
 
 /** The relay's refusal, as a mail server words it: what the page must show verbatim. */
-const RELAY_DENIED = "5.7.1 Relaying denied: this server does not accept mail from wasm@example.com";
+const RELAY_DENIED = "5.7.1 Relaying denied: this server does not accept mail from noust@example.com";
 
 /** A minimal SMTP server on loopback that greets, answers EHLO and refuses every sender. */
 async function refusingSmtpServer(): Promise<{ port: number; close: () => Promise<void> }> {
@@ -102,7 +102,7 @@ test("email: the SMTP account is a form, refusals land on their field, a failed 
     await email.getByRole("radio", { name: "None" }).click();
     await expect(email.getByLabel("Port")).toHaveValue("25");
     await email.getByLabel("Port").fill(String(relay.port));
-    await email.getByLabel(/From address/).fill("wasm@example.com");
+    await email.getByLabel(/From address/).fill("noust@example.com");
     const add = email.getByLabel("Add a recipient");
     await add.fill("ops@example");
     await add.press("Enter");
@@ -220,12 +220,12 @@ test("telegram: finds the chats the bot has seen, fills the chat ID, and shows T
   await find.click();
   const chats = telegram.getByRole("list", { name: "Chats your bot has seen" });
   await expect(chats.getByRole("listitem")).toHaveCount(2);
-  await expect(chats.getByText("WASM alerts")).toBeVisible();
+  await expect(chats.getByText("Noust alerts")).toBeVisible();
   await expect(chats.getByText("Supergroup")).toBeVisible();
   await expect(chats.getByText("@ops_oncall")).toBeVisible();
   await stillness(page);
   await expectNoA11yViolations(page, "the chats a bot has seen");
-  await chats.getByRole("button", { name: "Use WASM alerts" }).click();
+  await chats.getByRole("button", { name: "Use Noust alerts" }).click();
   await expect(telegram.getByLabel("Chat ID")).toHaveValue("-1001987654321");
   await expect(chats.getByText("Chosen")).toBeVisible();
   await telegram.getByRole("button", { name: "Save" }).click();

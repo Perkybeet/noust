@@ -32,7 +32,7 @@ from jinja2 import StrictUndefined, UndefinedError
 from jinja2 import TemplateError as JinjaTemplateError
 from jinja2.sandbox import SandboxedEnvironment
 
-from wasm.core.exceptions import ValidationError
+from noust.core.exceptions import ValidationError
 
 #: Longest secret a recipe may ask for.
 MAX_SECRET_LENGTH = 128

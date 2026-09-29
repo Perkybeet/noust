@@ -9,7 +9,7 @@ import { EnrollDialog } from "./TwoFactorSection";
 
 const ENROLLMENT = {
   secret: "JBSWY3DPEHPK3PXP",
-  uri: "otpauth://totp/WASM:web-01?secret=JBSWY3DPEHPK3PXP&issuer=WASM&algorithm=SHA1&digits=6&period=30",
+  uri: "otpauth://totp/Noust:web-01?secret=JBSWY3DPEHPK3PXP&issuer=Noust&algorithm=SHA1&digits=6&period=30",
 };
 
 const CODES = ["1a2b-3c4d", "5e6f-7a8b"];

@@ -190,7 +190,7 @@ export function LoginForm({ next, expired }: LoginFormProps) {
           label={t("auth.accessToken")}
           error={fieldError}
           description={t.rich("auth.accessTokenHint", {
-            command: <code className="mono rounded-[4px] bg-bg-sunken px-1 py-0.5 text-fg">wasm web token</code>,
+            command: <code className="mono rounded-[4px] bg-bg-sunken px-1 py-0.5 text-fg">noust web token</code>,
           })}
         >
           <Input

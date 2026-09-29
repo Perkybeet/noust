@@ -39,7 +39,7 @@ const SERVICES: ServiceList["services"] = [
   },
 ];
 
-/** The machine's units, once "Show all units" asks for `wasm_only=false`: WASM's own, plus one it did not create. */
+/** The machine's units, once "Show all units" asks for `noust_only=false`: Noust's own, plus one it did not create. */
 const ALL_SERVICES: ServiceList["services"] = [
   ...SERVICES,
   {
@@ -58,10 +58,10 @@ const ALL_SERVICES: ServiceList["services"] = [
   },
 ];
 
-/** Answers `GET /api/services` scoped by `wasm_only`, the way the real endpoint does. */
+/** Answers `GET /api/services` scoped by `noust_only`, the way the real endpoint does. */
 function scopedServicesRoute(): RouteHandler {
   return (call) =>
-    call.search.get("wasm_only") === "false"
+    call.search.get("noust_only") === "false"
       ? json(200, { services: ALL_SERVICES, total: ALL_SERVICES.length })
       : json(200, { services: SERVICES, total: SERVICES.length });
 }
@@ -156,14 +156,14 @@ describe("the services list", () => {
     expect(await screen.findByRole("heading", { level: 2, name: "Create your first service" })).toBeInTheDocument();
   });
 
-  it("scopes the request to WASM's own units by default", async () => {
+  it("scopes the request to Noust's own units by default", async () => {
     const { backend, table } = await servicesAt("/services", { "GET /api/services": scopedServicesRoute() });
     await within(table).findByText("wasm-shop-example-com");
     await waitFor(() => {
-      expect(backend.callsTo("GET /api/services").some((call) => call.search.get("wasm_only") === "true")).toBe(true);
+      expect(backend.callsTo("GET /api/services").some((call) => call.search.get("noust_only") === "true")).toBe(true);
     });
     expect(within(table).queryByText("postgresql")).not.toBeInTheDocument();
-    // Every row is WASM's: a column saying so on each would say nothing.
+    // Every row is Noust's: a column saying so on each would say nothing.
     expect(within(table).queryByRole("columnheader", { name: /Managed/ })).not.toBeInTheDocument();
   });
 
@@ -174,7 +174,7 @@ describe("the services list", () => {
     await user.click(screen.getByRole("switch", { name: "Show all units" }));
 
     await waitFor(() => {
-      expect(backend.callsTo("GET /api/services").some((call) => call.search.get("wasm_only") === "false")).toBe(true);
+      expect(backend.callsTo("GET /api/services").some((call) => call.search.get("noust_only") === "false")).toBe(true);
     });
     expect(location().search).toEqual({ all: true });
 

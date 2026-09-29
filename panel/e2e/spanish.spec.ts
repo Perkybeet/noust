@@ -37,7 +37,7 @@ for (const route of ROUTES) {
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await settle(page);
     await page.waitForTimeout(CLS_TAIL_MS);
-    const shifts = await page.evaluate(() => window.__wasmShifts ?? []);
+    const shifts = await page.evaluate(() => window.__noustShifts ?? []);
     const score = cumulativeLayoutShift(shifts);
     expect(score, `layout shift of ${target} in Spanish is ${score.toFixed(4)}:\n${describeShifts(shifts)}`).toBeLessThanOrEqual(CLS_LIMIT);
 

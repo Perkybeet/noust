@@ -3,7 +3,7 @@
  * pagos.example.org runs as two instances with green serving, is turned off (back to one unit)
  * and on again, each through its confirmation and the real "Confirm it's you", each followed
  * as a job until the backend reports it done. The console server models the instances' units
- * and answers their health checks, so the switches are the ones `wasm app zero-downtime` runs.
+ * and answers their health checks, so the switches are the ones `noust app zero-downtime` runs.
  *
  * Tests in a worker share one server, so the test leaves the app as it found it: on, green
  * serving, the seeded drain. An app deployed in place cannot use the mode, and says why.
@@ -130,7 +130,7 @@ test("an app deployed in place says why it cannot use zero downtime, and offers 
 
   const zd = panel(page);
   await expect(zd.getByText(`${IN_PLACE_APP} is deployed in place; blue/green runs two releases side by side`)).toBeVisible();
-  await expect(zd.getByText(`Move it onto releases first: wasm app migrate ${IN_PLACE_APP}`)).toBeVisible();
+  await expect(zd.getByText(`Move it onto releases first: noust app migrate ${IN_PLACE_APP}`)).toBeVisible();
   await expect(zd.getByText("Off", { exact: true })).toBeVisible();
   await expect(zd.getByRole("button", { name: /zero downtime/ })).toHaveCount(0);
   await expect(zd.getByLabel("Drain")).toHaveCount(0);

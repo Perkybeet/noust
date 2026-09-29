@@ -96,7 +96,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
           title={t("apps.page.emptyTitle")}
           description={t("apps.page.emptyDescription")}
           action={<NewAppLink />}
-          command="wasm create -d example.com -s https://github.com/you/app"
+          command="noust create -d example.com -s https://github.com/you/app"
           className="py-16"
         />
       ) : (
@@ -166,7 +166,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
           />
           {/* Drawn with the rows, not before: under a list of unknown length it would only be
               pushed down the page when they arrive. */}
-          {apps.isPending ? null : <CommandHint command="wasm list" label={t("apps.page.fromTerminal")} />}
+          {apps.isPending ? null : <CommandHint command="noust list" label={t("apps.page.fromTerminal")} />}
         </div>
       )}
     </>

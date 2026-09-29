@@ -6,7 +6,7 @@ A public address for the console's webhooks, and for nothing else.
 
 GitHub (and GitLab, and Gitea) must reach ``/hooks/...`` to deliver pushes and
 pull requests, but the console itself should stay on loopback, reached through
-an SSH tunnel. ``wasm web expose-hooks DOMAIN`` puts an nginx site of WASM's
+an SSH tunnel. ``noust web expose-hooks DOMAIN`` puts an nginx site of Noust's
 own on a dedicated name that forwards ``/hooks/`` to the console on
 ``127.0.0.1`` and answers 404 to every other path, with a certificate obtained
 the way every site gets one. The public URL is written to ``web.hooks_url``,
@@ -14,7 +14,7 @@ which the GitHub App's manifest and status read.
 
 The name must be dedicated: a name that belongs to an application is refused,
 because the hooks site would take it over, and the site of an application is
-never edited to add a route. A site already on that name that WASM did not
+never edited to add a route. A site already on that name that Noust did not
 write for this purpose is refused too.
 """
 
@@ -24,26 +24,29 @@ import logging
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-from wasm.core.config import Config
-from wasm.core.exceptions import (
+from noust.core.config import Config
+from noust.core.exceptions import (
     CertificateError,
     DomainError,
     IntegrationError,
+    NoustError,
     SiteError,
-    WASMError,
 )
-from wasm.core.store import get_store
-from wasm.managers.cert_manager import CertManager
-from wasm.managers.webserver import NGINX_BACKEND, WebServerManager
-from wasm.validators.domain import is_valid_domain
+from noust.core.store import get_store
+from noust.managers.cert_manager import CertManager
+from noust.managers.webserver import NGINX_BACKEND, WebServerManager
+from noust.validators.domain import is_valid_domain
 
 logger = logging.getLogger(__name__)
 
 #: The template, under ``templates/nginx``.
 TEMPLATE = "hooks"
 
-#: The first line of every hooks site: how WASM recognises its own.
-MARKER = "# WASM hooks site for "
+#: The first line of every hooks site: how Noust recognises its own.
+MARKER = "# Noust hooks site for "
+#: The first line WASM wrote before 3.0. Such a site is just as much ours:
+#: it is rewritten under the new marker the next time it is exposed.
+LEGACY_MARKER = "# WASM hooks site for "
 
 #: The configuration key the public URL of ``/hooks`` is kept in:
 #: ``https://hooks.example.com/hooks``.
@@ -136,17 +139,18 @@ def _check_domain(domain: str) -> str:
 
 def _is_ours(manager: WebServerManager, domain: str) -> bool:
     """
-    Tell whether the site on a name is a hooks site WASM wrote.
+    Tell whether the site on a name is a hooks site Noust wrote.
 
     Args:
         manager: The nginx manager.
         domain: The name.
 
     Returns:
-        True when there is a site and it starts with :data:`MARKER`.
+        True when there is a site and it starts with :data:`MARKER` (or
+        :data:`LEGACY_MARKER`).
     """
     text = manager.get_site_config(domain)
-    return text is not None and text.lstrip().startswith(MARKER)
+    return text is not None and text.lstrip().startswith((MARKER, LEGACY_MARKER))
 
 
 def _write(manager: WebServerManager, domain: str, context: dict[str, Any], exists: bool) -> None:
@@ -213,7 +217,7 @@ def expose(
     exists = manager.site_exists(name)
     if exists and not _is_ours(manager, name):
         raise SiteError(
-            f"{name} already has an nginx site WASM did not write for the hooks",
+            f"{name} already has an nginx site Noust did not write for the hooks",
             details=f"Choose another name, or remove {manager.config_path(name)} first.",
         )
 
@@ -262,8 +266,8 @@ def _point_github_webhook(url: str, result: HooksExposure) -> str | None:
     Returns:
         As :attr:`HooksExposure.github_webhook`.
     """
-    from wasm.integrations.github import service
-    from wasm.integrations.github.app import github_app_configured
+    from noust.integrations.github import service
+    from noust.integrations.github.app import github_app_configured
 
     if not github_app_configured():
         return None
@@ -313,7 +317,7 @@ def unexpose(
         if not _is_ours(manager, name):
             raise SiteError(
                 f"The nginx site of {name} is not a hooks site",
-                details="'wasm web expose-hooks --remove' only removes what it created.",
+                details="'noust web expose-hooks --remove' only removes what it created.",
             )
         manager.delete_site(name)
         manager.reload()
@@ -322,7 +326,7 @@ def unexpose(
         if cert_manager.is_installed() and cert_manager.cert_exists(name):
             try:
                 cert_manager.delete(name)
-            except WASMError as exc:
+            except NoustError as exc:
                 logger.warning("Could not remove the certificate of %s: %s", name, exc)
     current = public_hooks_url() or ""
     if current.split("://", 1)[-1].split("/", 1)[0] == name:

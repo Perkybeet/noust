@@ -11,7 +11,7 @@ declares its packages, its client binaries and the statements its engine speaks.
 Three rules are enforced in this module and must not be relaxed by subclasses:
 
 - **No shell.** Dumps reach disk through
-  :meth:`~wasm.core.runner.CommandRunner.capture_to_file`. The contents of a
+  :meth:`~noust.core.runner.CommandRunner.capture_to_file`. The contents of a
   database can never be reinterpreted as shell syntax, and a binary dump is
   never round-tripped through a string.
 - **No secrets in argv.** Passwords travel through stdin, an environment
@@ -38,17 +38,18 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from wasm.core.exceptions import (
+from noust.core import paths
+from noust.core.exceptions import (
     DatabaseBackupError,
     DatabaseEngineError,
     DatabaseError,
     DatabaseQueryError,
     DatabaseUserError,
 )
-from wasm.core.fs import SECRET_MODE
-from wasm.core.runner import CommandResult, CommandRunner, get_runner
-from wasm.deployers.helpers.permissions import hand_over_file
-from wasm.managers.base_manager import BaseManager
+from noust.core.fs import SECRET_MODE
+from noust.core.runner import CommandResult, CommandRunner, get_runner
+from noust.deployers.helpers.permissions import hand_over_file
+from noust.managers.base_manager import BaseManager
 
 #: Deadline for a query or any other short-lived client invocation.
 QUERY_TIMEOUT = 120
@@ -83,7 +84,7 @@ STAGING_DIR_MODE = 0o711
 # opposite of what an allowlist is for. \Z matches the end of the string and
 # nothing else.
 
-#: Database and user names accepted by WASM. Deliberately narrower than what the
+#: Database and user names accepted by Noust. Deliberately narrower than what the
 #: engines accept: names come from HTTP requests and CLI arguments, and a name
 #: that needs quoting to be safe is a name nobody wants to type.
 NAME_PATTERN = re.compile(r"\A[A-Za-z0-9_][A-Za-z0-9_$-]*\Z")
@@ -111,7 +112,7 @@ def quote_identifier(value: str, quote: str) -> str:
 
 def validate_name(value: str, *, kind: str, engine: str, max_length: int) -> str:
     """
-    Check that a database or user name is one WASM is willing to handle.
+    Check that a database or user name is one Noust is willing to handle.
 
     Quoting alone would be enough for the SQL layer, but names also end up in
     file names, service names and connection strings, so they are constrained
@@ -469,7 +470,7 @@ class BaseDatabaseManager(BaseManager):
     SUPPORTS_STRUCTURED_QUERY: bool = False
 
     #: Where backups are written when the caller gives no path.
-    BACKUP_DIR = Path("/var/backups/wasm/databases")
+    BACKUP_DIR = paths.backup_dir() / "databases"
 
     # ==================== Process execution ====================
 
@@ -504,7 +505,7 @@ class BaseDatabaseManager(BaseManager):
             user: Run as this account instead of root. This is how a client
                 that only authenticates over its engine's local peer socket -
                 PostgreSQL's ``postgres`` superuser - gets invoked, without
-                ``sudo``: WASM already runs as root, so the runner wraps the
+                ``sudo``: Noust already runs as root, so the runner wraps the
                 command in ``runuser`` instead.
 
         Returns:
@@ -1042,10 +1043,10 @@ class BaseDatabaseManager(BaseManager):
         """
         Create a directory the caller chose, without touching an existing one.
 
-        This is for destinations WASM does not own, such as the parent of a
+        This is for destinations Noust does not own, such as the parent of a
         ``--output`` path: an existing directory keeps its permissions, because
         chmod-ing ``/tmp`` or a user's home would be a worse bug than a lax
-        backup directory. Directories WASM owns go through
+        backup directory. Directories Noust owns go through
         :meth:`_ensure_private_directory` instead.
 
         Args:
@@ -1072,9 +1073,9 @@ class BaseDatabaseManager(BaseManager):
 
     def _ensure_private_directory(self, path: Path, mode: int = BACKUP_DIR_MODE) -> Path:
         """
-        Create or adopt a directory WASM owns, with its mode enforced.
+        Create or adopt a directory Noust owns, with its mode enforced.
 
-        Anything WASM writes as root into a directory it owns has to be sure the
+        Anything Noust writes as root into a directory it owns has to be sure the
         directory is really the one it means: not a symlink pointing somewhere
         else, not another account's, and not left group or world writable by an
         earlier version or by whoever got there first. The mode is applied
@@ -1107,7 +1108,7 @@ class BaseDatabaseManager(BaseManager):
                     raise DatabaseBackupError(
                         f"The directory {path} belongs to uid {owner}",
                         details=(
-                            "WASM refuses to write backups into a directory it does not own, "
+                            "Noust refuses to write backups into a directory it does not own, "
                             f"because whoever owns it decides who reads them. Remove {path} "
                             "and retry."
                         ),

@@ -21,7 +21,7 @@ const MESSY = readFileSync(path.join(FIXTURES, "messy.env"), "utf8");
 const MESSY_MAP = JSON.parse(readFileSync(path.join(FIXTURES, "messy.json"), "utf8")) as Record<string, string>;
 const SAVED_MAP = Object.fromEntries(Object.entries(MESSY_MAP).filter(([name]) => name !== "PORT"));
 
-const SCREENS = process.env.WASM_TABS_SCREENS ?? "/tmp/console-tabs";
+const SCREENS = process.env.NOUST_TABS_SCREENS ?? "/tmp/console-tabs";
 
 function appFor(testInfo: TestInfo): string {
   return testInfo.project.name === "dark" ? "tienda.example.org" : "pedidos.example.org";
@@ -50,7 +50,7 @@ test("a messy .env pasted in is saved as exactly what EnvManager reads from it",
   await expectNoA11yViolations(page, "the paste dialog");
   await paste.getByRole("button", { name: `Stage ${String(count)} variables` }).click();
   await expect(paste).toBeHidden();
-  // WASM sets PORT itself, and the backend refuses a save that adds or changes it; the
+  // Noust sets PORT itself, and the backend refuses a save that adds or changes it; the
   // operator keeps the app's own before saving, which also proves a staged change can be undone.
   await page.getByRole("button", { name: "Undo the change to PORT" }).click();
   const { port } = (await (await page.request.get(`/api/apps/${domain}`)).json()) as { port: number };

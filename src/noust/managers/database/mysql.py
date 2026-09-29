@@ -26,7 +26,7 @@ from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 
-from wasm.core.exceptions import (
+from noust.core.exceptions import (
     DatabaseBackupError,
     DatabaseError,
     DatabaseExistsError,
@@ -34,8 +34,8 @@ from wasm.core.exceptions import (
     DatabaseQueryError,
     DatabaseUserError,
 )
-from wasm.core.runner import CommandResult
-from wasm.managers.database.base import (
+from noust.core.runner import CommandResult
+from noust.managers.database.base import (
     QUERY_TIMEOUT,
     TRANSFER_TIMEOUT,
     BackupInfo,
@@ -49,7 +49,7 @@ from wasm.managers.database.base import (
     quote_identifier,
     validate_name,
 )
-from wasm.managers.database.registry import DatabaseRegistry
+from noust.managers.database.registry import DatabaseRegistry
 
 #: Static privileges MySQL 8 and MariaDB accept in a GRANT. Anything outside
 #: this set is rejected before a statement is built.
@@ -122,7 +122,7 @@ def escape_option_file_value(value: str) -> str:
     An option file is parsed line by line, so a raw newline in a password does
     not corrupt the value: it ends the record and starts a new directive inside
     the ``[client]`` section. ``socket=`` or ``plugin-dir=`` placed there
-    redirects every connection WASM makes afterwards. The escapes below are the
+    redirects every connection Noust makes afterwards. The escapes below are the
     ones the client applies after the line split, so a newline arrives as data.
 
     Args:
@@ -140,7 +140,7 @@ def escape_option_file_value(value: str) -> str:
             "A MySQL credential contains a NUL byte",
             details=(
                 "MySQL option files are read as C strings and would silently use only the "
-                "part before the NUL. Change the credential in /etc/wasm/config.yaml."
+                "part before the NUL. Change the credential in /etc/noust/config.yaml."
             ),
         )
     return '"' + value.translate(OPTION_FILE_ESCAPES) + '"'
@@ -188,7 +188,7 @@ def _refuse_client_commands(statement: str) -> None:
             details=(
                 "system, source, tee, pager, edit and backslash commands such as \\! "
                 "act on the server's filesystem, not the database. Send SQL only; use "
-                "'wasm db connect' for an interactive mysql session."
+                "'noust db connect' for an interactive mysql session."
             ),
         )
 
@@ -604,7 +604,7 @@ class MySQLManager(BaseDatabaseManager):
                 return
             raise DatabaseNotFoundError(
                 f"Database '{name}' does not exist",
-                details="Run 'wasm db list --engine mysql' to see the databases.",
+                details="Run 'noust db list --engine mysql' to see the databases.",
             )
 
         success, output = self._execute_sql(f"DROP DATABASE {self._escape_identifier(name)};")
@@ -784,7 +784,7 @@ class MySQLManager(BaseDatabaseManager):
         if not self.user_exists(username, host):
             raise DatabaseUserError(
                 f"User '{username}'@'{host}' does not exist",
-                details="Run 'wasm db users --engine mysql' to see the users.",
+                details="Run 'noust db users --engine mysql' to see the users.",
             )
 
         success, output = self._execute_sql(
@@ -1010,7 +1010,7 @@ class MySQLManager(BaseDatabaseManager):
         if not backup_path.exists():
             raise DatabaseBackupError(
                 f"Backup file not found: {backup_path}",
-                details="Run 'wasm db backups' to list the backups WASM knows about.",
+                details="Run 'noust db backups' to list the backups Noust knows about.",
             )
 
         if drop_existing and self.database_exists(database):
@@ -1137,7 +1137,7 @@ class MySQLManager(BaseDatabaseManager):
         Run a statement once and parse its batch output into columns and rows.
 
         One execution, not two, for the reason :meth:`PostgresManager
-        <wasm.managers.database.postgres.PostgresManager.execute_query_structured>`
+        <noust.managers.database.postgres.PostgresManager.execute_query_structured>`
         gives: a second run to also produce the older headerless format
         would apply a write statement twice.
 

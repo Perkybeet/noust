@@ -29,9 +29,9 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from wasm.web import auth
-from wasm.web.auth import SecurityConfig
-from wasm.web.server import create_app, get_brute_force, get_token_manager
+from noust.web import auth
+from noust.web.auth import SecurityConfig
+from noust.web.server import create_app, get_brute_force, get_token_manager
 
 
 def build(sandbox: Path, **overrides: object) -> Any:

@@ -17,23 +17,23 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from noust.core.runner import FakeRunner
+from noust.core.store import NoustStore
+from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
+from noust.web.server import create_app as build_app
+from noust.web.server import get_token_manager
 from tests.github.fakes import (
     APP_ID,
     INSTALLATION_ID,
     FakeGitHub,
     token_route,
 )
-from wasm.core.runner import FakeRunner
-from wasm.core.store import WASMStore
-from wasm.web.auth import CSRF_HEADER_NAME, SecurityConfig
-from wasm.web.server import create_app as build_app
-from wasm.web.server import get_token_manager
 
 BASE = "/api/integrations/github"
 
 
 @pytest.fixture
-def app(tmp_path: Path, store: WASMStore) -> FastAPI:
+def app(tmp_path: Path, store: NoustStore) -> FastAPI:
     """
     Args:
         tmp_path: Per-test directory.
@@ -162,7 +162,7 @@ def test_a_callback_with_a_foreign_state_is_refused(client: TestClient) -> None:
 
 
 def test_github_refusing_is_a_502_with_its_words(
-    client: TestClient, github_configured: WASMStore, fake_github: FakeGitHub, openssl: FakeRunner
+    client: TestClient, github_configured: NoustStore, fake_github: FakeGitHub, openssl: FakeRunner
 ) -> None:
     """GitHub's message reaches the console verbatim."""
     elevate(client)
@@ -173,7 +173,7 @@ def test_github_refusing_is_a_502_with_its_words(
 
 
 def test_repositories_and_branches_for_the_wizard(
-    client: TestClient, github_configured: WASMStore, fake_github: FakeGitHub, openssl: FakeRunner
+    client: TestClient, github_configured: NoustStore, fake_github: FakeGitHub, openssl: FakeRunner
 ) -> None:
     """The wizard's repository and branch pickers."""
     token_route(fake_github)
@@ -193,7 +193,7 @@ def test_repositories_and_branches_for_the_wizard(
 
 
 def test_removal_returns_where_to_delete_the_app(
-    client: TestClient, github_configured: WASMStore
+    client: TestClient, github_configured: NoustStore
 ) -> None:
     """Local credentials go; GitHub's page is returned."""
     elevate(client)
@@ -212,9 +212,9 @@ def audit_lines(caplog: pytest.LogCaptureFixture) -> list[str]:
         caplog: The log capture.
 
     Returns:
-        What reached the ``wasm.audit`` logger.
+        What reached the ``noust.audit`` logger.
     """
-    return [record.getMessage() for record in caplog.records if record.name == "wasm.audit"]
+    return [record.getMessage() for record in caplog.records if record.name == "noust.audit"]
 
 
 def test_every_trust_change_is_audited(
@@ -225,7 +225,7 @@ def test_every_trust_change_is_audited(
 ) -> None:
     """Creating, installing, syncing and removing the App each leave a named line."""
     elevate(client)
-    with caplog.at_level(logging.INFO, logger="wasm.audit"):
+    with caplog.at_level(logging.INFO, logger="noust.audit"):
         started = client.post(
             f"{BASE}/manifest", json={"origin": "http://localhost:8080", "organization": "acme"}
         ).json()

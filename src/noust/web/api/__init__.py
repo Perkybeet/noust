@@ -1,7 +1,7 @@
 """
-API routes for WASM Web Interface.
+API routes for Noust Web Interface.
 """
 
-from wasm.web.api.router import router
+from noust.web.api.router import router
 
 __all__ = ["router"]

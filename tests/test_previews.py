@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Tests for pull request previews (:mod:`wasm.managers.previews`).
+Tests for pull request previews (:mod:`noust.managers.previews`).
 
 The deploy, update and delete of a preview are the ones every application
 goes through, covered elsewhere; here they are fakes, and what is pinned is
@@ -20,14 +20,14 @@ from typing import Any
 
 import pytest
 
-from wasm.core.applock import AppBusyError
-from wasm.core.exceptions import DeploymentError, IntegrationError, ServiceError, ValidationError
-from wasm.core.forge_events import Forge, PullRequestAction, PullRequestEvent
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, PreviewRecord, PreviewSettings, WASMStore
-from wasm.integrations.github import comments
-from wasm.managers import previews
-from wasm.web.jobs import JobType
+from noust.core.applock import AppBusyError
+from noust.core.exceptions import DeploymentError, IntegrationError, ServiceError, ValidationError
+from noust.core.forge_events import Forge, PullRequestAction, PullRequestEvent
+from noust.core.runner import FakeRunner
+from noust.core.store import App, NoustStore, PreviewRecord, PreviewSettings
+from noust.integrations.github import comments
+from noust.managers import previews
+from noust.web.jobs import JobType
 
 PARENT = "shop.example.com"
 BASE = "previews.example.com"
@@ -39,10 +39,10 @@ ORIGINAL_SYNC = previews.sync_sweep_timer
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> Iterator[WASMStore]:
+def store(tmp_path: Path) -> Iterator[NoustStore]:
     """A store of the test's own, with the application previewed in it."""
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "state" / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "state" / "noust.db")
     instance.create_app(
         App(
             domain=PARENT,
@@ -56,7 +56,7 @@ def store(tmp_path: Path) -> Iterator[WASMStore]:
     )
     yield instance
     instance.close()
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture(autouse=True)
@@ -134,7 +134,7 @@ class FakeContext:
         self.metadata[key] = value
 
 
-def enable(store: WASMStore, *, max_previews: int = 3, ttl_hours: int = 168) -> PreviewSettings:
+def enable(store: NoustStore, *, max_previews: int = 3, ttl_hours: int = 168) -> PreviewSettings:
     """Turn previews on for the parent through the manager."""
     return previews.enable_previews(PARENT, BASE, max_previews=max_previews, ttl_hours=ttl_hours)
 
@@ -177,7 +177,7 @@ def child_domain(number: int = 7) -> str:
 
 
 def stored_preview(
-    store: WASMStore, number: int = 7, *, expires_at: str | None = None, status: str = "ready"
+    store: NoustStore, number: int = 7, *, expires_at: str | None = None, status: str = "ready"
 ) -> PreviewRecord:
     """Put a preview record in the store directly."""
     return store.save_preview(
@@ -195,7 +195,7 @@ def stored_preview(
     )
 
 
-def deployed_child(store: WASMStore, number: int = 7, *, parent: str | None = PARENT) -> App:
+def deployed_child(store: NoustStore, number: int = 7, *, parent: str | None = PARENT) -> App:
     """Put a preview's application in the store."""
     app = store.create_app(
         App(domain=child_domain(number), app_type="nodejs", port=3100 + number, app_path="/x")
@@ -286,7 +286,7 @@ class TestRepositoryKey:
 
 class TestSettings:
     def test_enable_stores_the_settings_and_installs_the_timer(
-        self, store: WASMStore, timer: list[str]
+        self, store: NoustStore, timer: list[str]
     ) -> None:
         stored = previews.enable_previews(PARENT, "*.Previews.Example.com", max_previews=5)
 
@@ -295,13 +295,13 @@ class TestSettings:
         assert timer == ["sync"]
 
     @pytest.mark.parametrize("max_previews", [0, 21, -1])
-    def test_the_limit_is_one_to_twenty(self, store: WASMStore, max_previews: int) -> None:
+    def test_the_limit_is_one_to_twenty(self, store: NoustStore, max_previews: int) -> None:
         with pytest.raises(ValidationError):
             enable(store, max_previews=max_previews)
         assert store.get_preview_settings(PARENT) is None
 
     @pytest.mark.parametrize("ttl", [0, 2161])
-    def test_the_ttl_is_one_hour_to_ninety_days(self, store: WASMStore, ttl: int) -> None:
+    def test_the_ttl_is_one_hour_to_ninety_days(self, store: NoustStore, ttl: int) -> None:
         with pytest.raises(ValidationError):
             enable(store, ttl_hours=ttl)
 
@@ -314,27 +314,27 @@ class TestSettings:
             "a-rather-long-base-domain-for-the-previews-of.example.com",
         ],
     )
-    def test_unusable_base_domains(self, store: WASMStore, base: str) -> None:
+    def test_unusable_base_domains(self, store: NoustStore, base: str) -> None:
         with pytest.raises(ValidationError):
             previews.enable_previews(PARENT, base)
 
-    def test_an_unknown_application_is_refused(self, store: WASMStore) -> None:
+    def test_an_unknown_application_is_refused(self, store: NoustStore) -> None:
         with pytest.raises(ValidationError, match="not found"):
             previews.enable_previews("nope.example.com", BASE)
 
     def test_an_application_not_deployed_from_git_is_refused(
-        self, store: WASMStore, tmp_path: Path
+        self, store: NoustStore, tmp_path: Path
     ) -> None:
         store.create_app(App(domain="local.example.com", app_type="nodejs", source="/srv/code"))
         with pytest.raises(ValidationError, match="git"):
             previews.enable_previews("local.example.com", BASE)
 
-    def test_a_preview_cannot_have_previews(self, store: WASMStore) -> None:
+    def test_a_preview_cannot_have_previews(self, store: NoustStore) -> None:
         deployed_child(store)
         with pytest.raises(ValidationError, match="preview of"):
             previews.enable_previews(child_domain(), BASE)
 
-    def test_a_type_without_releases_is_refused(self, store: WASMStore) -> None:
+    def test_a_type_without_releases_is_refused(self, store: NoustStore) -> None:
         store.create_app(
             App(
                 domain="stack.example.com",
@@ -346,7 +346,7 @@ class TestSettings:
             previews.enable_previews("stack.example.com", BASE)
 
     def test_a_timer_that_cannot_be_installed_puts_the_settings_back(
-        self, store: WASMStore, monkeypatch: pytest.MonkeyPatch
+        self, store: NoustStore, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         def broken(**_: Any) -> bool:
             raise ServiceError("no systemd")
@@ -364,7 +364,7 @@ class TestSettings:
 
 class TestOpened:
     def test_an_opened_pull_request_queues_a_deploy_as_the_webhook(
-        self, store: WASMStore, jobs: list[dict[str, Any]], posted: list[dict[str, Any]]
+        self, store: NoustStore, jobs: list[dict[str, Any]], posted: list[dict[str, Any]]
     ) -> None:
         enable(store)
 
@@ -383,7 +383,7 @@ class TestOpened:
         assert job["metadata"]["domain"] == child_domain()
 
     def test_a_push_to_an_existing_preview_queues_an_update_and_extends_it(
-        self, store: WASMStore, jobs: list[dict[str, Any]], clock: list[datetime]
+        self, store: NoustStore, jobs: list[dict[str, Any]], clock: list[datetime]
     ) -> None:
         enable(store)
         previews.handle_pull_request(event())
@@ -399,20 +399,20 @@ class TestOpened:
         assert [job["job_type"] for job in jobs] == [JobType.DEPLOY, JobType.UPDATE]
 
     def test_nothing_previews_a_repository_without_previews_on(
-        self, store: WASMStore, jobs: list[dict[str, Any]]
+        self, store: NoustStore, jobs: list[dict[str, Any]]
     ) -> None:
         assert previews.handle_pull_request(event()) == []
         assert jobs == []
 
     def test_another_repository_is_not_previewed(
-        self, store: WASMStore, jobs: list[dict[str, Any]]
+        self, store: NoustStore, jobs: list[dict[str, Any]]
     ) -> None:
         enable(store)
         assert previews.handle_pull_request(event(repository="acme/other")) == []
         assert jobs == []
 
     def test_the_github_app_hook_compares_the_host_too(
-        self, store: WASMStore, jobs: list[dict[str, Any]]
+        self, store: NoustStore, jobs: list[dict[str, Any]]
     ) -> None:
         enable(store)
         elsewhere = event(clone_url="https://gitea.example.com/acme/shop.git")
@@ -422,7 +422,7 @@ class TestOpened:
         assert previews.handle_pull_request(elsewhere, app_domain=PARENT) == ["job-1"]
 
     def test_the_application_restriction_is_honoured(
-        self, store: WASMStore, jobs: list[dict[str, Any]]
+        self, store: NoustStore, jobs: list[dict[str, Any]]
     ) -> None:
         enable(store)
         store.create_app(
@@ -437,7 +437,7 @@ class TestOpened:
 
     def test_the_limit_refuses_a_new_preview_and_says_so_once(
         self,
-        store: WASMStore,
+        store: NoustStore,
         jobs: list[dict[str, Any]],
         posted: list[dict[str, Any]],
     ) -> None:
@@ -453,7 +453,7 @@ class TestOpened:
         assert "limit of 1" in posted[0]["body"]
 
     def test_the_limit_does_not_stop_an_existing_preview_being_updated(
-        self, store: WASMStore, jobs: list[dict[str, Any]]
+        self, store: NoustStore, jobs: list[dict[str, Any]]
     ) -> None:
         enable(store, max_previews=1)
         stored_preview(store, 7)
@@ -462,7 +462,7 @@ class TestOpened:
 
     def test_a_fork_is_refused_with_one_comment(
         self,
-        store: WASMStore,
+        store: NoustStore,
         jobs: list[dict[str, Any]],
         posted: list[dict[str, Any]],
         caplog: pytest.LogCaptureFixture,
@@ -480,7 +480,7 @@ class TestOpened:
         assert "fork" in caplog.text
 
     def test_no_comment_is_attempted_outside_github(
-        self, store: WASMStore, jobs: list[dict[str, Any]], posted: list[dict[str, Any]]
+        self, store: NoustStore, jobs: list[dict[str, Any]], posted: list[dict[str, Any]]
     ) -> None:
         enable(store)
         previews.handle_pull_request(event(from_fork=True, forge=Forge.GITLAB), app_domain=PARENT)
@@ -488,7 +488,7 @@ class TestOpened:
         assert posted == []
 
     def test_a_failing_comment_does_not_stop_a_refusal(
-        self, store: WASMStore, jobs: list[dict[str, Any]], monkeypatch: pytest.MonkeyPatch
+        self, store: NoustStore, jobs: list[dict[str, Any]], monkeypatch: pytest.MonkeyPatch
     ) -> None:
         def broken(*_: Any, **__: Any) -> str:
             raise IntegrationError("GitHub is down")
@@ -499,7 +499,7 @@ class TestOpened:
         assert previews.handle_pull_request(event(from_fork=True)) == []
 
     def test_a_domain_taken_by_a_real_application_is_left_alone(
-        self, store: WASMStore, jobs: list[dict[str, Any]]
+        self, store: NoustStore, jobs: list[dict[str, Any]]
     ) -> None:
         enable(store)
         deployed_child(store, parent=None)
@@ -509,7 +509,9 @@ class TestOpened:
 
 
 class TestClosed:
-    def test_closing_queues_the_removal(self, store: WASMStore, jobs: list[dict[str, Any]]) -> None:
+    def test_closing_queues_the_removal(
+        self, store: NoustStore, jobs: list[dict[str, Any]]
+    ) -> None:
         enable(store)
         stored_preview(store)
 
@@ -523,7 +525,7 @@ class TestClosed:
         assert record is not None and record.status == "removing"
 
     def test_closing_a_pull_request_without_a_preview_does_nothing(
-        self, store: WASMStore, jobs: list[dict[str, Any]]
+        self, store: NoustStore, jobs: list[dict[str, Any]]
     ) -> None:
         enable(store)
         assert previews.handle_pull_request(event(PullRequestAction.CLOSED)) == []
@@ -536,7 +538,7 @@ class TestClosed:
 
 
 @pytest.fixture
-def builds(monkeypatch: pytest.MonkeyPatch, store: WASMStore) -> list[tuple[str, Any]]:
+def builds(monkeypatch: pytest.MonkeyPatch, store: NoustStore) -> list[tuple[str, Any]]:
     """Replace the deploy and the update with fakes that record what they saw."""
     seen: list[tuple[str, Any]] = []
 
@@ -560,7 +562,7 @@ def builds(monkeypatch: pytest.MonkeyPatch, store: WASMStore) -> list[tuple[str,
 class TestBuildJob:
     def test_a_first_build_creates_the_child_and_marks_it(
         self,
-        store: WASMStore,
+        store: NoustStore,
         builds: list[tuple[str, Any]],
         posted: list[dict[str, Any]],
     ) -> None:
@@ -585,7 +587,7 @@ class TestBuildJob:
         assert "production secrets" in posted[-1]["body"]
 
     def test_a_later_build_updates_at_the_pushed_commit(
-        self, store: WASMStore, builds: list[tuple[str, Any]], posted: list[dict[str, Any]]
+        self, store: NoustStore, builds: list[tuple[str, Any]], posted: list[dict[str, Any]]
     ) -> None:
         enable(store)
         stored_preview(store, status="pending")
@@ -599,7 +601,7 @@ class TestBuildJob:
 
     def test_a_failed_build_is_recorded_and_the_comment_keeps_the_error_out(
         self,
-        store: WASMStore,
+        store: NoustStore,
         monkeypatch: pytest.MonkeyPatch,
         posted: list[dict[str, Any]],
     ) -> None:
@@ -627,7 +629,7 @@ class TestBuildJob:
         assert "hunter2" not in posted[-1]["body"]
 
     def test_a_failing_comment_never_fails_the_build(
-        self, store: WASMStore, builds: list[tuple[str, Any]], monkeypatch: pytest.MonkeyPatch
+        self, store: NoustStore, builds: list[tuple[str, Any]], monkeypatch: pytest.MonkeyPatch
     ) -> None:
         def broken(*_: Any, **__: Any) -> str:
             raise IntegrationError("GitHub is down")
@@ -643,7 +645,7 @@ class TestBuildJob:
         assert (record.status, record.comment_ref) == ("ready", None)
 
     def test_a_push_during_the_build_is_built_by_the_same_job(
-        self, store: WASMStore, monkeypatch: pytest.MonkeyPatch, posted: list[dict[str, Any]]
+        self, store: NoustStore, monkeypatch: pytest.MonkeyPatch, posted: list[dict[str, Any]]
     ) -> None:
         enable(store)
         stored_preview(store, status="pending")
@@ -675,7 +677,7 @@ class TestBuildJob:
         assert commits == ["a" * 40, "c" * 40]
 
     def test_a_preview_removed_before_its_build_is_skipped(
-        self, store: WASMStore, builds: list[tuple[str, Any]]
+        self, store: NoustStore, builds: list[tuple[str, Any]]
     ) -> None:
         enable(store)
         result = previews.preview_deploy_job(PARENT, 7, job_context=FakeContext())
@@ -684,7 +686,7 @@ class TestBuildJob:
         assert builds == []
 
     def test_a_real_application_at_the_domain_is_never_updated(
-        self, store: WASMStore, builds: list[tuple[str, Any]]
+        self, store: NoustStore, builds: list[tuple[str, Any]]
     ) -> None:
         enable(store)
         stored_preview(store, status="pending")
@@ -697,9 +699,9 @@ class TestBuildJob:
 
 class TestDeploy:
     def test_the_child_is_created_like_any_application(
-        self, store: WASMStore, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+        self, store: NoustStore, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
-        from wasm.web import jobs as jobs_module
+        from noust.web import jobs as jobs_module
 
         store.create_app(App(domain="other.example.com", port=4000, app_path="/o"))
         monkeypatch.setattr(
@@ -739,9 +741,9 @@ class TestDeploy:
         assert previews._reserved_ports == set()
 
     def test_the_parent_environment_is_copied_without_what_the_unit_sets(
-        self, store: WASMStore, monkeypatch: pytest.MonkeyPatch
+        self, store: NoustStore, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from wasm.deployers.helpers import app_env
+        from noust.deployers.helpers import app_env
 
         monkeypatch.setattr(
             app_env, "read_app_env", lambda app: {"PORT": "3000", "NODE_ENV": "x", "A": "1"}
@@ -758,7 +760,7 @@ class TestDeploy:
 
 
 @pytest.fixture
-def deletions(monkeypatch: pytest.MonkeyPatch, store: WASMStore) -> list[str]:
+def deletions(monkeypatch: pytest.MonkeyPatch, store: NoustStore) -> list[str]:
     """Replace the application deletion with a fake that drops the row."""
     deleted: list[str] = []
 
@@ -773,7 +775,7 @@ def deletions(monkeypatch: pytest.MonkeyPatch, store: WASMStore) -> list[str]:
 
 class TestRemoval:
     def test_a_preview_goes_with_its_application_and_says_so(
-        self, store: WASMStore, deletions: list[str], posted: list[dict[str, Any]]
+        self, store: NoustStore, deletions: list[str], posted: list[dict[str, Any]]
     ) -> None:
         stored_preview(store)
         deployed_child(store)
@@ -785,7 +787,7 @@ class TestRemoval:
         assert "closed" in posted[-1]["body"]
 
     def test_an_application_that_is_not_the_preview_is_never_deleted(
-        self, store: WASMStore, deletions: list[str]
+        self, store: NoustStore, deletions: list[str]
     ) -> None:
         stored_preview(store)
         deployed_child(store, parent=None)
@@ -798,13 +800,13 @@ class TestRemoval:
         assert store.get_preview(PARENT, 7) is None
 
     def test_something_that_is_not_a_preview_is_refused(
-        self, store: WASMStore, deletions: list[str]
+        self, store: NoustStore, deletions: list[str]
     ) -> None:
         with pytest.raises(ValidationError):
             previews.remove_preview(PARENT)
         assert deletions == []
 
-    def test_the_removal_job(self, store: WASMStore, deletions: list[str]) -> None:
+    def test_the_removal_job(self, store: NoustStore, deletions: list[str]) -> None:
         # queue_preview_removal marks it before queuing the job.
         stored_preview(store, status="removing")
         deployed_child(store)
@@ -815,7 +817,7 @@ class TestRemoval:
         assert deletions == [child_domain()]
 
     def test_removing_every_preview_of_an_application(
-        self, store: WASMStore, deletions: list[str], timer: list[str]
+        self, store: NoustStore, deletions: list[str], timer: list[str]
     ) -> None:
         enable(store)
         stored_preview(store, 7)
@@ -833,7 +835,7 @@ class TestRemoval:
         assert timer[-1] == "sync"
 
     def test_a_failure_is_reported_after_the_rest_are_removed(
-        self, store: WASMStore, monkeypatch: pytest.MonkeyPatch
+        self, store: NoustStore, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         enable(store)
         stored_preview(store, 7)
@@ -853,7 +855,7 @@ class TestRemoval:
 
 class TestSweep:
     def test_expired_previews_go_and_the_others_stay(
-        self, store: WASMStore, deletions: list[str], clock: list[datetime]
+        self, store: NoustStore, deletions: list[str], clock: list[datetime]
     ) -> None:
         enable(store)
         stored_preview(
@@ -866,7 +868,7 @@ class TestSweep:
         assert store.get_preview(PARENT, 8) is not None
 
     def test_previews_of_a_gone_application_go_too(
-        self, store: WASMStore, deletions: list[str]
+        self, store: NoustStore, deletions: list[str]
     ) -> None:
         stored_preview(store, 7)
         store.delete_app(PARENT)
@@ -874,7 +876,7 @@ class TestSweep:
         assert previews.sweep() == [child_domain(7)]
 
     def test_a_preview_application_without_a_record_goes_too(
-        self, store: WASMStore, deletions: list[str]
+        self, store: NoustStore, deletions: list[str]
     ) -> None:
         deployed_child(store, 7)
 
@@ -882,7 +884,7 @@ class TestSweep:
         assert deletions == [child_domain(7)]
 
     def test_a_real_application_is_never_swept(
-        self, store: WASMStore, deletions: list[str]
+        self, store: NoustStore, deletions: list[str]
     ) -> None:
         deployed_child(store, 7, parent=None)
 
@@ -890,7 +892,7 @@ class TestSweep:
         assert deletions == []
 
     def test_a_busy_preview_is_left_for_the_next_run(
-        self, store: WASMStore, monkeypatch: pytest.MonkeyPatch
+        self, store: NoustStore, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         stored_preview(
             store, 7, expires_at=(NOW - timedelta(hours=1)).isoformat(timespec="seconds")
@@ -926,17 +928,17 @@ class TestSweepTimer:
         self, units: Path, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         # Not on PATH: the distribution packages' path.
-        monkeypatch.setattr(previews, "find_wasm_executable", lambda: None)
+        monkeypatch.setattr(previews, "find_noust_executable", lambda: None)
         assert previews.install_sweep_timer() is True
 
-        service = (units / "wasm-previews.service").read_text()
-        timer_unit = (units / "wasm-previews.timer").read_text()
-        assert "Generated by WASM" in service and "Generated by WASM" in timer_unit
-        assert "ExecStart=/usr/bin/wasm preview sweep" in service
+        service = (units / "noust-previews.service").read_text()
+        timer_unit = (units / "noust-previews.timer").read_text()
+        assert "Generated by Noust" in service and "Generated by Noust" in timer_unit
+        assert "ExecStart=/usr/bin/noust preview sweep" in service
         assert "Type=oneshot" in service
         assert "OnCalendar=hourly" in timer_unit
         assert ("systemctl", "daemon-reload") in runner.calls
-        assert ("systemctl", "enable", "--now", "wasm-previews.timer") in runner.calls
+        assert ("systemctl", "enable", "--now", "noust-previews.timer") in runner.calls
 
     def test_installing_again_rewrites_nothing(self, units: Path, runner: FakeRunner) -> None:
         previews.install_sweep_timer()
@@ -948,19 +950,19 @@ class TestSweepTimer:
     def test_a_unit_wasm_did_not_write_is_not_overwritten(
         self, units: Path, runner: FakeRunner
     ) -> None:
-        (units / "wasm-previews.timer").write_text("[Timer]\nOnCalendar=daily\n")
+        (units / "noust-previews.timer").write_text("[Timer]\nOnCalendar=daily\n")
 
         with pytest.raises(ServiceError):
             previews.install_sweep_timer()
-        assert (units / "wasm-previews.timer").read_text() == "[Timer]\nOnCalendar=daily\n"
+        assert (units / "noust-previews.timer").read_text() == "[Timer]\nOnCalendar=daily\n"
 
     def test_remove_stops_and_deletes_them(self, units: Path, runner: FakeRunner) -> None:
         previews.install_sweep_timer()
 
         assert previews.remove_sweep_timer() is True
-        assert not (units / "wasm-previews.timer").exists()
-        assert not (units / "wasm-previews.service").exists()
-        assert ("systemctl", "disable", "--now", "wasm-previews.timer") in runner.calls
+        assert not (units / "noust-previews.timer").exists()
+        assert not (units / "noust-previews.service").exists()
+        assert ("systemctl", "disable", "--now", "noust-previews.timer") in runner.calls
         assert previews.remove_sweep_timer() is False
 
     def test_a_failed_start_is_an_error(self, units: Path, runner: FakeRunner) -> None:
@@ -971,11 +973,11 @@ class TestSweepTimer:
 
     def test_sync_follows_what_exists(self, units: Path, runner: FakeRunner) -> None:
         assert ORIGINAL_SYNC(needed=lambda: True) is True
-        assert (units / "wasm-previews.timer").exists()
+        assert (units / "noust-previews.timer").exists()
         assert ORIGINAL_SYNC(needed=lambda: False) is False
-        assert not (units / "wasm-previews.timer").exists()
+        assert not (units / "noust-previews.timer").exists()
 
-    def test_in_use_while_settings_or_previews_exist(self, store: WASMStore) -> None:
+    def test_in_use_while_settings_or_previews_exist(self, store: NoustStore) -> None:
         assert previews.previews_in_use() is False
         store.save_preview_settings(PreviewSettings(app_domain=PARENT, base_domain=BASE))
         assert previews.previews_in_use() is True
@@ -984,7 +986,7 @@ class TestSweepTimer:
         assert previews.previews_in_use() is True
 
 
-def test_a_preview_without_a_certificate_is_linked_over_http(store: WASMStore) -> None:
+def test_a_preview_without_a_certificate_is_linked_over_http(store: NoustStore) -> None:
     """The deploy goes on without TLS when the certificate fails; the link must open."""
     domain = "pr-3-shop-example-com.previews.example.com"
     assert previews.preview_url(domain) == f"https://{domain}"
@@ -1001,7 +1003,7 @@ def test_a_preview_without_a_certificate_is_linked_over_http(store: WASMStore) -
 class TestTrust:
     def test_a_bot_is_refused_with_one_comment(
         self,
-        store: WASMStore,
+        store: NoustStore,
         jobs: list[dict[str, Any]],
         posted: list[dict[str, Any]],
         caplog: pytest.LogCaptureFixture,
@@ -1020,7 +1022,7 @@ class TestTrust:
         assert "bot account" in caplog.text
 
     def test_a_bot_gets_a_preview_when_bots_are_allowed(
-        self, store: WASMStore, jobs: list[dict[str, Any]]
+        self, store: NoustStore, jobs: list[dict[str, Any]]
     ) -> None:
         previews.enable_previews(PARENT, BASE, allow_bots=True)
 
@@ -1031,7 +1033,7 @@ class TestTrust:
     @pytest.mark.parametrize("association", ["CONTRIBUTOR", "FIRST_TIME_CONTRIBUTOR", "NONE", None])
     def test_on_github_only_owners_members_and_collaborators_get_one(
         self,
-        store: WASMStore,
+        store: NoustStore,
         jobs: list[dict[str, Any]],
         posted: list[dict[str, Any]],
         association: str | None,
@@ -1045,20 +1047,20 @@ class TestTrust:
 
     @pytest.mark.parametrize("association", ["OWNER", "MEMBER", "COLLABORATOR"])
     def test_trusted_associations(
-        self, store: WASMStore, jobs: list[dict[str, Any]], association: str
+        self, store: NoustStore, jobs: list[dict[str, Any]], association: str
     ) -> None:
         enable(store)
         assert previews.handle_pull_request(event(association=association)) == ["job-1"]
 
     def test_gitlab_sends_no_role_and_is_not_asked_for_one(
-        self, store: WASMStore, jobs: list[dict[str, Any]]
+        self, store: NoustStore, jobs: list[dict[str, Any]]
     ) -> None:
         enable(store)
         mr = event(forge=Forge.GITLAB, clone_url="https://gitlab.com/acme/shop.git")
 
         assert previews.handle_pull_request(mr, app_domain=PARENT) == ["job-1"]
 
-    def test_a_gitlab_bot_is_refused(self, store: WASMStore, jobs: list[dict[str, Any]]) -> None:
+    def test_a_gitlab_bot_is_refused(self, store: NoustStore, jobs: list[dict[str, Any]]) -> None:
         enable(store)
         mr = event(forge=Forge.GITLAB, author="renovate-bot", bot=True)
 
@@ -1066,7 +1068,7 @@ class TestTrust:
         assert jobs == []
 
     def test_closing_a_bots_pull_request_still_removes_its_preview(
-        self, store: WASMStore, jobs: list[dict[str, Any]]
+        self, store: NoustStore, jobs: list[dict[str, Any]]
     ) -> None:
         enable(store)
         stored_preview(store)
@@ -1076,7 +1078,7 @@ class TestTrust:
 
 
 class TestExcludedVariables:
-    def test_settings_keep_what_is_not_given(self, store: WASMStore) -> None:
+    def test_settings_keep_what_is_not_given(self, store: NoustStore) -> None:
         previews.enable_previews(
             PARENT, BASE, max_previews=5, allow_bots=True, exclude_env=["STRIPE_KEY", "S3"]
         )
@@ -1088,29 +1090,29 @@ class TestExcludedVariables:
         cleared = previews.enable_previews(PARENT, None, exclude_env=[], allow_bots=False)
         assert (cleared.allow_bots, cleared.exclude_env) == (False, [])
 
-    def test_new_settings_refuse_bots_and_exclude_nothing(self, store: WASMStore) -> None:
+    def test_new_settings_refuse_bots_and_exclude_nothing(self, store: NoustStore) -> None:
         stored = previews.enable_previews(PARENT, BASE)
         assert (stored.allow_bots, stored.exclude_env) == (False, [])
 
-    def test_turning_previews_on_needs_a_base_domain(self, store: WASMStore) -> None:
+    def test_turning_previews_on_needs_a_base_domain(self, store: NoustStore) -> None:
         with pytest.raises(ValidationError, match="off"):
             previews.enable_previews(PARENT, None)
 
     @pytest.mark.parametrize("names", [["1ABC"], ["A-B"], ["A B"], [""], "STRIPE_KEY"])
-    def test_only_variable_names_are_excluded(self, store: WASMStore, names: Any) -> None:
+    def test_only_variable_names_are_excluded(self, store: NoustStore, names: Any) -> None:
         with pytest.raises(ValidationError) as caught:
             previews.enable_previews(PARENT, BASE, exclude_env=names)
         assert caught.value.field == "exclude_env"
         assert store.get_preview_settings(PARENT) is None
 
-    def test_names_are_trimmed_and_not_repeated(self, store: WASMStore) -> None:
+    def test_names_are_trimmed_and_not_repeated(self, store: NoustStore) -> None:
         stored = previews.enable_previews(PARENT, BASE, exclude_env=[" A ", "B", "A"])
         assert stored.exclude_env == ["A", "B"]
 
     def test_excluded_variables_and_their_marks_are_not_copied(
-        self, store: WASMStore, monkeypatch: pytest.MonkeyPatch
+        self, store: NoustStore, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from wasm.deployers.helpers import app_env
+        from noust.deployers.helpers import app_env
 
         monkeypatch.setattr(
             app_env, "read_app_env", lambda app: {"STRIPE_KEY": "sk", "PUBLIC_URL": "u", "A": "1"}
@@ -1126,9 +1128,9 @@ class TestExcludedVariables:
         }
 
     def test_the_first_deploy_starts_with_the_parents_marks(
-        self, store: WASMStore, monkeypatch: pytest.MonkeyPatch
+        self, store: NoustStore, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from wasm.web import jobs as jobs_module
+        from noust.web import jobs as jobs_module
 
         monkeypatch.setattr(previews, "_inherited_env", lambda parent, exclude=(): {})
         store.set_env_secret_marks(PARENT, {"PUBLIC_URL": True, "STRIPE_KEY": True})
@@ -1145,9 +1147,9 @@ class TestExcludedVariables:
         assert called["env_secret_marks"] == {"PUBLIC_URL": True}
 
     def test_every_update_refreshes_the_marks_and_drops_excluded_variables(
-        self, store: WASMStore, builds: list[tuple[str, Any]], monkeypatch: pytest.MonkeyPatch
+        self, store: NoustStore, builds: list[tuple[str, Any]], monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from wasm.deployers.helpers import app_env
+        from noust.deployers.helpers import app_env
 
         previews.enable_previews(PARENT, BASE, exclude_env=["STRIPE_KEY"])
         store.set_env_secret_marks(PARENT, {"PUBLIC_URL": True, "STRIPE_KEY": True})
@@ -1176,7 +1178,7 @@ class TestExcludedVariables:
 
 class TestRaces:
     def test_a_pull_request_reopened_before_its_removal_ran_keeps_its_preview(
-        self, store: WASMStore, jobs: list[dict[str, Any]], deletions: list[str]
+        self, store: NoustStore, jobs: list[dict[str, Any]], deletions: list[str]
     ) -> None:
         enable(store)
         stored_preview(store)
@@ -1192,7 +1194,7 @@ class TestRaces:
         assert record is not None and (record.status, record.head_sha) == ("pending", "b" * 40)
 
     def test_a_reopen_during_the_removal_keeps_the_new_record(
-        self, store: WASMStore, monkeypatch: pytest.MonkeyPatch, posted: list[dict[str, Any]]
+        self, store: NoustStore, monkeypatch: pytest.MonkeyPatch, posted: list[dict[str, Any]]
     ) -> None:
         stored_preview(store, status="removing")
         deployed_child(store)
@@ -1214,7 +1216,7 @@ class TestRaces:
         assert not any("removed" in call["body"] for call in posted)
 
     def test_a_close_during_the_build_is_not_undone(
-        self, store: WASMStore, monkeypatch: pytest.MonkeyPatch, jobs: list[dict[str, Any]]
+        self, store: NoustStore, monkeypatch: pytest.MonkeyPatch, jobs: list[dict[str, Any]]
     ) -> None:
         enable(store)
         stored_preview(store, status="pending")
@@ -1235,7 +1237,7 @@ class TestRaces:
         assert calls == ["a" * 40]
 
     def test_a_status_written_from_a_stale_record_keeps_the_newer_commit(
-        self, store: WASMStore
+        self, store: NoustStore
     ) -> None:
         stale = stored_preview(store, status="deploying")
         store.save_preview(PreviewRecord(**{**stale.__dict__, "head_sha": "c" * 40}))
@@ -1245,7 +1247,7 @@ class TestRaces:
         assert written is not None and written.head_sha == "c" * 40
 
     def test_a_comment_id_stored_from_a_stale_record_keeps_the_newer_commit(
-        self, store: WASMStore, posted: list[dict[str, Any]]
+        self, store: NoustStore, posted: list[dict[str, Any]]
     ) -> None:
         stale = stored_preview(store, status="deploying")
         store.save_preview(PreviewRecord(**{**stale.__dict__, "head_sha": "c" * 40}))
@@ -1257,7 +1259,7 @@ class TestRaces:
         assert stored is not None and (stored.head_sha, stored.comment_ref) == ("c" * 40, "c-1")
 
     def test_a_push_does_not_forget_the_comment_a_build_posted(
-        self, store: WASMStore, jobs: list[dict[str, Any]]
+        self, store: NoustStore, jobs: list[dict[str, Any]]
     ) -> None:
         enable(store)
         previews.handle_pull_request(event())
@@ -1270,7 +1272,7 @@ class TestRaces:
         assert record is not None and record.comment_ref == "c-9"
 
     def test_a_push_while_a_build_runs_takes_no_job_slot(
-        self, store: WASMStore, monkeypatch: pytest.MonkeyPatch, jobs: list[dict[str, Any]]
+        self, store: NoustStore, monkeypatch: pytest.MonkeyPatch, jobs: list[dict[str, Any]]
     ) -> None:
         enable(store)
         previews.handle_pull_request(event())
@@ -1299,7 +1301,7 @@ class TestRaces:
         assert previews._building == set()
 
     def test_a_build_refused_before_it_starts_does_not_loop(
-        self, store: WASMStore, builds: list[tuple[str, Any]]
+        self, store: NoustStore, builds: list[tuple[str, Any]]
     ) -> None:
         # Previews turned off after the push was recorded.
         stored_preview(store, status="pending")
@@ -1311,7 +1313,7 @@ class TestRaces:
         assert previews._building == set()
 
     def test_a_failed_build_releases_the_preview(
-        self, store: WASMStore, monkeypatch: pytest.MonkeyPatch
+        self, store: NoustStore, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         enable(store)
         stored_preview(store, status="pending")
@@ -1327,7 +1329,7 @@ class TestRaces:
         assert previews._building == set()
 
     def test_the_quota_is_counted_and_recorded_under_one_lock(
-        self, store: WASMStore, jobs: list[dict[str, Any]], monkeypatch: pytest.MonkeyPatch
+        self, store: NoustStore, jobs: list[dict[str, Any]], monkeypatch: pytest.MonkeyPatch
     ) -> None:
         enable(store, max_previews=1)
         held: list[bool] = []
@@ -1358,7 +1360,7 @@ class TestRaces:
 class TestStuckRemovals:
     def test_a_removal_that_failed_is_retried_by_the_sweep(
         self,
-        store: WASMStore,
+        store: NoustStore,
         deletions: list[str],
         clock: list[datetime],
         posted: list[dict[str, Any]],
@@ -1382,7 +1384,7 @@ class TestStuckRemovals:
         assert posted[-1]["body"].endswith("The preview was removed.")
 
     def test_a_busy_removal_job_leaves_the_record_for_the_sweep(
-        self, store: WASMStore, monkeypatch: pytest.MonkeyPatch
+        self, store: NoustStore, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         stored_preview(store, status="removing")
         deployed_child(store)
@@ -1403,11 +1405,11 @@ def test_the_sweep_runs_the_wasm_this_machine_has(
 ) -> None:
     """A pip install puts wasm in /usr/local/bin; a unit pointing elsewhere never sweeps."""
     monkeypatch.setattr(previews, "SYSTEMD_DIR", tmp_path)
-    monkeypatch.setattr(previews, "find_wasm_executable", lambda: "/usr/local/bin/wasm")
+    monkeypatch.setattr(previews, "find_noust_executable", lambda: "/usr/local/bin/wasm")
 
     previews.install_sweep_timer()
 
-    service = (tmp_path / "wasm-previews.service").read_text()
+    service = (tmp_path / "noust-previews.service").read_text()
     assert "ExecStart=/usr/local/bin/wasm preview sweep" in service
 
 
@@ -1417,8 +1419,8 @@ def test_the_sweep_runs_the_wasm_this_machine_has(
 
 
 class TestNewRowLink:
-    def test_a_new_row_is_created_linked_and_marked(self, store: WASMStore) -> None:
-        from wasm.deployers.helpers.registration import StoreRegistrar
+    def test_a_new_row_is_created_linked_and_marked(self, store: NoustStore) -> None:
+        from noust.deployers.helpers.registration import StoreRegistrar
 
         app = StoreRegistrar(store).register_app(
             domain=child_domain(),
@@ -1440,8 +1442,8 @@ class TestNewRowLink:
         assert stored is not None
         assert (stored.preview_parent, stored.env_secret_marks) == (PARENT, {"PUBLIC_URL": True})
 
-    def test_an_existing_row_is_not_relinked(self, store: WASMStore) -> None:
-        from wasm.deployers.helpers.registration import StoreRegistrar
+    def test_an_existing_row_is_not_relinked(self, store: NoustStore) -> None:
+        from noust.deployers.helpers.registration import StoreRegistrar
 
         StoreRegistrar(store).register_app(
             domain=PARENT,
@@ -1466,7 +1468,7 @@ class TestNewRowLink:
     def test_the_deploy_job_hands_the_link_to_the_deployer(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from wasm.web.jobs import Job, JobContext, deploy_app_job
+        from noust.web.jobs import Job, JobContext, deploy_app_job
 
         captured: dict[str, Any] = {}
 
@@ -1479,7 +1481,7 @@ class TestNewRowLink:
             def deploy(self) -> bool:
                 return True
 
-        monkeypatch.setattr("wasm.deployers.get_deployer", lambda *a, **k: FakeDeployer())
+        monkeypatch.setattr("noust.deployers.get_deployer", lambda *a, **k: FakeDeployer())
         job = Job(id="job-test", type=JobType.DEPLOY, name="deploy", description="")
 
         deploy_app_job(

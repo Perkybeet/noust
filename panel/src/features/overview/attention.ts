@@ -79,7 +79,7 @@ export interface AttentionSources {
   certificates?: readonly Cert[] | undefined;
   observations?: readonly Observation[] | undefined;
   machine?: Machine | undefined;
-  /** WASM's own units (GET /api/services): names the failed ones no app accounts for. */
+  /** Noust's own units (GET /api/services): names the failed ones no app accounts for. */
   units?: readonly ServiceInfo[] | undefined;
 }
 
@@ -109,7 +109,7 @@ export function appUnitNames(domain: string): string[] {
  * - an app whose state is a problem (failed, crash-looping, not answering);
  * - an app whose newest deploy failed or was rolled back;
  * - a certificate expiring within 21 days, or expired;
- * - systemd units WASM manages that failed or keep crashing, beyond the apps' own units (an
+ * - systemd units Noust manages that failed or keep crashing, beyond the apps' own units (an
  *   app's state already names those): each by name when the unit list is known, otherwise as
  *   a count from the machine's tally;
  * - an open monitor observation.
@@ -221,7 +221,7 @@ export function collectAttention({ apps, deployments, certificates, observations
   for (const observation of observations ?? []) {
     if (observation.acknowledged) continue;
     // The monitor observes and never acts; its findings ("warning", "notice") are for a
-    // person to look at, not failures of anything WASM runs.
+    // person to look at, not failures of anything Noust runs.
     const severity: Severity = "warn";
     items.push({
       id: `monitor:${String(observation.id ?? `${observation.process_name}-${String(observation.pid)}`)}`,

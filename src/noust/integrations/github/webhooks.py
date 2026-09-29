@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-What a delivery to ``/hooks/github`` means, in WASM's terms.
+What a delivery to ``/hooks/github`` means, in Noust's terms.
 
 The router verifies and answers; this module reads GitHub's payloads into
-:mod:`wasm.core.forge_events` records and decides which applications a push
+:mod:`noust.core.forge_events` records and decides which applications a push
 concerns. Kept apart from HTTP so every decision is testable with a dict.
 """
 
@@ -16,12 +16,12 @@ import hmac
 import logging
 from typing import Any
 
-from wasm.core.forge_events import Forge, PushEvent
-from wasm.core.store import App, get_store
-from wasm.integrations.github.app import forget_tokens
-from wasm.integrations.github.client import json_object
-from wasm.integrations.github.service import installation_record
-from wasm.validators.source import github_repository, parse_git_url
+from noust.core.forge_events import Forge, PushEvent
+from noust.core.store import App, get_store
+from noust.integrations.github.app import forget_tokens
+from noust.integrations.github.client import json_object
+from noust.integrations.github.service import installation_record
+from noust.validators.source import github_repository, parse_git_url
 
 logger = logging.getLogger(__name__)
 

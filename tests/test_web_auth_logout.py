@@ -17,8 +17,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.web.auth import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, SESSION_COOKIE_NAME, SecurityConfig
-from wasm.web.server import create_app, get_token_manager
+from noust.web.auth import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, SESSION_COOKIE_NAME, SecurityConfig
+from noust.web.server import create_app, get_token_manager
 
 
 @pytest.fixture

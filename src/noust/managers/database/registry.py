@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Database manager registry for WASM.
+Database manager registry for Noust.
 
 Provides registration and lookup of database engine managers.
 """
 
 from typing import ClassVar
 
-from wasm.managers.database.base import BaseDatabaseManager
+from noust.managers.database.base import BaseDatabaseManager
 
 
 class DatabaseRegistry:

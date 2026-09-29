@@ -15,7 +15,7 @@ so the three surfaces cannot drift apart again.
 
 The sequence, and why it is in this order:
 
-1. A backup, so ``wasm rollback`` has somewhere to return to.
+1. A backup, so ``noust rollback`` has somewhere to return to.
 2. A non-destructive ``git pull``, or, for a tree that is not a git checkout
    or an explicit new source, a fetch that never deletes anything already in
    the tree. The ``.env`` is carried across it.
@@ -41,7 +41,7 @@ live here for the same reason: going back to a release that is on disk
 (:func:`set_resource_limits`) and removing it (:func:`delete_app`).
 
 Every one of them holds the application's lock
-(:func:`wasm.core.applock.app_lock`) while it runs, so two of them never
+(:func:`noust.core.applock.app_lock`) while it runs, so two of them never
 interleave on one application.
 """
 
@@ -55,64 +55,64 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from wasm.core.applock import app_lock
-from wasm.core.config import Config
-from wasm.core.exceptions import (
+from noust.core.applock import app_lock
+from noust.core.config import Config
+from noust.core.exceptions import (
     DeploymentError,
+    NoustError,
     RolledBackError,
     ServiceError,
     SourceError,
     ValidationError,
-    WASMError,
 )
-from wasm.core.fs import SECRET_MODE, get_fs, is_rehearsal
-from wasm.core.logger import Logger
-from wasm.core.store import (
+from noust.core.fs import SECRET_MODE, get_fs, is_rehearsal
+from noust.core.logger import Logger
+from noust.core.store import (
     App,
     AppType,
     DeploymentRecord,
     DeploymentStatus,
     DeploymentTrigger,
+    NoustStore,
     ReleaseRecord,
     ReleaseStatus,
-    WASMStore,
     get_store,
 )
-from wasm.core.utils import domain_to_app_name
-from wasm.deployers import deploy_events
-from wasm.deployers.base import BaseDeployer
-from wasm.deployers.bluegreen import BlueGreen, serving_port
-from wasm.deployers.docker_compose import (
+from noust.core.utils import domain_to_app_name
+from noust.deployers import deploy_events
+from noust.deployers.base import BaseDeployer
+from noust.deployers.bluegreen import BlueGreen, serving_port
+from noust.deployers.docker_compose import (
     DockerComposeDeployer,
     compose_file_from_unit,
     compose_file_option,
 )
-from wasm.deployers.helpers.health import wait_until_healthy
-from wasm.deployers.helpers.health_gate import HealthCheck, HealthGate
-from wasm.deployers.helpers.layout import INPLACE, RELEASES, app_root, env_file_in
-from wasm.deployers.helpers.release_build import stage_release
-from wasm.deployers.interface import UpdateResult
-from wasm.deployers.monorepo import MonorepoDeployer
-from wasm.deployers.php_fpm import PhpFpmDeployer, remove_pool_of, set_pool_limits
-from wasm.deployers.php_fpm import health_gate_for_app as php_health_gate_for_app
-from wasm.deployers.recorder import CapturingLogger, DeploymentRecorder, recording
-from wasm.deployers.registry import detect_app_type, get_deployer
-from wasm.deployers.releases import (
+from noust.deployers.helpers.health import wait_until_healthy
+from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
+from noust.deployers.helpers.layout import INPLACE, RELEASES, app_root, env_file_in
+from noust.deployers.helpers.release_build import stage_release
+from noust.deployers.interface import UpdateResult
+from noust.deployers.monorepo import MonorepoDeployer
+from noust.deployers.php_fpm import PhpFpmDeployer, remove_pool_of, set_pool_limits
+from noust.deployers.php_fpm import health_gate_for_app as php_health_gate_for_app
+from noust.deployers.recorder import CapturingLogger, DeploymentRecorder, recording
+from noust.deployers.registry import detect_app_type, get_deployer
+from noust.deployers.releases import (
     CURRENT_LINK,
     REPO_CACHE_DIR,
     Release,
     ReleaseManager,
     release_order_key,
 )
-from wasm.managers.apache_manager import ApacheManager
-from wasm.managers.backup_manager import BackupManager, RollbackManager
-from wasm.managers.cert_manager import CertManager
-from wasm.managers.nginx_manager import NginxManager
-from wasm.managers.service_manager import ResourceLimits, ServiceManager
-from wasm.managers.source_manager import SourceManager, validate_commit_id
-from wasm.managers.webserver import delete_site_completely
-from wasm.validators.domain import validate_domain
-from wasm.validators.source import validate_source
+from noust.managers.apache_manager import ApacheManager
+from noust.managers.backup_manager import BackupManager, RollbackManager
+from noust.managers.cert_manager import CertManager
+from noust.managers.nginx_manager import NginxManager
+from noust.managers.service_manager import ResourceLimits, ServiceManager
+from noust.managers.source_manager import SourceManager, validate_commit_id
+from noust.managers.webserver import delete_site_completely
+from noust.validators.domain import validate_domain
+from noust.validators.source import validate_source
 
 #: The application type served by a PHP-FPM pool rather than a unit.
 PHP_FPM = PhpFpmDeployer.APP_TYPE
@@ -148,7 +148,7 @@ class AppUpdate:
         active: Whether every restarted unit was running afterwards.
         deployment_id: Id of the deployment history row this update wrote,
             when recording succeeded. None if it failed (see
-            :class:`~wasm.deployers.recorder.DeploymentRecorder`).
+            :class:`~noust.deployers.recorder.DeploymentRecorder`).
     """
 
     domain: str
@@ -186,7 +186,7 @@ def update_app(
     repository cache into a new release and built. In place, the checkout is
     detached at the commit and rebuilt; the next update without a commit goes
     back to following the branch (see
-    :meth:`~wasm.managers.source_manager.SourceManager.checkout_commit`).
+    :meth:`~noust.managers.source_manager.SourceManager.checkout_commit`).
 
     Args:
         domain: Domain of the application.
@@ -215,7 +215,7 @@ def update_app(
         What was done.
 
     Raises:
-        WASMError: When the application is unknown or a step fails. A failed
+        NoustError: When the application is unknown or a step fails. A failed
             build leaves the previous build running.
         SourceError: The commit is not a commit id, names more than one
             commit or none, or the application is not deployed from git.
@@ -229,7 +229,7 @@ def update_app(
         if source or branch:
             raise ValidationError(
                 "A commit names exactly what to deploy; a source or a branch does not apply",
-                details=f"Run either 'wasm update {domain} --commit {commit}' or an update "
+                details=f"Run either 'noust update {domain} --commit {commit}' or an update "
                 "from a source or a branch, not both.",
             )
     # Held for the whole update, backup to restart: a rollback, a migration
@@ -299,7 +299,7 @@ def _update_app(
         What was done.
 
     Raises:
-        WASMError: When the application is unknown or a step fails.
+        NoustError: When the application is unknown or a step fails.
         DeploymentError: Gated, the application did not answer after the
             restart.
     """
@@ -318,9 +318,9 @@ def _update_app(
     app_name = app_path.name
 
     if not app_path.exists():
-        raise WASMError(
+        raise NoustError(
             f"Application not found: {domain}",
-            details=f"Nothing is deployed at {app_path}. Deploy it with: wasm create -d {domain}",
+            details=f"Nothing is deployed at {app_path}. Deploy it with: noust create -d {domain}",
         )
 
     # An application is updated in place unless its row says releases; a
@@ -347,7 +347,7 @@ def _update_app(
         raise SourceError(
             f"{domain} is not a git checkout; there is no commit {commit} to deploy",
             details=f"An application deployed from a directory or an archive is rebuilt "
-            f"from its source: wasm update {domain}",
+            f"from its source: noust update {domain}",
         )
 
     phase(1, PHASES, "Creating pre-update backup")
@@ -355,7 +355,7 @@ def _update_app(
         backup = RollbackManager(verbose=verbose).create_pre_deploy_backup(
             domain=domain, description="Pre-update automatic backup"
         )
-    except (WASMError, OSError) as exc:
+    except (NoustError, OSError) as exc:
         # The update is still worth doing without it; the operator is told
         # that this one has no way back.
         log.warning(f"Backup skipped: {exc}")
@@ -494,7 +494,7 @@ def _update_release(
         What was done.
 
     Raises:
-        WASMError: When there is nothing to fetch from, the type cannot build
+        NoustError: When there is nothing to fetch from, the type cannot build
             releases, or the release failed; a release that failed its
             health check has been rolled back by then.
     """
@@ -504,14 +504,14 @@ def _update_release(
 
     fetch_from = source or app.source
     if not fetch_from:
-        raise WASMError(
+        raise NoustError(
             f"{app.domain} has no recorded source to build a release from",
-            details=f"Pass one explicitly: wasm update {app.domain} --source <git URL or path>",
+            details=f"Pass one explicitly: noust update {app.domain} --source <git URL or path>",
         )
 
     deployer = get_deployer(app_type, verbose=verbose)
     if not getattr(deployer, "SUPPORTS_RELEASES", False):
-        raise WASMError(
+        raise NoustError(
             f"{app.domain} is on the releases layout, which {app_type} applications do not support",
             details="Redeploy it with the type it was created with.",
         )
@@ -519,7 +519,7 @@ def _update_release(
     if commit is not None and validate_source(fetch_from)[0] != "git":
         raise SourceError(
             f"{app.domain} is not deployed from git; there is no commit {commit} to deploy",
-            details=f"Its source is {fetch_from}. Rebuild it from there: wasm update {app.domain}",
+            details=f"Its source is {fetch_from}. Rebuild it from there: noust update {app.domain}",
         )
 
     deployer.configure(
@@ -544,7 +544,7 @@ def _update_release(
         if not isinstance(deployer, BaseDeployer):
             raise DeploymentError(
                 f"{app_type} applications cannot deploy a single commit",
-                details=f"Update {app.domain} from its branch instead: wasm update {app.domain}",
+                details=f"Update {app.domain} from its branch instead: noust update {app.domain}",
             )
         source_manager = deployer.source_manager
         full = _resolve_in_cache(source_manager, fetch_from, app_path, branch or app.branch, commit)
@@ -769,7 +769,7 @@ def _rebuild_compose(
 
     The deployer records what serves before building, and puts it back when
     the new containers do not pass the health gate (see
-    :class:`~wasm.deployers.docker_compose.ServingState`).
+    :class:`~noust.deployers.docker_compose.ServingState`).
 
     Args:
         domain: Domain of the application.
@@ -830,7 +830,7 @@ def _restart_workspaces(
     Restart every unit a monorepo runs as, when its deployer left that to the caller.
 
     A registered monorepo's deployer restarts and probes its units itself,
-    behind the health gate (:meth:`~wasm.deployers.monorepo.MonorepoDeployer.update`);
+    behind the health gate (:meth:`~noust.deployers.monorepo.MonorepoDeployer.update`);
     this is what restarts the rest.
 
     Args:
@@ -876,7 +876,7 @@ def _restart_workspaces(
 
 #: Failures while writing release bookkeeping. The link on disk is the truth;
 #: a row that could not be written is reported, never fatal.
-_RECORDING_ERRORS = (WASMError, sqlite3.Error)
+_RECORDING_ERRORS = (NoustError, sqlite3.Error)
 
 
 @dataclass(frozen=True)
@@ -946,7 +946,7 @@ def list_releases(domain: str) -> list[ReleaseInfo]:
         Releases, newest first.
 
     Raises:
-        WASMError: The application is unknown.
+        NoustError: The application is unknown.
         DeploymentError: It is not on the release layout.
     """
     app = _release_app(validate_domain(domain))
@@ -1017,7 +1017,7 @@ def activate_release(
         What was done.
 
     Raises:
-        WASMError: The application is unknown.
+        NoustError: The application is unknown.
         DeploymentError: It is not on the release layout, the release does
             not exist or there is nothing earlier to go back to, or the
             release did not pass the health gate (the previous one is active
@@ -1094,7 +1094,7 @@ def _activate_release(
                     web=NginxManager(),
                     probe=wait_until_healthy,
                 ).activate(target.path, releases)
-            except WASMError:
+            except NoustError:
                 _set_release_status(store, app, target.id, ReleaseStatus.FAILED, log)
                 raise
         else:
@@ -1132,20 +1132,20 @@ def _release_app(domain: str) -> App:
         The row.
 
     Raises:
-        WASMError: The application is unknown.
+        NoustError: The application is unknown.
         DeploymentError: It is in place, where there are no releases.
     """
     app = get_store().get_app(domain)
     if app is None:
-        raise WASMError(
+        raise NoustError(
             f"Application not found: {domain}",
-            details="Run 'wasm list' to see what is deployed.",
+            details="Run 'noust list' to see what is deployed.",
         )
     if app.layout != RELEASES:
         raise DeploymentError(
             f"{domain} is deployed in place and has no releases",
-            details=f"Roll back to a backup with 'wasm rollback {domain}', or move it onto "
-            f"releases with 'wasm app migrate {domain}'.",
+            details=f"Roll back to a backup with 'noust rollback {domain}', or move it onto "
+            f"releases with 'noust app migrate {domain}'.",
         )
     return app
 
@@ -1180,7 +1180,7 @@ def _activation_target(
     if previous is None:
         raise DeploymentError(
             "There is no active release to roll back from",
-            details="Name the release to activate: wasm releases list <domain>.",
+            details="Name the release to activate: noust releases list <domain>.",
         )
     index = next(i for i, r in enumerate(listed) if r.id == previous.id)
     if index + 1 >= len(listed):
@@ -1194,7 +1194,7 @@ def _activation_target(
 
 def health_gate_for(
     app: App,
-    store: WASMStore,
+    store: NoustStore,
     log: Logger,
     *,
     restart: Callable[[], object] | None = None,
@@ -1254,7 +1254,7 @@ def health_gate_for(
 
 def _restore_previous(
     app: App,
-    store: WASMStore,
+    store: NoustStore,
     releases: ReleaseManager,
     target: Release,
     previous: Release | None,
@@ -1295,7 +1295,7 @@ def _restore_previous(
 
 
 def _record_activation(
-    store: WASMStore, app: App, target: Release, left_behind: Release | None, log: Logger
+    store: NoustStore, app: App, target: Release, left_behind: Release | None, log: Logger
 ) -> None:
     """
     Record that a release is active, and how the one it replaced ended.
@@ -1332,7 +1332,7 @@ def _record_activation(
 
 
 def _set_release_status(
-    store: WASMStore, app: App, release_id: str, status: ReleaseStatus, log: Logger
+    store: NoustStore, app: App, release_id: str, status: ReleaseStatus, log: Logger
 ) -> None:
     """
     Record how a release ended, when the store has a row for it.
@@ -1510,7 +1510,7 @@ def _ask_upstream(domain: str, branch: str | None, log: Logger) -> UpstreamState
     )
 
 
-def _last_good_commit(store: WASMStore, domain: str) -> str | None:
+def _last_good_commit(store: NoustStore, domain: str) -> str | None:
     """
     Read the commit the last successful deployment of an in-place application built.
 
@@ -1669,7 +1669,7 @@ def rollback_availability(records: Sequence[DeploymentRecord]) -> dict[int, str 
         if app.app_type in _NO_SNAPSHOT_REBUILD:
             answers[record.id] = (
                 f"A {app.app_type} application that is not a git checkout cannot be rebuilt "
-                f"from a snapshot; restore a backup with wasm rollback {app.domain}"
+                f"from a snapshot; restore a backup with noust rollback {app.domain}"
             )
             continue
         snapshot = record.snapshot_backup
@@ -1677,7 +1677,7 @@ def rollback_availability(records: Sequence[DeploymentRecord]) -> dict[int, str 
             answers[record.id] = f"No backup holds what deployment {record.id} produced; " + (
                 "rebuild its commit instead"
                 if record.git_commit
-                else f"restore a backup with wasm rollback {app.domain}"
+                else f"restore a backup with noust rollback {app.domain}"
             )
             continue
         if snapshot not in backups:
@@ -1707,7 +1707,7 @@ def _goes_back_by_commit(app: App, record: DeploymentRecord) -> bool:
     return bool(record.git_commit) and (app_root(app) / ".git").exists()
 
 
-def _live_deployment(store: WASMStore, domain: str) -> int | None:
+def _live_deployment(store: NoustStore, domain: str) -> int | None:
     """
     Name the deployment an in-place application serves.
 
@@ -1727,7 +1727,7 @@ def _live_deployment(store: WASMStore, domain: str) -> int | None:
     return None
 
 
-def _failed_releases(store: WASMStore, app: App) -> set[str]:
+def _failed_releases(store: NoustStore, app: App) -> set[str]:
     """
     Name the releases of an application that failed their health gate.
 
@@ -1765,7 +1765,7 @@ def rollback_to_deployment(
     files, the ``.env``) stays as it is, the restart passes the health gate,
     and a monorepo or a stack goes back through its own deployer. In place
     without history, its snapshot backup is restored over the tree by
-    :meth:`~wasm.managers.backup_manager.RollbackManager.rollback`, which
+    :meth:`~noust.managers.backup_manager.RollbackManager.rollback`, which
     takes a safety backup first, keeps ``.git`` and, unless asked, the
     ``.env``, rebuilds strictly and passes the same health gate. Every way,
     the operation is a history row of its own and the deployment it
@@ -1784,7 +1784,7 @@ def rollback_to_deployment(
         What was done.
 
     Raises:
-        WASMError: The deployment is not one of this application's.
+        NoustError: The deployment is not one of this application's.
         DeploymentError: It cannot be gone back to (see
             :func:`rollback_availability`), its rebuild failed, or it did not
             pass the health gate.
@@ -1795,7 +1795,7 @@ def rollback_to_deployment(
     store = get_store()
     record = store.get_deployment(deployment_id)
     if record is None or record.domain != domain:
-        raise WASMError(
+        raise NoustError(
             f"Deployment {deployment_id} of {domain} not found",
             details=f"See the application's history: GET /api/deployments?domain={domain}",
         )
@@ -1804,17 +1804,17 @@ def rollback_to_deployment(
         raise DeploymentError(
             reason,
             details=(
-                f"Rebuild its commit instead: wasm update {domain} --commit {record.git_commit}"
+                f"Rebuild its commit instead: noust update {domain} --commit {record.git_commit}"
                 if record.git_commit
-                else f"Restore a backup instead: wasm rollback {domain}"
+                else f"Restore a backup instead: noust rollback {domain}"
             ),
         )
 
     app = store.get_app(domain)
     if app is None:
         # rollback_availability read it a moment ago; a deletion since won.
-        raise WASMError(
-            f"Application not found: {domain}", details="Run 'wasm list' to see what is deployed."
+        raise NoustError(
+            f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
         )
     if app.layout == RELEASES and record.release_id is not None:
         activation = activate_release(
@@ -1871,7 +1871,7 @@ def rollback_to_deployment(
 
 
 def _mark_replaced_rolled_back(
-    store: WASMStore, domain: str, own_id: int | None, log: Logger
+    store: NoustStore, domain: str, own_id: int | None, log: Logger
 ) -> None:
     """
     Mark the deployment a rollback replaced as rolled back.
@@ -1898,7 +1898,7 @@ def _mark_replaced_rolled_back(
 
 
 def _record_failure_after_the_fact(
-    store: WASMStore, deployment_id: int | None, error: WASMError, log: Logger
+    store: NoustStore, deployment_id: int | None, error: NoustError, log: Logger
 ) -> None:
     """
     Turn a finished row into a failed one, when what followed its build failed.
@@ -1988,7 +1988,7 @@ def set_resource_limits(
         What was done.
 
     Raises:
-        WASMError: The application is unknown.
+        NoustError: The application is unknown.
         ValidationError: A limit is out of range.
         DeploymentError: Nothing runs as a unit for it: a static site, or a
             Docker Compose stack, whose containers are not in the unit's
@@ -2005,8 +2005,8 @@ def set_resource_limits(
     store = get_store()
     app = store.get_app(domain)
     if app is None:
-        raise WASMError(
-            f"Application not found: {domain}", details="Run 'wasm list' to see what is deployed."
+        raise NoustError(
+            f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
         )
     limits.validated()
     # Rewriting the units while a migration or an update rewrites or restarts
@@ -2016,7 +2016,7 @@ def set_resource_limits(
 
 
 def _set_resource_limits(
-    app: App, limits: ResourceLimits, *, restart: bool, store: WASMStore, log: Logger
+    app: App, limits: ResourceLimits, *, restart: bool, store: NoustStore, log: Logger
 ) -> LimitsChange:
     """
     Apply resource limits to an application whose lock the caller holds.
@@ -2065,7 +2065,7 @@ def _set_resource_limits(
         units = services.app_units(app)
         try:
             written.append((units[0], services.set_resource_limits(units[0], limits)))
-        except WASMError:
+        except NoustError:
             put_back()
             raise
         if restart:
@@ -2075,7 +2075,7 @@ def _set_resource_limits(
     try:
         for unit in units:
             written.append((unit, services.set_resource_limits(unit, limits)))
-    except WASMError:
+    except NoustError:
         put_back()
         raise
 
@@ -2100,7 +2100,7 @@ def _set_resource_limits(
 
 
 def _set_pool_limits(
-    app: App, limits: ResourceLimits, *, store: WASMStore, log: Logger
+    app: App, limits: ResourceLimits, *, store: NoustStore, log: Logger
 ) -> LimitsChange:
     """
     Apply resource limits to a PHP application: its pool, not a unit.
@@ -2140,7 +2140,7 @@ def _set_pool_limits(
 
 
 def _record_limits(
-    app: App, limits: ResourceLimits, units: Sequence[str], restarted: bool, store: WASMStore
+    app: App, limits: ResourceLimits, units: Sequence[str], restarted: bool, store: NoustStore
 ) -> LimitsChange:
     """
     Record the limits an application's units were given.
@@ -2163,7 +2163,7 @@ def _record_limits(
 
 
 def _restart_blue_green(
-    app: App, store: WASMStore, log: Logger, put_back: Callable[[], None]
+    app: App, store: NoustStore, log: Logger, put_back: Callable[[], None]
 ) -> None:
     """
     Run a blue/green application under new limits without a cut.
@@ -2189,7 +2189,7 @@ def _restart_blue_green(
         put_back()
         raise DeploymentError(
             f"{app.domain} has no active release to restart under the new limits",
-            details=f"Build one first: wasm update {app.domain}",
+            details=f"Build one first: noust update {app.domain}",
         )
     try:
         BlueGreen(
@@ -2200,7 +2200,7 @@ def _restart_blue_green(
             web=NginxManager(),
             probe=wait_until_healthy,
         ).activate(active.path, releases)
-    except WASMError as exc:
+    except NoustError as exc:
         # Any refusal, not only a failed gate: nginx refusing the upstream
         # is an NginxError, and the new limits must not stay in the template
         # either way. The engine has already stopped the instance it started.
@@ -2244,7 +2244,7 @@ def set_health_check(
         The application's row as it is now.
 
     Raises:
-        WASMError: The application is unknown.
+        NoustError: The application is unknown.
         DeploymentError: It is a static site, which the gate checks by its
             files, not over HTTP.
         ValidationError: A value is not one the gate can use.
@@ -2264,7 +2264,7 @@ def set_health_check(
     return _known_app(store, app.domain)
 
 
-def _known_app(store: WASMStore, domain: str) -> App:
+def _known_app(store: NoustStore, domain: str) -> App:
     """
     Read an application's row, or say it is not deployed.
 
@@ -2276,12 +2276,12 @@ def _known_app(store: WASMStore, domain: str) -> App:
         The row.
 
     Raises:
-        WASMError: There is none.
+        NoustError: There is none.
     """
     app = store.get_app(domain)
     if app is None:
-        raise WASMError(
-            f"Application not found: {domain}", details="Run 'wasm list' to see what is deployed."
+        raise NoustError(
+            f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
         )
     return app
 
@@ -2327,7 +2327,7 @@ def set_release_retention(
         What was done.
 
     Raises:
-        WASMError: The application is unknown.
+        NoustError: The application is unknown.
         DeploymentError: It is in place, where there are no releases.
         ValidationError: ``keep`` is out of range; nothing is pruned.
         AppBusyError: Another operation is running on the application.
@@ -2401,7 +2401,7 @@ def delete_app(
     """
     Remove a deployed application: its containers, units, site, certificate, files and rows.
 
-    The one deletion, for ``wasm delete`` and the console's delete job alike.
+    The one deletion, for ``noust delete`` and the console's delete job alike.
     They used to differ: the console's job never took a Docker Compose stack
     down, so its containers went on running from a directory it then deleted,
     and a unit that would not stop left its unit file behind.
@@ -2424,7 +2424,7 @@ def delete_app(
         What was done.
 
     Raises:
-        WASMError: Nothing is deployed at that domain.
+        NoustError: Nothing is deployed at that domain.
         AppBusyError: Another operation is running on the application.
     """
     log = logger if logger is not None else Logger()
@@ -2442,7 +2442,7 @@ def delete_app(
         )
 
 
-def _has_previews(store: WASMStore, domain: str) -> bool:
+def _has_previews(store: NoustStore, domain: str) -> bool:
     """
     Say whether an application has previews, or had them turned on.
 
@@ -2483,7 +2483,7 @@ def _delete_app(
         What was done.
 
     Raises:
-        WASMError: Nothing is deployed at that domain.
+        NoustError: Nothing is deployed at that domain.
     """
     store = get_store()
     app = store.get_app(domain)
@@ -2495,9 +2495,9 @@ def _delete_app(
         else Config().apps_directory / domain_to_app_name(domain)
     )
     if app is None and not app_path.exists():
-        raise WASMError(
+        raise NoustError(
             f"Application not found: {domain}",
-            details="Nothing to delete; check 'wasm list' for the exact domain.",
+            details="Nothing to delete; check 'noust list' for the exact domain.",
         )
     warnings: list[str] = []
 
@@ -2514,14 +2514,14 @@ def _delete_app(
         deployer.domain = domain
         try:
             containers_stopped = deployer.down(remove_volumes=remove_volumes)
-        except WASMError as exc:
+        except NoustError as exc:
             failed("The containers were not taken down", exc)
         # Before the files go: the compose file names the services whose
         # kept images are removed.
         try:
             for tag in deployer.remove_kept_images():
                 log.substep(f"Removed {tag}")
-        except WASMError as exc:
+        except NoustError as exc:
             failed("The images kept for going back were not all removed", exc)
     else:
         phase(1, DELETE_PHASES, "Stopping the application")
@@ -2530,12 +2530,12 @@ def _delete_app(
         # A preview copies this application's source and secrets; none may
         # outlive it. Before its own units go, so a failure here is reported
         # with the application still whole.
-        from wasm.managers.previews import remove_previews_of
+        from noust.managers.previews import remove_previews_of
 
         try:
             for removed in remove_previews_of(domain, logger=log):
                 log.substep(f"Removed preview {removed}")
-        except WASMError as exc:
+        except NoustError as exc:
             failed("Some of its previews were not removed", exc)
 
     phase(2, DELETE_PHASES, "Removing its units")
@@ -2547,7 +2547,7 @@ def _delete_app(
         try:
             # Stops, disables and removes it, and tolerates one that is gone.
             services.delete_service(unit)
-        except WASMError as exc:
+        except NoustError as exc:
             failed(f"The unit {unit} was not removed", exc)
 
     # Read defensively: callers and tests hand this rows of their own shape.
@@ -2564,7 +2564,7 @@ def _delete_app(
         # A pool left behind keeps workers running for a deleted application.
         try:
             remove_pool_of(app_path, log)
-        except WASMError as exc:
+        except NoustError as exc:
             failed("Its PHP-FPM pool was not removed", exc)
 
     phase(3, DELETE_PHASES, "Removing its site and certificate")

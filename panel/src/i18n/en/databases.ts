@@ -38,7 +38,7 @@ export const databases = {
   },
   engines: {
     title: "Engines",
-    description: "Database servers WASM can install and control on this machine.",
+    description: "Database servers Noust can install and control on this machine.",
     installing: "Installing",
     notInstalled: "Not installed",
     running: "Running",
@@ -102,7 +102,7 @@ export const databases = {
     description: "Creates a login on the chosen engine, with a generated password unless you set one.",
     done: "Done",
     passwordWarning:
-      "This password is shown once. WASM stores only what the engine stores - a hash - so it cannot be shown again. Copy it now and keep it somewhere safe.",
+      "This password is shown once. Noust stores only what the engine stores - a hash - so it cannot be shown again. Copy it now and keep it somewhere safe.",
     copyUsername: "Copy username",
     copyPassword: "Copy password",
     passwordDescription: "Leave it blank for a generated password, shown once you create the user.",
@@ -130,7 +130,7 @@ export const databases = {
     modeLabel: "Mode",
     readMode: "Read",
     writeMode: "Write",
-    noReadOnlyGrammar: "{engine} has no read-only grammar WASM enforces here; every statement runs in write mode.",
+    noReadOnlyGrammar: "{engine} has no read-only grammar Noust enforces here; every statement runs in write mode.",
     ctrlEnterHint: "Ctrl+Enter runs.",
     run: "Run",
     statementFailed: "The statement failed",
@@ -170,7 +170,7 @@ export const databases = {
   },
   connectionString: {
     title: "Connection string",
-    description: "Built from a username and password you already have. WASM reads nothing from the server to make it.",
+    description: "Built from a username and password you already have. Noust reads nothing from the server to make it.",
     build: "Build connection string",
     reveal: "Reveal connection string",
     hide: "Hide connection string",

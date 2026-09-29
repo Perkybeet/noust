@@ -2,13 +2,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The machine-wide health check ``wasm health`` and the panel both report.
+The machine-wide health check ``noust health`` and the panel both report.
 
-This used to live entirely inside the ``wasm health`` command handler, which
+This used to live entirely inside the ``noust health`` command handler, which
 is where ``GET /api/system/health`` would have had to duplicate it rather
 than call it. The checking logic - disk space, the web servers, every
 deployed application, certificates close to expiry, memory pressure - moved
-here unchanged; :mod:`wasm.cli.commands.health` now only formats and prints
+here unchanged; :mod:`noust.cli.commands.health` now only formats and prints
 :class:`HealthReport`, and the endpoint serialises the same object to JSON.
 """
 
@@ -19,14 +19,14 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from wasm.core.app_state import RUNNING, STATIC, resolve_states
-from wasm.core.config import Config
-from wasm.core.exceptions import WASMError
-from wasm.core.store import WebServer, get_store
-from wasm.managers.apache_manager import ApacheManager
-from wasm.managers.cert_manager import CertificateInfo, CertManager
-from wasm.managers.nginx_manager import NginxManager
-from wasm.managers.service_manager import ServiceManager
+from noust.core.app_state import RUNNING, STATIC, resolve_states
+from noust.core.config import Config
+from noust.core.exceptions import NoustError
+from noust.core.store import WebServer, get_store
+from noust.managers.apache_manager import ApacheManager
+from noust.managers.cert_manager import CertificateInfo, CertManager
+from noust.managers.nginx_manager import NginxManager
+from noust.managers.service_manager import ServiceManager
 
 #: A certificate this close to expiry is an incident, not a reminder.
 CERT_CRITICAL_DAYS = 7
@@ -268,7 +268,7 @@ def _apache_has_a_site(apache: ApacheManager) -> bool:
         return True
     try:
         apps = get_store().list_apps()
-    except (WASMError, sqlite3.Error):
+    except (NoustError, sqlite3.Error):
         return False
     return any(app.webserver == WebServer.APACHE.value for app in apps)
 
@@ -289,7 +289,7 @@ def _check_applications(verbose: bool, warnings: list[str]) -> HealthCheck:
 
     apps = store.list_apps()
 
-    # The same resolver `wasm list` uses. When these two commands each decided
+    # The same resolver `noust list` uses. When these two commands each decided
     # for themselves what "running" meant, list reported fifteen applications
     # running while health reported seven stopped, and five of the seven were
     # static sites that have no service to run in the first place.
@@ -373,7 +373,7 @@ def _check_certificates(verbose: bool, issues: list[str], warnings: list[str]) -
         if certs:
             return HealthCheck("SSL Certificates", f"{len(certs)} total, all valid", "ok")
         return HealthCheck("SSL Certificates", "None configured", "info")
-    except WASMError as exc:
+    except NoustError as exc:
         return HealthCheck("SSL Certificates", f"Could not check: {exc}", "warning")
 
 
@@ -411,7 +411,7 @@ def collect_health_report(*, verbose: bool = False) -> HealthReport:
     """
     Run every check and return the structured report.
 
-    The one implementation ``wasm health`` and ``GET /api/system/health``
+    The one implementation ``noust health`` and ``GET /api/system/health``
     both call: disk space, the web servers, every deployed application,
     certificates close to expiry and memory pressure.
 

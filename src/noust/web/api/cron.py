@@ -4,20 +4,20 @@
 """
 Cron jobs API endpoints.
 
-A thin client of :class:`~wasm.managers.cron_manager.CronManager`, which owns
+A thin client of :class:`~noust.managers.cron_manager.CronManager`, which owns
 the timer/service unit pair, the systemctl calls, the ownership guard and
 every rule about what may be written into a root-owned unit file. Three
 decisions live here rather than in the handlers' bodies:
 
 - **The calendar is validated in the request model**, through the scheduler's
-  single :func:`~wasm.managers.backup_scheduler.validate_calendar` (as
-  re-worded by :func:`~wasm.managers.cron_manager.validate_cron_calendar`),
+  single :func:`~noust.managers.backup_scheduler.validate_calendar` (as
+  re-worded by :func:`~noust.managers.cron_manager.validate_cron_calendar`),
   so a bad expression answers ``422`` with the refusal instead of becoming a
   half-written unit pair.
 - **The command travels as one line and runs as an argv.** The manager splits
   it with shlex and writes it token by token; no shell exists anywhere in the
   path, and the API does not pretend otherwise.
-- **Every mutation is audited** to ``wasm.audit`` with the session that asked
+- **Every mutation is audited** to ``noust.audit`` with the session that asked
   for it, like every other mutation the panel can perform.
 """
 
@@ -29,17 +29,17 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from wasm.core.exceptions import ServiceError
-from wasm.managers.backup_scheduler import SCHEDULE_ALIASES
-from wasm.managers.cron_manager import CronJob, CronManager, validate_cron_calendar
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import WASMErrorRoute, require_elevated
-from wasm.web.auth import actor_label
-from wasm.web.pydantic_compat import field_validator
+from noust.core.exceptions import ServiceError
+from noust.managers.backup_scheduler import SCHEDULE_ALIASES
+from noust.managers.cron_manager import CronJob, CronManager, validate_cron_calendar
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import NoustErrorRoute, require_elevated
+from noust.web.auth import actor_label
+from noust.web.pydantic_compat import field_validator
 
-router = APIRouter(route_class=WASMErrorRoute)
+router = APIRouter(route_class=NoustErrorRoute)
 
-audit_log = logging.getLogger("wasm.audit")
+audit_log = logging.getLogger("noust.audit")
 
 #: The alias each expansion came from, so a listing can say "daily" instead of
 #: making an operator parse ``*-*-* 02:00:00``.
@@ -51,7 +51,7 @@ class CronJobInfo(BaseModel):
     One cron job as systemd reports it.
 
     Attributes:
-        name: Job name the ``wasm-cron-{name}`` unit names are built from.
+        name: Job name the ``noust-cron-{name}`` unit names are built from.
         command: The command as the operator typed it (what the unit runs, before systemd escaping).
         user: Unix user the command runs as.
         working_directory: Directory the command runs in, empty when unset.
@@ -244,7 +244,7 @@ def _to_info(entry: dict[str, Any]) -> CronJobInfo:
 @router.get("", response_model=CronJobListResponse)
 def list_jobs(session: Annotated[dict, Depends(get_current_session)]) -> CronJobListResponse:
     """
-    List every WASM cron job with its next run and last result.
+    List every Noust cron job with its next run and last result.
 
     Args:
         session: The authenticated session.
@@ -261,7 +261,7 @@ def create_job(
     data: CreateCronJobRequest, session: Annotated[dict, Depends(require_elevated)]
 ) -> CronActionResponse:
     """
-    Create a cron job as a systemd timer, or rewrite one WASM already owns.
+    Create a cron job as a systemd timer, or rewrite one Noust already owns.
 
     Sudo mode, creating or rewriting alike: either way the result is a
     command of the caller's choosing that runs as root on a timer.
@@ -340,7 +340,7 @@ def delete_job(
     Deleting the units is as destructive as deleting the application they
     were scheduled for - D5's sudo mode list treats it the same way, so a
     cookie session has to confirm itself first; an admin-scoped Bearer
-    credential is exempt, per :func:`wasm.web.api.deps.ensure_elevated`.
+    credential is exempt, per :func:`noust.web.api.deps.ensure_elevated`.
 
     Args:
         name: Job name.
@@ -352,7 +352,7 @@ def delete_job(
     Raises:
         HTTPException: 404 when no owned job exists for the name, so deleting
             a job that was never created does not report success.
-        ServiceError: When the units are not WASM's.
+        ServiceError: When the units are not Noust's.
     """
     manager = CronManager(verbose=False)
     if manager.get_job(name) is None:

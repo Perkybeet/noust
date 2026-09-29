@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-``wasm import --from PLATFORM``: read another platform's configuration.
+``noust import --from PLATFORM``: read another platform's configuration.
 
-The reading is :mod:`wasm.deployers.importers`, which the new-app wizard's
+The reading is :mod:`noust.deployers.importers`, which the new-app wizard's
 inspection uses too; with ``--deploy`` the proposal becomes an export
-document (:func:`wasm.deployers.app_export.proposal_document`) and goes
-through ``wasm app import``'s plan and run, so there is one create path.
+document (:func:`noust.deployers.app_export.proposal_document`) and goes
+through ``noust app import``'s plan and run, so there is one create path.
 This module only parses and presents.
 """
 
@@ -19,11 +19,11 @@ from pathlib import Path
 
 import click
 
-from wasm.cli.app import Context, WasmCommand, global_flags, json_option, pass_context
-from wasm.cli.commands.app import gather_env, run_import
-from wasm.core.logger import Logger
-from wasm.deployers.app_export import plan_import, proposal_document
-from wasm.deployers.importers import PLATFORMS, UNSUPPORTED_PLATFORMS, Proposal, read_platform
+from noust.cli.app import Context, NoustCommand, global_flags, json_option, pass_context
+from noust.cli.commands.app import gather_env, run_import
+from noust.core.logger import Logger
+from noust.deployers.app_export import plan_import, proposal_document
+from noust.deployers.importers import PLATFORMS, UNSUPPORTED_PLATFORMS, Proposal, read_platform
 
 
 def print_proposal(logger: Logger, proposal: Proposal) -> None:
@@ -69,7 +69,7 @@ def print_proposal(logger: Logger, proposal: Proposal) -> None:
         logger.warning(warning)
 
 
-@click.command("import", cls=WasmCommand)
+@click.command("import", cls=NoustCommand)
 @click.option(
     "--from",
     "platform",
@@ -121,10 +121,10 @@ def cli(
     """
     Read Vercel, Railway, Render or Heroku configuration from a repository.
 
-    PATH is the checked-out repository (default: here). Prints what WASM would
+    PATH is the checked-out repository (default: here). Prints what Noust would
     deploy - type, commands, port, health check, variables, databases,
     domains - and a warning for everything without an equivalent. With
-    --deploy DOMAIN it deploys that, from --source or PATH, like 'wasm app
+    --deploy DOMAIN it deploys that, from --source or PATH, like 'noust app
     import'. Coolify keeps its configuration in its own database, so there is
     nothing in the repository to read.
     """
@@ -137,7 +137,7 @@ def cli(
             return
         print_proposal(ctx.logger, proposal)
         ctx.logger.info(
-            f"Deploy it with: wasm import --from {platform} {path} --deploy DOMAIN [--source URL]"
+            f"Deploy it with: noust import --from {platform} {path} --deploy DOMAIN [--source URL]"
         )
         return
 

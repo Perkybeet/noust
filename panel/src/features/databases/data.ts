@@ -1,5 +1,5 @@
 /**
- * Shared engine vocabulary: the four engines `wasm.managers.database.DatabaseRegistry`
+ * Shared engine vocabulary: the four engines `noust.managers.database.DatabaseRegistry`
  * knows, in the order the CLI lists them, and which of them enforce a read-only grammar for
  * the SQL console (`READ_MODE_ENGINES` in `databases.py`).
  */

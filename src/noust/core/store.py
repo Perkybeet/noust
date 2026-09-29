@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-SQLite persistence layer for WASM.
+SQLite persistence layer for Noust.
 
-Provides a centralized store for all WASM-managed resources:
+Provides a centralized store for all Noust-managed resources:
 - Applications (deployed web apps)
 - Sites (Nginx/Apache configurations)
 - Services (systemd services)
@@ -14,7 +14,7 @@ Provides a centralized store for all WASM-managed resources:
 The rows hold credentials: ``apps.env_vars`` and ``services.environment`` carry
 DATABASE_URL, API keys and generated secrets. So the database file is 0600
 inside a 0700 directory, and both are created through
-:mod:`wasm.core.fs` rather than by SQLite: SQLite creates the file with the
+:mod:`noust.core.fs` rather than by SQLite: SQLite creates the file with the
 process umask, which is how a store full of passwords ends up world readable,
 and a creation that does not go through the seam is a creation ``--dry-run``
 cannot stop.
@@ -35,8 +35,9 @@ from pathlib import Path
 from typing import Any, NoReturn, Optional, TypeVar
 from urllib.parse import quote
 
-from wasm.core.exceptions import DomainConflictError, DomainError, ValidationError, WASMError
-from wasm.core.fs import (
+from noust.core import paths
+from noust.core.exceptions import DomainConflictError, DomainError, NoustError, ValidationError
+from noust.core.fs import (
     SECRET_DIR_MODE,
     SECRET_MODE,
     DryRunFileSystem,
@@ -47,12 +48,61 @@ from wasm.core.fs import (
 
 logger = logging.getLogger(__name__)
 
-# Database location
-DEFAULT_DB_PATH = Path("/var/lib/wasm/wasm.db")
-USER_DB_PATH = Path.home() / ".local/share/wasm/wasm.db"
+# Database location. The legacy paths are where WASM kept the store until
+# 3.0; they are read in place until noust.core.migrate_from_wasm moves them.
+DEFAULT_DB_PATH = paths.STATE_DIR / paths.STORE_NAME
+LEGACY_DB_PATH = paths.LEGACY_STATE_DIR / paths.LEGACY_STORE_NAME
+USER_DB_PATH = paths.user_data_dir() / paths.STORE_NAME
+LEGACY_USER_DB_PATH = paths.legacy_user_data_dir() / paths.LEGACY_STORE_NAME
 
 
-class StoreError(WASMError):
+def _writable_dir(directory: Path) -> bool:
+    """
+    Report whether a directory exists and this process may create files in it.
+
+    Args:
+        directory: The directory to probe.
+
+    Returns:
+        True when it is a directory and writable.
+    """
+    return directory.is_dir() and os.access(directory, os.W_OK)
+
+
+def _store_candidates() -> list[tuple[Path, bool]]:
+    """
+    List every place a store may already be, most authoritative first.
+
+    WASM kept the store at ``/var/lib/wasm/wasm.db``. The migration renames
+    the file to ``noust.db`` inside that directory, then the directory to
+    ``/var/lib/noust``, and leaves ``/var/lib/wasm`` as a symlink; a run
+    interrupted between two of those steps leaves the file under any of the
+    four combinations, and every one is looked at before a new, empty store
+    is ever chosen. The same holds for the per-user store.
+
+    Returns:
+        ``(path, is_system)`` pairs, without duplicates.
+    """
+    candidates: list[tuple[Path, bool]] = []
+    seen: set[Path] = set()
+    system_dirs = (DEFAULT_DB_PATH.parent, LEGACY_DB_PATH.parent)
+    system_names = (DEFAULT_DB_PATH.name, LEGACY_DB_PATH.name)
+    user_dirs = (USER_DB_PATH.parent, LEGACY_USER_DB_PATH.parent)
+    user_names = (USER_DB_PATH.name, LEGACY_USER_DB_PATH.name)
+    for dirs, names, system in (
+        (system_dirs, system_names, True),
+        (user_dirs, user_names, False),
+    ):
+        for directory in dirs:
+            for name in names:
+                path = directory / name
+                if path not in seen:
+                    seen.add(path)
+                    candidates.append((path, system))
+    return candidates
+
+
+class StoreError(NoustError):
     """Raised when the store cannot be opened or created."""
 
 
@@ -120,7 +170,7 @@ class AppLayout(str, Enum):
     ``inplace`` is the v1 layout: the tree the service runs is the tree every
     update rebuilds. ``releases`` builds each deploy in its own directory under
     ``releases/`` and points ``current`` at the active one (see
-    :mod:`wasm.deployers.releases`).
+    :mod:`noust.deployers.releases`).
     """
 
     INPLACE = "inplace"
@@ -164,8 +214,8 @@ MIN_KEEP_RELEASES = 1
 MAX_KEEP_RELEASES = 50
 
 #: Columns of ``apps`` written only by their own setters
-#: (:meth:`WASMStore.set_app_health`, :meth:`WASMStore.set_keep_releases`,
-#: and the schema v10 setters), never by :meth:`WASMStore.update_app`'s
+#: (:meth:`NoustStore.set_app_health`, :meth:`NoustStore.set_keep_releases`,
+#: and the schema v10 setters), never by :meth:`NoustStore.update_app`'s
 #: full-row write.
 _OWN_SETTER_COLUMNS = (
     "health_path",
@@ -483,7 +533,7 @@ class ReleaseRecord:
     One release of an application, as the store remembers it.
 
     The directory is the truth about what exists;
-    :class:`wasm.deployers.releases.ReleaseManager` reads it. This row is what
+    :class:`noust.deployers.releases.ReleaseManager` reads it. This row is what
     the directory cannot say: when a release was activated and how it ended,
     including the builds that failed and were removed.
 
@@ -552,7 +602,7 @@ class JobRecord:
     """
     One background job the panel queued, kept so a restart does not erase it.
 
-    The in-memory shape :class:`wasm.web.jobs.Job` carries - live progress
+    The in-memory shape :class:`noust.web.jobs.Job` carries - live progress
     messages, per-line logs kept for the SSE feed - lives only in the panel
     process. This is what survives it: the id, what it was, how it ended, and
     where its captured log lives on disk.
@@ -680,7 +730,7 @@ class PreviewRecord:
         head_sha: The commit last deployed or asked for.
         provider: ``github``, ``gitlab`` or ``gitea``.
         repository: ``owner/repo``, when the provider said.
-        comment_ref: The provider's id of the comment WASM keeps updated.
+        comment_ref: The provider's id of the comment Noust keeps updated.
         status: ``pending``, ``deploying``, ``ready``, ``failed`` or
             ``removing``.
         error: Why the last deployment failed, when it did.
@@ -833,11 +883,11 @@ def _written(record: _Record | None) -> _Record:
         The record.
 
     Raises:
-        WASMError: It was not there, which only a concurrent delete between
+        NoustError: It was not there, which only a concurrent delete between
             the write and the read can cause.
     """
     if record is None:
-        raise WASMError("A row just written could not be read back")
+        raise NoustError("A row just written could not be read back")
     return record
 
 
@@ -911,7 +961,7 @@ CREATE INDEX IF NOT EXISTS idx_deployments_domain_started
 """
 
 # Statuses a job row may be in. Mirrors the values of
-# ``wasm.web.jobs.JobStatus`` without importing it: the store is core and web
+# ``noust.web.jobs.JobStatus`` without importing it: the store is core and web
 # is a client of core, never the reverse, so the accepted set is restated here
 # as plain SQL, the same way the deployment statuses above are. The CHECK
 # constraint is the enforcement, not a second copy of the enum in Python -
@@ -1089,7 +1139,7 @@ CREATE TABLE IF NOT EXISTS backup_destinations (
     updated_at TEXT NOT NULL
 );
 
--- Backup schedules: what the wasm-backup-* timer of each application does
+-- Backup schedules: what the noust-backup-* timer of each application does
 CREATE TABLE IF NOT EXISTS backup_schedules (
     app_domain TEXT PRIMARY KEY,
     schedule TEXT NOT NULL,
@@ -1280,17 +1330,17 @@ CREATE INDEX IF NOT EXISTS idx_databases_app_id ON databases(app_id);
 )
 
 
-class WASMStore:
+class NoustStore:
     """
-    SQLite-based persistence store for WASM.
+    SQLite-based persistence store for Noust.
 
-    Thread-safe singleton that manages all WASM resources.
+    Thread-safe singleton that manages all Noust resources.
     """
 
-    _instance: Optional["WASMStore"] = None
+    _instance: Optional["NoustStore"] = None
     _lock = threading.Lock()
 
-    def __new__(cls, db_path: Path | None = None, fs: FileSystem | None = None) -> "WASMStore":
+    def __new__(cls, db_path: Path | None = None, fs: FileSystem | None = None) -> "NoustStore":
         """Singleton pattern with thread safety."""
         with cls._lock:
             if cls._instance is None:
@@ -1310,7 +1360,7 @@ class WASMStore:
                 knowing about them.
         """
         # __new__ only guarantees one Python object exists; __init__ still runs
-        # once per call to WASMStore(...), on that same object, uncoordinated.
+        # once per call to NoustStore(...), on that same object, uncoordinated.
         # Without the lock here, every thread that arrives while the first is
         # still inside _ensure_schema() reads _initialized as False and runs
         # the migrations again itself - harmless by accident (CREATE TABLE IF
@@ -1343,8 +1393,8 @@ class WASMStore:
         Priority:
         1. Explicit path provided
         2. A database that already exists, system before user
-        3. System path if writable (/var/lib/wasm/)
-        4. User path (~/.local/share/wasm/)
+        3. System path if writable (/var/lib/noust/)
+        4. User path (~/.local/share/noust/)
 
         Nothing is created here. Deciding *where* the database lives is a
         question, not a change, and an early version answered it by trying to
@@ -1352,11 +1402,11 @@ class WASMStore:
         behind on a run that was supposed to change nothing.
 
         **Why an existing database outranks the system location.** The choice
-        used to be made purely on whether ``/var/lib/wasm`` happened to exist
+        used to be made purely on whether ``/var/lib/noust`` happened to exist
         and be writable, so it changed the moment somebody created that
-        directory - a packaging change, an administrator, or WASM's own monitor
+        directory - a packaging change, an administrator, or Noust's own monitor
         service, which needs it. On a server whose inventory had always lived
-        under ``~/.local/share``, ``wasm list`` then answered "No applications
+        under ``~/.local/share``, ``noust list`` then answered "No applications
         deployed" about a machine serving seventeen sites. Nothing was lost and
         nothing said so, which is the worst way for a tool to be wrong: the
         records were one directory away and the operator was told they did not
@@ -1375,19 +1425,16 @@ class WASMStore:
         if db_path:
             return Path(db_path)
 
-        system_writable = DEFAULT_DB_PATH.parent.is_dir() and os.access(
-            DEFAULT_DB_PATH.parent, os.W_OK
-        )
-
         # An inventory that exists wins over one that would be created. Two
         # empty files, or none at all, fall through to the usual preference.
-        for candidate in (DEFAULT_DB_PATH, USER_DB_PATH):
-            if candidate.is_file() and candidate.stat().st_size > 0:
-                if candidate == DEFAULT_DB_PATH and not system_writable:
-                    continue
-                return candidate
+        for candidate, system in _store_candidates():
+            if not (candidate.is_file() and candidate.stat().st_size > 0):
+                continue
+            if system and not _writable_dir(candidate.parent):
+                continue
+            return candidate
 
-        if system_writable:
+        if _writable_dir(DEFAULT_DB_PATH.parent):
             return DEFAULT_DB_PATH
 
         return USER_DB_PATH
@@ -1433,7 +1480,7 @@ class WASMStore:
             connection = sqlite3.connect(uri, uri=True, check_same_thread=False)
         except sqlite3.OperationalError as exc:
             raise StoreError(
-                f"Cannot open the WASM database at {self._db_path}",
+                f"Cannot open the Noust database at {self._db_path}",
                 details=(
                     "The file is missing or cannot be opened. It is created on the "
                     "first real run; --dry-run deliberately does not create it, so "
@@ -1749,8 +1796,8 @@ class WASMStore:
         wherever the store is opened, including under ``--dry-run`` and in the
         panel, and a schema change that depends on what happens to be on disk
         is not reproducible. The live names are adopted instead, at runtime,
-        by the first ``wasm domain`` change to the application (see
-        :mod:`wasm.deployers.domains`); a redeploy with ``--www`` records
+        by the first ``noust domain`` change to the application (see
+        :mod:`noust.deployers.domains`); a redeploy with ``--www`` records
         ``www`` explicitly.
 
         Args:
@@ -2113,7 +2160,7 @@ class WASMStore:
             ValidationError: A value is not one the gate can use; nothing is
                 written.
         """
-        from wasm.validators.health import (
+        from noust.validators.health import (
             check_health_expect,
             check_health_path,
             check_health_timeout,
@@ -2283,7 +2330,7 @@ class WASMStore:
         if app is None or app.id is None:
             raise StoreError(
                 f"Application not found: {app_domain}",
-                details="Run 'wasm list' to see what is deployed.",
+                details="Run 'noust list' to see what is deployed.",
             )
 
         owner = self.domain_owner(name)
@@ -2307,7 +2354,7 @@ class WASMStore:
             # Lost a race with another writer between the check and the insert.
             raise DomainConflictError(
                 f"{name} already belongs to an application",
-                details=f"{exc}. Run 'wasm domain list' on the applications to find it.",
+                details=f"{exc}. Run 'noust domain list' on the applications to find it.",
             ) from exc
         return record
 
@@ -2362,7 +2409,7 @@ class WASMStore:
             f"{domain} is the primary domain and cannot be removed",
             details=(
                 "The primary is the domain the application was deployed as. Delete the "
-                f"application to stop serving it: wasm delete {domain}"
+                f"application to stop serving it: noust delete {domain}"
             ),
         )
 
@@ -2406,12 +2453,12 @@ class WASMStore:
         if kind == DomainKind.PRIMARY.value:
             return DomainConflictError(
                 f"{domain} is already deployed as an application",
-                details=f"Delete that application first, or choose another name: wasm status {app_domain}",
+                details=f"Delete that application first, or choose another name: noust status {app_domain}",
             )
         article = "an" if kind == DomainKind.ALIAS.value else "a"
         return DomainConflictError(
             f"{domain} is already {article} {kind} of {app_domain}",
-            details=f"Remove it there first: wasm domain remove {app_domain} {domain}",
+            details=f"Remove it there first: noust domain remove {app_domain} {domain}",
         )
 
     @staticmethod
@@ -2428,7 +2475,7 @@ class WASMStore:
         Raises:
             DomainError: When it is not a valid domain name.
         """
-        from wasm.validators.domain import is_valid_domain
+        from noust.validators.domain import is_valid_domain
 
         name = domain.strip().lower()
         valid, reason = is_valid_domain(name)
@@ -3028,7 +3075,7 @@ class WASMStore:
 
         Raises:
             ValidationError: The backup id is empty.
-            WASMError: There is no such deployment.
+            NoustError: There is no such deployment.
         """
         if not backup_id or not backup_id.strip():
             raise ValidationError(
@@ -3041,7 +3088,7 @@ class WASMStore:
                 (backup_id, deployment_id),
             )
             if cursor.rowcount == 0:
-                raise WASMError(
+                raise NoustError(
                     f"Deployment {deployment_id} does not exist",
                     details="Its history may have been pruned; nothing was linked.",
                 )
@@ -3589,7 +3636,7 @@ class WASMStore:
         """
         Mark every job still pending or running as failed.
 
-        Called once, when :class:`~wasm.web.jobs.JobManager` starts up: a job
+        Called once, when :class:`~noust.web.jobs.JobManager` starts up: a job
         in either state at that moment was not resumed, it was orphaned by the
         previous process exiting, and leaving it "running" forever is how a
         history screen comes to lie about the state of the machine.
@@ -3734,7 +3781,7 @@ class WASMStore:
             ValidationError: A name is not an environment variable name, or a
                 mark is not a boolean.
         """
-        from wasm.validators.environment import ENV_NAME_PATTERN
+        from noust.validators.environment import ENV_NAME_PATTERN
 
         for name, mark in marks.items():
             if not isinstance(name, str) or not ENV_NAME_PATTERN.match(name):
@@ -4408,9 +4455,9 @@ class WASMStore:
 
 
 # Convenience function to get store instance
-def get_store(db_path: Path | None = None, fs: FileSystem | None = None) -> WASMStore:
+def get_store(db_path: Path | None = None, fs: FileSystem | None = None) -> NoustStore:
     """
-    Get the WASM store instance.
+    Get the Noust store instance.
 
     Args:
         db_path: Optional custom database path.
@@ -4418,6 +4465,6 @@ def get_store(db_path: Path | None = None, fs: FileSystem | None = None) -> WASM
             when the singleton is built; an existing instance keeps its own.
 
     Returns:
-        WASMStore singleton instance.
+        NoustStore singleton instance.
     """
-    return WASMStore(db_path, fs)
+    return NoustStore(db_path, fs)

@@ -74,11 +74,11 @@ Subscriber = Callable[[DeployEvent], None]
 
 # Modules whose ``on_deploy_event`` function listens to every deployment in
 # every process. Imported on first publication rather than at import time:
-# the notifier and the GitHub integration import half of WASM, and a
+# the notifier and the GitHub integration import half of Noust, and a
 # deployer importing them back would be a cycle.
 DEFAULT_SUBSCRIBERS: tuple[str, ...] = (
-    "wasm.core.deploy_notifications",
-    "wasm.integrations.github.statuses",
+    "noust.core.deploy_notifications",
+    "noust.integrations.github.statuses",
 )
 
 _lock = threading.Lock()

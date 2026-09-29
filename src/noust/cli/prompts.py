@@ -5,9 +5,9 @@
 Interactive prompts.
 
 Built on questionary rather than inquirer. ``python3-inquirer`` does not exist
-in Debian or Ubuntu, so on the distributions most WASM users run, interactive
+in Debian or Ubuntu, so on the distributions most Noust users run, interactive
 mode was gated behind a package they could never install; questionary is
-packaged everywhere WASM builds.
+packaged everywhere Noust builds.
 
 The shapes here mirror the ones the interactive flow was written against, so
 the migration did not mean rewriting fifty-nine call sites under pressure. They

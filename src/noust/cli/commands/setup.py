@@ -5,11 +5,11 @@
 Setup commands: prepare the machine, then prove it is ready.
 
 The configuration directory is deliberately owner-only. ``config.yaml`` holds the
-MySQL root password, the SMTP account and the OpenAI API key, and WASM is a
+MySQL root password, the SMTP account and the OpenAI API key, and Noust is a
 root-only tool (it drives systemd, nginx and certbot), so nothing legitimate
 reads that directory as another account. The consequence, and it is intentional:
-running the web panel or any WASM command as a non-root user will not be able to
-read ``/etc/wasm/config.yaml``. That is the privilege model, not a bug to be
+running the web panel or any Noust command as a non-root user will not be able to
+read ``/etc/noust/config.yaml``. That is the privilege model, not a bug to be
 fixed by widening the directory.
 
 Two things this module refuses to do, because both were lies the previous
@@ -17,15 +17,15 @@ version told:
 
 - **Install by guessing.** Every install used to be ``apt-get``, so on Fedora,
   openSUSE or Arch the wizard reported progress while installing nothing. The
-  package manager is detected, and when there is none WASM says so instead of
+  package manager is detected, and when there is none Noust says so instead of
   failing one opaque command at a time.
 - **Report success it did not achieve.** ``setup init`` printed "Setup
   Complete!" and exited 0 even when every single install had failed. The exit
   status and the final message now describe what actually happened.
 - **Change the machine during a rehearsal.** ``setup init --dry-run`` created
-  /etc/wasm, wrote config.yaml and installed the man page, because the flag only
+  /etc/noust, wrote config.yaml and installed the man page, because the flag only
   swapped the command runner and every one of those is a plain filesystem call.
-  Every write here now goes through :mod:`wasm.core.fs`, and each step reports
+  Every write here now goes through :mod:`noust.core.fs`, and each step reports
   what is on disk afterwards rather than what it asked for.
 """
 
@@ -40,34 +40,35 @@ from typing import TYPE_CHECKING, Any, NoReturn
 
 import click
 
-from wasm.cli.app import Context, WasmGroup, global_flags, pass_context
-from wasm.core.config import (
+from noust.cli.app import Context, NoustGroup, global_flags, pass_context
+from noust.core import paths
+from noust.core.config import (
     DEFAULT_APPS_DIR,
     DEFAULT_CONFIG_PATH,
     DEFAULT_LOG_DIR,
     SECRET_DIR_MODE,
     secure_directory,
 )
-from wasm.core.exceptions import WASMError
-from wasm.core.fs import FileSystem, get_fs
-from wasm.core.logger import Logger
-from wasm.core.utils import command_exists, run_command, run_trusted_installer
+from noust.core.exceptions import NoustError
+from noust.core.fs import FileSystem, get_fs
+from noust.core.logger import Logger
+from noust.core.utils import command_exists, run_command, run_trusted_installer
 
 if TYPE_CHECKING:
-    from wasm.core.dependencies import DependencyChecker, SetupSummary
+    from noust.core.dependencies import DependencyChecker, SetupSummary
 
 #: Where a system-wide man page belongs. A module constant so a test can point
 #: it somewhere harmless.
 MAN_PAGE_DIR = Path("/usr/share/man/man1")
 
-#: Shells WASM can generate completions for, in the order they are offered.
+#: Shells Noust can generate completions for, in the order they are offered.
 COMPLETION_SHELLS = ("bash", "zsh", "fish")
 
-#: Environment variable Click reads to produce completions for ``wasm``.
-COMPLETE_VAR = "_WASM_COMPLETE"
+#: Environment variable Click reads to produce completions for ``noust``.
+COMPLETE_VAR = "_NOUST_COMPLETE"
 
 
-class SetupError(WASMError):
+class SetupError(NoustError):
     """The machine cannot be prepared as asked."""
 
 
@@ -98,8 +99,8 @@ class PackageManager:
         program: Executable that drives the package database.
         refresh: Argument vector that refreshes the package lists.
         install: Argument vector prefix that installs without prompting.
-        packages: WASM's name for a package to this family's name for it.
-        services: WASM's name for a daemon to this family's unit name.
+        packages: Noust's name for a package to this family's name for it.
+        services: Noust's name for a daemon to this family's unit name.
     """
 
     program: str
@@ -110,10 +111,10 @@ class PackageManager:
 
     def package_for(self, name: str) -> str | None:
         """
-        Translate a WASM package name into a distribution package name.
+        Translate a Noust package name into a distribution package name.
 
         Args:
-            name: WASM's name for the package, such as "certbot-nginx".
+            name: Noust's name for the package, such as "certbot-nginx".
 
         Returns:
             The distribution's package name, or None when this family does not
@@ -123,10 +124,10 @@ class PackageManager:
 
     def service_for(self, name: str) -> str:
         """
-        Translate a WASM daemon name into a systemd unit name.
+        Translate a Noust daemon name into a systemd unit name.
 
         Args:
-            name: WASM's name for the daemon, such as "apache".
+            name: Noust's name for the daemon, such as "apache".
 
         Returns:
             The unit name to hand to systemctl.
@@ -210,7 +211,7 @@ def detect_package_manager() -> PackageManager | None:
     Find the package manager this machine actually uses.
 
     Returns:
-        The first supported package manager present, or None when WASM cannot
+        The first supported package manager present, or None when Noust cannot
         install software here.
     """
     for manager in PACKAGE_MANAGERS:
@@ -232,7 +233,7 @@ def _install_packages(
         logger: Logger used to report progress.
         manager: The detected package manager.
         label: Human name of what is being installed, for the messages.
-        names: WASM package names to translate and install.
+        names: Noust package names to translate and install.
 
     Returns:
         None on success, or a sentence describing the failure.
@@ -297,7 +298,7 @@ def _create_config_directory(logger: Logger, fs: FileSystem | None = None) -> bo
 
 def _detect_shell() -> str | None:
     """
-    Work out which shell invoked WASM.
+    Work out which shell invoked Noust.
 
     Returns:
         "bash", "zsh", "fish", or None when $SHELL says something else.
@@ -350,9 +351,9 @@ def completion_source(shell: str) -> str:
             details=f"Supported shells: {', '.join(COMPLETION_SHELLS)}",
         )
 
-    from wasm.cli.app import cli as root_command
+    from noust.cli.app import cli as root_command
 
-    return completion_cls(root_command, {}, "wasm", COMPLETE_VAR).source()
+    return completion_cls(root_command, {}, paths.NAME, COMPLETE_VAR).source()
 
 
 def _completion_target(shell: str, user_only: bool) -> Path:
@@ -369,18 +370,18 @@ def _completion_target(shell: str, user_only: bool) -> Path:
     home = Path.home()
     if shell == "bash":
         if user_only:
-            return home / ".local/share/bash-completion/completions/wasm"
-        return Path("/etc/bash_completion.d/wasm")
+            return home / ".local/share/bash-completion/completions/noust"
+        return Path("/etc/bash_completion.d/noust")
     if shell == "zsh":
         if user_only:
-            return home / ".zsh/completions/_wasm"
+            return home / ".zsh/completions/_noust"
         system_dir = Path("/usr/share/zsh/site-functions")
         if not system_dir.exists():
             system_dir = Path("/usr/local/share/zsh/site-functions")
-        return system_dir / "_wasm"
+        return system_dir / "_noust"
     if user_only:
-        return home / ".config/fish/completions/wasm.fish"
-    return Path("/usr/share/fish/vendor_completions.d/wasm.fish")
+        return home / ".config/fish/completions/noust.fish"
+    return Path("/usr/share/fish/vendor_completions.d/noust.fish")
 
 
 def _completion_instructions(shell: str, target: Path, user_only: bool) -> list[str]:
@@ -427,7 +428,7 @@ def _run_completions(logger: Logger, shell: str | None, user_only: bool, to_stdo
         if not shell:
             logger.error(
                 "Could not tell which shell you use",
-                details=f"Name it: wasm setup completions --shell {'|'.join(COMPLETION_SHELLS)}",
+                details=f"Name it: noust setup completions --shell {'|'.join(COMPLETION_SHELLS)}",
             )
             return 1
 
@@ -437,7 +438,7 @@ def _run_completions(logger: Logger, shell: str | None, user_only: bool, to_stdo
         click.echo(script)
         return 0
 
-    logger.header("WASM Shell Completions")
+    logger.header("Noust Shell Completions")
     logger.key_value("Shell", shell)
 
     target = _completion_target(shell, user_only)
@@ -482,7 +483,7 @@ def _report_current_state(logger: Logger, summary: SetupSummary) -> None:
         logger: Logger used to report progress.
         summary: System summary from the dependency checker.
     """
-    from wasm.core.utils import get_system_info
+    from noust.core.utils import get_system_info
 
     logger.blank()
     logger.info("Current System Status:")
@@ -515,7 +516,7 @@ def _report_current_state(logger: Logger, summary: SetupSummary) -> None:
 
 def normalise_webserver(name: str | None) -> str:
     """
-    Translate a detected web server into the name the rest of WASM uses.
+    Translate a detected web server into the name the rest of Noust uses.
 
     The dependency checker reports the package name it found, "apache2" on
     Debian and "httpd" on Fedora, while the deployers compare against "apache".
@@ -559,7 +560,7 @@ def _interactive_setup_prompts(summary: SetupSummary) -> dict[str, Any] | None:
     Ask the operator what to install.
 
     Uses questionary rather than inquirer: inquirer has no package in Debian or
-    Ubuntu, so on the distributions WASM targets most this wizard was never
+    Ubuntu, so on the distributions Noust targets most this wizard was never
     interactive at all.
 
     Args:
@@ -656,7 +657,7 @@ def _install_node_package_manager(logger: Logger, pm: str) -> str | None:
         None on success, or a sentence describing the failure.
     """
     if pm == "bun":
-        # Bun is not packaged by any distribution WASM targets; its own
+        # Bun is not packaged by any distribution Noust targets; its own
         # installer is on the trusted whitelist.
         result = run_trusted_installer("https://bun.sh/install")
     else:
@@ -820,7 +821,7 @@ def _write_config(logger: Logger, choices: dict[str, Any]) -> list[str]:
     Returns:
         One sentence per failure. Empty when the file was written.
     """
-    from wasm.core.config import Config
+    from noust.core.config import Config
 
     existed = DEFAULT_CONFIG_PATH.exists()
     config = Config()
@@ -858,11 +859,11 @@ def _install_man_page(logger: Logger) -> None:
     Args:
         logger: Logger used to report progress.
     """
-    destination = MAN_PAGE_DIR / "wasm.1"
+    destination = MAN_PAGE_DIR / "noust.1"
     sources = [
-        Path(__file__).resolve().parents[4] / "man" / "wasm.1",
-        Path("/usr/local/share/man/man1/wasm.1"),
-        Path("/usr/share/man/man1/wasm.1"),
+        Path(__file__).resolve().parents[4] / "man" / "noust.1",
+        Path("/usr/local/share/man/man1/noust.1"),
+        Path("/usr/share/man/man1/noust.1"),
     ]
     source = next((path for path in sources if path.exists()), None)
 
@@ -886,7 +887,7 @@ def _install_man_page(logger: Logger) -> None:
         return
 
     run_command(["mandb", "-q"])
-    logger.success("Man page installed (man wasm)")
+    logger.success("Man page installed (man noust)")
 
 
 def _report_final_state(logger: Logger, checker: DependencyChecker, failures: list[str]) -> None:
@@ -924,15 +925,15 @@ def _report_final_state(logger: Logger, checker: DependencyChecker, failures: li
         for failure in failures:
             logger.list_item(failure)
         logger.blank()
-        logger.info("Fix the causes above and run 'sudo wasm setup init' again.")
+        logger.info("Fix the causes above and run 'sudo noust setup init' again.")
         logger.blank()
         return
 
     logger.info("Next steps:")
-    logger.info("  1. Deploy your first app: wasm create -d example.com -s <git-url> -t nextjs")
-    logger.info("  2. Set up SSH for Git: wasm setup ssh --generate")
-    logger.info("  3. Install shell completions: wasm setup completions")
-    logger.info("  4. Run diagnostics: wasm setup doctor")
+    logger.info("  1. Deploy your first app: noust create -d example.com -s <git-url> -t nextjs")
+    logger.info("  2. Set up SSH for Git: noust setup ssh --generate")
+    logger.info("  3. Install shell completions: noust setup completions")
+    logger.info("  4. Run diagnostics: noust setup doctor")
     logger.blank()
 
 
@@ -951,7 +952,7 @@ def _run_init(logger: Logger, assume_defaults: bool) -> int:
     if os.geteuid() != 0:
         logger.error(
             "Initial setup needs root",
-            details="Run: sudo wasm setup init",
+            details="Run: sudo noust setup init",
         )
         return 1
 
@@ -961,19 +962,19 @@ def _run_init(logger: Logger, assume_defaults: bool) -> int:
         logger.error(
             "No supported package manager on this system",
             details=(
-                f"WASM installs software with one of: {supported}. "
+                f"Noust installs software with one of: {supported}. "
                 "Install nginx, git, certbot and Node.js by hand, then run "
-                "'wasm setup doctor' to confirm."
+                "'noust setup doctor' to confirm."
             ),
         )
         return 1
 
-    logger.header("WASM Initial Setup")
+    logger.header("Noust Initial Setup")
     logger.info("This prepares the machine for deploying web applications.")
     logger.key_value("Package manager", manager.program)
     logger.blank()
 
-    from wasm.core.dependencies import DependencyChecker
+    from noust.core.dependencies import DependencyChecker
 
     checker = DependencyChecker(verbose=logger.verbose)
 
@@ -1000,7 +1001,7 @@ def _run_init(logger: Logger, assume_defaults: bool) -> int:
     logger.step(4, 6, "Setting up the Node.js environment")
     failures += _install_node_environment(logger, manager, choices)
 
-    logger.step(5, 6, "Creating WASM directories")
+    logger.step(5, 6, "Creating Noust directories")
     failures += _create_directories(logger)
 
     logger.step(6, 6, "Writing the configuration file")
@@ -1018,7 +1019,7 @@ def _run_init(logger: Logger, assume_defaults: bool) -> int:
 
 def _run_permissions(logger: Logger) -> int:
     """
-    Check that WASM can write where it needs to.
+    Check that Noust can write where it needs to.
 
     Args:
         logger: Logger used to report progress.
@@ -1026,7 +1027,7 @@ def _run_permissions(logger: Logger) -> int:
     Returns:
         Exit code.
     """
-    logger.header("WASM Permissions Check")
+    logger.header("Noust Permissions Check")
     logger.blank()
 
     issues: list[str] = []
@@ -1042,7 +1043,7 @@ def _run_permissions(logger: Logger) -> int:
             issues.append(str(path))
 
     # The config directory holds credentials, so "too open" is as much a problem
-    # as "not readable": WASM runs as root and nothing else needs to read it.
+    # as "not readable": Noust runs as root and nothing else needs to read it.
     config_dir = DEFAULT_CONFIG_PATH.parent
     if config_dir.exists():
         if not os.access(config_dir, os.R_OK):
@@ -1075,7 +1076,7 @@ def _run_permissions(logger: Logger) -> int:
 
     if issues:
         logger.warning("Some directories need to be created or have their permissions fixed")
-        logger.info("Run: sudo wasm setup init")
+        logger.info("Run: sudo noust setup init")
     else:
         logger.success("All permissions OK")
         logger.info("Note: changing nginx or systemd still requires root")
@@ -1107,7 +1108,7 @@ def _run_ssh(
     logger: Logger, generate: bool, key_type: str, show: bool, test_host: str | None
 ) -> int:
     """
-    Set up or inspect the SSH key WASM clones private repositories with.
+    Set up or inspect the SSH key Noust clones private repositories with.
 
     Args:
         logger: Logger used to report progress.
@@ -1119,7 +1120,7 @@ def _run_ssh(
     Returns:
         Exit code.
     """
-    from wasm.validators.ssh import (
+    from noust.validators.ssh import (
         generate_ssh_key,
         get_all_ssh_keys,
         get_public_key,
@@ -1128,7 +1129,7 @@ def _run_ssh(
         test_ssh_connection,
     )
 
-    logger.header("WASM SSH Setup")
+    logger.header("Noust SSH Setup")
     logger.blank()
 
     key_exists, key_path = ssh_key_exists()
@@ -1149,7 +1150,7 @@ def _run_ssh(
             logger.error(
                 "No SSH key on this system",
                 details=(
-                    "Create one with: wasm setup ssh --generate\n"
+                    "Create one with: noust setup ssh --generate\n"
                     f"Or by hand with: ssh-keygen -t {key_type}"
                 ),
             )
@@ -1158,7 +1159,7 @@ def _run_ssh(
         logger.step(1, 3, "Generating SSH key")
         success, new_key_path, message = generate_ssh_key(
             key_type=key_type,
-            comment=f"wasm@{os.uname().nodename}",
+            comment=f"noust@{os.uname().nodename}",
         )
         if not success or new_key_path is None:
             logger.error(message)
@@ -1202,8 +1203,8 @@ def _run_ssh(
         logger.success("SSH key is configured")
         logger.blank()
         logger.info("Useful commands:")
-        logger.info("  wasm setup ssh --show              Show your public key")
-        logger.info("  wasm setup ssh --test github.com   Test the connection")
+        logger.info("  noust setup ssh --show              Show your public key")
+        logger.info("  noust setup ssh --test github.com   Test the connection")
 
     return 0
 
@@ -1223,10 +1224,10 @@ def _run_doctor(logger: Logger) -> int:
     Returns:
         Exit code. Non-zero when something is missing that deployments need.
     """
-    logger.header("WASM System Diagnostics")
+    logger.header("Noust System Diagnostics")
     logger.blank()
 
-    from wasm.core.dependencies import DependencyChecker
+    from noust.core.dependencies import DependencyChecker
 
     checker = DependencyChecker(verbose=logger.verbose)
     manager = detect_package_manager()
@@ -1274,7 +1275,7 @@ def _run_doctor(logger: Logger) -> int:
                 logger.info(f"{pm}: not installed (optional)")
     else:
         logger.error("node: not installed")
-        logger.info("  Fix: sudo wasm setup init")
+        logger.info("  Fix: sudo noust setup init")
         issues += 1
     logger.blank()
 
@@ -1301,25 +1302,25 @@ def _run_doctor(logger: Logger) -> int:
         warnings += 1
     logger.blank()
 
-    logger.section("WASM Configuration")
+    logger.section("Noust Configuration")
     for label, path in (("Apps directory", DEFAULT_APPS_DIR), ("Log directory", DEFAULT_LOG_DIR)):
         if path.exists():
             logger.success(f"{label}: {path}")
         else:
             logger.error(f"{label}: {path} not found")
-            logger.info("  Fix: sudo wasm setup init")
+            logger.info("  Fix: sudo noust setup init")
             issues += 1
 
     if DEFAULT_CONFIG_PATH.exists():
         logger.success(f"Config file: {DEFAULT_CONFIG_PATH}")
     else:
         logger.warning(f"Config file: {DEFAULT_CONFIG_PATH} not found")
-        logger.info("  Fix: sudo wasm setup init")
+        logger.info("  Fix: sudo noust setup init")
         warnings += 1
     logger.blank()
 
     logger.section("SSH Configuration")
-    from wasm.validators.ssh import ssh_key_exists, test_ssh_connection
+    from noust.validators.ssh import ssh_key_exists, test_ssh_connection
 
     key_exists, key_path = ssh_key_exists()
     if key_exists:
@@ -1332,7 +1333,7 @@ def _run_doctor(logger: Logger) -> int:
             logger.info("  Add your key to GitHub: https://github.com/settings/keys")
     else:
         logger.warning("SSH key: not found")
-        logger.info("  Fix: wasm setup ssh --generate")
+        logger.info("  Fix: noust setup ssh --generate")
         warnings += 1
     logger.blank()
 
@@ -1343,7 +1344,7 @@ def _run_doctor(logger: Logger) -> int:
         logger.warning(f"{warnings} warning(s). Deployments will work, some features will not.")
     else:
         logger.error(f"{issues} issue(s) and {warnings} warning(s) found.")
-        logger.info("Run 'sudo wasm setup init' to fix most of these automatically.")
+        logger.info("Run 'sudo noust setup init' to fix most of these automatically.")
     logger.blank()
 
     return 0 if issues == 0 else 1
@@ -1412,7 +1413,7 @@ def handle_setup(args: Namespace) -> int:
             )
         if action == "doctor":
             return _run_doctor(logger)
-    except WASMError as e:
+    except NoustError as e:
         logger.error(str(e), details=e.details or "")
         return 1
 
@@ -1425,7 +1426,7 @@ def handle_setup(args: Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
-@click.group("setup", cls=WasmGroup)
+@click.group("setup", cls=NoustGroup)
 @global_flags
 def cli() -> None:
     """Prepare this server, and check that it stayed prepared."""
@@ -1442,7 +1443,7 @@ def cli() -> None:
 @pass_context
 def init(ctx: Context, yes: bool) -> None:
     """
-    Install what deployments need and create WASM's directories.
+    Install what deployments need and create Noust's directories.
 
     Needs root: it installs packages, writes to /etc and to /var.
     """
@@ -1472,7 +1473,7 @@ def init(ctx: Context, yes: bool) -> None:
 @pass_context
 def completions(ctx: Context, shell: str | None, user_only: bool, to_stdout: bool) -> None:
     """
-    Install tab completion for wasm.
+    Install tab completion for noust.
 
     The script is generated from the command tree, so it never falls behind the
     commands it completes.
@@ -1484,7 +1485,7 @@ def completions(ctx: Context, shell: str | None, user_only: bool, to_stdout: boo
 @global_flags
 @pass_context
 def permissions(ctx: Context) -> None:
-    """Check that WASM can write to the directories it owns."""
+    """Check that Noust can write to the directories it owns."""
     _exit(_run_permissions(ctx.logger))
 
 
@@ -1505,7 +1506,7 @@ def permissions(ctx: Context) -> None:
 @pass_context
 def ssh(ctx: Context, generate: bool, key_type: str, test_host: str | None, show: bool) -> None:
     """
-    Set up the SSH key WASM clones private repositories with.
+    Set up the SSH key Noust clones private repositories with.
 
     With no options it reports what is already configured.
     """

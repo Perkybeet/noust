@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Tests for the one secret classifier, :func:`wasm.core.secret_detection.classify`.
+Tests for the one secret classifier, :func:`noust.core.secret_detection.classify`.
 
 Owner feedback item 27: name-only heuristics missed ``STRIPE_SK=sk_live_...``
 (a name nobody would flag) and a random ``SESSION`` value, and flagged
@@ -20,7 +20,7 @@ import json
 
 import pytest
 
-from wasm.core.secret_detection import (
+from noust.core.secret_detection import (
     NAME_PATTERNS,
     URL_CREDENTIALS,
     Secrecy,
@@ -380,20 +380,20 @@ def test_classify_all_classifies_every_variable() -> None:
 
 
 def test_env_manager_reexports_the_same_url_credentials_pattern() -> None:
-    from wasm.deployers.helpers import env_manager
+    from noust.deployers.helpers import env_manager
 
     assert env_manager.URL_CREDENTIALS is URL_CREDENTIALS
     assert env_manager.redact_url_credentials is redact_url_credentials
 
 
 def test_env_manager_secret_patterns_is_the_same_list() -> None:
-    from wasm.deployers.helpers.env_manager import EnvManager
+    from noust.deployers.helpers.env_manager import EnvManager
 
     assert tuple(EnvManager.SECRET_PATTERNS) == NAME_PATTERNS
 
 
 def test_is_secret_env_name_delegates_to_the_one_classifier() -> None:
-    from wasm.deployers.helpers.env_manager import is_secret_env_name
+    from noust.deployers.helpers.env_manager import is_secret_env_name
 
     for name in ("API_KEY", "AUTH", "KEYBOARD_LAYOUT", "NEXT_PUBLIC_API_KEY"):
         assert is_secret_env_name(name) == name_looks_secret(name)

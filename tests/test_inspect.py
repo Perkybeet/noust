@@ -26,24 +26,24 @@ from typing import Any
 
 import pytest
 
-from wasm.core.exceptions import DeploymentError, SourceError
-from wasm.core.runner import (
+from noust.core.exceptions import DeploymentError, SourceError
+from noust.core.runner import (
     CommandCancelled,
     CommandResult,
     FakeRunner,
     set_runner,
 )
-from wasm.core.store import WASMStore
-from wasm.deployers import inspect as inspect_module
-from wasm.deployers.docker_compose import COMPOSE_FILE_PRIORITY, DockerComposeDeployer
-from wasm.deployers.inspect import (
+from noust.core.store import NoustStore
+from noust.deployers import inspect as inspect_module
+from noust.deployers.docker_compose import COMPOSE_FILE_PRIORITY, DockerComposeDeployer
+from noust.deployers.inspect import (
     STALE_CHECKOUT_AGE,
     inspect_source,
     remove_stale_checkouts,
     sparse_patterns,
 )
-from wasm.deployers.registry import DeployerRegistry, _import_deployers
-from wasm.managers.source_manager import GIT_AUTH_FAILURE_MESSAGE
+from noust.deployers.registry import DeployerRegistry, _import_deployers
+from noust.managers.source_manager import GIT_AUTH_FAILURE_MESSAGE
 
 NEXTJS_PACKAGE_JSON = json.dumps(
     {
@@ -94,10 +94,10 @@ def store(tmp_path: Path):
     Yields:
         The store instance installed for the duration of the test.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 def _spy_on_mkdtemp(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
@@ -123,7 +123,7 @@ def _spy_on_mkdtemp(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
 
 
 def test_inspect_detects_nextjs_from_a_local_directory(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, store: WASMStore
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, store: NoustStore
 ) -> None:
     """The canonical wizard scenario: a Next.js repo pasted as a local path."""
     created = _spy_on_mkdtemp(monkeypatch)
@@ -154,7 +154,7 @@ def test_inspect_detects_nextjs_from_a_local_directory(
 
 
 def test_inspect_flags_env_keys_by_broad_secret_heuristics(
-    tmp_path: Path, store: WASMStore
+    tmp_path: Path, store: NoustStore
 ) -> None:
     """
     Secret detection is broader here than EnvManager's own defaults.
@@ -198,7 +198,7 @@ def test_inspect_flags_env_keys_by_broad_secret_heuristics(
     assert keys["APP_NAME"].default is None
 
 
-def test_inspect_never_returns_a_default_for_a_secret(tmp_path: Path, store: WASMStore) -> None:
+def test_inspect_never_returns_a_default_for_a_secret(tmp_path: Path, store: NoustStore) -> None:
     """
     An example file is not always an example: repositories commit real keys.
 
@@ -237,7 +237,7 @@ def test_inspect_never_returns_a_default_for_a_secret(tmp_path: Path, store: WAS
     assert "s3cret" not in repr(result)
 
 
-def test_inspect_does_not_read_a_symlinked_env_example(tmp_path: Path, store: WASMStore) -> None:
+def test_inspect_does_not_read_a_symlinked_env_example(tmp_path: Path, store: NoustStore) -> None:
     """
     A .env.example that links outside the checkout is not read.
 
@@ -258,7 +258,7 @@ def test_inspect_does_not_read_a_symlinked_env_example(tmp_path: Path, store: WA
 
 
 def test_inspect_detects_package_manager_from_the_lock_file(
-    tmp_path: Path, store: WASMStore
+    tmp_path: Path, store: NoustStore
 ) -> None:
     """A pnpm-lock.yaml means pnpm, not the npm default."""
     project = tmp_path / "project"
@@ -276,7 +276,7 @@ def test_inspect_detects_package_manager_from_the_lock_file(
 
 
 def test_inspect_reports_every_matching_type_in_priority_order(
-    tmp_path: Path, store: WASMStore
+    tmp_path: Path, store: NoustStore
 ) -> None:
     """
     A tree that satisfies two detectors reports both, most specific first.
@@ -298,7 +298,7 @@ def test_inspect_reports_every_matching_type_in_priority_order(
 
 
 def test_inspect_reports_the_requested_branch_verbatim_when_not_git(
-    tmp_path: Path, store: WASMStore
+    tmp_path: Path, store: NoustStore
 ) -> None:
     """A local directory has no branch; the requested one is echoed back."""
     project = tmp_path / "project"
@@ -312,7 +312,7 @@ def test_inspect_reports_the_requested_branch_verbatim_when_not_git(
 
 
 def test_inspect_static_site_has_no_commands_or_package_manager(
-    tmp_path: Path, store: WASMStore
+    tmp_path: Path, store: NoustStore
 ) -> None:
     """A plain static site has nothing to install, build or run."""
     project = tmp_path / "project"
@@ -351,7 +351,7 @@ def test_inspect_removes_the_temp_dir_even_when_nothing_matches(
 
 
 def test_inspect_raises_for_an_empty_source(
-    monkeypatch: pytest.MonkeyPatch, store: WASMStore
+    monkeypatch: pytest.MonkeyPatch, store: NoustStore
 ) -> None:
     """An empty source is refused before anything is fetched or created."""
     created = _spy_on_mkdtemp(monkeypatch)
@@ -390,7 +390,7 @@ def _matches(path: str, patterns: Sequence[str]) -> bool:
     """
     Decide whether git's non-cone sparse checkout would materialise a file.
 
-    Every pattern WASM hands git is anchored (``/name``) and uses ``*`` only
+    Every pattern Noust hands git is anchored (``/name``) and uses ``*`` only
     as a whole path segment, so matching segment by segment is exactly what
     git does with them.
 
@@ -519,7 +519,7 @@ class FakeRemote(FakeRunner):
 
 
 @pytest.fixture
-def remote(tmp_path: Path, store: WASMStore) -> FakeRemote:
+def remote(tmp_path: Path, store: NoustStore) -> FakeRemote:
     """
     A fake remote, installed as the process-wide runner.
 
@@ -949,7 +949,7 @@ def test_a_missing_runtime_makes_it_not_deployable_here(
     assert result.app_type == "python"
     assert result.compatible is False
     assert "python3" in result.verdict
-    assert result.suggestion and "wasm setup init" in result.suggestion
+    assert result.suggestion and "noust setup init" in result.suggestion
 
 
 def test_a_dockerfile_alone_suggests_a_compose_file(remote: FakeRemote) -> None:
@@ -1001,7 +1001,7 @@ def test_a_near_miss_monorepo_says_what_the_monorepo_type_needs(remote: FakeRemo
     assert "two" in exc_info.value.details and "apps/" in exc_info.value.details
 
 
-def test_an_unsupported_language_is_named(tmp_path: Path, store: WASMStore) -> None:
+def test_an_unsupported_language_is_named(tmp_path: Path, store: NoustStore) -> None:
     project = tmp_path / "project"
     _write(project, {"go.mod": "module example.com/app\n", "main.go": ""})
 
@@ -1013,7 +1013,7 @@ def test_an_unsupported_language_is_named(tmp_path: Path, store: WASMStore) -> N
 
 
 def test_a_package_json_without_a_start_script_says_to_add_one(
-    tmp_path: Path, store: WASMStore
+    tmp_path: Path, store: NoustStore
 ) -> None:
     project = tmp_path / "project"
     _write(project, {"package.json": json.dumps({"name": "lib", "scripts": {"test": "jest"}})})

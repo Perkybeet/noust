@@ -21,7 +21,7 @@ export const environment = {
     readBuild: "Read when the site is built, from",
     readRuntime: "Read by the app's process when it starts, from",
     autoHideExplanation:
-      "WASM hides a value automatically when its name or shape looks like a secret - a password, a Stripe key, a URL with credentials - and shows the rest; mark a variable secret or not secret in its Visibility column to override that call yourself.",
+      "Noust hides a value automatically when its name or shape looks like a secret - a password, a Stripe key, a URL with credentials - and shows the rest; mark a variable secret or not secret in its Visibility column to override that call yourself.",
     queryLabel: "the environment",
     tableCaption: "Environment variables of {domain}",
     emptyTitle: "No environment variables",
@@ -107,12 +107,12 @@ export const environment = {
   pasteDialog: {
     title: "Paste a .env file",
     description:
-      "Read the way WASM reads the file on disk: blank lines, comments and one pair of quotes around a value are dropped, nothing else is interpreted. Nothing is saved until you review the changes.",
+      "Read the way Noust reads the file on disk: blank lines, comments and one pair of quotes around a value are dropped, nothing else is interpreted. Nothing is saved until you review the changes.",
     modeMerge: "Add and update",
     modeReplace: "Replace all",
     lineProblem: "Line {line}: {problem}",
     duplicateLines: "{name} is set on lines {firstLines} and {lastLine}; the later line wins.",
-    skippedLine: "Line {line} has no = and is skipped, as WASM skips it.",
+    skippedLine: "Line {line} has no = and is skipped, as Noust skips it.",
     stageEmpty: "Stage variables",
     stage: { one: "Stage {count} variable", other: "Stage {count} variables" },
     stagedSummary: { one: "Staged {count} pasted variable", other: "Staged {count} pasted variables" },

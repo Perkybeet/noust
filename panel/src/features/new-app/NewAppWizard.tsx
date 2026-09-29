@@ -66,7 +66,7 @@ function readText(file: File): Promise<string> {
 
 /**
  * The new-app wizard: where the code is (a repository or a directory, a recipe, or another
- * server's export), what WASM found in it (every part editable), and the deploy. A deploy from
+ * server's export), what Noust found in it (every part editable), and the deploy. A deploy from
  * code hands over to the deployment page as soon as the build starts; a recipe or an import is
  * followed here to its end. What the operator typed survives going back and forth between the
  * steps and is never asked twice.

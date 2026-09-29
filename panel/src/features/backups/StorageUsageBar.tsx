@@ -28,7 +28,7 @@ export function backupSummary(storage: BackupStorage, locale: Locale = getLocale
 /**
  * How full the filesystem holding the backups is - that directory's own, not the machine's
  * root disk, which is a different one whenever backups live on a volume of their own - and
- * how much of it the backups take. Not a quota (WASM sets none on backups): context for
+ * how much of it the backups take. Not a quota (Noust sets none on backups): context for
  * whether it is worth pruning old ones.
  */
 export function StorageUsageBar() {

@@ -8,7 +8,7 @@ export const server: Catalog<typeof en> = {
   fromTerminal: "Desde una terminal",
   health: {
     title: "Salud",
-    description: "Son las mismas comprobaciones que ejecuta `wasm health`.",
+    description: "Son las mismas comprobaciones que ejecuta `noust health`.",
     couldNotRun: "No se pudo ejecutar la comprobación de salud",
     running: "Ejecutando la comprobación de salud",
     verdictLabel: "Veredicto de salud",
@@ -80,7 +80,7 @@ export const server: Catalog<typeof en> = {
   monitor: {
     title: "Monitor de recursos",
     description:
-      "Vigila la CPU, la memoria y las unidades que gestiona WASM, y anota lo que destaca. Nunca actúa sobre un proceso.",
+      "Vigila la CPU, la memoria y las unidades que gestiona Noust, y anota lo que destaca. Nunca actúa sobre un proceso.",
     sendTestEmail: "Enviar correo de prueba",
     couldNotReadStatus: "No se pudo leer el estado del monitor",
     since: "Desde hace {uptime}",

@@ -7,14 +7,14 @@ Two rules govern this module:
 
 - **Every name is validated before it becomes a path.** The panel runs as root,
   and a unit name arriving in a JSON body is not constrained by the router's
-  path matching. Names go through :func:`wasm.validators.names.validate_service_name`
-  and paths through :func:`wasm.validators.names.resolve_within`, so a write can
+  path matching. Names go through :func:`noust.validators.names.validate_service_name`
+  and paths through :func:`noust.validators.names.resolve_within`, so a write can
   only ever land inside :data:`SYSTEMD_UNIT_DIR`.
 - **Handlers are synchronous.** They call systemctl and journalctl, which block.
   Declared ``async def`` they would run on the event loop and freeze the whole
   panel for every other request; declared ``def``, FastAPI runs them in the
   threadpool.
-- **WASM's own units are not services here.** The console, the monitor and
+- **Noust's own units are not services here.** The console, the monitor and
   the units behind cron jobs and backup schedules are refused to every
   mutation, and the console's and the monitor's journals need ``admin``: see
   :func:`_refuse_own_unit` and :func:`get_service_logs`.
@@ -28,21 +28,22 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
-from wasm.core.config import SYSTEMD_DIR, Config
-from wasm.core.exceptions import PermissionError as WASMPermissionError
-from wasm.core.exceptions import ServiceError, ValidationError, WASMError
-from wasm.core.store import get_store
-from wasm.managers.service_manager import ServiceManager, readable_unit_name
-from wasm.validators.names import resolve_within, validate_service_name
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import WASMErrorRoute, require_elevated
-from wasm.web.auth import ensure_scope
+from noust.core import paths
+from noust.core.config import SYSTEMD_DIR, Config
+from noust.core.exceptions import NoustError, ServiceError, ValidationError
+from noust.core.exceptions import PermissionError as NoustPermissionError
+from noust.core.store import get_store
+from noust.managers.service_manager import ServiceManager, readable_unit_name
+from noust.validators.names import resolve_within, validate_service_name
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import NoustErrorRoute, require_elevated
+from noust.web.auth import ensure_scope
 
 # The error boundary: ValidationError and SecurityError from name/path
 # validation used to be caught by hand at every call site and turned into an
-# HTTPException(400) that duplicated exactly what WASMErrorRoute already does
-# for any WASMError. Letting them propagate is the one implementation.
-router = APIRouter(route_class=WASMErrorRoute)
+# HTTPException(400) that duplicated exactly what NoustErrorRoute already does
+# for any NoustError. Letting them propagate is the one implementation.
+router = APIRouter(route_class=NoustErrorRoute)
 
 #: Directory unit files are read from and written to. Module level on purpose:
 #: the path used to be interpolated inline at each call site, which made the
@@ -50,39 +51,43 @@ router = APIRouter(route_class=WASMErrorRoute)
 #: survived. Tests point this at a sandbox.
 SYSTEMD_UNIT_DIR: Path = SYSTEMD_DIR
 
-#: Units created by older WASM versions carry this prefix.
+#: Units created by older Noust versions carry this prefix.
 LEGACY_PREFIX = "wasm-"
 
-#: The one classifier of WASM's own units, bound when this module is
+#: The one classifier of Noust's own units, bound when this module is
 #: imported: the tests swap ``ServiceManager`` for a recording stub, and the
 #: refusal must not depend on what a stub chose to implement.
 _is_own_unit_name = ServiceManager._is_own_unit_name
 
-#: Where each of WASM's own units is managed instead, keyed by the unit name
+#: Where each of Noust's own units is managed instead, keyed by the unit name
 #: or, for scheduled work, by its prefix. Every key is covered by
 #: ``ServiceManager.OWN_UNITS`` or ``ServiceManager.OWN_UNIT_PREFIXES``.
 _OWN_UNIT_HINTS: dict[str, str] = {
-    "wasm-web": (
-        "wasm-web is the console itself. Manage it on the machine with 'wasm web stop', "
-        "'wasm web restart', 'wasm web enable' or 'wasm web disable'."
+    "noust-web": (
+        "noust-web is the console itself. Manage it on the machine with 'noust web stop', "
+        "'noust web restart', 'noust web enable' or 'noust web disable'."
     ),
-    "wasm-monitor": (
-        "wasm-monitor is WASM's process monitor. Manage it on the machine with "
-        "'wasm monitor enable', 'wasm monitor disable' or 'wasm monitor uninstall'."
+    "noust-monitor": (
+        "noust-monitor is Noust's process monitor. Manage it on the machine with "
+        "'noust monitor enable', 'noust monitor disable' or 'noust monitor uninstall'."
     ),
-    "wasm-cron-": (
-        "This unit runs a cron job. Manage it from Cron (/api/cron) or with 'wasm cron ...', "
+    "noust-cron-": (
+        "This unit runs a cron job. Manage it from Cron (/api/cron) or with 'noust cron ...', "
         "which keeps its timer in step."
     ),
-    "wasm-backup-": (
+    "noust-backup-": (
         "This unit runs a backup schedule. Manage it from Backups (/api/backup-schedules) "
-        "or with 'wasm backup schedule ...', which keeps its timer in step."
+        "or with 'noust backup schedule ...', which keeps its timer in step."
     ),
 }
 
 #: Units whose journal is the console's or the monitor's own output, which only an
-#: admin credential reads, here and on ``/ws/logs``.
-OWN_JOURNAL_UNITS = frozenset({"wasm-web", "wasm-monitor"})
+#: admin credential reads, here and on ``/ws/logs``. Under both names: on a
+#: server not migrated yet the console still runs as WASM's ``wasm-web``, and
+#: its journal must not become readable by spelling the old name.
+OWN_JOURNAL_UNITS = frozenset(
+    {paths.WEB_UNIT, paths.MONITOR_UNIT, paths.LEGACY_WEB_UNIT, paths.LEGACY_MONITOR_UNIT}
+)
 
 
 #: Values systemd accepts for ``Restart=``.
@@ -110,8 +115,8 @@ class ServiceInfo(BaseModel):
     Service information.
 
     Attributes:
-        managed: Whether WASM manages this unit. False only when listing with
-            ``wasm_only=false``, which walks every unit on the host; such a
+        managed: Whether Noust manages this unit. False only when listing with
+            ``noust_only=false``, which walks every unit on the host; such a
             row carries systemd's state fields and nothing else (``enabled``
             false, no PID, memory or uptime), read from the one listing.
         active_state: Systemd's own ``ActiveState`` (``active``, ``failed``,
@@ -245,12 +250,12 @@ def _resolve_unit(name: str) -> tuple[str, Path]:
     Validate a requested service name and locate its unit file.
 
     Mirrors the legacy-prefix lookup of
-    :meth:`wasm.managers.service_manager.ServiceManager._resolve_service_name`,
+    :meth:`noust.managers.service_manager.ServiceManager._resolve_service_name`,
     but against :data:`SYSTEMD_UNIT_DIR` instead of a hardcoded directory, so the
     API and its tests agree on where units live.
 
     This is not the same duplicate ``delete_service`` used to be: it goes
-    through :func:`wasm.validators.names.resolve_within`, which refuses a name
+    through :func:`noust.validators.names.resolve_within`, which refuses a name
     that resolves through a symlink planted inside the unit directory to a
     file outside it. ``ServiceManager.inspect_unit`` does not perform that
     check - it trusts its own directory - so this stays as the request's own
@@ -280,25 +285,25 @@ def _resolve_unit(name: str) -> tuple[str, Path]:
 
 def _own_unit(*names: str) -> str | None:
     """
-    Find which of the given names, if any, is one of WASM's own units.
+    Find which of the given names, if any, is one of Noust's own units.
 
     Args:
         names: Unit names without the ``.service`` suffix: the one the client
             spelled and the one it resolved to, which differ when ``web``
-            resolves to a ``wasm-web.service`` on disk.
+            resolves to a ``noust-web.service`` on disk.
 
     Returns:
-        The first of them that is WASM's own, or None.
+        The first of them that is Noust's own, or None.
     """
     return next((name for name in names if _is_own_unit_name(name)), None)
 
 
 def _refuse_own_unit(*names: str) -> None:
     """
-    Refuse a mutation of WASM's own units through the services API.
+    Refuse a mutation of Noust's own units through the services API.
 
     The console and the monitor are managed units, so every services
-    endpoint used to accept them: an admin token could stop ``wasm-web``
+    endpoint used to accept them: an admin token could stop ``noust-web``
     without sudo mode and take the console down under its own operator. The
     units behind cron jobs and backup schedules have their own API, which
     keeps each one's timer and store row in step; acting on the unit alone
@@ -310,17 +315,23 @@ def _refuse_own_unit(*names: str) -> None:
             :func:`_own_unit`.
 
     Raises:
-        WASMPermissionError: 403, naming where the unit is managed instead.
+        NoustPermissionError: 403, naming where the unit is managed instead.
     """
     own = _own_unit(*names)
     if own is None:
         return
-    hint = _OWN_UNIT_HINTS.get(own) or next(
-        (text for prefix, text in _OWN_UNIT_HINTS.items() if own.startswith(prefix)),
-        "Manage it with the 'wasm' command that created it.",
+    # WASM's names for the same units (not migrated yet) get the same hint.
+    key = (
+        paths.UNIT_PREFIX + own.removeprefix(paths.LEGACY_UNIT_PREFIX)
+        if own.startswith(paths.LEGACY_UNIT_PREFIX)
+        else own
     )
-    raise WASMPermissionError(
-        f"{own} is one of WASM's own units and cannot be changed through the services API",
+    hint = _OWN_UNIT_HINTS.get(key) or next(
+        (text for prefix, text in _OWN_UNIT_HINTS.items() if key.startswith(prefix)),
+        "Manage it with the 'noust' command that created it.",
+    )
+    raise NoustPermissionError(
+        f"{own} is one of Noust's own units and cannot be changed through the services API",
         details=hint,
     )
 
@@ -436,7 +447,7 @@ def _render_unit(data: CreateServiceRequest, service_name: str) -> str:
         env_section = "\n".join(env_lines) + "\n"
 
     return f"""[Unit]
-Description=WASM Service: {service_name}
+Description=Noust Service: {service_name}
 After=network.target
 
 [Service]
@@ -490,21 +501,30 @@ def _service_info(name: str, description: str | None, live_status: dict) -> Serv
 @router.get("", response_model=ServiceListResponse)
 def list_services(
     request: Request,
-    wasm_only: bool = Query(default=True, description="Only show WASM services"),
+    noust_only: bool | None = Query(
+        default=None, description="Only show the units Noust manages (the default)"
+    ),
+    wasm_only: bool | None = Query(
+        default=None,
+        deprecated=True,
+        description="The name noust_only had before 3.0; read when noust_only is absent",
+    ),
     session: dict = Depends(get_current_session),
 ):
     """
     List services.
 
-    ``wasm_only`` (the default) lists the units WASM manages - the one
-    definition in :meth:`~wasm.managers.service_manager.ServiceManager.managed_units`
+    ``noust_only`` (the default; ``wasm_only`` before 3.0, still read) lists
+    the units Noust manages - the one
+    definition in :meth:`~noust.managers.service_manager.ServiceManager.managed_units`
     the console's top bar counts too, so the two always agree. Set it to false
     for a full inventory of every unit on the host, each flagged ``managed``,
     which is how a diagnostics view tells a foreign unit's own crash loop from
-    one of WASM's own. A foreign unit carries only its state: it is listed
+    one of Noust's own. A foreign unit carries only its state: it is listed
     from systemd's own listing, never probed or acted on.
     """
-    statuses = ServiceManager(verbose=False).list_statuses(all_services=not wasm_only)
+    only = noust_only if noust_only is not None else wasm_only
+    statuses = ServiceManager(verbose=False).list_statuses(all_services=only is False)
     commands = {service.name: service.command for service in get_store().list_services()}
     result = [
         _service_info(status["name"], commands.get(status["name"]), status) for status in statuses
@@ -532,7 +552,7 @@ def get_service(name: str, request: Request, session: dict = Depends(get_current
     """
     Get details for a specific service.
 
-    Answers for a unit WASM manages, whether or not the store's services
+    Answers for a unit Noust manages, whether or not the store's services
     table has a row for it (since 0.14.1 an application's unit is named after
     the application and may have none). Any other unit is a 404, which is how
     the console knows to describe it from the all-units listing instead;
@@ -543,7 +563,7 @@ def get_service(name: str, request: Request, session: dict = Depends(get_current
     try:
         validate_service_name(service_name)
     except ValidationError as exc:
-        # WASM never creates a name its own validator refuses, so this is a
+        # Noust never creates a name its own validator refuses, so this is a
         # unit systemd or a package named: not one of ours.
         raise HTTPException(status_code=404, detail=f"Service not found: {service_name}") from exc
 
@@ -572,10 +592,10 @@ def _run_service_action(name: str, action: str, past_tense: str) -> ServiceActio
     Raises:
         ValidationError: For an unsafe name.
         SecurityError: For a path that would leave the unit directory.
-        WASMPermissionError: 403 for one of WASM's own units.
+        NoustPermissionError: 403 for one of Noust's own units.
         HTTPException: 404 when the unit does not exist. A failure inside
-            ``action`` propagates as whatever WASMError systemd's manager
-            raised, mapped by :data:`~wasm.web.api.deps._STATUS_BY_ERROR`.
+            ``action`` propagates as whatever NoustError systemd's manager
+            raised, mapped by :data:`~noust.web.api.deps._STATUS_BY_ERROR`.
     """
     service_name, service_path = _resolve_unit(name)
     _refuse_own_unit(_requested_name(name), service_name)
@@ -645,7 +665,7 @@ def get_service_logs(
 
     The console's and the monitor's journals need an admin credential, not
     the ``read`` a GET would otherwise ask for: the console logs every SQL
-    statement run from it (``wasm.audit``), the paths and client addresses of
+    statement run from it (``noust.audit``), the paths and client addresses of
     every request, and the verbatim output of failed git, certbot and
     notification calls; the monitor logs what it saw of other processes.
     An application's journal is its own output and stays ``read``.
@@ -657,7 +677,7 @@ def get_service_logs(
     service_manager = ServiceManager(verbose=False)
     try:
         logs = service_manager.logs(service_name, lines=lines) or "No logs available"
-    except WASMError as exc:
+    except NoustError as exc:
         logs = f"Error retrieving logs: {exc}"
 
     return ServiceLogsResponse(service=service_name, logs=logs, lines=lines)
@@ -709,9 +729,9 @@ def update_service_config(
     # unit in /etc/systemd/system, which is the exact hole the ownership guard
     # exists to close.
     #
-    # ServiceError is caught explicitly because a rewrite that drops the WASM
+    # ServiceError is caught explicitly because a rewrite that drops the Noust
     # marker is a conflict with the unit's own management, not a malformed
-    # request; WASMErrorRoute's default for an unmapped WASMError is 500,
+    # request; NoustErrorRoute's default for an unmapped NoustError is 500,
     # which would be wrong here.
     try:
         ServiceManager(verbose=False).update_config(service_name, data.config)
@@ -744,10 +764,10 @@ def create_service(
     #
     # ServiceError is caught explicitly for the same reason as in
     # update_service_config: a name collision is a conflict, not the 500
-    # WASMErrorRoute's default would answer for an unmapped WASMError.
+    # NoustErrorRoute's default would answer for an unmapped NoustError.
     service_name = _requested_name(data.name)
     # A unit named after the console or the monitor would be the one
-    # 'wasm web enable' or 'wasm monitor enable' then finds in their place.
+    # 'noust web enable' or 'noust monitor enable' then finds in their place.
     _refuse_own_unit(service_name)
     service_manager = ServiceManager(verbose=False)
     try:
@@ -793,7 +813,7 @@ def delete_service(name: str, request: Request, session: dict = Depends(require_
     # removes the store row. This endpoint used to stop/disable the unit and
     # unlink the file itself, straight past the ownership guard and past the
     # store: a service deleted from the panel kept showing up in
-    # 'wasm service list' until something else happened to notice the file
+    # 'noust service list' until something else happened to notice the file
     # was gone.
     ServiceManager(verbose=False).delete_service(service_name)
 

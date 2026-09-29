@@ -22,7 +22,7 @@ export function editableVariables(recipe: Pick<Recipe, "env">): string[] {
   return recipe.env.filter((variable) => !variable.generated).map((variable) => variable.name);
 }
 
-/** The variables WASM generates when it deploys: secrets, database credentials, the address. */
+/** The variables Noust generates when it deploys: secrets, database credentials, the address. */
 export function generatedVariables(recipe: Pick<Recipe, "env">): string[] {
   return recipe.env.filter((variable) => variable.generated).map((variable) => variable.name);
 }

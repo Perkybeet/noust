@@ -2,7 +2,7 @@
 Tests for the callers of the monitor: the CLI and the web API.
 
 The monitor package was rewritten from an antivirus into observability, and its
-two callers were left addressing the old model. ``wasm monitor scan`` built a
+two callers were left addressing the old model. ``noust monitor scan`` built a
 ``MonitorConfig`` with ``auto_terminate`` and ``use_ai``, so it raised a
 TypeError on every invocation; the web API did the same and read ``ThreatStore``
 from a package that no longer exports it, so every request returned 500. Both
@@ -27,11 +27,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.cli.commands import monitor as cli_monitor
-from wasm.core.exceptions import EmailError
-from wasm.core.logger import Logger
-from wasm.web.api import monitor as monitor_api
-from wasm.web.api.auth import get_current_session
+from noust.cli.commands import monitor as cli_monitor
+from noust.core.exceptions import EmailError
+from noust.core.logger import Logger
+from noust.web.api import monitor as monitor_api
+from noust.web.api.auth import get_current_session
 
 #: Settings that stopped existing when the monitor stopped being an antivirus.
 #: A caller that still mentions one of them is a caller that will raise.
@@ -131,7 +131,7 @@ def monitor_env(
     Returns:
         A namespace with the runner and the notifier the code will use.
     """
-    from wasm.monitor import process_monitor as process_monitor_module
+    from noust.monitor import process_monitor as process_monitor_module
 
     monkeypatch.setattr(
         psutil,
@@ -139,7 +139,7 @@ def monitor_env(
         lambda attrs=None, *args, **kwargs: iter([_fake_process()]),
     )
     # A one-shot scan samples CPU over a real window; tests do not need to wait.
-    monkeypatch.setattr("wasm.monitor.metrics.time.sleep", lambda seconds: None)
+    monkeypatch.setattr("noust.monitor.metrics.time.sleep", lambda seconds: None)
 
     unit_dir = tmp_path / "systemd"
     unit_dir.mkdir()
@@ -216,11 +216,11 @@ def test_every_monitor_action_runs(
     monitor_env: Any,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Every subcommand of ``wasm monitor`` must execute, not raise."""
+    """Every subcommand of ``noust monitor`` must execute, not raise."""
     if action == "run":
         # The daemon loop would never return; one iteration is the interesting part.
         monkeypatch.setattr(
-            "wasm.monitor.process_monitor.ProcessMonitor.run",
+            "noust.monitor.process_monitor.ProcessMonitor.run",
             lambda self: None,
         )
     if action in ("disable", "uninstall"):
@@ -229,7 +229,7 @@ def test_every_monitor_action_runs(
 
     exit_code = cli_monitor.handle_monitor(_args(action))
 
-    assert exit_code == 0, f"'wasm monitor {action}' exited {exit_code}"
+    assert exit_code == 0, f"'noust monitor {action}' exited {exit_code}"
 
 
 def test_an_unknown_action_is_rejected_without_raising(monitor_env: Any) -> None:
@@ -239,7 +239,7 @@ def test_an_unknown_action_is_rejected_without_raising(monitor_env: Any) -> None
 
 def test_scan_reports_the_flagged_process_and_persists_it(monitor_env: Any) -> None:
     """The scan that used to raise now produces observations and stores them."""
-    from wasm.monitor import ObservationStore
+    from noust.monitor import ObservationStore
 
     assert cli_monitor.handle_monitor(_args("scan")) == 0
 
@@ -277,7 +277,7 @@ def test_install_writes_the_unit_through_the_runner(monitor_env: Any) -> None:
     """Installing goes through the audited execution seam."""
     assert cli_monitor.handle_monitor(_args("install")) == 0
 
-    unit = monitor_env.unit_dir / "wasm-monitor.service"
+    unit = monitor_env.unit_dir / "noust-monitor.service"
     assert unit.exists()
     assert "ExecStart=" in unit.read_text()
     assert ("systemctl", "daemon-reload") in monitor_env.runner.calls
@@ -293,7 +293,7 @@ def test_actions_that_touch_systemd_require_root(
     for action in ("install", "enable", "disable", "uninstall"):
         assert cli_monitor.handle_monitor(_args(action)) == 1
 
-    assert not (monitor_env.unit_dir / "wasm-monitor.service").exists()
+    assert not (monitor_env.unit_dir / "noust-monitor.service").exists()
 
 
 def test_the_cli_does_not_mention_any_removed_setting() -> None:
@@ -490,7 +490,7 @@ def test_test_email_endpoint_reports_the_smtp_error_verbatim_in_output(
     paraphrase - CLAUDE.md's "a system error is never paraphrased" applies to
     SMTP exactly as it does to nginx or systemd.
 
-    Builds its own app, with the error boundary ``wasm.web.server.create_app``
+    Builds its own app, with the error boundary ``noust.web.server.create_app``
     registers for the real API, rather than the bare-router ``client``
     fixture the other endpoint tests share: that boundary is what turns a
     dict-shaped ``HTTPException.detail`` into the API's ``detail``/``output``
@@ -498,7 +498,7 @@ def test_test_email_endpoint_reports_the_smtp_error_verbatim_in_output(
     """
     from starlette.exceptions import HTTPException as StarletteHTTPException
 
-    from wasm.web.api.deps import handle_http_exception
+    from noust.web.api.deps import handle_http_exception
 
     _install_psutil_metrics(monkeypatch)
     monkeypatch.setattr(monitor_api, "EmailNotifier", _FailingNotifier)

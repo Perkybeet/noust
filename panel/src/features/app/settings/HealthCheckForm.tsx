@@ -235,7 +235,7 @@ export function HealthCheckForm({ app }: { app: App }) {
           </div>
         </div>
       </form>
-      <CommandHint command={`wasm app health ${domain} --path /healthz --expect 200-299 --timeout 60`} label={t("appSettings.fromTerminal")} />
+      <CommandHint command={`noust app health ${domain} --path /healthz --expect 200-299 --timeout 60`} label={t("appSettings.fromTerminal")} />
     </section>
   );
 }

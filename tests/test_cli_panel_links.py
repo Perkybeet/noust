@@ -7,7 +7,7 @@ Every panel deep link the CLI builds must land on a route that exists.
 ``wasm cert list --open`` used to print a link to ``/certificates``, a page
 that has never existed in the console - certificates are a tab of
 ``/domains``. Rather than pin that one fix, this walks every
-``open_in_panel(...)`` call under :mod:`wasm.cli.commands` and checks the path
+``open_in_panel(...)`` call under :mod:`noust.cli.commands` and checks the path
 it builds against ``panel/src/routeTree.gen.ts``, TanStack Router's own
 generated map of every route the console actually serves, so the next dead
 link is caught here instead of by an operator's browser.
@@ -26,7 +26,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-CLI_COMMANDS_DIR = REPO_ROOT / "src" / "wasm" / "cli" / "commands"
+CLI_COMMANDS_DIR = REPO_ROOT / "src" / "noust" / "cli" / "commands"
 ROUTE_TREE = REPO_ROOT / "panel" / "src" / "routeTree.gen.ts"
 
 #: What an interpolated segment - a CLI f-string value or a router "$param" -
@@ -122,7 +122,7 @@ def _template_of(node: ast.expr) -> str | None:
 
 def _open_in_panel_calls() -> list[tuple[str, int, str]]:
     """
-    Find every ``open_in_panel(...)`` call under :mod:`wasm.cli.commands`.
+    Find every ``open_in_panel(...)`` call under :mod:`noust.cli.commands`.
 
     Returns:
         ``(file name, line number, path template)`` for every call whose

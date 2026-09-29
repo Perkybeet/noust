@@ -198,7 +198,7 @@ withMisplacedBackups("backups outside the backup directory are named, with the c
   const notice = page.getByRole("region", { name: `${String(found.count)} backups are outside the backup directory` });
   await expect(notice).toBeVisible();
   await expect(notice.getByText(`${String(found.count)} backups in ${found.directory}`)).toBeVisible();
-  expect(found.command).toBe(`wasm backup import ${found.directory}`);
+  expect(found.command).toBe(`noust backup import ${found.directory}`);
   await expect(notice.locator("code").filter({ hasText: found.command })).toBeVisible();
   await expect(notice.getByText(/--dry-run\s*to the command to see what would move first/)).toBeVisible();
   await settle(page);

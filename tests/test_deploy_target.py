@@ -27,6 +27,15 @@ from types import SimpleNamespace
 
 import pytest
 
+from noust.core.exceptions import DeploymentError
+from noust.core.runner import FakeRunner
+from noust.core.store import App, NoustStore
+from noust.deployers.auto import AutoDeployer
+from noust.deployers.helpers.layout import INPLACE, RELEASES
+from noust.deployers.monorepo import MonorepoDeployer
+from noust.deployers.nodejs import NodeJSDeployer
+from noust.deployers.releases import ReleaseManager
+from noust.managers.source_manager import SourceManager
 from tests.test_release_pipeline import (  # noqa: F401  (pytest resolves fixtures by name)
     BROKEN_SERVER,
     DOMAIN,
@@ -41,15 +50,6 @@ from tests.test_release_pipeline import (  # noqa: F401  (pytest resolves fixtur
     store,
     wire,
 )
-from wasm.core.exceptions import DeploymentError
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, WASMStore
-from wasm.deployers.auto import AutoDeployer
-from wasm.deployers.helpers.layout import INPLACE, RELEASES
-from wasm.deployers.monorepo import MonorepoDeployer
-from wasm.deployers.nodejs import NodeJSDeployer
-from wasm.deployers.releases import ReleaseManager
-from wasm.managers.source_manager import SourceManager
 
 
 def operator_tree(root: Path) -> dict[str, str]:
@@ -96,7 +96,7 @@ def at(root: Path, machine: SimpleNamespace) -> SimpleNamespace:
 
 
 def test_a_deploy_over_an_in_place_application_is_refused(
-    tmp_path: Path, root: Path, store: WASMStore, at: SimpleNamespace
+    tmp_path: Path, root: Path, store: NoustStore, at: SimpleNamespace
 ) -> None:
     files = operator_tree(root)
     store.create_app(
@@ -107,29 +107,29 @@ def test_a_deploy_over_an_in_place_application_is_refused(
     with pytest.raises(DeploymentError, match="already deployed") as refused:
         deployer.deploy()
 
-    assert "wasm update rel.example.com" in refused.value.details
+    assert "noust update rel.example.com" in refused.value.details
     assert "--force" in refused.value.details
     assert_untouched(root, files)
 
 
 def test_a_directory_wasm_has_no_record_of_is_refused(
-    tmp_path: Path, root: Path, store: WASMStore, at: SimpleNamespace
+    tmp_path: Path, root: Path, store: NoustStore, at: SimpleNamespace
 ) -> None:
-    """The store moved, or someone put files there: neither is WASM's to delete."""
+    """The store moved, or someone put files there: neither is Noust's to delete."""
     files = operator_tree(root)
     at.git.publish(node_tree(tmp_path / "v1"))
 
     with pytest.raises(DeploymentError, match="not empty") as refused:
         deploy_new(root, at)
 
-    assert "wasm store path" in refused.value.details
+    assert "noust store path" in refused.value.details
     assert_untouched(root, files)
     assert store.get_app(DOMAIN) is None
     assert not (root / "releases").exists()
 
 
 def test_auto_detection_refuses_before_fetching_anything(
-    tmp_path: Path, root: Path, store: WASMStore, at: SimpleNamespace
+    tmp_path: Path, root: Path, store: NoustStore, at: SimpleNamespace
 ) -> None:
     files = operator_tree(root)
     auto = AutoDeployer()
@@ -143,7 +143,7 @@ def test_auto_detection_refuses_before_fetching_anything(
 
 
 def test_a_monorepo_deploy_refuses_a_directory_that_is_not_empty(
-    tmp_path: Path, root: Path, store: WASMStore
+    tmp_path: Path, root: Path, store: NoustStore
 ) -> None:
     files = operator_tree(root)
     deployer = MonorepoDeployer(verbose=False)
@@ -156,7 +156,7 @@ def test_a_monorepo_deploy_refuses_a_directory_that_is_not_empty(
 
 
 def test_forced_in_place_deploy_that_fails_leaves_the_directory(
-    tmp_path: Path, root: Path, store: WASMStore, at: SimpleNamespace
+    tmp_path: Path, root: Path, store: NoustStore, at: SimpleNamespace
 ) -> None:
     """Asked to replace it, WASM replaces it; a failure never deletes the directory itself."""
     operator_tree(root)
@@ -171,7 +171,7 @@ def test_forced_in_place_deploy_that_fails_leaves_the_directory(
 
 
 def test_forced_release_deploy_that_fails_keeps_what_was_there(
-    tmp_path: Path, root: Path, store: WASMStore, at: SimpleNamespace
+    tmp_path: Path, root: Path, store: NoustStore, at: SimpleNamespace
 ) -> None:
     """Only the release this deploy staged is thrown away."""
     files = operator_tree(root)
@@ -196,7 +196,7 @@ def test_forced_release_deploy_that_fails_keeps_what_was_there(
 
 
 def test_an_empty_directory_is_deployed_into_and_kept_on_failure(
-    tmp_path: Path, root: Path, store: WASMStore, at: SimpleNamespace
+    tmp_path: Path, root: Path, store: NoustStore, at: SimpleNamespace
 ) -> None:
     """A directory made ahead of time (a mount point) is used, and never removed."""
     root.mkdir(parents=True)
@@ -212,7 +212,7 @@ def test_an_empty_directory_is_deployed_into_and_kept_on_failure(
 
 
 def test_a_new_directory_is_still_removed_when_the_first_deploy_fails(
-    tmp_path: Path, root: Path, store: WASMStore, at: SimpleNamespace
+    tmp_path: Path, root: Path, store: NoustStore, at: SimpleNamespace
 ) -> None:
     at.git.publish(node_tree(tmp_path / "v1", server=BROKEN_SERVER))
     deployer = wire(NodeJSDeployer(verbose=False, runner=at.runner), at)
@@ -225,7 +225,7 @@ def test_a_new_directory_is_still_removed_when_the_first_deploy_fails(
 
 
 def test_redeploying_an_application_on_releases_needs_no_force(
-    tmp_path: Path, root: Path, store: WASMStore, at: SimpleNamespace
+    tmp_path: Path, root: Path, store: NoustStore, at: SimpleNamespace
 ) -> None:
     """It builds a release beside the ones there; nothing the application has is replaced."""
     at.git.publish(node_tree(tmp_path / "v1"))
@@ -241,10 +241,10 @@ def test_redeploying_an_application_on_releases_needs_no_force(
 
 
 def test_a_compose_deploy_refuses_a_directory_that_is_not_empty(
-    tmp_path: Path, root: Path, store: WASMStore
+    tmp_path: Path, root: Path, store: NoustStore
 ) -> None:
     """A Compose project's bind-mounted data lives in its directory; the fetch would empty it."""
-    from wasm.deployers.docker_compose import DockerComposeDeployer
+    from noust.deployers.docker_compose import DockerComposeDeployer
 
     files = operator_tree(root)
     (root / "data" / "postgres").mkdir(parents=True)
@@ -260,9 +260,9 @@ def test_a_compose_deploy_refuses_a_directory_that_is_not_empty(
 
 
 def test_a_forced_compose_deploy_that_fails_keeps_the_directory(
-    tmp_path: Path, root: Path, store: WASMStore, runner: FakeRunner
+    tmp_path: Path, root: Path, store: NoustStore, runner: FakeRunner
 ) -> None:
-    from wasm.deployers.docker_compose import DockerComposeDeployer
+    from noust.deployers.docker_compose import DockerComposeDeployer
 
     operator_tree(root)
     deployer = DockerComposeDeployer(runner=runner)

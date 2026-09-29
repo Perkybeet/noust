@@ -7,7 +7,7 @@ Time-based one-time passwords, RFC 6238, with nothing but the standard library.
 The panel's second factor is ~60 lines of ``hmac`` + ``struct`` + ``base64``,
 which is the whole algorithm. A dependency here would have to be declared in
 four packaging files and exist on every target distribution, and ``pyotp`` is
-not packaged everywhere WASM ships; the RFC is shorter than that negotiation.
+not packaged everywhere Noust ships; the RFC is shorter than that negotiation.
 
 SHA-1 is what the RFC specifies and what every authenticator app implements.
 Its collision weakness is irrelevant to HMAC truncated to six digits, so this
@@ -153,7 +153,7 @@ def verify(secret_b32: str, code: str, *, window: int = 1, t: float | None = Non
     return matched_step(secret_b32, code, window=window, t=t) is not None
 
 
-def provisioning_uri(secret_b32: str, *, issuer: str = "WASM", account: str = "admin") -> str:
+def provisioning_uri(secret_b32: str, *, issuer: str = "Noust", account: str = "admin") -> str:
     """
     Build the ``otpauth://`` URI an authenticator app enrols from.
 

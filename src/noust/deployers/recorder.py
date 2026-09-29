@@ -25,7 +25,7 @@ Two guarantees shape everything here:
 - **What is recorded carries no secret.** The build runs with the
   application's environment, and the log and the error text are readable with
   the panel's ``read`` scope. Every line and the error pass through a
-  :class:`~wasm.core.redact.Scrubber` on their way to disk and to the store.
+  :class:`~noust.core.redact.Scrubber` on their way to disk and to the store.
 """
 
 from __future__ import annotations
@@ -37,12 +37,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Protocol, TextIO
 
-from wasm.core.exceptions import RolledBackError, WASMError
-from wasm.core.fs import DryRunFileSystem, FileSystem, get_fs
-from wasm.core.logger import Icons, Logger
-from wasm.core.redact import Scrubber, app_secret_values, scrubber_for, secret_env_values
-from wasm.core.store import DeploymentStatus, WASMStore
-from wasm.deployers.deploy_events import DeployEvent, DeployEventKind, publish
+from noust.core.exceptions import NoustError, RolledBackError
+from noust.core.fs import DryRunFileSystem, FileSystem, get_fs
+from noust.core.logger import Icons, Logger
+from noust.core.redact import Scrubber, app_secret_values, scrubber_for, secret_env_values
+from noust.core.store import DeploymentStatus, NoustStore
+from noust.deployers.deploy_events import DeployEvent, DeployEventKind, publish
 
 #: How many history rows, and their log files, survive per domain.
 DEFAULT_KEEP = 20
@@ -61,7 +61,7 @@ EnvSource = Callable[[], Mapping[str, Any] | None]
 #: What the recorder treats as "the history could not be written": the store's
 #: own errors, the SQLite errors underneath it, and filesystem trouble around
 #: the log file. Anything else is a bug and must surface.
-_RECORDING_ERRORS = (WASMError, OSError, sqlite3.Error)
+_RECORDING_ERRORS = (NoustError, OSError, sqlite3.Error)
 
 
 class CapturingLogger(Logger):
@@ -90,7 +90,7 @@ class CapturingLogger(Logger):
             verbose: Enable verbose console output.
             no_color: Disable colored output.
             log_file: Optional file path to write logs to.
-            stream: Output stream, as in :class:`~wasm.core.logger.Logger`.
+            stream: Output stream, as in :class:`~noust.core.logger.Logger`.
         """
         super().__init__(verbose=verbose, no_color=no_color, log_file=log_file, stream=stream)
         self._sink: Callable[[str], None] | None = None
@@ -212,7 +212,7 @@ class DeploymentRecorder:
 
     def __init__(
         self,
-        store: WASMStore,
+        store: NoustStore,
         domain: str,
         trigger: str,
         *,
@@ -251,7 +251,7 @@ class DeploymentRecorder:
             job_id: The background job that started this deployment, when one
                 did. Known upfront, unlike the release and the commit.
             log_root: Where the logs live. Defaults to ``deploy-logs`` next to
-                the store's database file, so the logs land in ``/var/lib/wasm``
+                the store's database file, so the logs land in ``/var/lib/noust``
                 on a system install and inside ``tmp_path`` in a test, without
                 either having to say so.
             keep: How many history rows and log files survive per domain.
@@ -259,7 +259,7 @@ class DeploymentRecorder:
                 commands run with, asked again before every captured line:
                 a fresh deploy replaces it mid-pipeline with what it generated
                 from ``.env.example``, and the build that follows prints from
-                the new one. The application's stored ``.env`` and WASM's own
+                the new one. The application's stored ``.env`` and Noust's own
                 credentials are scrubbed whether or not this is given.
         """
         self._store = store
@@ -375,7 +375,7 @@ class DeploymentRecorder:
 
         Args:
             error: What the failing step raised. Stored verbatim but for its
-                secrets - for a :class:`~wasm.core.exceptions.WASMError` that
+                secrets - for a :class:`~noust.core.exceptions.NoustError` that
                 includes its details, which carry the build tool's own output.
         """
         # A fresh deploy wrote its .env during the run; read it again so a
@@ -534,7 +534,7 @@ class DeploymentRecorder:
             return None, None
         try:
             return self._git_info()
-        except (WASMError, OSError) as exc:
+        except (NoustError, OSError) as exc:
             self._logger.debug(f"Could not read git information: {exc}")
             return None, None
 
@@ -551,7 +551,7 @@ class DeploymentRecorder:
             return None
         try:
             return self._commit_message_reader()
-        except (WASMError, OSError) as exc:
+        except (NoustError, OSError) as exc:
             self._logger.debug(f"Could not read the commit subject: {exc}")
             return None
 
@@ -569,7 +569,7 @@ class DeploymentRecorder:
             return None
         try:
             return self._release_id_reader()
-        except (WASMError, OSError) as exc:
+        except (NoustError, OSError) as exc:
             self._logger.debug(f"Could not read the release id: {exc}")
             return None
 
@@ -635,7 +635,7 @@ class Recordable(Protocol):
     """What a deployer offers to be recorded: the attributes every deployer has."""
 
     @property
-    def store(self) -> WASMStore:
+    def store(self) -> NoustStore:
         """The store the history row goes to."""
 
     @property

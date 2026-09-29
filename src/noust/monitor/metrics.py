@@ -4,7 +4,7 @@ Collection of the facts the monitor reports: resources, processes, services.
 This is the half of the old monitor that earned its keep. It reads, it does not
 write: nothing in this module changes the state of the machine. Process and
 resource data comes from psutil; unit state comes from ``systemctl`` through the
-:class:`~wasm.core.runner.CommandRunner`, which is the only place in WASM
+:class:`~noust.core.runner.CommandRunner`, which is the only place in Noust
 allowed to execute an external program.
 """
 
@@ -15,10 +15,10 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
-from wasm.core.exceptions import MonitorError
-from wasm.core.runner import CommandRunner, get_runner
-from wasm.managers.service_manager import ServiceManager
-from wasm.monitor.models import DiskUsage, ProcessInfo, ResourceMetrics, ServiceHealth
+from noust.core.exceptions import MonitorError
+from noust.core.runner import CommandRunner, get_runner
+from noust.managers.service_manager import ServiceManager
+from noust.monitor.models import DiskUsage, ProcessInfo, ResourceMetrics, ServiceHealth
 
 try:
     import psutil
@@ -97,7 +97,7 @@ def _require_psutil() -> Any:
     if psutil is None:
         raise MonitorError(
             "psutil is required to collect monitor metrics",
-            details="Install it with: pip install 'wasm-cli[monitor]' (or python3-psutil)",
+            details="Install it with: pip install 'noust[monitor]' (or python3-psutil)",
         )
     return psutil
 

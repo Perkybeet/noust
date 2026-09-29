@@ -16,9 +16,9 @@ from pathlib import Path
 
 import pytest
 
+from noust.web.auth import MAX_BODY_BYTES, MAX_HOOK_BODY_BYTES
+from noust.web.server import get_token_manager
 from tests.test_web_auth import build_client
-from wasm.web.auth import MAX_BODY_BYTES, MAX_HOOK_BODY_BYTES
-from wasm.web.server import get_token_manager
 
 MIB = 1024 * 1024
 

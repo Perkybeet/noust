@@ -207,19 +207,19 @@ describe("the new-app wizard", () => {
     expect(screen.getByRole("combobox", { name: "Deploy as" })).toHaveTextContent("Choose a type");
   });
 
-  it("says what WASM found and that it can deploy it, in the backend's words", async () => {
+  it("says what Noust found and that it can deploy it, in the backend's words", async () => {
     const { harness } = wizard({
       "POST /api/apps/inspect": () =>
         json(200, {
           ...INSPECTION,
           compatible: true,
-          verdict: "WASM can deploy this as Next.js. It also looks like Node.js; choose that type instead to deploy it that way.",
+          verdict: "Noust can deploy this as Next.js. It also looks like Node.js; choose that type instead to deploy it that way.",
           suggestion: null,
         }),
     });
     await inspect(harness.user);
-    const found = screen.getByRole("region", { name: "What WASM found" });
-    expect(within(found).getByText(/WASM can deploy this as Next\.js\. It also looks like Node\.js/)).toBeInTheDocument();
+    const found = screen.getByRole("region", { name: "What Noust found" });
+    expect(within(found).getByText(/Noust can deploy this as Next\.js\. It also looks like Node\.js/)).toBeInTheDocument();
     // Said once: the verdict already names the other types.
     expect(within(found).queryByText(/It also matches/)).not.toBeInTheDocument();
   });
@@ -233,14 +233,14 @@ describe("the new-app wizard", () => {
           detected_types: ["python"],
           compatible: false,
           verdict: "This is a Python (Django/Flask/FastAPI) project, but this server does not have python3.",
-          suggestion: "Install what it needs with `wasm setup init`, then deploy it.",
+          suggestion: "Install what it needs with `noust setup init`, then deploy it.",
         }),
     });
     await inspect(harness.user);
-    const found = screen.getByRole("region", { name: "What WASM found" });
+    const found = screen.getByRole("region", { name: "What Noust found" });
     expect(within(found).getByText(/this server does not have python3/)).toBeInTheDocument();
     expect(within(found).getByText("Not deployable as it is:", { exact: false })).toBeInTheDocument();
-    expect(within(found).getByText("wasm setup init").tagName).toBe("CODE");
+    expect(within(found).getByText("noust setup init").tagName).toBe("CODE");
     await expectNoAxeViolations(found);
   });
 
@@ -249,7 +249,7 @@ describe("the new-app wizard", () => {
     const { harness } = wizard({
       "POST /api/apps/inspect": () =>
         problem(400, "validationerror", "The repository has a Dockerfile but no Compose file.", {
-          hint: `WASM runs containers through Docker Compose. Commit a compose.yaml next to the Dockerfile that builds it:\n\n${compose}\n\nwith the port the image listens on, then deploy it as Docker Compose.`,
+          hint: `Noust runs containers through Docker Compose. Commit a compose.yaml next to the Dockerfile that builds it:\n\n${compose}\n\nwith the port the image listens on, then deploy it as Docker Compose.`,
         }),
     });
     const { user, container } = harness;
@@ -258,7 +258,7 @@ describe("the new-app wizard", () => {
     await user.click(screen.getByRole("button", { name: "Inspect source" }));
     const detail = await screen.findByText("The repository has a Dockerfile but no Compose file.");
     expect(detail.closest("[role=alert]")).not.toBeNull();
-    expect(screen.getByText("WASM cannot deploy https://github.com/acme/api.git as it is")).toBeInTheDocument();
+    expect(screen.getByText("Noust cannot deploy https://github.com/acme/api.git as it is")).toBeInTheDocument();
     // The compose file keeps its indentation: it is shown as the file it is.
     const file = screen.getByText((_, element) => element?.tagName === "PRE" && element.textContent === compose);
     expect(file).toBeInTheDocument();

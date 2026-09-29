@@ -18,7 +18,7 @@ export interface ShowKeyDialogProps {
   onOpenChange: (open: boolean) => void;
   /**
    * Shown as the first step of removing the destination: the key is what reads the backups left
-   * behind, and the removal deletes WASM's copy. Cancelling is always allowed; continuing needs
+   * behind, and the removal deletes Noust's copy. Cancelling is always allowed; continuing needs
    * "I have saved it" ticked, and calls this.
    */
   onContinueToRemove?: () => void;

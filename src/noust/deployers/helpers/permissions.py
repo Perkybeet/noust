@@ -20,9 +20,9 @@ from __future__ import annotations
 from collections.abc import Iterable
 from pathlib import Path
 
-from wasm.core.fs import SECRET_MODE, FileSystem
-from wasm.core.logger import Logger
-from wasm.core.runner import CommandRunner
+from noust.core.fs import SECRET_MODE, FileSystem
+from noust.core.logger import Logger
+from noust.core.runner import CommandRunner
 
 #: Deadline for the recursive chown and chmod over a deployed tree.
 _PERMISSIONS_TIMEOUT = 60

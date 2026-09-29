@@ -11,7 +11,7 @@ import json
 from collections.abc import Callable
 from pathlib import Path
 
-from wasm.core.logger import Logger
+from noust.core.logger import Logger
 
 
 class PrismaHelper:

@@ -4,7 +4,7 @@
 """
 Which layout a deployment uses: in place, or releases.
 
-This is decided in one place because it is decided from three: ``wasm
+This is decided in one place because it is decided from three: ``noust
 create``, ``POST /api/apps`` and every redeploy or update of an application
 that already exists. The rules:
 
@@ -20,7 +20,7 @@ that already exists. The rules:
 
 It is also where the layout turns into paths for everything that is not a
 deploy: where an application's ``.env`` lives and where its running code is.
-``wasm env``, the panel's environment editor and the backups all used to
+``noust env``, the panel's environment editor and the backups all used to
 assume ``<app>/.env``, which on the release layout reads nothing and writes a
 stray file the application never sees; they ask :func:`env_file_for` instead.
 """
@@ -29,11 +29,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from wasm.core.config import Config
-from wasm.core.exceptions import DeploymentError
-from wasm.core.store import App, AppLayout
-from wasm.core.utils import domain_to_app_name
-from wasm.deployers.releases import CURRENT_LINK, ENV_FILE, SHARED_DIR
+from noust.core.config import Config
+from noust.core.exceptions import DeploymentError
+from noust.core.store import App, AppLayout
+from noust.core.utils import domain_to_app_name
+from noust.deployers.releases import CURRENT_LINK, ENV_FILE, SHARED_DIR
 
 #: The 1.x layout: the service runs the tree every update rebuilds.
 INPLACE = AppLayout.INPLACE.value
@@ -44,7 +44,7 @@ RELEASES = AppLayout.RELEASES.value
 #: The concrete layouts an application can be on.
 LAYOUTS: tuple[str, ...] = (INPLACE, RELEASES)
 
-#: Asks for whatever this server gives new applications. What ``wasm create``
+#: Asks for whatever this server gives new applications. What ``noust create``
 #: and the API send when the operator did not choose, so an existing
 #: application is never told to change layout by a default.
 CONFIGURED = "default"
@@ -55,7 +55,7 @@ CONFIG_KEY = "deploy.layout"
 
 def validate_layout(value: str) -> str:
     """
-    Check that a layout name is one WASM knows.
+    Check that a layout name is one Noust knows.
 
     Args:
         value: Candidate layout.
@@ -133,7 +133,7 @@ def choose_layout(
             raise DeploymentError(
                 f"{existing.domain} is on the {stored} layout; a deploy does not change it",
                 details="Deploy it with the layout it has. Changing layout is an explicit "
-                "migration (wasm app migrate), never a side effect of a deploy.",
+                "migration (noust app migrate), never a side effect of a deploy.",
             )
         if stored == RELEASES and not supports_releases:
             raise DeploymentError(

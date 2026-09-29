@@ -73,7 +73,7 @@ describe("a session that expires while the console is open", () => {
     expect(queryClient.getQueryData(appKeys.list)).toBeUndefined();
 
     revive();
-    await user.type(screen.getByLabelText("Access token"), "wasm_token");
+    await user.type(screen.getByLabelText("Access token"), "noust_token");
     await user.click(screen.getByRole("button", { name: "Sign in" }));
     await screen.findByRole("heading", { level: 2, name: "Variables" });
     expect(location().pathname).toBe(path);

@@ -32,7 +32,7 @@
   --text-muted: light-dark(#555555, #a3a3a3);
   --text-faint: light-dark(#6b6b6b, #8c8c8c);
 
-  /* The accent: violet from the start of the logo gradient. Interactive only. */
+  /* The accent: violet. Interactive only. */
   --accent: light-dark(#6a45d5, #7152de);
   --accent-hover: light-dark(#5b37c2, #7a5be5);
   --accent-soft: light-dark(#f0ebfd, #1f1937);
@@ -58,11 +58,6 @@
   --ansi-blue: light-dark(#1f5fbf, #6fa8ff);
   --ansi-magenta: light-dark(#a3319f, #e58be0);
   --ansi-cyan: light-dark(#0e7285, #4fc7d6);
-
-  /* The brand gradient. It lives in the logo mark and nowhere else. */
-  --brand-violet: #7b4fd6;
-  --brand-blue: #4aa3d9;
-  --brand-green: #4fc97a;
 
   /* Type. Mona Sans carries the interface; JetBrains Mono carries every system value. Build
      and deploy logs are CLI output verbatim (CLAUDE.md: never paraphrased), and the CLI

@@ -62,8 +62,8 @@ test("a repository and branch chosen from GitHub reach the inspection and the de
   if (await confirm.isVisible()) await confirmItsYou(page, consoleServer);
   await expect(review).toBeFocused();
 
-  const found = page.getByRole("region", { name: "What WASM found" });
-  await expect(found.getByText(/^WASM can deploy this as Next\.js/)).toBeVisible();
+  const found = page.getByRole("region", { name: "What Noust found" });
+  await expect(found.getByText(/^Noust can deploy this as Next\.js/)).toBeVisible();
   await page.getByLabel("Domain", { exact: true }).fill(domain);
   await expect(page.getByText(`${domain} points here`)).toBeVisible();
   await page.getByLabel(/^DATABASE_URL/).fill("postgres://landing@localhost/landing");

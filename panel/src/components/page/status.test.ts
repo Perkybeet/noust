@@ -13,7 +13,7 @@ describe("appStatus", () => {
     // The store's AppStatus.
     ["failed", "failed", "Failed", true],
     ["unknown", "unknown", "Unknown", true],
-    // wasm.core.app_state, as `wasm list` prints it.
+    // noust.core.app_state, as `noust list` prints it.
     ["Running", "running", "Running", false],
     ["Restarting", "deploying", "Restarting", true],
     ["No answer", "failed", "No answer", true],

@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The ``wasm token`` command group: named, scoped API tokens.
+The ``noust token`` command group: named, scoped API tokens.
 
 Before this existed, an API token could only be issued, listed or revoked from
 the panel's settings screen: an operator scripting against the API from a
 server with no browser had no way to mint the credential the script needs.
-This is a thin front end over :class:`~wasm.web.auth.TokenManager`, the exact
+This is a thin front end over :class:`~noust.web.auth.TokenManager`, the exact
 manager ``POST /api/auth/tokens`` and its siblings call, built over the panel's
-own on-disk state (:class:`~wasm.web.auth.SecurityConfig`'s state directory) -
+own on-disk state (:class:`~noust.web.auth.SecurityConfig`'s state directory) -
 a token issued here authenticates against the panel and vice versa, because
 there is one store of them, not two.
 
@@ -26,8 +26,8 @@ from typing import Any
 
 import click
 
-from wasm.cli.app import Context, WasmGroup, json_option, pass_context
-from wasm.cli.web_state import token_manager
+from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.cli.web_state import token_manager
 
 #: Scopes ``POST /api/auth/tokens`` accepts, in the order shown by --help.
 SCOPES: tuple[str, ...] = ("read", "deploy", "admin")
@@ -48,7 +48,7 @@ def _fmt(timestamp: float | None) -> str:
     return datetime.fromtimestamp(timestamp).isoformat(sep=" ", timespec="seconds")
 
 
-@click.group("token", cls=WasmGroup)
+@click.group("token", cls=NoustGroup)
 def cli() -> None:
     """Manage API tokens: named, scoped credentials for scripts and automation."""
 
@@ -61,7 +61,7 @@ def list_command(ctx: Context) -> None:
     List every API token ever issued, live and revoked alike.
 
     No output from this command ever shows a token: only its salted hash is
-    stored, so it cannot be shown again after 'wasm token create'.
+    stored, so it cannot be shown again after 'noust token create'.
     """
     records = token_manager().list_api_tokens()
 
@@ -112,7 +112,7 @@ def create_command(ctx: Context, name: str, scope: str, expires_hours: int | Non
     Issue a named, scoped API token. NAME must be unique across every token
     ever issued, live or revoked.
 
-    The token is printed exactly once, here. Store it now: WASM only ever
+    The token is printed exactly once, here. Store it now: Noust only ever
     keeps a salted hash of it, the same as the master token, so it cannot be
     shown again.
     """
@@ -125,8 +125,8 @@ def create_command(ctx: Context, name: str, scope: str, expires_hours: int | Non
     logger.blank()
     if ctx.dry_run:
         # A dry run opens the session database as a private in-memory copy
-        # (wasm.web.auth.SessionStore._rehearsal_copy), so this token was
-        # never written to the one WASM actually authenticates against. It
+        # (noust.web.auth.SessionStore._rehearsal_copy), so this token was
+        # never written to the one Noust actually authenticates against. It
         # looks real and is not: printing it without saying so is how an
         # operator pastes a credential into a script that then never works.
         logger.warning("Rehearsal: this token was not saved and will not authenticate.")
@@ -140,7 +140,7 @@ def create_command(ctx: Context, name: str, scope: str, expires_hours: int | Non
 @pass_context
 def revoke_command(ctx: Context, token_id: int, force: bool) -> None:
     """
-    Revoke one API token by its id, as listed by 'wasm token list'.
+    Revoke one API token by its id, as listed by 'noust token list'.
 
     Requests presenting it stop authenticating immediately.
     """

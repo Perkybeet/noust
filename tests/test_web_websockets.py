@@ -19,16 +19,16 @@ from typing import Any
 import pytest
 from starlette.websockets import WebSocketDisconnect
 
-from tests.test_web_auth import build_client, iter_routes, login, make_config
-from wasm.web.auth import (
+from noust.web.auth import (
     CSRF_HEADER_NAME,
     WS_CLOSE_FORBIDDEN,
     WS_CLOSE_RATE_LIMITED,
     WS_CLOSE_UNAUTHORIZED,
     AuditLogger,
 )
-from wasm.web.server import create_app, get_token_manager
-from wasm.web.websockets.router import WS_SUBPROTOCOL, WS_TOKEN_PREFIX
+from noust.web.server import create_app, get_token_manager
+from noust.web.websockets.router import WS_SUBPROTOCOL, WS_TOKEN_PREFIX
+from tests.test_web_auth import build_client, iter_routes, login, make_config
 
 
 def token_subprotocols(token: str) -> list[str]:
@@ -330,8 +330,8 @@ def test_a_read_token_cannot_cancel_a_job_over_the_socket(sandbox: Path) -> None
     because the socket checked that the credential was valid but never what it
     was allowed to do.
     """
+    from noust.web.jobs import Job, JobType, get_job_manager
     from tests.test_web_auth import issue_token
-    from wasm.web.jobs import Job, JobType, get_job_manager
 
     client = build_client(sandbox)
     master = get_token_manager().generate_master_token()

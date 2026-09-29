@@ -12,7 +12,7 @@ export const services: Catalog<typeof en> = {
   },
   page: {
     description:
-      'Todas las unidades de systemd que WASM gestiona en esta máquina. Activa "Mostrar todas las unidades" para ver también las que crearon otros paquetes, de solo lectura.',
+      'Todas las unidades de systemd que Noust gestiona en esta máquina. Activa "Mostrar todas las unidades" para ver también las que crearon otros paquetes, de solo lectura.',
     newService: "Nuevo servicio",
     loadFailed: "No se pudieron cargar los servicios",
     emptyTitle: "Crea tu primer servicio",
@@ -38,7 +38,7 @@ export const services: Catalog<typeof en> = {
     boot: "Arranque",
     since: "Desde",
     memory: "Memoria",
-    wasm: "WASM",
+    wasm: "Noust",
     foreign: "Externo",
     enabled: "Habilitado",
     disabled: "Deshabilitado",
@@ -72,11 +72,11 @@ export const services: Catalog<typeof en> = {
   detail: {
     notFoundTitle: "No hay ningún servicio con ese nombre",
     notFoundDescription:
-      "Puede que se haya eliminado o que el nombre tenga un error. Todas las unidades que gestiona WASM están en la lista de servicios.",
+      "Puede que se haya eliminado o que el nombre tenga un error. Todas las unidades que gestiona Noust están en la lista de servicios.",
     allServices: "Todos los servicios",
-    foreignTitle: "WASM no creó esta unidad",
+    foreignTitle: "Noust no creó esta unidad",
     foreignDescription:
-      "Se ejecuta en esta máquina, pero su archivo de unidad pertenece a otro paquete. WASM solo gestiona lo que creó, así que nada de aquí puede editarla, reiniciarla ni eliminarla.",
+      "Se ejecuta en esta máquina, pero su archivo de unidad pertenece a otro paquete. Noust solo gestiona lo que creó, así que nada de aquí puede editarla, reiniciarla ni eliminarla.",
     loading: "Cargando el servicio",
     loadFailed: "No se pudo cargar {name}",
     overview: "Resumen",

@@ -5,10 +5,10 @@
 Deployment log reading: the one place a deployment's captured build log is
 read back off disk.
 
-:class:`~wasm.deployers.recorder.DeploymentRecorder` writes the log and stores
+:class:`~noust.deployers.recorder.DeploymentRecorder` writes the log and stores
 its path on the history row; this module is the only reader, used by both the
-server-rendered deployment detail page (:mod:`wasm.web.views.deployments`) and
-the JSON API (:mod:`wasm.web.api.deployments`). A second implementation is how
+server-rendered deployment detail page (:mod:`noust.web.views.deployments`) and
+the JSON API (:mod:`noust.web.api.deployments`). A second implementation is how
 one of the two surfaces would end up reading a path it should have refused.
 
 The stored path is data, not an instruction: it is only followed when it
@@ -23,11 +23,11 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from wasm.core.exceptions import SecurityError, ValidationError
-from wasm.validators.names import resolve_within
+from noust.core.exceptions import SecurityError, ValidationError
+from noust.validators.names import resolve_within
 
 if TYPE_CHECKING:
-    from wasm.core.store import DeploymentRecord
+    from noust.core.store import DeploymentRecord
 
 log = logging.getLogger(__name__)
 
@@ -75,7 +75,7 @@ def read_deployment_log(record: DeploymentRecord, *, tail: int | None = None) ->
             missing_reason="No build log was captured for this deployment.",
         )
 
-    from wasm.core.store import get_store
+    from noust.core.store import get_store
 
     root = get_store().db_path.parent / "deploy-logs"
     try:

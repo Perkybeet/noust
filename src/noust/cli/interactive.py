@@ -1,18 +1,18 @@
 """
 Interactive mode.
 
-Prompts come from :mod:`wasm.cli.prompts`, which is built on questionary. The
+Prompts come from :mod:`noust.cli.prompts`, which is built on questionary. The
 previous implementation used inquirer, which is not packaged in Debian or
-Ubuntu, so interactive mode never worked on the distributions most WASM users
+Ubuntu, so interactive mode never worked on the distributions most Noust users
 run.
 """
 
-from wasm.cli import prompts
-from wasm.core.exceptions import WASMError
-from wasm.core.logger import Logger
-from wasm.validators.domain import check_domain
-from wasm.validators.port import check_port
-from wasm.validators.source import is_valid_source
+from noust.cli import prompts
+from noust.core.exceptions import NoustError
+from noust.core.logger import Logger
+from noust.validators.domain import check_domain
+from noust.validators.port import check_port
+from noust.validators.source import is_valid_source
 
 
 class InteractiveMode:
@@ -31,7 +31,7 @@ class InteractiveMode:
         self.logger = Logger(verbose=verbose)
 
         if not prompts.AVAILABLE:
-            raise WASMError(
+            raise NoustError(
                 "Interactive mode needs questionary, which is missing",
                 details=(
                     "Every other command works without it. To get it:\n"
@@ -49,7 +49,7 @@ class InteractiveMode:
         Returns:
             Exit code.
         """
-        self.logger.header("WASM Interactive Mode")
+        self.logger.header("Noust Interactive Mode")
         self.logger.info("Answer the prompts to configure your operation")
         self.logger.blank()
 
@@ -152,7 +152,7 @@ class InteractiveMode:
 
         args = Namespace(**args_dict)
 
-        from wasm.cli.commands.webapp import handle_webapp
+        from noust.cli.commands.webapp import handle_webapp
 
         return handle_webapp(args)
 
@@ -218,7 +218,7 @@ class InteractiveMode:
             return 0
 
         # Ask about www if SSL enabled and domain is a base domain
-        from wasm.validators.domain import should_include_www
+        from noust.validators.domain import should_include_www
 
         include_www = False
         if answers["ssl"] and should_include_www(answers["domain"]):
@@ -249,7 +249,7 @@ class InteractiveMode:
             www=include_www,
         )
 
-        from wasm.cli.commands.webapp import handle_webapp
+        from noust.cli.commands.webapp import handle_webapp
 
         return handle_webapp(args)
 
@@ -377,7 +377,7 @@ class InteractiveMode:
             return 0
 
         # Ask about www if SSL enabled and domain is a base domain
-        from wasm.validators.domain import should_include_www
+        from noust.validators.domain import should_include_www
 
         include_www = False
         if answers["ssl"] and should_include_www(answers["domain"]):
@@ -404,7 +404,7 @@ class InteractiveMode:
             www=include_www,
         )
 
-        from wasm.cli.commands.site import handle_site
+        from noust.cli.commands.site import handle_site
 
         return handle_site(args)
 
@@ -494,7 +494,7 @@ class InteractiveMode:
             description=answers["description"] or None,
         )
 
-        from wasm.cli.commands.service import handle_service
+        from noust.cli.commands.service import handle_service
 
         return handle_service(args)
 
@@ -628,7 +628,7 @@ class InteractiveMode:
             webroot = self._prompt_text("Enter webroot path")
             args.webroot = webroot
 
-        from wasm.cli.commands.cert import handle_cert
+        from noust.cli.commands.cert import handle_cert
 
         return handle_cert(args)
 
@@ -673,7 +673,7 @@ class InteractiveMode:
             dry_run=answers["dry_run"],
         )
 
-        from wasm.cli.commands.cert import handle_cert
+        from noust.cli.commands.cert import handle_cert
 
         return handle_cert(args)
 
@@ -721,19 +721,19 @@ class InteractiveMode:
         args = Namespace(**args_dict)
 
         if resource == "webapp":
-            from wasm.cli.commands.webapp import handle_webapp
+            from noust.cli.commands.webapp import handle_webapp
 
             return handle_webapp(args)
         elif resource == "site":
-            from wasm.cli.commands.site import handle_site
+            from noust.cli.commands.site import handle_site
 
             return handle_site(args)
         elif resource == "service":
-            from wasm.cli.commands.service import handle_service
+            from noust.cli.commands.service import handle_service
 
             return handle_service(args)
         elif resource == "cert":
-            from wasm.cli.commands.cert import handle_cert
+            from noust.cli.commands.cert import handle_cert
 
             return handle_cert(args)
 

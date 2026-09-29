@@ -26,13 +26,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.core.store import App, WASMStore
-from wasm.web.api import hooks as hooks_module
-from wasm.web.api.hooks import mint_webhook_secret, webhook_update_job
-from wasm.web.auth import CSRF_HEADER_NAME, SecurityConfig
-from wasm.web.jobs import Job, JobContext, JobType
-from wasm.web.server import create_app as build_app
-from wasm.web.server import get_token_manager
+from noust.core.store import App, NoustStore
+from noust.web.api import hooks as hooks_module
+from noust.web.api.hooks import mint_webhook_secret, webhook_update_job
+from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
+from noust.web.jobs import Job, JobContext, JobType
+from noust.web.server import create_app as build_app
+from noust.web.server import get_token_manager
 
 DOMAIN = "app.example.com"
 
@@ -104,17 +104,17 @@ def store(tmp_path: Path) -> Any:
     Yields:
         The store the hook reads.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     try:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 @pytest.fixture
-def seeded(store: WASMStore) -> App:
+def seeded(store: NoustStore) -> App:
     """
     Deploy one application on paper.
 
@@ -137,7 +137,7 @@ def seeded(store: WASMStore) -> App:
 
 
 @pytest.fixture
-def secret(store: WASMStore, seeded: App) -> str:
+def secret(store: NoustStore, seeded: App) -> str:
     """
     Enable webhooks for the seeded application.
 
@@ -152,7 +152,7 @@ def secret(store: WASMStore, seeded: App) -> str:
 
 
 @pytest.fixture
-def app(tmp_path: Path, store: WASMStore) -> FastAPI:
+def app(tmp_path: Path, store: NoustStore) -> FastAPI:
     """
     Args:
         tmp_path: Per-test temporary directory.
@@ -235,7 +235,7 @@ def queued(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
         return Queued()
 
     manager = type("FakeJobs", (), {"create_job": staticmethod(create_job)})()
-    monkeypatch.setattr("wasm.web.api.hooks.get_job_manager", lambda: manager)
+    monkeypatch.setattr("noust.web.api.hooks.get_job_manager", lambda: manager)
     return captured
 
 
@@ -473,7 +473,7 @@ def test_a_replayed_delivery_id_is_ignored(
 # ---------------------------------------------------------------------------
 
 
-def test_rate_limiting_applies_to_the_hook_surface(tmp_path: Path, store: WASMStore) -> None:
+def test_rate_limiting_applies_to_the_hook_surface(tmp_path: Path, store: NoustStore) -> None:
     """The hook is exempt from sessions, not from the rate limiter."""
     app = build_app(
         SecurityConfig(state_dir=tmp_path / "state", rate_limit_requests=3, rate_limit_window=60)
@@ -497,7 +497,7 @@ WRONG_SIGNATURE = {"X-Hub-Signature-256": "sha256=" + "0" * 64, "Content-Type": 
 
 
 @pytest.fixture
-def forge(tmp_path: Path, store: WASMStore) -> TestClient:
+def forge(tmp_path: Path, store: NoustStore) -> TestClient:
     """
     A forge's delivery client against a panel with a small webhook budget.
 
@@ -522,7 +522,7 @@ def forge(tmp_path: Path, store: WASMStore) -> TestClient:
 
 
 def test_bad_signatures_lock_out_that_domain_only(
-    forge: TestClient, store: WASMStore, secret: str, queued: list[dict[str, Any]]
+    forge: TestClient, store: NoustStore, secret: str, queued: list[dict[str, Any]]
 ) -> None:
     """
     Guessing one application's secret stops that application's hook, not the forge.
@@ -593,7 +593,7 @@ def test_bad_signatures_are_audited_per_domain(
     assert secret not in "\n".join(lines)
 
 
-def test_the_ip_whitelist_applies_to_the_hook_surface(tmp_path: Path, store: WASMStore) -> None:
+def test_the_ip_whitelist_applies_to_the_hook_surface(tmp_path: Path, store: NoustStore) -> None:
     """An address outside the whitelist never reaches the signature check."""
     app = build_app(SecurityConfig(state_dir=tmp_path / "state", ip_whitelist=["10.0.0.5"]))
     client = TestClient(app, client=("testclient", 50000))
@@ -609,7 +609,7 @@ def test_the_ip_whitelist_applies_to_the_hook_surface(tmp_path: Path, store: WAS
 
 
 def test_minting_a_secret_requires_a_session(
-    client: TestClient, seeded: App, store: WASMStore
+    client: TestClient, seeded: App, store: NoustStore
 ) -> None:
     """Anonymous clients cannot mint or destroy webhook secrets."""
     assert client.post(f"/api/apps/{DOMAIN}/webhook-secret").status_code == 401
@@ -617,7 +617,7 @@ def test_minting_a_secret_requires_a_session(
 
 
 def test_minting_or_discarding_a_secret_requires_sudo_mode(
-    app: FastAPI, store: WASMStore, seeded: App
+    app: FastAPI, store: NoustStore, seeded: App
 ) -> None:
     """The secret is shown in clear and, since 2.2, can open previews: confirm it's you."""
     signed_in = TestClient(app, client=("testclient", 50000), follow_redirects=False)
@@ -636,7 +636,7 @@ def test_minting_or_discarding_a_secret_requires_sudo_mode(
 def test_mint_and_delete_roundtrip(
     admin: TestClient,
     client: TestClient,
-    store: WASMStore,
+    store: NoustStore,
     seeded: App,
     queued: list[dict[str, Any]],
 ) -> None:
@@ -664,7 +664,7 @@ def test_mint_and_delete_roundtrip(
 
 
 def test_minting_again_replaces_the_secret(
-    admin: TestClient, store: WASMStore, seeded: App
+    admin: TestClient, store: NoustStore, seeded: App
 ) -> None:
     """Regeneration invalidates the old secret in the same motion."""
     first = admin.post(f"/api/apps/{DOMAIN}/webhook-secret").json()["secret"]
@@ -674,7 +674,7 @@ def test_minting_again_replaces_the_secret(
     assert store.get_webhook_secret(DOMAIN) == second
 
 
-def test_minting_for_an_unknown_domain_is_404(admin: TestClient, store: WASMStore) -> None:
+def test_minting_for_an_unknown_domain_is_404(admin: TestClient, store: NoustStore) -> None:
     """The authenticated surface may say so plainly."""
     assert admin.post("/api/apps/nothing.example.com/webhook-secret").status_code == 404
     assert admin.delete("/api/apps/nothing.example.com/webhook-secret").status_code == 404
@@ -689,7 +689,7 @@ def test_the_secret_never_appears_in_audit_or_hook_responses(
     tmp_path: Path,
     admin: TestClient,
     client: TestClient,
-    store: WASMStore,
+    store: NoustStore,
     seeded: App,
     queued: list[dict[str, Any]],
 ) -> None:
@@ -732,7 +732,7 @@ def test_ignored_deliveries_are_audited_too(
 
 
 def test_webhook_update_job_updates_with_webhook_trigger(
-    store: WASMStore, seeded: App, monkeypatch: pytest.MonkeyPatch
+    store: NoustStore, seeded: App, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """
     A push runs the shared update, recorded as a robot's doing.
@@ -740,7 +740,7 @@ def test_webhook_update_job_updates_with_webhook_trigger(
     It used to re-run the whole deploy pipeline, whose fetch deletes the
     application directory: the .env and every uploaded file went with it.
     """
-    from wasm.deployers import lifecycle
+    from noust.deployers import lifecycle
 
     calls: list[dict[str, Any]] = []
 
@@ -772,7 +772,7 @@ def test_the_hook_url_given_out_is_the_public_one_when_exposed(
 ) -> None:
     """A code host cannot deliver to the tunnel's localhost the console was opened at."""
     monkeypatch.setattr(
-        "wasm.integrations.hooks_site.public_hooks_url", lambda: "https://hooks.example.net/hooks"
+        "noust.integrations.hooks_site.public_hooks_url", lambda: "https://hooks.example.net/hooks"
     )
 
     minted = admin.post(f"/api/apps/{DOMAIN}/webhook-secret")

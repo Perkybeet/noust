@@ -9,7 +9,7 @@ The reported defect: ``wasm create --env-file`` and ``POST /api/apps`` with
 files are 0644 and ``systemctl show`` prints ``Environment=`` to any local
 user, so a DATABASE_URL given at create time was readable by every account on
 the machine. The variables now go to the application's env file (0600, the one
-:func:`~wasm.deployers.helpers.layout.env_file_for` names) and the unit points
+:func:`~noust.deployers.helpers.layout.env_file_for` names) and the unit points
 at it with ``EnvironmentFile=``; only the non-secret values the unit decides
 itself (PORT, NODE_ENV) stay inline.
 
@@ -27,22 +27,22 @@ from typing import Any
 
 import pytest
 
+from noust.cli.commands.webapp import _read_env_file
+from noust.core.fs import SECRET_MODE, RecordingFileSystem
+from noust.core.logger import Logger
+from noust.core.runner import FakeRunner
+from noust.core.store import MonorepoWorkspace, NoustStore, Service
+from noust.deployers.helpers.env_manager import EnvManager
+from noust.deployers.helpers.layout import RELEASES
+from noust.deployers.monorepo import MonorepoDeployer
+from noust.deployers.nodejs import NodeJSDeployer
+from noust.deployers.static import StaticDeployer
+from noust.validators.environment import EnvironmentValidationError
 from tests.test_deployers import (  # noqa: F401 - store is a fixture
     FakeServiceManager,
     build_deployer,
     store,
 )
-from wasm.cli.commands.webapp import _read_env_file
-from wasm.core.fs import SECRET_MODE, RecordingFileSystem
-from wasm.core.logger import Logger
-from wasm.core.runner import FakeRunner
-from wasm.core.store import MonorepoWorkspace, Service, WASMStore
-from wasm.deployers.helpers.env_manager import EnvManager
-from wasm.deployers.helpers.layout import RELEASES
-from wasm.deployers.monorepo import MonorepoDeployer
-from wasm.deployers.nodejs import NodeJSDeployer
-from wasm.deployers.static import StaticDeployer
-from wasm.validators.environment import EnvironmentValidationError
 
 SECRET_URL = "postgres://app:s3cret@db.internal/app"
 
@@ -85,7 +85,7 @@ def _env_file(tmp_path: Path) -> Path:
 
 def test_create_time_variables_land_in_the_env_file_not_the_unit(
     tmp_path: Path,
-    store: WASMStore,  # noqa: F811 - the fixture imported above
+    store: NoustStore,  # noqa: F811 - the fixture imported above
 ) -> None:
     deployer = _deployer(tmp_path, DATABASE_URL=SECRET_URL, API_KEY="k-123")
 
@@ -106,7 +106,7 @@ def test_create_time_variables_land_in_the_env_file_not_the_unit(
 
 def test_values_already_in_the_env_file_are_kept_and_create_time_ones_win(
     tmp_path: Path,
-    store: WASMStore,  # noqa: F811
+    store: NoustStore,  # noqa: F811
 ) -> None:
     deployer = _deployer(tmp_path, DATABASE_URL=SECRET_URL)
     env_file = _env_file(tmp_path)
@@ -123,7 +123,7 @@ def test_values_already_in_the_env_file_are_kept_and_create_time_ones_win(
 
 def test_the_unit_s_own_variables_are_not_written_to_the_env_file(
     tmp_path: Path,
-    store: WASMStore,  # noqa: F811
+    store: NoustStore,  # noqa: F811
 ) -> None:
     """
     systemd lets ``EnvironmentFile=`` override ``Environment=``: a PORT in the
@@ -140,7 +140,7 @@ def test_the_unit_s_own_variables_are_not_written_to_the_env_file(
 
 def test_an_injected_value_is_refused_before_it_reaches_the_env_file(
     tmp_path: Path,
-    store: WASMStore,  # noqa: F811
+    store: NoustStore,  # noqa: F811
 ) -> None:
     """systemd reads the file line by line: a newline would add a variable."""
     deployer = _deployer(tmp_path, EVIL="x\nLD_PRELOAD=/tmp/evil.so")
@@ -153,7 +153,7 @@ def test_an_injected_value_is_refused_before_it_reaches_the_env_file(
 
 def test_generated_values_from_env_example_stay_out_of_the_unit(
     tmp_path: Path,
-    store: WASMStore,  # noqa: F811
+    store: NoustStore,  # noqa: F811
 ) -> None:
     """They used to be copied into env_vars "so they're available for systemd"."""
     deployer = _deployer(tmp_path)
@@ -173,7 +173,7 @@ def test_generated_values_from_env_example_stay_out_of_the_unit(
 
 def test_releases_keep_create_time_variables_in_shared(
     tmp_path: Path,
-    store: WASMStore,  # noqa: F811
+    store: NoustStore,  # noqa: F811
 ) -> None:
     """On releases the env file is ``shared/.env``, linked into every release."""
     deployer = _deployer(tmp_path, DATABASE_URL=SECRET_URL)
@@ -189,7 +189,7 @@ def test_releases_keep_create_time_variables_in_shared(
 
 def test_a_static_site_never_gets_an_env_file_in_what_is_served(
     tmp_path: Path,
-    store: WASMStore,  # noqa: F811
+    store: NoustStore,  # noqa: F811
 ) -> None:
     """
     A static site has no process to load the file, and its directory may be
@@ -210,7 +210,7 @@ def test_a_static_site_never_gets_an_env_file_in_what_is_served(
 
 def test_a_static_site_still_refuses_an_injected_value(
     tmp_path: Path,
-    store: WASMStore,  # noqa: F811
+    store: NoustStore,  # noqa: F811
 ) -> None:
     """Its build still runs with the variables, so they are still validated."""
     deployer = build_deployer(StaticDeployer, tmp_path)
@@ -227,7 +227,7 @@ def test_a_static_site_still_refuses_an_injected_value(
 
 def test_a_redeploy_moves_the_old_unit_s_inline_variables_to_the_env_file(
     tmp_path: Path,
-    store: WASMStore,  # noqa: F811
+    store: NoustStore,  # noqa: F811
 ) -> None:
     """
     The unit written by an earlier version carried the secrets inline, and
@@ -254,7 +254,7 @@ def test_a_redeploy_moves_the_old_unit_s_inline_variables_to_the_env_file(
 
 def test_a_conflicting_port_left_in_an_env_file_is_dropped_on_redeploy(
     tmp_path: Path,
-    store: WASMStore,  # noqa: F811
+    store: NoustStore,  # noqa: F811
 ) -> None:
     """
     ``.env.example`` often says PORT=3000, and the env file WASM generated
@@ -278,7 +278,7 @@ def test_a_conflicting_port_left_in_an_env_file_is_dropped_on_redeploy(
 
 def test_an_env_file_that_agrees_with_the_unit_is_left_alone(
     tmp_path: Path,
-    store: WASMStore,  # noqa: F811
+    store: NoustStore,  # noqa: F811
 ) -> None:
     """Nothing to move and nothing in conflict: the operator's file is not rewritten."""
     deployer = _deployer(tmp_path)
@@ -300,7 +300,7 @@ def test_an_env_file_that_agrees_with_the_unit_is_left_alone(
 
 def test_monorepo_units_load_the_workspace_env_file_instead_of_inlining(
     tmp_path: Path,
-    store: WASMStore,  # noqa: F811
+    store: NoustStore,  # noqa: F811
 ) -> None:
     deployer = MonorepoDeployer(runner=FakeRunner(), fs=RecordingFileSystem())
     deployer.configure(
@@ -326,7 +326,7 @@ def test_monorepo_units_load_the_workspace_env_file_instead_of_inlining(
 
 def test_monorepo_refuses_an_injected_value_before_writing_the_env_file(
     tmp_path: Path,
-    store: WASMStore,  # noqa: F811
+    store: NoustStore,  # noqa: F811
 ) -> None:
     """The unit no longer validates these, so the env file writer has to."""
     deployer = MonorepoDeployer(runner=FakeRunner(), fs=RecordingFileSystem())

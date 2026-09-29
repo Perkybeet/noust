@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Tests for ``wasm releases``.
+Tests for ``noust releases``.
 
 The command decides nothing: listing and activating are
-:func:`wasm.deployers.lifecycle.list_releases` and
-:func:`~wasm.deployers.lifecycle.activate_release`, covered in
+:func:`noust.deployers.lifecycle.list_releases` and
+:func:`~noust.deployers.lifecycle.activate_release`, covered in
 ``tests/test_release_activation.py``. Pinned here is the translation: the
 arguments that reach the lifecycle (trigger ``cli`` included), ``--json`` on
 either side of the command name, and a refusal becoming exit code 1 with the
@@ -22,13 +22,13 @@ from typing import Any
 import pytest
 from click.testing import CliRunner, Result
 
-from wasm.cli.app import cli as root_cli
-from wasm.cli.app import main
-from wasm.cli.commands import releases as releases_module
-from wasm.core.exceptions import DeploymentError
-from wasm.core.logger import Logger
-from wasm.deployers.lifecycle import ReleaseActivation, ReleaseInfo
-from wasm.deployers.releases import Release
+from noust.cli.app import cli as root_cli
+from noust.cli.app import main
+from noust.cli.commands import releases as releases_module
+from noust.core.exceptions import DeploymentError
+from noust.core.logger import Logger
+from noust.deployers.lifecycle import ReleaseActivation, ReleaseInfo
+from noust.deployers.releases import Release
 
 DOMAIN = "rel.example.com"
 OLD = "20260925-100000-aaaaaaa"
@@ -120,7 +120,7 @@ def test_list_marks_the_active_release_for_a_human(
     assert result.exit_code == 0, result.output
     rows = tables[0][1]
     assert [row[:2] for row in rows] == [["*", NEW], ["", OLD]]
-    assert any(f"wasm releases rollback {DOMAIN}" in line for line in log)
+    assert any(f"noust releases rollback {DOMAIN}" in line for line in log)
 
 
 @pytest.mark.parametrize(("extra", "expected"), [([], None), ([OLD], OLD)])
@@ -148,7 +148,7 @@ def test_rollback_asks_the_lifecycle_as_the_cli(
     assert result.exit_code == 0, result.output
     assert calls == [(DOMAIN, expected, "cli")]
     assert any(f"Rolled back to release {OLD}" in line for line in log)
-    assert any(f"wasm releases rollback {DOMAIN} {NEW}" in line for line in log)
+    assert any(f"noust releases rollback {DOMAIN} {NEW}" in line for line in log)
 
 
 def test_a_refused_rollback_exits_1_with_the_lifecycle_words(
@@ -170,7 +170,7 @@ def test_a_refused_rollback_exits_1_with_the_lifecycle_words(
 
 
 # ---------------------------------------------------------------------------
-# wasm releases keep
+# noust releases keep
 # ---------------------------------------------------------------------------
 
 
@@ -178,7 +178,7 @@ def test_keep_sets_the_retention_through_the_lifecycle_and_names_what_was_pruned
     monkeypatch: pytest.MonkeyPatch, log: list[str]
 ) -> None:
     """The lifecycle validates and prunes; the command reports."""
-    from wasm.deployers.lifecycle import RetentionChange
+    from noust.deployers.lifecycle import RetentionChange
 
     calls: list[tuple[str, int]] = []
 
@@ -197,7 +197,7 @@ def test_keep_sets_the_retention_through_the_lifecycle_and_names_what_was_pruned
 
 
 def test_keep_prints_json(monkeypatch: pytest.MonkeyPatch) -> None:
-    from wasm.deployers.lifecycle import RetentionChange
+    from noust.deployers.lifecycle import RetentionChange
 
     monkeypatch.setattr(
         releases_module,
@@ -215,11 +215,11 @@ def test_keep_out_of_range_exits_1_with_the_range(
     monkeypatch: pytest.MonkeyPatch, log: list[str], tmp_path: Path
 ) -> None:
     """The store's refusal, verbatim; nothing is pruned."""
-    from wasm.core.store import App, WASMStore
-    from wasm.deployers import lifecycle
+    from noust.core.store import App, NoustStore
+    from noust.deployers import lifecycle
 
-    WASMStore.reset_instance()
-    store = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    store = NoustStore(tmp_path / "wasm.db")
     store.create_app(
         App(domain=DOMAIN, app_type="nodejs", app_path=str(tmp_path), layout="releases")
     )
@@ -227,17 +227,17 @@ def test_keep_out_of_range_exits_1_with_the_range(
     try:
         assert main(["releases", "keep", DOMAIN, "0"]) == 1
     finally:
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
     assert any("50" in line for line in log)
 
 
 def test_keep_without_a_number_shows_the_retention(
     monkeypatch: pytest.MonkeyPatch, log: list[str], tmp_path: Path
 ) -> None:
-    from wasm.core.store import App, WASMStore
+    from noust.core.store import App, NoustStore
 
-    WASMStore.reset_instance()
-    store = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    store = NoustStore(tmp_path / "wasm.db")
     store.create_app(
         App(
             domain=DOMAIN,
@@ -254,7 +254,7 @@ def test_keep_without_a_number_shows_the_retention(
     try:
         result = invoke(["releases", "keep", DOMAIN])
     finally:
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
     assert result.exit_code == 0, result.output
     assert any("8" in line for line in log)
@@ -268,7 +268,7 @@ def test_keep_usage_shows_n_is_optional() -> None:
 
 
 def test_keep_accepts_the_global_flags_after_its_name(monkeypatch: pytest.MonkeyPatch) -> None:
-    from wasm.deployers.lifecycle import RetentionChange
+    from noust.deployers.lifecycle import RetentionChange
 
     monkeypatch.setattr(
         releases_module,

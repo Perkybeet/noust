@@ -13,7 +13,7 @@ from __future__ import annotations
 import socket
 from pathlib import Path
 
-from wasm.core.logger import Logger
+from noust.core.logger import Logger
 
 
 def local_server_ip() -> str | None:
@@ -74,17 +74,17 @@ def print_deployment_summary(
     if ssl_missing:
         logger.blank()
         logger.warning("SSL was requested but could not be obtained.")
-        logger.info(f"To add SSL later, run: wasm cert create -d {domain}")
+        logger.info(f"To add SSL later, run: noust cert create -d {domain}")
 
     logger.blank()
     logger.info("Useful commands:")
-    logger.info(f"  wasm status {domain}      # Check application status")
-    logger.info(f"  wasm logs {domain}        # View application logs")
-    logger.info(f"  wasm restart {domain}     # Restart the application")
-    logger.info(f"  wasm update {domain}      # Update from source")
+    logger.info(f"  noust status {domain}      # Check application status")
+    logger.info(f"  noust logs {domain}        # View application logs")
+    logger.info(f"  noust restart {domain}     # Restart the application")
+    logger.info(f"  noust update {domain}      # Update from source")
 
     if ssl_missing:
         logger.blank()
         logger.info("DNS Configuration (for SSL):")
         logger.info(f"  Add an A record pointing {domain} to your server IP")
-        logger.info(f"  Then run: wasm cert create -d {domain}")
+        logger.info(f"  Then run: noust cert create -d {domain}")

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Monorepo deployer for WASM.
+Monorepo deployer for Noust.
 
 Handles deployment of Turborepo/pnpm workspace monorepos with multiple
 applications, shared databases, and unified build processes.
@@ -36,20 +36,21 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar
 
-from wasm.core.applock import app_lock
-from wasm.core.config import Config
-from wasm.core.exceptions import (
+from noust.core import paths
+from noust.core.applock import app_lock
+from noust.core.config import Config
+from noust.core.exceptions import (
     BuildError,
     DeploymentError,
+    NoustError,
     OutOfMemoryError,
     RolledBackError,
     ServiceError,
-    WASMError,
 )
-from wasm.core.fs import DryRunFileSystem, FileSystem
-from wasm.core.logger import Icons
-from wasm.core.runner import CommandResult, CommandRunner, get_runner
-from wasm.core.store import (
+from noust.core.fs import DryRunFileSystem, FileSystem
+from noust.core.logger import Icons
+from noust.core.runner import CommandResult, CommandRunner, get_runner
+from noust.core.store import (
     App,
     AppStatus,
     DeploymentTrigger,
@@ -58,8 +59,8 @@ from wasm.core.store import (
     Site,
     get_store,
 )
-from wasm.core.utils import domain_to_app_name
-from wasm.deployers.helpers import (
+from noust.core.utils import domain_to_app_name
+from noust.deployers.helpers import (
     EnvManager,
     PackageManagerHelper,
     PathResolver,
@@ -67,15 +68,15 @@ from wasm.deployers.helpers import (
     TurboHelper,
     WorkspaceHelper,
 )
-from wasm.deployers.helpers.databases import provision_database
-from wasm.deployers.helpers.health import wait_until_healthy
-from wasm.deployers.helpers.health_gate import HealthCheck, HealthGate
-from wasm.deployers.helpers.permissions import hand_over_tree
-from wasm.deployers.helpers.preflight import repository_unreachable
-from wasm.deployers.helpers.registration import StoreRegistrar
-from wasm.deployers.helpers.target import claim_deploy_target
-from wasm.deployers.interface import AppDeployer, StepReporter, UpdateResult
-from wasm.deployers.recorder import (
+from noust.deployers.helpers.databases import provision_database
+from noust.deployers.helpers.health import wait_until_healthy
+from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
+from noust.deployers.helpers.permissions import hand_over_tree
+from noust.deployers.helpers.preflight import repository_unreachable
+from noust.deployers.helpers.registration import StoreRegistrar
+from noust.deployers.helpers.target import claim_deploy_target
+from noust.deployers.interface import AppDeployer, StepReporter, UpdateResult
+from noust.deployers.recorder import (
     CapturingLogger,
     DeploymentRecorder,
     GitInfo,
@@ -83,13 +84,13 @@ from wasm.deployers.recorder import (
     recorder_for,
     recording,
 )
-from wasm.deployers.registry import DeployerRegistry
-from wasm.managers.apache_manager import ApacheManager
-from wasm.managers.cert_manager import CertManager
-from wasm.managers.nginx_manager import NginxManager
-from wasm.managers.service_manager import ResourceLimits, ServiceManager
-from wasm.managers.source_manager import SourceManager
-from wasm.validators.environment import validate_environment
+from noust.deployers.registry import DeployerRegistry
+from noust.managers.apache_manager import ApacheManager
+from noust.managers.cert_manager import CertManager
+from noust.managers.nginx_manager import NginxManager
+from noust.managers.service_manager import ResourceLimits, ServiceManager
+from noust.managers.source_manager import SourceManager
+from noust.validators.environment import validate_environment
 
 #: Installs and builds in a monorepo touch every workspace; they need minutes,
 #: but they still need a deadline.
@@ -335,7 +336,7 @@ class MonorepoDeployer(AppDeployer):
                 ``skip_database`` disables provisioning, ``job_id`` is the
                 background job driving this deployment, when there is one, and
                 ``replace_existing`` deploys into a directory that already
-                holds files (``wasm create --force``).
+                holds files (``noust create --force``).
 
         Raises:
             DeploymentError: When ``webserver`` is ``apache``, which this
@@ -347,7 +348,7 @@ class MonorepoDeployer(AppDeployer):
                 details="Apache site configuration for a monorepo is not implemented: "
                 "each workspace needs its own reverse-proxied subdomain, which only the "
                 "nginx path builds today. Deploy with --webserver nginx (the default), "
-                "or configure Apache by hand outside WASM.",
+                "or configure Apache by hand outside Noust.",
             )
 
         self.domain = domain
@@ -525,7 +526,7 @@ class MonorepoDeployer(AppDeployer):
         Returns:
             True if deployment was successful.
         """
-        from wasm.core.exceptions import CertificateError
+        from noust.core.exceptions import CertificateError
 
         ssl_obtained = False
         try:
@@ -576,7 +577,7 @@ class MonorepoDeployer(AppDeployer):
                     ssl_obtained = True
                     self.logger.substep("Updating site configurations with SSL")
                     self._create_sites(with_ssl=True)
-                except (CertificateError, WASMError) as e:
+                except (CertificateError, NoustError) as e:
                     # No certificate still leaves every workspace reachable over
                     # HTTP; that is not worth throwing the build away for.
                     self.logger.warning(f"SSL certificate failed: {e}")
@@ -788,7 +789,7 @@ class MonorepoDeployer(AppDeployer):
             self.logger.substep(f"Restarting {unit.name}")
             try:
                 self.service_manager.restart(unit.name)
-            except WASMError as exc:
+            except NoustError as exc:
                 failures.append(self._unit_gate(unit, check).evidence(str(exc)))
             else:
                 restarted.append(unit.name)
@@ -836,7 +837,7 @@ class MonorepoDeployer(AppDeployer):
                 f"{attempted}; the tree is not a git checkout, so there was no commit to go "
                 "back to",
                 details=f"{evidence}\n\nThe workspaces are running the new build. Restore "
-                f"the backup taken before the update with: wasm rollback {self.domain}",
+                f"the backup taken before the update with: noust rollback {self.domain}",
             )
 
         previous = self.previous_commit[:7]
@@ -848,7 +849,7 @@ class MonorepoDeployer(AppDeployer):
             self._run_prisma_migrations(migrate=False)
             self._build_all()
             self._set_permissions()
-        except WASMError as exc:
+        except NoustError as exc:
             return DeploymentError(
                 f"{attempted}; commit {previous} could not be put back",
                 details=f"{evidence}\n\nPutting commit {previous} back failed, and nothing "
@@ -1004,7 +1005,7 @@ class MonorepoDeployer(AppDeployer):
                     self._provision_postgresql(db_config)
                 elif db_type == "redis":
                     self._provision_redis(db_config)
-            except WASMError as e:
+            except NoustError as e:
                 # Its credentials are detection-time guesses, so writing a URL
                 # from them gives the application one that cannot authenticate.
                 del self.databases[db_type]
@@ -1036,7 +1037,7 @@ class MonorepoDeployer(AppDeployer):
                 existing user's real password is reused instead.
 
         Raises:
-            WASMError: Provisioning failed, or the name or the user the
+            NoustError: Provisioning failed, or the name or the user the
                 repository asks for is not this application's to use (another
                 application's, or the server's own). The caller drops the
                 database from :attr:`databases`, so no URL is written from
@@ -1056,7 +1057,7 @@ class MonorepoDeployer(AppDeployer):
     def _provision_redis(self, db_config: DatabaseConfig) -> None:
         """Verify Redis is available."""
         try:
-            from wasm.managers.database import DatabaseRegistry
+            from noust.managers.database import DatabaseRegistry
 
             manager = DatabaseRegistry.get("redis")
             if not manager:
@@ -1079,7 +1080,7 @@ class MonorepoDeployer(AppDeployer):
         auto-generate secrets, and write .env files. Falls back to
         manual configuration for database URLs and workspace ports.
         """
-        from wasm.deployers.helpers import EnvManager
+        from noust.deployers.helpers import EnvManager
 
         env_manager = EnvManager(verbose=self.verbose)
 
@@ -1378,7 +1379,7 @@ class MonorepoDeployer(AppDeployer):
         """Create nginx config inline without template file."""
         lines = [
             f"# Nginx configuration for {self.domain} (Monorepo)",
-            "# Generated by WASM",
+            f"# {paths.UNIT_MARKER}",
             "",
         ]
 
@@ -1491,7 +1492,7 @@ class MonorepoDeployer(AppDeployer):
         Args:
             config_content: The rendered nginx configuration.
         """
-        from wasm.core.config import NGINX_SITES_AVAILABLE, NGINX_SITES_ENABLED
+        from noust.core.config import NGINX_SITES_AVAILABLE, NGINX_SITES_ENABLED
 
         config_file = NGINX_SITES_AVAILABLE / self.domain
         self.fs.write_text(config_file, config_content)
@@ -1509,7 +1510,7 @@ class MonorepoDeployer(AppDeployer):
 
     def _register_site_in_store(self, workspace: MonorepoWorkspace, with_ssl: bool) -> None:
         """Register a site in the store."""
-        from wasm.core.config import NGINX_SITES_AVAILABLE
+        from noust.core.config import NGINX_SITES_AVAILABLE
 
         app = self.store.get_app(self.domain)
         app_id = app.id if app else None
@@ -1583,7 +1584,7 @@ class MonorepoDeployer(AppDeployer):
                 working_directory=str(working_dir),
                 environment=env,
                 environment_file=str(self._workspace_env_file(ws)),
-                description=f"WASM: {ws.subdomain}.{self.domain} ({ws.app_type})",
+                description=f"Noust: {ws.subdomain}.{self.domain} ({ws.app_type})",
                 limits=ResourceLimits.of(self.store.get_app(self.domain)),
             )
 
@@ -1623,7 +1624,7 @@ class MonorepoDeployer(AppDeployer):
         env: dict[str, str],
     ) -> None:
         """Register a service in the store."""
-        from wasm.core.config import SYSTEMD_DIR
+        from noust.core.config import SYSTEMD_DIR
 
         app = self.store.get_app(self.domain)
         app_id = app.id if app else None
@@ -1657,7 +1658,7 @@ class MonorepoDeployer(AppDeployer):
 
             try:
                 self.service_manager.start(service_name)
-            except WASMError as e:
+            except NoustError as e:
                 raise ServiceError(f"Failed to start {service_name}", details=str(e)) from e
 
             # Update status in store
@@ -1782,7 +1783,7 @@ class MonorepoDeployer(AppDeployer):
             try:
                 self.service_manager.stop(service_name)
                 self.service_manager.delete_service(service_name)
-            except (WASMError, OSError) as e:
+            except (NoustError, OSError) as e:
                 errors.append(f"Service cleanup error: {e}")
 
         # Remove site configuration
@@ -1793,7 +1794,7 @@ class MonorepoDeployer(AppDeployer):
                 manager.disable_site(self.domain)
                 manager.delete_site(self.domain)
                 manager.reload()
-        except (WASMError, OSError) as e:
+        except (NoustError, OSError) as e:
             errors.append(f"Site cleanup error: {e}")
 
         # Remove files: only what this deploy put there. A directory that held
@@ -1823,7 +1824,7 @@ class MonorepoDeployer(AppDeployer):
             app = self.store.get_app(self.domain)
             if app:
                 self.store.delete_app(app.domain)
-        except (WASMError, sqlite3.Error) as e:
+        except (NoustError, sqlite3.Error) as e:
             errors.append(f"Store cleanup error: {e}")
 
         if errors:

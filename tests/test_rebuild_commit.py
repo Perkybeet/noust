@@ -39,6 +39,17 @@ from typing import Any
 
 import pytest
 
+from noust.core.exceptions import SourceError, ValidationError
+from noust.core.logger import Logger
+from noust.core.runner import CommandResult, FakeRunner
+from noust.core.store import NoustStore
+from noust.deployers import lifecycle
+from noust.managers.source_manager import (
+    FOLLOW_BRANCH_KEY,
+    GIT_AUTH_FAILURE_MESSAGE,
+    RemoteHead,
+    SourceManager,
+)
 from tests.test_lifecycle import (
     DOMAIN as INPLACE_DOMAIN,
 )
@@ -59,17 +70,6 @@ from tests.test_release_pipeline import (  # noqa: F401
     node_tree,
     root,
     store,
-)
-from wasm.core.exceptions import SourceError, ValidationError
-from wasm.core.logger import Logger
-from wasm.core.runner import CommandResult, FakeRunner
-from wasm.core.store import WASMStore
-from wasm.deployers import lifecycle
-from wasm.managers.source_manager import (
-    FOLLOW_BRANCH_KEY,
-    GIT_AUTH_FAILURE_MESSAGE,
-    RemoteHead,
-    SourceManager,
 )
 
 #: What every git WASM runs starts with.
@@ -377,7 +377,7 @@ def test_a_local_directory_has_no_remote_head(tmp_path: Path) -> None:
 
 
 @pytest.fixture
-def inplace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, inplace_store: WASMStore) -> Any:
+def inplace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, inplace_store: NoustStore) -> Any:
     """An in-place application, and every collaborator of its update faked."""
     rec = Recorder()
     app_path = tmp_path / "example-com"
@@ -490,7 +490,7 @@ def commit_of(machine: SimpleNamespace, release_id: str) -> str:
 
 def test_a_commit_whose_release_is_on_disk_is_activated_not_built(
     root: Path,
-    store: WASMStore,
+    store: NoustStore,
     machine: SimpleNamespace,
     two_releases: tuple[str, str],
     monkeypatch: pytest.MonkeyPatch,
@@ -516,7 +516,7 @@ def test_a_commit_whose_release_is_on_disk_is_activated_not_built(
 
 def test_the_commit_that_is_live_is_built_again_as_a_new_release(
     root: Path,
-    store: WASMStore,
+    store: NoustStore,
     machine: SimpleNamespace,
     two_releases: tuple[str, str],
     monkeypatch: pytest.MonkeyPatch,
@@ -541,7 +541,7 @@ def test_the_commit_that_is_live_is_built_again_as_a_new_release(
 def test_a_commit_whose_release_was_pruned_is_built_from_the_cache(
     tmp_path: Path,
     root: Path,
-    store: WASMStore,
+    store: NoustStore,
     machine: SimpleNamespace,
     two_releases: tuple[str, str],
 ) -> None:
@@ -562,7 +562,7 @@ def test_a_commit_whose_release_was_pruned_is_built_from_the_cache(
 
 
 def test_an_unknown_commit_fails_before_anything_changes(
-    root: Path, store: WASMStore, machine: SimpleNamespace, two_releases: tuple[str, str]
+    root: Path, store: NoustStore, machine: SimpleNamespace, two_releases: tuple[str, str]
 ) -> None:
     """Nothing activated, nothing staged."""
     first, second = two_releases
@@ -576,7 +576,7 @@ def test_an_unknown_commit_fails_before_anything_changes(
 
 
 def test_a_release_app_from_a_directory_has_no_commit_to_rebuild(
-    tmp_path: Path, store: WASMStore, machine: SimpleNamespace, two_releases: tuple[str, str]
+    tmp_path: Path, store: NoustStore, machine: SimpleNamespace, two_releases: tuple[str, str]
 ) -> None:
     """A local source is refused, with how to update it instead."""
     app = store.get_app(DOMAIN)
@@ -594,7 +594,7 @@ def test_a_release_app_from_a_directory_has_no_commit_to_rebuild(
 
 
 def test_releases_with_nothing_new_compare_equal(
-    store: WASMStore, machine: SimpleNamespace, two_releases: tuple[str, str]
+    store: NoustStore, machine: SimpleNamespace, two_releases: tuple[str, str]
 ) -> None:
     """The branch head is the active release's commit."""
     first, second = two_releases
@@ -610,7 +610,7 @@ def test_releases_with_nothing_new_compare_equal(
 
 
 def test_releases_with_a_new_commit_compare_different(
-    tmp_path: Path, store: WASMStore, machine: SimpleNamespace, two_releases: tuple[str, str]
+    tmp_path: Path, store: NoustStore, machine: SimpleNamespace, two_releases: tuple[str, str]
 ) -> None:
     """A push since the live release is news."""
     machine.git.publish(node_tree(tmp_path / "v3", server=GOOD_SERVER + "// v3\n"))
@@ -621,7 +621,7 @@ def test_releases_with_a_new_commit_compare_different(
 
 
 def test_releases_after_a_rollback_have_something_new(
-    store: WASMStore, machine: SimpleNamespace, two_releases: tuple[str, str]
+    store: NoustStore, machine: SimpleNamespace, two_releases: tuple[str, str]
 ) -> None:
     """Live is the older release again, so the head of the branch is news."""
     lifecycle.activate_release(DOMAIN)
@@ -657,7 +657,7 @@ def inplace_git(
 
 
 def test_in_place_with_nothing_new_compares_the_checkout(
-    tmp_path: Path, inplace_store: WASMStore, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, inplace_store: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """HEAD of the checkout against the head of its branch."""
     make_app(inplace_store, tmp_path / "example-com")
@@ -670,7 +670,7 @@ def test_in_place_with_nothing_new_compares_the_checkout(
 
 
 def test_in_place_a_tree_that_is_not_a_checkout_is_not_compared(
-    tmp_path: Path, inplace_store: WASMStore, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, inplace_store: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A local directory source: nothing to ask, the update goes ahead."""
     make_app(inplace_store, tmp_path / "example-com")
@@ -682,7 +682,7 @@ def test_in_place_a_tree_that_is_not_a_checkout_is_not_compared(
 
 
 def test_a_remote_that_cannot_be_asked_is_reported_and_skipped(
-    tmp_path: Path, inplace_store: WASMStore, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, inplace_store: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The check is advice; the update itself will say what is wrong."""
     make_app(inplace_store, tmp_path / "example-com")
@@ -695,13 +695,13 @@ def test_a_remote_that_cannot_be_asked_is_reported_and_skipped(
     assert warnings and "Cannot read the branches" in warnings[0]
 
 
-def test_an_unknown_application_is_not_compared(inplace_store: WASMStore) -> None:
+def test_an_unknown_application_is_not_compared(inplace_store: NoustStore) -> None:
     """The update will say it does not exist."""
     assert lifecycle.check_upstream("nothing.example.com") is None
 
 
 def test_the_live_release_link_is_what_is_compared(
-    root: Path, store: WASMStore, machine: SimpleNamespace, two_releases: tuple[str, str]
+    root: Path, store: NoustStore, machine: SimpleNamespace, two_releases: tuple[str, str]
 ) -> None:
     """current on disk is the truth, whatever the rows say."""
     first, _ = two_releases
@@ -714,7 +714,7 @@ def test_the_live_release_link_is_what_is_compared(
 
 
 def test_in_place_after_a_failed_build_the_new_commit_is_still_news(
-    tmp_path: Path, inplace_store: WASMStore, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, inplace_store: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The checkout moved to the new commit; the old build serves; there is something new."""
     make_app(inplace_store, tmp_path / "example-com")
@@ -731,7 +731,7 @@ def test_in_place_after_a_failed_build_the_new_commit_is_still_news(
 
 
 def test_in_place_the_last_successful_deployment_is_what_is_live(
-    tmp_path: Path, inplace_store: WASMStore, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, inplace_store: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Its commit, not HEAD, is compared: the head of the branch built fine."""
     make_app(inplace_store, tmp_path / "example-com")
@@ -745,7 +745,7 @@ def test_in_place_the_last_successful_deployment_is_what_is_live(
 
 
 def test_one_question_per_application_at_a_time(
-    tmp_path: Path, inplace_store: WASMStore, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, inplace_store: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Two requests at once share one ls-remote; the second waits for its answer."""
     import threading
@@ -781,7 +781,7 @@ def test_one_question_per_application_at_a_time(
 
 
 def test_an_answer_is_reused_for_a_few_seconds_then_asked_again(
-    tmp_path: Path, inplace_store: WASMStore, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, inplace_store: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A burst of clicks is one ls-remote; a later click asks again."""
     make_app(inplace_store, tmp_path / "example-com")
@@ -809,7 +809,7 @@ def test_an_update_forgets_the_answer(inplace: Any) -> None:
 
 
 def test_a_release_that_failed_its_gate_is_rebuilt_not_activated_again(
-    root: Path, store: WASMStore, machine: SimpleNamespace, two_releases: tuple[str, str]
+    root: Path, store: NoustStore, machine: SimpleNamespace, two_releases: tuple[str, str]
 ) -> None:
     """A failed activation leaves the release on disk; the commit is built afresh."""
     first, second = two_releases

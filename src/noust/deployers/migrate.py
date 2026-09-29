@@ -9,7 +9,7 @@ release layout needs that tree to become the first release, its ``.env`` and
 everything it wrote for itself (uploads, storage) to move to ``shared/``, and
 its unit and site to run from ``current``. Nothing here ever happens by
 itself: :func:`plan_migration` says what would be done, and only
-:func:`migrate`, which ``wasm app migrate`` and ``POST /api/apps/{d}/migrate``
+:func:`migrate`, which ``noust app migrate`` and ``POST /api/apps/{d}/migrate``
 call when the operator asks, does it.
 
 The rules, and why:
@@ -56,28 +56,28 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
-from wasm.core.applock import app_lock
-from wasm.core.config import Config
-from wasm.core.exceptions import DeploymentError, ValidationError, WASMError
-from wasm.core.fs import FileSystem, get_fs, is_rehearsal
-from wasm.core.logger import Logger
-from wasm.core.runner import CommandRunner, get_runner
-from wasm.core.store import (
+from noust.core.applock import app_lock
+from noust.core.config import Config
+from noust.core.exceptions import DeploymentError, NoustError, ValidationError
+from noust.core.fs import FileSystem, get_fs, is_rehearsal
+from noust.core.logger import Logger
+from noust.core.runner import CommandRunner, get_runner
+from noust.core.store import (
     App,
     DeploymentTrigger,
+    NoustStore,
     ReleaseRecord,
     ReleaseStatus,
     Service,
-    WASMStore,
     get_store,
 )
-from wasm.deployers.helpers.layout import RELEASES, app_root
-from wasm.deployers.helpers.permissions import hand_over_file
-from wasm.deployers.lifecycle import health_gate_for
-from wasm.deployers.php_fpm import PHP_SETTINGS_FILE
-from wasm.deployers.recorder import CapturingLogger, DeploymentRecorder, recording
-from wasm.deployers.registry import get_deployer
-from wasm.deployers.releases import (
+from noust.deployers.helpers.layout import RELEASES, app_root
+from noust.deployers.helpers.permissions import hand_over_file
+from noust.deployers.lifecycle import health_gate_for
+from noust.deployers.php_fpm import PHP_SETTINGS_FILE
+from noust.deployers.recorder import CapturingLogger, DeploymentRecorder, recording
+from noust.deployers.registry import get_deployer
+from noust.deployers.releases import (
     CURRENT_LINK,
     ENV_FILE,
     RELEASES_DIR,
@@ -86,10 +86,10 @@ from wasm.deployers.releases import (
     first_obstacle,
     persistent_path,
 )
-from wasm.managers.apache_manager import ApacheManager
-from wasm.managers.nginx_manager import NginxManager
-from wasm.managers.service_manager import ServiceManager
-from wasm.validators.domain import validate_domain
+from noust.managers.apache_manager import ApacheManager
+from noust.managers.nginx_manager import NginxManager
+from noust.managers.service_manager import ServiceManager
+from noust.validators.domain import validate_domain
 
 #: What a build or an install produces. Never persistent: shared across
 #: releases, a build output would be written by every build into the one
@@ -121,11 +121,11 @@ BUILD_OUTPUTS = frozenset(
 #: only those of them that exist.
 COMMON_PERSISTENT: tuple[str, ...] = ("uploads", "public/uploads", "storage", "data")
 
-#: WASM's own inventory of the variables, written next to the ``.env``.
+#: Noust's own inventory of the variables, written next to the ``.env``.
 ENV_INVENTORY = ".wasm"
 
 #: What stays at the application root, beside ``releases/`` and ``current``:
-#: WASM reads a PHP application's settings there, whatever the layout. Moved
+#: Noust reads a PHP application's settings there, whatever the layout. Moved
 #: into the first release, they would silently fall back to the defaults.
 KEPT_AT_ROOT = frozenset({PHP_SETTINGS_FILE})
 
@@ -192,7 +192,7 @@ class MigrationPlan:
             release from now on.
         persistent_source: How they were chosen: ``git``, ``explicit`` or
             ``common``.
-        env_files: The ``.env`` and WASM's inventory of it, which move to
+        env_files: The ``.env`` and Noust's inventory of it, which move to
             ``shared/``.
         unit: The unit that runs the application, or None for a site.
         unit_rewrite: Whether the unit names the application directory and is
@@ -281,7 +281,7 @@ def plan_migration(
         The plan.
 
     Raises:
-        WASMError: The application is unknown.
+        NoustError: The application is unknown.
         DeploymentError: It is already on releases, its type cannot build
             releases, or its directory is missing.
         ValidationError: A path in ``persist`` is not a path inside it.
@@ -537,19 +537,19 @@ def _inplace_app(domain: str) -> App:
         The row.
 
     Raises:
-        WASMError: The application is unknown.
+        NoustError: The application is unknown.
         DeploymentError: It is on releases already, its type cannot build
             releases, or its directory is missing.
     """
     app = get_store().get_app(domain)
     if app is None:
-        raise WASMError(
-            f"Application not found: {domain}", details="Run 'wasm list' to see what is deployed."
+        raise NoustError(
+            f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
         )
     if app.layout == RELEASES:
         raise DeploymentError(
             f"{domain} is on the release layout already",
-            details=f"There is nothing to migrate. See its releases with: wasm releases list "
+            details=f"There is nothing to migrate. See its releases with: noust releases list "
             f"{domain}",
         )
     try:
@@ -573,7 +573,7 @@ def _git(root: Path, *args: str) -> list[str]:
     """
     Build a git command that reads the application's checkout.
 
-    The tree belongs to the service account and WASM runs as root, which git
+    The tree belongs to the service account and Noust runs as root, which git
     refuses as "dubious ownership" unless the directory is declared safe; on
     the command line, so no global configuration is changed to read it.
 
@@ -646,7 +646,7 @@ def _untracked(root: Path, runner: CommandRunner) -> tuple[list[str], list[str]]
             continue
         path = entry[3:]
         if PurePosixPath(path).parts[0] in KEPT_AT_ROOT:
-            # WASM's, not the application's: neither shared nor released.
+            # Noust's, not the application's: neither shared nor released.
             continue
         if path.endswith("/"):
             directories.append(path.rstrip("/"))
@@ -706,7 +706,7 @@ def _explicit(paths: Sequence[str]) -> list[str]:
         if path.parts[0] in KEPT_AT_ROOT:
             raise ValidationError(
                 f"{raw} does not need --persist",
-                details="WASM keeps it at the application root, beside releases/.",
+                details="Noust keeps it at the application root, beside releases/.",
             )
         if path.parts[0] in (ENV_FILE, ENV_INVENTORY):
             raise ValidationError(
@@ -1005,7 +1005,7 @@ def migrate(
         What was done.
 
     Raises:
-        WASMError: The application is unknown.
+        NoustError: The application is unknown.
         DeploymentError: The plan is not for this application as it is now,
             a step failed, or the application did not pass the health gate
             on the new layout. In each case everything was put back, and the
@@ -1072,14 +1072,14 @@ def _migrate(domain: str, plan: MigrationPlan, *, trigger: str, log: Logger) -> 
             # as could be made.
             try:
                 services.restart(plan.unit)
-            except WASMError as exc:
+            except NoustError as exc:
                 journal.failures.append(f"{plan.unit} did not start again in place: {exc}")
         restored = count_tree(root)
         if restored != before:
             journal.failures.append(
                 f"{root} holds {restored} after the undo and held {before} before"
             )
-        if journal.failures and isinstance(error, WASMError):
+        if journal.failures and isinstance(error, NoustError):
             # The operator must learn from the error itself, not from a log
             # line above it, that the tree is not exactly as it was.
             error.details = "\n\n".join([error.details or "", journal.report()]).strip()
@@ -1126,7 +1126,7 @@ def _migrate(domain: str, plan: MigrationPlan, *, trigger: str, log: Logger) -> 
             _record(store, app, release, plan)
             _keep_the_directory_root_owned(root, log)
     except (OSError, sqlite3.Error) as error:
-        # Not a WASM error, so it carries no details to put the undo's report
+        # Not a Noust error, so it carries no details to put the undo's report
         # in: one error that says what failed and what the undo managed.
         raise DeploymentError(
             f"The migration of {app.domain} failed and was undone: {error}",
@@ -1362,7 +1362,7 @@ def _rewrite_unit(
     root: Path,
     plan: MigrationPlan,
     services: ServiceManager,
-    store: WASMStore,
+    store: NoustStore,
     journal: _Journal,
     log: Logger,
 ) -> bool:
@@ -1424,7 +1424,7 @@ def _rewrite_site(
     app: App,
     root: Path,
     webserver: NginxManager | ApacheManager,
-    store: WASMStore,
+    store: NoustStore,
     journal: _Journal,
     log: Logger,
 ) -> bool:
@@ -1466,7 +1466,7 @@ def _rewrite_site(
     return True
 
 
-def _record(store: WASMStore, app: App, release: Path, plan: MigrationPlan) -> None:
+def _record(store: NoustStore, app: App, release: Path, plan: MigrationPlan) -> None:
     """
     Record the application on releases, with its first release active.
 

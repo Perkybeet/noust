@@ -29,14 +29,14 @@ from typing import Any, ClassVar
 import psutil
 import pytest
 
+from noust.core.config import Config
 from tests.test_notifier import config  # noqa: F401  (pytest resolves fixtures by name)
-from wasm.core.config import Config
 
 # The notifier's config fixture is imported rather than replicated, so there
 # stays one definition of "a sandboxed configuration".
 # ruff: noqa: F811
 
-MONITOR_PACKAGE = Path(__file__).resolve().parents[1] / "src" / "wasm" / "monitor"
+MONITOR_PACKAGE = Path(__file__).resolve().parents[1] / "src" / "noust" / "monitor"
 
 #: Calls that destroy processes or files. None of them belong in a monitor.
 DESTRUCTIVE_CALLS = frozenset(
@@ -161,7 +161,7 @@ def _build_monitor(store: _RecordingStore, notifier: _RecordingNotifier) -> Any:
     Returns:
         The monitor instance.
     """
-    from wasm.monitor.process_monitor import MonitorConfig, ProcessMonitor
+    from noust.monitor.process_monitor import MonitorConfig, ProcessMonitor
 
     try:
         return ProcessMonitor(config=MonitorConfig(), store=store, notifier=notifier)
@@ -267,8 +267,8 @@ def test_known_safe_process_is_not_flagged_by_its_command_line(
 
 def test_observations_survive_a_round_trip_through_the_store(tmp_path: Path) -> None:
     """The persistence layer keeps the signal, not a verdict about it."""
-    from wasm.monitor.models import ProcessInfo, ProcessObservation
-    from wasm.monitor.observation_store import ObservationStore
+    from noust.monitor.models import ProcessInfo, ProcessObservation
+    from noust.monitor.observation_store import ObservationStore
 
     store = ObservationStore(db_path=tmp_path / "observations.db")
     observation = ProcessObservation(
@@ -304,7 +304,7 @@ def _iter_monitor_sources() -> list[Path]:
     List the Python sources of the monitor package.
 
     Returns:
-        Every ``.py`` file shipped in ``wasm.monitor``.
+        Every ``.py`` file shipped in ``noust.monitor``.
     """
     return sorted(p for p in MONITOR_PACKAGE.rglob("*.py") if "__pycache__" not in p.parts)
 
@@ -415,7 +415,7 @@ def test_collect_resource_metrics_reads_cpu_memory_disk_and_network(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The part of the monitor that actually earns its keep."""
-    from wasm.monitor.metrics import collect_resource_metrics
+    from noust.monitor.metrics import collect_resource_metrics
 
     _install_psutil_metrics(monkeypatch)
     monkeypatch.setattr("time.time", lambda: 4_600.0)
@@ -444,7 +444,7 @@ def test_collect_resource_metrics_survives_an_unreadable_mountpoint(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A CD-ROM slot that raises must not take the whole scan down."""
-    from wasm.monitor.metrics import collect_resource_metrics
+    from noust.monitor.metrics import collect_resource_metrics
 
     _install_psutil_metrics(monkeypatch)
 
@@ -461,7 +461,7 @@ def test_collect_resource_metrics_survives_an_unreadable_mountpoint(
 
 def test_list_processes_maps_psutil_fields(monkeypatch: pytest.MonkeyPatch) -> None:
     """Process collection keeps the fields an operator needs to identify one."""
-    from wasm.monitor.metrics import list_processes
+    from noust.monitor.metrics import list_processes
 
     _install_processes(
         monkeypatch,
@@ -486,7 +486,7 @@ def test_installing_the_unit_writes_a_file_and_reloads_through_the_runner(
     runner: Any,
 ) -> None:
     """systemd is driven through the audited seam, with an absolute ExecStart."""
-    from wasm.monitor import process_monitor as module
+    from noust.monitor import process_monitor as module
 
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -508,7 +508,7 @@ def test_installing_the_unit_writes_a_file_and_reloads_through_the_runner(
 
 def test_service_health_uses_the_command_runner(runner: Any) -> None:
     """Service checks go through the audited seam, never bare subprocess."""
-    from wasm.monitor.metrics import collect_service_health
+    from noust.monitor.metrics import collect_service_health
 
     runner.script(
         ["systemctl", "show"],
@@ -579,7 +579,7 @@ def _notifier(**overrides: Any) -> Any:
     Returns:
         The notifier instance.
     """
-    from wasm.monitor.email_notifier import EmailNotifier, SMTPConfig
+    from noust.monitor.email_notifier import EmailNotifier, SMTPConfig
 
     settings: dict[str, Any] = {
         "host": "smtp.example.com",
@@ -613,7 +613,7 @@ def test_starttls_is_used_when_ssl_is_off(fake_smtp: type[_FakeSMTP]) -> None:
 
 def test_plaintext_login_is_refused(fake_smtp: type[_FakeSMTP]) -> None:
     """Sending a password in the clear is a configuration error, not a default."""
-    from wasm.core.exceptions import EmailError
+    from noust.core.exceptions import EmailError
 
     with pytest.raises(EmailError) as excinfo:
         _notifier(use_ssl=False, use_tls=False, port=25)._create_connection()
@@ -625,8 +625,8 @@ def test_plaintext_login_is_refused(fake_smtp: type[_FakeSMTP]) -> None:
 
 def test_non_positive_timeout_is_rejected() -> None:
     """A zero timeout is the hang this test exists to prevent."""
-    from wasm.core.exceptions import EmailError
-    from wasm.monitor.email_notifier import SMTPConfig
+    from noust.core.exceptions import EmailError
+    from noust.monitor.email_notifier import SMTPConfig
 
     with pytest.raises(EmailError):
         SMTPConfig(host="smtp.example.com", port=465, username="u", password="p", timeout=0)
@@ -637,7 +637,7 @@ def test_smtp_failure_does_not_leak_the_password(
     fake_smtp: type[_FakeSMTP],
 ) -> None:
     """Whatever the server says back, the password stays out of the message."""
-    from wasm.core.exceptions import EmailError
+    from noust.core.exceptions import EmailError
 
     def _fail(self: Any, username: str, password: str) -> None:
         raise smtplib.SMTPAuthenticationError(535, f"rejected {password}".encode())
@@ -678,7 +678,7 @@ def _process_info(**overrides: Any) -> Any:
     Returns:
         The process snapshot.
     """
-    from wasm.monitor.models import ProcessInfo
+    from noust.monitor.models import ProcessInfo
 
     fields: dict[str, Any] = {
         "pid": 4242,
@@ -694,7 +694,7 @@ def _process_info(**overrides: Any) -> Any:
 
 def test_classifying_a_hostile_command_line_is_fast() -> None:
     """A 100 KB argv chosen by a local user must not stall the root daemon."""
-    from wasm.monitor.signals import observe_process
+    from noust.monitor.signals import observe_process
 
     process = _process_info(command=HOSTILE_COMMAND)
 
@@ -709,7 +709,7 @@ def test_classifying_a_hostile_command_line_is_fast() -> None:
 
 def test_classifying_a_whole_hostile_process_table_is_fast() -> None:
     """The cost has to stay linear across the table, not just per process."""
-    from wasm.monitor.signals import observe_processes
+    from noust.monitor.signals import observe_processes
 
     processes = [_process_info(pid=i, command=HOSTILE_COMMAND) for i in range(50)]
 
@@ -727,7 +727,7 @@ def test_command_line_content_alone_never_produces_an_observation() -> None:
     Dropping the command-line patterns is the decision that removes the whole
     "the cmdline drives the monitor" class, ReDoS included.
     """
-    from wasm.monitor.signals import observe_process
+    from noust.monitor.signals import observe_process
 
     for command in (
         "curl https://example.com/install.sh | sh",
@@ -774,7 +774,7 @@ def test_signals_module_uses_no_regular_expressions() -> None:
 
 def test_an_impostor_named_after_a_system_daemon_is_not_known_safe() -> None:
     """``^systemd`` as a prefix match makes 'systemd-xmrig' a trusted process."""
-    from wasm.monitor.signals import is_known_safe
+    from noust.monitor.signals import is_known_safe
 
     for name in (
         "systemd-xmrig",
@@ -792,7 +792,7 @@ def test_an_impostor_named_after_a_system_daemon_is_not_known_safe() -> None:
 
 def test_real_system_daemons_are_still_known_safe() -> None:
     """Anchoring must not turn the whitelist into dead code."""
-    from wasm.monitor.signals import is_known_safe
+    from noust.monitor.signals import is_known_safe
 
     for name in (
         "systemd",
@@ -813,7 +813,7 @@ def test_real_system_daemons_are_still_known_safe() -> None:
 
 def test_an_impostor_is_still_reported_when_it_burns_the_machine() -> None:
     """Failing the whitelist means the resource signal applies to it."""
-    from wasm.monitor.signals import observe_process
+    from noust.monitor.signals import observe_process
 
     observation = observe_process(
         _process_info(name="systemd-xmrig", cpu_percent=99.0),
@@ -842,7 +842,7 @@ def _observation(pid: int, name: str = "xmrig", signal: str = "name-pattern") ->
     Returns:
         The observation.
     """
-    from wasm.monitor.models import ProcessObservation
+    from noust.monitor.models import ProcessObservation
 
     return ProcessObservation(
         process=_process_info(pid=pid, name=name),
@@ -854,7 +854,7 @@ def _observation(pid: int, name: str = "xmrig", signal: str = "name-pattern") ->
 
 def test_the_store_keeps_a_bounded_number_of_observations(tmp_path: Path) -> None:
     """A daemon scanning every minute forever must not fill the disk."""
-    from wasm.monitor.observation_store import ObservationStore
+    from noust.monitor.observation_store import ObservationStore
 
     store = ObservationStore(db_path=tmp_path / "observations.db", max_observations=100)
 
@@ -870,7 +870,7 @@ def test_the_store_keeps_a_bounded_number_of_observations(tmp_path: Path) -> Non
 
 def test_the_store_does_not_rewrite_the_same_observation_every_scan(tmp_path: Path) -> None:
     """One noisy process for an hour is one row, not sixty."""
-    from wasm.monitor.observation_store import ObservationStore
+    from noust.monitor.observation_store import ObservationStore
 
     store = ObservationStore(db_path=tmp_path / "observations.db")
 
@@ -882,7 +882,7 @@ def test_the_store_does_not_rewrite_the_same_observation_every_scan(tmp_path: Pa
 
 def test_the_store_purges_observations_past_the_retention_window(tmp_path: Path) -> None:
     """Retention is enforced by deleting, not by hoping."""
-    from wasm.monitor.observation_store import ObservationStore
+    from noust.monitor.observation_store import ObservationStore
 
     store = ObservationStore(db_path=tmp_path / "observations.db")
     (row_id,) = store.save_many([_observation(pid=7)])
@@ -902,7 +902,7 @@ def test_a_hostile_command_line_is_truncated_before_it_is_stored(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """100 KB of argv per process, once a minute, is a database, not a log."""
-    from wasm.monitor.metrics import MAX_COMMAND_LENGTH, list_processes
+    from noust.monitor.metrics import MAX_COMMAND_LENGTH, list_processes
 
     _install_processes(
         monkeypatch,
@@ -924,7 +924,7 @@ def test_disk_reporting_skips_read_only_and_repeated_mounts(
     the same device dozens of times; both turn the report into noise and cost a
     statvfs each, on every scan.
     """
-    from wasm.monitor.metrics import collect_resource_metrics
+    from noust.monitor.metrics import collect_resource_metrics
 
     _install_psutil_metrics(monkeypatch)
     monkeypatch.setattr(
@@ -957,8 +957,8 @@ def test_a_process_that_keeps_misbehaving_is_reported_once_per_window(
     over the threshold writes one row and sends one email per deduplication
     window, not one of each per scan.
     """
-    from wasm.monitor.observation_store import ObservationStore
-    from wasm.monitor.process_monitor import MonitorConfig, ProcessMonitor
+    from noust.monitor.observation_store import ObservationStore
+    from noust.monitor.process_monitor import MonitorConfig, ProcessMonitor
 
     _install_processes(monkeypatch, [_make_process()])
     store = ObservationStore(db_path=tmp_path / "observations.db")
@@ -1017,7 +1017,7 @@ class TestCertificateExpiryNotifications:
         Returns:
             The monitor and the event notifier it was built with.
         """
-        from wasm.monitor.process_monitor import MonitorConfig, ProcessMonitor
+        from noust.monitor.process_monitor import MonitorConfig, ProcessMonitor
 
         notifier = event_notifier or _FakeEventNotifier()
         monitor = ProcessMonitor(
@@ -1038,7 +1038,7 @@ class TestCertificateExpiryNotifications:
         Returns:
             A CertificateInfo expiring on that day.
         """
-        from wasm.managers.cert_manager import CertificateInfo
+        from noust.managers.cert_manager import CertificateInfo
 
         expiry = date.today() + timedelta(days=days)
         return CertificateInfo(name=name, domains=[name], expiry=expiry.isoformat())
@@ -1066,7 +1066,7 @@ class TestCertificateExpiryNotifications:
         assert notifier.events == []
 
     def test_a_certificate_with_no_parsable_expiry_is_left_alone(self, tmp_path: Path) -> None:
-        from wasm.managers.cert_manager import CertificateInfo
+        from noust.managers.cert_manager import CertificateInfo
 
         broken = CertificateInfo(name="example.com", domains=["example.com"], expiry=None)
         monitor, notifier = self._monitor(tmp_path / "cert-notifications.json", [broken])
@@ -1130,7 +1130,7 @@ class TestCertificateExpiryNotifications:
 
     def test_the_state_file_is_written_through_the_filesystem_seam(self, tmp_path: Path) -> None:
         """A DryRunFileSystem must be able to refuse this write like any other."""
-        from wasm.core.fs import DryRunFileSystem, set_fs
+        from noust.core.fs import DryRunFileSystem, set_fs
 
         state_path = tmp_path / "cert-notifications.json"
         monitor, notifier = self._monitor(state_path, [self._cert("example.com", days=5)])
@@ -1161,7 +1161,7 @@ class TestCertificateExpiryNotifications:
         event = notifier.events[0]
         assert event.title == "El certificado de soon.example.com caduca en 3 días"
         assert "caduca el" in event.body
-        assert "wasm cert renew soon.example.com" in event.body
+        assert "noust cert renew soon.example.com" in event.body
 
 
 class TestDiskThresholdNotifications:
@@ -1176,7 +1176,7 @@ class TestDiskThresholdNotifications:
         Returns:
             A DiskUsage at that fill level; the other fields do not matter here.
         """
-        from wasm.monitor.models import DiskUsage
+        from noust.monitor.models import DiskUsage
 
         return DiskUsage(
             device="/dev/sda1",
@@ -1193,7 +1193,7 @@ class TestDiskThresholdNotifications:
         Returns:
             A monitor and the event notifier it was built with.
         """
-        from wasm.monitor.process_monitor import MonitorConfig, ProcessMonitor
+        from noust.monitor.process_monitor import MonitorConfig, ProcessMonitor
 
         notifier = _FakeEventNotifier()
         return ProcessMonitor(config=MonitorConfig(), event_notifier=notifier), notifier

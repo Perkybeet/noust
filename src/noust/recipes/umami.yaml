@@ -12,7 +12,7 @@ description: Simple, privacy-friendly web analytics, an alternative to Google An
 homepage: https://umami.is
 requires:
   - Node.js 18.18 or newer, with pnpm (npm install -g pnpm)
-  - PostgreSQL (wasm db install postgresql)
+  - PostgreSQL (noust db install postgresql)
 app_type: nodejs
 source:
   git: https://github.com/umami-software/umami.git

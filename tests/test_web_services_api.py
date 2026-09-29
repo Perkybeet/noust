@@ -22,11 +22,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.core.config import Config
-from wasm.core.exceptions import SecurityError, ValidationError
-from wasm.core.store import Service, WASMStore
-from wasm.managers.service_manager import WASM_UNIT_MARKER, ServiceManager
-from wasm.validators.names import (
+from noust.core.config import Config
+from noust.core.exceptions import SecurityError, ValidationError
+from noust.core.store import NoustStore, Service
+from noust.managers.service_manager import UNIT_MARKER, ServiceManager
+from noust.validators.names import (
     MAX_SERVICE_NAME_LENGTH,
     resolve_within,
     validate_app_name,
@@ -35,8 +35,8 @@ from wasm.validators.names import (
     validate_filename,
     validate_service_name,
 )
-from wasm.web.api import services as services_api
-from wasm.web.api.auth import get_current_session
+from noust.web.api import services as services_api
+from noust.web.api.auth import get_current_session
 
 #: Names that must never reach the filesystem as a unit file path.
 TRAVERSAL_NAMES = [
@@ -60,7 +60,7 @@ TRAVERSAL_NAMES = [
 
 #: A unit body an operator could legitimately paste into advanced mode. It
 #: carries the marker, without which the manager refuses to write it.
-RAW_UNIT = f"# {WASM_UNIT_MARKER}\n[Service]\nExecStart=/bin/true\n"
+RAW_UNIT = f"# {UNIT_MARKER}\n[Service]\nExecStart=/bin/true\n"
 
 
 class FakeServiceManager:
@@ -238,13 +238,13 @@ def store(tmp_path: Path):
     Yields:
         The store.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "services.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "services.db")
     try:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 @pytest.fixture
@@ -296,12 +296,12 @@ def _units_outside(unit_dir: Path, root: Path) -> list[Path]:
 
 
 class TestListServices:
-    """GET /api/services: WASM's own units by default, every unit on request."""
+    """GET /api/services: Noust's own units by default, every unit on request."""
 
     def test_wasm_only_lists_stored_services_with_the_live_state_fields(
         self, client: TestClient, fake_manager, store
     ) -> None:
-        """A WASM-tracked unit's crash-loop state reaches the API."""
+        """A Noust-tracked unit's crash-loop state reaches the API."""
         store.create_service(Service(name="wasm-shop", command="node server.js"))
         FakeServiceManager.all_units = [
             {"name": "wasm-shop", "load": "loaded", "active": "activating", "sub": "auto-restart"}
@@ -395,13 +395,33 @@ class TestListServices:
     def test_wasm_only_true_is_the_default_and_never_asks_for_all_units(
         self, client: TestClient, fake_manager, store
     ) -> None:
-        """The default stays scoped to WASM's own inventory."""
+        """The default stays scoped to Noust's own inventory."""
         response = client.get("/api/services")
 
         assert response.status_code == 200, response.text
         manager = FakeServiceManager.instances[-1]
         assert ("list_statuses", False) in manager.calls
         assert ("list_statuses", True) not in manager.calls
+
+    @pytest.mark.parametrize(
+        ("params", "every_unit"),
+        [
+            ({"noust_only": "false"}, True),
+            ({"noust_only": "true"}, False),
+            # The 2.x name is still read, and the new one wins over it.
+            ({"wasm_only": "false"}, True),
+            ({"noust_only": "true", "wasm_only": "false"}, False),
+        ],
+    )
+    def test_noust_only_and_its_wasm_name(
+        self, client: TestClient, fake_manager, store, params: dict[str, str], every_unit: bool
+    ) -> None:
+        """``noust_only`` is the parameter; ``wasm_only`` keeps working through 3.x."""
+        response = client.get("/api/services", params=params)
+
+        assert response.status_code == 200, response.text
+        manager = FakeServiceManager.instances[-1]
+        assert ("list_statuses", every_unit) in manager.calls
 
 
 class TestVerifyUnit:
@@ -623,7 +643,7 @@ class TestHappyPath:
     def test_update_config_refuses_a_body_that_drops_the_marker(
         self, client: TestClient, unit_dir: Path, sandboxed_manager
     ) -> None:
-        """A rewrite cannot orphan the unit from WASM's own management."""
+        """A rewrite cannot orphan the unit from Noust's own management."""
         unit = unit_dir / "my-app.service"
         unit.write_text(RAW_UNIT)
 
@@ -902,9 +922,10 @@ class TestWasmOwnUnits:
     """
     The console and the monitor are not services the API may act on.
 
-    ``wasm-web`` and ``wasm-monitor`` are units WASM manages, so every
-    services endpoint used to accept them: an admin token could
-    ``POST /api/services/wasm-web/stop`` without sudo mode and take the
+    ``noust-web`` and ``noust-monitor`` (or their pre-3.0 ``wasm-`` names, on
+    a server not yet migrated) are units Noust manages, so every services
+    endpoint used to accept them: an admin token could
+    ``POST /api/services/noust-web/stop`` without sudo mode and take the
     console down under its own operator, and a ``read`` token could read the
     console's journal.
     """
@@ -912,9 +933,12 @@ class TestWasmOwnUnits:
     @pytest.mark.parametrize(
         ("name", "hint"),
         [
-            ("wasm-web", "wasm web"),
-            ("wasm-web.service", "wasm web"),
-            ("wasm-monitor", "wasm monitor"),
+            ("wasm-web", "noust web"),
+            ("wasm-web.service", "noust web"),
+            ("wasm-monitor", "noust monitor"),
+            ("noust-web", "noust web"),
+            ("noust-web.service", "noust web"),
+            ("noust-monitor", "noust monitor"),
         ],
     )
     def test_every_mutation_of_the_console_or_monitor_is_refused(
@@ -947,12 +971,17 @@ class TestWasmOwnUnits:
         response = client.post("/api/services/web/stop")
 
         assert response.status_code == 403, response.text
-        assert "wasm web" in response.json()["hint"]
+        assert "noust web" in response.json()["hint"]
         assert all(not manager.calls for manager in fake_manager.instances)
 
     @pytest.mark.parametrize(
         ("name", "hint"),
-        [("wasm-cron-nightly", "wasm cron"), ("wasm-backup-shop-example-com", "backup")],
+        [
+            ("wasm-cron-nightly", "noust cron"),
+            ("wasm-backup-shop-example-com", "backup"),
+            ("noust-cron-nightly", "noust cron"),
+            ("noust-backup-shop-example-com", "backup"),
+        ],
     )
     def test_scheduled_work_units_are_refused_with_their_own_hint(
         self, client: TestClient, unit_dir: Path, fake_manager, name: str, hint: str
@@ -969,7 +998,7 @@ class TestWasmOwnUnits:
     def test_an_application_unit_is_still_managed(
         self, client: TestClient, unit_dir: Path, fake_manager
     ) -> None:
-        """The refusal is about WASM's own units, not every ``wasm-`` name."""
+        """The refusal is about Noust's own units, not every ``noust-`` name."""
         (unit_dir / "shop-example-com.service").write_text(RAW_UNIT)
 
         response = client.post("/api/services/shop-example-com/stop")
@@ -977,14 +1006,14 @@ class TestWasmOwnUnits:
         assert response.status_code == 200, response.text
         assert ("stop", "shop-example-com") in fake_manager.instances[-1].calls
 
-    @pytest.mark.parametrize("name", ["wasm-web", "wasm-monitor"])
+    @pytest.mark.parametrize("name", ["wasm-web", "wasm-monitor", "noust-web", "noust-monitor"])
     def test_reading_the_console_journal_needs_admin(
         self, unit_dir: Path, fake_manager, name: str
     ) -> None:
         """
         The console's journal carries SQL statements, sources and addresses.
 
-        A ``read`` token sees applications' journals, not WASM's own.
+        A ``read`` token sees applications' journals, not Noust's own.
         """
         (unit_dir / f"{name}.service").write_text(RAW_UNIT)
 
@@ -998,7 +1027,7 @@ class TestWasmOwnUnits:
     def test_a_read_token_still_reads_an_application_journal(
         self, unit_dir: Path, fake_manager
     ) -> None:
-        """Only WASM's own units are raised to admin."""
+        """Only Noust's own units are raised to admin."""
         (unit_dir / "shop-example-com.service").write_text(RAW_UNIT)
 
         response = _scoped_client(unit_dir, "read").get("/api/services/shop-example-com/logs")

@@ -12,12 +12,12 @@ import type { Inspection } from "./wizard";
 const STATUS: GitHubStatus = {
   configured: true,
   app_id: 424242,
-  slug: "wasm-web-01",
-  name: "WASM web-01",
+  slug: "noust-web-01",
+  name: "Noust web-01",
   owner: "acme",
-  html_url: "https://github.com/apps/wasm-web-01",
-  settings_url: "https://github.com/organizations/acme/settings/apps/wasm-web-01",
-  install_url: "https://github.com/apps/wasm-web-01/installations/new",
+  html_url: "https://github.com/apps/noust-web-01",
+  settings_url: "https://github.com/organizations/acme/settings/apps/noust-web-01",
+  install_url: "https://github.com/apps/noust-web-01/installations/new",
   installations: [
     { installation_id: 7001, account: "acme", account_type: "Organization", repository_selection: "selected", settings_url: null },
     { installation_id: 7002, account: "yago", account_type: "User", repository_selection: "all", settings_url: null },

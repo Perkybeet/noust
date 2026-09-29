@@ -4,7 +4,7 @@
 """
 Tests for ``GET /api/apps/{domain}/export`` and ``POST /api/apps/import``.
 
-The API is a client of :mod:`wasm.deployers.app_export`: pinned here are
+The API is a client of :mod:`noust.deployers.app_export`: pinned here are
 the scopes (admin to export, sudo mode for secrets and for an import), the
 audit record of a secret export, the checks an import runs before anything
 is queued, and that the job deploys through the same deploy job as ``POST
@@ -21,13 +21,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.core.store import App, WASMStore
-from wasm.deployers import app_export
-from wasm.deployers.helpers.layout import env_file_for
-from wasm.web.api import app_export as api_module
-from wasm.web.auth import CSRF_HEADER_NAME, SecurityConfig
-from wasm.web.jobs import JobType
-from wasm.web.server import create_app, get_token_manager
+from noust.core.store import App, NoustStore
+from noust.deployers import app_export
+from noust.deployers.helpers.layout import env_file_for
+from noust.web.api import app_export as api_module
+from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
+from noust.web.jobs import JobType
+from noust.web.server import create_app, get_token_manager
 
 DOMAIN = "shop.example.com"
 STRIPE = "sk_live_" + "51Habcdefghijklmn" + "opqrstuvwxyz"
@@ -39,9 +39,9 @@ class NoCron:
 
 
 @pytest.fixture
-def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[WASMStore]:
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[NoustStore]:
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     app = instance.create_app(
         App(
             domain=DOMAIN,
@@ -57,11 +57,11 @@ def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[WASMStore
     monkeypatch.setattr(app_export, "CronManager", NoCron)
     yield instance
     instance.close()
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture
-def app(tmp_path: Path, store: WASMStore) -> FastAPI:
+def app(tmp_path: Path, store: NoustStore) -> FastAPI:
     return create_app(SecurityConfig(state_dir=tmp_path / "state", rate_limit_requests=5000))
 
 
@@ -226,9 +226,9 @@ def test_import_queues_a_deploy_job_with_a_free_port(
 
 def test_a_platform_proposal_translates_to_its_api_model() -> None:
     """What the inspection response carries as platform_proposal."""
-    from wasm.deployers.importers import Proposal, ProposedEnv
-    from wasm.web.api.platform_proposal import platform_proposal_response
-    from wasm.web.pydantic_compat import dump_model
+    from noust.deployers.importers import Proposal, ProposedEnv
+    from noust.web.api.platform_proposal import platform_proposal_response
+    from noust.web.pydantic_compat import dump_model
 
     assert platform_proposal_response(None) is None
     proposal = Proposal(

@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The ``wasm service`` commands.
+The ``noust service`` commands.
 
-Every operation here goes through :class:`~wasm.managers.service_manager.ServiceManager`.
+Every operation here goes through :class:`~noust.managers.service_manager.ServiceManager`.
 That is not indirection for its own sake: the manager holds the ownership guard
-that refuses to touch a unit WASM did not install, and building a unit path or
+that refuses to touch a unit Noust did not install, and building a unit path or
 calling ``systemctl`` from this module walks straight past it.
 
 The command bodies live in the private ``_`` functions below so that the Click
@@ -22,10 +22,10 @@ from argparse import Namespace
 
 import click
 
-from wasm.cli.app import Context, WasmGroup, json_option, pass_context
-from wasm.core.exceptions import WASMError
-from wasm.core.logger import Logger
-from wasm.managers.service_manager import ServiceManager
+from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.exceptions import NoustError
+from noust.core.logger import Logger
+from noust.managers.service_manager import ServiceManager
 
 #: Alternative spellings for the subcommands of this group. They predate the
 #: migration, are in scripts and in the published documentation, and dropping
@@ -44,7 +44,7 @@ DEFAULT_USER = "www-data"
 DEFAULT_LINES = 50
 
 
-class ServiceGroup(WasmGroup):
+class ServiceGroup(NoustGroup):
     """A group that also answers to the historical subcommand spellings."""
 
     def get_command(self, ctx: click.Context, name: str) -> click.Command | None:
@@ -98,7 +98,7 @@ def _create(
         Exit code.
 
     Raises:
-        ServiceError: When the unit exists or is not WASM's to create.
+        ServiceError: When the unit exists or is not Noust's to create.
         ValidationError: When a name or directive value is unsafe.
     """
     logger = Logger(verbose=verbose)
@@ -120,13 +120,13 @@ def _create(
 
 def _list(all_services: bool, *, verbose: bool, json_output: bool = False) -> int:
     """
-    Print the services WASM manages.
+    Print the services Noust manages.
 
-    The list is :meth:`~wasm.managers.service_manager.ServiceManager.managed_units`,
+    The list is :meth:`~noust.managers.service_manager.ServiceManager.managed_units`,
     the same one the console's Services page and top bar read.
 
     Args:
-        all_services: Include units WASM does not manage, flagged as such.
+        all_services: Include units Noust does not manage, flagged as such.
         verbose: Show the detail of each step.
         json_output: Print the list as JSON instead of a table.
 
@@ -174,8 +174,8 @@ def _list(all_services: bool, *, verbose: bool, json_output: bool = False) -> in
     ]
     headers = ["Name", "Status", "State", "App"]
     if all_services:
-        # Every unit on the machine: say which ones WASM would act on.
-        headers.append("WASM")
+        # Every unit on the machine: say which ones Noust would act on.
+        headers.append("Noust")
         for row, svc in zip(rows, services, strict=True):
             row.append("yes" if svc["managed"] else "")
     logger.table(headers, rows)
@@ -191,14 +191,14 @@ def _status(name: str, *, verbose: bool, json_output: bool = False) -> int:
         name: Service name.
         verbose: Show the detail of each step.
         json_output: Print the status as JSON, the same shape
-            :meth:`~wasm.managers.service_manager.ServiceManager.get_status`
+            :meth:`~noust.managers.service_manager.ServiceManager.get_status`
             returns and ``GET /api/services/{name}`` builds its response from.
 
     Returns:
         Exit code, 1 when the service does not exist.
 
     Raises:
-        ServiceError: When the unit exists but is not WASM's.
+        ServiceError: When the unit exists but is not Noust's.
         ValidationError: When the name is not a safe unit name.
     """
     logger = Logger(verbose=verbose)
@@ -208,7 +208,7 @@ def _status(name: str, *, verbose: bool, json_output: bool = False) -> int:
 
     if json_output:
         if not status["exists"]:
-            raise WASMError(f"Service not found: {name}")
+            raise NoustError(f"Service not found: {name}")
         click.echo(json.dumps(status))
         return 0
 
@@ -243,7 +243,7 @@ def _start(name: str, *, verbose: bool) -> int:
         Exit code.
 
     Raises:
-        ServiceError: When the unit is not WASM's or systemd refuses to start it.
+        ServiceError: When the unit is not Noust's or systemd refuses to start it.
         ValidationError: When the name is not a safe unit name.
     """
     logger = Logger(verbose=verbose)
@@ -268,7 +268,7 @@ def _stop(name: str, *, verbose: bool) -> int:
         Exit code.
 
     Raises:
-        ServiceError: When the unit is not WASM's or does not exist.
+        ServiceError: When the unit is not Noust's or does not exist.
         ValidationError: When the name is not a safe unit name.
     """
     logger = Logger(verbose=verbose)
@@ -293,7 +293,7 @@ def _restart(name: str, *, verbose: bool) -> int:
         Exit code.
 
     Raises:
-        ServiceError: When the unit is not WASM's or systemd refuses to restart it.
+        ServiceError: When the unit is not Noust's or systemd refuses to restart it.
         ValidationError: When the name is not a safe unit name.
     """
     logger = Logger(verbose=verbose)
@@ -320,7 +320,7 @@ def _logs(name: str, follow: bool, lines: int, *, verbose: bool) -> int:
         Exit code.
 
     Raises:
-        ServiceError: When the unit is not WASM's or does not exist.
+        ServiceError: When the unit is not Noust's or does not exist.
         ValidationError: When the name is not a safe unit name.
     """
     manager = ServiceManager(verbose=verbose)
@@ -350,7 +350,7 @@ def _delete(name: str, force: bool, *, verbose: bool) -> int:
         Exit code.
 
     Raises:
-        ServiceError: When the unit is not WASM's or cannot be removed.
+        ServiceError: When the unit is not Noust's or cannot be removed.
         ValidationError: When the name is not a safe unit name.
     """
     logger = Logger(verbose=verbose)
@@ -375,7 +375,7 @@ def _delete(name: str, force: bool, *, verbose: bool) -> int:
 
 @click.group(cls=ServiceGroup, name="service")
 def cli() -> None:
-    """Manage the systemd services WASM owns."""
+    """Manage the systemd services Noust owns."""
 
 
 @cli.command(name="create")
@@ -404,7 +404,7 @@ def create_command(
 
 
 @cli.command(name="list")
-@click.option("--all", "-a", "all_services", is_flag=True, help="Include units WASM does not own.")
+@click.option("--all", "-a", "all_services", is_flag=True, help="Include units Noust does not own.")
 @json_option("Print the service list as JSON.")
 @pass_context
 def list_command(ctx: Context, all_services: bool) -> None:
@@ -478,7 +478,7 @@ def handle_service(args: Namespace) -> int:
     """
     Route an argparse invocation to the same implementations the Click tree uses.
 
-    ``wasm.cli.parser`` is gone; :mod:`wasm.cli.interactive` is what still
+    ``noust.cli.parser`` is gone; :mod:`noust.cli.interactive` is what still
     builds a ``Namespace`` and calls this for its service menu, so it must not
     grow a second copy of the logic.
 
@@ -515,7 +515,7 @@ def handle_service(args: Namespace) -> int:
             return _logs(args.name, args.follow, args.lines, verbose=verbose)
         if action == "delete":
             return _delete(args.name, args.force, verbose=verbose)
-    except WASMError as exc:
+    except NoustError as exc:
         logger = Logger(verbose=verbose)
         logger.error(str(exc))
         if exc.details:

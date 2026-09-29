@@ -13,7 +13,7 @@ const GB = 1024 ** 3;
 
 function storage(overrides: Partial<BackupStorage> = {}): BackupStorage {
   return {
-    path: "/mnt/backups/wasm",
+    path: "/mnt/backups/noust",
     total_size: 3 * GB,
     total_size_human: "3.00 GB",
     backup_count: 12,
@@ -48,7 +48,7 @@ describe("backup storage", () => {
     const { container } = backupsPage(storage());
     const meter = await screen.findByRole("meter", { name: "Disk holding the backups" });
     expect(meter).toHaveAttribute("aria-valuetext", "380 GB used, 120 GB free of 500 GB");
-    expect(screen.getByText("/mnt/backups/wasm")).toBeInTheDocument();
+    expect(screen.getByText("/mnt/backups/noust")).toBeInTheDocument();
     expect(screen.getByText(/^3\.00 GB in 12 backups of 2 applications, kept at/)).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: /outside the backup directory/ })).toBeNull();
     await expectNoAxeViolations(container);
@@ -64,16 +64,16 @@ describe("backup storage", () => {
     const { container } = backupsPage(
       storage({
         misplaced: [
-          { directory: "/root", count: 3, command: "wasm backup import /root" },
-          { directory: "/var/backups/wasm", count: 1, command: "wasm backup import /var/backups/wasm" },
+          { directory: "/root", count: 3, command: "noust backup import /root" },
+          { directory: "/var/backups/noust", count: 1, command: "noust backup import /var/backups/noust" },
         ],
       }),
     );
     const notice = await screen.findByRole("region", { name: "4 backups are outside the backup directory" });
     expect(notice).toHaveTextContent("3 backups in /root");
-    expect(notice).toHaveTextContent("1 backup in /var/backups/wasm");
-    expect(notice).toHaveTextContent("wasm backup import /root");
-    expect(notice).toHaveTextContent("wasm backup import /var/backups/wasm");
+    expect(notice).toHaveTextContent("1 backup in /var/backups/noust");
+    expect(notice).toHaveTextContent("noust backup import /root");
+    expect(notice).toHaveTextContent("noust backup import /var/backups/noust");
     expect(notice).toHaveTextContent("Add --dry-run to the command to see what would move first, without moving anything.");
     await expectNoAxeViolations(container);
   });
@@ -89,7 +89,7 @@ describe("backup storage in Spanish", () => {
   it("shows the disk meter and the misplaced notice in Spanish, with no accessibility violations", async () => {
     await act(() => setLocale("es"));
     const { container } = backupsPage(
-      storage({ misplaced: [{ directory: "/root", count: 3, command: "wasm backup import /root" }] }),
+      storage({ misplaced: [{ directory: "/root", count: 3, command: "noust backup import /root" }] }),
     );
     const meter = await screen.findByRole("meter", { name: "Disco que contiene las copias de seguridad" });
     expect(meter).toHaveAttribute("aria-valuetext", "380 GB usados, 120 GB libres de 500 GB");

@@ -30,13 +30,13 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-from wasm.core import app_state
-from wasm.core.app_state import AppState, resolve_state_with_status, resolve_states_with_status
-from wasm.core.config import REDACTED
-from wasm.core.exceptions import DeploymentError, SourceError, ValidationError, WASMError
-from wasm.core.runner import CommandCancelled
-from wasm.core.secret_detection import Secrecy, classify
-from wasm.core.store import (
+from noust.core import app_state
+from noust.core.app_state import AppState, resolve_state_with_status, resolve_states_with_status
+from noust.core.config import REDACTED
+from noust.core.exceptions import DeploymentError, NoustError, SourceError, ValidationError
+from noust.core.runner import CommandCancelled
+from noust.core.secret_detection import Secrecy, classify
+from noust.core.store import (
     DEFAULT_KEEP_RELEASES,
     App,
     DeploymentRecord,
@@ -44,60 +44,60 @@ from wasm.core.store import (
     Service,
     get_store,
 )
-from wasm.core.utils import domain_to_app_name
-from wasm.deployers.base import BaseDeployer
-from wasm.deployers.helpers.app_env import read_app_env, write_app_env
-from wasm.deployers.helpers.env_manager import redact_url_credentials
-from wasm.deployers.helpers.health_gate import HealthCheck
-from wasm.deployers.helpers.layout import RELEASES
-from wasm.deployers.helpers.package_manager import SUPPORTED_PACKAGE_MANAGERS
-from wasm.deployers.helpers.php_fpm import is_php_fpm
-from wasm.deployers.inspect import SourceInspection, inspect_source
-from wasm.deployers.lifecycle import (
+from noust.core.utils import domain_to_app_name
+from noust.deployers.base import BaseDeployer
+from noust.deployers.helpers.app_env import read_app_env, write_app_env
+from noust.deployers.helpers.env_manager import redact_url_credentials
+from noust.deployers.helpers.health_gate import HealthCheck
+from noust.deployers.helpers.layout import RELEASES
+from noust.deployers.helpers.package_manager import SUPPORTED_PACKAGE_MANAGERS
+from noust.deployers.helpers.php_fpm import is_php_fpm
+from noust.deployers.inspect import SourceInspection, inspect_source
+from noust.deployers.lifecycle import (
     activate_release,
     list_releases,
     set_health_check,
     set_release_retention,
     set_resource_limits,
 )
-from wasm.deployers.migrate import MigrationPlan, plan_migration
-from wasm.deployers.php_fpm import control_pool
-from wasm.deployers.registry import DeployerRegistry, available_types
-from wasm.deployers.releases import is_release_id
-from wasm.managers.backup_manager import RollbackManager
-from wasm.managers.service_manager import ResourceLimits, ServiceManager
-from wasm.recipes import RecipeError, get_recipe
-from wasm.recipes.deploy import refuse_conflicts
-from wasm.validators.environment import EnvironmentValidationError
-from wasm.validators.port import find_available_port, validate_port
-from wasm.validators.source import validate_source
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import (
+from noust.deployers.migrate import MigrationPlan, plan_migration
+from noust.deployers.php_fpm import control_pool
+from noust.deployers.registry import DeployerRegistry, available_types
+from noust.deployers.releases import is_release_id
+from noust.managers.backup_manager import RollbackManager
+from noust.managers.service_manager import ResourceLimits, ServiceManager
+from noust.recipes import RecipeError, get_recipe
+from noust.recipes.deploy import refuse_conflicts
+from noust.validators.environment import EnvironmentValidationError
+from noust.validators.port import find_available_port, validate_port
+from noust.validators.source import validate_source
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import (
     JobAcceptedResponse,
-    WASMErrorRoute,
+    NoustErrorRoute,
     ensure_elevated,
     require_elevated,
     strict_domain,
 )
-from wasm.web.api.platform_proposal import (
+from noust.web.api.platform_proposal import (
     PlatformProposalResponse,
     platform_proposal_response,
 )
-from wasm.web.auth import (
+from noust.web.auth import (
     actor_label,
     ensure_scope,
     get_audit_logger,
     get_client_ip,
     scope_satisfies,
 )
-from wasm.web.jobs import (
+from noust.web.jobs import (
     JobType,
     delete_app_job,
     deploy_app_job,
     get_job_manager,
     migrate_app_job,
 )
-from wasm.web.pydantic_compat import iso_offset_validator
+from noust.web.pydantic_compat import iso_offset_validator
 
 #: app_state's display labels, translated to the fixed API vocabulary.
 #: Decoupled from AppState.label on purpose: that string is for a terminal
@@ -113,7 +113,7 @@ _STATUS_LABELS: dict[str, str] = {
     app_state.UNKNOWN: "unknown",
 }
 
-router = APIRouter(route_class=WASMErrorRoute)
+router = APIRouter(route_class=NoustErrorRoute)
 
 _logger = logging.getLogger(__name__)
 
@@ -127,7 +127,7 @@ class LastDeploymentOut(BaseModel):
 
     Attributes:
         id: Deployment id, the store's own primary key.
-        status: One of :class:`~wasm.core.store.DeploymentStatus`: ``queued``,
+        status: One of :class:`~noust.core.store.DeploymentStatus`: ``queued``,
             ``running``, ``success``, ``failed`` or ``rolled_back``.
         finished_at: When it finished, ISO 8601 with an explicit UTC offset;
             None while it is still running.
@@ -150,7 +150,7 @@ class AppInfo(BaseModel):
         name: Application name, which is its domain.
         domain: Domain the application is served on.
         status: What is true about it right now, resolved by
-            :func:`wasm.core.app_state.resolve_state` - the one place the CLI
+            :func:`noust.core.app_state.resolve_state` - the one place the CLI
             and the panel agree on this: ``running``, ``restarting`` (systemd
             is crash-looping the unit), ``no_answer`` (the unit is up but
             nothing accepts connections on its port), ``stopped``, ``failed``
@@ -355,11 +355,11 @@ class EnvSecrecyOut(BaseModel):
         reason: One of ``"marked secret"``, ``"marked not secret"``,
             ``"name"``, ``"value: <kind>"``, ``"value"``, ``"url
             credentials"`` or ``"plain"`` - see
-            :class:`~wasm.core.secret_detection.Secrecy`. ``"value: <kind>"``
+            :class:`~noust.core.secret_detection.Secrecy`. ``"value: <kind>"``
             names the vendor a value's shape matched (``"value: stripe"``),
             which is itself a fact about the value; a credential below admin
             scope gets the generic ``"value"`` instead (see
-            :func:`~wasm.web.api.apps._secrets_map`).
+            :func:`~noust.web.api.apps._secrets_map`).
         marked: Whether this came from an operator's own mark rather than
             from the variable's name or value.
     """
@@ -377,11 +377,11 @@ class AppEnvResponse(BaseModel):
         domain: Domain of the application.
         variables: Name to value mapping. Unless ``unmasked`` is true, a
             secret-looking name and a URL credential embedded in a value are
-            both replaced by the fixed :data:`~wasm.core.config.REDACTED`
-            placeholder, exactly as ``wasm env show`` does on the terminal.
+            both replaced by the fixed :data:`~noust.core.config.REDACTED`
+            placeholder, exactly as ``noust env show`` does on the terminal.
         unmasked: Whether this response carries values in clear.
         secrets: Every variable's classification, from
-            :func:`~wasm.core.secret_detection.classify` - present whether or
+            :func:`~noust.core.secret_detection.classify` - present whether or
             not ``unmasked`` is true, so the console can label a variable
             (and let the operator override it) without asking to see its
             value. For a credential below admin scope, a value-based
@@ -497,8 +497,8 @@ def _is_local_source(source: str) -> bool:
     """
     Report whether a source names a directory on this machine.
 
-    Decided by :func:`wasm.validators.source.validate_source`, the same
-    classification :meth:`wasm.managers.source_manager.SourceManager.fetch`
+    Decided by :func:`noust.validators.source.validate_source`, the same
+    classification :meth:`noust.managers.source_manager.SourceManager.fetch`
     acts on, so the answer here is what the build would actually do.
 
     Args:
@@ -567,7 +567,7 @@ def _require_local_source_privilege(
             "hint": (
                 "API tokens deploy from a repository URL. To deploy a directory on "
                 "this machine, use the console (it asks you to confirm it's you) or "
-                "'wasm create' on the server."
+                "'noust create' on the server."
             ),
             "fields": {"source": "local paths are not accepted from an API token"},
         },
@@ -588,7 +588,7 @@ def _to_app_info(
 
     Args:
         app: The stored application.
-        state: What :func:`wasm.core.app_state.resolve_state` decided is
+        state: What :func:`noust.core.app_state.resolve_state` decided is
             true about it.
         status: The systemd status ``state`` was resolved from, empty for a
             static application, which is never queried.
@@ -636,7 +636,7 @@ def _deployer_build_command(app: App) -> list[str]:
     Read the build command a fresh deploy of this application would run.
 
     Instantiates the deployer and reads its ``get_build_command()`` the same
-    way :func:`wasm.deployers.inspect.inspect_source` does for a checkout
+    way :func:`noust.deployers.inspect.inspect_source` does for a checkout
     that has not been deployed yet - ``configure()`` and nothing past it, no
     install, no build, no network. Cheap enough for one application, which is
     why only the detail endpoint calls this: the list endpoint would pay this
@@ -664,7 +664,7 @@ def _deployer_build_command(app: App) -> list[str]:
             app_path=Path(app.app_path) if app.app_path else None,
         )
         return instance.get_build_command()
-    except (WASMError, OSError):
+    except (NoustError, OSError):
         return []
 
 
@@ -674,20 +674,20 @@ def _redact_env(
     """
     Replace every secret value with the fixed REDACTED placeholder.
 
-    Uses :func:`~wasm.core.secret_detection.classify`, honouring the
+    Uses :func:`~noust.core.secret_detection.classify`, honouring the
     application's own marks: a variable the operator marked secret is
     redacted even if nothing about its name or value would otherwise say so,
     and one marked not secret is shown even if it would. A value that is
     secret only because of a credential embedded in it - ``DATABASE_URL``, a
     connection string no name marks as a secret - keeps the rest of the
-    value readable, exactly as ``wasm env show`` does on the terminal. The
+    value readable, exactly as ``noust env show`` does on the terminal. The
     placeholder is fixed width, so a response never reveals the length of a
     secret or whether one is set at all.
 
     Args:
         values: The environment as read from the .env file.
         marks: The application's operator overrides, from
-            :attr:`~wasm.core.store.App.env_secret_marks`.
+            :attr:`~noust.core.store.App.env_secret_marks`.
 
     Returns:
         A new mapping safe to send to a browser.
@@ -747,7 +747,7 @@ def _mark_change_detail(marks: Mapping[str, bool | None]) -> str:
     see that ``APP_NAME`` changed but not whether it was marked secret,
     marked not secret, or returned to automatic classification - the
     distinction that matters when the audit log is the record of who told
-    WASM a variable was safe to display. Never carries a value.
+    Noust a variable was safe to display. Never carries a value.
 
     Args:
         marks: The marks the request asked to change, exactly as
@@ -792,7 +792,7 @@ def list_apps(session: Annotated[dict, Depends(get_current_session)]) -> AppList
 
     Every application's service record, webhook flag and last deployment
     come from one store query each, and every application's systemd status
-    is read concurrently through :func:`~wasm.core.app_state.resolve_states_with_status`
+    is read concurrently through :func:`~noust.core.app_state.resolve_states_with_status`
     - so this endpoint costs a handful of queries and one round of systemctl
     calls, not four times the number of applications deployed.
 
@@ -845,7 +845,7 @@ def _check_initial_health(path: str | None, expect: str | None, timeout: int | N
     Raises:
         ValidationError: A value is not usable; ``field`` names it.
     """
-    from wasm.validators.health import (
+    from noust.validators.health import (
         check_health_expect,
         check_health_path,
         check_health_timeout,
@@ -896,7 +896,7 @@ def create_app(
         ValidationError: A resource limit is out of range (400, with the
             range) - the same check ``PATCH .../limits`` runs, so a limit
             given at creation cannot be more permissive than one set later -
-            or ``package_manager`` names one WASM does not drive, or neither a
+            or ``package_manager`` names one Noust does not drive, or neither a
             source nor a recipe was given.
         RecipeError: The recipe does not exist or is not available, or a
             source or a type was given with it (400).
@@ -1046,7 +1046,7 @@ class SourceInspectionResponse(BaseModel):
             not a Git repository.
         compatible: Whether this server can deploy it as ``app_type`` as it
             is: false when a program the type needs is missing.
-        verdict: What WASM found, in a sentence.
+        verdict: What Noust found, in a sentence.
         suggestion: What to do before deploying, when there is something.
     """
 
@@ -1063,7 +1063,7 @@ class SourceInspectionResponse(BaseModel):
     compatible: bool | None = Field(
         default=None, description="Whether this server can deploy it as app_type as it is"
     )
-    verdict: str | None = Field(default=None, description="What WASM found, in a sentence")
+    verdict: str | None = Field(default=None, description="What Noust found, in a sentence")
     suggestion: str | None = Field(
         default=None, description="What to do before deploying, when there is something"
     )
@@ -1098,7 +1098,7 @@ async def _run_until_disconnected(
 
     Polled with ``asyncio.wait`` rather than a task group: a task group
     reports the work's own exception inside an ``ExceptionGroup``, which the
-    API's error boundary would not recognise as the ``WASMError`` it is.
+    API's error boundary would not recognise as the ``NoustError`` it is.
 
     Args:
         request: The request whose client is watched.
@@ -1165,7 +1165,7 @@ async def inspect_app_source(
         HTTPException: 403 when the source is a local path and the credential
             may not read one.
         SourceError: The source is invalid, or fetching it failed. Answered
-            as 400: the operator gave a source WASM cannot reach, not a
+            as 400: the operator gave a source Noust cannot reach, not a
             server fault.
         ValidationError: The checkout matches no registered application
             type. ``inspect_source`` raises ``DeploymentError`` for this -
@@ -1228,7 +1228,7 @@ class AppTypeInfo(BaseModel):
 
 
 class AppTypesResponse(BaseModel):
-    """Every application type WASM can deploy."""
+    """Every application type Noust can deploy."""
 
     types: list[AppTypeInfo]
 
@@ -1239,11 +1239,11 @@ class AppTypesResponse(BaseModel):
 @router.get("/types", response_model=AppTypesResponse)
 def list_app_types(session: Annotated[dict, Depends(get_current_session)]) -> AppTypesResponse:
     """
-    List the application types WASM can deploy.
+    List the application types Noust can deploy.
 
-    :func:`~wasm.deployers.registry.available_types` is the one source of
+    :func:`~noust.deployers.registry.available_types` is the one source of
     truth - the CLI's ``--type`` choices come from it too - so a deployer
-    registered with :meth:`~wasm.deployers.registry.DeployerRegistry.register`
+    registered with :meth:`~noust.deployers.registry.DeployerRegistry.register`
     reaches the wizard the moment it exists, instead of needing a second,
     hand-kept copy of the list in the console.
 
@@ -1430,8 +1430,8 @@ def get_app_env(
     """
     Read an application's environment from its ``.env`` file.
 
-    This reads the file :mod:`wasm.deployers.helpers.app_env` writes, the
-    same one ``wasm env show`` reads on the terminal - not the snapshot the
+    This reads the file :mod:`noust.deployers.helpers.app_env` writes, the
+    same one ``noust env show`` reads on the terminal - not the snapshot the
     store recorded at deploy time, which can drift the moment anyone edits
     the file by hand. On the release layout that is ``shared/.env``.
 
@@ -1496,10 +1496,10 @@ def update_app_env(
     Replace an application's ``.env`` file wholesale.
 
     Every name and value is validated against what can safely reach a
-    systemd unit (:mod:`wasm.validators.environment`) before anything is
+    systemd unit (:mod:`noust.validators.environment`) before anything is
     written, so a rejected variable leaves the file on disk untouched. The
-    write goes through :func:`~wasm.deployers.helpers.app_env.write_app_env`,
-    the same function ``wasm env configure`` uses, so the file lands 0600,
+    write goes through :func:`~noust.deployers.helpers.app_env.write_app_env`,
+    the same function ``noust env configure`` uses, so the file lands 0600,
     owned by the service account, in ``shared/`` on the release layout - and
     a mark on a name the write drops is pruned there too, not just here.
 
@@ -1520,7 +1520,7 @@ def update_app_env(
         HTTPException: 404 when the application is unknown, 422 when a name
             or a value is not safe to write into a systemd unit, or when the
             request tries to set PORT or NODE_ENV, which the unit sets inline
-            and are refused by :func:`~wasm.deployers.helpers.app_env.write_app_env`.
+            and are refused by :func:`~noust.deployers.helpers.app_env.write_app_env`.
     """
     app = _env_app(domain)
     before = read_app_env(app)
@@ -1685,9 +1685,9 @@ def list_rollback_points(
     List the backups an application can be rolled back to.
 
     Deliberately not gated on the application still being deployed: a backup
-    for a domain WASM no longer serves is still a rollback point until it is
+    for a domain Noust no longer serves is still a rollback point until it is
     pruned, the same reasoning that keeps deployment history around after an
-    application is deleted (see :mod:`wasm.web.views.deployments`).
+    application is deleted (see :mod:`noust.web.views.deployments`).
 
     Args:
         domain: Domain whose rollback points are asked for.
@@ -1695,8 +1695,8 @@ def list_rollback_points(
 
     Returns:
         The points, newest first, from
-        :meth:`~wasm.managers.backup_manager.RollbackManager.list_rollback_points`
-        - the one implementation, shared with ``wasm backup rollback --list``.
+        :meth:`~noust.managers.backup_manager.RollbackManager.list_rollback_points`
+        - the one implementation, shared with ``noust backup rollback --list``.
     """
     validated = strict_domain(domain)
     points = RollbackManager(verbose=False).list_rollback_points(validated)
@@ -1811,8 +1811,8 @@ def get_app_releases(
         session: The authenticated session.
 
     Returns:
-        The releases, from :func:`wasm.deployers.lifecycle.list_releases`,
-        the same listing ``wasm releases list`` prints.
+        The releases, from :func:`noust.deployers.lifecycle.list_releases`,
+        the same listing ``noust releases list`` prints.
 
     Raises:
         HTTPException: 404 when the application is unknown, 409 when it is
@@ -1999,7 +1999,7 @@ def get_migration_plan(
         persist: Paths to keep in ``shared/``; repeat the parameter for each.
 
     Returns:
-        The plan, from :func:`wasm.deployers.migrate.plan_migration`.
+        The plan, from :func:`noust.deployers.migrate.plan_migration`.
 
     Raises:
         HTTPException: 404 when the application is unknown, 409 when it is on

@@ -4,12 +4,12 @@
 """
 Recipes: well-known applications deployed from a declarative file, without Docker.
 
-A recipe is data shipped with the package (``src/wasm/recipes/<name>.yaml``),
+A recipe is data shipped with the package (``src/noust/recipes/<name>.yaml``),
 never code: which deployer builds it, where its source comes from (a git
 repository at a fixed tag, an archive with its checksum, or files rendered
 from the recipe's own assets), the variables it needs with their generated
 secrets, its database, what must survive a release, how its health is asked
-and what to tell the operator afterwards. :mod:`wasm.recipes.deploy` turns one
+and what to tell the operator afterwards. :mod:`noust.recipes.deploy` turns one
 into the arguments of an ordinary deployment; the deployers do the rest.
 
 Every file is validated strictly when it is loaded - an unknown key is an
@@ -61,8 +61,8 @@ from typing import Any
 import yaml
 from jinja2 import TemplateSyntaxError
 
-from wasm.core.exceptions import ValidationError
-from wasm.validators.environment import is_valid_env_name
+from noust.core.exceptions import ValidationError
+from noust.validators.environment import is_valid_env_name
 
 #: What a recipe is named: its file name, and what ``--recipe`` takes.
 NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
@@ -142,7 +142,7 @@ class RecipeSource:
         Spell the source as a deployment takes it.
 
         An archive carries its checksum in the URL fragment, which
-        :meth:`~wasm.managers.source_manager.SourceManager.download_archive`
+        :meth:`~noust.managers.source_manager.SourceManager.download_archive`
         verifies on every download, updates included.
 
         Returns:
@@ -253,9 +253,9 @@ class Recipe:
 
     def to_dict(self) -> dict[str, Any]:
         """
-        Describe the recipe in full, as ``wasm recipe show`` and the API do.
+        Describe the recipe in full, as ``noust recipe show`` and the API do.
 
-        The variables are listed by name with whether WASM generates them;
+        The variables are listed by name with whether Noust generates them;
         their templates are not secrets but are an implementation detail.
 
         Returns:
@@ -292,7 +292,7 @@ def _fail(name: str, message: str) -> RecipeError:
     """
     return RecipeError(
         f"Recipe {name!r} is not valid: {message}",
-        details=f"Fix src/wasm/recipes/{name}.yaml; see wasm.recipes for the format.",
+        details=f"Fix src/noust/recipes/{name}.yaml; see noust.recipes for the format.",
     )
 
 
@@ -371,7 +371,7 @@ def _check_template(name: str, key: str, value: str) -> None:
     Raises:
         RecipeError: When it is not valid template syntax.
     """
-    from wasm.recipes.render import template_environment
+    from noust.recipes.render import template_environment
 
     try:
         template_environment().parse(value)
@@ -538,7 +538,7 @@ def parse_recipe(name: str, data: Any) -> Recipe:
         raise _fail(name, "unavailable_reason is only for an unavailable recipe")
 
     app_type = _string(name, data, "app_type")
-    from wasm.deployers.registry import available_types
+    from noust.deployers.registry import available_types
 
     known = {entry["type"] for entry in available_types()} - {"auto"}
     if app_type not in known:
@@ -575,7 +575,7 @@ def parse_recipe(name: str, data: Any) -> Recipe:
         checked_env[key] = value
 
     persistent = _strings(name, data.get("persistent_paths"), "persistent_paths")
-    from wasm.deployers.releases import persistent_path
+    from noust.deployers.releases import persistent_path
 
     for path in persistent:
         persistent_path(path)
@@ -587,7 +587,7 @@ def parse_recipe(name: str, data: Any) -> Recipe:
             raise _fail(name, "health takes path and expect")
         path = raw_health.get("path", "/")
         expect = raw_health.get("expect")
-        from wasm.validators.health import parse_health_expect
+        from noust.validators.health import parse_health_expect
 
         if not isinstance(path, str) or not path.startswith("/") or " " in path:
             raise _fail(name, "health.path must start with /")
@@ -601,7 +601,7 @@ def parse_recipe(name: str, data: Any) -> Recipe:
             raise _fail(name, "php settings are for app_type php-fpm")
         if not isinstance(php, dict) or set(php) - _PHP_KEYS:
             raise _fail(name, f"php takes {', '.join(sorted(_PHP_KEYS))}")
-        from wasm.deployers.php_fpm import PhpSettings
+        from noust.deployers.php_fpm import PhpSettings
 
         PhpSettings.from_mapping({key: value for key, value in php.items() if key != "files"})
         files = php.get("files") or {}
@@ -668,7 +668,7 @@ def get_recipe(name: str) -> Recipe:
     if not NAME_PATTERN.match(name or "") or name not in files:
         raise RecipeNotFoundError(
             f"No recipe named {name!r}",
-            details=f"Available recipes: {', '.join(sorted(files))}. See: wasm recipe list",
+            details=f"Available recipes: {', '.join(sorted(files))}. See: noust recipe list",
         )
     try:
         data = yaml.safe_load(files[name].read_text(encoding="utf-8"))

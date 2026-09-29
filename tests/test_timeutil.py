@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from wasm.core.timeutil import to_iso_offset
+from noust.core.timeutil import to_iso_offset
 
 
 def test_none_stays_none() -> None:

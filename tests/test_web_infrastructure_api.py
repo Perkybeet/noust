@@ -29,14 +29,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.managers.service_manager import WASM_UNIT_MARKER, ServiceManager
-from wasm.web.api import services as services_api
-from wasm.web.api import sites as sites_api
-from wasm.web.api.auth import get_current_session
+from noust.managers.service_manager import UNIT_MARKER, ServiceManager
+from noust.web.api import services as services_api
+from noust.web.api import sites as sites_api
+from noust.web.api.auth import get_current_session
 
 RAW_UNIT = (
-    f"# {WASM_UNIT_MARKER}\n[Unit]\nDescription=Raw queue worker\n\n"
-    "[Service]\nExecStart=/usr/bin/true\n"
+    f"# {UNIT_MARKER}\n[Unit]\nDescription=Raw queue worker\n\n[Service]\nExecStart=/usr/bin/true\n"
 )
 
 
@@ -142,8 +141,8 @@ def site_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Pa
     Returns:
         The sites-available and sites-enabled directories.
     """
-    from wasm.managers.nginx_manager import NginxManager
-    from wasm.managers.webserver import NGINX_BACKEND
+    from noust.managers.nginx_manager import NginxManager
+    from noust.managers.webserver import NGINX_BACKEND
 
     available = tmp_path / "etc" / "nginx" / "sites-available"
     enabled = tmp_path / "etc" / "nginx" / "sites-enabled"

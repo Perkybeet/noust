@@ -3,7 +3,7 @@ import type { Locale } from "../../../app/locale";
 import { translate } from "../../../i18n/translate";
 import type { MessageKey } from "../../../i18n/types";
 
-/** The drain the backend accepts, in seconds (`MAX_DRAIN_SECONDS` in `wasm.deployers.bluegreen`). */
+/** The drain the backend accepts, in seconds (`MAX_DRAIN_SECONDS` in `noust.deployers.bluegreen`). */
 export const DRAIN_MIN = 0;
 export const DRAIN_MAX = 300;
 

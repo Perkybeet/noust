@@ -54,7 +54,7 @@ export const common: Catalog<typeof en> = {
     elevationCancelled: "No se ha cambiado nada porque se canceló la confirmación.",
     elevationCancelledHint: "Vuelve a ejecutar la acción y confirma que eres tú para continuar.",
     unreachable: "La solicitud no llegó al servidor.",
-    unreachableHint: "La consola no pudo contactar con el panel de WASM. Comprueba que está en ejecución con `wasm web status`.",
+    unreachableHint: "La consola no pudo contactar con el panel de Noust. Comprueba que está en ejecución con `noust web status`.",
   },
   streams: {
     logFailed: "Falló la transmisión de registros.",

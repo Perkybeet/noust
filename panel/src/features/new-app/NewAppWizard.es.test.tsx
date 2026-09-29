@@ -86,7 +86,7 @@ describe("the new-app wizard in Spanish", () => {
     await user.type(screen.getByLabelText("Repositorio o directorio"), "/var/www/src/storefront");
     await user.click(screen.getByRole("button", { name: "Inspeccionar origen" }));
     expect(await screen.findByRole("heading", { level: 2, name: "Revisión" })).toHaveFocus();
-    const found = screen.getByRole("region", { name: "Lo que ha encontrado WASM" });
+    const found = screen.getByRole("region", { name: "Lo que ha encontrado Noust" });
     expect(within(found).getByText("Compilar")).toBeInTheDocument();
     expect(within(found).getByText(/Parece una aplicación Next\.js que usa/)).toBeInTheDocument();
     expect(within(found).getByText("También coincide con Node.js.", { exact: false })).toBeInTheDocument();

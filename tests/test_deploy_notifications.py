@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Tests for :mod:`wasm.core.deploy_notifications`.
+Tests for :mod:`noust.core.deploy_notifications`.
 
 The default subscriber of every deployment in every process - CLI, console
-jobs and the webhook alike, per :mod:`wasm.deployers.deploy_events`. What is
+jobs and the webhook alike, per :mod:`noust.deployers.deploy_events`. What is
 defended:
 
 - **Every deploy event kind maps to its own notification kind**, and an
@@ -16,7 +16,7 @@ defended:
   a preview's parent and pull request number when the domain is one, and a
   console link when ``web.public_url`` is configured.
 - **``deploy_started`` ships off by default**; the others ship on. Asserted
-  through the real :class:`~wasm.core.notifier.Notifier`, the same way
+  through the real :class:`~noust.core.notifier.Notifier`, the same way
   tests/test_web_notifications_wiring.py asserts the job-based wiring's
   switches, not by re-reading the default in isolation.
 - **Delivery never blocks the caller**, even when a channel is slow, and
@@ -38,23 +38,23 @@ from pathlib import Path
 
 import pytest
 
+from noust.core import deploy_notifications
+from noust.core.config import DEFAULT_CONFIG, Config
+from noust.core.notifier import NOTIFICATION_QUEUE, NotificationEvent, Notifier
+from noust.core.store import App, NoustStore, PreviewRecord
+from noust.deployers.deploy_events import DeployEvent, DeployEventKind
 from tests.test_notifier import CapturingOpener, config, public_dns  # noqa: F401
-from wasm.core import deploy_notifications
-from wasm.core.config import DEFAULT_CONFIG, Config
-from wasm.core.notifier import NOTIFICATION_QUEUE, NotificationEvent, Notifier
-from wasm.core.store import App, PreviewRecord, WASMStore
-from wasm.deployers.deploy_events import DeployEvent, DeployEventKind
 
 WEBHOOK_URL = "https://hooks.example.test/wasm"
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> Iterator[WASMStore]:
+def store(tmp_path: Path) -> Iterator[NoustStore]:
     """A sandboxed store, reset around the test like test_deploy_events.py's own."""
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "state" / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "state" / "wasm.db")
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture(autouse=True)
@@ -242,7 +242,7 @@ class TestBody:
         assert "console.example.test" not in body
 
     def test_names_the_preview_and_its_pull_request_number(
-        self, config: Config, store: WASMStore
+        self, config: Config, store: NoustStore
     ) -> None:
         store.create_app(
             App(
@@ -267,7 +267,7 @@ class TestBody:
         assert "Preview of shop.example.com #42." in body
 
     def test_a_preview_with_no_recorded_number_still_names_its_parent(
-        self, config: Config, store: WASMStore
+        self, config: Config, store: NoustStore
     ) -> None:
         store.create_app(
             App(
@@ -282,7 +282,7 @@ class TestBody:
         assert "Preview of shop.example.com." in body
 
     def test_an_ordinary_application_has_no_preview_line(
-        self, config: Config, store: WASMStore
+        self, config: Config, store: NoustStore
     ) -> None:
         store.create_app(App(domain="shop.example.com", app_path="/var/www/apps/shop-example-com"))
 
@@ -291,7 +291,7 @@ class TestBody:
         assert "Preview of" not in body
 
     def test_an_application_the_store_has_never_heard_of_has_no_preview_line(
-        self, config: Config, store: WASMStore
+        self, config: Config, store: NoustStore
     ) -> None:
         """The domain is real (it is deploying), just not yet recorded."""
         body = deploy_notifications._body(make_event(domain="new.example.com"), config)
@@ -316,7 +316,7 @@ class TestBodyInSpanish:
         assert evidence in body
 
     def test_names_the_preview_and_its_pull_request_number(
-        self, config: Config, store: WASMStore
+        self, config: Config, store: NoustStore
     ) -> None:
         config.set("notifications.language", "es")
         store.create_app(

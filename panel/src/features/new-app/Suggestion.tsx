@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 import { cx } from "../../lib/cx";
 
-/** `wasm setup init` in a sentence becomes code; the rest stays text. */
+/** `noust setup init` in a sentence becomes code; the rest stays text. */
 function inline(text: string): ReactNode[] {
   return text.split("`").map((part, index) =>
     index % 2 === 1 ? (

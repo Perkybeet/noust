@@ -7,7 +7,7 @@ Tests for ``wasm sessions``: active panel logins from the command line.
 An operator locked out of the browser but still with shell access - exactly
 the moment a stray session is worth revoking - used to have no way to see or
 end one. These tests pin the CLI as a client of the exact
-:class:`~wasm.web.auth.TokenManager` every ``/api/auth/sessions*`` endpoint
+:class:`~noust.web.auth.TokenManager` every ``/api/auth/sessions*`` endpoint
 calls, over the same on-disk state.
 """
 
@@ -19,8 +19,8 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from wasm.cli.app import cli as root_cli
-from wasm.web.auth import STATE_DIR_ENV, SecurityConfig, TokenManager
+from noust.cli.app import cli as root_cli
+from noust.web.auth import STATE_DIR_ENV, SecurityConfig, TokenManager
 
 
 @pytest.fixture

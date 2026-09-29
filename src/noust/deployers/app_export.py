@@ -9,16 +9,16 @@ source, branch, layout, domains, environment, health check, limits, release
 retention, persistent paths, cron jobs, backup schedule, previews, blue/green
 - as a versioned JSON document (``"format": "wasm-app"``). Every part is read
 through the reader that already owns it: the store's getters, the domain
-helpers, :func:`~wasm.deployers.helpers.app_env.read_app_env`,
-:meth:`~wasm.managers.cron_manager.CronManager.list_jobs`. Secret values are
-left out (``null`` with ``"secret": true``) unless asked for, and WASM's own
+helpers, :func:`~noust.deployers.helpers.app_env.read_app_env`,
+:meth:`~noust.managers.cron_manager.CronManager.list_jobs`. Secret values are
+left out (``null`` with ``"secret": true``) unless asked for, and Noust's own
 credentials never go in at all: not the webhook secret, not a backup
 destination's keys, not the GitHub App's; a destination is named, and the
 GitHub link is a yes or no.
 
 :func:`plan_import` checks a document and decides what an import will do;
 :func:`apply_import` does it. The application is created by the normal
-deploy path, handed in by the caller as ``deploy`` (``wasm create``'s
+deploy path, handed in by the caller as ``deploy`` (``noust create``'s
 ``_create_app`` on the terminal, the deploy job in the console), so an
 imported application is built, gated and recorded like any other. The rest is
 applied afterwards through the managers that own each part, and whatever
@@ -26,7 +26,7 @@ cannot be applied here - a backup destination this server does not have, a
 database, a GitHub installation - is reported, never guessed.
 
 :func:`proposal_document` turns another platform's configuration
-(:mod:`wasm.deployers.importers`) into a document, so ``wasm import --deploy``
+(:mod:`noust.deployers.importers`) into a document, so ``noust import --deploy``
 creates through this same path instead of a second one.
 """
 
@@ -42,27 +42,27 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-from wasm import __version__
-from wasm.core.config import REDACTED, Config
-from wasm.core.exceptions import DomainConflictError, ValidationError, WASMError
-from wasm.core.logger import Logger
-from wasm.core.secret_detection import classify
-from wasm.core.store import App, DomainKind, get_store
-from wasm.core.utils import domain_to_app_name
-from wasm.deployers import domains as domain_changes
-from wasm.deployers.bluegreen import set_zero_downtime
-from wasm.deployers.helpers.app_env import read_app_env
-from wasm.deployers.helpers.layout import LAYOUTS, RELEASES, code_path_for
-from wasm.deployers.importers import Proposal
-from wasm.deployers.importers.base import MAX_NESTING, nesting_depth
-from wasm.deployers.lifecycle import set_health_check, set_release_retention
-from wasm.managers.backup_scheduler import BackupSchedule, BackupScheduler
-from wasm.managers.cron_manager import CronJob, CronManager
-from wasm.managers.previews import enable_previews
-from wasm.managers.source_manager import redact_git_text
-from wasm.validators.domain import validate_domain
-from wasm.validators.environment import is_valid_env_name
-from wasm.validators.health import check_health_expect, check_health_path, check_health_timeout
+from noust import __version__
+from noust.core.config import REDACTED, Config
+from noust.core.exceptions import DomainConflictError, NoustError, ValidationError
+from noust.core.logger import Logger
+from noust.core.secret_detection import classify
+from noust.core.store import App, DomainKind, get_store
+from noust.core.utils import domain_to_app_name
+from noust.deployers import domains as domain_changes
+from noust.deployers.bluegreen import set_zero_downtime
+from noust.deployers.helpers.app_env import read_app_env
+from noust.deployers.helpers.layout import LAYOUTS, RELEASES, code_path_for
+from noust.deployers.importers import Proposal
+from noust.deployers.importers.base import MAX_NESTING, nesting_depth
+from noust.deployers.lifecycle import set_health_check, set_release_retention
+from noust.managers.backup_scheduler import BackupSchedule, BackupScheduler
+from noust.managers.cron_manager import CronJob, CronManager
+from noust.managers.previews import enable_previews
+from noust.managers.source_manager import redact_git_text
+from noust.validators.domain import validate_domain
+from noust.validators.environment import is_valid_env_name
+from noust.validators.health import check_health_expect, check_health_path, check_health_timeout
 
 #: What the document says it is, and the version of its shape.
 FORMAT = "wasm-app"
@@ -77,7 +77,7 @@ MAX_DOCUMENT_SIZE = 1024 * 1024
 
 #: Where every cron job an import creates is recorded, as ``POST /api/cron``
 #: records the ones created there.
-audit_log = logging.getLogger("wasm.audit")
+audit_log = logging.getLogger("noust.audit")
 
 
 # Export ---------------------------------------------------------------------
@@ -94,12 +94,12 @@ def _known(domain: str) -> App:
         The row.
 
     Raises:
-        WASMError: Nothing is deployed there.
+        NoustError: Nothing is deployed there.
     """
     app = get_store().get_app(validate_domain(domain))
     if app is None:
-        raise WASMError(
-            f"Application not found: {domain}", details="Run 'wasm list' to see what is deployed."
+        raise NoustError(
+            f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
         )
     return app
 
@@ -114,7 +114,7 @@ def export_app(
         domain: The application's domain.
         with_secrets: Include the values of secret variables. Without it they
             are ``null`` with ``"secret": true``, decided by the one
-            classifier (:func:`~wasm.core.secret_detection.classify`) with the
+            classifier (:func:`~noust.core.secret_detection.classify`) with the
             application's own marks.
         cron: Cron manager to list jobs with; tests pass one.
 
@@ -124,7 +124,7 @@ def export_app(
         ``exported_at``.
 
     Raises:
-        WASMError: Nothing is deployed at ``domain``.
+        NoustError: Nothing is deployed at ``domain``.
     """
     app = _known(domain)
     store = get_store()
@@ -187,7 +187,7 @@ def _export_source(source: str | None, *, with_secrets: bool) -> str | None:
     """
     Describe where an application deploys from, without its credentials.
 
-    The userinfo of a URL always goes (a repository token is WASM's to keep,
+    The userinfo of a URL always goes (a repository token is Noust's to keep,
     not the document's). Without ``with_secrets`` the query and the fragment
     of an http(s) URL go too: an archive link carries its token there
     (``?token=``, a presigned ``X-Amz-Signature``). They are replaced by
@@ -401,7 +401,7 @@ def _fail(where: str, what: str) -> ValidationError:
     """
     return ValidationError(
         f"The export document is not valid: {where} {what}",
-        details="Export it again with 'wasm app export', or fix the field.",
+        details="Export it again with 'noust app export', or fix the field.",
         field=where,
     )
 
@@ -477,8 +477,8 @@ def validate_document(data: Any) -> dict[str, Any]:
     doc = dict(_object(data, "document"))
     if doc.get("format") != FORMAT:
         raise ValidationError(
-            "This is not a WASM application export",
-            details=f'An export says "format": "{FORMAT}"; make one with \'wasm app export\'.',
+            "This is not a Noust application export",
+            details=f'An export says "format": "{FORMAT}"; make one with \'noust app export\'.',
             field="format",
         )
     version = doc.get("version")
@@ -486,9 +486,9 @@ def validate_document(data: Any) -> dict[str, Any]:
         raise _fail("version", "must be a whole number")
     if version > VERSION:
         raise ValidationError(
-            f"The export is version {version}; this WASM reads version {VERSION}",
-            details=f"It was made by WASM {doc.get('wasm_version') or 'a newer release'}. "
-            "Upgrade WASM on this server to import it.",
+            f"The export is version {version}; this Noust reads version {VERSION}",
+            details=f"It was made by Noust {doc.get('wasm_version') or 'a newer release'}. "
+            "Upgrade Noust on this server to import it.",
             field="version",
         )
     if version < 1:
@@ -605,7 +605,7 @@ def load_document(text: str) -> dict[str, Any]:
     if len(text) > MAX_DOCUMENT_SIZE:
         raise ValidationError(
             f"The export document is larger than {MAX_DOCUMENT_SIZE} bytes",
-            details="An export is a few kilobytes; check the file is the one 'wasm app "
+            details="An export is a few kilobytes; check the file is the one 'noust app "
             "export' wrote.",
         )
     try:
@@ -615,13 +615,13 @@ def load_document(text: str) -> dict[str, Any]:
     except RecursionError as exc:
         raise ValidationError(
             "The export document nests too deeply to be read",
-            details="An export nests three levels; check the file is the one 'wasm app "
+            details="An export nests three levels; check the file is the one 'noust app "
             "export' wrote.",
         ) from exc
     if nesting_depth(data) > MAX_NESTING:
         raise ValidationError(
             "The export document nests too deeply to be read",
-            details="An export nests three levels; check the file is the one 'wasm app "
+            details="An export nests three levels; check the file is the one 'noust app "
             "export' wrote.",
         )
     return validate_document(data)
@@ -1000,7 +1000,7 @@ def _describe_steps(
                         f"backup destination {destination['name']}",
                         False,
                         "This server has no destination by that name; the schedule keeps "
-                        "local backups only. Add it with 'wasm backup destination add', then "
+                        "local backups only. Add it with 'noust backup destination add', then "
                         "schedule again.",
                     )
                 )
@@ -1029,7 +1029,7 @@ def _describe_steps(
             ImportStep(
                 f"database {named}({database['engine']})",
                 False,
-                "Databases are not exported, only named. Create it with 'wasm db create', "
+                "Databases are not exported, only named. Create it with 'noust db create', "
                 "restore its data, and set the application's connection variables.",
             )
         )
@@ -1039,7 +1039,7 @@ def _describe_steps(
                 "GitHub App installation",
                 False,
                 "The exported application cloned through a GitHub App installation. Connect "
-                "this server's GitHub App to the repository ('wasm github setup') for updates to "
+                "this server's GitHub App to the repository ('noust github setup') for updates to "
                 "use it.",
             )
         )
@@ -1107,7 +1107,7 @@ def _previews_line(previews: Mapping[str, Any]) -> str:
 
 
 #: What a step may raise and still let the import go on to the next one.
-_STEP_ERRORS = (WASMError, OSError)
+_STEP_ERRORS = (NoustError, OSError)
 
 
 def apply_import(
@@ -1135,14 +1135,14 @@ def apply_import(
         logger: Where progress goes.
         cron: Cron manager; tests pass one.
         actor: Who asked, for the audit record of each cron job created
-            (:func:`wasm.web.auth.actor_label` in the console, ``cli`` on the
+            (:func:`noust.web.auth.actor_label` in the console, ``cli`` on the
             terminal).
 
     Returns:
         What was applied and what was not.
 
     Raises:
-        WASMError: The deploy failed.
+        NoustError: The deploy failed.
     """
     log = logger or Logger()
     doc = plan.document
@@ -1160,8 +1160,8 @@ def apply_import(
         try:
             note = action()
         except _STEP_ERRORS as exc:
-            detail = exc.message if isinstance(exc, WASMError) else str(exc)
-            if isinstance(exc, WASMError) and exc.details:
+            detail = exc.message if isinstance(exc, NoustError) else str(exc)
+            if isinstance(exc, NoustError) and exc.details:
                 detail = f"{detail}. {exc.details}"
             log.warning(f"Not applied: {part}: {detail}")
             report.steps.append(ImportStep(part, False, detail))
@@ -1195,7 +1195,7 @@ def apply_import(
             if not change.certificate_issued:
                 return (
                     f"The certificate does not cover every name yet: {change.certificate_error}. "
-                    f"Point their DNS here and add each name again with 'wasm domain add'."
+                    f"Point their DNS here and add each name again with 'noust domain add'."
                 )
             return None
 
@@ -1325,7 +1325,7 @@ def _cron_job(
     if jobs.get_job(name) is not None:
         return (
             f"A cron job named {name} already exists on this server; create this one with "
-            "'wasm cron create' under another name."
+            "'noust cron create' under another name."
         )
     # The record POST /api/cron writes, plus what makes an imported job worth
     # reading twice: whom it runs as, and that a document chose it.
@@ -1366,7 +1366,7 @@ def proposal_document(
     """
     Turn another platform's configuration into an export document.
 
-    So that ``wasm import --deploy`` creates through :func:`plan_import` and
+    So that ``noust import --deploy`` creates through :func:`plan_import` and
     :func:`apply_import` like any import. A generated secret gets a random
     value here, as the platform would have generated one; a variable the
     configuration needs but does not give stays ``null``, so the plan stops

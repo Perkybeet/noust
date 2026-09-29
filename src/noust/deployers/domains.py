@@ -4,20 +4,20 @@
 """
 The one implementation of "the names an application answers on".
 
-``wasm domain`` and ``/api/apps/{domain}/domains`` are presentation over the
+``noust domain`` and ``/api/apps/{domain}/domains`` are presentation over the
 functions here. Each change goes through the same four places, in this order:
 
 1. **The store**, which refuses a name that is not a domain, that belongs to
    another application, or that would be a second primary
-   (:meth:`wasm.core.store.WASMStore.add_domain`).
+   (:meth:`noust.core.store.NoustStore.add_domain`).
 2. **The site**, rendered again by the application's own deployer
-   (:meth:`wasm.deployers.base.BaseDeployer.refresh_site`), exactly as a deploy
+   (:meth:`noust.deployers.base.BaseDeployer.refresh_site`), exactly as a deploy
    renders it. The web server reads the names from the store where it writes
    the file, so a redeploy later renders the same names again. The whole
    configuration is tested before the reload, and a change the web server
    refuses is put back - the row and the file both.
 3. **The certificate**, expanded under the same lineage to cover every name,
-   redirects included (:meth:`wasm.managers.cert_manager.CertManager.obtain`
+   redirects included (:meth:`noust.managers.cert_manager.CertManager.obtain`
    reads the same rows). Only for an application that already serves TLS; a
    removed name is never revoked, the lineage simply keeps covering it.
 4. **Nothing else.** The unit, the build and the release are not touched.
@@ -41,25 +41,25 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from wasm.core.applock import app_lock
-from wasm.core.exceptions import (
+from noust.core.applock import app_lock
+from noust.core.exceptions import (
     CertificateError,
     DependencyError,
     DeploymentError,
     DomainConflictError,
     DomainError,
+    NoustError,
     ValidationError,
-    WASMError,
 )
-from wasm.core.logger import Logger
-from wasm.core.store import App, DomainKind, DomainRecord, get_store
-from wasm.deployers.base import BaseDeployer
-from wasm.deployers.helpers.layout import app_root
-from wasm.deployers.registry import get_deployer
-from wasm.validators.domain import validate_domain
+from noust.core.logger import Logger
+from noust.core.store import App, DomainKind, DomainRecord, get_store
+from noust.deployers.base import BaseDeployer
+from noust.deployers.helpers.layout import app_root
+from noust.deployers.registry import get_deployer
+from noust.validators.domain import validate_domain
 
 #: What can fail while a change is applied, and is undone before it is raised.
-_APPLY_ERRORS = (WASMError, OSError, sqlite3.Error)
+_APPLY_ERRORS = (NoustError, OSError, sqlite3.Error)
 
 #: The kinds a name can be added as. The primary is the application itself.
 ADDABLE_KINDS: tuple[str, ...] = (DomainKind.ALIAS.value, DomainKind.REDIRECT.value)
@@ -131,7 +131,7 @@ def list_domains(app_domain: str) -> list[DomainRecord]:
         Its domains, primary first, then aliases, then redirects.
 
     Raises:
-        WASMError: When no application is deployed at ``app_domain``.
+        NoustError: When no application is deployed at ``app_domain``.
     """
     app = _application(app_domain)
     return get_store().list_domains(app.domain)
@@ -165,7 +165,7 @@ def add_domain(
         What was done.
 
     Raises:
-        WASMError: When the application is unknown.
+        NoustError: When the application is unknown.
         DomainError: When the name is not a domain or ``kind`` is ``primary``.
         DomainConflictError: When the name belongs to another application,
             to this one in another role, or has a site of its own. Adding a
@@ -202,7 +202,7 @@ def _add_domain(
     if name != app.domain and deployer.webserver_manager().site_exists(name):
         raise DomainConflictError(
             f"{name} already has a site of its own",
-            details=f"Delete it first if {app.domain} should answer on it: wasm site delete {name}",
+            details=f"Delete it first if {app.domain} should answer on it: noust site delete {name}",
         )
 
     tls = _serves_tls(app, deployer)
@@ -254,7 +254,7 @@ def remove_domain(
         What was done.
 
     Raises:
-        WASMError: When the application is unknown.
+        NoustError: When the application is unknown.
         DomainError: When the name is the primary, or not one of the
             application's domains.
         ValidationError: When the application's type writes its own web
@@ -282,7 +282,7 @@ def _remove_domain(
     if not store.remove_domain(app.domain, name):
         raise DomainError(
             f"{name} is not a domain of {app.domain}",
-            details=f"See the domains it answers on with: wasm domain list {app.domain}",
+            details=f"See the domains it answers on with: noust domain list {app.domain}",
         )
     try:
         deployer.refresh_site(with_ssl=tls)
@@ -311,9 +311,9 @@ def issue_certificate(
         What was done.
 
     Raises:
-        WASMError: When the application is unknown.
+        NoustError: When the application is unknown.
         DeploymentError: When its site does not serve TLS; there is no
-            certificate to expand, and ``wasm cert create`` is how one starts.
+            certificate to expand, and ``noust cert create`` is how one starts.
         CertificateError: When certbot fails, carrying its output verbatim.
         AppBusyError: Another operation is running on the application.
     """
@@ -324,7 +324,7 @@ def issue_certificate(
         if not _serves_tls(app, deployer):
             raise DeploymentError(
                 f"{app.domain} is not served over TLS",
-                details=f"Obtain its first certificate with: wasm cert create -d {app.domain}",
+                details=f"Obtain its first certificate with: noust cert create -d {app.domain}",
             )
         _cover_every_domain(deployer)
         log.success(f"The certificate of {app.domain} covers every domain")
@@ -415,14 +415,14 @@ def _application(app_domain: str) -> App:
         The row.
 
     Raises:
-        WASMError: When nothing is deployed there.
+        NoustError: When nothing is deployed there.
     """
     domain = validate_domain(app_domain)
     app = get_store().get_app(domain)
     if app is None:
-        raise WASMError(
+        raise NoustError(
             f"Application not found: {domain}",
-            details="Run 'wasm list' to see what is deployed.",
+            details="Run 'noust list' to see what is deployed.",
         )
     return app
 
@@ -471,8 +471,8 @@ def _site_deployer(app: App, *, verbose: bool) -> BaseDeployer:
         deployer = get_deployer(app.app_type, verbose=verbose)
     except ValueError as exc:
         raise DeploymentError(
-            f"{app.domain} has an application type WASM does not know: {app.app_type}",
-            details=f"Redeploy it with an explicit type: wasm create -d {app.domain} --type ...",
+            f"{app.domain} has an application type Noust does not know: {app.app_type}",
+            details=f"Redeploy it with an explicit type: noust create -d {app.domain} --type ...",
         ) from exc
     if not isinstance(deployer, BaseDeployer):
         raise ValidationError(

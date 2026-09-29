@@ -6,7 +6,7 @@
 import { expect, expectNoA11yViolations, settle, signIn, test, toasts } from "./fixtures";
 import { confirmItsYou } from "./settings.helpers";
 
-test("lists a seeded WASM-managed service and opens its page", async ({ page, consoleServer }) => {
+test("lists a seeded Noust-managed service and opens its page", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/services");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Services");
 
@@ -20,7 +20,7 @@ test("lists a seeded WASM-managed service and opens its page", async ({ page, co
   await link.click();
   await expect(page).toHaveURL(/\/services\/wasm-shop-example-net$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("wasm-shop-example-net");
-  // Its facts say who manages it (a foreign unit's page says WASM did not create it).
+  // Its facts say who manages it (a foreign unit's page says Noust did not create it).
   await expect(page.getByText("Managed by", { exact: true })).toBeVisible();
   await expect(page.getByRole("region", { name: /Logs for/ })).toBeVisible();
   await expectNoA11yViolations(page, "a service's own page");
@@ -107,7 +107,7 @@ test("checks the unit with systemd-analyze before saving, and blocks a save it r
   await expect(page.getByLabel("Unit file for wasm-shop-example-net", { exact: true })).toHaveValue(original);
 });
 
-test("shows every unit, including one WASM did not create, read-only, behind the show-all-units toggle", async ({ page, consoleServer, problems }) => {
+test("shows every unit, including one Noust did not create, read-only, behind the show-all-units toggle", async ({ page, consoleServer, problems }) => {
   // The per-name read only ever answers what the store tracks: expected, once, while the
   // foreign unit's own page falls back to the all-units listing to tell it apart from a name
   // that does not exist at all (see ServiceDetailPage).
@@ -129,7 +129,7 @@ test("shows every unit, including one WASM did not create, read-only, behind the
 
   await row.getByRole("link", { name: "postgresql" }).click();
   await expect(page).toHaveURL(/\/services\/postgresql$/);
-  await expect(page.getByText("WASM did not create this unit")).toBeVisible();
+  await expect(page.getByText("Noust did not create this unit")).toBeVisible();
   await expect(page.getByRole("button", { name: /Delete/ })).toHaveCount(0);
   await expect(page.getByLabel(/Unit file for/)).toHaveCount(0);
   await expectNoA11yViolations(page, "a foreign unit's own page");

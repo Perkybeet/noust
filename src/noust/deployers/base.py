@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Base deployer class for WASM.
+Base deployer class for Noust.
 
 Defines the interface and common functionality for all deployers.
 
@@ -37,22 +37,22 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, ClassVar, Literal
 
-from wasm.core.applock import app_lock
-from wasm.core.config import Config
-from wasm.core.exceptions import (
+from noust.core.applock import app_lock
+from noust.core.config import Config
+from noust.core.exceptions import (
     BuildError,
     CertificateError,
     DeploymentError,
+    NoustError,
     OutOfMemoryError,
     RolledBackError,
     ServiceError,
     ValidationError,
-    WASMError,
 )
-from wasm.core.fs import SECRET_MODE, DryRunFileSystem, FileSystem
-from wasm.core.logger import Icons
-from wasm.core.runner import CommandResult, CommandRunner, get_runner
-from wasm.core.store import (
+from noust.core.fs import SECRET_MODE, DryRunFileSystem, FileSystem
+from noust.core.logger import Icons
+from noust.core.runner import CommandResult, CommandRunner, get_runner
+from noust.core.store import (
     DEFAULT_KEEP_RELEASES,
     App,
     AppStatus,
@@ -62,9 +62,9 @@ from wasm.core.store import (
     ReleaseStatus,
     get_store,
 )
-from wasm.core.utils import domain_to_app_name
-from wasm.deployers.bluegreen import BlueGreen
-from wasm.deployers.helpers import (
+from noust.core.utils import domain_to_app_name
+from noust.deployers.bluegreen import BlueGreen
+from noust.deployers.helpers import (
     EnvManager,
     NginxConfigBuilder,
     PackageManagerHelper,
@@ -72,13 +72,13 @@ from wasm.deployers.helpers import (
     PrismaHelper,
     preflight,
 )
-from wasm.deployers.helpers.health import failure_output, wait_until_healthy
-from wasm.deployers.helpers.health_gate import HealthCheck, HealthGate
-from wasm.deployers.helpers.layout import RELEASES, choose_layout, env_file_in
-from wasm.deployers.helpers.nginx_config import NginxAdvancedConfig
-from wasm.deployers.helpers.permissions import hand_over_file, hand_over_tree
-from wasm.deployers.helpers.registration import StoreRegistrar
-from wasm.deployers.helpers.release_build import (
+from noust.deployers.helpers.health import failure_output, wait_until_healthy
+from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
+from noust.deployers.helpers.layout import RELEASES, choose_layout, env_file_in
+from noust.deployers.helpers.nginx_config import NginxAdvancedConfig
+from noust.deployers.helpers.permissions import hand_over_file, hand_over_tree
+from noust.deployers.helpers.registration import StoreRegistrar
+from noust.deployers.helpers.release_build import (
     REPO_CACHE_DIR,
     StagedRelease,
     discard_release,
@@ -86,24 +86,24 @@ from wasm.deployers.helpers.release_build import (
     stage_release,
     stamp_installed_dependencies,
 )
-from wasm.deployers.helpers.summary import print_deployment_summary
-from wasm.deployers.helpers.target import claim_deploy_target
-from wasm.deployers.interface import AppDeployer, StepReporter, UpdateResult
-from wasm.deployers.pipeline import DeployStep, run_pipeline
-from wasm.deployers.recorder import (
+from noust.deployers.helpers.summary import print_deployment_summary
+from noust.deployers.helpers.target import claim_deploy_target
+from noust.deployers.interface import AppDeployer, StepReporter, UpdateResult
+from noust.deployers.pipeline import DeployStep, run_pipeline
+from noust.deployers.recorder import (
     CapturingLogger,
     DeploymentRecorder,
     checkout_git_info,
     recorder_for,
     recording,
 )
-from wasm.deployers.releases import CURRENT_LINK, ReleaseManager
-from wasm.managers.apache_manager import ApacheManager
-from wasm.managers.cert_manager import CertManager
-from wasm.managers.nginx_manager import NginxManager
-from wasm.managers.service_manager import ResourceLimits, ServiceManager
-from wasm.managers.source_manager import SourceManager
-from wasm.validators.environment import validate_environment, validate_unit_value
+from noust.deployers.releases import CURRENT_LINK, ReleaseManager
+from noust.managers.apache_manager import ApacheManager
+from noust.managers.cert_manager import CertManager
+from noust.managers.nginx_manager import NginxManager
+from noust.managers.service_manager import ResourceLimits, ServiceManager
+from noust.managers.source_manager import SourceManager
+from noust.validators.environment import validate_environment, validate_unit_value
 
 # Type for package managers
 PackageManager = Literal["npm", "pnpm", "bun", "yarn", "auto"]
@@ -123,7 +123,7 @@ GIT_LOG_TIMEOUT = 10
 
 #: Failures while writing release bookkeeping. The release on disk is the
 #: truth; a row that could not be written is reported, never fatal.
-_RECORDING_ERRORS = (WASMError, sqlite3.Error)
+_RECORDING_ERRORS = (NoustError, sqlite3.Error)
 
 
 class BaseDeployer(AppDeployer):
@@ -374,7 +374,7 @@ class BaseDeployer(AppDeployer):
             layout: ``inplace`` or ``releases`` for a new application,
                 ``default`` for the server's configured layout, or None for
                 in place. An existing application always keeps its own; see
-                :func:`wasm.deployers.helpers.layout.choose_layout`.
+                :func:`noust.deployers.helpers.layout.choose_layout`.
             persistent_paths: Paths, relative to the application, that live
                 in ``shared/`` and are linked into every release (uploads,
                 storage). None keeps what the application already has.
@@ -383,7 +383,7 @@ class BaseDeployer(AppDeployer):
                 the two can be linked; None for the CLI and for a webhook.
             memory_max_mb: ``MemoryMax`` the unit is created with, in MB.
                 Only takes effect when ``resource_limits_given`` is true; see
-                :meth:`~wasm.deployers.helpers.registration.StoreRegistrar.register_app`.
+                :meth:`~noust.deployers.helpers.registration.StoreRegistrar.register_app`.
             cpu_quota_percent: ``CPUQuota`` the unit is created with, in
                 percent of one CPU. Same rule as ``memory_max_mb``.
             tasks_max: ``TasksMax`` the unit is created with. Same rule as
@@ -407,13 +407,13 @@ class BaseDeployer(AppDeployer):
                 deployment's gate already asks what the application answers
                 (another platform's configuration, say).
             **options: ``replace_existing`` deploys into a directory that
-                already holds files (``wasm create --force``): in place they
+                already holds files (``noust create --force``): in place they
                 are replaced, on releases a release is added beside them.
                 Anything else is accepted and ignored, so a caller can pass
                 the union of every deployer's settings without knowing which
                 one it got.
         """
-        from wasm.validators.domain import should_include_www
+        from noust.validators.domain import should_include_www
 
         self.domain = domain
         self.source = source
@@ -439,7 +439,7 @@ class BaseDeployer(AppDeployer):
         self._releases = None
         self._staged = None
         # Deploying over a directory that already holds files is refused
-        # unless asked for (wasm create --force); see claim_deploy_target.
+        # unless asked for (noust create --force); see claim_deploy_target.
         self._replace_existing = bool(options.get("replace_existing", False))
         # An in-place update that must restart behind the health gate itself
         # (going back to a deployment), rather than leave the restart to the
@@ -530,7 +530,7 @@ class BaseDeployer(AppDeployer):
         """
         Build a release someone else already staged, instead of fetching one.
 
-        :class:`~wasm.deployers.auto.AutoDeployer` has to fetch the source to
+        :class:`~noust.deployers.auto.AutoDeployer` has to fetch the source to
         know which deployer builds it; fetching again would clone twice and
         leave an empty release behind.
 
@@ -885,7 +885,7 @@ class BaseDeployer(AppDeployer):
         """
         The variables the unit sets inline, and the only ones it carries.
 
-        They are not secret and they are WASM's to decide: PORT is the port the
+        They are not secret and they are Noust's to decide: PORT is the port the
         site proxies to. Everything else - what ``--env-file`` or ``env_vars``
         gave, what ``.env.example`` generated - goes to the env file, because a
         unit is 0644 and ``systemctl show`` prints its ``Environment=`` to any
@@ -920,7 +920,7 @@ class BaseDeployer(AppDeployer):
         for key in sorted(given.keys() & owned.keys()):
             if given[key] != owned[key]:
                 self.logger.warning(
-                    f"{key}={given[key]} is not used: WASM sets {key}={owned[key]} in the unit"
+                    f"{key}={given[key]} is not used: Noust sets {key}={owned[key]} in the unit"
                 )
 
         current = self._env_manager.read_env_file(self._env_file())
@@ -1032,7 +1032,7 @@ class BaseDeployer(AppDeployer):
 
         Every check runs, so one command reports every problem instead of the
         first one. The checks themselves live in
-        :mod:`wasm.deployers.helpers.preflight`.
+        :mod:`noust.deployers.helpers.preflight`.
 
         Returns:
             True if all checks pass.
@@ -1119,7 +1119,7 @@ class BaseDeployer(AppDeployer):
         self.logger.debug(f"Removing service: {self.app_name}")
         try:
             self.service_manager.stop(self.app_name)
-        except WASMError as e:
+        except NoustError as e:
             self.logger.debug(f"Service was not running: {e}")
         self.service_manager.delete_service(self.app_name)
 
@@ -1148,7 +1148,7 @@ class BaseDeployer(AppDeployer):
         with ``Restart=always`` that unit restarts a command the new tree does
         not have every ten seconds, forever: one production server was found
         at 7750 consecutive "Missing script: start" failures. The deletion is
-        :meth:`ServiceManager.delete_service`, which refuses a unit WASM does
+        :meth:`ServiceManager.delete_service`, which refuses a unit Noust does
         not own; that refusal, like any other failure here, is reported and
         does not fail a deployment whose site already serves the new files.
         """
@@ -1417,7 +1417,7 @@ class BaseDeployer(AppDeployer):
                 f"renders the {template} template",
                 details="A wasm.nginx.yaml gives the site routes of its own, which the two "
                 f"instances cannot share. Remove it, or turn the mode off first: "
-                f"wasm app zero-downtime {self.domain} off",
+                f"noust app zero-downtime {self.domain} off",
             )
 
         self.logger.substep(f"Web server: {self.webserver}")
@@ -1448,7 +1448,7 @@ class BaseDeployer(AppDeployer):
         A redirect rather than an alias: one canonical address is what a site
         wants, and a redirect costs the visitor nothing. An application that
         already has the name keeps it in whatever role it has - an operator
-        who made it an alias with ``wasm domain`` is not overruled by a flag
+        who made it an alias with ``noust domain`` is not overruled by a flag
         on a redeploy.
 
         Nothing is recorded when there is no application row to attach it to,
@@ -1525,7 +1525,7 @@ class BaseDeployer(AppDeployer):
             if active is None:
                 raise DeploymentError(
                     f"{self.domain} has no active release to serve",
-                    details=f"Build one first: wasm update {self.domain}",
+                    details=f"Build one first: noust update {self.domain}",
                 )
             self.adopt_release(
                 StagedRelease(path=active.path, commit=active.commit, manager=self.releases)
@@ -1589,7 +1589,7 @@ class BaseDeployer(AppDeployer):
         start_command = validate_unit_value(start_command, field="ExecStart")
         working_directory = validate_unit_value(str(self.runtime_path), field="WorkingDirectory")
         description = validate_unit_value(
-            f"WASM: {self.domain} ({self.APP_TYPE})", field="Description"
+            f"Noust: {self.domain} ({self.APP_TYPE})", field="Description"
         )
 
         zero_downtime = self._zero_downtime_app()
@@ -1981,7 +1981,7 @@ class BaseDeployer(AppDeployer):
         then fails with the probe's and the journal's own output.
 
         An application in zero-downtime mode is switched by
-        :class:`~wasm.deployers.bluegreen.BlueGreen` instead: the idle
+        :class:`~noust.deployers.bluegreen.BlueGreen` instead: the idle
         instance starts on the release and takes the traffic once it
         answers, and ``current`` moves last.
 
@@ -1994,7 +1994,7 @@ class BaseDeployer(AppDeployer):
         if zero_downtime is not None:
             try:
                 self._blue_green(zero_downtime).activate(staged.path, staged.manager)
-            except WASMError:
+            except NoustError:
                 self._record_release_status(staged, ReleaseStatus.FAILED)
                 raise
             self._record_release_active(staged)
@@ -2299,7 +2299,7 @@ class BaseDeployer(AppDeployer):
         """
         try:
             self.obtain_certificate()
-        except (CertificateError, WASMError) as e:
+        except (CertificateError, NoustError) as e:
             if self.has_certificate():
                 # Extending the lineage to a name whose DNS is not ready must
                 # not take TLS off the names the certificate already covers.
@@ -2460,7 +2460,7 @@ class BaseDeployer(AppDeployer):
         """
         Rebuild this application without a full redeploy.
 
-        The sequence used to live in ``wasm.cli.commands.webapp``, which drove
+        The sequence used to live in ``noust.cli.commands.webapp``, which drove
         the deployer step by step and reached into ``_package_manager`` to do
         it. Keeping it here means the update path is the deployer's own, gets
         the same detection and error handling as a deploy, and can be tested.
@@ -2482,7 +2482,7 @@ class BaseDeployer(AppDeployer):
             What was done, for the caller to present.
 
         Raises:
-            WASMError: When a step fails.
+            NoustError: When a step fails.
         """
         report = on_step or (lambda _message: None)
         releases = self.resolve_layout() == RELEASES
@@ -2625,7 +2625,7 @@ class BaseDeployer(AppDeployer):
             True if the application ended up deployed.
 
         Raises:
-            WASMError: Whatever the failing step raised, after the rollback.
+            NoustError: Whatever the failing step raised, after the rollback.
             AppBusyError: Another operation is running on the application.
         """
         if not self.domain:
@@ -2648,7 +2648,7 @@ class BaseDeployer(AppDeployer):
             True if the application ended up deployed.
 
         Raises:
-            WASMError: Whatever the failing step raised, after the rollback.
+            NoustError: Whatever the failing step raised, after the rollback.
         """
         self._ssl_obtained = False
 
@@ -2738,8 +2738,8 @@ class BaseDeployer(AppDeployer):
         self.logger.warning("Application started but health check failed")
         self.logger.blank()
         self.logger.info("Troubleshooting commands:")
-        self.logger.info(f"  wasm logs {self.domain}        # View application logs")
-        self.logger.info(f"  wasm status {self.domain}      # Check service status")
+        self.logger.info(f"  noust logs {self.domain}        # View application logs")
+        self.logger.info(f"  noust status {self.domain}      # Check service status")
 
     def _register_app_in_store(self, status: str) -> App:
         """

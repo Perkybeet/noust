@@ -18,7 +18,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from wasm.cli.app import ALIASES, cli
+from noust.cli.app import ALIASES, cli
 
 CONTRACT_FILE = Path(__file__).parent / "contracts/cli_surface.json"
 CONTRACT: dict[str, dict] = json.loads(CONTRACT_FILE.read_text(encoding="utf-8"))
@@ -206,7 +206,7 @@ class TestGlobalFlags:
         'wasm --dry-run <anything>' has to mean a dry run for that command, not
         for the three that happened to read the flag.
         """
-        from wasm.cli.app import Context
+        from noust.cli.app import Context
 
         seen: dict[str, bool] = {}
 
@@ -225,25 +225,25 @@ class TestGlobalFlags:
 
 class TestErrorBoundary:
     """
-    ``main()`` is the one place a ``WASMError`` becomes an exit code, so a
+    ``main()`` is the one place a ``NoustError`` becomes an exit code, so a
     field it drops is invisible everywhere the CLI is the front end.
 
     A tool's own words - psql's, nginx's or systemd's - explain a failure
-    better than any paraphrase, which is why ``WASMError`` carries them in a
+    better than any paraphrase, which is why ``NoustError`` carries them in a
     separate ``output`` field rather than folding them into ``details``. The
     web API already prints it verbatim in ``ErrorResponse``
-    (:func:`wasm.web.api.deps.error_response`); the CLI boundary has to as
+    (:func:`noust.web.api.deps.error_response`); the CLI boundary has to as
     well, or an operator at a terminal sees less than a script hitting the
     same failure over the API.
     """
 
     def test_the_tools_own_output_is_printed_verbatim(self, capsys: pytest.CaptureFixture[str]):
-        from wasm.cli.app import main
-        from wasm.core.exceptions import WASMError
+        from noust.cli.app import main
+        from noust.core.exceptions import NoustError
 
         @cli.command("probe-error-output", hidden=True)
         def probe() -> None:
-            raise WASMError(
+            raise NoustError(
                 "the command failed",
                 details="try again with --force",
                 output='nginx: [emerg] unexpected "}" in /etc/nginx/nginx.conf:12',
@@ -263,13 +263,13 @@ class TestErrorBoundary:
         assert captured.out.count("try again with --force") == 1
 
     def test_no_output_field_prints_no_extra_block(self, capsys: pytest.CaptureFixture[str]):
-        """A WASMError with nothing to show verbatim adds nothing extra."""
-        from wasm.cli.app import main
-        from wasm.core.exceptions import WASMError
+        """A NoustError with nothing to show verbatim adds nothing extra."""
+        from noust.cli.app import main
+        from noust.core.exceptions import NoustError
 
         @cli.command("probe-error-no-output", hidden=True)
         def probe() -> None:
-            raise WASMError("the command failed")
+            raise NoustError("the command failed")
 
         try:
             exit_code = main(["probe-error-no-output"])

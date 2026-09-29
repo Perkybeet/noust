@@ -134,7 +134,7 @@ export function mergeActivity({ jobs, jobsComplete, entries, auditComplete, acto
 // Words: what a job's type, an audit action, an audit result and an actor are called on
 // screen, next to the raw value the backend actually recorded.
 
-/** `wasm.web.jobs.JobType`, in the console's words. */
+/** `noust.web.jobs.JobType`, in the console's words. */
 const JOB_ACTION_LABELS: Readonly<Record<string, PlainKey>> = {
   deploy: "activity.jobAction.deploy",
   update: "activity.jobAction.update",
@@ -165,7 +165,7 @@ export function jobResource(job: ActivityJob): string | null {
 }
 
 /**
- * Every `action` the backend audits today (`grep -rho 'action="[a-z0-9_.]*"' src/wasm/web`),
+ * Every `action` the backend audits today (`grep -rho 'action="[a-z0-9_.]*"' src/noust/web`),
  * worded so it reads correctly next to either result: an action recorded with more than one
  * result (a sign-in can succeed or fail) gets a neutral, attempt-shaped label; an action the
  * backend only ever records with one result (a lockout is always `locked`) can safely describe
@@ -201,7 +201,7 @@ const AUDIT_ACTION_LABELS: Readonly<Record<string, PlainKey>> = {
 
 /**
  * An audit action's words. Every mutating API call is also audited generically as
- * `api.<method>` by the security middleware (`wasm.web.server`), alongside whichever specific
+ * `api.<method>` by the security middleware (`noust.web.server`), alongside whichever specific
  * action the endpoint itself records - shown here as "POST request" and so on rather than
  * guessed at from a fixed list, since the method is the one thing about it that is always
  * known. Anything else this table does not recognise is shown verbatim - never a guess.
@@ -240,7 +240,7 @@ function capitalise(text: string): string {
   return text.length === 0 ? text : text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-/** `result` values the audit log writes (`grep -rho 'result="[a-z]*"' src/wasm/web`), as keys. */
+/** `result` values the audit log writes (`grep -rho 'result="[a-z]*"' src/noust/web`), as keys. */
 const AUDIT_RESULT_STATUS: Readonly<Record<string, { state: StatusView["state"]; key: PlainKey; attention: boolean }>> = {
   success: { state: "running", key: "activity.auditResult.success", attention: false },
   ok: { state: "running", key: "activity.auditResult.ok", attention: false },
@@ -255,7 +255,7 @@ export function auditResultStatus(t: T, result: string): StatusView {
   if (word === "") return { state: "unknown", label: t("activity.auditResult.unknown"), attention: false };
   const known = AUDIT_RESULT_STATUS[word.toLowerCase()];
   if (known !== undefined) return { state: known.state, label: t(known.key), attention: known.attention };
-  // The security middleware's generic per-request entry (`wasm.web.server`) writes
+  // The security middleware's generic per-request entry (`noust.web.server`) writes
   // `error:<status>` rather than one of the fixed words above; it is still a failure.
   if (word.toLowerCase().startsWith("error")) {
     const colon = word.indexOf(":");
@@ -278,7 +278,7 @@ export interface ActorWords {
 }
 
 /**
- * `actor_label()` in `wasm.web.auth`: `"master"`, `"token:<name>"`, a browser session's id
+ * `actor_label()` in `noust.web.auth`: `"master"`, `"token:<name>"`, a browser session's id
  * (the full value, or the twelve characters that helper keeps), `"webhook"` for a deploy the
  * repository's own hook triggered, or `"anonymous"` for an unauthenticated attempt. Every case
  * keeps the raw value alongside the words - the exact string a filter or a support request

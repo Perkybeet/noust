@@ -71,7 +71,7 @@ function Applications() {
               title={t("overview.applications.emptyTitle")}
               description={t("overview.applications.emptyDescription")}
               action={<NewAppLink />}
-              command="wasm create -d example.com -s https://github.com/you/app"
+              command="noust create -d example.com -s https://github.com/you/app"
               className="border-0 py-10"
             />
           }

@@ -2,18 +2,18 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-What another platform's configuration says, in WASM's terms.
+What another platform's configuration says, in Noust's terms.
 
 Each importer reads the files a platform keeps in the repository and answers
 with one :class:`Proposal`: the application type, the commands the platform
 ran, the port, the health check, the environment, the database it needs, the
 domains, and a warning for everything that has no equivalent here. A
 proposal changes nothing; the new-app wizard prefills its review with it and
-``wasm import --deploy`` hands it to the normal create path through
-:func:`wasm.deployers.app_export.proposal_document`.
+``noust import --deploy`` hands it to the normal create path through
+:func:`noust.deployers.app_export.proposal_document`.
 
 The platform's commands are carried for the operator to compare, not run:
-every WASM deployer builds and starts a project with the commands of its type
+every Noust deployer builds and starts a project with the commands of its type
 (``package.json`` scripts, the Python entry point), which is what makes a
 redeploy and a rollback behave the same way as the first deploy.
 """
@@ -25,14 +25,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from wasm.core.exceptions import ValidationError
-from wasm.core.secret_detection import name_looks_secret
-from wasm.validators.health import HEALTH_TIMEOUT_MAX, HEALTH_TIMEOUT_MIN
+from noust.core.exceptions import ValidationError
+from noust.core.secret_detection import name_looks_secret
+from noust.validators.health import HEALTH_TIMEOUT_MAX, HEALTH_TIMEOUT_MIN
 
 #: Larger than any configuration file a person writes.
 MAX_CONFIG_SIZE = 512 * 1024
 
-#: Engines a proposal can say the application needs, as ``wasm db`` names them.
+#: Engines a proposal can say the application needs, as ``noust db`` names them.
 DATABASE_ENGINES = ("postgresql", "mysql", "redis", "mongodb")
 
 
@@ -48,7 +48,7 @@ class ProposedEnv:
             one read from a database).
         secret: Whether it holds a credential: generated, or its name says so.
         generated: The platform generates the value (Render's
-            ``generateValue``, Heroku's ``generator: secret``); WASM generates
+            ``generateValue``, Heroku's ``generator: secret``); Noust generates
             a random one in its place.
         required: The application needs a value the configuration does not
             give, and nothing generates.
@@ -67,12 +67,12 @@ class ProposedEnv:
 @dataclass
 class Proposal:
     """
-    WASM's reading of another platform's configuration.
+    Noust's reading of another platform's configuration.
 
     Attributes:
         platform: ``vercel``, ``railway``, ``render`` or ``heroku``.
         files: The configuration files read, relative to the repository.
-        app_type: The WASM application type, or None to let detection decide
+        app_type: The Noust application type, or None to let detection decide
             (the platform's own builder detected it too).
         install_command: The platform's install command, as written there.
         build_command: The platform's build command.
@@ -87,7 +87,7 @@ class Proposal:
         domains: Custom domains the configuration names.
         persistent_paths: Paths, relative to the application, that the
             platform kept on a persistent disk.
-        warnings: Everything read that WASM has no equivalent for, one
+        warnings: Everything read that Noust has no equivalent for, one
             sentence each, with what to do instead.
     """
 
@@ -146,7 +146,7 @@ class Proposal:
         """
         if self.install_command or self.build_command or self.start_command:
             self.warn(
-                "WASM installs, builds and starts the project with the commands of its "
+                "Noust installs, builds and starts the project with the commands of its "
                 "type (the package.json scripts, the Python entry point); the platform's "
                 "commands are shown to compare. Put a custom one in package.json's "
                 "scripts so every deploy runs it."
@@ -205,7 +205,7 @@ def read_text(root: Path, name: str) -> str | None:
     if path.is_symlink() or not path.is_file():
         raise ValidationError(
             f"{name} is not a regular file",
-            details="WASM reads configuration files that are committed as files, not links.",
+            details="Noust reads configuration files that are committed as files, not links.",
         )
     try:
         size = path.stat().st_size
@@ -375,7 +375,7 @@ def health_timeout(seconds: int | None, proposal: Proposal, *, source: str) -> i
         source: The setting's name on the platform, for the warning.
 
     Returns:
-        The wait, clamped to what :func:`wasm.validators.health.check_health_timeout`
+        The wait, clamped to what :func:`noust.validators.health.check_health_timeout`
         accepts, or None when there was none.
     """
     if seconds is None:
@@ -383,7 +383,7 @@ def health_timeout(seconds: int | None, proposal: Proposal, *, source: str) -> i
     clamped = min(max(seconds, HEALTH_TIMEOUT_MIN), HEALTH_TIMEOUT_MAX)
     if clamped != seconds:
         proposal.warn(
-            f"{source} is {seconds} seconds; WASM's health gate waits from "
+            f"{source} is {seconds} seconds; Noust's health gate waits from "
             f"{HEALTH_TIMEOUT_MIN} to {HEALTH_TIMEOUT_MAX}, so {clamped} is proposed."
         )
     return clamped

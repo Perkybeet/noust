@@ -1,5 +1,5 @@
 """
-Custom logging system for WASM.
+Custom logging system for Noust.
 
 Provides a rich, user-friendly logging experience with support for:
 - Step-by-step progress indicators
@@ -110,7 +110,7 @@ def set_colors_disabled(disabled: bool) -> None:
     """
     Turn colored output off (or back on) for every logger created afterwards.
 
-    This is what ``wasm --no-color`` calls. It is process-wide because handlers
+    This is what ``noust --no-color`` calls. It is process-wide because handlers
     instantiate their own loggers and never see the parsed CLI arguments.
 
     Args:

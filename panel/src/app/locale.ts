@@ -14,7 +14,9 @@ import type { Locale } from "../i18n/types";
 
 export type { Locale } from "../i18n/types";
 
-export const LOCALE_STORAGE_KEY = "wasm.locale";
+export const LOCALE_STORAGE_KEY = "noust.locale";
+/** The key WASM stored this under before the rename; read once, then migrated away. */
+export const LEGACY_LOCALE_STORAGE_KEY = "wasm.locale";
 
 /**
  * The choices, each named in its own language (an autonym, never translated): someone who
@@ -43,7 +45,15 @@ export function browserLocale(languages: readonly string[] = navigator.languages
 export function readLocale(): Locale {
   try {
     const stored = window.localStorage.getItem(LOCALE_STORAGE_KEY);
-    return isLocale(stored) ? stored : browserLocale();
+    if (isLocale(stored)) return stored;
+    // One-time migration: a choice made before the rename still applies, moved to the new key.
+    const legacy = window.localStorage.getItem(LEGACY_LOCALE_STORAGE_KEY);
+    if (isLocale(legacy)) {
+      window.localStorage.setItem(LOCALE_STORAGE_KEY, legacy);
+      window.localStorage.removeItem(LEGACY_LOCALE_STORAGE_KEY);
+      return legacy;
+    }
+    return browserLocale();
   } catch {
     // Storage can be disabled (privacy modes, some embedded browsers): the browser decides.
     return browserLocale();
@@ -127,7 +137,7 @@ function subscribe(listener: () => void): () => void {
   listeners.add(listener);
   // Another tab changed the language: follow it, so two tabs of one console never disagree.
   const onStorage = (event: StorageEvent): void => {
-    if (event.key !== LOCALE_STORAGE_KEY && event.key !== null) return;
+    if (event.key !== LOCALE_STORAGE_KEY && event.key !== LEGACY_LOCALE_STORAGE_KEY && event.key !== null) return;
     const next = readLocale();
     const request = ++latest;
     loadCatalog(next).then(

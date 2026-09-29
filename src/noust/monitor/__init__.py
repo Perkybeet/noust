@@ -1,10 +1,10 @@
 """
-Process and resource observability for WASM.
+Process and resource observability for Noust.
 
 **What it measures.** CPU, memory, swap, load average, per-filesystem capacity,
 network counters and uptime for the machine; the process table, of which it
 writes down only processes over a resource threshold or carrying a known
-malware executable name; and the state of every unit WASM manages plus the
+malware executable name; and the state of every unit Noust manages plus the
 units listed in ``monitor.watch_units``, read with one ``systemctl show`` per
 scan. A unit that fails or crash-loops is announced as ``unit_failed``; one
 stopped on purpose is not.
@@ -13,8 +13,8 @@ stopped on purpose is not.
 :data:`MIN_SCAN_INTERVAL`, 60 by default. Resource metrics are read live and
 never stored; only observations are persisted.
 
-**Where it keeps it.** One SQLite file, ``/var/lib/wasm/observations.db``
-(``~/.local/share/wasm/observations.db`` for an unprivileged run). It is
+**Where it keeps it.** One SQLite file, ``/var/lib/noust/observations.db``
+(``~/.local/share/noust/observations.db`` for an unprivileged run). It is
 bounded three ways: repeats inside an hour collapse into one row, rows past
 ``monitor.retention_days`` are deleted, and the row count is capped at
 :data:`DEFAULT_MAX_OBSERVATIONS`.
@@ -25,15 +25,15 @@ outside its own systemd unit is written or deleted, nothing about the machine
 is sent to a third party, and no check is driven by a process command line.
 """
 
-from wasm.monitor.email_notifier import DEFAULT_SMTP_TIMEOUT, EmailNotifier, SMTPConfig
-from wasm.monitor.metrics import (
+from noust.monitor.email_notifier import DEFAULT_SMTP_TIMEOUT, EmailNotifier, SMTPConfig
+from noust.monitor.metrics import (
     DEFAULT_CPU_SAMPLE_INTERVAL,
     MAX_COMMAND_LENGTH,
     collect_resource_metrics,
     collect_service_health,
     list_processes,
 )
-from wasm.monitor.models import (
+from noust.monitor.models import (
     SEVERITY_NOTICE,
     SEVERITY_WARNING,
     SIGNAL_NAME_PATTERN,
@@ -44,13 +44,13 @@ from wasm.monitor.models import (
     ResourceMetrics,
     ServiceHealth,
 )
-from wasm.monitor.observation_store import (
+from noust.monitor.observation_store import (
     DEFAULT_DEDUPE_WINDOW_SECONDS,
     DEFAULT_MAX_OBSERVATIONS,
     ObservationStore,
     default_db_path,
 )
-from wasm.monitor.process_monitor import (
+from noust.monitor.process_monitor import (
     DEFAULT_CPU_THRESHOLD,
     DEFAULT_MEMORY_THRESHOLD,
     DEFAULT_RETENTION_DAYS,
@@ -64,7 +64,7 @@ from wasm.monitor.process_monitor import (
     scan_interval_warning,
     unit_failure,
 )
-from wasm.monitor.signals import is_known_safe, observe_process, observe_processes
+from noust.monitor.signals import is_known_safe, observe_process, observe_processes
 
 __all__ = [
     "DEFAULT_CPU_SAMPLE_INTERVAL",

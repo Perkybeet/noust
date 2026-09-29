@@ -13,7 +13,7 @@ const entries: Entry[] = [];
 function apply(hostname: string | undefined): void {
   // The most specific title wins: a tab's "Logs" over its layout's domain.
   const winner = entries.reduce<Entry | null>((best, entry) => (!best || entry.priority >= best.priority ? entry : best), null);
-  const parts = [winner?.title, hostname, "WASM"].filter((part): part is string => part !== undefined && part !== "");
+  const parts = [winner?.title, hostname, "Noust"].filter((part): part is string => part !== undefined && part !== "");
   document.title = parts.join(" - ");
 }
 

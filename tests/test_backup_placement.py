@@ -16,11 +16,11 @@ Pinned here:
 
 - the working directory never decides where a backup goes: empty means the
   default, and a relative path is refused rather than resolved;
-- ``wasm config set`` refuses a relative directory (the API side is in
+- ``noust config set`` refuses a relative directory (the API side is in
   ``tests/test_web_config_api.py``);
-- ``wasm backup import`` moves exactly the WASM backups out of a directory,
+- ``noust backup import`` moves exactly the Noust backups out of a directory,
   never overwrites, is idempotent and changes nothing under ``--dry-run``;
-- storage usage counts only directories holding WASM backups, and says where
+- storage usage counts only directories holding Noust backups, and says where
   misplaced ones are.
 """
 
@@ -37,15 +37,15 @@ import pytest
 import yaml
 from click.testing import CliRunner
 
-from wasm.cli import app as app_module
-from wasm.cli.app import cli as root_cli
-from wasm.cli.commands import config as config_cmd
-from wasm.core.config import DEFAULT_BACKUP_DIR, Config, resolve_backup_directory
-from wasm.core.exceptions import BackupError, ConfigError
-from wasm.core.fs import DryRunFileSystem
-from wasm.core.logger import Logger
-from wasm.core.runner import FakeRunner
-from wasm.managers.backup_manager import BackupManager, BackupMetadata
+from noust.cli import app as app_module
+from noust.cli.app import cli as root_cli
+from noust.cli.commands import config as config_cmd
+from noust.core.config import DEFAULT_BACKUP_DIR, Config, resolve_backup_directory
+from noust.core.exceptions import BackupError, ConfigError
+from noust.core.fs import DryRunFileSystem
+from noust.core.logger import Logger
+from noust.core.runner import FakeRunner
+from noust.managers.backup_manager import BackupManager, BackupMetadata
 
 
 class _TestLogger(Logger):
@@ -98,7 +98,7 @@ def config_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Pat
         The configuration file path.
     """
     path = tmp_path / "etc" / "wasm" / "config.yaml"
-    monkeypatch.setattr("wasm.core.config.DEFAULT_CONFIG_PATH", path)
+    monkeypatch.setattr("noust.core.config.DEFAULT_CONFIG_PATH", path)
     monkeypatch.setattr(config_cmd, "DEFAULT_CONFIG_PATH", path)
     Config.reset_instance()
     try:
@@ -183,7 +183,7 @@ def plant_home_clutter(root: Path) -> list[Path]:
         ".ssh/id_ed25519": "private key",
         ".docker/config.json": '{"auths": {}}',
         ".claude/settings.json": "{}",
-        # A tarball that is not a WASM backup, in a directory named like one.
+        # A tarball that is not a Noust backup, in a directory named like one.
         "shop-example-com/export.tar.gz": "not a backup",
         # Named like a backup but with no metadata to prove it.
         "orphan-example-com/orphan-example-com_20260801_101500.tar.gz": "no sidecar",
@@ -232,7 +232,7 @@ class TestResolution:
             resolve_backup_directory(value)
 
         assert "absolute path" in str(caught.value)
-        assert "wasm config set backup.directory" in (caught.value.details or "")
+        assert "noust config set backup.directory" in (caught.value.details or "")
 
 
 class TestWorkingDirectoryNeverMatters:
@@ -296,7 +296,7 @@ class TestWorkingDirectoryNeverMatters:
 
 
 class TestConfigSetRefusesRelative:
-    """The chokepoint: Config.set, which 'wasm config set' and every API write use."""
+    """The chokepoint: Config.set, which 'noust config set' and every API write use."""
 
     def test_the_cli_refuses_a_relative_directory(self, config_path: Path) -> None:
         code, output = run_wasm("config", "set", "backup.directory", "backups")
@@ -336,7 +336,7 @@ class TestConfigSetRefusesRelative:
 
 
 class TestImport:
-    """``wasm backup import`` moves WASM backups, and only them."""
+    """``noust backup import`` moves Noust backups, and only them."""
 
     def test_moves_only_backups(self, tmp_path: Path) -> None:
         home = tmp_path / "root"
@@ -511,7 +511,7 @@ class TestImportCommand:
 
 
 class TestStorageUsage:
-    """Only directories holding WASM backups are applications."""
+    """Only directories holding Noust backups are applications."""
 
     def test_unrelated_directories_are_not_listed(self, tmp_path: Path) -> None:
         """What the console showed: /root/.ssh, .docker and .claude as applications."""
@@ -610,7 +610,7 @@ class TestMisplacedBackupsHint:
         code, output = run_wasm("backup", "storage")
 
         assert code == 0, output
-        assert f"wasm backup import {home}" in output
+        assert f"noust backup import {home}" in output
 
     def test_the_storage_json_carries_them(
         self, tmp_path: Path, config_path: Path, monkeypatch: pytest.MonkeyPatch

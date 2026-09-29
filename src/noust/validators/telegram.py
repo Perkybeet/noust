@@ -4,7 +4,7 @@
 """
 The shape of a Telegram chat id, checked wherever one is saved or used.
 
-One rule for the configuration chokepoint (``wasm config set``, the API's
+One rule for the configuration chokepoint (``noust config set``, the API's
 settings endpoints) and the notifier that sends with it.
 """
 

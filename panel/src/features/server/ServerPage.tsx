@@ -20,7 +20,7 @@ import { MonitorCard } from "./MonitorCard";
 import { checkName, checkView, healthReasons, verdictText, verdictView } from "./data";
 import type { HealthCheck, HealthReason } from "./data";
 
-/** The checks `wasm health` runs on a typical machine, for the placeholder's height. */
+/** The checks `noust health` runs on a typical machine, for the placeholder's height. */
 const TYPICAL_CHECKS = 6;
 /** Reasons a report usually gives when it gives any: an app down, a certificate close to expiry. */
 const TYPICAL_REASONS = 2;
@@ -167,7 +167,7 @@ function Health() {
           </div>
         </div>
       )}
-      <CommandHint command="wasm health" label={t("server.fromTerminal")} />
+      <CommandHint command="noust health" label={t("server.fromTerminal")} />
     </Section>
   );
 }

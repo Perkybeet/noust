@@ -264,7 +264,7 @@ function EventsSection({ query }: { query: ConfigQuery }) {
       commands={
         form.dirty
           ? form.changed.map((kind) => configSetCommand(`notifications.events.${kind}`, values[kind] === true))
-          : ["wasm config get notifications.events"]
+          : ["noust config get notifications.events"]
       }
     >
       <WithSettings query={query} skeleton={<EventsSkeleton />}>
@@ -326,8 +326,8 @@ function PrivateHostsSection({ query }: { query: ConfigQuery }) {
     <SettingsSection
       title={t("settings.notifications.privateHosts.title")}
       description={t("settings.notifications.privateHosts.description")}
-      // `wasm config set` stores a list as one string, so reading is the only honest command.
-      commands={["wasm config get notifications.allow_private_hosts"]}
+      // `noust config set` stores a list as one string, so reading is the only honest command.
+      commands={["noust config get notifications.allow_private_hosts"]}
     >
       <WithSettings query={query} skeleton={<SettingsFormSkeleton fields={[{ rows: 3, description: 1 }]} />}>
         {() => (
@@ -385,7 +385,7 @@ function ConsoleLinkSection({ query }: { query: ConfigQuery }) {
       commands={
         form.dirty
           ? [configSetCommand("web.public_url", form.values?.public_url ?? "")]
-          : ["wasm config get web.public_url"]
+          : ["noust config get web.public_url"]
       }
     >
       <QueryState query={query} label={t("settings.notifications.consoleLink.loadingLabel")} skeleton={<SettingsFormSkeleton fields={[{ description: 1 }]} />}>

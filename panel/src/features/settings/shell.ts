@@ -1,5 +1,5 @@
 /**
- * The terminal side of a setting: the `wasm config` command that does what a form does, so an
+ * The terminal side of a setting: the `noust config` command that does what a form does, so an
  * operator who lives in a shell can script the same change (D6, parity).
  */
 
@@ -12,12 +12,12 @@ export function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`;
 }
 
-/** `wasm config set <key> <value>`, the value quoted for the shell. */
+/** `noust config set <key> <value>`, the value quoted for the shell. */
 export function configSetCommand(key: string, value: string | number | boolean): string {
-  return `wasm config set ${key} ${shellQuote(String(value))}`;
+  return `noust config set ${key} ${shellQuote(String(value))}`;
 }
 
-/** `wasm config get <key>`. */
+/** `noust config get <key>`. */
 export function configGetCommand(key: string): string {
-  return `wasm config get ${key}`;
+  return `noust config get ${key}`;
 }

@@ -26,11 +26,11 @@ from typing import Any
 
 import pytest
 
-from wasm.core.exceptions import DatabaseQueryError, SecurityError
-from wasm.core.runner import CommandResult, FakeRunner
-from wasm.core.store import WASMStore
-from wasm.managers.database.mysql import MySQLManager
-from wasm.managers.database.postgres import PostgresManager, _scram_sha256_verifier
+from noust.core.exceptions import DatabaseQueryError, SecurityError
+from noust.core.runner import CommandResult, FakeRunner
+from noust.core.store import NoustStore
+from noust.managers.database.mysql import MySQLManager
+from noust.managers.database.postgres import PostgresManager, _scram_sha256_verifier
 
 PSQL = ("runuser", "-u", "postgres", "--", "psql")
 
@@ -92,13 +92,13 @@ def postgres(runner: FakeRunner) -> Iterator[PostgresManager]:
         The manager.
     """
     runner.script(list(PSQL), stdout="1\n")
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
     manager = PostgresManager()
     manager.config = StubConfig({})
     try:
         yield manager
     finally:
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 @pytest.fixture
@@ -438,7 +438,7 @@ def console_runner() -> ConsoleRunner:
     Yields:
         The runner.
     """
-    from wasm.core.runner import set_runner
+    from noust.core.runner import set_runner
 
     fake = ConsoleRunner()
     fake.script(list(PSQL), stdout="1\n")
@@ -464,13 +464,13 @@ def read_only_postgres(console_runner: ConsoleRunner) -> Iterator[PostgresManage
     Yields:
         The manager.
     """
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
     manager = PostgresManager()
     manager.config = StubConfig({})
     try:
         yield manager
     finally:
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 def _password_file(manager: PostgresManager, role: str = "wasm_ro_app") -> Path:

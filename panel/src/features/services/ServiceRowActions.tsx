@@ -8,7 +8,7 @@ import type { ServiceInfo } from "./data";
 import { useServiceActions } from "./useServiceActions";
 
 /**
- * The menu at the end of a service's row: open it, or act on the unit directly. A unit WASM
+ * The menu at the end of a service's row: open it, or act on the unit directly. A unit Noust
  * did not create has no menu at all - read-only is enforced here, at the one place every row
  * of every services table gets its actions from, not left to each caller to remember.
  */

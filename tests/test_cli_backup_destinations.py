@@ -21,18 +21,18 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from wasm.cli.app import Context
-from wasm.cli.commands.backup import cli
-from wasm.core.runner import FakeRunner
-from wasm.core.store import BackupScheduleRecord, WASMStore, get_store
-from wasm.managers.backup_scheduler import BackupScheduler
+from noust.cli.app import Context
+from noust.cli.commands.backup import cli
+from noust.core.runner import FakeRunner
+from noust.core.store import BackupScheduleRecord, NoustStore, get_store
+from noust.managers.backup_scheduler import BackupScheduler
 
 
 @pytest.fixture(autouse=True)
 def _reset_store() -> Iterator[None]:
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
     yield
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture(autouse=True)
@@ -348,7 +348,7 @@ def test_run_schedule_without_a_schedule_still_tries_the_backup() -> None:
 
 
 def test_run_schedule_creates_a_backup(monkeypatch: pytest.MonkeyPatch) -> None:
-    from wasm.managers.backup_manager import BackupManager, BackupMetadata
+    from noust.managers.backup_manager import BackupManager, BackupMetadata
 
     get_store().save_backup_schedule(
         BackupScheduleRecord(app_domain="shop.example.com", schedule="daily")

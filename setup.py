@@ -8,9 +8,10 @@ pyproject.toml-only builds. We explicitly provide the essential metadata here.
 from setuptools import setup, find_packages
 
 setup(
-    name="wasm-cli",
+    name="noust",
     version="2.3.0",
-    description="Web App System Management - Deploy and manage web applications on Linux servers",
+    description="Noust - deploy and manage web applications on Linux servers",
+    url="https://github.com/Perkybeet/noust",
     author="Yago López Prado",
     author_email="yago.lopez.adeje@gmail.com",
     license="AGPL-3.0-or-later",
@@ -48,11 +49,13 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "wasm=wasm.cli.app:entrypoint",
+            "noust=noust.cli.app:entrypoint",
+            # The name WASM had until 3.0, kept for the whole 3.x series.
+            "wasm=noust.cli.app:entrypoint",
         ],
     },
     data_files=[
-        ("share/man/man1", ["man/wasm.1"]),
+        ("share/man/man1", ["man/noust.1"]),
     ],
     classifiers=[
         "Development Status :: 4 - Beta",

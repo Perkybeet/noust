@@ -20,26 +20,26 @@ from pathlib import Path
 
 import pytest
 
+from noust.core.exceptions import DatabaseError
+from noust.core.runner import FakeRunner
+from noust.core.secrets import SecretStore
+from noust.core.store import App, NoustStore
+from noust.deployers import monorepo as monorepo_module
+from noust.deployers.helpers import databases as db_helpers
+from noust.deployers.monorepo import DatabaseConfig, MonorepoDeployer
 from tests.test_database_ownership import FakeManager, FakeRegistry
-from wasm.core.exceptions import DatabaseError
-from wasm.core.runner import FakeRunner
-from wasm.core.secrets import SecretStore
-from wasm.core.store import App, WASMStore
-from wasm.deployers import monorepo as monorepo_module
-from wasm.deployers.helpers import databases as db_helpers
-from wasm.deployers.monorepo import DatabaseConfig, MonorepoDeployer
 
 
 @pytest.fixture
 def store(tmp_path: Path):
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture
-def manager(tmp_path: Path, store: WASMStore, monkeypatch: pytest.MonkeyPatch) -> FakeManager:
+def manager(tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch) -> FakeManager:
     fake = FakeManager()
     monkeypatch.setattr(db_helpers, "DatabaseRegistry", FakeRegistry(fake))
     monkeypatch.setattr(
@@ -54,7 +54,7 @@ def manager(tmp_path: Path, store: WASMStore, monkeypatch: pytest.MonkeyPatch) -
     return fake
 
 
-def _deployer(tmp_path: Path, store: WASMStore, monkeypatch: pytest.MonkeyPatch):
+def _deployer(tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch):
     app_path = tmp_path / "app"
     app_path.mkdir(exist_ok=True)
     deployer = MonorepoDeployer(runner=FakeRunner())
@@ -81,7 +81,7 @@ def _deployer(tmp_path: Path, store: WASMStore, monkeypatch: pytest.MonkeyPatch)
 
 
 def test_a_failed_provisioning_writes_no_database_url_and_says_so(
-    tmp_path: Path, store: WASMStore, manager: FakeManager, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, store: NoustStore, manager: FakeManager, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     manager.fail_grant = True
     deployer, warnings = _deployer(tmp_path, store, monkeypatch)
@@ -100,7 +100,7 @@ def test_a_failed_provisioning_writes_no_database_url_and_says_so(
 
 
 def test_the_deploy_after_a_failed_grant_writes_the_password_the_user_has(
-    tmp_path: Path, store: WASMStore, manager: FakeManager, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, store: NoustStore, manager: FakeManager, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     manager.fail_grant = True
     deployer, _warnings = _deployer(tmp_path, store, monkeypatch)
@@ -120,7 +120,7 @@ def test_the_deploy_after_a_failed_grant_writes_the_password_the_user_has(
 
 
 def test_a_refused_user_leaves_the_other_databases_in_place(
-    tmp_path: Path, store: WASMStore, manager: FakeManager, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, store: NoustStore, manager: FakeManager, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     manager.users["example_user"] = "not-ours"
     deployer, warnings = _deployer(tmp_path, store, monkeypatch)
@@ -134,11 +134,11 @@ def test_a_refused_user_leaves_the_other_databases_in_place(
     deployer._provision_databases()
 
     assert list(deployer.databases) == ["redis"]
-    assert any("WASM did not create" in warning for warning in warnings)
+    assert any("Noust did not create" in warning for warning in warnings)
 
 
 def test_provisioning_failure_is_a_database_error_not_a_crash(
-    tmp_path: Path, store: WASMStore, manager: FakeManager, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, store: NoustStore, manager: FakeManager, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     deployer, _warnings = _deployer(tmp_path, store, monkeypatch)
     manager.fail_grant = True

@@ -93,7 +93,7 @@ export function BackupsPage({ search, onSearchChange }: BackupsPageProps) {
                   }
                 />
               }
-              command="wasm backup create <domain>"
+              command="noust backup create <domain>"
               className="py-16"
             />
           ) : (
@@ -135,7 +135,7 @@ export function BackupsPage({ search, onSearchChange }: BackupsPageProps) {
                   />
                 }
               />
-              <CommandHint command="wasm backup list" label={t("backups.common.fromTerminal")} />
+              <CommandHint command="noust backup list" label={t("backups.common.fromTerminal")} />
             </div>
           )}
         </Section>

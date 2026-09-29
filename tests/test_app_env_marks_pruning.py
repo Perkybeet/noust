@@ -8,7 +8,7 @@ Verified finding 3 of the 2.2 pre-release review: a mark an operator set on a
 variable must not outlive that variable. Before this fix only
 ``PUT /api/apps/{domain}/env`` dropped a mark for a name a write removed;
 ``wasm env configure`` (and any other caller of
-:func:`~wasm.deployers.helpers.app_env.write_app_env`) left it sitting in the
+:func:`~noust.deployers.helpers.app_env.write_app_env`) left it sitting in the
 store, so a later write that happened to reuse the same name for a real
 secret silently inherited a stale "not secret" - or "secret" - verdict from
 whatever used to live under that name. The prune now lives inside
@@ -24,17 +24,17 @@ from types import SimpleNamespace
 
 import pytest
 
-from wasm.core.runner import FakeRunner
-from wasm.core.secret_detection import classify
-from wasm.core.store import App, WASMStore
-from wasm.deployers.helpers import app_env as app_env_module
-from wasm.deployers.helpers.app_env import write_app_env
+from noust.core.runner import FakeRunner
+from noust.core.secret_detection import classify
+from noust.core.store import App, NoustStore
+from noust.deployers.helpers import app_env as app_env_module
+from noust.deployers.helpers.app_env import write_app_env
 
 DOMAIN = "example.com"
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> Iterator[WASMStore]:
+def store(tmp_path: Path) -> Iterator[NoustStore]:
     """
     Args:
         tmp_path: Per-test temporary directory.
@@ -42,18 +42,18 @@ def store(tmp_path: Path) -> Iterator[WASMStore]:
     Yields:
         An isolated store, installed as the process-wide singleton.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     try:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 @pytest.fixture
 def deployed(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, store: WASMStore, runner: FakeRunner
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, store: NoustStore, runner: FakeRunner
 ) -> App:
     """
     Register an application deployed in place, with a store row of its own.
@@ -79,7 +79,7 @@ def deployed(
     return store.create_app(App(domain=DOMAIN, app_path=str(app_path)))
 
 
-def test_a_dropped_variables_mark_is_pruned_by_the_writer(deployed: App, store: WASMStore) -> None:
+def test_a_dropped_variables_mark_is_pruned_by_the_writer(deployed: App, store: NoustStore) -> None:
     """The one writer every caller shares prunes a mark for a name it removes."""
     write_app_env(deployed, {"API_KEY": "not-really-secret"})
     store.set_env_secret_marks(DOMAIN, {"API_KEY": False})
@@ -97,7 +97,7 @@ def test_a_dropped_variables_mark_is_pruned_by_the_writer(deployed: App, store: 
 
 
 def test_a_stale_not_secret_mark_does_not_leak_onto_a_later_real_secret(
-    deployed: App, store: WASMStore
+    deployed: App, store: NoustStore
 ) -> None:
     """The exact scenario the finding names: a reused name must not inherit the old verdict."""
     write_app_env(deployed, {"API_KEY": "not-really-secret"})
@@ -119,7 +119,7 @@ def test_a_stale_not_secret_mark_does_not_leak_onto_a_later_real_secret(
     assert verdict.reason == "value: stripe"
 
 
-def test_a_mark_for_a_variable_still_present_is_kept(deployed: App, store: WASMStore) -> None:
+def test_a_mark_for_a_variable_still_present_is_kept(deployed: App, store: NoustStore) -> None:
     """Only a name the write actually drops is pruned - not everything else."""
     write_app_env(deployed, {"API_KEY": "unchanged", "OTHER": "1"})
     store.set_env_secret_marks(DOMAIN, {"API_KEY": False, "OTHER": True})
@@ -134,10 +134,10 @@ def test_a_mark_for_a_variable_still_present_is_kept(deployed: App, store: WASMS
 
 
 def test_an_undeployed_stand_in_application_is_not_an_error(
-    tmp_path: Path, store: WASMStore, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, store: NoustStore, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A directory-only application (no store row) has no marks to prune."""
-    from wasm.deployers.helpers.layout import layout_on_disk
+    from noust.deployers.helpers.layout import layout_on_disk
 
     app_path = tmp_path / "apps" / "unregistered-com"
     app_path.mkdir(parents=True)

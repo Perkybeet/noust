@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The single seam through which WASM executes external processes.
+The single seam through which Noust executes external processes.
 
 Every call to nginx, systemctl, certbot, git, npm, mysqldump and friends goes
 through a ``CommandRunner``. Nothing else in the codebase may import
@@ -42,7 +42,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import IO
 
-from wasm.core.exceptions import WASMError
+from noust.core.exceptions import NoustError
 
 #: Deadline applied when a caller does not pass one. Chosen to be comfortably
 #: longer than any system query (systemctl, nginx -t) and shorter than any
@@ -63,11 +63,11 @@ CANCEL_POLL_INTERVAL = 0.1
 _REDACTED = "***"
 
 
-class CommandError(WASMError):
+class CommandError(NoustError):
     """A command failed and the caller asked for failures to be fatal."""
 
 
-class CommandCancelled(WASMError):
+class CommandCancelled(NoustError):
     """A command was stopped, or never started, because its operation was cancelled."""
 
 
@@ -321,7 +321,7 @@ class CommandRunner(ABC):
                 How a dump reaches a client without being named in a command
                 the client would parse as a script. Exclusive with ``input``.
                 With neither, the process reads ``/dev/null``: no command
-                WASM runs may wait on the caller's terminal.
+                Noust runs may wait on the caller's terminal.
             user: Run as this account instead of the current one.
             check: Raise CommandError instead of returning a failed result.
             secrets: Literal values to redact from the recorded command line.
@@ -828,7 +828,7 @@ READ_ONLY_SUBCOMMANDS: dict[str, frozenset[str]] = {
     "dpkg": frozenset({"--print-architecture"}),
     "rpm": frozenset({"-q", "--query"}),
     # Narrowly "info": the update checker's cache-only probe
-    # (wasm.core.package_index.rpm_latest). "install", "upgrade" and
+    # (noust.core.package_index.rpm_latest). "install", "upgrade" and
     # everything else that names these programs still counts as mutating.
     "dnf": frozenset({"info"}),
     "yum": frozenset({"info"}),

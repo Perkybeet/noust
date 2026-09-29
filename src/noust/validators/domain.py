@@ -1,10 +1,10 @@
 """
-Domain name validation for WASM.
+Domain name validation for Noust.
 """
 
 import re
 
-from wasm.core.exceptions import DomainError
+from noust.core.exceptions import DomainError
 
 # Domain name regex pattern
 DOMAIN_PATTERN = re.compile(

@@ -14,8 +14,8 @@ import { reportActionError } from "../../apps/useAppActions";
 import { PANEL } from "./panel";
 
 /**
- * Everything that defines the application, as a JSON document: `wasm app export`'s own shape,
- * so the file downloaded here is exactly what `wasm app import` or the new-app wizard's import
+ * Everything that defines the application, as a JSON document: `noust app export`'s own shape,
+ * so the file downloaded here is exactly what `noust app import` or the new-app wizard's import
  * reads back, on this server or another. Secret values are left out unless asked for, which
  * needs sudo mode - the API client asks "Confirm it's you" itself when the answer is
  * `elevation_required`, the same as any other request.

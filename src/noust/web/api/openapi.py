@@ -4,7 +4,7 @@
 """
 The API's own schema, as JSON.
 
-``FastAPI(openapi_url=None)`` in :mod:`wasm.web.server` keeps the schema off
+``FastAPI(openapi_url=None)`` in :mod:`noust.web.server` keeps the schema off
 the unauthenticated ``/openapi.json`` FastAPI would otherwise serve by
 default - a map of every endpoint on an API that runs systemd as root is not
 something an anonymous caller gets for free. This is the same document,
@@ -24,10 +24,10 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, FastAPI, Request
 
-from wasm.web.api.deps import WASMErrorRoute
-from wasm.web.auth import require_auth
+from noust.web.api.deps import NoustErrorRoute
+from noust.web.auth import require_auth
 
-router = APIRouter(route_class=WASMErrorRoute)
+router = APIRouter(route_class=NoustErrorRoute)
 
 
 @router.get("/openapi.json", response_model=dict[str, Any])

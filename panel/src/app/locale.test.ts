@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { LOCALE_STORAGE_KEY, browserLocale, getLocale, initLocale, readLocale, resetLocale, setLocale, useLocale } from "./locale";
+import { LEGACY_LOCALE_STORAGE_KEY, LOCALE_STORAGE_KEY, browserLocale, getLocale, initLocale, readLocale, resetLocale, setLocale, useLocale } from "./locale";
 
 describe("locale", () => {
   it("starts in English in tests, on <html> too", () => {
@@ -81,5 +81,26 @@ describe("locale", () => {
       expect(result.current[0]).toBe("es");
     });
     expect(document.documentElement.lang).toBe("es");
+  });
+
+  describe("the WASM to Noust key migration", () => {
+    it("reads the new key when only it is set", () => {
+      window.localStorage.setItem(LOCALE_STORAGE_KEY, "es");
+      expect(readLocale()).toBe("es");
+      expect(window.localStorage.getItem(LEGACY_LOCALE_STORAGE_KEY)).toBeNull();
+    });
+
+    it("reads, migrates and removes the legacy key when only it is set", () => {
+      window.localStorage.setItem(LEGACY_LOCALE_STORAGE_KEY, "es");
+      expect(readLocale()).toBe("es");
+      expect(window.localStorage.getItem(LOCALE_STORAGE_KEY)).toBe("es");
+      expect(window.localStorage.getItem(LEGACY_LOCALE_STORAGE_KEY)).toBeNull();
+    });
+
+    it("prefers the new key when both are set", () => {
+      window.localStorage.setItem(LEGACY_LOCALE_STORAGE_KEY, "en");
+      window.localStorage.setItem(LOCALE_STORAGE_KEY, "es");
+      expect(readLocale()).toBe("es");
+    });
   });
 });

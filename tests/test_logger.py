@@ -2,7 +2,7 @@
 
 from io import StringIO
 
-from wasm.core.logger import Colors, Icons, Logger, LogLevel
+from noust.core.logger import Colors, Icons, Logger, LogLevel
 
 
 class TestLogger:
@@ -222,7 +222,7 @@ class TestTable:
         """
         Args: none.
         """
-        from wasm.core.logger import state
+        from noust.core.logger import state
 
         assert state("Running").style == "green"
         assert state("Failed").style == "bold red"

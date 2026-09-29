@@ -1,14 +1,14 @@
 """
-Custom exceptions for WASM.
+Custom exceptions for Noust.
 
 This module defines a hierarchy of exceptions used throughout the application
 to provide clear and actionable error messages.
 """
 
 
-class WASMError(Exception):
+class NoustError(Exception):
     """
-    Base exception for all WASM errors.
+    Base exception for all Noust errors.
 
     All custom exceptions should inherit from this class.
     """
@@ -45,19 +45,19 @@ class WASMError(Exception):
         return self.message
 
 
-class ConfigError(WASMError):
+class ConfigError(NoustError):
     """Raised when there's a configuration error."""
 
     pass
 
 
-class ValidationError(WASMError):
+class ValidationError(NoustError):
     """Raised when input validation fails."""
 
     pass
 
 
-class DeploymentError(WASMError):
+class DeploymentError(NoustError):
     """Raised when deployment fails at any step."""
 
     pass
@@ -106,12 +106,12 @@ Solutions to try:
 
 2. Limit Node.js memory usage:
    Add to .env file: NODE_OPTIONS="--max-old-space-size=1536"
-   Then redeploy: wasm update <domain>
+   Then redeploy: noust update <domain>
 
 3. Build locally and deploy pre-built:
    - Build on your local machine: npm run build
    - Commit the .next folder (remove from .gitignore)
-   - Push changes and update: wasm update <domain>
+   - Push changes and update: noust update <domain>
 
 4. Use a server with more RAM (recommended: 2GB+ for Next.js apps)
 
@@ -127,19 +127,19 @@ Solutions to try:
         super().__init__(message, full_details)
 
 
-class SourceError(WASMError):
+class SourceError(NoustError):
     """Raised when source fetching fails (git clone, download, etc.)."""
 
     pass
 
 
-class ServiceError(WASMError):
+class ServiceError(NoustError):
     """Raised when systemd service operations fail."""
 
     pass
 
 
-class SiteError(WASMError):
+class SiteError(NoustError):
     """Raised when site configuration fails."""
 
     pass
@@ -157,13 +157,13 @@ class ApacheError(SiteError):
     pass
 
 
-class CertificateError(WASMError):
+class CertificateError(NoustError):
     """Raised when SSL certificate operations fail."""
 
     pass
 
 
-class CommandError(WASMError):
+class CommandError(NoustError):
     """Raised when a shell command execution fails."""
 
     def __init__(self, message: str, command: str = "", exit_code: int = 0, stderr: str = ""):
@@ -180,25 +180,25 @@ class CommandError(WASMError):
         super().__init__(message, details.strip())
 
 
-class DependencyError(WASMError):
+class DependencyError(NoustError):
     """Raised when a required dependency is missing."""
 
     pass
 
 
-class PermissionError(WASMError):
+class PermissionError(NoustError):
     """Raised when there are insufficient permissions."""
 
     pass
 
 
-class PortError(WASMError):
+class PortError(NoustError):
     """Raised when there are port-related issues."""
 
     pass
 
 
-class DomainError(WASMError):
+class DomainError(NoustError):
     """Raised when there are domain-related issues."""
 
     pass
@@ -213,37 +213,37 @@ class DomainConflictError(DomainError):
     """
 
 
-class TemplateError(WASMError):
+class TemplateError(NoustError):
     """Raised when template rendering fails."""
 
     pass
 
 
-class RollbackError(WASMError):
+class RollbackError(NoustError):
     """Raised when rollback operation fails."""
 
     pass
 
 
-class MonitorError(WASMError):
+class MonitorError(NoustError):
     """Raised when process monitoring operations fail."""
 
     pass
 
 
-class AIAnalysisError(WASMError):
+class AIAnalysisError(NoustError):
     """Raised when AI analysis fails."""
 
     pass
 
 
-class EmailError(WASMError):
+class EmailError(NoustError):
     """Raised when email notification fails."""
 
     pass
 
 
-class SSHError(WASMError):
+class SSHError(NoustError):
     """
     Raised when SSH authentication or configuration fails.
 
@@ -253,7 +253,7 @@ class SSHError(WASMError):
     pass
 
 
-class SetupError(WASMError):
+class SetupError(NoustError):
     """
     Raised when required setup/configuration is missing.
 
@@ -264,7 +264,7 @@ class SetupError(WASMError):
     pass
 
 
-class DatabaseError(WASMError):
+class DatabaseError(NoustError):
     """Base exception for database operations."""
 
     pass
@@ -312,7 +312,7 @@ class DatabaseQueryError(DatabaseError):
     pass
 
 
-class SecurityError(WASMError):
+class SecurityError(NoustError):
     """
     Raised when a security-sensitive operation is attempted with untrusted input.
 
@@ -322,25 +322,25 @@ class SecurityError(WASMError):
     pass
 
 
-class BackupError(WASMError):
+class BackupError(NoustError):
     """Raised when backup operations fail."""
 
     pass
 
 
-class DockerError(WASMError):
+class DockerError(NoustError):
     """Raised when Docker operations fail."""
 
     pass
 
 
-class EnvConfigError(WASMError):
+class EnvConfigError(NoustError):
     """Raised when environment configuration fails."""
 
     pass
 
 
-class IntegrationError(WASMError):
+class IntegrationError(NoustError):
     """Raised when a code host (GitHub) refuses a request or cannot be reached."""
 
     pass

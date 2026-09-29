@@ -10,7 +10,7 @@ export const apps: Catalog<typeof en> = {
     couldNotLoad: "No se pudieron cargar las aplicaciones",
     emptyTitle: "Despliega tu primera aplicación",
     emptyDescription:
-      "Indica a WASM un repositorio Git o un directorio. Detecta la pila, la compila, le da una unidad de systemd, un sitio y un certificado.",
+      "Indica a Noust un repositorio Git o un directorio. Detecta la pila, la compila, le da una unidad de systemd, un sitio y un certificado.",
     filterLabel: "Filtrar aplicaciones",
     searchLabel: "Buscar aplicaciones",
     searchPlaceholder: "Buscar por dominio o tipo",

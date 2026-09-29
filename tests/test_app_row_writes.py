@@ -22,25 +22,25 @@ from pathlib import Path
 
 import pytest
 
+from noust.core.applock import AppBusyError
+from noust.core.store import App, NoustStore
+from noust.deployers import lifecycle
 from tests.test_applock import Holder
-from wasm.core.applock import AppBusyError
-from wasm.core.store import App, WASMStore
-from wasm.deployers import lifecycle
 
 DOMAIN = "rows.example.com"
 
 
 @pytest.fixture
-def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[WASMStore]:
+def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[NoustStore]:
     """A store in the test directory, where the lifecycle looks."""
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     monkeypatch.setattr(lifecycle, "get_store", lambda: instance)
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
-def make_app(store: WASMStore, tmp_path: Path) -> App:
+def make_app(store: NoustStore, tmp_path: Path) -> App:
     """A running application with a row."""
     return store.create_app(
         App(
@@ -54,7 +54,7 @@ def make_app(store: WASMStore, tmp_path: Path) -> App:
 
 
 def test_a_full_row_write_does_not_undo_a_health_check_set_meanwhile(
-    store: WASMStore, tmp_path: Path
+    store: NoustStore, tmp_path: Path
 ) -> None:
     """What a deploy read before the change is written back; the change stays."""
     read_by_the_deploy = make_app(store, tmp_path)
@@ -72,7 +72,7 @@ def test_a_full_row_write_does_not_undo_a_health_check_set_meanwhile(
 
 
 def test_the_setters_are_the_only_writers_of_those_columns(
-    store: WASMStore, tmp_path: Path
+    store: NoustStore, tmp_path: Path
 ) -> None:
     """Setting the attributes on a row and writing it changes nothing there."""
     app = make_app(store, tmp_path)
@@ -88,7 +88,7 @@ def test_the_setters_are_the_only_writers_of_those_columns(
 
 
 def test_changing_the_health_check_is_refused_while_an_operation_runs(
-    store: WASMStore, tmp_path: Path
+    store: NoustStore, tmp_path: Path
 ) -> None:
     """It waits for nobody and races nobody: the lock says who is running."""
     make_app(store, tmp_path)

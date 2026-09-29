@@ -25,6 +25,11 @@ from typing import Any
 
 import pytest
 
+from noust.core.applock import AppBusyError, is_held_here
+from noust.core.store import NoustStore
+from noust.deployers import lifecycle
+from noust.deployers.releases import ReleaseManager
+from noust.managers.service_manager import ResourceLimits
 from tests.test_applock import Holder, attempt_elsewhere
 from tests.test_release_pipeline import (  # noqa: F401  (pytest resolves fixtures by name)
     DOMAIN,
@@ -38,16 +43,11 @@ from tests.test_release_pipeline import (  # noqa: F401  (pytest resolves fixtur
     store,
     update,
 )
-from wasm.core.applock import AppBusyError, is_held_here
-from wasm.core.store import WASMStore
-from wasm.deployers import lifecycle
-from wasm.deployers.releases import ReleaseManager
-from wasm.managers.service_manager import ResourceLimits
 
 
 @pytest.fixture
 def deployed(
-    tmp_path: Path, root: Path, store: WASMStore, machine: SimpleNamespace
+    tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace
 ) -> SimpleNamespace:
     """An application on releases with one release active, and v2 published."""
     machine.git.publish(node_tree(tmp_path / "v1"))
@@ -109,7 +109,7 @@ def test_a_rollback_is_refused_while_an_update_runs(
 
 
 def test_a_deploy_is_refused_while_another_operation_runs(
-    tmp_path: Path, root: Path, store: WASMStore, machine: SimpleNamespace
+    tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace
 ) -> None:
     machine.git.publish(node_tree(tmp_path / "v1"))
 
@@ -121,7 +121,7 @@ def test_a_deploy_is_refused_while_another_operation_runs(
 
 
 def test_a_change_of_limits_is_refused_while_another_operation_runs(
-    root: Path, store: WASMStore, deployed: SimpleNamespace
+    root: Path, store: NoustStore, deployed: SimpleNamespace
 ) -> None:
     with Holder(DOMAIN, "update"), pytest.raises(AppBusyError):
         lifecycle.set_resource_limits(DOMAIN, ResourceLimits(memory_max_mb=256))

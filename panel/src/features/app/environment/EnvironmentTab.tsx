@@ -132,7 +132,7 @@ export function EnvironmentTab({ domain }: { domain: string }) {
     },
   });
 
-  // Marking a variable is not part of the draft: it changes how WASM classifies the name, not
+  // Marking a variable is not part of the draft: it changes how Noust classifies the name, not
   // what the file holds, so it writes through immediately and refreshes the listing.
   const mark = useMutation({
     mutationFn: ({ name, value }: { name: string; value: boolean | null }) =>
@@ -263,7 +263,7 @@ export function EnvironmentTab({ domain }: { domain: string }) {
       header: t("environment.tab.visibilityHeader"),
       width: "w-56",
       cell: (row) => {
-        // A variable just added exists only in the draft: WASM has not classified it yet, and
+        // A variable just added exists only in the draft: Noust has not classified it yet, and
         // marking it before it is even saved would set an override for a name the .env file
         // does not hold. A removed one keeps its line, struck through, but not the control.
         if (row.current === null) return <span className="text-13 text-fg-faint">{t("environment.tab.notYetClassified")}</span>;
@@ -379,7 +379,7 @@ export function EnvironmentTab({ domain }: { domain: string }) {
               title={t("environment.tab.emptyTitle")}
               description={isStatic ? t("environment.tab.emptyDescriptionStatic") : t("environment.tab.emptyDescriptionRuntime")}
               action={actions}
-              command={`wasm env show ${domain}`}
+              command={`noust env show ${domain}`}
             />
           }
         >
@@ -424,7 +424,7 @@ export function EnvironmentTab({ domain }: { domain: string }) {
           </p>
         ) : null}
         {/* The empty state carries the same command; said once. */}
-        {rows.length > 0 || env.data === undefined ? <CommandHint command={`wasm env show ${domain}`} label={t("environment.fromTerminal")} /> : null}
+        {rows.length > 0 || env.data === undefined ? <CommandHint command={`noust env show ${domain}`} label={t("environment.fromTerminal")} /> : null}
       </Section>
 
       <VariableDialog

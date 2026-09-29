@@ -28,7 +28,7 @@ import type { AppJob } from "./useAppJob";
 
 /**
  * Where the app answers: HTTPS unless the certificate list shows none covers it (while the
- * list loads, HTTPS, which is how WASM deploys by default).
+ * list loads, HTTPS, which is how Noust deploys by default).
  */
 function liveUrl(domain: string, hasCertificate: boolean): string {
   return `${hasCertificate ? "https" : "http"}://${domain}`;
@@ -121,7 +121,7 @@ function NotFound({ domain, t }: { domain: string; t: T }) {
             {t("appPages.layout.allApplications")}
           </Link>
         }
-        command="wasm list"
+        command="noust list"
         className="py-16"
       />
     </>

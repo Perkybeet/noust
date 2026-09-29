@@ -36,7 +36,7 @@ export const databases: Catalog<typeof en> = {
   },
   engines: {
     title: "Motores",
-    description: "Servidores de bases de datos que WASM puede instalar y controlar en esta máquina.",
+    description: "Servidores de bases de datos que Noust puede instalar y controlar en esta máquina.",
     installing: "Instalando",
     notInstalled: "No instalado",
     running: "En ejecución",
@@ -100,7 +100,7 @@ export const databases: Catalog<typeof en> = {
     description: "Crea un inicio de sesión en el motor elegido, con una contraseña generada salvo que definas una.",
     done: "Hecho",
     passwordWarning:
-      "Esta contraseña se muestra una sola vez. WASM guarda solo lo que guarda el motor -un hash-, así que no se puede volver a mostrar. Cópiala ahora y guárdala en un lugar seguro.",
+      "Esta contraseña se muestra una sola vez. Noust guarda solo lo que guarda el motor -un hash-, así que no se puede volver a mostrar. Cópiala ahora y guárdala en un lugar seguro.",
     copyUsername: "Copiar usuario",
     copyPassword: "Copiar contraseña",
     passwordDescription: "Déjalo en blanco para generar una contraseña, que se mostrará al crear el usuario.",
@@ -128,7 +128,7 @@ export const databases: Catalog<typeof en> = {
     modeLabel: "Modo",
     readMode: "Lectura",
     writeMode: "Escritura",
-    noReadOnlyGrammar: "{engine} no tiene una gramática de solo lectura que WASM pueda aplicar aquí; toda sentencia se ejecuta en modo de escritura.",
+    noReadOnlyGrammar: "{engine} no tiene una gramática de solo lectura que Noust pueda aplicar aquí; toda sentencia se ejecuta en modo de escritura.",
     ctrlEnterHint: "Ctrl+Intro ejecuta.",
     run: "Ejecutar",
     statementFailed: "La sentencia falló",
@@ -168,7 +168,7 @@ export const databases: Catalog<typeof en> = {
   },
   connectionString: {
     title: "Cadena de conexión",
-    description: "Se genera a partir de un usuario y una contraseña que ya tienes. WASM no lee nada del servidor para construirla.",
+    description: "Se genera a partir de un usuario y una contraseña que ya tienes. Noust no lee nada del servidor para construirla.",
     build: "Generar cadena de conexión",
     reveal: "Mostrar cadena de conexión",
     hide: "Ocultar cadena de conexión",

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Tests for :mod:`wasm.core.messages`.
+Tests for :mod:`noust.core.messages`.
 
 What is defended:
 
@@ -23,7 +23,7 @@ import string
 
 import pytest
 
-from wasm.core.messages import DEFAULT_LOCALE, MESSAGES, message, normalize_locale, plural
+from noust.core.messages import DEFAULT_LOCALE, MESSAGES, message, normalize_locale, plural
 
 _FORMATTER = string.Formatter()
 

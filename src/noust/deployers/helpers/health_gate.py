@@ -8,8 +8,8 @@ A release becomes active by a deploy, by an update, or by an operator going
 back to an earlier one. All three must be judged the same way - a rollback
 that activated a release the deploy would have refused, or the reverse, is a
 rule with two answers - so the gate is one class both
-:class:`~wasm.deployers.base.BaseDeployer` and
-:func:`~wasm.deployers.lifecycle.activate_release` build.
+:class:`~noust.deployers.base.BaseDeployer` and
+:func:`~noust.deployers.lifecycle.activate_release` build.
 
 What it does not decide is what happens next: the caller re-activates the
 release that was serving and says so, because only the caller knows which one
@@ -17,7 +17,7 @@ that was.
 
 What it asks is the application's own :class:`HealthCheck`: the path, the
 statuses that mean up and how long to wait, as the operator set them with
-``wasm app health`` or the console, and 2.0's rule for whatever they did not.
+``noust app health`` or the console, and 2.0's rule for whatever they did not.
 """
 
 from __future__ import annotations
@@ -28,13 +28,13 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
-from wasm.core.exceptions import WASMError
-from wasm.core.logger import Logger
-from wasm.deployers.helpers.health import answers, wait_until_healthy
-from wasm.validators.health import parse_health_expect
+from noust.core.exceptions import NoustError
+from noust.core.logger import Logger
+from noust.deployers.helpers.health import answers, wait_until_healthy
+from noust.validators.health import parse_health_expect
 
 if TYPE_CHECKING:
-    from wasm.core.store import App
+    from noust.core.store import App
 
 #: How long a new release gets to answer before it is rolled back: attempts,
 #: and seconds between them. Longer than the post-deploy check, because a
@@ -56,11 +56,11 @@ DEFAULT_EXPECT_DESCRIPTION = "any status below 500"
 #: shows why the process did not come up, not only that it did not.
 HEALTH_GATE_JOURNAL_LINES = 40
 
-#: How :func:`~wasm.deployers.helpers.health.wait_until_healthy` reports a
+#: How :func:`~noust.deployers.helpers.health.wait_until_healthy` reports a
 #: failed attempt.
 _ATTEMPT = re.compile(r"^Health check attempt (\d+) failed: (.*)$", re.DOTALL)
 
-#: The probe's signature: :func:`~wasm.deployers.helpers.health.wait_until_healthy`.
+#: The probe's signature: :func:`~noust.deployers.helpers.health.wait_until_healthy`.
 Probe = Callable[..., bool]
 
 
@@ -246,8 +246,8 @@ class HealthGate:
                 self._restart()
             elif self.unit:
                 self._services.restart(self.unit)
-        except WASMError as exc:
-            # str() of a WASMError carries its details: systemctl's own output.
+        except NoustError as exc:
+            # str() of a NoustError carries its details: systemctl's own output.
             return False, self.evidence(str(exc))
 
         if self.url is None:
@@ -288,7 +288,7 @@ class HealthGate:
         if self.unit:
             try:
                 journal = self._services.logs(self.unit, lines=HEALTH_GATE_JOURNAL_LINES).strip()
-            except WASMError as exc:
+            except NoustError as exc:
                 journal = f"(the journal could not be read: {exc})"
             if journal:
                 parts.append(f"Last lines of the journal of {self.unit}:\n{journal}")

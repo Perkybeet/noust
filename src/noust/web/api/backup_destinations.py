@@ -4,14 +4,14 @@
 """
 Remote backup destinations through rclone (2.2).
 
-A thin client of :class:`~wasm.managers.backup_destinations.BackupDestinationManager`,
+A thin client of :class:`~noust.managers.backup_destinations.BackupDestinationManager`,
 which owns every rule about what rclone is told and how a destination's
 secrets are kept. Three things live here rather than in the manager:
 
 - **Secrets never leave this process as values.** A destination's secret
   fields (a password, a token, the crypt passphrases) are reported as which
   ones are configured, never what they hold - :func:`_to_info` calls
-  :meth:`~wasm.managers.backup_destinations.BackupDestinationManager.configured_secret_fields`
+  :meth:`~noust.managers.backup_destinations.BackupDestinationManager.configured_secret_fields`
   instead of reading them. ``show-key`` is the one deliberate exception, and
   it requires sudo mode.
 - **Every mutation requires sudo mode.** Creating, changing or removing a
@@ -25,7 +25,7 @@ An encrypted destination is recoverable through here too: ``POST`` accepts
 the key ``show-key`` returned (``encryption_key``) for a replacement server,
 and ``DELETE`` of an encrypted destination is refused until ``key_saved`` says
 the key was kept - the console shows it first - because removing the
-destination deletes the only copy WASM has of what reads its backups.
+destination deletes the only copy Noust has of what reads its backups.
 """
 
 from __future__ import annotations
@@ -36,24 +36,24 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from wasm.core.store import BackupDestinationRecord
-from wasm.managers.backup_destinations import (
+from noust.core.store import BackupDestinationRecord
+from noust.managers.backup_destinations import (
     BACKEND_FIELDS,
     BackendField,
     BackupDestinationManager,
     backend_fields,
     validate_destination_name,
 )
-from wasm.managers.backup_manager import app_name_of_backup_id
-from wasm.validators.names import validate_app_name, validate_filename
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import JobAcceptedResponse, WASMErrorRoute, require_elevated, strict_domain
-from wasm.web.auth import actor_label
-from wasm.web.jobs import JobType, get_job_manager, restore_from_destination_job
+from noust.managers.backup_manager import app_name_of_backup_id
+from noust.validators.names import validate_app_name, validate_filename
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated, strict_domain
+from noust.web.auth import actor_label
+from noust.web.jobs import JobType, get_job_manager, restore_from_destination_job
 
-router = APIRouter(route_class=WASMErrorRoute)
+router = APIRouter(route_class=NoustErrorRoute)
 
-audit_log = logging.getLogger("wasm.audit")
+audit_log = logging.getLogger("noust.audit")
 
 
 class BackendFieldInfo(BaseModel):
@@ -69,7 +69,7 @@ class BackendFieldInfo(BaseModel):
 
 
 class BackendInfo(BaseModel):
-    """One backend WASM can build a destination for."""
+    """One backend Noust can build a destination for."""
 
     backend: str
     fields: list[BackendFieldInfo]
@@ -187,7 +187,7 @@ def _field_info(spec: BackendField) -> BackendFieldInfo:
     Convert a backend field spec into the API model.
 
     Args:
-        spec: The field, from :func:`~wasm.managers.backup_destinations.backend_fields`.
+        spec: The field, from :func:`~noust.managers.backup_destinations.backend_fields`.
 
     Returns:
         The API representation.
@@ -241,7 +241,7 @@ def list_backends(session: Annotated[dict, Depends(get_current_session)]) -> Bac
         session: The authenticated session.
 
     Returns:
-        Every backend WASM can build a destination for, with its fields.
+        Every backend Noust can build a destination for, with its fields.
     """
     return BackendsResponse(
         backends=[

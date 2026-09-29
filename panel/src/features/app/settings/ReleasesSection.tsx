@@ -316,7 +316,7 @@ function MigrationCard({ app, onMigrated }: { app: App; onMigrated: (result: Mig
         ) : undefined}
       </Dialog>
       <div className="sm:pl-7">
-        <CommandHint command={`wasm app migrate ${domain}`} label={t("appSettings.fromTerminal")} />
+        <CommandHint command={`noust app migrate ${domain}`} label={t("appSettings.fromTerminal")} />
       </div>
     </div>
   );
@@ -350,7 +350,7 @@ export function ReleasesSection({ app }: { app: App }) {
       </div>
       {onReleases ? (
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <CommandHint command={`wasm releases list ${app.domain}`} label={t("appSettings.fromTerminal")} />
+          <CommandHint command={`noust releases list ${app.domain}`} label={t("appSettings.fromTerminal")} />
           <Link to="/apps/$domain/deployments" params={{ domain: app.domain }} className={LINK}>
             {t("appSettings.releases.rollbackLink")}
           </Link>

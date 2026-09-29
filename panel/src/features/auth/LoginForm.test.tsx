@@ -7,7 +7,7 @@ import { renderConsole } from "../../test/console";
 import { ANONYMOUS, SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RecordedCall } from "../../test/fakes";
 
-const TOKEN = "wasm_secret_token";
+const TOKEN = "noust_secret_token";
 const CODE = "123456";
 
 /** A backend with two-factor on: a signed-out session until a login succeeds. */
@@ -121,7 +121,7 @@ describe("sign-in", () => {
     twoFactorBackend();
     renderConsole("/login");
     expect(await screen.findByText("web-01")).toBeInTheDocument();
-    expect(document.title).toBe("Sign in - web-01 - WASM");
+    expect(document.title).toBe("Sign in - web-01 - Noust");
   });
 
   it("has no accessibility violations on either step", async () => {

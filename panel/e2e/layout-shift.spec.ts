@@ -10,7 +10,7 @@
  * be clicked is a misclick. On failure the message lists the elements that moved, largest
  * shift first, so the cause is fixed at its source rather than guessed at.
  *
- * With WASM_CLS_REPORT set to a directory, each page's score is written there as JSON too,
+ * With NOUST_CLS_REPORT set to a directory, each page's score is written there as JSON too,
  * for a before-and-after table.
  */
 
@@ -36,10 +36,10 @@ for (const route of ROUTES) {
     await settle(page);
     await page.waitForTimeout(CLS_TAIL_MS);
 
-    const shifts = await page.evaluate(() => window.__wasmShifts ?? []);
+    const shifts = await page.evaluate(() => window.__noustShifts ?? []);
     const score = cumulativeLayoutShift(shifts);
 
-    const report = process.env.WASM_CLS_REPORT;
+    const report = process.env.NOUST_CLS_REPORT;
     if (report) {
       mkdirSync(report, { recursive: true });
       writeFileSync(

@@ -5,7 +5,7 @@
 Tests for the pre-release review of 2.2 backups: what must never lose a backup.
 
 Each class is one finding. The common thread is that a backup an operator
-meant to keep must survive every automatic deletion WASM performs: a
+meant to keep must survive every automatic deletion Noust performs: a
 schedule's retention, ``backup.max_per_app`` rotation, a rollback's safety
 backup, remote retention on a folder another server shares, and a failed
 upload counting toward retention. The other half is recovery: an encrypted
@@ -24,28 +24,28 @@ from typing import Any
 
 import pytest
 
-from wasm.core.applock import AppBusyError
-from wasm.core.exceptions import BackupError, ConfigError
-from wasm.core.notifier import NotificationEvent
-from wasm.core.runner import FakeRunner
-from wasm.core.secrets import SecretStore
-from wasm.core.store import BackupScheduleRecord, DeploymentStatus, WASMStore, get_store
-from wasm.managers import backup_manager as backup_manager_module
-from wasm.managers import backup_scheduler as scheduler_module
-from wasm.managers.backup_destinations import (
+from noust.core.applock import AppBusyError
+from noust.core.exceptions import BackupError, ConfigError
+from noust.core.notifier import NotificationEvent
+from noust.core.runner import FakeRunner
+from noust.core.secrets import SecretStore
+from noust.core.store import BackupScheduleRecord, DeploymentStatus, NoustStore, get_store
+from noust.managers import backup_manager as backup_manager_module
+from noust.managers import backup_scheduler as scheduler_module
+from noust.managers.backup_destinations import (
     STAGING_DIR_NAME,
     BackupDestinationManager,
     parse_crypt_key,
     validate_destination_name,
 )
-from wasm.managers.backup_manager import (
+from noust.managers.backup_manager import (
     SCHEDULED_TAG,
     BackupManager,
     BackupMetadata,
     RollbackManager,
     server_id,
 )
-from wasm.managers.backup_scheduler import BackupScheduler, run_schedule
+from noust.managers.backup_scheduler import BackupScheduler, run_schedule
 
 APP = "shop-example-com"
 DOMAIN = "shop.example.com"
@@ -53,9 +53,9 @@ DOMAIN = "shop.example.com"
 
 @pytest.fixture(autouse=True)
 def _reset_store() -> Iterator[None]:
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
     yield
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture
@@ -278,13 +278,13 @@ class TestRotationProtections:
 # 3/4. Adoption and run-schedule without a store row
 # ---------------------------------------------------------------------------
 
-LIST_LINE = "n/a n/a n/a n/a wasm-backup-example-com.timer wasm-backup-example-com.service\n"
+LIST_LINE = "n/a n/a n/a n/a noust-backup-example-com.timer noust-backup-example-com.service\n"
 SHOW_OK = (
-    "Description=WASM backup timer for example.com\n"
+    "Description=Noust backup timer for example.com\n"
     "TimersCalendar={ OnCalendar=*-*-* 02:00:00 ; next_elapse=n/a }\n"
 )
 LEGACY_SERVICE = (
-    "[Service]\nExecStart=/usr/bin/wasm backup create example.com "
+    "[Service]\nExecStart=/usr/bin/noust backup create example.com "
     "--include-databases --tags scheduled,auto\n"
 )
 
@@ -303,7 +303,7 @@ class TestAdoption:
     ) -> None:
         runner.script(("systemctl", "list-timers"), stdout=LIST_LINE)
         runner.script(("systemctl", "show"), stdout="", exit_code=1)
-        service = systemd_dir / "wasm-backup-example-com.service"
+        service = systemd_dir / "noust-backup-example-com.service"
         service.write_text(LEGACY_SERVICE)
 
         listed = BackupScheduler(verbose=False, runner=runner).list_schedules()
@@ -323,7 +323,7 @@ class TestAdoption:
         get_store().save_backup_schedule(
             BackupScheduleRecord(app_domain="example.com", schedule="*-*-* 02:00:00")
         )
-        service = systemd_dir / "wasm-backup-example-com.service"
+        service = systemd_dir / "noust-backup-example-com.service"
         service.write_text(LEGACY_SERVICE)
 
         BackupScheduler(verbose=False, runner=runner).list_schedules()
@@ -336,7 +336,7 @@ class TestAdoption:
         runner.script(("systemctl", "list-timers"), stdout=LIST_LINE)
         runner.script(("systemctl", "show"), stdout=SHOW_OK)
         scheduler = BackupScheduler(verbose=False, runner=runner)
-        service = systemd_dir / "wasm-backup-example-com.service"
+        service = systemd_dir / "noust-backup-example-com.service"
         service.write_text(LEGACY_SERVICE)
         scheduler.list_schedules()
         reloads = len([c for c in runner.calls_to("systemctl") if c[1] == "daemon-reload"])
@@ -381,7 +381,7 @@ class TestRunScheduleWithoutARow:
         monkeypatch.setattr(BackupDestinationManager, "push", lambda *a, **k: pushed.append("push"))
         notified: list[NotificationEvent] = []
         monkeypatch.setattr(
-            "wasm.core.notifier.Notifier.notify", lambda self, event: notified.append(event)
+            "noust.core.notifier.Notifier.notify", lambda self, event: notified.append(event)
         )
 
         result = run_schedule(DOMAIN)
@@ -780,7 +780,7 @@ class TestDownload:
         downloader = _downloader(_sidecar())
         usage = namedtuple("usage", "total used free")
         monkeypatch.setattr(
-            "wasm.managers.backup_destinations.shutil.disk_usage", lambda path: usage(10, 5, 5)
+            "noust.managers.backup_destinations.shutil.disk_usage", lambda path: usage(10, 5, 5)
         )
         with pytest.raises(BackupError, match="Not enough space"):
             downloader.download("nas", BACKUP_ID, APP, tmp_path / "staging")

@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ServicesPage } from "../../../features/services/ServicesPage";
 import { validateServicesSearch } from "../../../features/services/data";
 
-/** Every systemd unit WASM manages. The search box is a search param: `/services?q=worker`. */
+/** Every systemd unit Noust manages. The search box is a search param: `/services?q=worker`. */
 export const Route = createFileRoute("/_console/services/")({
   validateSearch: validateServicesSearch,
   component: ServicesRoute,

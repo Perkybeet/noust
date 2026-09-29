@@ -56,7 +56,7 @@ function VerifyPassed({ output }: { output: string }) {
  * for elevation on its own); once it answers, the editor is refreshed from the same `GET
  * .../config` a plain read uses, so what is on screen after a save is what the manager
  * actually wrote, not merely what was typed - `ServiceManager.update_config` can, for
- * instance, restamp the WASM ownership marker.
+ * instance, restamp the Noust ownership marker.
  */
 export function UnitEditor({ name }: { name: string }) {
   const t = useT();

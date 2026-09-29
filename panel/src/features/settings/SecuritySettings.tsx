@@ -70,7 +70,7 @@ function LockoutSection() {
     <SettingsSection
       title={t("settings.security.lockout.title")}
       description={t("settings.security.lockout.description")}
-      commands={["wasm config get web", "wasm web restart"]}
+      commands={["noust config get web", "noust web restart"]}
     >
       <QueryState query={query} label={t("settings.security.lockout.loadingLabel")} skeleton={
           <div className="rounded-card border border-border bg-surface px-5 py-2 shadow-raised">

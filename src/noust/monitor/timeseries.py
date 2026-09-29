@@ -38,13 +38,14 @@ import time
 from collections.abc import Callable, Iterable
 from pathlib import Path
 
-from wasm.core.logger import Logger
+from noust.core import paths
+from noust.core.logger import Logger
 
-#: Where the database lives when WASM is installed system-wide.
-SYSTEM_DB_PATH = Path("/var/lib/wasm/metrics.db")
+#: Where the database lives when Noust is installed system-wide.
+SYSTEM_DB_PATH = paths.state_dir() / "metrics.db"
 
 #: Fallback for an unprivileged run, so a developer never writes to /var/lib.
-USER_DB_RELATIVE_PATH = Path(".local/share/wasm/metrics.db")
+USER_DB_RELATIVE_PATH = Path(".local/share") / paths.NAME / "metrics.db"
 
 #: A metric write or read must never block for long on the database.
 BUSY_TIMEOUT = 10

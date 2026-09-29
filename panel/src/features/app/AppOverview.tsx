@@ -399,10 +399,10 @@ function Runtime({ app, t }: { app: App; t: T }) {
   return (
     <Section title={t("appPages.overview.runtimeTitle")}>
       <Panel className="py-1">
-        {/* A fact WASM has no record of (an app deployed before it kept one), as Settings says. */}
+        {/* A fact Noust has no record of (an app deployed before it kept one), as Settings says. */}
         <KeyValueList empty={t("appPages.common.notRecorded")} items={items} />
       </Panel>
-      <CommandHint command={`wasm status ${app.domain}`} label={t("appPages.fromTerminal")} />
+      <CommandHint command={`noust status ${app.domain}`} label={t("appPages.fromTerminal")} />
     </Section>
   );
 }

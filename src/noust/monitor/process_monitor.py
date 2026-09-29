@@ -9,7 +9,7 @@ terminate the process tree, and hand the process working directory to
 What it does now: read metrics, read the process table, read unit state, write
 down what stands out, and tell somebody. It never signals a process and never
 deletes a file. The one filesystem write it makes is its own systemd unit, at a
-fixed path, and only when an operator runs ``wasm monitor install``.
+fixed path, and only when an operator runs ``noust monitor install``.
 """
 
 from __future__ import annotations
@@ -22,31 +22,32 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
-from wasm.core.config import SYSTEMD_DIR, Config
-from wasm.core.exceptions import MonitorError, WASMError
-from wasm.core.fs import SECRET_MODE, get_fs
-from wasm.core.logger import Logger
-from wasm.core.messages import Locale, message, normalize_locale, plural
-from wasm.core.notifier import NotificationEvent, Notifier
-from wasm.core.runner import CommandRunner, get_runner
-from wasm.core.utils import remove_file, write_file
-from wasm.managers.cert_manager import CertManager
-from wasm.managers.service_manager import ServiceManager
-from wasm.monitor.email_notifier import EmailNotifier
-from wasm.monitor.metrics import (
+from noust.core import paths
+from noust.core.config import SYSTEMD_DIR, Config
+from noust.core.exceptions import MonitorError, NoustError
+from noust.core.fs import SECRET_MODE, get_fs
+from noust.core.logger import Logger
+from noust.core.messages import Locale, message, normalize_locale, plural
+from noust.core.notifier import NotificationEvent, Notifier
+from noust.core.runner import CommandRunner, get_runner
+from noust.core.utils import remove_file, write_file
+from noust.managers.cert_manager import CertManager
+from noust.managers.service_manager import ServiceManager
+from noust.monitor.email_notifier import EmailNotifier
+from noust.monitor.metrics import (
     SYSTEMCTL_TIMEOUT,
     collect_resource_metrics,
     collect_service_health,
     list_processes,
 )
-from wasm.monitor.models import (
+from noust.monitor.models import (
     SEVERITY_WARNING,
     ProcessObservation,
     ResourceMetrics,
     ServiceHealth,
 )
-from wasm.monitor.observation_store import DEFAULT_MAX_OBSERVATIONS, ObservationStore
-from wasm.monitor.signals import observe_processes
+from noust.monitor.observation_store import DEFAULT_MAX_OBSERVATIONS, ObservationStore
+from noust.monitor.signals import observe_processes
 
 #: Seconds between scans. A minute is enough for capacity planning and cheap
 #: enough to leave running on a small box.
@@ -54,7 +55,7 @@ DEFAULT_SCAN_INTERVAL = 60
 
 #: Past this, a unit that fails can stay down for minutes before anybody is
 #: told. It is respected - an operator may want a quiet monitor - but
-#: ``wasm monitor status`` says what it costs. One production server ran with
+#: ``noust monitor status`` says what it costs. One production server ran with
 #: 3600: an hour between a crash and its alert, at best.
 SCAN_INTERVAL_WARNING_SECONDS = 300
 
@@ -287,7 +288,7 @@ class MonitorConfig:
         cpu_threshold: CPU percentage above which a process is noted.
         memory_threshold: Memory percentage above which a process is noted.
         notify: Send observations by email.
-        watch_units: Units checked each scan on top of every unit WASM
+        watch_units: Units checked each scan on top of every unit Noust
             manages, which are always watched.
         retention_days: How long observations are kept.
         max_observations: Hard ceiling on rows kept in the observation store.
@@ -317,7 +318,7 @@ class ProcessMonitor:
     observation store. None of them changes the state of a process.
     """
 
-    SERVICE_NAME = "wasm-monitor"
+    SERVICE_NAME = paths.MONITOR_UNIT
 
     def __init__(
         self,
@@ -345,7 +346,7 @@ class ProcessMonitor:
             cert_state_path: Where the per-certificate last-notified date is
                 recorded. Defaults to a sidecar next to the observation
                 store; tests point it at a sandbox.
-            service_manager: Where the units WASM manages are listed from.
+            service_manager: Where the units Noust manages are listed from.
                 Created on first use if None.
         """
         self.verbose = verbose
@@ -389,7 +390,7 @@ class ProcessMonitor:
             watch_units=tuple(get("monitor.watch_units", []) or ()),
             retention_days=int(get("monitor.retention_days", DEFAULT_RETENTION_DAYS)),
             max_observations=int(get("monitor.max_observations", DEFAULT_MAX_OBSERVATIONS)),
-            log_file=Path(get("monitor.log_file", "/var/log/wasm/monitor.log")),
+            log_file=Path(get("monitor.log_file", str(paths.LOG_DIR / "monitor.log"))),
         )
 
     @property
@@ -432,7 +433,7 @@ class ProcessMonitor:
 
     def _managed_units(self) -> list[str]:
         """
-        List the units WASM manages, from the service manager's one definition.
+        List the units Noust manages, from the service manager's one definition.
 
         Returns:
             Their names. Empty, and logged, when they cannot be listed: the
@@ -440,8 +441,8 @@ class ProcessMonitor:
         """
         try:
             units = self.service_manager.managed_units()
-        except (WASMError, OSError) as exc:
-            self.logger.warning(f"Could not list the units WASM manages: {exc}")
+        except (NoustError, OSError) as exc:
+            self.logger.warning(f"Could not list the units Noust manages: {exc}")
             return []
         return [unit.name for unit in units]
 
@@ -449,7 +450,7 @@ class ProcessMonitor:
         """
         Name every unit a scan checks.
 
-        Every unit WASM manages, read again each scan so an application
+        Every unit Noust manages, read again each scan so an application
         deployed since is watched without a restart, then the extras in
         ``monitor.watch_units``. With only the extras, which default to none,
         the monitor watched nothing and ``unit_failed`` never fired.
@@ -476,7 +477,7 @@ class ProcessMonitor:
         """
         try:
             self.global_config.reload()
-        except (WASMError, OSError) as exc:
+        except (NoustError, OSError) as exc:
             self.logger.debug(f"Configuration reload before notification failed: {exc}")
         self.event_notifier.notify(NotificationEvent(kind=kind, title=title, body=body))
 
@@ -485,7 +486,7 @@ class ProcessMonitor:
         Language this daemon's own notification texts render in.
 
         Read ahead of :meth:`_publish_event`'s own reload, since the caller
-        builds ``title`` and ``body`` from :mod:`wasm.core.messages` before
+        builds ``title`` and ``body`` from :mod:`noust.core.messages` before
         that call: a language switched in the panel takes effect from the
         scan that happens to read it, the same lag every other monitor
         setting already has.
@@ -570,7 +571,7 @@ class ProcessMonitor:
         stored: list[int] = []
         try:
             stored = self.store.save_many(observations) or []
-        except WASMError as exc:
+        except NoustError as exc:
             self.logger.error(f"Failed to persist observations: {exc}")
         except OSError as exc:
             self.logger.error(f"Failed to persist observations: {exc}")
@@ -581,7 +582,7 @@ class ProcessMonitor:
         if self.config.notify and stored:
             try:
                 self.notifier.send_observation_alert(observations)
-            except WASMError as exc:
+            except NoustError as exc:
                 self.logger.error(f"Failed to send observation report: {exc}")
 
         return observations
@@ -713,7 +714,7 @@ class ProcessMonitor:
         """
         try:
             certificates = self.cert_manager.list_certificates()
-        except WASMError as exc:
+        except NoustError as exc:
             self.logger.debug(f"Could not list certificates for the expiry check: {exc}")
             return
 
@@ -783,7 +784,7 @@ class ProcessMonitor:
                 # failure.title and .detail are the log's own words, always
                 # English (the CLI and every server-generated string are out
                 # of scope for 2.3). The notification is built fresh from
-                # wasm.core.messages, keyed by the same failure.kind, with
+                # noust.core.messages, keyed by the same failure.kind, with
                 # systemd's own reported state (failure.detail) carried
                 # through as evidence rather than retranslated.
                 self._publish_event(
@@ -811,7 +812,7 @@ class ProcessMonitor:
                 self._report_services()
                 self._check_certificates()
                 self.scan_once()
-            except WASMError as exc:
+            except NoustError as exc:
                 self.logger.error(f"Scan failed: {exc}")
             except OSError as exc:
                 self.logger.error(f"Scan failed to read the system: {exc}")
@@ -844,7 +845,7 @@ class ProcessMonitor:
         try:
             self.store.purge_older_than(self.config.retention_days)
             self.store.enforce_limit()
-        except WASMError as exc:
+        except NoustError as exc:
             self.logger.debug(f"Retention purge skipped: {exc}")
         except OSError as exc:
             self.logger.debug(f"Retention purge skipped: {exc}")
@@ -854,29 +855,32 @@ class ProcessMonitor:
         """Path of the systemd unit this monitor installs."""
         return SYSTEMD_DIR / f"{self.SERVICE_NAME}.service"
 
-    def _wasm_executable(self) -> str:
+    def _noust_executable(self) -> str:
         """
-        Locate the wasm entry point for the unit's ExecStart.
+        Locate the noust entry point for the unit's ExecStart.
 
         systemd has no PATH of its own, so a relative command in a unit file is
-        a service that fails to start.
+        a service that fails to start. ``wasm``, the alias the same entry point
+        keeps through 3.x, is the fallback.
 
         Returns:
-            An absolute path to the wasm executable.
+            An absolute path to the noust executable.
 
         Raises:
-            MonitorError: When wasm cannot be found on PATH.
+            MonitorError: When neither noust nor noust can be found on PATH.
         """
-        for directory in os.environ.get("PATH", "").split(os.pathsep):
-            if not directory:
-                continue
-            candidate = Path(directory) / "wasm"
-            if candidate.is_file() and os.access(candidate, os.X_OK):
-                return str(candidate.resolve())
+        for name in (paths.NAME, paths.LEGACY_NAME):
+            for directory in os.environ.get("PATH", "").split(os.pathsep):
+                if not directory:
+                    continue
+                candidate = Path(directory) / name
+                if candidate.is_file() and os.access(candidate, os.X_OK):
+                    return str(candidate.resolve())
 
         raise MonitorError(
-            "Could not find the wasm executable to reference from the systemd unit",
-            details="Install WASM system-wide (pip install wasm-cli) before installing the service.",
+            "Could not find the noust executable to reference from the systemd unit",
+            details="Install Noust system-wide (the distribution package, or pip install "
+            "as root) before installing the service.",
         )
 
     def _unit_content(self) -> str:
@@ -887,23 +891,23 @@ class ProcessMonitor:
             The unit file body.
 
         Raises:
-            MonitorError: When the wasm executable cannot be located.
+            MonitorError: When the noust executable cannot be located.
         """
-        wasm_path = self._wasm_executable()
+        noust_path = self._noust_executable()
 
-        return f"""# WASM process monitor
-# Generated by WASM. Do not edit; reinstall with: wasm monitor install
+        return f"""# Noust process monitor
+# {paths.UNIT_MARKER}. Do not edit; reinstall with: noust monitor install
 
 [Unit]
-Description=WASM process and resource monitor
-Documentation=https://github.com/Perkybeet/wasm
+Description=Noust process and resource monitor
+Documentation=https://github.com/Perkybeet/noust
 After=network.target
 
 [Service]
 Type=simple
 User=root
 Group=root
-ExecStart={wasm_path} monitor run
+ExecStart={noust_path} monitor run
 Restart=always
 RestartSec=30
 
@@ -913,14 +917,14 @@ ProtectSystem=strict
 ProtectHome=read-only
 # StateDirectory and LogsDirectory rather than ReadWritePaths: systemd creates
 # these before the unit starts and adds them to the writable set itself.
-# ReadWritePaths does neither, so on a machine where /var/lib/wasm did not
+# ReadWritePaths does neither, so on a machine where /var/lib/noust did not
 # exist yet - which is every machine that installed the monitor before it had
 # ever written a database - mounting the namespace failed outright. The unit
 # exited 226/NAMESPACE and systemd restarted it every 30 seconds forever: one
 # production server was found at 2379 consecutive failures, with the monitor
 # never having run once.
-StateDirectory=wasm
-LogsDirectory=wasm
+StateDirectory={paths.NAME}
+LogsDirectory={paths.NAME}
 PrivateDevices=true
 RestrictSUIDSGID=true
 
@@ -940,8 +944,17 @@ WantedBy=multi-user.target
             True when the unit was installed.
 
         Raises:
-            MonitorError: When the unit cannot be written or systemd refuses.
+            MonitorError: When the unit cannot be written or systemd refuses,
+                or Noust's monitor unit is still installed.
         """
+        legacy = SYSTEMD_DIR / f"{paths.LEGACY_MONITOR_UNIT}.service"
+        if legacy.exists():
+            # Writing noust-monitor beside it would run two monitors; the
+            # migration replaces the one with the other, in the same state.
+            raise MonitorError(
+                f"WASM's monitor unit is still installed: {legacy}",
+                details="Move this server onto Noust's names first: noust migrate-from-wasm",
+            )
         if not write_file(self.unit_path, self._unit_content(), mode=0o644):
             raise MonitorError(
                 f"Failed to write {self.unit_path}",
@@ -1038,7 +1051,7 @@ WantedBy=multi-user.target
 
     def uninstall_service(self) -> bool:
         """
-        Stop the monitor unit and delete the unit file WASM wrote.
+        Stop the monitor unit and delete the unit file Noust wrote.
 
         Returns:
             True when the unit is gone.

@@ -67,7 +67,7 @@ function LanguagePicker({
 }
 
 /**
- * Notifications > Language: the language WASM writes its own notification text in - titles,
+ * Notifications > Language: the language Noust writes its own notification text in - titles,
  * event descriptions, the words around a link. Never the tools it wraps: what systemd,
  * certbot or git print is shown as they wrote it, in every language. Bound to
  * `notifications.language` through the same generic config API as the console's address,

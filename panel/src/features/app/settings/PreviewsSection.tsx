@@ -681,7 +681,7 @@ export function PreviewsSection({ app }: { app: App }) {
         )}
       </div>
       {data !== undefined && (data.enabled || data.previews.length > 0) ? <PreviewList domain={domain} data={data} /> : null}
-      <CommandHint command={`wasm preview enable ${domain} --domain previews.example.com --max 3 --ttl 7d`} label={t("appSettings.fromTerminal")} />
+      <CommandHint command={`noust preview enable ${domain} --domain previews.example.com --max 3 --ttl 7d`} label={t("appSettings.fromTerminal")} />
     </Section>
   );
 }

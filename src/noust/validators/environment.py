@@ -5,7 +5,7 @@
 Validation of values that end up inside a systemd unit file.
 
 A systemd unit is a line-oriented INI file: a newline ends a directive and the
-next line starts a new one. Everything WASM interpolates into a unit
+next line starts a new one. Everything Noust interpolates into a unit
 (environment variables, the description, the command, the working directory)
 arrives from user input, in the worst case straight from ``POST /api/apps``.
 Before this module, a single ``\\n`` in an environment value appended arbitrary
@@ -43,7 +43,7 @@ The same rules for ``EnvironmentFile=``
 An application's secrets are no longer written into its unit: the unit is
 0644 and ``systemctl show`` prints ``Environment=`` to any local user, so they
 live in the application's 0600 env file, which the unit loads with
-``EnvironmentFile=`` (see :mod:`wasm.managers.service_manager`). systemd reads
+``EnvironmentFile=`` (see :mod:`noust.managers.service_manager`). systemd reads
 that file line by line, so a newline in a value injects there as surely as in
 the unit: the deployers validate every variable with this module before they
 write it to the file.
@@ -54,7 +54,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 
-from wasm.core.exceptions import ValidationError
+from noust.core.exceptions import ValidationError
 
 #: POSIX environment variable name: a C identifier.
 #: ``\A``/``\Z`` rather than ``^``/``$``: ``$`` also matches before a trailing

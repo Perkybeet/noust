@@ -41,7 +41,7 @@ const CONFIG = {
     },
     allow_private_hosts: ["10.0.0.12"],
   },
-  monitor: { smtp: { host: "smtp.example.com", port: 465, from_address: "wasm@example.com", password: "***" }, email_recipients: ["ops@example.com"] },
+  monitor: { smtp: { host: "smtp.example.com", port: 465, from_address: "noust@example.com", password: "***" }, email_recipients: ["ops@example.com"] },
 };
 
 function spec(id: string): ChannelSpec {
@@ -58,7 +58,7 @@ describe("the notification settings", () => {
     expect(settings.channels.telegram).toEqual({ bot_token: REDACTED, chat_id: "-1001234" });
     expect(settings.emailEnabled).toBe(true);
     expect(settings.allowPrivateHosts).toEqual(["10.0.0.12"]);
-    expect(settings.smtp).toEqual({ host: "smtp.example.com", port: 465, from: "wasm@example.com", recipients: ["ops@example.com"] });
+    expect(settings.smtp).toEqual({ host: "smtp.example.com", port: 465, from: "noust@example.com", recipients: ["ops@example.com"] });
   });
 
   it("reads an empty configuration without inventing anything", () => {
@@ -69,7 +69,7 @@ describe("the notification settings", () => {
     expect(settings.language).toBe("en");
   });
 
-  it("reads the language WASM's own notification text is written in", () => {
+  it("reads the language Noust's own notification text is written in", () => {
     expect(readNotificationSettings({ notifications: { language: "es" } }).language).toBe("es");
     expect(readNotificationSettings({ notifications: { language: "fr" } }).language).toBe("en");
   });
@@ -190,7 +190,7 @@ describe("the SMTP form", () => {
     port: 587,
     use_ssl: false,
     use_tls: true,
-    username: "wasm@example.com",
+    username: "noust@example.com",
     from_address: "",
     recipients: ["ops@example.com"],
     password_set: true,
@@ -202,7 +202,7 @@ describe("the SMTP form", () => {
       host: "smtp.example.com",
       port: "587",
       security: "starttls",
-      username: "wasm@example.com",
+      username: "noust@example.com",
       password: "",
       from_address: "",
       recipients: ["ops@example.com"],
@@ -227,7 +227,7 @@ describe("the SMTP form", () => {
       port: 465,
       use_ssl: true,
       use_tls: false,
-      username: "wasm@example.com",
+      username: "noust@example.com",
       password: "",
       from_address: "",
       recipients: ["ops@example.com"],
@@ -249,7 +249,7 @@ describe("the SMTP form", () => {
     expect(smtpSecurityOptions(es).find((option) => option.value === "starttls")?.label).toBe("STARTTLS");
   });
 
-  it("checks an address's shape as wasm.core.config does, and splits a pasted list", () => {
+  it("checks an address's shape as noust.core.config does, and splits a pasted list", () => {
     expect(looksLikeEmail("ops@example.com")).toBe(true);
     expect(looksLikeEmail("ops@example")).toBe(false);
     expect(looksLikeEmail("o ps@example.com")).toBe(false);

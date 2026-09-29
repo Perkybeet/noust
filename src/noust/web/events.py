@@ -30,7 +30,7 @@ JSON:
   domain and the fields ``GET /api/apps/{domain}`` answers, read once per
   change and fanned out to every open stream through :data:`hub`.
 - ``metrics`` and ``machine``: the collector's newest snapshot and the
-  machine snapshot from :mod:`wasm.web.machine`, on a timer.
+  machine snapshot from :mod:`noust.web.machine`, on a timer.
 
 What is published is what the panel can actually observe. Nothing is
 invented - a stream that emits events nothing produces would be worse than no
@@ -52,12 +52,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
-from wasm.core.exceptions import WASMError
-from wasm.web import metrics_collector
-from wasm.web.auth import SAFE_METHODS, credential_is_current, require_auth
-from wasm.web.jobs import Job
-from wasm.web.machine import read_machine
-from wasm.web.pydantic_compat import dump_model
+from noust.core.exceptions import NoustError
+from noust.web import metrics_collector
+from noust.web.auth import SAFE_METHODS, credential_is_current, require_auth
+from noust.web.jobs import Job
+from noust.web.machine import read_machine
+from noust.web.pydantic_compat import dump_model
 
 log = logging.getLogger(__name__)
 
@@ -122,7 +122,7 @@ def format_event(name: str, payload: dict[str, Any]) -> str:
 #: errors and the OS reads underneath psutil. Named rather than Exception so a
 #: bug in the snapshot stays loud instead of becoming a strip that silently
 #: stops updating.
-RENDER_ERRORS: tuple[type[Exception], ...] = (WASMError, OSError)
+RENDER_ERRORS: tuple[type[Exception], ...] = (NoustError, OSError)
 
 
 def machine_frame() -> str | None:
@@ -383,7 +383,7 @@ def app_snapshot(domain: str) -> dict[str, Any] | None:
         The application's fields, or None when there is no such application
         (it was just deleted, or the domain is not one).
     """
-    from wasm.web.api.apps import get_app
+    from noust.web.api.apps import get_app
 
     try:
         return dump_model(get_app(domain, {}))
@@ -439,7 +439,7 @@ class AppStatePublisher:
 
     Registered with the job manager's ``subscribe_all`` for the life of the
     server, next to the notification subscriber in
-    :func:`wasm.web.server.lifespan`. The job manager notifies on every log
+    :func:`noust.web.server.lifespan`. The job manager notifies on every log
     line; only a change of status changes the application, so everything
     else is ignored.
     """
@@ -534,10 +534,10 @@ def _domain_owning_unit(unit_name: str) -> str | None:
 
     Returns:
         Its application's domain, or None when the unit is not registered,
-        or belongs to no application - a unit ``wasm service create`` made
+        or belongs to no application - a unit ``noust service create`` made
         by hand, never tied to a deployment.
     """
-    from wasm.core.store import get_store
+    from noust.core.store import get_store
 
     try:
         store = get_store()
@@ -545,7 +545,7 @@ def _domain_owning_unit(unit_name: str) -> str | None:
         if service is None or service.app_id is None:
             return None
         app = store.get_app_by_id(service.app_id)
-    except WASMError:
+    except NoustError:
         log.exception("could not resolve which application owns unit %s", unit_name)
         return None
     return app.domain if app is not None else None
@@ -618,7 +618,7 @@ async def _stream(request: Request, session: dict[str, Any] | None = None) -> As
     Yields:
         Server-sent event frames.
     """
-    from wasm.web.jobs import get_job_manager
+    from noust.web.jobs import get_job_manager
 
     loop = asyncio.get_running_loop()
     queue: asyncio.Queue[str] = asyncio.Queue(maxsize=QUEUE_SIZE)

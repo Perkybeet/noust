@@ -17,7 +17,7 @@ export const environment: Catalog<typeof en> = {
     readBuild: "Se lee al compilar el sitio, desde",
     readRuntime: "Lo lee el proceso de la app al arrancar, desde",
     autoHideExplanation:
-      "WASM oculta un valor automáticamente cuando su nombre o su forma parecen un secreto (una contraseña, una clave de Stripe, una URL con credenciales) y muestra el resto; marca una variable como secreta o no secreta en su columna Visibilidad para anular esa decisión tú mismo.",
+      "Noust oculta un valor automáticamente cuando su nombre o su forma parecen un secreto (una contraseña, una clave de Stripe, una URL con credenciales) y muestra el resto; marca una variable como secreta o no secreta en su columna Visibilidad para anular esa decisión tú mismo.",
     queryLabel: "el entorno",
     tableCaption: "Variables de entorno de {domain}",
     emptyTitle: "Sin variables de entorno",
@@ -103,12 +103,12 @@ export const environment: Catalog<typeof en> = {
   pasteDialog: {
     title: "Pegar un archivo .env",
     description:
-      "Se lee tal como WASM lee el archivo en disco: las líneas en blanco, los comentarios y un par de comillas alrededor de un valor se descartan, nada más se interpreta. No se guarda nada hasta que revises los cambios.",
+      "Se lee tal como Noust lee el archivo en disco: las líneas en blanco, los comentarios y un par de comillas alrededor de un valor se descartan, nada más se interpreta. No se guarda nada hasta que revises los cambios.",
     modeMerge: "Añadir y actualizar",
     modeReplace: "Reemplazar todo",
     lineProblem: "Línea {line}: {problem}",
     duplicateLines: "{name} está definida en las líneas {firstLines} y {lastLine}; gana la línea posterior.",
-    skippedLine: "La línea {line} no tiene = y se omite, tal como WASM la omite.",
+    skippedLine: "La línea {line} no tiene = y se omite, tal como Noust la omite.",
     stageEmpty: "Preparar variables",
     stage: { one: "Preparar {count} variable", other: "Preparar {count} variables" },
     stagedSummary: { one: "Se preparó {count} variable pegada", other: "Se prepararon {count} variables pegadas" },

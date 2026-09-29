@@ -2,16 +2,16 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Tests for the console as a systemd service: ``wasm web enable`` and friends.
+Tests for the console as a systemd service: ``noust web enable`` and friends.
 
 The owner of a VPS did not know three things, and each is defended here:
 
 - the console binds to 127.0.0.1, so it needs ``ssh -L`` - the tunnel line is
   printed by every start, and set apart so it is not missed;
 - Ctrl+C stops a foreground console - the banner says so, and names
-  ``wasm web enable``;
-- ``wasm web start -d`` does not survive a reboot - ``wasm web enable`` writes
-  ``wasm-web.service``, which does.
+  ``noust web enable``;
+- ``noust web start -d`` does not survive a reboot - ``noust web enable`` writes
+  ``noust-web.service``, which does.
 
 And one rule that must never break: the token is printed to the operator's
 terminal by ``enable``, never to the journal by the service.
@@ -30,15 +30,15 @@ from typing import Any
 import pytest
 from click.testing import CliRunner
 
-from wasm.cli.commands import web
-from wasm.core.exceptions import SecurityError, ServiceError
-from wasm.core.runner import FakeRunner
-from wasm.managers.service_manager import WASM_UNIT_MARKER, ServiceManager
+from noust.cli.commands import web
+from noust.core.exceptions import SecurityError, ServiceError
+from noust.core.runner import FakeRunner
+from noust.managers.service_manager import UNIT_MARKER, ServiceManager
 
 ALL_INTERFACES = "0.0.0.0"  # noqa: S104 - the address under test, never bound
 
-#: Where the tests pretend the wasm entry point is installed.
-WASM_BIN = "/usr/bin/wasm"
+#: Where the tests pretend the noust entry point is installed.
+NOUST_BIN = "/usr/bin/noust"
 
 #: What systemd answers for a console that came up.
 RUNNING = "ActiveState=active\nSubState=running\nMainPID=4321\nNRestarts=0\nResult=success\n"
@@ -84,7 +84,7 @@ def isolated_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator
     Yields:
         None.
     """
-    from wasm.core import config as config_module
+    from noust.core import config as config_module
 
     monkeypatch.setattr(config_module, "DEFAULT_CONFIG_PATH", tmp_path / "config.yaml")
     config_module.Config.reset_instance()
@@ -104,7 +104,7 @@ def state_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     Returns:
         The state directory the console uses.
     """
-    from wasm.web.auth import STATE_DIR_ENV
+    from noust.web.auth import STATE_DIR_ENV
 
     directory = tmp_path / "state"
     directory.mkdir()
@@ -163,14 +163,14 @@ def deps_present(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
-def wasm_on_path(monkeypatch: pytest.MonkeyPatch) -> None:
+def noust_on_path(monkeypatch: pytest.MonkeyPatch) -> None:
     """
-    Answer ``shutil.which("wasm")`` with a fixed absolute path.
+    Answer ``shutil.which("noust")`` with a fixed absolute path.
 
     Args:
         monkeypatch: Patching helper, scoped to the test.
     """
-    monkeypatch.setattr(shutil, "which", lambda name: WASM_BIN if name == "wasm" else None)
+    monkeypatch.setattr(shutil, "which", lambda name: NOUST_BIN if name == "noust" else None)
 
 
 @pytest.fixture(autouse=True)
@@ -192,7 +192,7 @@ def seams() -> Iterator[None]:
     Yields:
         None.
     """
-    from wasm.core.fs import set_fs
+    from noust.core.fs import set_fs
 
     try:
         yield
@@ -227,7 +227,7 @@ def listening(runner: FakeRunner, monkeypatch: pytest.MonkeyPatch) -> dict[str, 
     state: dict[str, Any] = {"other": False}
 
     def in_use(host: str, port: int) -> bool:
-        return state["other"] or runner.ran("systemctl", "restart", "wasm-web.service")
+        return state["other"] or runner.ran("systemctl", "restart", "noust-web.service")
 
     monkeypatch.setattr(web, "_port_in_use", in_use)
     return state
@@ -246,7 +246,7 @@ def systemd_up(runner: FakeRunner) -> FakeRunner:
     """
     runner.script(["systemctl", "is-active"], stdout="active\n")
     runner.script(["systemctl", "is-enabled"], stdout="enabled\n")
-    runner.script(["systemctl", "show", "wasm-web.service", "--no-pager"], stdout=RUNNING)
+    runner.script(["systemctl", "show", "noust-web.service", "--no-pager"], stdout=RUNNING)
     return runner
 
 
@@ -261,12 +261,12 @@ def _installed_unit(unit_dirs: dict[str, Path], body: str | None = None) -> Path
     Returns:
         The unit file.
     """
-    path = unit_dirs["managed"] / "wasm-web.service"
+    path = unit_dirs["managed"] / "noust-web.service"
     path.write_text(
         body
         or (
-            f"# {WASM_UNIT_MARKER}\n[Service]\n"
-            f"ExecStart={WASM_BIN} web start --under-systemd --host 127.0.0.1 --port 8080\n"
+            f"# {UNIT_MARKER}\n[Service]\n"
+            f"ExecStart={NOUST_BIN} web start --under-systemd --host 127.0.0.1 --port 8080\n"
         )
     )
     return path
@@ -290,7 +290,7 @@ def _printed_token(output: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# wasm web enable
+# noust web enable
 # ---------------------------------------------------------------------------
 
 
@@ -304,11 +304,11 @@ def test_enable_writes_a_marked_unit_that_runs_the_console_in_the_foreground(
     result = cli_runner.invoke(web.cli, ["enable", "--port", "9090"])
 
     assert result.exit_code == 0, result.output
-    unit = (unit_dirs["managed"] / "wasm-web.service").read_text()
-    assert WASM_UNIT_MARKER in unit
+    unit = (unit_dirs["managed"] / "noust-web.service").read_text()
+    assert UNIT_MARKER in unit
     exec_start = next(line for line in unit.splitlines() if line.startswith("ExecStart="))
     assert exec_start == (
-        f"ExecStart={WASM_BIN} web start --under-systemd --host 127.0.0.1 --port 9090"
+        f"ExecStart={NOUST_BIN} web start --under-systemd --host 127.0.0.1 --port 9090"
     )
     assert "--daemon" not in unit
     assert "Restart=on-failure" in unit
@@ -327,7 +327,7 @@ def test_the_unit_is_hardened_without_breaking_what_the_console_does_as_root(
     nothing may make those read-only, and every directive carries its reason.
     """
     cli_runner.invoke(web.cli, ["enable"])
-    unit = (unit_dirs["managed"] / "wasm-web.service").read_text()
+    unit = (unit_dirs["managed"] / "noust-web.service").read_text()
     directives = {
         line.split("=", 1)[0]: line.split("=", 1)[1]
         for line in unit.splitlines()
@@ -352,8 +352,8 @@ def test_enable_turns_the_unit_on_through_systemd(
     assert result.exit_code == 0, result.output
     calls = systemd_up.calls
     reload_at = calls.index(("systemctl", "daemon-reload"))
-    enable_at = calls.index(("systemctl", "enable", "wasm-web.service"))
-    restart_at = calls.index(("systemctl", "restart", "wasm-web.service"))
+    enable_at = calls.index(("systemctl", "enable", "noust-web.service"))
+    restart_at = calls.index(("systemctl", "restart", "noust-web.service"))
     assert reload_at < enable_at < restart_at
 
 
@@ -367,10 +367,10 @@ def test_enable_prints_the_token_the_service_serves(
     The token is printed by ``enable``, in the banner a foreground start
     prints, with the SSH tunnel line on loopback.
     """
-    from wasm.web.auth import SecurityConfig, TokenManager
+    from noust.web.auth import SecurityConfig, TokenManager
 
-    monkeypatch.setattr("wasm.core.net.server_address", lambda: "198.51.100.7")
-    monkeypatch.setattr("wasm.core.net._current_user", lambda: "root")
+    monkeypatch.setattr("noust.core.net.server_address", lambda: "198.51.100.7")
+    monkeypatch.setattr("noust.core.net._current_user", lambda: "root")
 
     result = cli_runner.invoke(web.cli, ["enable"])
 
@@ -378,8 +378,8 @@ def test_enable_prints_the_token_the_service_serves(
     token = _printed_token(result.output)
     assert TokenManager(SecurityConfig()).verify_master_token(token) is True
     assert "ssh -L 8080:127.0.0.1:8080 root@198.51.100.7" in result.output
-    assert "wasm-web.service" in result.output
-    assert "wasm web disable" in result.output
+    assert "noust-web.service" in result.output
+    assert "noust web disable" in result.output
 
 
 def test_the_token_never_reaches_the_unit_file(
@@ -392,7 +392,7 @@ def test_the_token_never_reaches_the_unit_file(
     result = cli_runner.invoke(web.cli, ["enable"])
 
     token = _printed_token(result.output)
-    assert token not in (unit_dirs["managed"] / "wasm-web.service").read_text()
+    assert token not in (unit_dirs["managed"] / "noust-web.service").read_text()
 
 
 def test_enable_refuses_what_start_refuses(
@@ -406,7 +406,7 @@ def test_enable_refuses_what_start_refuses(
 
     assert isinstance(result.exception, SecurityError)
     assert "--self-signed" in result.exception.details
-    assert not (unit_dirs["managed"] / "wasm-web.service").exists()
+    assert not (unit_dirs["managed"] / "noust-web.service").exists()
     assert runner.calls == []
 
 
@@ -427,7 +427,7 @@ def test_enable_carries_tls_options_as_absolute_paths(
     (folder / "panel.crt").write_text("cert")
     (folder / "panel.key").write_text("key")
     monkeypatch.chdir(folder)
-    monkeypatch.setattr("wasm.web.server.verify_tls_material", lambda config: ("", ""))
+    monkeypatch.setattr("noust.web.server.verify_tls_material", lambda config: ("", ""))
 
     result = cli_runner.invoke(
         web.cli,
@@ -447,7 +447,7 @@ def test_enable_carries_tls_options_as_absolute_paths(
     )
 
     assert result.exit_code == 0, result.output
-    unit = (unit_dirs["managed"] / "wasm-web.service").read_text()
+    unit = (unit_dirs["managed"] / "noust-web.service").read_text()
     assert f'--tls-cert "{folder}/panel.crt"' in unit
     assert f'--tls-key "{folder}/panel.key"' in unit
     assert "--allow-ip 10.0.0.0/8" in unit
@@ -465,7 +465,7 @@ def test_enable_with_self_signed_mints_the_pair_before_the_service_starts(
     """A minting failure is shown to the operator, not buried in the journal."""
     minted: list[str] = []
     monkeypatch.setattr(
-        "wasm.managers.cert_manager.CertManager.generate_self_signed",
+        "noust.managers.cert_manager.CertManager.generate_self_signed",
         lambda self, host, cert, key: minted.append(host) or True,
     )
 
@@ -473,7 +473,7 @@ def test_enable_with_self_signed_mints_the_pair_before_the_service_starts(
 
     assert result.exit_code == 0, result.output
     assert minted
-    assert "--self-signed" in (unit_dirs["managed"] / "wasm-web.service").read_text()
+    assert "--self-signed" in (unit_dirs["managed"] / "noust-web.service").read_text()
     assert "https://" in result.output
 
 
@@ -490,9 +490,9 @@ def test_enable_refuses_while_a_background_console_runs(
     result = cli_runner.invoke(web.cli, ["enable"])
 
     assert result.exit_code == 1
-    assert "wasm web stop" in result.output
+    assert "noust web stop" in result.output
     assert "Access Token" not in result.output
-    assert not (unit_dirs["managed"] / "wasm-web.service").exists()
+    assert not (unit_dirs["managed"] / "noust-web.service").exists()
 
 
 def test_enable_refuses_a_port_something_else_holds(
@@ -508,10 +508,10 @@ def test_enable_refuses_a_port_something_else_holds(
 
     assert result.exit_code == 1
     assert "already listening on 127.0.0.1:8080" in result.output
-    assert not (unit_dirs["managed"] / "wasm-web.service").exists()
+    assert not (unit_dirs["managed"] / "noust-web.service").exists()
 
 
-def test_enable_without_a_wasm_binary_on_path_says_so(
+def test_enable_without_a_noust_binary_on_path_says_so(
     cli_runner: CliRunner,
     runner: FakeRunner,
     listening: dict[str, Any],
@@ -524,7 +524,7 @@ def test_enable_without_a_wasm_binary_on_path_says_so(
     result = cli_runner.invoke(web.cli, ["enable"])
 
     assert isinstance(result.exception, ServiceError)
-    assert not (unit_dirs["managed"] / "wasm-web.service").exists()
+    assert not (unit_dirs["managed"] / "noust-web.service").exists()
 
 
 def test_a_console_that_does_not_come_up_shows_the_journal_and_no_token(
@@ -535,8 +535,8 @@ def test_a_console_that_does_not_come_up_shows_the_journal_and_no_token(
     """A token for a console that is not running is a credential for nothing."""
     monkeypatch.setattr(web, "_port_in_use", lambda host, port: False)
     runner.script(["systemctl", "is-active"], stdout="failed\n")
-    runner.script(["systemctl", "show", "wasm-web.service", "--no-pager"], stdout=CRASHED)
-    runner.script(["journalctl", "-u", "wasm-web.service"], stdout="OSError: [Errno 98] in use")
+    runner.script(["systemctl", "show", "noust-web.service", "--no-pager"], stdout=CRASHED)
+    runner.script(["journalctl", "-u", "noust-web.service"], stdout="OSError: [Errno 98] in use")
 
     result = cli_runner.invoke(web.cli, ["enable"])
 
@@ -556,14 +556,14 @@ def test_enable_retires_the_old_token_before_the_service_restarts(
     kept opening the console in the meantime, and for good when the wait
     failed. The hash is written first; the token is printed once it serves.
     """
-    from wasm.web.auth import SecurityConfig, TokenManager
+    from noust.web.auth import SecurityConfig, TokenManager
 
     old = TokenManager(SecurityConfig()).generate_master_token()
     at_restart: list[bool] = []
     real_run = systemd_up.run
 
     def run(argv: Any, **kwargs: Any) -> Any:
-        if tuple(argv[:3]) == ("systemctl", "restart", "wasm-web.service"):
+        if tuple(argv[:3]) == ("systemctl", "restart", "noust-web.service"):
             at_restart.append(TokenManager(SecurityConfig()).verify_master_token(old))
         return real_run(argv, **kwargs)
 
@@ -583,13 +583,13 @@ def test_a_console_that_does_not_come_up_has_still_retired_the_old_token(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A failed wait must not leave the token enable meant to replace in force."""
-    from wasm.web.auth import SecurityConfig, TokenManager
+    from noust.web.auth import SecurityConfig, TokenManager
 
     old = TokenManager(SecurityConfig()).generate_master_token()
     monkeypatch.setattr(web, "_port_in_use", lambda host, port: False)
     runner.script(["systemctl", "is-active"], stdout="failed\n")
-    runner.script(["systemctl", "show", "wasm-web.service", "--no-pager"], stdout=CRASHED)
-    runner.script(["journalctl", "-u", "wasm-web.service"], stdout="OSError: [Errno 98] in use")
+    runner.script(["systemctl", "show", "noust-web.service", "--no-pager"], stdout=CRASHED)
+    runner.script(["journalctl", "-u", "noust-web.service"], stdout="OSError: [Errno 98] in use")
 
     result = cli_runner.invoke(web.cli, ["enable"])
 
@@ -598,7 +598,7 @@ def test_a_console_that_does_not_come_up_has_still_retired_the_old_token(
     assert "Access Token" not in result.output
     details = result.exception.details
     assert "previous access token" in details
-    assert "wasm web enable" in details
+    assert "noust web enable" in details
     # The fix first, systemd's own words after it.
     assert details.index("previous access token") < details.index("OSError")
 
@@ -616,7 +616,7 @@ def test_enable_twice_replaces_the_options_and_restarts(
 
     assert result.exit_code == 0, result.output
     assert "--port 9443" in unit.read_text()
-    assert systemd_up.ran("systemctl", "restart", "wasm-web.service")
+    assert systemd_up.ran("systemctl", "restart", "noust-web.service")
 
 
 def test_enable_will_not_eclipse_a_unit_the_system_ships(
@@ -625,13 +625,13 @@ def test_enable_will_not_eclipse_a_unit_the_system_ships(
     listening: dict[str, Any],
     unit_dirs: dict[str, Path],
 ) -> None:
-    """Ownership rules apply: a same-named distribution unit is not WASM's."""
-    (unit_dirs["distro"] / "wasm-web.service").write_text("[Service]\nExecStart=/bin/true\n")
+    """Ownership rules apply: a same-named distribution unit is not Noust's."""
+    (unit_dirs["distro"] / "noust-web.service").write_text("[Service]\nExecStart=/bin/true\n")
 
     result = cli_runner.invoke(web.cli, ["enable"])
 
     assert isinstance(result.exception, ServiceError)
-    assert not (unit_dirs["managed"] / "wasm-web.service").exists()
+    assert not (unit_dirs["managed"] / "noust-web.service").exists()
     assert not runner.ran("systemctl", "enable")
 
 
@@ -645,21 +645,21 @@ def test_a_rehearsed_enable_writes_nothing_and_issues_no_token(
 ) -> None:
     """Nothing is written, enabled, started or issued."""
     # The rehearsal runs read-only probes for real; here, against the fake.
-    monkeypatch.setattr("wasm.cli.app.SubprocessRunner", lambda: runner)
+    monkeypatch.setattr("noust.cli.app.SubprocessRunner", lambda: runner)
 
     result = cli_runner.invoke(web.cli, ["enable", "--dry-run"])
 
     assert result.exit_code == 0, result.output
-    assert not (unit_dirs["managed"] / "wasm-web.service").exists()
+    assert not (unit_dirs["managed"] / "noust-web.service").exists()
     assert not (state_dir / "web-token").exists()
     assert "Access Token" not in result.output
-    assert "would enable and start wasm-web.service" in result.output
+    assert "would enable and start noust-web.service" in result.output
     assert not runner.ran("systemctl", "enable")
     assert not runner.ran("systemctl", "restart")
 
 
 # ---------------------------------------------------------------------------
-# wasm web disable
+# noust web disable
 # ---------------------------------------------------------------------------
 
 
@@ -672,8 +672,8 @@ def test_disable_stops_disables_and_removes_the_unit(
     result = cli_runner.invoke(web.cli, ["disable"])
 
     assert result.exit_code == 0, result.output
-    assert systemd_up.ran("systemctl", "stop", "wasm-web.service")
-    assert systemd_up.ran("systemctl", "disable", "wasm-web.service")
+    assert systemd_up.ran("systemctl", "stop", "noust-web.service")
+    assert systemd_up.ran("systemctl", "disable", "noust-web.service")
     assert systemd_up.ran("systemctl", "daemon-reload")
     assert not unit.exists()
 
@@ -682,10 +682,10 @@ def test_disable_without_the_service_touches_nothing(
     cli_runner: CliRunner, runner: FakeRunner, unit_dirs: dict[str, Path]
 ) -> None:
     """
-    ServiceManager falls back from ``wasm-X`` to ``X`` when only ``X`` is
+    ServiceManager falls back from ``noust-X`` to ``X`` when only ``X`` is
     installed; an application called ``web`` must never be stopped for it.
     """
-    (unit_dirs["managed"] / "web.service").write_text(f"# {WASM_UNIT_MARKER}\n")
+    (unit_dirs["managed"] / "web.service").write_text(f"# {UNIT_MARKER}\n")
 
     result = cli_runner.invoke(web.cli, ["disable"])
 
@@ -710,7 +710,7 @@ def test_status_reports_a_console_running_as_the_service(
 
     assert result.exit_code == 0, result.output
     assert "running" in result.output
-    assert "wasm-web.service" in result.output
+    assert "noust-web.service" in result.output
     assert "4321" in result.output
 
 
@@ -752,13 +752,13 @@ def test_status_reports_an_installed_service_that_is_down(
     """A failed service is where the operator has to look, so it is named."""
     _installed_unit(unit_dirs)
     runner.script(["systemctl", "is-active"], stdout="failed\n")
-    runner.script(["systemctl", "show", "wasm-web.service", "--no-pager"], stdout=CRASHED)
+    runner.script(["systemctl", "show", "noust-web.service", "--no-pager"], stdout=CRASHED)
 
     result = cli_runner.invoke(web.cli, ["status"])
 
     assert result.exit_code == 0, result.output
     assert "not running" in result.output
-    assert "journalctl -u wasm-web" in result.output
+    assert "journalctl -u noust-web" in result.output
 
 
 def test_start_refuses_a_second_console_while_the_service_runs(
@@ -773,21 +773,21 @@ def test_start_refuses_a_second_console_while_the_service_runs(
     result = cli_runner.invoke(web.cli, ["start"])
 
     assert isinstance(result.exception, ServiceError)
-    assert "wasm-web.service" in str(result.exception)
-    assert "wasm web disable" in result.exception.details
+    assert "noust-web.service" in str(result.exception)
+    assert "noust web disable" in result.exception.details
     assert "Access Token" not in result.output
 
 
 def test_restart_refuses_while_the_service_runs(
     cli_runner: CliRunner, systemd_up: FakeRunner, unit_dirs: dict[str, Path]
 ) -> None:
-    """Restarting is the service's job: 'wasm web enable' with the new options."""
+    """Restarting is the service's job: 'noust web enable' with the new options."""
     _installed_unit(unit_dirs)
 
     result = cli_runner.invoke(web.cli, ["restart"])
 
     assert isinstance(result.exception, ServiceError)
-    assert "wasm web enable" in result.exception.details
+    assert "noust web enable" in result.exception.details
 
 
 def test_stop_names_the_service_instead_of_claiming_nothing_runs(
@@ -799,8 +799,8 @@ def test_stop_names_the_service_instead_of_claiming_nothing_runs(
     result = cli_runner.invoke(web.cli, ["stop"])
 
     assert result.exit_code == 1
-    assert "wasm-web.service" in result.output
-    assert "wasm web disable" in result.output
+    assert "noust-web.service" in result.output
+    assert "noust web disable" in result.output
     assert not systemd_up.ran("systemctl", "stop")
 
 
@@ -825,7 +825,7 @@ def served(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     def run_server(**kwargs: Any) -> None:
         captured.update(kwargs)
 
-    monkeypatch.setattr("wasm.web.server.run_server", run_server)
+    monkeypatch.setattr("noust.web.server.run_server", run_server)
     return captured
 
 
@@ -841,7 +841,7 @@ def test_the_service_start_never_prints_a_token(
     Its stdout is the journal, which every member of systemd-journal or adm
     reads. It serves the token ``enable`` printed and issues none.
     """
-    from wasm.web.auth import SecurityConfig, TokenManager
+    from noust.web.auth import SecurityConfig, TokenManager
 
     issued = TokenManager(SecurityConfig()).generate_master_token()
     _installed_unit(unit_dirs)
@@ -882,13 +882,13 @@ def test_the_foreground_banner_says_how_to_stop_it_and_keep_it(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """
-    Ctrl+C is the stop button, and 'wasm web enable' - with the options this
+    Ctrl+C is the stop button, and 'noust web enable' - with the options this
     console was started with - is how it survives a reboot.
     """
-    from wasm.web.auth import SecurityConfig
+    from noust.web.auth import SecurityConfig
 
-    monkeypatch.setattr("wasm.core.net.server_address", lambda: "198.51.100.7")
-    monkeypatch.setattr("wasm.core.net._current_user", lambda: "root")
+    monkeypatch.setattr("noust.core.net.server_address", lambda: "198.51.100.7")
+    monkeypatch.setattr("noust.core.net._current_user", lambda: "root")
 
     options = web.StartOptions(port=8081, trusted_proxy=("127.0.0.1",))
     web._start_foreground(
@@ -898,7 +898,7 @@ def test_the_foreground_banner_says_how_to_stop_it_and_keep_it(
     output = capsys.readouterr().out
     lines = output.splitlines()
     stop_line = next(line for line in lines if "Ctrl+C" in line)
-    assert "wasm web enable --port 8081 --trusted-proxy 127.0.0.1" in stop_line
+    assert "noust web enable --port 8081 --trusted-proxy 127.0.0.1" in stop_line
     assert "reboot" in stop_line
     assert served["show_token"] is False
 
@@ -911,7 +911,7 @@ def test_the_foreground_banner_token_is_the_one_served(
     served: dict[str, Any], capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Issued in the CLI and served by the server, never issued twice."""
-    from wasm.web.auth import SecurityConfig, TokenManager
+    from noust.web.auth import SecurityConfig, TokenManager
 
     web._start_foreground(
         SecurityConfig(host="127.0.0.1", port=8081),
@@ -927,14 +927,14 @@ def test_the_daemon_banner_says_it_does_not_survive_a_reboot(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """The background mode is exactly the one that was mistaken for a service."""
-    from wasm.web.auth import SecurityConfig
+    from noust.web.auth import SecurityConfig
 
     monkeypatch.setattr(web.os, "fork", lambda: 4321)
 
     web._start_daemon(SecurityConfig(host="127.0.0.1", port=8081), verbose=False)
 
     output = capsys.readouterr().out
-    assert "wasm web enable" in output
+    assert "noust web enable" in output
     assert "reboot" in output
 
 
@@ -943,17 +943,20 @@ def test_the_daemon_banner_says_it_does_not_survive_a_reboot(
 # ---------------------------------------------------------------------------
 
 
-def test_install_unit_keeps_the_wasm_prefix(runner: FakeRunner, unit_dirs: dict[str, Path]) -> None:
+def test_install_unit_keeps_the_noust_prefix(
+    runner: FakeRunner, unit_dirs: dict[str, Path]
+) -> None:
     """
-    create_service drops ``wasm-`` from application names; WASM's own units
-    keep it, because the prefix is what marks them as WASM's.
+    create_service drops the legacy ``wasm-`` prefix from application names;
+    Noust's own units keep the ``noust-`` prefix, because it is what marks
+    them as Noust's.
     """
     path = ServiceManager().install_unit(
-        "wasm-web", "wasm-web", {"exec_start": f"{WASM_BIN} web start --under-systemd"}
+        "noust-web", "noust-web", {"exec_start": f"{NOUST_BIN} web start --under-systemd"}
     )
 
-    assert path == unit_dirs["managed"] / "wasm-web.service"
-    assert WASM_UNIT_MARKER in path.read_text()
+    assert path == unit_dirs["managed"] / "noust-web.service"
+    assert UNIT_MARKER in path.read_text()
     assert runner.ran("systemctl", "daemon-reload")
 
 
@@ -963,68 +966,69 @@ def test_install_unit_refuses_a_unit_systemd_loads_from_elsewhere(
     """The authority is systemd's FragmentPath, as for every other operation."""
     runner.script(
         ["systemctl", "show", "-p", "FragmentPath"],
-        stdout="FragmentPath=/usr/lib/systemd/system/wasm-web.service\n",
+        stdout="FragmentPath=/usr/lib/systemd/system/noust-web.service\n",
     )
 
     with pytest.raises(ServiceError):
-        ServiceManager().install_unit("wasm-web", "wasm-web", {"exec_start": "/bin/true"})
+        ServiceManager().install_unit("noust-web", "noust-web", {"exec_start": "/bin/true"})
 
-    assert not (unit_dirs["managed"] / "wasm-web.service").exists()
+    assert not (unit_dirs["managed"] / "noust-web.service").exists()
 
 
-def test_install_unit_refuses_to_replace_a_file_wasm_did_not_write(
+def test_install_unit_refuses_to_replace_a_file_noust_did_not_write(
     runner: FakeRunner, unit_dirs: dict[str, Path]
 ) -> None:
-    """Replacing is for WASM's own units only."""
+    """Replacing is for Noust's own units only."""
     foreign = unit_dirs["managed"] / "nginx.service"
     foreign.write_text("[Service]\nExecStart=/usr/sbin/nginx\n")
 
     with pytest.raises(ServiceError):
-        ServiceManager().install_unit("nginx", "wasm-web", {"exec_start": "/bin/true"})
+        ServiceManager().install_unit("nginx", "noust-web", {"exec_start": "/bin/true"})
 
-    assert "wasm" not in foreign.read_text()
+    assert "noust" not in foreign.read_text()
 
 
-def test_install_unit_refuses_the_legacy_unit_of_an_application_named_web(
+def test_install_unit_refuses_an_applications_unit_named_after_the_console(
     runner: FakeRunner, unit_dirs: dict[str, Path]
 ) -> None:
     """
-    Before 0.14.1 an application's unit was wasm-<name>: one deployed at the
-    domain ``web`` runs as wasm-web, the console's own name. Enabling the
-    console must not overwrite it.
+    An application whose domain happens to be ``noust-web`` gets the same
+    unit name the console uses for itself - no product prefix protects a new
+    application's unit the way it once protected ``wasm-<name>``. Enabling
+    the console must not overwrite it.
     """
-    from wasm.core.store import App, WASMStore, get_store
+    from noust.core.store import App, NoustStore, get_store
 
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
     try:
-        get_store().create_app(App(domain="web", app_type="nodejs", port=3000))
-        legacy = unit_dirs["managed"] / "wasm-web.service"
-        body = f"# {WASM_UNIT_MARKER}\n[Service]\nWorkingDirectory=/var/www/apps/wasm-web\n"
-        legacy.write_text(body)
+        get_store().create_app(App(domain="noust-web", app_type="nodejs", port=3000))
+        existing = unit_dirs["managed"] / "noust-web.service"
+        body = f"# {UNIT_MARKER}\n[Service]\nWorkingDirectory=/var/www/apps/noust-web\n"
+        existing.write_text(body)
 
-        with pytest.raises(ServiceError, match="web") as refused:
+        with pytest.raises(ServiceError, match="noust-web") as refused:
             ServiceManager().install_unit(
-                "wasm-web", "wasm-web", {"exec_start": f"{WASM_BIN} web start --under-systemd"}
+                "noust-web", "noust-web", {"exec_start": f"{NOUST_BIN} web start --under-systemd"}
             )
 
-        assert "web" in (refused.value.details or "")
-        assert legacy.read_text() == body
+        assert "noust-web" in (refused.value.details or "")
+        assert existing.read_text() == body
     finally:
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 def test_install_unit_still_rewrites_its_own_unit_when_no_application_claims_it(
     runner: FakeRunner, unit_dirs: dict[str, Path]
 ) -> None:
     """Applications that merely exist do not stop the console from updating its unit."""
-    from wasm.core.store import App, WASMStore, get_store
+    from noust.core.store import App, NoustStore, get_store
 
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
     try:
         get_store().create_app(App(domain="shop.example.com", app_type="nodejs", port=3000))
-        path = ServiceManager().install_unit("wasm-web", "wasm-web", {"exec_start": "/bin/true"})
-        path = ServiceManager().install_unit("wasm-web", "wasm-web", {"exec_start": "/bin/false"})
+        path = ServiceManager().install_unit("noust-web", "noust-web", {"exec_start": "/bin/true"})
+        path = ServiceManager().install_unit("noust-web", "noust-web", {"exec_start": "/bin/false"})
 
         assert "/bin/false" in path.read_text()
     finally:
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Tests for :mod:`wasm.core.notifier`.
+Tests for :mod:`noust.core.notifier`.
 
 The suite never opens a socket: every test injects an opener with urlopen's
 calling convention and asserts on the :class:`urllib.request.Request` objects
@@ -32,9 +32,9 @@ from urllib.request import Request
 
 import pytest
 
-import wasm.core.notifier as notifier_module
-from wasm.core.config import DEFAULT_CONFIG, Config
-from wasm.core.notifier import (
+import noust.core.notifier as notifier_module
+from noust.core.config import DEFAULT_CONFIG, Config
+from noust.core.notifier import (
     CHANNELS,
     EVENT_KINDS,
     NOTIFY_TIMEOUT,
@@ -66,7 +66,7 @@ def config(sandbox: Path, monkeypatch: pytest.MonkeyPatch) -> Config:
         A fresh configuration carrying only the defaults.
     """
     monkeypatch.setattr(
-        "wasm.core.config.DEFAULT_CONFIG_PATH", sandbox / "etc" / "wasm" / "config.yaml"
+        "noust.core.config.DEFAULT_CONFIG_PATH", sandbox / "etc" / "wasm" / "config.yaml"
     )
     Config.reset_instance()
     try:
@@ -80,7 +80,7 @@ def public_dns(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     Resolve every hostname to a public address instead of a real one.
 
-    The SSRF guard in wasm.core.notifier resolves every destination before
+    The SSRF guard in noust.core.notifier resolves every destination before
     dispatch; the suite never opens a real socket, so every test that
     dispatches a notification needs a deterministic stand-in for DNS. Tests
     of the guard itself, in TestSSRFGuard below, override this per test to
@@ -198,7 +198,7 @@ class TestWebhookChannel:
         config.set("notifications.channels.webhook.webhook_url", "ftp://files.example.test/hook")
         opener = CapturingOpener()
 
-        with caplog.at_level(logging.WARNING, logger="wasm.core.notifier"):
+        with caplog.at_level(logging.WARNING, logger="noust.core.notifier"):
             Notifier(config, opener=opener).notify(make_event())
 
         assert opener.requests == []
@@ -247,7 +247,7 @@ class TestDeliveryIsolation:
         opener = CapturingOpener()
         opener.errors["https://hooks.example.test"] = URLError("connection refused")
 
-        with caplog.at_level(logging.WARNING, logger="wasm.core.notifier"):
+        with caplog.at_level(logging.WARNING, logger="noust.core.notifier"):
             Notifier(config, opener=opener).notify(make_event())
 
         assert [r.full_url for r in opener.requests] == [SLACK_URL, DISCORD_URL]
@@ -389,7 +389,7 @@ class TestTelegramChannel:
             f"unknown url type: 'https://api.telegram.org/bot{BOT_TOKEN}/sendMessage'"
         )
 
-        with caplog.at_level(logging.WARNING, logger="wasm.core.notifier"):
+        with caplog.at_level(logging.WARNING, logger="noust.core.notifier"):
             Notifier(config, opener=opener).notify(make_event())
 
         assert "telegram" in caplog.text
@@ -405,7 +405,7 @@ class TestTelegramChannel:
         config.set("notifications.channels.telegram.chat_id", "42")
         opener = CapturingOpener()
 
-        with caplog.at_level(logging.WARNING, logger="wasm.core.notifier"):
+        with caplog.at_level(logging.WARNING, logger="noust.core.notifier"):
             Notifier(config, opener=opener).notify(make_event())
 
         assert opener.requests == []
@@ -425,7 +425,7 @@ class TestTelegramChannel:
         config.set("notifications.channels.telegram.chat_id", "42")
         opener = CapturingOpener()
 
-        with caplog.at_level(logging.WARNING, logger="wasm.core.notifier"):
+        with caplog.at_level(logging.WARNING, logger="noust.core.notifier"):
             Notifier(config, opener=opener).notify(make_event())
 
         assert opener.requests == []
@@ -441,7 +441,7 @@ class TestTelegramChannel:
         config._config["notifications"]["channels"]["telegram"]["chat_id"] = "not-a-chat-id"
         opener = CapturingOpener()
 
-        with caplog.at_level(logging.WARNING, logger="wasm.core.notifier"):
+        with caplog.at_level(logging.WARNING, logger="noust.core.notifier"):
             Notifier(config, opener=opener).notify(make_event())
 
         assert opener.requests == []
@@ -530,7 +530,7 @@ class TestTestChannel:
         Notifier(config, opener=opener).test_channel("webhook")
 
         payload = json.loads(opener.requests[0].data)
-        assert payload["title"] == "WASM test notification"
+        assert payload["title"] == "Noust test notification"
         assert (
             payload["body"] == "Receiving this means the webhook channel is configured correctly."
         )
@@ -543,7 +543,7 @@ class TestTestChannel:
         Notifier(config, opener=opener).test_channel("webhook")
 
         payload = json.loads(opener.requests[0].data)
-        assert payload["title"] == "Notificación de prueba de WASM"
+        assert payload["title"] == "Notificación de prueba de Noust"
         assert payload["body"] == "Si recibes esto, el canal webhook está bien configurado."
 
     def test_works_while_notifications_are_disabled(self, config: Config) -> None:
@@ -673,7 +673,7 @@ class TestEmailChannel:
         Notifier(config, opener=opener, email_notifier=email).notify(make_event())
 
         assert len(email.sent) == 1
-        assert email.sent[0].subject == "[WASM] Deployed example.com"
+        assert email.sent[0].subject == "[Noust] Deployed example.com"
         assert "wasm-example.com is running" in email.sent[0].text
         assert opener.requests == []
 

@@ -16,17 +16,17 @@ from typing import Any
 
 import pytest
 
+from noust.core.exceptions import IntegrationError
+from noust.core.runner import FakeRunner
+from noust.core.store import App, NoustStore
+from noust.deployers.deploy_events import DeployEvent, DeployEventKind
+from noust.integrations.github import statuses
+from noust.integrations.github.comments import upsert_pr_comment
 from tests.github.fakes import (
     INSTALLATION_ID,
     FakeGitHub,
     token_route,
 )
-from wasm.core.exceptions import IntegrationError
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, WASMStore
-from wasm.deployers.deploy_events import DeployEvent, DeployEventKind
-from wasm.integrations.github import statuses
-from wasm.integrations.github.comments import upsert_pr_comment
 
 
 class FakeApp:
@@ -71,7 +71,7 @@ def event(kind: DeployEventKind, **extra: Any) -> DeployEvent:
 
 
 @pytest.fixture
-def linked(github_configured: WASMStore) -> WASMStore:
+def linked(github_configured: NoustStore) -> NoustStore:
     """
     An application on a covered repository.
 
@@ -84,7 +84,7 @@ def linked(github_configured: WASMStore) -> WASMStore:
     return github_configured
 
 
-def test_the_target_is_decided_from_the_store(linked: WASMStore) -> None:
+def test_the_target_is_decided_from_the_store(linked: NoustStore) -> None:
     """Repository, installation, environment and address."""
     target = statuses.target_for("a.example.com")
     assert target == statuses.Target(
@@ -98,13 +98,13 @@ def test_the_target_is_decided_from_the_store(linked: WASMStore) -> None:
     assert statuses.target_for("pr-7.example.com").environment == "preview"
 
 
-def test_nothing_is_reported_without_a_github_link(store: WASMStore) -> None:
+def test_nothing_is_reported_without_a_github_link(store: NoustStore) -> None:
     """No App, another host, an uncovered owner, or an unknown application."""
     store.create_app(App(domain="a.example.com", source="github:you/app"))
     assert statuses.target_for("a.example.com") is None
 
 
-def test_other_hosts_and_owners_are_not_reported(github_configured: WASMStore) -> None:
+def test_other_hosts_and_owners_are_not_reported(github_configured: NoustStore) -> None:
     """Only a github.com repository an installation covers."""
     github_configured.create_app(App(domain="g.example.com", source="https://gitlab.com/you/app"))
     github_configured.create_app(App(domain="s.example.com", source="github:stranger/app"))
@@ -113,7 +113,7 @@ def test_other_hosts_and_owners_are_not_reported(github_configured: WASMStore) -
     assert statuses.target_for("missing.example.com") is None
 
 
-def test_start_then_success_update_one_deployment(linked: WASMStore) -> None:
+def test_start_then_success_update_one_deployment(linked: NoustStore) -> None:
     """The deployment the start created is the one the end marks."""
     fake = FakeApp()
     reporter = statuses.StatusReporter(load=lambda: fake)
@@ -145,7 +145,7 @@ def test_start_then_success_update_one_deployment(linked: WASMStore) -> None:
     ],
 )
 def test_failures_are_reported_as_failure(
-    linked: WASMStore, kind: DeployEventKind, error: str | None, description: str
+    linked: NoustStore, kind: DeployEventKind, error: str | None, description: str
 ) -> None:
     """A failure, or a rollback, is a failure on GitHub with its reason."""
     fake = FakeApp()
@@ -158,7 +158,7 @@ def test_failures_are_reported_as_failure(
     assert final["description"] == description
 
 
-def test_an_end_without_a_start_creates_the_deployment(linked: WASMStore) -> None:
+def test_an_end_without_a_start_creates_the_deployment(linked: NoustStore) -> None:
     """A restart between start and end still leaves a finished deployment on GitHub."""
     fake = FakeApp()
     reporter = statuses.StatusReporter(load=lambda: fake)
@@ -170,7 +170,7 @@ def test_an_end_without_a_start_creates_the_deployment(linked: WASMStore) -> Non
 
 
 def test_the_subscriber_hands_work_to_a_thread_and_never_raises(
-    linked: WASMStore, monkeypatch: pytest.MonkeyPatch
+    linked: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """GitHub failing is logged on the worker; the deploy's thread returns at once."""
     fake = FakeApp(fail=True)
@@ -183,7 +183,7 @@ def test_the_subscriber_hands_work_to_a_thread_and_never_raises(
 
 
 def test_the_end_of_a_first_deploy_is_reported_after_its_records_are_gone(
-    linked: WASMStore, monkeypatch: pytest.MonkeyPatch
+    linked: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """
     A first deploy that fails forgets the application before FAILED is
@@ -209,10 +209,10 @@ def test_the_end_of_a_first_deploy_is_reported_after_its_records_are_gone(
 
 
 def test_the_reporter_is_drained_when_the_process_exits(
-    linked: WASMStore, monkeypatch: pytest.MonkeyPatch
+    linked: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A CLI deploy's statuses are sent before the interpreter goes away."""
-    from wasm.core import background
+    from noust.core import background
 
     monkeypatch.setattr(background, "_queues", [])
     monkeypatch.setattr(background, "_atexit_registered", False)
@@ -230,7 +230,7 @@ def test_the_reporter_is_drained_when_the_process_exits(
 
 
 def test_the_subscriber_does_nothing_for_unlinked_apps(
-    store: WASMStore, monkeypatch: pytest.MonkeyPatch
+    store: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """No thread, no queue, for an application GitHub does not know."""
     submitted: list[Any] = []
@@ -241,9 +241,9 @@ def test_the_subscriber_does_nothing_for_unlinked_apps(
 
 def test_it_is_a_default_subscriber() -> None:
     """The recorder loads it by name."""
-    from wasm.deployers.deploy_events import DEFAULT_SUBSCRIBERS
+    from noust.deployers.deploy_events import DEFAULT_SUBSCRIBERS
 
-    assert "wasm.integrations.github.statuses" in DEFAULT_SUBSCRIBERS
+    assert "noust.integrations.github.statuses" in DEFAULT_SUBSCRIBERS
     assert callable(statuses.on_deploy_event)
 
 
@@ -251,7 +251,7 @@ def test_it_is_a_default_subscriber() -> None:
 
 
 def test_a_comment_is_created_then_edited(
-    github_configured: WASMStore, fake_github: FakeGitHub, openssl: FakeRunner
+    github_configured: NoustStore, fake_github: FakeGitHub, openssl: FakeRunner
 ) -> None:
     """First call creates; a call with the id edits that comment."""
     token_route(fake_github)
@@ -264,7 +264,7 @@ def test_a_comment_is_created_then_edited(
 
 
 def test_a_deleted_comment_is_created_again(
-    github_configured: WASMStore, fake_github: FakeGitHub, openssl: FakeRunner
+    github_configured: NoustStore, fake_github: FakeGitHub, openssl: FakeRunner
 ) -> None:
     """Someone deleted it on GitHub: a new one says the same."""
     token_route(fake_github)
@@ -273,12 +273,12 @@ def test_a_deleted_comment_is_created_again(
     assert upsert_pr_comment("you/app", 7, "Preview ready", "555") == "556"
 
 
-def test_no_comment_without_a_covering_installation(github_configured: WASMStore) -> None:
+def test_no_comment_without_a_covering_installation(github_configured: NoustStore) -> None:
     """Nothing is sent for a repository the App does not reach."""
     assert upsert_pr_comment("stranger/app", 7, "x") is None
     assert upsert_pr_comment("not a repo", 7, "x") is None
 
 
-def test_no_comment_without_an_app(store: WASMStore) -> None:
+def test_no_comment_without_an_app(store: NoustStore) -> None:
     """A server with no App comments nowhere."""
     assert upsert_pr_comment("you/app", 7, "x") is None

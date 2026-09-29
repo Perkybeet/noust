@@ -34,8 +34,6 @@ export { Kbd } from "./Kbd";
 export type { KbdProps } from "./Kbd";
 export { LogViewer } from "./LogViewer";
 export type { LogLine, LogViewerProps } from "./LogViewer";
-export { Logo, LogoMark } from "./Logo";
-export type { LogoMarkProps, LogoProps } from "./Logo";
 export { Menu, MenuGroup, MenuItem, MenuSeparator } from "./Menu";
 export type { MenuItemProps, MenuProps } from "./Menu";
 export { Mono } from "./Mono";

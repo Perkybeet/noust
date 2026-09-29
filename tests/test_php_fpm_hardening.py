@@ -29,6 +29,13 @@ from typing import Any
 
 import pytest
 
+from noust.core.exceptions import ValidationError
+from noust.core.runner import FakeRunner
+from noust.core.store import NoustStore
+from noust.deployers.helpers.layout import INPLACE
+from noust.deployers.helpers.php_fpm import pool_env_lines, pool_tmp_dir, render_pool
+from noust.deployers.php_fpm import PHP_SETTINGS_FILE, PhpSettings
+from noust.managers.nginx_manager import NGINX_BACKEND, NginxManager
 from tests.test_php_fpm import (  # noqa: F401  (pytest resolves fixtures by name)
     APP,
     DOMAIN,
@@ -41,13 +48,6 @@ from tests.test_php_fpm import (  # noqa: F401  (pytest resolves fixtures by nam
 )
 from tests.test_release_pipeline import write_tree
 from tests.test_webserver_managers import FakeStore
-from wasm.core.exceptions import ValidationError
-from wasm.core.runner import FakeRunner
-from wasm.core.store import WASMStore
-from wasm.deployers.helpers.layout import INPLACE
-from wasm.deployers.helpers.php_fpm import pool_env_lines, pool_tmp_dir, render_pool
-from wasm.deployers.php_fpm import PHP_SETTINGS_FILE, PhpSettings
-from wasm.managers.nginx_manager import NGINX_BACKEND, NginxManager
 
 # ---------------------------------------------------------------------------
 # env[] values FPM would expand
@@ -61,7 +61,7 @@ def test_a_value_starting_with_a_dollar_is_refused(value: str) -> None:
         pool_env_lines({"TOKEN": value})
 
     assert "$" in failure.value.details
-    assert "wasm env set" in failure.value.details
+    assert "noust env set" in failure.value.details
 
 
 def test_a_dollar_anywhere_else_is_carried_literally() -> None:
@@ -97,7 +97,7 @@ def test_a_path_the_ini_parser_would_read_as_syntax_is_refused() -> None:
 
 
 def test_a_deploy_gives_the_pool_a_private_tmp_outside_its_tree(
-    tmp_path: Path, machine: SimpleNamespace, store: WASMStore
+    tmp_path: Path, machine: SimpleNamespace, store: NoustStore
 ) -> None:
     """Beside the applications: the parent root's and 0711, the directory 0700 and the user's."""
     machine.git.publish(write_tree(tmp_path / "v1", WORDPRESS))
@@ -115,7 +115,7 @@ def test_a_deploy_gives_the_pool_a_private_tmp_outside_its_tree(
 
 
 def test_something_planted_where_the_tmp_goes_is_refused(
-    tmp_path: Path, machine: SimpleNamespace, store: WASMStore
+    tmp_path: Path, machine: SimpleNamespace, store: NoustStore
 ) -> None:
     """root never chowns through a link."""
     machine.git.publish(write_tree(tmp_path / "v1", WORDPRESS))
@@ -135,7 +135,7 @@ def test_something_planted_where_the_tmp_goes_is_refused(
 
 
 def test_the_settings_file_is_written_0644_after_the_tree_is_handed_over(
-    tmp_path: Path, machine: SimpleNamespace, store: WASMStore
+    tmp_path: Path, machine: SimpleNamespace, store: NoustStore
 ) -> None:
     """Rewritten after the chown -R, so it is root's again after every deploy."""
     tree = write_tree(tmp_path / "v1", {"index.php": "<?php\n"})
@@ -180,7 +180,7 @@ def test_a_large_but_sane_upload_is_accepted() -> None:
 def site(tmp_path: Path, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch) -> str:
     """The FastCGI site as nginx is given it."""
     fake = FakeStore()
-    monkeypatch.setattr("wasm.managers.webserver.get_store", lambda: fake)
+    monkeypatch.setattr("noust.managers.webserver.get_store", lambda: fake)
     nginx = NginxManager(
         backend=replace(
             NGINX_BACKEND,

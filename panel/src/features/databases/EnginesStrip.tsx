@@ -139,7 +139,7 @@ function EnginesSkeleton() {
   );
 }
 
-/** Every engine WASM can manage, installed or not, with what its unit can be told to do. */
+/** Every engine Noust can manage, installed or not, with what its unit can be told to do. */
 export function EnginesStrip() {
   const t = useT();
   const engines = useQuery(enginesQuery());

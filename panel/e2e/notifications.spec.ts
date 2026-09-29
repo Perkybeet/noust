@@ -36,7 +36,7 @@ async function listen(): Promise<{ url: string; received: Received[]; close: () 
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const { port } = server.address() as AddressInfo;
   return {
-    url: `http://127.0.0.1:${String(port)}/hooks/wasm`,
+    url: `http://127.0.0.1:${String(port)}/hooks/noust`,
     received,
     close: () => new Promise((resolve) => server.close(() => { resolve(); })),
   };
@@ -87,8 +87,8 @@ test("tests each channel and reports what the receiving server answered", async 
     await webhook.getByRole("button", { name: "Send test" }).click();
     await expect(webhook.getByText("Test message sent through webhook.")).toBeVisible();
     expect(endpoint.received).toHaveLength(1);
-    expect(endpoint.received[0]?.path).toBe("/hooks/wasm");
-    expect(endpoint.received[0]?.body).toMatchObject({ event: "test", title: "WASM test notification" });
+    expect(endpoint.received[0]?.path).toBe("/hooks/noust");
+    expect(endpoint.received[0]?.body).toMatchObject({ event: "test", title: "Noust test notification" });
 
     // A private address that is not allowed is refused before any request is made.
     const discord = page.getByRole("article", { name: "Discord" });
@@ -114,7 +114,7 @@ test("tests each channel and reports what the receiving server answered", async 
 
     const events = page.getByRole("region", { name: "Events" });
     await events.getByRole("checkbox", { name: /Deploy finished/ }).click();
-    await expect(events.getByText("wasm config set notifications.events.deploy_success false")).toBeVisible();
+    await expect(events.getByText("noust config set notifications.events.deploy_success false")).toBeVisible();
     await events.getByRole("button", { name: "Save changes" }).click();
     await expect(toastSaying(page, "Saved the notification events")).toBeVisible();
     await page.reload();

@@ -23,7 +23,7 @@ type WebServer = "nginx" | "apache";
 export type CreateSiteBody = BodyOf<"/api/sites", "post">;
 
 /**
- * Copy for the templates WASM ships, keyed by name. `GET /api/sites/templates` is the source
+ * Copy for the templates Noust ships, keyed by name. `GET /api/sites/templates` is the source
  * of truth for which templates exist; this only dresses up the ones it recognises. A template
  * this machine offers but this map does not know yet still shows, titled from its own name.
  */
@@ -96,7 +96,7 @@ export interface CreateSiteDialogProps {
 }
 
 /**
- * Writes a web server site from one of WASM's templates. With HTTPS asked for, the certificate
+ * Writes a web server site from one of Noust's templates. With HTTPS asked for, the certificate
  * is ordered first and the site is only rendered with TLS once it exists.
  */
 export function CreateSiteDialog({ open, onOpenChange, detected, onCreated }: CreateSiteDialogProps) {

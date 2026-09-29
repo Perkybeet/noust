@@ -36,12 +36,12 @@ import string
 from dataclasses import dataclass
 from urllib.parse import quote
 
-from wasm.core.exceptions import DatabaseError
-from wasm.core.logger import Logger
-from wasm.core.secrets import SecretStore
-from wasm.core.store import Database, WASMStore, get_store
-from wasm.managers.database.base import BaseDatabaseManager
-from wasm.managers.database.registry import DatabaseRegistry
+from noust.core.exceptions import DatabaseError
+from noust.core.logger import Logger
+from noust.core.secrets import SecretStore
+from noust.core.store import Database, NoustStore, get_store
+from noust.managers.database.base import BaseDatabaseManager
+from noust.managers.database.registry import DatabaseRegistry
 
 #: Engines this module knows how to provision. Other engines the registry
 #: knows about (Redis, MongoDB) have no concept of a per-application
@@ -120,19 +120,19 @@ def _resolve_manager(engine: str) -> tuple[str, BaseDatabaseManager]:
 
     Raises:
         DatabaseError: The engine is not registered, or is registered but is
-            not one WASM provisions a database-and-user pair for.
+            not one Noust provisions a database-and-user pair for.
     """
     manager = DatabaseRegistry.get(engine)
     if manager is None:
         raise DatabaseError(
             f"Unknown database engine: {engine!r}",
-            details=f"WASM provisions: {', '.join(SUPPORTED_ENGINES)}.",
+            details=f"Noust provisions: {', '.join(SUPPORTED_ENGINES)}.",
         )
     canonical = manager.ENGINE_NAME
     if canonical not in SUPPORTED_ENGINES:
         raise DatabaseError(
-            f"WASM does not provision a {manager.DISPLAY_NAME} database and user",
-            details=f"WASM provisions: {', '.join(SUPPORTED_ENGINES)}.",
+            f"Noust does not provision a {manager.DISPLAY_NAME} database and user",
+            details=f"Noust provisions: {', '.join(SUPPORTED_ENGINES)}.",
         )
     return canonical, manager
 
@@ -176,7 +176,7 @@ def database_identifiers(app_name: str, engine: str) -> tuple[str, str]:
         prefix never collide.
 
     Raises:
-        DatabaseError: The engine is not registered, or is not one WASM
+        DatabaseError: The engine is not registered, or is not one Noust
             provisions a database-and-user pair for.
     """
     _canonical, manager = _resolve_manager(engine)
@@ -253,7 +253,7 @@ def _refuse_reserved(name: str, *, kind: str, display_name: str) -> None:
     if name.lower() in RESERVED_NAMES:
         raise DatabaseError(
             f"{name!r} is a reserved {display_name} {kind} name",
-            details=f"Choose another {kind} name; WASM never gives an application "
+            details=f"Choose another {kind} name; Noust never gives an application "
             f"the server's own {kind}s.",
         )
 
@@ -280,14 +280,14 @@ def _owner_key(domain: str | None) -> str:
     return domain or ""
 
 
-def _domain_of(store: WASMStore, app_id: int) -> str:
+def _domain_of(store: NoustStore, app_id: int) -> str:
     """The domain of an application id, for messages."""
     owner = store.get_app_by_id(app_id)
     return owner.domain if owner is not None else "another application"
 
 
 def _check_database(
-    store: WASMStore,
+    store: NoustStore,
     manager: BaseDatabaseManager,
     engine: str,
     *,
@@ -320,7 +320,7 @@ def _check_database(
 
     Raises:
         DatabaseError: The database belongs to another application, was
-            created outside an application, or exists and WASM did not
+            created outside an application, or exists and Noust did not
             create it.
     """
     row = store.get_database(name, engine)
@@ -328,8 +328,8 @@ def _check_database(
         if manager.database_exists(name):
             raise DatabaseError(
                 f"The {manager.DISPLAY_NAME} database {name!r} already exists and "
-                "WASM did not create it",
-                details="Choose another database name; WASM does not give an application "
+                "Noust did not create it",
+                details="Choose another database name; Noust does not give an application "
                 "a database it did not provision for it.",
             )
         return None
@@ -344,13 +344,13 @@ def _check_database(
         return row
     raise DatabaseError(
         f"The {engine} database {name!r} is not recorded as {domain or 'this deployment'}'s",
-        details="It was created outside this application (with `wasm db create`, or by "
+        details="It was created outside this application (with `noust db create`, or by "
         "an application since deleted). Choose another database name.",
     )
 
 
 def _check_user(
-    store: WASMStore,
+    store: NoustStore,
     manager: BaseDatabaseManager,
     engine: str,
     *,
@@ -363,7 +363,7 @@ def _check_user(
     Refuse a user that is not the requesting application's to use.
 
     A user is this application's when a database row linked to it names
-    the user (what every WASM before 2.3 recorded), or when the owner record
+    the user (what every Noust before 2.3 recorded), or when the owner record
     beside its password names this application's domain. A user linked to
     another application, or recorded for another domain, is refused even if
     it is also linked here: its password would reach this application's
@@ -383,7 +383,7 @@ def _check_user(
 
     Raises:
         DatabaseError: The user belongs to another application, or exists
-            and WASM did not create it.
+            and Noust did not create it.
     """
     exists = manager.user_exists(user)
     linked = {
@@ -410,8 +410,8 @@ def _check_user(
         )
     if user_owner is None and app_id not in linked:
         raise DatabaseError(
-            f"The {manager.DISPLAY_NAME} user {user!r} already exists and WASM did not create it",
-            details="Choose another user name; WASM does not take over a user it did not "
+            f"The {manager.DISPLAY_NAME} user {user!r} already exists and Noust did not create it",
+            details="Choose another user name; Noust does not take over a user it did not "
             "provision for this application.",
         )
     return True
@@ -425,7 +425,7 @@ def provision_database(
     domain: str | None = None,
     createdb: bool = False,
     logger: Logger,
-    store: WASMStore | None = None,
+    store: NoustStore | None = None,
     secret_store: SecretStore | None = None,
 ) -> DatabaseCredentials:
     """
@@ -435,7 +435,7 @@ def provision_database(
     failed at a later step, the grant included: the database, the user and
     its password (kept in the secret store) are recorded as the requesting
     application's before they are created, so a retry reuses them rather
-    than generating a password that no longer matches the user WASM made.
+    than generating a password that no longer matches the user Noust made.
 
     Both names can come from a repository (a monorepo's
     ``docker-compose.yml``), so neither is trusted: only a database and a user
@@ -465,14 +465,14 @@ def provision_database(
         DatabaseError: The engine is unknown or unsupported, is not
             installed, either name is invalid or reserved, the database or
             the user belongs to another application or was not created by
-            WASM, the user is this application's but WASM does not know its
+            Noust, the user is this application's but Noust does not know its
             password, or creating the database, the user or the grant fails.
     """
     canonical, manager = _resolve_manager(engine)
     if not manager.is_installed():
         raise DatabaseError(
             f"{manager.DISPLAY_NAME} is not installed",
-            details=f"Install it with: wasm db install {canonical}",
+            details=f"Install it with: noust db install {canonical}",
         )
 
     manager.validate_database_name(name)
@@ -509,9 +509,9 @@ def provision_database(
         if password is None:
             raise DatabaseError(
                 f"The {manager.DISPLAY_NAME} user {user} already exists and "
-                "WASM does not know its password",
+                "Noust does not know its password",
                 details=(
-                    f"Drop it with: wasm db user-delete {user} --engine {canonical}, "
+                    f"Drop it with: noust db user-delete {user} --engine {canonical}, "
                     "then retry the deployment."
                 ),
             )
@@ -522,7 +522,7 @@ def provision_database(
         stored = secret_store.read(password_secret) if user_owner == _owner_key(domain) else None
         password = stored or generate_database_password()
         # Written before the user exists: a crash between the two must not
-        # lose the only copy of a password WASM just committed to using.
+        # lose the only copy of a password Noust just committed to using.
         secret_store.write(password_secret, password)
     # Recorded before the user or the database is created, so a failure at
     # any later step (the grant, say) leaves both recognisably this

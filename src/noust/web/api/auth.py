@@ -17,10 +17,11 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
-from wasm import __version__
-from wasm.core.totp import provisioning_uri
-from wasm.web.api.deps import WASMErrorRoute, require_elevated, require_scope
-from wasm.web.auth import (
+from noust import __version__
+from noust.core import paths
+from noust.core.totp import provisioning_uri
+from noust.web.api.deps import NoustErrorRoute, require_elevated, require_scope
+from noust.web.auth import (
     CSRF_COOKIE_NAME,
     CSRF_HEADER_NAME,
     SESSION_COOKIE_NAME,
@@ -34,12 +35,12 @@ from wasm.web.auth import (
     require_auth,
     verify_credential,
 )
-from wasm.web.server import get_brute_force, get_token_manager
+from noust.web.server import get_brute_force, get_token_manager
 
 # The error boundary every other API router already has: without it a
 # SecurityError from the two-factor manager would crash the route instead of
 # answering 400 with the actionable half attached.
-router = APIRouter(route_class=WASMErrorRoute)
+router = APIRouter(route_class=NoustErrorRoute)
 
 #: Historical name of the auth dependency. Kept as an alias so the rest of the
 #: API keeps working while there is exactly one implementation.
@@ -178,9 +179,11 @@ class SessionInfo(BaseModel):
         totp_enabled: Whether logins require a second factor.
         hostname: This machine's hostname, so an operator with several panels
             open can tell them apart.
-        version: The installed WASM version.
+        version: The installed Noust version.
         csrf_header: Header name a mutation must echo the CSRF cookie in.
         csrf_cookie: Name of the readable CSRF cookie.
+        renamed_from_wasm: Whether this server ran WASM before Noust, so the
+            console tells the operator once that the product was renamed.
     """
 
     authenticated: bool
@@ -192,6 +195,7 @@ class SessionInfo(BaseModel):
     version: str
     csrf_header: str = CSRF_HEADER_NAME
     csrf_cookie: str = CSRF_COOKIE_NAME
+    renamed_from_wasm: bool = False
 
 
 class ElevateRequest(BaseModel):
@@ -240,7 +244,7 @@ def _login_failure(error: str, detail: str) -> HTTPException:
 
     ``error`` distinguishes a wrong master token from a missing or wrong
     second factor - three failures that used to share one string a client
-    had to pattern-match. :func:`~wasm.web.api.deps.handle_http_exception`
+    had to pattern-match. :func:`~noust.web.api.deps.handle_http_exception`
     passes a ``detail`` dict carrying ``error`` through unchanged, which is
     what makes this different from every other ``HTTPException`` in this
     module.
@@ -389,7 +393,7 @@ async def get_session_info(request: Request) -> SessionInfo:
     to call before it knows which of those two things it is. A caller that
     presents nothing is not guessing anything and is not counted. A caller
     that presents a credential is checked exactly as ``require_auth`` checks
-    one, through :func:`~wasm.web.auth.verify_credential`, and a wrong one is
+    one, through :func:`~noust.web.auth.verify_credential`, and a wrong one is
     counted towards the lockout: the answer here says whether the value was
     the master token, so without counting this was a guessing oracle with no
     limit. A session cookie this server signed but that has since expired is
@@ -434,6 +438,7 @@ async def get_session_info(request: Request) -> SessionInfo:
         totp_enabled=token_manager.totp_enabled(),
         hostname=socket.gethostname(),
         version=__version__,
+        renamed_from_wasm=paths.came_from_wasm(),
     )
 
 
@@ -448,7 +453,7 @@ async def elevate(
     configuration or a unit file, running a write against a database console,
     revealing a ``.env`` in clear, issuing an API token and turning
     two-factor authentication off all require a cookie session to have
-    called this recently; see :func:`wasm.web.api.deps.require_elevated`.
+    called this recently; see :func:`noust.web.api.deps.require_elevated`.
     The factor asked for is the same a login would ask for - a TOTP or backup
     code when two-factor authentication is enabled, the master token
     otherwise - and a wrong one is counted by the same lockout a login
@@ -573,7 +578,7 @@ async def create_ws_ticket(
 
     Any credential may ask: a session, the master token or an API token. The
     ticket redeems as that same credential, with its scope, and only while it
-    is still valid - see :meth:`wasm.web.auth.TokenManager.consume_ws_ticket`.
+    is still valid - see :meth:`noust.web.auth.TokenManager.consume_ws_ticket`.
 
     Args:
         request: The incoming request.
@@ -829,7 +834,7 @@ def enrollment_uri(secret: str) -> str:
         The ``otpauth://`` URI, naming this machine so an operator with
         several panels can tell them apart in the app.
     """
-    return provisioning_uri(secret, issuer="WASM", account=socket.gethostname())
+    return provisioning_uri(secret, issuer="Noust", account=socket.gethostname())
 
 
 # The 2FA handlers are synchronous on purpose, and it buys two things: FastAPI
@@ -873,7 +878,7 @@ def two_factor_enroll(
 
     Raises:
         HTTPException: 403 with ``error: "elevation_required"`` per
-            :func:`wasm.web.api.deps.require_elevated`.
+            :func:`noust.web.api.deps.require_elevated`.
     """
     token_manager = get_token_manager()
     secret = token_manager.begin_totp_enrollment()
@@ -911,7 +916,7 @@ def two_factor_confirm(
 
     Raises:
         HTTPException: 403 with ``error: "elevation_required"`` per
-            :func:`wasm.web.api.deps.require_elevated`. 400 when the code
+            :func:`noust.web.api.deps.require_elevated`. 400 when the code
             does not verify. Not counted by the lockout: the pending secret
             is on the operator's own screen, so a wrong code here proves a
             typo, not a guess at a credential.
@@ -1015,7 +1020,7 @@ def regenerate_backup_codes(
 
     Raises:
         HTTPException: 403 with ``error: "elevation_required"`` per
-            :func:`wasm.web.api.deps.require_elevated`.
+            :func:`noust.web.api.deps.require_elevated`.
         SecurityError: 400 when two-factor authentication is not enabled.
     """
     codes = get_token_manager().regenerate_backup_codes()
@@ -1156,7 +1161,7 @@ def create_api_token(
             audit record names the token; the token itself never reaches the
             audit log.
         HTTPException: 403 with ``error: "elevation_required"`` per
-            :func:`wasm.web.api.deps.require_elevated`.
+            :func:`noust.web.api.deps.require_elevated`.
     """
     issued = get_token_manager().create_api_token(body.name, body.scope, body.expires_hours)
 

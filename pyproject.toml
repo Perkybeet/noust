@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "wasm-cli"
+name = "noust"
 version = "2.3.0"
-description = "Web App System Management - Deploy and manage web applications on Linux servers"
+description = "Noust - deploy and manage web applications on Linux servers"
 readme = "README.md"
 license = { text = "AGPL-3.0-or-later" }
 requires-python = ">=3.10"
@@ -13,6 +13,8 @@ authors = [
     { name = "Yago López Prado", email = "yago.lopez.adeje@gmail.com" }
 ]
 keywords = [
+    "noust",
+    "wasm",
     "cli",
     "deployment",
     "nginx",
@@ -22,6 +24,9 @@ keywords = [
     "server-management",
     "certbot",
     "ssl",
+    "releases",
+    "rollback",
+    "self-hosted",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -92,27 +97,31 @@ all = [
 ]
 
 [project.scripts]
-wasm = "wasm.cli.app:entrypoint"
+noust = "noust.cli.app:entrypoint"
+# The name WASM had until 3.0. Kept for the whole 3.x series so no operator
+# script or cron line breaks on the upgrade.
+wasm = "noust.cli.app:entrypoint"
 
 [project.urls]
-Homepage = "https://github.com/Perkybeet/wasm"
-Documentation = "https://github.com/Perkybeet/wasm#readme"
-Repository = "https://github.com/Perkybeet/wasm.git"
-"Bug Tracker" = "https://github.com/Perkybeet/wasm/issues"
+Homepage = "https://github.com/Perkybeet/noust"
+Documentation = "https://github.com/Perkybeet/noust#readme"
+Repository = "https://github.com/Perkybeet/noust.git"
+"Bug Tracker" = "https://github.com/Perkybeet/noust/issues"
+Changelog = "https://github.com/Perkybeet/noust/releases"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["wasm*"]
+include = ["noust*"]
 
 [tool.setuptools.package-data]
-wasm = [
+noust = [
     # nginx, apache and systemd unit templates.
     "templates/**/*.j2",
     # Recipes (2.3): the recipe files, and the files they write into an
     # application (wp-config.php, n8n's package.json).
     "recipes/*.yaml",
     "recipes/assets/**/*",
-    # Committed, not generated: see src/wasm/completions/README.md.
+    # Committed, not generated: see src/noust/completions/README.md.
     "completions/*",
     # The console: the committed Vite build of panel/ (index.html, the
     # favicon and every hashed chunk, font and stylesheet under assets/). All
@@ -124,7 +133,7 @@ wasm = [
 
 [tool.mypy]
 python_version = "3.10"
-files = ["src/wasm"]
+files = ["src/noust"]
 warn_return_any = true
 warn_unused_configs = true
 warn_redundant_casts = true
@@ -153,7 +162,7 @@ python_files = "test_*.py"
 python_functions = "test_*"
 addopts = "--strict-markers --strict-config"
 filterwarnings = [
-    "error::DeprecationWarning:wasm.*",
+    "error::DeprecationWarning:noust.*",
 ]
 
 [tool.ruff]
@@ -201,26 +210,26 @@ ignore = [
 "scripts/**" = ["T20"]
 # Depends(), Query() and Field() in a signature default are how FastAPI is
 # written; B008 exists for the mutable-default trap, which these are not.
-"src/wasm/web/api/**" = ["B008"]
-"src/wasm/web/views/**" = ["B008"]
+"src/noust/web/api/**" = ["B008"]
+"src/noust/web/views/**" = ["B008"]
 # The CLI is the presentation layer, so this is where output legitimately
 # happens. It should still go through the logger rather than bare print, and
 # tests/test_architecture.py ratchets the count down.
-"src/wasm/cli/**" = ["T20", "BLE001", "S110"]
+"src/noust/cli/**" = ["T20", "BLE001", "S110"]
 # Blind excepts left in the managers and deployers. Down from 302; the count is
 # ratcheted in tests/test_architecture.py so it can only fall.
-"src/wasm/managers/**" = ["BLE001", "S110"]
-"src/wasm/deployers/**" = ["BLE001", "S110"]
-"src/wasm/monitor/**" = ["BLE001", "S110"]
-"src/wasm/core/**" = ["BLE001", "S110"]
-"src/wasm/web/**" = ["BLE001", "S110"]
-"src/wasm/validators/**" = ["BLE001", "S110"]
+"src/noust/managers/**" = ["BLE001", "S110"]
+"src/noust/deployers/**" = ["BLE001", "S110"]
+"src/noust/monitor/**" = ["BLE001", "S110"]
+"src/noust/core/**" = ["BLE001", "S110"]
+"src/noust/web/**" = ["BLE001", "S110"]
+"src/noust/validators/**" = ["BLE001", "S110"]
 # The store builds statements from column names it owns; every value is bound
 # as a parameter. S608 cannot tell the difference.
-"src/wasm/core/store.py" = ["S608"]
+"src/noust/core/store.py" = ["S608"]
 # The version is read before the re-exports so a broken optional import cannot
 # stop `wasm --version` from answering.
-"src/wasm/__init__.py" = ["E402"]
+"src/noust/__init__.py" = ["E402"]
 # Startup banner and update notice: the one place output precedes the logger.
-"src/wasm/core/update_checker.py" = ["T201"]
-"src/wasm/web/server.py" = ["T201", "S104"]
+"src/noust/core/update_checker.py" = ["T201"]
+"src/noust/web/server.py" = ["T201", "S104"]

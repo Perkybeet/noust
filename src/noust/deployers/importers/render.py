@@ -4,7 +4,7 @@
 """
 Render: the ``render.yaml`` Blueprint.
 
-A Blueprint can describe several services and databases; a WASM application
+A Blueprint can describe several services and databases; a Noust application
 is one of them. The proposal is for the first web (or static) service, and
 names the others in a warning so none is lost silently.
 """
@@ -16,8 +16,8 @@ from typing import Any
 
 import yaml
 
-from wasm.core.exceptions import ValidationError
-from wasm.deployers.importers.base import (
+from noust.core.exceptions import ValidationError
+from noust.deployers.importers.base import (
     Proposal,
     ProposedEnv,
     check_nesting,
@@ -35,7 +35,7 @@ FILES = ("render.yaml",)
 #: of the application.
 _PROJECT_ROOT = "/opt/render/project/src/"
 
-#: Render runtimes WASM has a type for. ``node`` is left to detection, which
+#: Render runtimes Noust has a type for. ``node`` is left to detection, which
 #: tells Next.js, Vite and a plain server apart as Render's build does not.
 _RUNTIME_TYPES: dict[str, str | None] = {
     "node": None,
@@ -96,8 +96,8 @@ def read(root: Path) -> Proposal:
     elif services:
         proposal.warn(
             f"render.yaml has no web or static service to deploy as an application; it "
-            f"declares {_describe_services(services)}. A worker or cron job is a 'wasm cron' "
-            "job or a service you run yourself; a Key Value instance is 'wasm db create "
+            f"declares {_describe_services(services)}. A worker or cron job is a 'noust cron' "
+            "job or a service you run yourself; a Key Value instance is 'noust db create "
             "--engine redis'."
         )
     else:
@@ -108,7 +108,7 @@ def read(root: Path) -> Proposal:
         names = ", ".join(text_value(d, "name") or "?" for d in databases)
         proposal.warn(
             f"render.yaml declares PostgreSQL database(s) {names}. Create them with "
-            "'wasm db create' and give the application its connection string."
+            "'noust db create' and give the application its connection string."
         )
     if blueprint.get("envVarGroups"):
         proposal.warn(
@@ -167,8 +167,8 @@ def _choose_service(services: list[dict[str, Any]], proposal: Proposal) -> dict[
     if others:
         proposal.warn(
             f"render.yaml also declares {_describe_services(others)}. Each web service is an application "
-            "of its own on WASM; a worker or cron job is a 'wasm cron' job or a service "
-            "you run yourself; a Key Value instance is 'wasm db create --engine redis'."
+            "of its own on Noust; a worker or cron job is a 'noust cron' job or a service "
+            "you run yourself; a Key Value instance is 'noust db create --engine redis'."
         )
     return chosen
 
@@ -188,13 +188,13 @@ def _service(service: dict[str, Any], proposal: Proposal) -> None:
         proposal.app_type = _RUNTIME_TYPES[runtime]
     elif runtime in ("docker", "image"):
         proposal.warn(
-            "The service runs a Docker image on Render. WASM runs containers through "
+            "The service runs a Docker image on Render. Noust runs containers through "
             "Docker Compose: commit a compose.yaml that builds it and deploy it as "
             "docker-compose."
         )
     elif runtime is not None:
         proposal.warn(
-            f"The service's runtime is {runtime}, which WASM has no deployer for; build "
+            f"The service's runtime is {runtime}, which Noust has no deployer for; build "
             "it into a container and deploy it as Docker Compose."
         )
 
@@ -205,7 +205,7 @@ def _service(service: dict[str, Any], proposal: Proposal) -> None:
     proposal.note_commands()
     if proposal.app_type == "static" and proposal.output_directory not in (None, ".", "./"):
         proposal.warn(
-            f"Render publishes {proposal.output_directory}; WASM serves a static site "
+            f"Render publishes {proposal.output_directory}; Noust serves a static site "
             "from the root of the repository, or builds it with Vite."
         )
 
@@ -323,7 +323,7 @@ def _disk(service: dict[str, Any], proposal: Proposal) -> None:
         proposal.persistent_paths.append(mount[len(_PROJECT_ROOT) :].strip("/"))
         return
     proposal.warn(
-        f"Render mounts a persistent disk at {mount}, outside the application. On WASM "
+        f"Render mounts a persistent disk at {mount}, outside the application. On Noust "
         "keep a path of the application across releases with --persist, or point the "
         "application at a directory on this server."
     )
@@ -340,23 +340,23 @@ def _other_settings(service: dict[str, Any], proposal: Proposal) -> None:
     instances = int_value(service, "numInstances")
     if instances is not None and instances > 1:
         proposal.warn(
-            f"Render runs {instances} instances; a WASM application runs one (two, "
+            f"Render runs {instances} instances; a Noust application runs one (two, "
             "briefly, with zero-downtime on)."
         )
     if isinstance(service.get("scaling"), dict):
-        proposal.warn("Autoscaling has no equivalent; a WASM application runs one instance.")
+        proposal.warn("Autoscaling has no equivalent; a Noust application runs one instance.")
     if text_value(service, "preDeployCommand"):
         proposal.warn("preDeployCommand has no equivalent; run migrations from the build script.")
     root_dir = text_value(service, "rootDir")
     if root_dir and root_dir not in (".", "./"):
         proposal.warn(
-            f"The service builds from {root_dir}/; WASM deploys a repository from its "
+            f"The service builds from {root_dir}/; Noust deploys a repository from its "
             "root. Deploy from a repository of its own, or as a monorepo."
         )
     if isinstance(service.get("headers"), list) and service["headers"]:
-        proposal.warn("Static site headers have no equivalent in WASM's generated site.")
+        proposal.warn("Static site headers have no equivalent in Noust's generated site.")
     if isinstance(service.get("routes"), list) and service["routes"]:
         proposal.warn(
             "Static site redirect and rewrite routes have no equivalent; handle them in the "
-            "application, or add a redirect domain with 'wasm domain add --kind redirect'."
+            "application, or add a redirect domain with 'noust domain add --kind redirect'."
         )

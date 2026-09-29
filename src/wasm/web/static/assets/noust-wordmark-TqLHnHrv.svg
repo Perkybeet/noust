@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 254 36" width="254" height="36" color="#18181b" fill="none">
+  <title>Noust</title>
+  <g id="noust-wordmark" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M2 26H40C47 26 50 34 58 34H82C90 34 93 26 100 26H138" stroke="currentColor" stroke-width="4"/>
+    <path d="M8 19H36M11 11H32M16 3H30M104 19H132M108 11H129M110 3H124" stroke="currentColor" stroke-width="6"/>
+    <path d="M42.75 5.5A1.25 1.25 0 0 1 45 4.75C48 8.75 52 16 70 16C88 16 92 8.75 95 4.75A1.25 1.25 0 0 1 97.25 5.5C97.25 24 88 31 70 31C52 31 42.75 24 42.75 5.5ZM46.5 12C51 17 57 20 70 20C83 20 89 17 93.5 12C89 18 83 21.5 70 21.5C57 21.5 51 18 46.5 12ZM50.5 20C54 24 59 25.5 70 25.5C81 25.5 86 24 89.5 20C86 25 81 27 70 27C59 27 54 25 50.5 20Z" fill="#7b61ff" fill-rule="evenodd"/>
+    <path d="M156.25 12.25V25.75M156.25 18.25A6 6 0 0 1 168.25 18.25V25.75M200.75 12.25V19.75A6 6 0 0 0 212.75 19.75M212.75 12.25V25.75M232.2 14.3C231.2 12.9 229.6 12.25 227.4 12.25C224.4 12.25 222.6 13.6 222.6 15.6C222.6 17.7 224.6 18.5 227.5 19C230.4 19.5 232.4 20.3 232.4 22.4C232.4 24.4 230.6 25.75 227.6 25.75C225.4 25.75 223.8 25.1 222.8 23.7M241.25 12.25H251.25M245.5 6V21.25A4.5 4.5 0 0 0 250 25.75" stroke="currentColor" stroke-width="4.5"/>
+    <circle cx="184.5" cy="19" r="6.75" stroke="currentColor" stroke-width="4.5"/>
+  </g>
+</svg>

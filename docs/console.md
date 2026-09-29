@@ -1,7 +1,7 @@
 # The console
 
-The WASM Console is the browser interface to a server running WASM. It is a single-page
-application built into the package and served by `wasm web start`: no Node, no build step
+The Noust console is the browser interface to a server running Noust. It is a single-page
+application built into the package and served by `noust web start`: no Node, no build step
 and no CDN at install time, and nothing is loaded from any other origin at run time. It is a
 client of the same [API](api.md) scripts use, so everything on screen is something the API
 can do.
@@ -11,72 +11,72 @@ can do.
 ## Starting it
 
 ```bash
-wasm web start            # foreground, 127.0.0.1:8080; prints the access token; Ctrl+C stops it
-wasm web start -d         # background until 'wasm web stop' or the next reboot; prints the token
-wasm web enable           # a systemd service: survives reboots; prints the token
-wasm web token --new      # issue a token to sign in with
-wasm web status           # running or not, and whether as the service or in the background
-wasm web stop
+noust web start           # foreground, 127.0.0.1:8080; prints the access token; Ctrl+C stops it
+noust web start -d        # background until 'noust web stop' or the next reboot; prints the token
+noust web enable          # a systemd service: survives reboots; prints the token
+noust web token --new     # issue a token to sign in with
+noust web status          # running or not, and whether as the service or in the background
+noust web stop
 ```
 
 Every start issues a new access token and prints it once, in the same banner whichever way
 the console runs: in the foreground, in the background with `-d` (the parent process prints
-it before handing the server over to the child), or as a service with `wasm web enable`. It
+it before handing the server over to the child), or as a service with `noust web enable`. It
 is never silently issued unseen, and systemd starting the service again (at boot, after a
-failure, after an upgrade) issues none: it keeps serving the token `wasm web enable`
-printed. `wasm web token` without options only reports whether a token is issued: the token
+failure, after an upgrade) issues none: it keeps serving the token `noust web enable`
+printed. `noust web token` without options only reports whether a token is issued: the token
 itself is stored as a salted hash and cannot be shown again. A running console reads the
-token from disk on every request, so issuing a new one with `wasm web token --new` retires
+token from disk on every request, so issuing a new one with `noust web token --new` retires
 the old one at once, with no restart needed; see [security.md](security.md#authentication)
 for more, including what `--regenerate` invalidates beyond the token itself.
 
 A foreground console runs until you press Ctrl+C or close the SSH session it was started
-from; its banner says so, and prints the `wasm web enable` line that would keep it running
-with the same options. `wasm web start -d` runs it as a background process, with its log in
-`/var/log/wasm/web.log` and its PID in `/var/run/wasm-web.pid`: it does not start again
-after a reboot. `wasm web restart` takes the same options as `start` and does not remember
+from; its banner says so, and prints the `noust web enable` line that would keep it running
+with the same options. `noust web start -d` runs it as a background process, with its log in
+`/var/log/noust/web.log` and its PID in `/run/noust-web.pid`: it does not start again
+after a reboot. `noust web restart` takes the same options as `start` and does not remember
 the ones used before: pass them again.
 
 ### Keep it running
 
-`wasm web enable` runs the console as a systemd service, `wasm-web.service`: started now,
+`noust web enable` runs the console as a systemd service, `noust-web.service`: started now,
 started again at every boot, and restarted if it fails.
 
 ```bash
-wasm web enable                                   # 127.0.0.1:8080, reached over SSH
-wasm web enable --host 0.0.0.0 --self-signed      # any option 'wasm web start' takes
-wasm web status                                   # Runs as: wasm-web.service (starts at boot)
-journalctl -u wasm-web                            # its log
-wasm web disable                                  # stop it, disable it and remove the unit
+noust web enable                                  # 127.0.0.1:8080, reached over SSH
+noust web enable --host 0.0.0.0 --self-signed     # any option 'noust web start' takes
+noust web status                                  # Runs as: noust-web.service (starts at boot)
+journalctl -u noust-web                           # its log
+noust web disable                                 # stop it, disable it and remove the unit
 ```
 
-- It takes the options `wasm web start` takes, checked by the same rules: binding beyond
+- It takes the options `noust web start` takes, checked by the same rules: binding beyond
   loopback without TLS is refused here too, before anything is written. There is no `-d`:
   systemd keeps it running.
-- It writes `/etc/systemd/system/wasm-web.service`, whose `ExecStart` is this machine's
-  `wasm` binary running the console in the foreground with those options, then enables and
+- It writes `/etc/systemd/system/noust-web.service`, whose `ExecStart` is this machine's
+  `noust` binary running the console in the foreground with those options, then enables and
   starts it, waits until it listens, and only then prints the access token and how to reach
   it. If it does not come up, the journal is shown instead, and no token is issued.
-- The token is printed on your terminal by `wasm web enable`, never by the service: the
+- The token is printed on your terminal by `noust web enable`, never by the service: the
   service's output is the journal, which more accounts can read than root. The unit file
-  holds no credential either. A lost token is replaced with `wasm web token --new`, which
+  holds no credential either. A lost token is replaced with `noust web token --new`, which
   the running service accepts at once.
-- To change the options, run `wasm web enable` again with the new ones: the unit is
-  rewritten and the service restarted. `wasm web disable` removes it; the token and the
-  console's state under `/etc/wasm` stay.
-- While the service runs, `wasm web start` and `wasm web restart` refuse to start a second
-  console and name the service, and `wasm web stop` points at `wasm web disable` (or
-  `systemctl stop wasm-web`, which stops it until the next boot).
-- A console already running with `-d` has to be stopped first (`wasm web stop`), so the
+- To change the options, run `noust web enable` again with the new ones: the unit is
+  rewritten and the service restarted. `noust web disable` removes it; the token and the
+  console's state under `/etc/noust` stay.
+- While the service runs, `noust web start` and `noust web restart` refuse to start a second
+  console and name the service, and `noust web stop` points at `noust web disable` (or
+  `systemctl stop noust-web`, which stops it until the next boot).
+- A console already running with `-d` has to be stopped first (`noust web stop`), so the
   service can take its port.
 - The service runs as root with systemd's own `PATH`, like every other unit. The unit's
   hardening leaves everything the console does as root intact (installing packages, writing
   `/etc`, deploying into `/var/www`); the template explains each directive.
-- Upgrading the package restarts a running `wasm-web.service` onto the new version;
+- Upgrading the package restarts a running `noust-web.service` onto the new version;
   removing the package stops and disables it.
 
-If the console's Python packages are missing, `wasm web start` says which and offers to
-install them; `wasm web install --apt` or `--pip` installs them directly.
+If the console's Python packages are missing, `noust web start` says which and offers to
+install them; `noust web install --apt` or `--pip` installs them directly.
 
 ### Reaching it
 
@@ -91,22 +91,22 @@ ssh -L 8080:127.0.0.1:8080 root@server.example.com
 # then open http://localhost:8080
 ```
 
-**With TLS served by WASM.** Binding to anything but loopback requires a certificate:
+**With TLS served by Noust.** Binding to anything but loopback requires a certificate:
 
 ```bash
-wasm web enable --host 0.0.0.0 --tls-cert /etc/letsencrypt/live/panel.example.com/fullchain.pem \
+noust web enable --host 0.0.0.0 --tls-cert /etc/letsencrypt/live/panel.example.com/fullchain.pem \
                                --tls-key /etc/letsencrypt/live/panel.example.com/privkey.pem
-wasm web enable --host 0.0.0.0 --self-signed    # minted under /etc/wasm/panel-tls, reused while valid
+noust web enable --host 0.0.0.0 --self-signed   # minted under /etc/noust/panel-tls, reused while valid
 ```
 
 **Behind a reverse proxy that terminates TLS.** Keep the console on loopback and declare the
 proxy, so the session cookie is marked `Secure` and client addresses are the real ones:
 
 ```bash
-wasm web enable --trusted-proxy 127.0.0.1
+noust web enable --trusted-proxy 127.0.0.1
 ```
 
-Every example here works with `wasm web start` as well, for a console that should not
+Every example here works with `noust web start` as well, for a console that should not
 outlive the session.
 
 `--allow-ip ADDR/CIDR` (repeatable) restricts who may connect at all. `--insecure-http` serves
@@ -117,14 +117,14 @@ unencrypted. See [security.md](security.md) for the full rules.
 
 ![Sign in](assets/console/login.png)
 
-The sign-in page shows the hostname and the WASM version of the server before asking for
+The sign-in page shows the hostname and the Noust version of the server before asking for
 anything, so a token is never typed into the wrong server. Paste the access token; if
 two-factor authentication is on, the next step asks for a code from the authenticator app or
 one of the backup codes. Five failed attempts from one address lock it out for 15 minutes,
 and the page counts down.
 
 A session lasts 12 hours without activity and never more than 24 hours. Enrol two-factor
-authentication under Settings > Security, or with `wasm 2fa enroll` and `wasm 2fa confirm`.
+authentication under Settings > Security, or with `noust 2fa enroll` and `noust 2fa confirm`.
 
 ## Layout
 
@@ -133,7 +133,7 @@ authentication under Settings > Security, or with `wasm 2fa enroll` and `wasm 2f
 - **Top bar**: the machine strip (hostname, uptime, load, CPU, memory, disk, and units running
   and failed), the command palette, and the session menu (theme, keyboard shortcuts, sign
   out).
-- The browser tab is titled `<page> - <hostname> - WASM`.
+- The browser tab is titled `<page> - <hostname> - Noust`.
 
 Colour means state and nothing else: green running, amber in progress, red failed, grey
 stopped, and violet for what you can interact with. Every state also has a shape and a text
@@ -205,7 +205,7 @@ Correlates the unit's state, the port it listens on, an HTTP probe straight to t
 application and one through nginx, the last journal lines, nginx's error log for the domain,
 the certificate, the last deployment, OOM kills in the last seven days and disk space. The
 most likely cause comes first, with each check's evidence verbatim. Every probe only reads.
-The same report is `wasm diagnose DOMAIN`.
+The same report is `noust diagnose DOMAIN`.
 
 ### Databases
 
@@ -215,7 +215,7 @@ database backups. One database's page has its size, owner and encoding, a SQL ru
 
 ### Services
 
-Every systemd unit WASM manages. "Show all units" also lists what other packages installed,
+Every systemd unit Noust manages. "Show all units" also lists what other packages installed,
 read-only. A service's page has its live journal, start, stop, restart, enable, disable, and
 an editor for its unit file that is checked with `systemd-analyze verify` before saving.
 
@@ -237,7 +237,7 @@ is installed.
 ### Backups
 
 Storage used per application, every backup (verify, restore, delete), backup schedules, and
-"New backup" with the same options as `wasm backup create`.
+"New backup" with the same options as `noust backup create`.
 
 ### Activity
 
@@ -246,7 +246,7 @@ by kind, result and actor. A job opens its log.
 
 ### Server
 
-Health (the same checks as `wasm health`), system facts, network, top processes, and the
+Health (the same checks as `noust health`), system facts, network, top processes, and the
 resource monitor: install, enable, start, its findings, and a test email.
 
 ### Settings
@@ -303,16 +303,16 @@ when you scroll up, with a "Jump to latest" button), wrap, copy and download.
 ## Themes
 
 Light, dark, or the system's (the default), from the session menu or the command palette.
-The choice is kept in the browser's local storage (`wasm.theme`) and applies to every open
-tab.
+The choice is kept in the browser's local storage (`noust.theme`; a choice saved by WASM as
+`wasm.theme` is carried over) and applies to every open tab.
 
 ## From the terminal
 
-`--open` on `wasm list`, `wasm status`, `wasm logs`, `wasm db list`, `wasm backup list` and
-`wasm monitor status` prints the matching console URL, and opens it when a display is
+`--open` on `noust list`, `noust status`, `noust logs`, `noust db list`, `noust backup list` and
+`noust monitor status` prints the matching console URL, and opens it when a display is
 available. The address comes from `web.host` and `web.port` in the configuration (Settings >
 General), which only affect these links: where the console listens is decided by the options
-of `wasm web start`.
+of `noust web start`.
 
 ## Accessibility
 

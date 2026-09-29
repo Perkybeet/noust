@@ -36,7 +36,7 @@ function baseRoutes(destinations: Record<string, unknown>[], extra: Record<strin
   return {
     ...signedInRoutes(),
     "GET /api/backups": () => json(200, { backups: [], total: 0 }),
-    "GET /api/backups/storage": () => json(200, { path: "/var/backups/wasm", total_size: 0, total_size_human: "0 B", backup_count: 0, domains: [] }),
+    "GET /api/backups/storage": () => json(200, { path: "/var/backups/noust", total_size: 0, total_size_human: "0 B", backup_count: 0, domains: [] }),
     "GET /api/backup-schedules": () => json(200, { schedules: [], total: 0 }),
     "GET /api/backup-destinations": () => json(200, { destinations, total: destinations.length }),
     "GET /api/backup-destinations/backends": () => json(200, BACKENDS),
@@ -65,7 +65,7 @@ describe("DestinationsSection", () => {
     renderConsole("/backups");
     await screen.findByRole("heading", { level: 1, name: "Backups" });
     expect(await screen.findByText("No destinations yet")).toBeInTheDocument();
-    expect(screen.getByText("wasm backup destination add <name> --type <backend>")).toBeInTheDocument();
+    expect(screen.getByText("noust backup destination add <name> --type <backend>")).toBeInTheDocument();
   });
 
   it("adds a new destination, sending only the fields that were filled in", async () => {

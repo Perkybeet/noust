@@ -8,12 +8,12 @@ Two things live here, and both exist to remove a defect class rather than to
 save typing.
 
 :class:`BaseManager` gives every adapter two ways to reach the system, and only
-those two: the injectable :class:`~wasm.core.runner.CommandRunner` for anything
-it executes, and the injectable :class:`~wasm.core.fs.FileSystem` for anything it
+those two: the injectable :class:`~noust.core.runner.CommandRunner` for anything
+it executes, and the injectable :class:`~noust.core.fs.FileSystem` for anything it
 writes. The previous version wrapped ``core.utils.run_command``, which split
 strings into argv, accepted ``shell=`` and defaulted to no timeout at all; three
 separate ways for a domain name to become a command. It also carried
-``_run_sudo``. That is gone: WASM requires root (decision D6 of the v1 design),
+``_run_sudo``. That is gone: Noust requires root (decision D6 of the v1 design),
 so a manager that re-elevates is either redundant or hiding the fact that it is
 running unprivileged.
 
@@ -25,7 +25,7 @@ a ``Path.unlink`` and never goes near a subprocess.
 
 :class:`MappingRecord` is the bridge that lets a manager return a typed record
 where it used to return a bare dict. The contract that matters is the field
-names: ``wasm health`` spent several releases reading ``cert["expires"]`` from a
+names: ``noust health`` spent several releases reading ``cert["expires"]`` from a
 mapping that only ever contained ``expiry``, and a plain dict answered that with
 ``None`` instead of an error.
 """
@@ -38,10 +38,10 @@ from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from wasm.core.config import Config
-from wasm.core.fs import FileSystem, get_fs
-from wasm.core.logger import Logger
-from wasm.core.runner import DEFAULT_TIMEOUT, CommandResult, CommandRunner, get_runner
+from noust.core.config import Config
+from noust.core.fs import FileSystem, get_fs
+from noust.core.logger import Logger
+from noust.core.runner import DEFAULT_TIMEOUT, CommandResult, CommandRunner, get_runner
 
 
 class MappingRecord:

@@ -57,7 +57,7 @@ export const common = {
     elevationCancelled: "Nothing was changed because the confirmation was cancelled.",
     elevationCancelledHint: "Run the action again and confirm it's you to continue.",
     unreachable: "The request did not reach the server.",
-    unreachableHint: "The console could not reach the WASM panel. Check that it is running with `wasm web status`.",
+    unreachableHint: "The console could not reach the Noust panel. Check that it is running with `noust web status`.",
   },
   streams: {
     logFailed: "The log stream failed.",

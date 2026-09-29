@@ -1,7 +1,7 @@
 """
 Jobs API endpoints.
 
-The queue itself lives in :mod:`wasm.web.jobs`; this module only translates
+The queue itself lives in :mod:`noust.web.jobs`; this module only translates
 HTTP into calls on it. Deploying a new application is not among them:
 ``POST /api/apps`` is the one route that queues a deployment, so there is one
 implementation of "deploy" rather than two that could disagree - an earlier
@@ -28,14 +28,14 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from wasm.core.exceptions import ValidationError
-from wasm.core.store import JobRecord, get_store
-from wasm.deployers.lifecycle import NOTHING_NEW_HINT, check_upstream
-from wasm.validators.names import validate_filename
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import WASMErrorRoute, require_elevated, strict_domain
-from wasm.web.auth import actor_label
-from wasm.web.jobs import (
+from noust.core.exceptions import ValidationError
+from noust.core.store import JobRecord, get_store
+from noust.deployers.lifecycle import NOTHING_NEW_HINT, check_upstream
+from noust.validators.names import validate_filename
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
+from noust.web.auth import actor_label
+from noust.web.jobs import (
     Job,
     JobStatus,
     JobType,
@@ -46,9 +46,9 @@ from wasm.web.jobs import (
     rollback_app_job,
     update_app_job,
 )
-from wasm.web.pydantic_compat import iso_offset_validator
+from noust.web.pydantic_compat import iso_offset_validator
 
-router = APIRouter(prefix="/jobs", tags=["jobs"], route_class=WASMErrorRoute)
+router = APIRouter(prefix="/jobs", tags=["jobs"], route_class=NoustErrorRoute)
 
 #: Job identifiers are the first eight characters of a uuid4.
 JOB_ID_PATTERN = re.compile(r"^[0-9a-f]{1,36}$")
@@ -171,7 +171,7 @@ def _deployment_id_of(result: dict[str, Any] | None) -> int | None:
     Lift ``deployment_id`` out of a job's free-form result, when it has one.
 
     Only deploy and update jobs put it there
-    (:func:`~wasm.web.jobs.deploy_app_job`, :func:`~wasm.web.jobs.run_update`);
+    (:func:`~noust.web.jobs.deploy_app_job`, :func:`~noust.web.jobs.run_update`);
     every other job type's result simply has no such key.
 
     Args:
@@ -391,10 +391,10 @@ def create_delete_job(
     """
     Queue a deletion.
 
-    Runs the same :func:`~wasm.web.jobs.delete_app_job` that
+    Runs the same :func:`~noust.web.jobs.delete_app_job` that
     ``DELETE /api/apps/{domain}`` queues, so it is guarded the same way: a
     cookie session must have confirmed recently (see
-    :func:`~wasm.web.api.deps.require_elevated`), the same as any other
+    :func:`~noust.web.api.deps.require_elevated`), the same as any other
     irreversible action. A stale client still calling this route instead of
     the app-level one gets no less protection for it.
 

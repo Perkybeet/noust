@@ -1,6 +1,6 @@
 # Security
 
-WASM runs as root and deploys code from repositories onto the machine it manages. This page
+Noust runs as root and deploys code from repositories onto the machine it manages. This page
 states what it defends against, what it does not, and every control involved, so an operator
 can decide how to expose it.
 
@@ -8,7 +8,7 @@ can decide how to expose it.
 
 **Trusted**
 
-- Root on the machine, and anyone who can run `wasm` as root. WASM does not defend the
+- Root on the machine, and anyone who can run `noust` as root. Noust does not defend the
   machine against its own administrator.
 - The console's master token and any session signed in with it: they are equivalent to root.
 - Admin-scoped API tokens, for the same reason.
@@ -34,7 +34,7 @@ can decide how to expose it.
 
 - **Applications from each other.** Every application's unit runs as the same account by
   default (`service_user`, `www-data`), so one compromised application can read the files,
-  including the `.env`, of every other one. WASM is not a multi-tenant isolation boundary.
+  including the `.env`, of every other one. Noust is not a multi-tenant isolation boundary.
 - **A compromised application reaching the console on loopback.** It still needs a
   credential, but it is on the same host.
 - **Anything with root**, including a malicious package or dependency installed during a
@@ -42,7 +42,7 @@ can decide how to expose it.
 
 ## Processes
 
-Everything WASM executes (nginx, systemctl, certbot, git, npm, database clients) goes through
+Everything Noust executes (nginx, systemctl, certbot, git, npm, database clients) goes through
 one module, `CommandRunner`, and the test suite fails if any other module imports
 `subprocess`.
 
@@ -50,14 +50,14 @@ one module, `CommandRunner`, and the test suite fails if any other module import
   is a NUL byte. A repository or a form field cannot inject shell syntax.
 - **Every call has a timeout.**
 - **Secrets travel through the environment, standard input or a private defaults file**,
-  never the command line. That includes every database password WASM hands to a client.
+  never the command line. That includes every database password Noust hands to a client.
 - **Running as another account** uses one prefix, `runuser -u <user> --`. There is no `sudo`
-  in any command WASM runs.
+  in any command Noust runs.
 - `--dry-run` is implemented in the same place: read-only commands still run, everything else
   is recorded and skipped. Files go through one seam that a rehearsal swaps out the same way,
-  the console's own state included: a rehearsed `wasm token create` or `wasm sessions revoke`
+  the console's own state included: a rehearsed `noust token create` or `noust sessions revoke`
   reads the real key and session database and writes neither, and on a fresh machine creates
-  no `/etc/wasm` at all.
+  no `/etc/noust` at all.
 
 Cron jobs follow the same rule: a job's command is split like a POSIX shell would split it
 and run without a shell, so pipes, `&&` and globs are inert text. Write `/bin/sh -c "..."`
@@ -65,25 +65,25 @@ explicitly when a job needs a shell.
 
 ## Secrets via --stdin
 
-The same rule applies one level up, to how an operator runs `wasm` itself: a value typed after
-`wasm config set` is written to the shell's history file and, for as long as the process runs,
+The same rule applies one level up, to how an operator runs `noust` itself: a value typed after
+`noust config set` is written to the shell's history file and, for as long as the process runs,
 visible to every local user through `ps`. That is fine for `apps_directory`; it is not fine for
 `monitor.smtp.password` or a webhook URL.
 
 ```bash
 # Avoid - lands in shell history and in ps
-wasm config set monitor.smtp.password 'hunter2'
+noust config set monitor.smtp.password 'hunter2'
 
 # Read from standard input instead - a single trailing newline is stripped
-printf '%s' "$SMTP_PASSWORD" | wasm config set monitor.smtp.password --stdin
+printf '%s' "$SMTP_PASSWORD" | noust config set monitor.smtp.password --stdin
 
 # Or ask for it interactively, without echoing it back
-wasm config set monitor.smtp.password --prompt
+noust config set monitor.smtp.password --prompt
 ```
 
 `--stdin` and `--prompt` are mutually exclusive with giving `VALUE` on the command line, and
-with each other; `wasm config set KEY` with none of the three is a usage error. Typing a value
-for a key `wasm.core.config.redact_secrets` would redact (`password`, `token`, `key`,
+with each other; `noust config set KEY` with none of the three is a usage error. Typing a value
+for a key `noust.core.config.redact_secrets` would redact (`password`, `token`, `key`,
 `webhook`, `secret`, `credential`, `auth`, and their compounds) straight into `VALUE` on a real
 terminal prints a warning suggesting `--stdin`, and is otherwise accepted: the warning is a
 nudge, never a refusal, so a script that has already taken the value out of argv some other way
@@ -95,22 +95,22 @@ The console acts as root, so how it is reached matters more than anything else o
 
 | Setup | Command |
 |---|---|
-| Loopback only (default). Reach it through an SSH tunnel. | `wasm web start -d` |
-| TLS served by WASM | `wasm web start -d --host 0.0.0.0 --tls-cert fullchain.pem --tls-key privkey.pem` |
-| TLS with a self-signed certificate | `wasm web start -d --host 0.0.0.0 --self-signed` |
-| Behind a TLS-terminating reverse proxy | `wasm web start -d --trusted-proxy 127.0.0.1` |
+| Loopback only (default). Reach it through an SSH tunnel. | `noust web start -d` |
+| TLS served by Noust | `noust web start -d --host 0.0.0.0 --tls-cert fullchain.pem --tls-key privkey.pem` |
+| TLS with a self-signed certificate | `noust web start -d --host 0.0.0.0 --self-signed` |
+| Behind a TLS-terminating reverse proxy | `noust web start -d --trusted-proxy 127.0.0.1` |
 
 - **Beyond loopback, TLS is mandatory.** Binding to any other address without a certificate
   and key (or `--self-signed`) is refused, both when the options are parsed and again where
   the socket is bound. `--insecure-http` overrides this, and says what it does: the access
   token and the session cookie then cross the network in clear.
-- `--self-signed` mints a certificate under `/etc/wasm/panel-tls/` and reuses it while it is
+- `--self-signed` mints a certificate under `/etc/noust/panel-tls/` and reuses it while it is
   valid.
 - `--allow-ip ADDR/CIDR` (repeatable) answers only those clients; everyone else gets `403`
   before authentication. It restricts who connects; it encrypts nothing, and does not lift the
   TLS rule.
 - `--trusted-proxy ADDR/CIDR` is the only way `X-Forwarded-For`, `X-Real-IP` and
-  `X-Forwarded-Proto` are believed, and only from that peer. By default WASM trusts nobody's
+  `X-Forwarded-Proto` are believed, and only from that peer. By default Noust trusts nobody's
   forwarding headers. Declaring the proxy is what makes the session cookie `Secure` and the
   client address in the audit log the real one.
 - Requests are rate limited. A request without a valid credential (the sign-in, the forge
@@ -142,36 +142,37 @@ The console acts as root, so how it is reached matters more than anything else o
 
 ## Authentication
 
-**The master token.** Every `wasm web start` issues a new access token and prints it once,
+**The master token.** Every `noust web start` issues a new access token and prints it once,
 in the same banner whether it runs in the foreground or, with `-d`, in the background. Only
-a hash is stored, salted with the console's signing key, in `/etc/wasm/web-token` (`0600`);
-a token cannot be shown again, only replaced with `wasm web token --new`.
+a hash is stored, salted with the console's signing key, in `/etc/noust/web-token` (`0600`);
+a token cannot be shown again, only replaced with `noust web token --new`.
 
-Under systemd it is different. `wasm web enable` issues the token: it writes the new hash
-before it restarts `wasm-web.service`, so the token it replaces stops working at once, and
+Under systemd it is different. `noust web enable` issues the token: it writes the new hash
+before it restarts `noust-web.service`, so the token it replaces stops working at once, and
 prints the new one when the service is serving. The service itself issues none and prints
 none (its output is the journal); it serves whatever hash is on disk. So the same token
 stays valid across every restart of the unit - a crash, a reboot, `systemctl restart
-wasm-web`, a package upgrade - until you rotate it with `wasm web token --new` (or run
-`wasm web enable` again, which also issues a new one).
+noust-web`, a package upgrade - until you rotate it with `noust web token --new` (or run
+`noust web enable` again, which also issues a new one).
 
 A running console reads the token hash from disk on every request, so rotating it takes
 effect immediately - no restart needed. To retire a token that may have leaked, just run
-`wasm web token --new`; the token in force stops working at once, in every console already
-running: in the background, or as `wasm-web.service`.
+`noust web token --new`; the token in force stops working at once, in every console already
+running: in the background, or as `noust-web.service`.
 
 `--regenerate` goes further: it rotates the signing key too, which immediately signs out
 every session, and, because API tokens and TOTP backup codes are salted with that same key,
-also invalidates every one of those - issue new ones afterwards with `wasm token create` and
-`wasm 2fa backup-codes`.
+also invalidates every one of those - issue new ones afterwards with `noust token create` and
+`noust 2fa backup-codes`.
 
-**API tokens.** `wasm token create NAME --scope read|deploy|admin [--expires-hours N]`, or
-the console's Settings. Tokens start with `wasm_tok_`, are shown once, and only their salted
-hash is kept. `wasm token list` shows every token ever issued, live and revoked, without the
-token itself; `wasm token revoke ID` takes effect on the next request.
+**API tokens.** `noust token create NAME --scope read|deploy|admin [--expires-hours N]`, or
+the console's Settings. Tokens start with `noust_tok_` (`wasm_tok_` before 3.0; those keep
+working), are shown once, and only their salted hash is kept. `noust token list` shows every
+token ever issued, live and revoked, without the token itself; `noust token revoke ID` takes
+effect on the next request.
 
 **Sessions.** Signing in with the master token (and the second factor, when enabled) creates
-a server-side session in `/etc/wasm/web-sessions.db`.
+a server-side session in `/etc/noust/web-sessions.db`.
 
 - Cookie `wasm_session`: `HttpOnly`, `SameSite=Strict`, `Secure` whenever the request arrived
   over TLS (directly or through a declared proxy).
@@ -181,7 +182,7 @@ a server-side session in `/etc/wasm/web-sessions.db`.
   one new session, never several. Signing out or revoking a session also ends the id it was
   renewed from.
 - A session is bound to the client address it was issued to.
-- `wasm sessions list`, `wasm sessions revoke PREFIX`, `wasm sessions revoke-others`, and the
+- `noust sessions list`, `noust sessions revoke PREFIX`, `noust sessions revoke-others`, and the
   console's Settings manage them.
 
 **CSRF.** Every `POST`, `PUT`, `PATCH` and `DELETE` made with a session must carry the
@@ -192,7 +193,7 @@ it received in the same answer. The master token and API tokens are not sessions
 CSRF token.
 
 **Two-factor authentication.** TOTP (RFC 6238: SHA-1, 6 digits, 30 seconds, one step of
-clock drift either way), enrolled with `wasm 2fa enroll` and `wasm 2fa confirm CODE` or from
+clock drift either way), enrolled with `noust 2fa enroll` and `noust 2fa confirm CODE` or from
 the console. Confirming prints eight backup codes once; only their salted hashes are kept.
 When enabled, sign-in requires a code or an unused backup code. A code is accepted once per
 purpose - signing in, sudo mode, turning 2FA off: the time step it matched is remembered, and
@@ -228,12 +229,12 @@ listings (`GET /api/system/processes`, `GET /api/monitor/processes`, monitor obs
 show command lines, which often carry passwords, only to `admin`; other scopes see the
 process name. The master token and console sessions are always `admin`.
 
-**WASM's own units.** The console (`wasm-web`), the monitor (`wasm-monitor`) and the
-`wasm-cron-*` and `wasm-backup-*` units behind cron jobs and backup schedules cannot be
+**Noust's own units.** The console (`noust-web`), the monitor (`noust-monitor`) and the
+`noust-cron-*` and `noust-backup-*` units behind cron jobs and backup schedules cannot be
 started, stopped, enabled, disabled, rewritten, created or deleted through `/api/services`,
 whatever the credential: an admin token could otherwise stop the console it is talking to.
-The console and the monitor are managed on the machine with `wasm web ...` and
-`wasm monitor ...`, and scheduled work through its own API. Reading the console's or the
+The console and the monitor are managed on the machine with `noust web ...` and
+`noust monitor ...`, and scheduled work through its own API. Reading the console's or the
 monitor's journal, through `GET /api/services/{name}/logs` or `/ws/logs/{name}`, needs
 `admin`: the console logs every SQL statement run from it and the verbatim output of failed
 git, certbot and notification calls, and the monitor what it saw of other processes. An
@@ -247,12 +248,12 @@ scope. Scripts deploy from repositories.
 **Stored sources.** A clone URL with a credential in it (`https://user:token@host/...`, or
 `https://token@host/...`), stored by an older release, is shown with the credential replaced
 by `***` in every application read; the stored value is left as it was, because updates clone
-from it. It never reaches a command line: WASM takes the credential off the URL before git
+from it. It never reaches a command line: Noust takes the credential off the URL before git
 sees it and hands it to git in the environment, as an `Authorization` header scoped to the
 scheme, host and port it was stored for (`GIT_CONFIG_COUNT` with
 `http.<scheme>://<host>/.extraHeader`), so a submodule or a redirect to another host never
 receives it. The next forced update or cache sync rewrites the checkout's `origin` without
-it, and every error, log line and piece of git output WASM relays has URL credentials
+it, and every error, log line and piece of git output Noust relays has URL credentials
 replaced by `***`. This needs git 2.31 or later, which every supported distribution ships.
 
 ## Sudo mode
@@ -272,7 +273,7 @@ It is required for:
 - moving an application to releases; changing its resource limits;
 - editing a unit or a site configuration by hand;
 - running a SQL statement in write mode;
-- writing WASM's configuration, whole or by section (webserver, backup, SSL, web, apps
+- writing Noust's configuration, whole or by section (webserver, backup, SSL, web, apps
   directory);
 - issuing an API token; enrolling or confirming 2FA; disabling 2FA; regenerating backup codes;
 - creating a service, from a raw unit or from fields; creating or rewriting a cron job;
@@ -292,7 +293,7 @@ The event stream (`GET /events`) and the WebSockets (`/ws/...`) are authenticate
 the handshake, and then stay open for hours. So:
 
 - **The credential is checked again** every 30 seconds on a WebSocket and every 25 on
-  `/events`. Revoking an API token, rotating the master token (`wasm web token --new` or
+  `/events`. Revoking an API token, rotating the master token (`noust web token --new` or
   `--regenerate`), signing out, revoking a session or letting it expire ends every stream it
   opened: a WebSocket closes with `4401`, the event stream ends. A session renewal does not;
   it is the same sign-in under a new id.
@@ -301,13 +302,13 @@ the handshake, and then stay open for hours. So:
   closes. The budget is per credential, so a script at its limit does not stop the console.
 - **A WebSocket lasts at most 12 hours.** It then closes with `4408`, and the client
   reconnects, authenticating again.
-- **`/ws/logs/{name}` streams only a unit WASM manages**, decided by the same ownership rule
-  every other service operation goes through. A unit WASM did not create, `ssh` for example,
+- **`/ws/logs/{name}` streams only a unit Noust manages**, decided by the same ownership rule
+  every other service operation goes through. A unit Noust did not create, `ssh` for example,
   is refused.
 
 ## The browser
 
-The console is a static build served by WASM itself, loads nothing from any other origin,
+The console is a static build served by Noust itself, loads nothing from any other origin,
 and runs under this policy:
 
 ```
@@ -339,7 +340,7 @@ database server, not by inspecting the statement:
   and `SET SESSION AUTHORIZATION` have nothing to return to, and the server refuses
   superuser-only functions such as `pg_read_file` and `COPY ... TO PROGRAM`. The password is
   random, set as a SCRAM verifier, and kept in a 0600 root-owned file under
-  `/var/lib/wasm/secrets/postgresql/`. `pg_hba.conf` must allow
+  `/var/lib/noust/secrets/postgresql/`. `pg_hba.conf` must allow
   `host <database> wasm_ro_<database> 127.0.0.1/32 scram-sha-256` (the Debian and Ubuntu
   default `host all all 127.0.0.1/32` line does); if it does not, read mode fails with that
   line in the error and never falls back to the superuser.
@@ -393,18 +394,20 @@ outside its COPY data is refused before anything is dropped, pg_dump's own
   for 15 minutes, while every other application's deliveries keep arriving. A forge sends
   every customer's deliveries from a few shared addresses, so counting against the address
   let anyone with an account on the same forge lock it out of the console. Deliveries larger
-  than 5 MiB are refused with `413`. The per-application secret is stored in the WASM store
+  than 5 MiB are refused with `413`. The per-application secret is stored in the Noust store
   (`0600`), because verifying an HMAC needs it.
 
-What WASM itself sends off the machine: git fetches from your repositories, certbot's
+What Noust itself sends off the machine: git fetches from your repositories, certbot's
 requests to Let's Encrypt, notifications you configured, and, on every CLI run whose cached
-answer is older than five minutes, a request to `api.github.com` for the latest WASM release.
-There is no setting to turn that check off in 2.0.
+answer is older than five minutes, an update check over HTTPS: the package repository this
+server installs from (apt, dnf, zypper, or PyPI for pip) for the version it can install, and
+`api.github.com` for the latest published release. `noust config set updates.check false`
+turns it off.
 
 ## Untrusted repositories
 
 - Nothing is written through a symlink found inside a release or under `shared/`. A tracked
-  link to `/etc` does not become a path WASM writes to as root.
+  link to `/etc` does not become a path Noust writes to as root.
 - Inspecting a source reads its example environment files (`.env.example`, `.env.template`,
   `.env.sample`, at the root and under `apps/*`, `packages/*` and `services/*`) without
   following a symlink: each file is opened with `O_NOFOLLOW` and must be a regular file, and
@@ -416,43 +419,43 @@ There is no setting to turn that check off in 2.0.
   environment variables) is validated and escaped: a newline cannot start a new directive.
 - Release ids are validated before they reach the disk, and a commit id must be hexadecimal
   before it becomes part of a directory name.
-- `ServiceManager` refuses to touch a unit that WASM does not own, whatever the caller.
+- `ServiceManager` refuses to touch a unit that Noust does not own, whatever the caller.
 
 ## Files
 
 | Path | Mode | Holds |
 |---|---|---|
-| `/etc/wasm/` | `0700` | Configuration and the console's state |
-| `/etc/wasm/config.yaml` | `0600` | Configuration, secrets included. `wasm config get` and the API print secrets as `***`; `wasm config show` prints them in clear |
-| `/etc/wasm/web-secret` | `0600` | Signing key for sessions and token hashes |
-| `/etc/wasm/web-token` | `0600` | Hash of the master token |
-| `/etc/wasm/web-totp` | `0600` | TOTP secret and backup code hashes |
-| `/etc/wasm/web-sessions.db` | `0600` | Sessions, API token hashes, WebSocket tickets |
-| `/etc/wasm/web-audit.log` | `0600` | Audit trail |
-| `/var/lib/wasm/wasm.db` | `0600` | The store: applications, deployments, jobs, webhook secrets |
-| `/var/lib/wasm/job-logs/` | `0700`, files `0600` | Output of console jobs |
-| `/var/lib/wasm/deploy-logs/` | `0750`, files `0640` | Build logs, readable by an admin group |
+| `/etc/noust/` | `0700` | Configuration and the console's state |
+| `/etc/noust/config.yaml` | `0600` | Configuration, secrets included. `noust config get` and the API print secrets as `***`; `noust config show` prints them in clear |
+| `/etc/noust/web-secret` | `0600` | Signing key for sessions and token hashes |
+| `/etc/noust/web-token` | `0600` | Hash of the master token |
+| `/etc/noust/web-totp` | `0600` | TOTP secret and backup code hashes |
+| `/etc/noust/web-sessions.db` | `0600` | Sessions, API token hashes, WebSocket tickets |
+| `/etc/noust/web-audit.log` | `0600` | Audit trail |
+| The store, under `/var/lib/noust/` (`noust store path` names the file) | `0600` | The store: applications, deployments, jobs, webhook secrets |
+| `/var/lib/noust/job-logs/` | `0700`, files `0600` | Output of console jobs |
+| `/var/lib/noust/deploy-logs/` | `0750`, files `0640` | Build logs, readable by an admin group |
 | `.env`, `shared/.env` | `0600` | Application environment, owned by the service account |
 | `/etc/systemd/system/*.service` | `0644` | Units. See the note below. |
 
-The store falls back to `~/.local/share/wasm/` when `/var/lib/wasm` is not writable; `wasm
+The store falls back to `~/.local/share/noust/` when `/var/lib/noust` is not writable; `noust
 store path` prints where it is. The console state directory can be moved with
-`WASM_WEB_STATE_DIR`.
+`NOUST_WEB_STATE_DIR` (`WASM_WEB_STATE_DIR` is still read when it is not set).
 
-Environment variables given when an application is created (`wasm create --env-file`, or
+Environment variables given when an application is created (`noust create --env-file`, or
 `env_vars` in `POST /api/apps`) are written into its `.env` file (`0600`, owned by the
 service account, `shared/.env` on the releases layout), and the unit loads it with
-`EnvironmentFile=`. Only `PORT` and `NODE_ENV` - not secret, and WASM's to decide - stay
+`EnvironmentFile=`. Only `PORT` and `NODE_ENV` - not secret, and Noust's to decide - stay
 inline in the unit as `Environment=` lines. systemd lets `EnvironmentFile=` override
-`Environment=`, so `wasm env configure` and the console's Environment tab both refuse to set
-either one there; change the port by redeploying (`wasm create -d <domain> -s <source>
+`Environment=`, so `noust env configure` and the console's Environment tab both refuse to set
+either one there; change the port by redeploying (`noust create -d <domain> -s <source>
 --port <port>`, or `POST /api/apps` with the new port) instead. A unit an earlier
-version wrote, with every variable inline, keeps working as it is; the next `wasm update` or
+version wrote, with every variable inline, keeps working as it is; the next `noust update` or
 redeploy moves them into the `.env` file.
 
 ## Audit log
 
-`/etc/wasm/web-audit.log` receives one JSON line per event: time, action, result, actor (a
+`/etc/noust/web-audit.log` receives one JSON line per event: time, action, result, actor (a
 session id, `token:<name>` or `master`), client address, resource and detail. Credentials are
 never written to it. Recorded:
 
@@ -469,12 +472,12 @@ credential from the console's Activity page or `GET /api/audit`.
 
 ## The monitor
 
-`wasm monitor` reports what it sees and does nothing else: it never signals or kills a
+`noust monitor` reports what it sees and does nothing else: it never signals or kills a
 process, never deletes or modifies a file other than its own unit, and never decides anything
 from a process's command line. See [MONITOR.md](MONITOR.md).
 
 ## Reporting a vulnerability
 
 Please report security issues privately, by email to yago.lopez.adeje@gmail.com, rather
-than in a public GitHub issue. Include the WASM version (`wasm --version`), the
+than in a public GitHub issue. Include the Noust version (`noust --version`), the
 distribution, and the steps to reproduce.

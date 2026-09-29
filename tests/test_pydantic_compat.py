@@ -16,7 +16,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-from wasm.web.pydantic_compat import dump_model, iso_offset_validator
+from noust.web.pydantic_compat import dump_model, iso_offset_validator
 
 
 class _Deployment(BaseModel):

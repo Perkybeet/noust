@@ -26,14 +26,15 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from wasm.core.logger import Logger
-from wasm.monitor.models import ProcessObservation
+from noust.core import paths
+from noust.core.logger import Logger
+from noust.monitor.models import ProcessObservation
 
-#: Where the database lives when WASM is installed system-wide.
-SYSTEM_DB_PATH = Path("/var/lib/wasm/observations.db")
+#: Where the database lives when Noust is installed system-wide.
+SYSTEM_DB_PATH = paths.state_dir() / "observations.db"
 
 #: Fallback for an unprivileged run, so a developer never writes to /var/lib.
-USER_DB_RELATIVE_PATH = Path(".local/share/wasm/observations.db")
+USER_DB_RELATIVE_PATH = Path(".local/share") / paths.NAME / "observations.db"
 
 #: A monitor scan must never block on the database.
 BUSY_TIMEOUT = 10

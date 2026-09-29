@@ -41,39 +41,39 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from wasm.core.applock import app_lock
-from wasm.core.exceptions import (
+from noust.core.applock import app_lock
+from noust.core.exceptions import (
     DeploymentError,
+    NoustError,
     RolledBackError,
     ValidationError,
-    WASMError,
 )
-from wasm.core.fs import is_rehearsal
-from wasm.core.logger import Logger
-from wasm.core.runner import CommandRunner, get_runner
-from wasm.core.store import (
+from noust.core.fs import is_rehearsal
+from noust.core.logger import Logger
+from noust.core.runner import CommandRunner, get_runner
+from noust.core.store import (
     BLUE_GREEN_COLORS,
     DEFAULT_DRAIN_SECONDS,
     MAX_DRAIN_SECONDS,
     App,
     AppType,
-    WASMStore,
+    NoustStore,
     WebServer,
     get_store,
 )
-from wasm.core.utils import domain_to_app_name
-from wasm.deployers.helpers.health import wait_until_healthy
-from wasm.deployers.helpers.health_gate import HealthCheck, HealthGate, Probe
-from wasm.deployers.helpers.layout import RELEASES, app_root, env_file_for
-from wasm.deployers.helpers.nginx_config import NginxConfigBuilder
-from wasm.deployers.releases import CURRENT_LINK, ReleaseManager
-from wasm.managers.service_manager import ResourceLimits, ServiceManager
-from wasm.validators.domain import validate_domain
-from wasm.validators.names import MAX_SERVICE_NAME_LENGTH
-from wasm.validators.port import is_port_available
+from noust.core.utils import domain_to_app_name
+from noust.deployers.helpers.health import wait_until_healthy
+from noust.deployers.helpers.health_gate import HealthCheck, HealthGate, Probe
+from noust.deployers.helpers.layout import RELEASES, app_root, env_file_for
+from noust.deployers.helpers.nginx_config import NginxConfigBuilder
+from noust.deployers.releases import CURRENT_LINK, ReleaseManager
+from noust.managers.service_manager import ResourceLimits, ServiceManager
+from noust.validators.domain import validate_domain
+from noust.validators.names import MAX_SERVICE_NAME_LENGTH
+from noust.validators.port import is_port_available
 
 if TYPE_CHECKING:
-    from wasm.managers.webserver import WebServerManager
+    from noust.managers.webserver import WebServerManager
 
 BLUE, GREEN = BLUE_GREEN_COLORS
 
@@ -162,7 +162,7 @@ def color_port(app: App, color: str) -> int:
     if not app.port:
         raise DeploymentError(
             f"{app.domain} has no port recorded",
-            details=f"Redeploy it with an explicit port: wasm create -d {app.domain} --port ...",
+            details=f"Redeploy it with an explicit port: noust create -d {app.domain} --port ...",
         )
     return app.port if color == BLUE else app.port + 1
 
@@ -264,7 +264,7 @@ def instance_command(command: str, *, app_path: Path, port: int, app_type: str) 
 def check_eligible(
     app: App,
     *,
-    store: WASMStore | None = None,
+    store: NoustStore | None = None,
     port_free: Callable[[int], bool] | None = None,
 ) -> None:
     """
@@ -305,13 +305,13 @@ def check_eligible(
     if app.layout != RELEASES:
         raise ValidationError(
             f"{domain} is deployed in place; blue/green runs two releases side by side",
-            details=f"Move it onto releases first: wasm app migrate {domain}",
+            details=f"Move it onto releases first: noust app migrate {domain}",
             field="enabled",
         )
     if not app.port:
         raise ValidationError(
             f"{domain} has no port recorded",
-            details=f"Redeploy it with an explicit port: wasm create -d {domain} --port ...",
+            details=f"Redeploy it with an explicit port: noust create -d {domain} --port ...",
             field="enabled",
         )
     if len(unit_base(app)) + _INSTANCE_SUFFIX > MAX_SERVICE_NAME_LENGTH:
@@ -432,7 +432,7 @@ def listeners_on(
     """
     # Imported here: the diagnosis imports this module. Its parser is the one
     # reading of ss's output.
-    from wasm.managers.diagnose import _parse_ss_output
+    from noust.managers.diagnose import _parse_ss_output
 
     result = (runner or get_runner()).run(["ss", "-ltnpH"], timeout=10)
     if not result.success:
@@ -501,7 +501,7 @@ def unit_facts_of(
         cgroup or the cgroup cannot be read (a stopped unit, cgroup v1 only).
     """
     # Imported here: the diagnosis imports this module.
-    from wasm.managers.diagnose import _parse_systemctl_show
+    from noust.managers.diagnose import _parse_systemctl_show
 
     result = (runner or get_runner()).run(
         ["systemctl", "show", "-p", "ActiveState,ControlGroup", f"{unit}.service"], timeout=15
@@ -528,7 +528,7 @@ def unit_facts_of(
     return UnitFacts(state=state, pids=None)
 
 
-def own_unit_name(app: App, store: WASMStore) -> str:
+def own_unit_name(app: App, store: NoustStore) -> str:
     """
     Name the unit an application runs as outside zero-downtime mode.
 
@@ -544,7 +544,9 @@ def own_unit_name(app: App, store: WASMStore) -> str:
     return service.name.removesuffix(".service") if service is not None else unit_base(app)
 
 
-def leftover_unit(app: App, *, store: WASMStore, runner: CommandRunner | None = None) -> str | None:
+def leftover_unit(
+    app: App, *, store: NoustStore, runner: CommandRunner | None = None
+) -> str | None:
     """
     Find the unit an application ran as before zero-downtime mode, still running.
 
@@ -565,7 +567,7 @@ def leftover_unit(app: App, *, store: WASMStore, runner: CommandRunner | None = 
     if not app.zero_downtime:
         return None
     # Imported here: the diagnosis imports this module.
-    from wasm.managers.diagnose import _parse_systemctl_show
+    from noust.managers.diagnose import _parse_systemctl_show
 
     name = own_unit_name(app, store)
     # systemd is asked by the unit's literal name: the service manager answers
@@ -635,7 +637,7 @@ class BlueGreen:
         app: App,
         *,
         logger: Logger,
-        store: WASMStore | None = None,
+        store: NoustStore | None = None,
         services: ServiceManager | None = None,
         web: WebServerManager | None = None,
         probe: Probe | None = None,
@@ -655,7 +657,7 @@ class BlueGreen:
             services: The service manager. Defaults to a new one.
             web: The nginx manager. Defaults to a new one.
             probe: The HTTP probe the health gate runs. Defaults to
-                :func:`~wasm.deployers.helpers.health.wait_until_healthy`.
+                :func:`~noust.deployers.helpers.health.wait_until_healthy`.
             sleep: How the drain waits. Defaults to :func:`time.sleep`.
             refresh_site: Renders the site again from the store and reloads
                 nginx, putting the old file back when nginx refuses the new
@@ -671,7 +673,7 @@ class BlueGreen:
         self.store = store if store is not None else get_store()
         self.services = services if services is not None else ServiceManager()
         if web is None:
-            from wasm.managers.nginx_manager import NginxManager
+            from noust.managers.nginx_manager import NginxManager
 
             web = NginxManager()
         self.web = web
@@ -749,7 +751,7 @@ class BlueGreen:
         if serving not in BLUE_GREEN_COLORS:
             raise DeploymentError(
                 f"{self.app.domain} is in zero-downtime mode but no instance is recorded as serving",
-                details=f"Turn the mode off and on again: wasm app zero-downtime "
+                details=f"Turn the mode off and on again: noust app zero-downtime "
                 f"{self.app.domain} off, then on.",
             )
         target = other_color(serving)
@@ -863,7 +865,7 @@ class BlueGreen:
             return
         listeners = self._listeners(port) or []
         who = ", ".join(listener.describe() for listener in listeners) or (
-            "a process WASM could not identify"
+            "a process Noust could not identify"
         )
         message = (
             f"Port {port}, where {what} of {self.app.domain} starts, is held by {who}; "
@@ -941,7 +943,7 @@ class BlueGreen:
         domain = self.app.domain
         try:
             previous = self.web.write_upstream(domain, self.port(target))
-        except WASMError as exc:
+        except NoustError as exc:
             # Nothing was written: the old upstream still names what serves.
             self._stop(unit)
             raise self._kept_serving(
@@ -992,7 +994,7 @@ class BlueGreen:
             self.services.enable(self.unit(color))
             if previous is not None:
                 self.services.disable(self.unit(previous))
-        except WASMError as exc:
+        except NoustError as exc:
             self.log.warning(f"The {color} instance may not start at boot: {exc}")
 
     def _stop(self, unit: str) -> None:
@@ -1005,7 +1007,7 @@ class BlueGreen:
         try:
             if not self.services.stop(unit):
                 self.log.warning(f"systemd did not confirm that {unit} stopped")
-        except WASMError as exc:
+        except NoustError as exc:
             self.log.warning(f"Could not stop {unit}: {exc}")
 
     def _kept_serving(self, message: str, evidence: str, serving: str) -> DeploymentError:
@@ -1036,7 +1038,7 @@ class BlueGreen:
             )
         return DeploymentError(
             f"{message}; the {serving} instance kept the traffic but is not answering either",
-            details=f"{evidence}\n\nCheck it with: wasm diagnose {self.app.domain}",
+            details=f"{evidence}\n\nCheck it with: noust diagnose {self.app.domain}",
         )
 
     # -- The template ------------------------------------------------------
@@ -1067,7 +1069,7 @@ class BlueGreen:
             colors_directory=str(self.releases().colors_dir),
             environment={key: value for key, value in environment.items() if key != "PORT"},
             environment_file=str(env_file_for(self.app)),
-            description=f"WASM: {self.app.domain} ({self.app.app_type})",
+            description=f"Noust: {self.app.domain} ({self.app.app_type})",
             limits=ResourceLimits.of(self.app),
         )
 
@@ -1100,13 +1102,13 @@ class BlueGreen:
         if active is None:
             raise DeploymentError(
                 f"{app.domain} has no active release to start the instances on",
-                details=f"Build one first: wasm update {app.domain}",
+                details=f"Build one first: noust update {app.domain}",
             )
         service = self.store.get_service_by_app_id(app.id) if app.id is not None else None
         if service is None:
             raise DeploymentError(
                 f"{app.domain} has no unit on record to run as two instances",
-                details=f"Redeploy it so its unit is recorded: wasm update {app.domain}",
+                details=f"Redeploy it so its unit is recorded: noust update {app.domain}",
             )
 
         green = self.unit(GREEN)
@@ -1162,7 +1164,7 @@ class BlueGreen:
 
             self.log.substep("Switching the site to the instances' upstream")
             self._refresh_site(app)
-        except WASMError:
+        except NoustError:
             self._undo(undo)
             raise
 
@@ -1193,13 +1195,13 @@ class BlueGreen:
         if active is None:
             raise DeploymentError(
                 f"{app.domain} has no active release to run its own unit on",
-                details=f"Build one first: wasm update {app.domain}",
+                details=f"Build one first: noust update {app.domain}",
             )
         service = self.store.get_service_by_app_id(app.id) if app.id is not None else None
         if service is None:
             raise DeploymentError(
                 f"{app.domain} has no unit on record to go back to",
-                details=f"Redeploy it: wasm update {app.domain}",
+                details=f"Redeploy it: noust update {app.domain}",
             )
 
         if app.active_color != GREEN:
@@ -1231,7 +1233,7 @@ class BlueGreen:
                 group=service.group,
                 environment=dict(service.environment),
                 environment_file=str(env_file_for(app)),
-                description=f"WASM: {app.domain} ({app.app_type})",
+                description=f"Noust: {app.domain} ({app.app_type})",
                 limits=ResourceLimits.of(app),
             )
             undo.append(lambda: self.services.delete_service(name, keep_record=True))
@@ -1274,13 +1276,13 @@ class BlueGreen:
             undo.append(site_back)
             self.log.substep(f"Switching the site back to {name}")
             self._refresh_site(app)
-        except WASMError:
+        except NoustError:
             self._undo(undo)
             raise
 
         try:
             self.services.enable(name)
-        except WASMError as exc:
+        except NoustError as exc:
             self.log.warning(f"{name} may not start at boot: {exc}")
         wait = drain if drain is not None else DEFAULT_DRAIN_SECONDS
         if wait:
@@ -1303,7 +1305,7 @@ class BlueGreen:
         for color in BLUE_GREEN_COLORS:
             try:
                 self.services.delete_service(self.unit(color), keep_record=True)
-            except WASMError as exc:
+            except NoustError as exc:
                 warnings.append(f"The {color} instance was not removed: {exc}")
         steps: list[tuple[str, Callable[[], object]]] = [
             (
@@ -1317,7 +1319,7 @@ class BlueGreen:
         for what, step in steps:
             try:
                 step()
-            except (WASMError, OSError) as exc:
+            except (NoustError, OSError) as exc:
                 warnings.append(f"{what} was not removed: {exc}")
         return warnings
 
@@ -1341,7 +1343,7 @@ class BlueGreen:
         """
         try:
             self.services.delete_service(name, keep_record=True)
-        except WASMError as exc:
+        except NoustError as exc:
             self.log.warning(f"{name} was left in place: {exc}")
 
     def _undo(self, steps: list[Callable[[], None]]) -> None:
@@ -1357,7 +1359,7 @@ class BlueGreen:
         for step in reversed(steps):
             try:
                 step()
-            except (WASMError, OSError) as exc:
+            except (NoustError, OSError) as exc:
                 self.log.warning(f"Could not put everything back: {exc}")
 
 
@@ -1376,7 +1378,7 @@ def _refresh_site(app: App) -> None:
         DeploymentError: nginx did not reload.
     """
     # Imported here: the domains module builds deployers, which build this.
-    from wasm.deployers.domains import refresh_site
+    from noust.deployers.domains import refresh_site
 
     refresh_site(app)
 
@@ -1459,7 +1461,7 @@ class ModeChange:
     rehearsed: bool = False
 
 
-def _known_app(domain: str, store: WASMStore) -> App:
+def _known_app(domain: str, store: NoustStore) -> App:
     """
     Read an application's row.
 
@@ -1471,12 +1473,12 @@ def _known_app(domain: str, store: WASMStore) -> App:
         The row.
 
     Raises:
-        WASMError: Nothing is deployed there.
+        NoustError: Nothing is deployed there.
     """
     app = store.get_app(domain)
     if app is None:
-        raise WASMError(
-            f"Application not found: {domain}", details="Run 'wasm list' to see what is deployed."
+        raise NoustError(
+            f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
         )
     return app
 
@@ -1502,7 +1504,7 @@ def zero_downtime_status(
         The mode, the instances and, when off, whether it could be turned on.
 
     Raises:
-        WASMError: The application is unknown.
+        NoustError: The application is unknown.
     """
     store = get_store()
     app = _known_app(validate_domain(domain), store)
@@ -1533,7 +1535,7 @@ def zero_downtime_status(
 
     services = services if services is not None else ServiceManager()
     if web is None:
-        from wasm.managers.nginx_manager import NginxManager
+        from noust.managers.nginx_manager import NginxManager
 
         web = NginxManager()
     releases = ReleaseManager(app_root(app))
@@ -1542,7 +1544,7 @@ def zero_downtime_status(
         unit = instance_unit(app, color)
         try:
             state = str(services.get_status(unit).get("active_state") or "unknown")
-        except WASMError as exc:
+        except NoustError as exc:
             state = "unknown"
             services.logger.debug(f"Could not read the state of {unit}: {exc}")
         release = releases.color_release(color)
@@ -1600,7 +1602,7 @@ def set_zero_downtime(
         What was done.
 
     Raises:
-        WASMError: The application is unknown.
+        NoustError: The application is unknown.
         ValidationError: The application cannot use the mode, or the drain is
             out of range.
         DeploymentError: A step failed; the application serves as it did.

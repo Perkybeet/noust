@@ -1,6 +1,6 @@
 /**
  * How a diagnosis is drawn: the words and tones for its verdict and for each check, from the
- * vocabulary of `wasm.managers.diagnose` (verdicts `healthy`, `degraded`, `down`; checks `ok`,
+ * vocabulary of `noust.managers.diagnose` (verdicts `healthy`, `degraded`, `down`; checks `ok`,
  * `warn`, `fail`, `skip`). A word the console does not know is still shown, verbatim, in the
  * neutral tone: the backend's word beats a guess.
  */

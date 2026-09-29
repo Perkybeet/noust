@@ -4,7 +4,7 @@
 """
 One answer to the question "is this application actually working".
 
-``wasm list`` printed the status column from the database and ``wasm health``
+``noust list`` printed the status column from the database and ``noust health``
 asked systemd, so on the same machine at the same moment list called fifteen
 applications Running while health reported seven of them stopped. Nothing ever
 wrote to that column after a deploy, so list was reading a value that had been
@@ -38,16 +38,16 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from wasm.core.exceptions import ValidationError, WASMError
-from wasm.core.utils import domain_to_app_name
+from noust.core.exceptions import NoustError, ValidationError
+from noust.core.utils import domain_to_app_name
 
 if TYPE_CHECKING:  # pragma: no cover - imported for types only
-    from wasm.core.store import App
-    from wasm.managers.service_manager import ServiceManager
+    from noust.core.store import App
+    from noust.managers.service_manager import ServiceManager
 
 #: How long to wait for a port to accept a connection. The probe runs against
 #: loopback, where anything listening answers immediately; a longer wait would
-#: only make `wasm list` slower on the applications that are already broken.
+#: only make `noust list` slower on the applications that are already broken.
 PROBE_TIMEOUT = 0.4
 
 #: Labels. These are what the Status column shows, and core.logger.STATE_STYLES
@@ -160,7 +160,7 @@ def resolve_state_with_status(
         The state, and the raw mapping ``ServiceManager.get_status`` returned
         - empty for a static application, which is never queried.
     """
-    from wasm.deployers.helpers.php_fpm import is_php_fpm
+    from noust.deployers.helpers.php_fpm import is_php_fpm
 
     if is_php_fpm(app):
         return _pool_state(app, probe=probe), {}
@@ -181,7 +181,7 @@ def resolve_state_with_status(
     for unit in units:
         try:
             status = service_manager.get_status(unit)
-        except (WASMError, ValidationError) as error:
+        except (NoustError, ValidationError) as error:
             return AppState(UNKNOWN, healthy=False, detail=str(error)), {}
         state = _state_from_status(app, status, probe=probe)
         if not state.healthy:
@@ -204,11 +204,11 @@ def _pool_state(app: App, *, probe: bool) -> AppState:
     """
     # Imported here: the deployers import far more than this module needs
     # for every other application.
-    from wasm.deployers.php_fpm import inspect_pool
+    from noust.deployers.php_fpm import inspect_pool
 
     try:
         pool = inspect_pool(app, probe=probe)
-    except (WASMError, ValidationError) as error:
+    except (NoustError, ValidationError) as error:
         return AppState(FAILED, healthy=False, detail=str(error))
 
     if not pool.enabled:
@@ -216,13 +216,13 @@ def _pool_state(app: App, *, probe: bool) -> AppState:
             return AppState(
                 STOPPED,
                 healthy=False,
-                detail=f"its PHP-FPM pool is disabled; start it with wasm start {app.domain}",
+                detail=f"its PHP-FPM pool is disabled; start it with noust start {app.domain}",
             )
         return AppState(
             FAILED,
             healthy=False,
             detail=f"its PHP-FPM pool {pool.pool_file} is missing; "
-            f"write it again with wasm update {app.domain}",
+            f"write it again with noust update {app.domain}",
         )
     if pool.service_state in ("activating", "deactivating"):
         return AppState(RESTARTING, healthy=False, detail=f"{pool.service} is {pool.service_state}")
@@ -273,7 +273,7 @@ def _state_from_status(app: App, status: dict[str, Any], *, probe: bool) -> AppS
     # restarts the unit reads as active, which is how this got reported as
     # Running for as long as it did.
     if sub_state == "auto-restart" or active_state == "activating":
-        detail = f"restarted {restarts} times; check the logs with wasm service logs {app.domain}"
+        detail = f"restarted {restarts} times; check the logs with noust service logs {app.domain}"
         return AppState(RESTARTING, healthy=False, detail=detail)
 
     if not status.get("active"):
@@ -283,7 +283,7 @@ def _state_from_status(app: App, status: dict[str, Any], *, probe: bool) -> AppS
     # application itself.
     # The serving instance's port: in zero-downtime mode green answers on
     # the port after the application's.
-    from wasm.deployers.bluegreen import serving_port
+    from noust.deployers.bluegreen import serving_port
 
     port = serving_port(app)
     if probe and port and not port_answers(port):
@@ -309,7 +309,7 @@ def resolve_states(
     Resolve several applications at once.
 
     Each one costs three systemctl calls and possibly a connection attempt, so
-    fifteen applications in sequence is a visible pause before `wasm list`
+    fifteen applications in sequence is a visible pause before `noust list`
     prints anything. They are independent, so they run together.
 
     Args:

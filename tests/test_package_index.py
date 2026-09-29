@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Tests for :mod:`wasm.core.package_index`: the version the source an
+Tests for :mod:`noust.core.package_index`: the version the source an
 installation upgrades from can actually install.
 
 No test opens a socket: :func:`package_index.fetch` is replaced by a table of
@@ -21,24 +21,24 @@ from xml.etree import ElementTree
 
 import pytest
 
-from wasm.core import package_index
-from wasm.core.package_index import AptSource
-from wasm.core.runner import FakeRunner
+from noust.core import package_index
+from noust.core.package_index import AptSource
+from noust.core.runner import FakeRunner
 
 OBS = "https://download.opensuse.org/repositories/home:/Perkybeet"
 
 PACKAGES = """\
-Package: wasm-extras
+Package: noust-extras
 Version: 9.9.9-1
 Architecture: all
 
-Package: wasm
+Package: noust
 Version: 2.2.0-1
 Architecture: all
 Depends: python3,
  python3-click
 
-Package: wasm
+Package: noust
 Version: 2.3.0-1
 Architecture: all
 """
@@ -57,11 +57,11 @@ REPOMD = b"""<?xml version="1.0" encoding="UTF-8"?>
 PRIMARY = b"""<?xml version="1.0" encoding="UTF-8"?>
 <metadata xmlns="http://linux.duke.edu/metadata/common" packages="2">
   <package type="rpm">
-    <name>wasm-cli</name><arch>noarch</arch>
+    <name>noust</name><arch>noarch</arch>
     <version epoch="0" ver="2.2.0" rel="1.1"/>
   </package>
   <package type="rpm">
-    <name>wasm-cli</name><arch>noarch</arch>
+    <name>noust</name><arch>noarch</arch>
     <version epoch="0" ver="2.3.0" rel="1.1"/>
   </package>
   <package type="rpm">
@@ -216,8 +216,8 @@ def test_apt_policy_gives_candidate_and_origins() -> None:
 def _apt_runner(candidate: str = "2.2.0-1") -> FakeRunner:
     runner = FakeRunner()
     runner.script(
-        ["apt-cache", "policy", "wasm"],
-        stdout=f"wasm:\n  Installed: 2.2.0-1\n  Candidate: {candidate}\n  Version table:\n",
+        ["apt-cache", "policy", "noust"],
+        stdout=f"noust:\n  Installed: 2.2.0-1\n  Candidate: {candidate}\n  Version table:\n",
     )
     runner.script(["dpkg", "--print-architecture"], stdout="amd64\n")
     return runner
@@ -257,9 +257,9 @@ def test_apt_finds_a_mirror_through_apt_cache_policy(monkeypatch: pytest.MonkeyP
     serve(monkeypatch, {f"{mirror}Packages": PACKAGES.encode()})
     runner = FakeRunner()
     runner.script(
-        ["apt-cache", "policy", "wasm"],
+        ["apt-cache", "policy", "noust"],
         stdout=(
-            "wasm:\n  Installed: 2.2.0-1\n  Candidate: 2.2.0-1\n  Version table:\n"
+            "noust:\n  Installed: 2.2.0-1\n  Candidate: 2.2.0-1\n  Version table:\n"
             " *** 2.2.0-1 500\n        500 https://mirror.example.com/wasm  Packages\n"
         ),
     )
@@ -352,13 +352,13 @@ def test_rpm_reads_the_repository_itself(monkeypatch: pytest.MonkeyPatch) -> Non
     [
         (
             "dnf",
-            ("dnf", "--cacheonly", "info", "--available", "wasm-cli"),
-            "Name         : wasm-cli\nVersion      : 2.2.5\nRelease      : 1.1\n",
+            ("dnf", "--cacheonly", "info", "--available", "noust"),
+            "Name         : noust\nVersion      : 2.2.5\nRelease      : 1.1\n",
         ),
         (
             "zypper",
-            ("zypper", "--no-refresh", "--non-interactive", "info", "wasm-cli"),
-            "Name           : wasm-cli\nVersion        : 2.2.5-lp156.1.1\n",
+            ("zypper", "--no-refresh", "--non-interactive", "info", "noust"),
+            "Name           : noust\nVersion        : 2.2.5-lp156.1.1\n",
         ),
     ],
 )
@@ -429,7 +429,7 @@ def resolve(monkeypatch: pytest.MonkeyPatch) -> Callable[[dict[str, str]], None]
                 return (host,)
             return (table[host],) if host in table else ()
 
-        monkeypatch.setattr("wasm.core.notifier._resolve_host", lookup)
+        monkeypatch.setattr("noust.core.notifier._resolve_host", lookup)
 
     return install
 

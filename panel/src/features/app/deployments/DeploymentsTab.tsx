@@ -164,7 +164,7 @@ function History({ domain, t }: { domain: string; t: T }) {
             icon={<Rocket />}
             title={t("appPages.deployments.tab.emptyTitle")}
             description={t("appPages.deployments.tab.emptyDescription")}
-            command={`wasm update ${domain}`}
+            command={`noust update ${domain}`}
             className="py-8"
           />
         }

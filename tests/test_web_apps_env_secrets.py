@@ -28,10 +28,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from noust.core.store import App, NoustStore
+from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
+from noust.web.server import create_app, get_token_manager
 from tests.test_web_auth import bearer, issue_token
-from wasm.core.store import App, WASMStore
-from wasm.web.auth import CSRF_HEADER_NAME, SecurityConfig
-from wasm.web.server import create_app, get_token_manager
 
 #: A secret planted in a value, to prove it never reaches a masked response.
 ENV_SECRET = "sk-live-openai-hunter2"
@@ -43,7 +43,7 @@ STRIPE_SECRET = "sk_l" + "ive_4eC39HqLyjWDarjtT1zdp7dc"
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> Iterator[WASMStore]:
+def store(tmp_path: Path) -> Iterator[NoustStore]:
     """
     Args:
         tmp_path: Per-test temporary directory.
@@ -51,17 +51,17 @@ def store(tmp_path: Path) -> Iterator[WASMStore]:
     Yields:
         A store of this test's own.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "noust.db")
     try:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 @pytest.fixture
-def app(tmp_path: Path, store: WASMStore, runner: object) -> FastAPI:
+def app(tmp_path: Path, store: NoustStore, runner: object) -> FastAPI:
     """
     Args:
         tmp_path: Per-test temporary directory.
@@ -109,7 +109,7 @@ def elevate(client: TestClient) -> None:
 
 
 def deployed_env(
-    store: WASMStore, tmp_path: Path, domain: str = "example.com", env_text: str = ""
+    store: NoustStore, tmp_path: Path, domain: str = "example.com", env_text: str = ""
 ) -> Path:
     """
     Deploy an application whose ``.env`` file lives inside the sandbox.
@@ -163,7 +163,7 @@ def read_audit(tmp_path: Path) -> list[dict[str, Any]]:
 
 
 def test_get_app_env_redacts_secret_looking_keys_by_default(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     """SECRET/TOKEN/PASSWORD/KEY-shaped names come back as the fixed placeholder."""
     deployed_env(
@@ -193,7 +193,7 @@ def test_get_app_env_redacts_secret_looking_keys_by_default(
 
 
 def test_get_app_env_unmask_returns_clear_values_and_is_audited(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     """``?unmask=true`` is the explicit request, and it leaves a trail."""
     deployed_env(store, tmp_path, env_text=f"API_KEY={ENV_SECRET}\n")
@@ -213,7 +213,7 @@ def test_get_app_env_unmask_returns_clear_values_and_is_audited(
 
 
 def test_get_app_env_hides_the_vendor_kind_from_a_read_scope_token(
-    client: TestClient, app: FastAPI, store: WASMStore, tmp_path: Path
+    client: TestClient, app: FastAPI, store: NoustStore, tmp_path: Path
 ) -> None:
     """
     Verified finding 5: ``reason: "value: stripe"`` names the vendor a value
@@ -243,7 +243,7 @@ def test_get_app_env_hides_the_vendor_kind_from_a_read_scope_token(
 
 
 def test_put_app_env_rewrites_the_file_and_reports_restart_required(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     """A full roundtrip: the file on disk becomes exactly what was sent."""
     import stat
@@ -263,7 +263,7 @@ def test_put_app_env_rewrites_the_file_and_reports_restart_required(
 
 
 def test_put_app_env_rejects_an_invalid_name_with_422(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     """A name that could inject a systemd directive is refused before any write."""
     app_dir = deployed_env(store, tmp_path, env_text="API_KEY=old\n")
@@ -278,13 +278,13 @@ def test_put_app_env_rejects_an_invalid_name_with_422(
 
 @pytest.mark.parametrize(("name", "value"), [("PORT", "9999"), ("NODE_ENV", "development")])
 def test_put_app_env_rejects_a_variable_wasm_manages(
-    client: TestClient, store: WASMStore, tmp_path: Path, name: str, value: str
+    client: TestClient, store: NoustStore, tmp_path: Path, name: str, value: str
 ) -> None:
     """
     The unit loads the env file with ``EnvironmentFile=``, which overrides its
     own ``Environment=``. The console's editor and the API must not be able to
     move an application off the port systemd and nginx expect, or off the
-    NODE_ENV WASM fixes in the unit.
+    NODE_ENV Noust fixes in the unit.
     """
     app_dir = deployed_env(store, tmp_path, env_text="API_KEY=old\n")
     elevate(client)
@@ -299,7 +299,7 @@ def test_put_app_env_rejects_a_variable_wasm_manages(
 
 
 def test_put_app_env_rejecting_port_names_the_real_command_to_change_it(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     """The refusal must be actionable, not just a dead end."""
     deployed_env(store, tmp_path, env_text="API_KEY=old\n")
@@ -308,12 +308,12 @@ def test_put_app_env_rejecting_port_names_the_real_command_to_change_it(
     response = client.put("/api/apps/example.com/env", json={"variables": {"PORT": "9999"}})
 
     assert response.status_code == 422, response.text
-    assert "wasm create" in response.text
+    assert "noust create" in response.text
     assert "--port" in response.text
 
 
 def test_put_app_env_allows_an_unchanged_port_alongside_an_unrelated_edit(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     """
     A 1.x application can already have PORT sitting in its .env. The guard
@@ -333,7 +333,7 @@ def test_put_app_env_allows_an_unchanged_port_alongside_an_unrelated_edit(
 
 
 def test_put_app_env_rejects_a_newline_in_a_value_with_422(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     """A newline in a value would inject a second variable into the file."""
     app_dir = deployed_env(store, tmp_path, env_text="API_KEY=old\n")
@@ -349,7 +349,7 @@ def test_put_app_env_rejects_a_newline_in_a_value_with_422(
 
 
 def test_put_app_env_never_writes_a_value_to_the_audit_log(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     """The audit line names the changed keys; the values never appear anywhere near it."""
     deployed_env(store, tmp_path, env_text="API_KEY=old\n")

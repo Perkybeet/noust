@@ -119,7 +119,7 @@ describe("collectAttention", () => {
     expect(named.some((item) => item.subject.kind === "units")).toBe(false);
   });
 
-  it("names each failed or crash-looping WASM unit that belongs to no app, and links it", () => {
+  it("names each failed or crash-looping Noust unit that belongs to no app, and links it", () => {
     const unit = (name: string, active_state: string, sub_state: string, result = "success") => ({
       name,
       status: "stopped",

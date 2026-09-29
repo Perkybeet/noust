@@ -20,7 +20,7 @@ from typing import Any
 
 import pytest
 
-from wasm.monitor.timeseries import (
+from noust.monitor.timeseries import (
     HOUR_RESOLUTION,
     MINUTE_RESOLUTION,
     MetricsStore,

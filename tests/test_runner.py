@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.runner import (
+from noust.core.runner import (
     DEFAULT_TIMEOUT,
     EXIT_NOT_FOUND,
     EXIT_TIMEOUT,
@@ -467,7 +467,7 @@ class TestReadOnlyClassification:
             ["journalctl", "-u", "wasm-example-com"],
             ["node", "--version"],
             ["/usr/bin/whoami"],
-            # wasm.core.package_index.rpm_latest's cache-only fallback probe.
+            # noust.core.package_index.rpm_latest's cache-only fallback probe.
             ["dnf", "--cacheonly", "info", "--available", "wasm-cli"],
             ["yum", "--cacheonly", "info", "available", "wasm-cli"],
             ["zypper", "--no-refresh", "--non-interactive", "info", "wasm-cli"],
@@ -663,7 +663,7 @@ def test_a_killed_session_is_reaped_even_when_its_pipes_stay_open(
     monkeypatch: pytest.MonkeyPatch, drain: bool
 ) -> None:
     """The second kill is followed by a wait, so no zombie is left behind."""
-    from wasm.core import runner as runner_module
+    from noust.core import runner as runner_module
 
     monkeypatch.setattr(runner_module.os, "killpg", lambda pid, sig: None)
     process = _EscapedPipes()

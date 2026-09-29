@@ -5,7 +5,7 @@ Two things are being pinned here. The first is the command surface: every
 subcommand and every historical spelling of it is in scripts and in the
 published documentation, so a name that stops resolving is a breaking change.
 The second is that the group reaches systemd only through
-:class:`~wasm.managers.service_manager.ServiceManager`, which is where the
+:class:`~noust.managers.service_manager.ServiceManager`, which is where the
 ownership guard lives; ``service logs --follow`` used to shell out directly and
 therefore ran with no deadline, no dry run and no ownership check.
 """
@@ -22,13 +22,13 @@ import click
 import pytest
 from click.testing import CliRunner, Result
 
-from wasm.cli.app import cli as root
-from wasm.cli.app import main as app_main
-from wasm.cli.commands import service as service_module
-from wasm.core.logger import Logger
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, Service
-from wasm.managers.service_manager import WASM_UNIT_MARKER, ServiceManager
+from noust.cli.app import cli as root
+from noust.cli.app import main as app_main
+from noust.cli.commands import service as service_module
+from noust.core.logger import Logger
+from noust.core.runner import FakeRunner
+from noust.core.store import App, Service
+from noust.managers.service_manager import UNIT_MARKER, ServiceManager
 
 #: Flags the root group owns. A subcommand that declares one of them shadows
 #: the value the user set before the subcommand name, which is the defect the
@@ -105,7 +105,7 @@ def store(monkeypatch: pytest.MonkeyPatch) -> FakeStore:
         The in-memory store.
     """
     fake = FakeStore()
-    monkeypatch.setattr("wasm.managers.service_manager.get_store", lambda: fake)
+    monkeypatch.setattr("noust.managers.service_manager.get_store", lambda: fake)
     return fake
 
 
@@ -146,7 +146,7 @@ def owned(unit_dir: Path, store: FakeStore, runner: FakeRunner) -> str:
     """
     name = "wasm-example"
     (unit_dir / f"{name}.service").write_text(
-        f"# {WASM_UNIT_MARKER}\n[Unit]\nDescription=x\n\n[Service]\nExecStart=/usr/bin/true\n"
+        f"# {UNIT_MARKER}\n[Unit]\nDescription=x\n\n[Service]\nExecStart=/usr/bin/true\n"
     )
     runner.script(
         ["systemctl", "show", "-p", "FragmentPath", f"{name}.service"],
@@ -160,7 +160,7 @@ def logged(monkeypatch: pytest.MonkeyPatch) -> io.StringIO:
     """
     Capture what the command prints through the logger.
 
-    :class:`~wasm.core.logger.Logger` binds ``sys.stdout`` as a default argument
+    :class:`~noust.core.logger.Logger` binds ``sys.stdout`` as a default argument
     at import time, so neither CliRunner nor capsys ever sees its output.
 
     Args:
@@ -611,7 +611,7 @@ def test_delete_refuses_a_unit_wasm_does_not_own(
         stdout=f"FragmentPath={distro}\n",
     )
 
-    # Through app.main, which is the boundary that turns a WASMError into an
+    # Through app.main, which is the boundary that turns a NoustError into an
     # exit code; CliRunner alone would only report the exception.
     assert app_main(["service", "delete", "ssh", "--force"]) == 1
     assert not runner.ran("systemctl", "stop", "ssh.service")
@@ -622,7 +622,7 @@ def test_argparse_path_still_reaches_the_same_implementation(
     runner: FakeRunner, owned: str
 ) -> None:
     """
-    ``wasm.cli.parser`` still routes through :func:`handle_service`.
+    ``noust.cli.parser`` still routes through :func:`handle_service`.
 
     It has to keep working, and it has to keep calling the same code as the
     Click commands rather than a second copy of it.

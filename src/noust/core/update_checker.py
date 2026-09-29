@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Update checker for WASM.
+Update checker for Noust.
 
 Checks for new versions in the background without blocking the user's command.
 
@@ -13,7 +13,7 @@ minutes later, PyPI a few minutes later. Announcing the GitHub release sent
 operators to an upgrade that did nothing. So a check reads two versions:
 
 - the *installable* one, from the source this installation upgrades from
-  (:func:`wasm.core.package_index.installable_version`), which is what an
+  (:func:`noust.core.package_index.installable_version`), which is what an
   update is announced for;
 - the *published* one, the latest GitHub release.
 
@@ -25,7 +25,7 @@ being built: nothing to do yet), ``up_to_date`` otherwise.
 The result is announced on stderr, and only to a person: never under
 ``--json`` and never when either stream is not a terminal. It was printed to
 stdout after every command, which appended a banner to the JSON document of
-``wasm app list --json | jq`` and broke the parse.
+``noust app list --json | jq`` and broke the parse.
 """
 
 from __future__ import annotations
@@ -41,10 +41,10 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Literal
 
-import wasm
-from wasm import __version__
-from wasm.core import package_index
-from wasm.core.exceptions import WASMError
+import noust
+from noust import __version__
+from noust.core import package_index, paths
+from noust.core.exceptions import NoustError
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ CONFIG_KEY = "updates.check"
 
 UpdateState = Literal["up_to_date", "update_available", "on_the_way"]
 
-RELEASES_URL = "https://github.com/Perkybeet/wasm/releases/tag/v{version}"
+RELEASES_URL = "https://github.com/Perkybeet/noust/releases/tag/v{version}"
 
 
 class UpdateCheckInProgress(Exception):
@@ -67,23 +67,23 @@ class UpdateCheckInProgress(Exception):
     call can answer with instead. Concurrent callers otherwise each opened
     their own connection to the same repository a slow or trickling server
     was already holding open for someone else, piling every one of them up
-    behind it; a caller that catches this - :func:`wasm.web.api.system.check_version`
+    behind it; a caller that catches this - :func:`noust.web.api.system.check_version`
     does - answers "checking" rather than waiting.
     """
 
 
 def _location() -> str:
     """
-    Where the running WASM is installed: the installation's fingerprint.
+    Where the running Noust is installed: the installation's fingerprint.
 
     A different installation method puts the package somewhere else (a pipx
     venv, ``/usr/lib/python3/dist-packages``, ``/usr/local/lib/...``), so a
     cached answer is only reused by the installation that produced it.
 
     Returns:
-        The resolved directory of the ``wasm`` package.
+        The resolved directory of the ``noust`` package.
     """
-    return str(Path(wasm.__file__).resolve().parent)
+    return str(Path(noust.__file__).resolve().parent)
 
 
 @dataclass(frozen=True)
@@ -94,7 +94,7 @@ class VersionCheck:
     Attributes:
         current: The version running when the check was made.
         location: :func:`_location` when the check was made.
-        method: How WASM was installed (see
+        method: How Noust was installed (see
             :meth:`UpdateChecker._detect_installation_method`).
         installable: The newest version the installation's own source
             offers, None when it could not be read.
@@ -187,9 +187,9 @@ class VersionCheck:
 
 
 class UpdateChecker:
-    """Check for WASM updates where this installation gets them from."""
+    """Check for Noust updates where this installation gets them from."""
 
-    CACHE_FILE = Path.home() / ".cache" / "wasm" / "version_check.json"
+    CACHE_FILE = paths.user_cache_dir() / "version_check.json"
     CHECK_INTERVAL = 300  # 5 minutes
     DPKG_STATUS = Path("/var/lib/dpkg/status")
 
@@ -208,7 +208,7 @@ class UpdateChecker:
         """
         Report whether the operator has left the update check on.
 
-        Reads the configuration rather than caching the answer: ``wasm
+        Reads the configuration rather than caching the answer: ``noust
         config set updates.check false`` must take effect on the very next
         command, not the next restart of a long-lived process.
 
@@ -218,7 +218,7 @@ class UpdateChecker:
             command that fails to start, so this defaults to enabled.
         """
         try:
-            from wasm.core.config import Config
+            from noust.core.config import Config
 
             return bool(Config().get(CONFIG_KEY, True))
         except OSError as exc:
@@ -353,7 +353,7 @@ class UpdateChecker:
         Returns:
             The version, or None when it cannot be read.
         """
-        from wasm.core.runner import get_runner
+        from noust.core.runner import get_runner
 
         return package_index.installable_version(method, get_runner())
 
@@ -420,8 +420,8 @@ class UpdateChecker:
             elif check.state == "on_the_way" and not check.noted:
                 cls._show_on_the_way_message(check)
                 cls._write_cache(replace(check, noted=True).to_cache())
-        except (OSError, UnicodeError, WASMError) as exc:
-            # A reader that went away (`wasm ... | head`), a terminal that
+        except (OSError, UnicodeError, NoustError) as exc:
+            # A reader that went away (`noust ... | head`), a terminal that
             # cannot encode the banner: neither may change the command's exit.
             logger.debug("Could not announce %s: %s", check.announced_version, exc)
 
@@ -470,7 +470,7 @@ class UpdateChecker:
             UnicodeError: When the terminal cannot encode the note.
         """
         sys.stderr.write(
-            f"\nWASM {check.published} is published; the package for this system is not "
+            f"\nNoust {check.published} is published; the package for this system is not "
             "available yet (usually 15-30 minutes). Nothing to do now.\n\n"
         )
         sys.stderr.flush()
@@ -479,7 +479,7 @@ class UpdateChecker:
 
     @classmethod
     def _same_installation(cls, check: VersionCheck) -> bool:
-        """Report whether a check was made by the WASM that is running now."""
+        """Report whether a check was made by the Noust that is running now."""
         return check.current == __version__ and check.location == _location()
 
     @classmethod
@@ -561,13 +561,13 @@ class UpdateChecker:
     @classmethod
     def _detect_installation_method(cls) -> str:
         """
-        Detect how the running WASM was installed.
+        Detect how the running Noust was installed.
 
         Returns:
             Installation method: 'pipx', 'apt', 'dnf', 'yum', 'zypper',
             'source', 'pip', or 'unknown'.
         """
-        from wasm.core.runner import get_runner
+        from noust.core.runner import get_runner
 
         runner = get_runner()
 
@@ -577,27 +577,30 @@ class UpdateChecker:
         probe = 2
 
         # The interpreter running this is the pipx venv's own: a pipx venv
-        # merely existing on the machine says nothing about which WASM runs.
+        # merely existing on the machine says nothing about which Noust runs.
         prefix = Path(sys.prefix)
-        if "pipx" in prefix.parts and prefix.name == package_index.PYPI_PACKAGE:
+        if "pipx" in prefix.parts and prefix.name in package_index.PYPI_DISTRIBUTIONS:
             return "pipx"
 
         location = _location()
         # A distribution package lives under /usr/lib; pip, even run as root
         # on the same machine, installs under /usr/local or a venv. Without
-        # this, a pip-installed WASM on a machine that once had the package
+        # this, a pip-installed Noust on a machine that once had the package
         # was offered the package manager's upgrade, which changes nothing.
         from_system = location.startswith(("/usr/lib/", "/usr/lib64/", "/usr/share/"))
         if from_system:
             if cls.DPKG_STATUS.exists():
-                status = runner.run(
-                    ["dpkg-query", "-W", "-f=${Status}", package_index.DEB_PACKAGE],
-                    timeout=probe,
-                )
-                if status.success and "install ok installed" in status.stdout:
-                    return "apt"
-            if runner.exists("rpm") and runner.run(
-                ["rpm", "-q", package_index.RPM_PACKAGE], timeout=probe
+                # The package is noust from 3.0, wasm before: either one
+                # installed means apt is how this machine upgrades.
+                for package in package_index.DEB_PACKAGES:
+                    status = runner.run(
+                        ["dpkg-query", "-W", "-f=${Status}", package], timeout=probe
+                    )
+                    if status.success and "install ok installed" in status.stdout:
+                        return "apt"
+            if runner.exists("rpm") and any(
+                runner.run(["rpm", "-q", package], timeout=probe)
+                for package in package_index.RPM_PACKAGES
             ):
                 for manager in ("zypper", "dnf", "yum"):
                     if runner.exists(manager):
@@ -605,9 +608,14 @@ class UpdateChecker:
 
         if (Path(location).parent.parent / ".git").exists():
             return "source"
-        try:
-            distribution = importlib.metadata.distribution(package_index.PYPI_PACKAGE)
-        except importlib.metadata.PackageNotFoundError:
+        distribution = None
+        for name in package_index.PYPI_DISTRIBUTIONS:
+            try:
+                distribution = importlib.metadata.distribution(name)
+            except importlib.metadata.PackageNotFoundError:
+                continue
+            break
+        if distribution is None:
             return "unknown"
         direct_url = distribution.read_text("direct_url.json")
         if direct_url:
@@ -631,13 +639,15 @@ class UpdateChecker:
             Update command string.
         """
         commands = {
-            "pip": "pip install --upgrade wasm-cli",
-            "pipx": "pipx upgrade wasm-cli",
-            "apt": "sudo apt update && sudo apt install --only-upgrade wasm",
-            "dnf": "sudo dnf upgrade --refresh wasm-cli",
-            "yum": "sudo yum update wasm-cli",
-            "zypper": "sudo zypper refresh && sudo zypper update wasm-cli",
-            "source": "cd <wasm-repo> && git pull && pip install -e .",
-            "unknown": "pip install --upgrade wasm-cli  # or use your system package manager",
+            # Install, not only-upgrade: a machine that still has the
+            # package under WASM's name (wasm, wasm-cli) gets noust this way.
+            "pip": "pip install --upgrade noust",
+            "pipx": "pipx install --force noust",
+            "apt": "sudo apt update && sudo apt install noust",
+            "dnf": "sudo dnf install --refresh noust",
+            "yum": "sudo yum install noust",
+            "zypper": "sudo zypper refresh && sudo zypper install noust",
+            "source": "cd <noust-repo> && git pull && pip install -e .",
+            "unknown": "pip install --upgrade noust  # or use your system package manager",
         }
         return commands.get(method, commands["unknown"])

@@ -169,7 +169,7 @@ export function TokensSettings() {
           title={t("settings.tokens.usingTitle")}
           description={t("settings.tokens.usingDescription")}
         >
-          <CommandHint command={`curl -H "Authorization: Bearer wasm_tok_..." ${window.location.origin}/api/apps`} />
+          <CommandHint command={`curl -H "Authorization: Bearer noust_tok_..." ${window.location.origin}/api/apps`} />
         </Section>
       ) : null}
 

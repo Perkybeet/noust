@@ -21,16 +21,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
-from wasm.core.fs import get_fs
-from wasm.core.store import (
+from noust.core.fs import get_fs
+from noust.core.store import (
     App,
     AppStatus,
     Database,
     DatabaseEngine,
     JobRecord,
+    NoustStore,
     Service,
     Site,
-    WASMStore,
 )
 
 #: The domains the panel browser check has always used, in the order it
@@ -112,7 +112,7 @@ def _domain_pool(count: int) -> list[str]:
 
 
 def seed_panel_state(
-    store: WASMStore,
+    store: NoustStore,
     *,
     apps: int = 3,
     services: int = 2,
@@ -290,7 +290,7 @@ _FAILURE_TAIL = (
 )
 
 
-def seed_console_state(store: WASMStore) -> SeededState:
+def seed_console_state(store: NoustStore) -> SeededState:
     """
     Populate a store with every state the console has to draw.
 
@@ -300,7 +300,7 @@ def seed_console_state(store: WASMStore) -> SeededState:
     applications with units (running, stopped and one failed, each with a
     deployment history), then two static sites with no unit at all, then the
     rest. Build logs are written where
-    :class:`wasm.deployers.recorder.DeploymentRecorder` writes them, next to
+    :class:`noust.deployers.recorder.DeploymentRecorder` writes them, next to
     the store, through the filesystem seam.
 
     Args:
@@ -439,7 +439,7 @@ def seed_console_state(store: WASMStore) -> SeededState:
 # --- 2.2: zero downtime ------------------------------------------------------
 
 
-def seed_zero_downtime_history(store: WASMStore, domain: str) -> str:
+def seed_zero_downtime_history(store: NoustStore, domain: str) -> str:
     """
     Record the job that turned an application's blue/green activation on.
 
@@ -505,7 +505,7 @@ class SeededPreview:
 
 
 def seed_previews_records(
-    store: WASMStore, parent: str, *, now: datetime | None = None
+    store: NoustStore, parent: str, *, now: datetime | None = None
 ) -> list[SeededPreview]:
     """
     Turn previews on for an application and record three pull requests' previews.
@@ -526,8 +526,8 @@ def seed_previews_records(
     """
     from datetime import timezone
 
-    from wasm.core.store import PreviewRecord, PreviewSettings
-    from wasm.managers.previews import preview_domain_for
+    from noust.core.store import PreviewRecord, PreviewSettings
+    from noust.managers.previews import preview_domain_for
 
     moment = now or datetime.now().astimezone()
     store.save_preview_settings(
@@ -624,18 +624,18 @@ GITHUB_BRANCHES: tuple[tuple[str, bool, str], ...] = (
 )
 
 
-def seed_github_app(store: WASMStore) -> None:
+def seed_github_app(store: NoustStore) -> None:
     """
     Record this server's GitHub App and the accounts it is installed on.
 
     The App's secrets (private key, webhook secret, client secret) are files,
     not rows: whoever serves the console writes them where
-    :class:`wasm.core.secrets.SecretStore` keeps them.
+    :class:`noust.core.secrets.SecretStore` keeps them.
 
     Args:
         store: The store.
     """
-    from wasm.core.store import GitHubAppRecord, GitHubInstallationRecord
+    from noust.core.store import GitHubAppRecord, GitHubInstallationRecord
 
     store.save_github_app(
         GitHubAppRecord(
@@ -668,7 +668,7 @@ DESTINATION_ENCRYPTED = "vault-r2"
 
 
 def seed_push_job(
-    store: WASMStore, *, backup_id: str, domain: str, destination: str, age_minutes: int = 90
+    store: NoustStore, *, backup_id: str, domain: str, destination: str, age_minutes: int = 90
 ) -> str:
     """
     Record a finished copy of a backup to a destination, as the push job records it.
@@ -720,7 +720,7 @@ ENV_MARKS_PUBLIC = ("ANALYTICS_TOKEN", "G-8XK2M4PQ7L")
 ENV_MARKS: dict[str, bool] = {ENV_MARKS_PUBLIC[0]: False, "SMTP_HOST": True}
 
 
-def seed_env_marks(store: WASMStore, domain: str = ENV_MARKS_APP) -> dict[str, bool]:
+def seed_env_marks(store: NoustStore, domain: str = ENV_MARKS_APP) -> dict[str, bool]:
     """
     Record an operator's secret / not secret marks on an application.
 

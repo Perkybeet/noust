@@ -26,18 +26,18 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from wasm.cli import app as app_module
-from wasm.cli.app import main
-from wasm.cli.commands import env as env_module
-from wasm.core.config import REDACTED
-from wasm.core.exceptions import EnvConfigError
-from wasm.core.fs import DryRunFileSystem, set_fs
-from wasm.core.logger import Logger
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, WASMStore
-from wasm.deployers.helpers import app_env as app_env_module
-from wasm.deployers.helpers.env_manager import EnvManager, EnvVariable
-from wasm.validators.environment import EnvironmentValidationError
+from noust.cli import app as app_module
+from noust.cli.app import main
+from noust.cli.commands import env as env_module
+from noust.core.config import REDACTED
+from noust.core.exceptions import EnvConfigError
+from noust.core.fs import DryRunFileSystem, set_fs
+from noust.core.logger import Logger
+from noust.core.runner import FakeRunner
+from noust.core.store import App, NoustStore
+from noust.deployers.helpers import app_env as app_env_module
+from noust.deployers.helpers.env_manager import EnvManager, EnvVariable
+from noust.validators.environment import EnvironmentValidationError
 
 #: Flags the root group owns. A subcommand that declares one of them again is
 #: the shadowing defect the Click migration exists to remove.
@@ -53,7 +53,7 @@ def _real_filesystem() -> None:
     Put the real filesystem back after every test.
 
     The seam is process-wide, like the command runner. A test that installs
-    :class:`~wasm.core.fs.DryRunFileSystem` and forgets to undo it turns every
+    :class:`~noust.core.fs.DryRunFileSystem` and forgets to undo it turns every
     later assertion about a written file into an assertion about nothing.
     """
     set_fs(None)
@@ -79,7 +79,7 @@ def logged(monkeypatch: pytest.MonkeyPatch) -> io.StringIO:
     """
     Capture what the commands print.
 
-    :class:`~wasm.core.logger.Logger` binds ``sys.stdout`` as a default
+    :class:`~noust.core.logger.Logger` binds ``sys.stdout`` as a default
     argument at import time, so pytest's own capture never sees it. Handing the
     module a logger bound to a buffer is what makes the output assertable.
 
@@ -95,7 +95,7 @@ def logged(monkeypatch: pytest.MonkeyPatch) -> io.StringIO:
 
 
 @pytest.fixture
-def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[WASMStore]:
+def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[NoustStore]:
     """
     Provide an empty store in the test's directory, where the command looks.
 
@@ -106,16 +106,16 @@ def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[WASMStore
     Yields:
         The store.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     monkeypatch.setattr(app_env_module, "get_store", lambda: instance)
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture
 def deployed(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, store: WASMStore, runner: FakeRunner
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, store: NoustStore, runner: FakeRunner
 ) -> Path:
     """
     Provide an application deployed at example.com, with no store row.
@@ -151,7 +151,7 @@ def deployed(
 
 
 def test_the_group_answers_help(cli_runner: CliRunner) -> None:
-    """``wasm env --help`` lists the three actions."""
+    """``noust env --help`` lists the three actions."""
     result = cli_runner.invoke(app_module.cli, ["env", "--help"])
 
     assert result.exit_code == 0, result.output
@@ -347,7 +347,7 @@ def test_show_reports_an_application_that_is_not_deployed(deployed: Path) -> Non
         env_module._env_show("nowhere.com", unmask=False, verbose=False)
 
     assert "nowhere.com" in excinfo.value.message
-    assert "wasm list" in excinfo.value.details
+    assert "noust list" in excinfo.value.details
 
 
 def test_show_on_an_application_without_an_env_file_is_not_an_error(
@@ -412,7 +412,7 @@ def test_configure_refuses_to_write_a_variable_wasm_manages(
 
 
 def test_an_unchanged_managed_var_already_on_disk_passes_through(
-    deployed: Path, store: WASMStore
+    deployed: Path, store: NoustStore
 ) -> None:
     """
     A 1.x application, or one whose .env.example declared PORT, can already
@@ -434,7 +434,7 @@ def test_an_unchanged_managed_var_already_on_disk_passes_through(
 
 
 def test_changing_a_managed_var_already_on_disk_is_still_refused(
-    deployed: Path, store: WASMStore
+    deployed: Path, store: NoustStore
 ) -> None:
     """The pass-through is for the unchanged value only, not a licence to edit it."""
     (deployed / ".env").write_text("PORT=3000\nAPI_KEY=old\n", encoding="utf-8")
@@ -447,7 +447,7 @@ def test_changing_a_managed_var_already_on_disk_is_still_refused(
     assert (deployed / ".env").read_text(encoding="utf-8") == "PORT=3000\nAPI_KEY=old\n"
 
 
-def test_write_app_env_refuses_an_unsafe_name_directly(deployed: Path, store: WASMStore) -> None:
+def test_write_app_env_refuses_an_unsafe_name_directly(deployed: Path, store: NoustStore) -> None:
     """
     validate_environment now runs inside write_app_env itself, the one
     chokepoint every writer - CLI, API, and any future caller - goes
@@ -462,7 +462,7 @@ def test_write_app_env_refuses_an_unsafe_name_directly(deployed: Path, store: WA
     assert not (deployed / ".env").exists()
 
 
-def test_write_app_env_refuses_a_newline_in_a_value(deployed: Path, store: WASMStore) -> None:
+def test_write_app_env_refuses_a_newline_in_a_value(deployed: Path, store: NoustStore) -> None:
     """
     The env file is read line by line by systemd (EnvironmentFile=) and by
     EnvManager alike, so a newline in a value must never reach it: it would
@@ -478,7 +478,7 @@ def test_write_app_env_refuses_a_newline_in_a_value(deployed: Path, store: WASMS
 
 
 def test_write_app_env_round_trips_a_value_with_special_characters(
-    deployed: Path, store: WASMStore
+    deployed: Path, store: NoustStore
 ) -> None:
     """A value safe to write must come back exactly as given, quoting included."""
     app = app_env_module.find_app("example.com")
@@ -501,7 +501,7 @@ def test_configure_refusal_names_the_real_command_to_change_the_port(
     with pytest.raises(EnvironmentValidationError) as excinfo:
         env_module._env_configure("example.com", verbose=False)
 
-    assert "wasm create" in excinfo.value.details
+    assert "noust create" in excinfo.value.details
     assert "--port" in excinfo.value.details
 
 
@@ -541,7 +541,7 @@ def test_env_command_reports_the_refusal_and_the_fix(
     assert main(["env", "configure", "example.com"]) == 1
 
     assert any("PORT" in line for line in lines)
-    assert any("wasm create" in line for line in lines)
+    assert any("noust create" in line for line in lines)
 
 
 def test_configure_stops_when_the_project_declares_nothing(
@@ -635,7 +635,7 @@ def test_handle_env_without_an_action_explains_itself(
 ) -> None:
     """An action is required, and the message says where to look."""
     assert env_module.handle_env(Namespace(verbose=False)) == 1
-    assert "wasm env --help" in logged.getvalue()
+    assert "noust env --help" in logged.getvalue()
 
 
 # ---------------------------------------------------------------------------
@@ -792,7 +792,7 @@ def test_show_is_the_only_command_that_prints_values_and_it_needs_a_flag() -> No
 RELEASE_ID = "20260925-120000-nogit"
 
 
-def on_releases(root: Path, store: WASMStore, *, env_text: str | None = None) -> Path:
+def on_releases(root: Path, store: NoustStore, *, env_text: str | None = None) -> Path:
     """
     Turn the deployed application into one on the release layout.
 
@@ -817,7 +817,7 @@ def on_releases(root: Path, store: WASMStore, *, env_text: str | None = None) ->
 
 
 def test_show_reads_the_shared_env_of_a_release_app(
-    deployed: Path, store: WASMStore, logged: io.StringIO
+    deployed: Path, store: NoustStore, logged: io.StringIO
 ) -> None:
     """<app>/.env does not exist on releases; reading it showed nothing."""
     on_releases(deployed, store, env_text="PORT=4000\n")
@@ -829,7 +829,7 @@ def test_show_reads_the_shared_env_of_a_release_app(
 
 
 def test_export_reads_the_shared_env_of_a_release_app(
-    deployed: Path, store: WASMStore, tmp_path: Path
+    deployed: Path, store: NoustStore, tmp_path: Path
 ) -> None:
     """The export is the file the application runs with, wherever it is."""
     on_releases(deployed, store, env_text="API_KEY=ak_live_9f3c\n")
@@ -841,7 +841,7 @@ def test_export_reads_the_shared_env_of_a_release_app(
 
 
 def test_configure_on_a_release_app_writes_shared_and_never_a_stray_file(
-    deployed: Path, store: WASMStore, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+    deployed: Path, store: NoustStore, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """
     Declared by the active release, written to shared/, handed to the service.

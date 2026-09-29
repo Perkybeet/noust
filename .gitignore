@@ -30,6 +30,7 @@ MANIFEST
 *.manifest
 *.spec
 !rpm/*.spec
+!packaging/transitional/wasm/*.spec
 
 # Installer logs
 pip-log.txt

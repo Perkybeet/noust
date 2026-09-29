@@ -15,13 +15,14 @@ Two ways in, for two kinds of client.
 ### Bearer tokens, for scripts
 
 ```bash
-wasm token create ci-update --scope deploy                 # prints the token once
-wasm token create dashboard --scope read --expires-hours 720
+noust token create ci-update --scope deploy                 # prints the token once
+noust token create dashboard --scope read --expires-hours 720
 curl -H "Authorization: Bearer $TOKEN" https://panel.example.com/api/apps
 ```
 
-API tokens start with `wasm_tok_`, are shown once, and are stored only as a salted hash.
-Manage them with `wasm token list|revoke`, the console's Settings > API tokens, or
+API tokens start with `noust_tok_` (`wasm_tok_` for tokens issued before 3.0, which keep
+working), are shown once, and are stored only as a salted hash.
+Manage them with `noust token list|revoke`, the console's Settings > API tokens, or
 `GET|POST /api/auth/tokens` and `DELETE /api/auth/tokens/{id}` (admin scope; issuing one
 from a browser session also needs sudo mode). The master access token is also accepted as a
 bearer credential, with admin scope.
@@ -56,7 +57,7 @@ scope. Application reads show a credential stored inside a clone URL as `***`.
 
 ```bash
 curl -c jar -H 'Content-Type: application/json' \
-  -d '{"token": "wasm_...", "totp_code": "123456"}' \
+  -d '{"token": "noust_...", "totp_code": "123456"}' \
   https://panel.example.com/api/auth/login
 ```
 
@@ -71,7 +72,7 @@ It answers `{success, expires_in, csrf_token, session_token}` and sets two cooki
 Every `POST`, `PUT`, `PATCH` and `DELETE` made with a session, in the cookie or as a Bearer
 token, must echo the CSRF token in the `X-WASM-CSRF` header. `GET /api/auth/session` (no
 credential required) reports whether the caller is signed in, its scope, `expires_at`,
-`elevated_until`, whether 2FA is on, the hostname, the WASM version and the CSRF header and
+`elevated_until`, whether 2FA is on, the hostname, the Noust version and the CSRF header and
 cookie names. A credential presented to it that is wrong counts toward the lockout like
 anywhere else; one the console signed that has merely expired does not.
 
@@ -103,7 +104,7 @@ HTTP/1.1 403 Forbidden
 ```
 
 `POST /api/auth/elevate` with `{"code": "123456"}` (TOTP or backup code) when 2FA is on, or
-`{"token": "wasm_..."}` when it is off, elevates the session for 10 minutes and answers
+`{"token": "noust_..."}` when it is off, elevates the session for 10 minutes and answers
 `{"elevated_until": "..."}`. Then retry the request. The master token and API tokens are
 exempt; a session is not, whichever header carries it.
 
@@ -121,7 +122,7 @@ Every error from every router has the same shape:
 }
 ```
 
-- `error` is a stable machine code. For WASM's own exceptions it is the exception class in
+- `error` is a stable machine code. For Noust's own exceptions it is the exception class in
   lower case (`deploymenterror`, `certificateerror`, `serviceerror`, ...); otherwise one of
   `unauthorized`, `forbidden`, `not_found`, `conflict`, `validation_error`, `rate_limited`,
   `locked_out`, `elevation_required`, `payload_too_large`, `app_busy`, `invalid_token`,
@@ -137,7 +138,7 @@ lockout) have the same keys except `output`.
 
 | Status | When |
 |---|---|
-| `400` | Invalid input WASM checked itself: a domain, a name, a path, a configuration value, a source |
+| `400` | Invalid input Noust checked itself: a domain, a name, a path, a configuration value, a source |
 | `401` | No credential, or an invalid or expired one |
 | `403` | Scope too narrow, sudo mode required, address not allowed |
 | `404` | Unknown application, database, job, release... |
@@ -204,10 +205,10 @@ stream ends, and the reconnection answers `401`.
 
 | Path | Streams |
 |---|---|
-| `/ws/logs/{domain}?lines=N` | The application's journal: the last `N` lines (1 to 500, default 50), then follows. `{domain}` may also name a unit WASM manages; any other unit is refused. |
+| `/ws/logs/{domain}?lines=N` | The application's journal: the last `N` lines (1 to 500, default 50), then follows. `{domain}` may also name a unit Noust manages; any other unit is refused. |
 | `/ws/jobs/{id}` | One job, until it finishes. |
 | `/ws/jobs` | Every job's transitions. |
-| `/ws/events` | Journal entries of units named `wasm-*` (cron and backup timers, the monitor, legacy application units). |
+| `/ws/events` | Journal entries of Noust's own units: `noust-*` (cron and backup timers, the monitor), and their `wasm-*` names on a server not yet migrated from WASM. |
 
 A handshake authenticates with any one of:
 
@@ -222,7 +223,7 @@ A long-lived token is never accepted in the query string. A handshake from a for
 `Origin` is refused.
 
 Close codes: `4401` not authenticated, or the credential stopped being valid while the socket
-was open; `4403` forbidden (origin, address, or a unit WASM does not manage); `4408` the
+was open; `4403` forbidden (origin, address, or a unit Noust does not manage); `4408` the
 socket reached its 12 hour lifetime, reconnect; `4429` rate limited, locked out, or the
 credential already holds 8 open sockets.
 
@@ -315,7 +316,7 @@ to send push events to `hook_url`, which is `https://<console>/hooks/deploy/{dom
 
 A delivery for a branch other than the application's answers `200 {"status": "ignored",
 "reason": "branch"}`; a forge retry of the same delivery answers `"reason": "duplicate"`.
-An accepted delivery queues an update (`202 {job_id, status}`), exactly like `wasm update`.
+An accepted delivery queues an update (`202 {job_id, status}`), exactly like `noust update`.
 An unknown application and one without a secret both answer `404`; a bad signature answers
 `401` and counts against that application: after 10 in 15 minutes its hook answers `429`
 (`"error": "locked_out"`, `Retry-After`) for 15 minutes. Other applications, and the forge's
@@ -326,7 +327,7 @@ triggered. The hook must be reachable from the forge, which means exposing the c
 
 ## Health
 
-`GET /health` answers `{"status": "healthy", "service": "wasm-web"}` without authentication,
+`GET /health` answers `{"status": "healthy", "service": "noust-web"}` without authentication,
 for load balancers and uptime checks. It says nothing about the machine; use
 `GET /api/system/health` (authenticated) for that.
 
@@ -397,7 +398,7 @@ Request and response bodies are in `/api/openapi.json`.
 | `POST /api/certs/{domain}` | Obtain |
 | `POST /api/certs/{domain}/renew`, `POST /api/certs/renew-all` | Renew |
 | `POST /api/certs/{domain}/revoke`, `DELETE /api/certs/{domain}` | sudo |
-| `GET /api/services`; `POST /api/services/verify` | Services; check a unit with `systemd-analyze verify` |
+| `GET /api/services`; `POST /api/services/verify` | Services (`noust_only`; `wasm_only`, its name before 3.0, is still read when `noust_only` is absent); check a unit with `systemd-analyze verify` |
 | `POST /api/services` | Create a service, from a raw unit or from fields. sudo |
 | `GET /api/services/{name}`, `/logs`, `/config` | |
 | `POST /api/services/{name}/start`, `/stop`, `/restart`, `/enable`, `/disable` | |

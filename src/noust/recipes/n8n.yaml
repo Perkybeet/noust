@@ -34,4 +34,4 @@ health:
   expect: "200"
 notes:
   - "Open {{ url }} now to create the owner account: until then, anyone who reaches it can."
-  - "N8N_ENCRYPTION_KEY encrypts every stored credential: keep a copy (wasm env show {{ domain }}); without it they cannot be decrypted."
+  - "N8N_ENCRYPTION_KEY encrypts every stored credential: keep a copy (noust env show {{ domain }}); without it they cannot be decrypted."

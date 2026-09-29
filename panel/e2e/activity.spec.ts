@@ -2,7 +2,7 @@
  * Activity against the real backend: the jobs history and the audit log merged into one
  * timeline, filtering, and opening a job's captured log.
  *
- * Signing in is itself audited (`wasm.web.auth`'s login endpoint records `auth.login`), so
+ * Signing in is itself audited (`noust.web.auth`'s login endpoint records `auth.login`), so
  * every test that calls `signIn` has already produced one real audit row before it navigates
  * here - this is what the first test asserts, rather than relying only on what
  * `scripts/console_server.py` seeds ahead of time.

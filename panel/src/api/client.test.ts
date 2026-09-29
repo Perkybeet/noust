@@ -97,7 +97,7 @@ describe("api", () => {
     vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new TypeError("Failed to fetch"))));
     const error = await api("GET", "/api/apps").catch((caught: unknown) => caught);
     expect(error).toMatchObject({ status: 0, error: "network", detail: "Failed to fetch" });
-    expect((error as ApiError).hint).toContain("wasm web status");
+    expect((error as ApiError).hint).toContain("noust web status");
   });
 
   it("reads Retry-After from a lockout", async () => {

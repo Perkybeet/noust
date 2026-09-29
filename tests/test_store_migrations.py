@@ -22,10 +22,10 @@ from pathlib import Path
 
 import pytest
 
+from noust.core import store as store_module
+from noust.core.fs import RecordingFileSystem
+from noust.core.store import SCHEMA_VERSION, NoustStore
 from tests.test_store import V1_SCHEMA_SQL, V2_DEPLOYMENTS_SQL, V4_JOBS_SQL
-from wasm.core import store as store_module
-from wasm.core.fs import RecordingFileSystem
-from wasm.core.store import SCHEMA_VERSION, WASMStore
 
 
 @pytest.fixture
@@ -37,9 +37,9 @@ def fresh():
         Nothing; the singleton is reset before and after the test so an
         injected filesystem is actually the one used.
     """
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
     yield
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 def _create_v3_database(db_path: Path) -> None:
@@ -170,22 +170,22 @@ class TestAFailingMigrationStepIsAtomic:
         db_path = tmp_path / "wasm.db"
         _create_v7_database(db_path)
 
-        def _crash_after_first_statement(self: WASMStore, cursor: sqlite3.Cursor) -> None:
+        def _crash_after_first_statement(self: NoustStore, cursor: sqlite3.Cursor) -> None:
             cursor.execute("ALTER TABLE deployments ADD COLUMN job_id TEXT")
             raise sqlite3.OperationalError("simulated crash mid-migration")
 
         with pytest.MonkeyPatch.context() as mp:
-            mp.setattr(WASMStore, "_migrate_v7_to_v8", _crash_after_first_statement)
+            mp.setattr(NoustStore, "_migrate_v7_to_v8", _crash_after_first_statement)
             with pytest.raises(sqlite3.OperationalError):
-                WASMStore(db_path, fs=RecordingFileSystem())
+                NoustStore(db_path, fs=RecordingFileSystem())
 
         # The failed attempt must not have left a trace: not the version
         # bump, and not the one column it managed to add before crashing.
         assert _raw_max_version(db_path) == 7
         assert "job_id" not in _raw_columns(db_path, "deployments")
 
-        WASMStore.reset_instance()
-        store = WASMStore(db_path, fs=RecordingFileSystem())
+        NoustStore.reset_instance()
+        store = NoustStore(db_path, fs=RecordingFileSystem())
 
         with store._transaction() as cursor:
             cursor.execute("SELECT MAX(version) FROM schema_version")
@@ -211,13 +211,13 @@ class TestAFailingStepDoesNotUndoEarlierCommittedSteps:
         db_path = tmp_path / "wasm.db"
         _create_v3_database(db_path)
 
-        def _crash(self: WASMStore, cursor: sqlite3.Cursor) -> None:
+        def _crash(self: NoustStore, cursor: sqlite3.Cursor) -> None:
             raise sqlite3.OperationalError("simulated crash at v6-to-v7")
 
         with pytest.MonkeyPatch.context() as mp:
-            mp.setattr(WASMStore, "_migrate_v6_to_v7", _crash)
+            mp.setattr(NoustStore, "_migrate_v6_to_v7", _crash)
             with pytest.raises(sqlite3.OperationalError):
-                WASMStore(db_path, fs=RecordingFileSystem())
+                NoustStore(db_path, fs=RecordingFileSystem())
 
         assert _raw_max_version(db_path) == 6
 
@@ -235,8 +235,8 @@ class TestAFailingStepDoesNotUndoEarlierCommittedSteps:
         # only by v7->v8, is the step that could not possibly have run.)
         assert "job_id" not in _raw_columns(db_path, "deployments")  # v7 -> v8
 
-        WASMStore.reset_instance()
-        store = WASMStore(db_path, fs=RecordingFileSystem())
+        NoustStore.reset_instance()
+        store = NoustStore(db_path, fs=RecordingFileSystem())
 
         with store._transaction() as cursor:
             cursor.execute("SELECT MAX(version) FROM schema_version")
@@ -257,7 +257,7 @@ class TestAFailingFreshInstallIsAtomic:
     ):
         db_path = tmp_path / "wasm.db"
 
-        def _crash_after_one_table(self: WASMStore) -> None:
+        def _crash_after_one_table(self: NoustStore) -> None:
             with self._ddl_transaction() as cursor:
                 cursor.execute(
                     "CREATE TABLE schema_version ("
@@ -266,14 +266,14 @@ class TestAFailingFreshInstallIsAtomic:
                 raise sqlite3.OperationalError("simulated crash mid-install")
 
         with pytest.MonkeyPatch.context() as mp:
-            mp.setattr(WASMStore, "_create_fresh_schema", _crash_after_one_table)
+            mp.setattr(NoustStore, "_create_fresh_schema", _crash_after_one_table)
             with pytest.raises(sqlite3.OperationalError):
-                WASMStore(db_path, fs=RecordingFileSystem())
+                NoustStore(db_path, fs=RecordingFileSystem())
 
         assert _raw_tables(db_path) == set()
 
-        WASMStore.reset_instance()
-        store = WASMStore(db_path, fs=RecordingFileSystem())
+        NoustStore.reset_instance()
+        store = NoustStore(db_path, fs=RecordingFileSystem())
 
         with store._transaction() as cursor:
             cursor.execute("SELECT MAX(version) FROM schema_version")
@@ -322,7 +322,7 @@ class TestSchemaV9Migration:
         db_path = tmp_path / "wasm.db"
         _create_v8_database(db_path)
 
-        store = WASMStore(db_path, fs=RecordingFileSystem())
+        store = NoustStore(db_path, fs=RecordingFileSystem())
 
         assert _raw_max_version(db_path) == SCHEMA_VERSION
         app = store.get_app("v8.example.com")
@@ -337,15 +337,15 @@ class TestSchemaV9Migration:
         """Run twice on the same cursor, the second run finds its columns and adds nothing."""
         db_path = tmp_path / "wasm.db"
         _create_v8_database(db_path)
-        store = WASMStore(db_path, fs=RecordingFileSystem())
+        store = NoustStore(db_path, fs=RecordingFileSystem())
         before = (_raw_columns(db_path, "apps"), _raw_columns(db_path, "deployments"))
 
         with store._ddl_transaction() as cursor:
             store._migrate_v8_to_v9(cursor)
 
         assert (_raw_columns(db_path, "apps"), _raw_columns(db_path, "deployments")) == before
-        WASMStore.reset_instance()
-        reopened = WASMStore(db_path, fs=RecordingFileSystem())
+        NoustStore.reset_instance()
+        reopened = NoustStore(db_path, fs=RecordingFileSystem())
         assert reopened.get_app("v8.example.com") is not None
 
     def test_a_failing_v8_to_v9_step_leaves_v8_intact(self, fresh, tmp_path):
@@ -353,14 +353,14 @@ class TestSchemaV9Migration:
         db_path = tmp_path / "wasm.db"
         _create_v8_database(db_path)
 
-        def _crash(self: WASMStore, cursor: sqlite3.Cursor) -> None:
+        def _crash(self: NoustStore, cursor: sqlite3.Cursor) -> None:
             cursor.execute("ALTER TABLE apps ADD COLUMN health_path TEXT")
             raise sqlite3.OperationalError("simulated crash mid-migration")
 
         with pytest.MonkeyPatch.context() as mp:
-            mp.setattr(WASMStore, "_migrate_v8_to_v9", _crash)
+            mp.setattr(NoustStore, "_migrate_v8_to_v9", _crash)
             with pytest.raises(sqlite3.OperationalError):
-                WASMStore(db_path, fs=RecordingFileSystem())
+                NoustStore(db_path, fs=RecordingFileSystem())
 
         assert _raw_max_version(db_path) == 8
         assert "health_path" not in _raw_columns(db_path, "apps")
@@ -369,9 +369,9 @@ class TestSchemaV9Migration:
         """Both paths to v9 give apps and deployments the same columns."""
         db_path = tmp_path / "migrated.db"
         _create_v8_database(db_path)
-        WASMStore(db_path, fs=RecordingFileSystem())
-        WASMStore.reset_instance()
-        WASMStore(tmp_path / "fresh.db", fs=RecordingFileSystem())
+        NoustStore(db_path, fs=RecordingFileSystem())
+        NoustStore.reset_instance()
+        NoustStore(tmp_path / "fresh.db", fs=RecordingFileSystem())
 
         for table in ("apps", "deployments"):
             assert _raw_columns(db_path, table) == _raw_columns(tmp_path / "fresh.db", table)
@@ -382,7 +382,7 @@ class TestSchemaV9Migration:
         """The columns are usable at once: settings round-trip, a snapshot is linked."""
         db_path = tmp_path / "wasm.db"
         _create_v8_database(db_path)
-        store = WASMStore(db_path, fs=RecordingFileSystem())
+        store = NoustStore(db_path, fs=RecordingFileSystem())
 
         assert store.set_app_health("v8.example.com", path="/healthz", expect="200-399", timeout=90)
         store.set_deployment_snapshot(1, "v8-example-com_20260102_030405")
@@ -417,7 +417,7 @@ class TestSchemaV10Migration:
         db_path = tmp_path / "wasm.db"
         _create_v8_database(db_path)
 
-        store = WASMStore(db_path, fs=RecordingFileSystem())
+        store = NoustStore(db_path, fs=RecordingFileSystem())
 
         assert _raw_max_version(db_path) == SCHEMA_VERSION == 10
         app = store.get_app("v8.example.com")
@@ -434,9 +434,9 @@ class TestSchemaV10Migration:
         """Both paths to v10 give every table the same columns."""
         db_path = tmp_path / "migrated.db"
         _create_v8_database(db_path)
-        WASMStore(db_path, fs=RecordingFileSystem())
-        WASMStore.reset_instance()
-        WASMStore(tmp_path / "fresh.db", fs=RecordingFileSystem())
+        NoustStore(db_path, fs=RecordingFileSystem())
+        NoustStore.reset_instance()
+        NoustStore(tmp_path / "fresh.db", fs=RecordingFileSystem())
 
         for table in ("apps", *sorted(self.V10_TABLES)):
             assert _raw_columns(db_path, table) == _raw_columns(tmp_path / "fresh.db", table)
@@ -445,7 +445,7 @@ class TestSchemaV10Migration:
         """Run again on a migrated database, it adds nothing and breaks nothing."""
         db_path = tmp_path / "wasm.db"
         _create_v8_database(db_path)
-        store = WASMStore(db_path, fs=RecordingFileSystem())
+        store = NoustStore(db_path, fs=RecordingFileSystem())
         before = _raw_columns(db_path, "apps")
 
         with store._ddl_transaction() as cursor:
@@ -458,14 +458,14 @@ class TestSchemaV10Migration:
         db_path = tmp_path / "wasm.db"
         _create_v8_database(db_path)
 
-        def _crash(self: WASMStore, cursor: sqlite3.Cursor) -> None:
+        def _crash(self: NoustStore, cursor: sqlite3.Cursor) -> None:
             cursor.execute("ALTER TABLE apps ADD COLUMN zero_downtime INTEGER NOT NULL DEFAULT 0")
             raise sqlite3.OperationalError("simulated crash mid-migration")
 
         with pytest.MonkeyPatch.context() as mp:
-            mp.setattr(WASMStore, "_migrate_v9_to_v10", _crash)
+            mp.setattr(NoustStore, "_migrate_v9_to_v10", _crash)
             with pytest.raises(sqlite3.OperationalError):
-                WASMStore(db_path, fs=RecordingFileSystem())
+                NoustStore(db_path, fs=RecordingFileSystem())
 
         assert _raw_max_version(db_path) == 9
         assert "zero_downtime" not in _raw_columns(db_path, "apps")

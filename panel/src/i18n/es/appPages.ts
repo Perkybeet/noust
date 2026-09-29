@@ -372,7 +372,7 @@ export const appPages: Catalog<typeof en> = {
       disk: "Espacio en disco",
     },
     causeFallback: {
-      healthy: "Todo lo que WASM puede comprobar sobre esta aplicación responde como debería.",
+      healthy: "Todo lo que Noust puede comprobar sobre esta aplicación responde como debería.",
       down: "La aplicación está caída, y las comprobaciones no señalan una única causa. Empieza por las que fallaron, abajo.",
       default: "Algunas comprobaciones no se superaron, y no señalan una única causa. Empieza por las que fallaron, abajo.",
     },
@@ -430,7 +430,7 @@ export const appPages: Catalog<typeof en> = {
     staticDescription: "El servidor web sirve sus archivos directamente, así que no hay ninguna unidad cuya CPU y memoria se pudieran graficar. Las propias gráficas de la máquina están en el resumen.",
     dockerTitle: "Docker mide los contenedores de esta aplicación",
     dockerDescription:
-      "La unidad solo inicia el stack; los contenedores se ejecutan en los cgroups propios de Docker, que WASM no muestrea. Usa docker stats en el servidor para su CPU y memoria. Las propias gráficas de la máquina están en el resumen.",
+      "La unidad solo inicia el stack; los contenedores se ejecutan en los cgroups propios de Docker, que Noust no muestrea. Usa docker stats en el servidor para su CPU y memoria. Las propias gráficas de la máquina están en el resumen.",
     machineOverview: "Resumen de la máquina",
     documentTitle: "Métricas - {domain}",
   },

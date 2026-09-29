@@ -4,11 +4,11 @@
 """
 Tests for the nine commands that act on a deployed application.
 
-They exercise the Click layer of :mod:`wasm.cli.commands.webapp`: the surface
+They exercise the Click layer of :mod:`noust.cli.commands.webapp`: the surface
 (every command, every alias, every option the contract froze), the validation
 Click now does instead of the handlers, and what each command actually calls.
 Nothing here reaches systemd, nginx or the store: the managers are spied on and
-process execution goes through the :class:`~wasm.core.runner.FakeRunner`, so an
+process execution goes through the :class:`~noust.core.runner.FakeRunner`, so an
 argv assertion is an assertion about the exact command that would have run.
 """
 
@@ -28,15 +28,15 @@ import pytest
 import yaml
 from click.testing import CliRunner, Result
 
-from wasm.cli import app as cli_app
-from wasm.cli.app import ALIASES, Context
-from wasm.cli.app import cli as root_cli
-from wasm.cli.commands import webapp
-from wasm.core.logger import Logger
-from wasm.core.runner import DryRunRunner, FakeRunner, get_runner
-from wasm.core.utils import domain_to_app_name
-from wasm.deployers import lifecycle
-from wasm.managers.webserver import SiteDeletion
+from noust.cli import app as cli_app
+from noust.cli.app import ALIASES, Context
+from noust.cli.app import cli as root_cli
+from noust.cli.commands import webapp
+from noust.core.logger import Logger
+from noust.core.runner import DryRunRunner, FakeRunner, get_runner
+from noust.core.utils import domain_to_app_name
+from noust.deployers import lifecycle
+from noust.managers.webserver import SiteDeletion
 
 #: The commands this module owns, as the user types them.
 COMMANDS = (
@@ -87,7 +87,7 @@ def shown(result: Result, console: io.StringIO) -> str:
 
 class ServiceSpy:
     """
-    A stand-in for :class:`~wasm.managers.service_manager.ServiceManager`.
+    A stand-in for :class:`~noust.managers.service_manager.ServiceManager`.
 
     Records what the command asked for instead of talking to systemd.
 
@@ -501,8 +501,8 @@ def isolated_panel_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Pa
     Yields:
         The configuration file the test may write.
     """
-    from wasm.cli.commands import web as web_module
-    from wasm.core import config as config_module
+    from noust.cli.commands import web as web_module
+    from noust.core import config as config_module
 
     path = tmp_path / "config.yaml"
     monkeypatch.setattr(config_module, "DEFAULT_CONFIG_PATH", path)
@@ -522,7 +522,7 @@ def _configure_panel(path: Path, **settings: Any) -> None:
         **settings: Overrides for the ``web`` section; ``enabled``, ``host``
             and ``port`` fall back to a plain local panel when not given.
     """
-    from wasm.core.config import Config
+    from noust.core.config import Config
 
     settings.setdefault("enabled", True)
     settings.setdefault("host", "127.0.0.1")
@@ -1408,7 +1408,7 @@ def test_update_refuses_an_application_that_is_not_there(
     result = cli_runner.invoke(webapp.cli.commands["update"], ["example.com"])
 
     assert result.exit_code == 1
-    assert isinstance(result.exception, webapp.WASMError)
+    assert isinstance(result.exception, webapp.NoustError)
     assert "Application not found: example.com" in str(result.exception)
 
 
@@ -1953,7 +1953,7 @@ def test_open_without_a_configured_panel_warns_and_exits_clean(
 
 
 # ---------------------------------------------------------------------------
-# The argparse entry point still works: wasm.cli.parser calls it
+# The argparse entry point still works: noust.cli.parser calls it
 # ---------------------------------------------------------------------------
 
 

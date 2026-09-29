@@ -47,17 +47,17 @@ test:
 	pytest
 
 test-cov:
-	pytest --cov=wasm --cov-report=html
+	pytest --cov=noust --cov-report=html
 	@echo "Coverage report: htmlcov/index.html"
 
 lint:
-	ruff check src/wasm tests
-	mypy src/wasm
+	ruff check src/noust tests
+	mypy src/noust
 
 format:
-	black src/wasm tests
-	isort src/wasm tests
-	ruff check --fix src/wasm tests
+	black src/noust tests
+	isort src/noust tests
+	ruff check --fix src/noust tests
 
 # OBS (Open Build Service) targets
 obs-upload:

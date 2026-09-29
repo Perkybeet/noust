@@ -4,10 +4,10 @@
 """
 Tests for the ownership hand-over helpers.
 
-:func:`~wasm.deployers.helpers.permissions.hand_over_tree` covers a deployed
+:func:`~noust.deployers.helpers.permissions.hand_over_tree` covers a deployed
 application tree and only warns on failure, because the build is already good
 and an app that never writes to its own directory runs fine regardless.
-:func:`~wasm.deployers.helpers.permissions.hand_over_file` exists for the
+:func:`~noust.deployers.helpers.permissions.hand_over_file` exists for the
 single files a restore or a database engine hands to another account - a
 Redis snapshot, a staged database dump - where the caller cannot shrug off a
 failure: reporting "restored" over a file still owned by root is exactly the
@@ -19,9 +19,9 @@ from __future__ import annotations
 import io
 from pathlib import Path
 
-from wasm.core.logger import Logger
-from wasm.core.runner import FakeRunner
-from wasm.deployers.helpers.permissions import hand_over_file
+from noust.core.logger import Logger
+from noust.core.runner import FakeRunner
+from noust.deployers.helpers.permissions import hand_over_file
 
 
 def test_hand_over_file_succeeds_when_both_commands_succeed(tmp_path: Path) -> None:

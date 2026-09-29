@@ -16,14 +16,13 @@ from typing import Any
 
 import pytest
 
-from tests.test_notifier import config  # noqa: F401  (pytest resolves fixtures by name)
-from wasm.core.config import Config
-from wasm.core.exceptions import ServiceError
-from wasm.core.runner import FakeRunner
-from wasm.managers.service_manager import ServiceManager
-from wasm.monitor.metrics import collect_service_health
-from wasm.monitor.models import ServiceHealth
-from wasm.monitor.process_monitor import (
+from noust.core.config import Config
+from noust.core.exceptions import ServiceError
+from noust.core.runner import FakeRunner
+from noust.managers.service_manager import ServiceManager
+from noust.monitor.metrics import collect_service_health
+from noust.monitor.models import ServiceHealth
+from noust.monitor.process_monitor import (
     DEFAULT_SCAN_INTERVAL,
     SCAN_INTERVAL_WARNING_SECONDS,
     MonitorConfig,
@@ -31,6 +30,7 @@ from wasm.monitor.process_monitor import (
     scan_interval_warning,
     unit_failure,
 )
+from tests.test_notifier import config  # noqa: F401  (pytest resolves fixtures by name)
 
 # The notifier's config fixture is imported rather than replicated, so there
 # stays one definition of "a sandboxed configuration".
@@ -456,7 +456,7 @@ def test_a_missing_extra_unit_is_logged_not_alerted() -> None:
 
 def test_the_default_scan_interval_is_a_minute() -> None:
     """Both defaults agree: the config file's and the monitor's own."""
-    from wasm.core.config import DEFAULT_CONFIG
+    from noust.core.config import DEFAULT_CONFIG
 
     assert DEFAULT_SCAN_INTERVAL == 60
     assert DEFAULT_CONFIG["monitor"]["scan_interval"] == DEFAULT_SCAN_INTERVAL

@@ -12,12 +12,12 @@ had to parse out of a data field. The console reads a REST endpoint and an SSE
 event that both return the values below untouched, and draws its own strip
 from them; a Jinja fragment cannot be a typed API response.
 
-This module is deliberately about a single box. WASM manages the server it
+This module is deliberately about a single box. Noust manages the server it
 runs on, so the snapshot is an instrument reading rather than a fleet summary,
 and an operator with several servers open in several tabs can tell them apart
 by hostname alone.
 
-``wasm.web.views.machine`` still exists, for the legacy Jinja panel that has
+``noust.web.views.machine`` still exists, for the legacy Jinja panel that has
 not been cut over yet: it reads its numbers from :func:`read_machine` here
 rather than sampling psutil or systemd itself, so there remains exactly one
 place that does either.
@@ -35,7 +35,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from wasm.core.exceptions import WASMError
+from noust.core.exceptions import NoustError
 
 try:
     import psutil
@@ -77,13 +77,13 @@ class DiskSnapshot:
 @dataclass
 class UnitTally:
     """
-    How many WASM-managed systemd units are in each state.
+    How many Noust-managed systemd units are in each state.
 
     A unit systemd is mid-restart is neither genuinely up nor genuinely down;
     it is counted as ``stopped`` here, because the JSON schema has no fourth
     bucket for it - the console reads the ``job`` and ``app`` events for that,
     not a unit poll. The legacy Jinja fragment still shows it separately; see
-    :mod:`wasm.web.views.machine`, which keeps that distinction from the same
+    :mod:`noust.web.views.machine`, which keeps that distinction from the same
     :func:`classify_unit` this tally uses.
     """
 
@@ -115,7 +115,7 @@ class MachineState:
         cpu_percent: CPU utilisation sampled just now.
         memory: Memory usage.
         disk: Usage of the filesystem holding the applications.
-        units: Tally of the systemd units WASM manages.
+        units: Tally of the systemd units Noust manages.
         apps: Tally of the deployed applications.
     """
 
@@ -135,9 +135,9 @@ def classify_unit(service: Mapping[str, Any]) -> str:
     Sort one systemd unit into a state bucket.
 
     The active/sub precedence mirrors the one
-    :func:`~wasm.core.app_state.resolve_state` uses for a single application,
+    :func:`~noust.core.app_state.resolve_state` uses for a single application,
     so a unit never disagrees with itself between the machine snapshot and the
-    richer per-application answer ``wasm list`` and ``wasm health`` give.
+    richer per-application answer ``noust list`` and ``noust health`` give.
 
     Args:
         service: One entry from :func:`fetch_service_states`.
@@ -160,16 +160,16 @@ def classify_unit(service: Mapping[str, Any]) -> str:
 
 def fetch_service_states() -> list[dict[str, Any]]:
     """
-    Ask systemd for the units WASM owns.
+    Ask systemd for the units Noust owns.
 
-    :meth:`~wasm.managers.service_manager.ServiceManager.list_services`, which
-    is :meth:`~wasm.managers.service_manager.ServiceManager.managed_units`:
-    the same definition the Services page and ``wasm service list`` read, so
+    :meth:`~noust.managers.service_manager.ServiceManager.list_services`, which
+    is :meth:`~noust.managers.service_manager.ServiceManager.managed_units`:
+    the same definition the Services page and ``noust service list`` read, so
     the top bar counts exactly the rows the Services page shows. One
     ``systemctl list-units`` call and a scan of the unit directory, used to
     build both the unit tally and the application tally below: probing each
     application's unit and port individually, the way
-    :func:`~wasm.core.app_state.resolve_states` does for ``wasm list``, is
+    :func:`~noust.core.app_state.resolve_states` does for ``noust list``, is
     too costly to repeat on the five-second timer the ``machine`` SSE event
     runs on.
 
@@ -180,11 +180,11 @@ def fetch_service_states() -> list[dict[str, Any]]:
         reached, which only degrades every tally built from it to zero rather
         than raising through a page render or the event stream.
     """
-    from wasm.managers.service_manager import ServiceManager
+    from noust.managers.service_manager import ServiceManager
 
     try:
         return ServiceManager(verbose=False).list_services()
-    except WASMError as exc:
+    except NoustError as exc:
         log.warning("Could not read service states for the machine snapshot: %s", exc)
         return []
 
@@ -222,12 +222,12 @@ def _count_apps(services: list[dict[str, Any]]) -> AppTally:
     directly by the web server, and asking systemd about it would always say
     "not running" - or runs as the units the listing attributes to it (its
     ``app`` field, from
-    :meth:`~wasm.managers.service_manager.ServiceManager.app_units`: the
+    :meth:`~noust.managers.service_manager.ServiceManager.app_units`: the
     legacy prefix, a monorepo's workspaces and Compose are resolved there,
     once). An application with several units is as healthy as its worst one:
     failed when any failed, running only when all run. An application in
     zero-downtime mode is counted by the instance that serves
-    (:meth:`~wasm.managers.service_manager.ServiceManager.serving_units`).
+    (:meth:`~noust.managers.service_manager.ServiceManager.serving_units`).
 
     Args:
         services: What :func:`fetch_service_states` returned.
@@ -235,11 +235,11 @@ def _count_apps(services: list[dict[str, Any]]) -> AppTally:
     Returns:
         How many applications are running, failed, stopped or static.
     """
-    from wasm.core.store import get_store
+    from noust.core.store import get_store
 
     try:
         apps = get_store().list_apps()
-    except (WASMError, sqlite3.Error) as exc:
+    except (NoustError, sqlite3.Error) as exc:
         log.warning("Could not read applications for the machine snapshot: %s", exc)
         return AppTally(running=0, failed=0, stopped=0, static=0)
 
@@ -251,15 +251,15 @@ def _count_apps(services: list[dict[str, Any]]) -> AppTally:
                 service
             )
 
-    from wasm.deployers.helpers.php_fpm import is_php_fpm
-    from wasm.managers.service_manager import ServiceManager
+    from noust.deployers.helpers.php_fpm import is_php_fpm
+    from noust.managers.service_manager import ServiceManager
 
     manager: ServiceManager | None = None
     running = failed = stopped = static = 0
     for app in apps:
         if is_php_fpm(app):
             # Stored as static, but its pool runs it: counted by the pool.
-            from wasm.deployers.php_fpm import pool_serving
+            from noust.deployers.php_fpm import pool_serving
 
             bucket = pool_serving(app)
             running += bucket == "active"
@@ -307,11 +307,11 @@ def _resolve_apps_root(apps_root: str | None) -> str:
     if apps_root is not None:
         return apps_root
 
-    from wasm.core.config import Config
+    from noust.core.config import Config
 
     try:
         return str(Config().get("apps_directory", DEFAULT_APPS_ROOT))
-    except (WASMError, OSError) as exc:
+    except (NoustError, OSError) as exc:
         log.warning(
             "Could not read apps_directory from the configuration, using the default: %s", exc
         )

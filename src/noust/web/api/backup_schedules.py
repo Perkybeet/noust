@@ -4,22 +4,22 @@
 """
 Backup schedules API endpoints.
 
-A thin client of :class:`~wasm.managers.backup_scheduler.BackupScheduler`,
+A thin client of :class:`~noust.managers.backup_scheduler.BackupScheduler`,
 which owns the timer/service unit pair, the systemctl calls and every rule
 about what may be written into a root-owned unit file. Three decisions live
 here rather than in the handlers' bodies:
 
 - **The calendar is validated in the request model**, through the scheduler's
-  own :func:`~wasm.managers.backup_scheduler.validate_calendar`, so a bad
+  own :func:`~noust.managers.backup_scheduler.validate_calendar`, so a bad
   expression answers ``422`` with the scheduler's exact refusal instead of
   becoming a half-written schedule. There is no second definition of a valid
   expression for the two to disagree over.
 - **Retention and destinations are stored, not just forwarded.** Since
   schema v10 the schedule lives in the store
-  (:class:`~wasm.core.store.BackupScheduleRecord`); ``wasm backup
+  (:class:`~noust.core.store.BackupScheduleRecord`); ``noust backup
   run-schedule`` reads it back, so what is created here is what actually
   runs, including the remote destinations a schedule pushes to.
-- **Every mutation is audited** to ``wasm.audit`` with the session that asked
+- **Every mutation is audited** to ``noust.audit`` with the session that asked
   for it, like every other mutation the panel can perform.
 
 Retention may be null end to end. A schedule adopted from a 2.1 timer has
@@ -38,24 +38,24 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from wasm.core.exceptions import BackupError
-from wasm.core.store import get_store
-from wasm.core.utils import domain_to_app_name
-from wasm.managers.backup_manager import BackupManager
-from wasm.managers.backup_scheduler import (
+from noust.core.exceptions import BackupError
+from noust.core.store import get_store
+from noust.core.utils import domain_to_app_name
+from noust.managers.backup_manager import BackupManager
+from noust.managers.backup_scheduler import (
     SCHEDULE_ALIASES,
     BackupSchedule,
     BackupScheduler,
     validate_calendar,
 )
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import WASMErrorRoute, require_elevated, strict_domain
-from wasm.web.auth import actor_label
-from wasm.web.pydantic_compat import dump_model, field_validator
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
+from noust.web.auth import actor_label
+from noust.web.pydantic_compat import dump_model, field_validator
 
-router = APIRouter(route_class=WASMErrorRoute)
+router = APIRouter(route_class=NoustErrorRoute)
 
-audit_log = logging.getLogger("wasm.audit")
+audit_log = logging.getLogger("noust.audit")
 
 #: The alias each expansion came from, so a listing can say "daily" instead of
 #: making an operator parse ``*-*-* 02:00:00``.
@@ -366,7 +366,7 @@ def delete_schedule(
     Removing the units stops future backups from ever running, silently -
     D5's sudo mode list treats it the same as any other destructive delete,
     so a cookie session has to confirm itself first; an admin-scoped Bearer
-    credential is exempt, per :func:`wasm.web.api.deps.ensure_elevated`.
+    credential is exempt, per :func:`noust.web.api.deps.ensure_elevated`.
 
     Args:
         domain: Domain whose schedule is removed.

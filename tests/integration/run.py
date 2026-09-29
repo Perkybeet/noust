@@ -91,7 +91,7 @@ UPGRADE_COMPOSE_ROOT = f"/var/www/apps/{UPGRADE_COMPOSE_APP}"
 SCHEMA_VERSION = int(
     re.search(
         r"^SCHEMA_VERSION = (\d+)$",
-        (Path(__file__).resolve().parents[2] / "src/wasm/core/store.py").read_text(),
+        (Path(__file__).resolve().parents[2] / "src/noust/core/store.py").read_text(),
         re.MULTILINE,
     ).group(1)  # type: ignore[union-attr]
 )

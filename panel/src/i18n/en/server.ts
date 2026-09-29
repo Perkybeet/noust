@@ -6,7 +6,7 @@ export const server = {
   fromTerminal: "From a terminal",
   health: {
     title: "Health",
-    description: "The same checks `wasm health` runs.",
+    description: "The same checks `noust health` runs.",
     couldNotRun: "Could not run the health check",
     running: "Running the health check",
     verdictLabel: "Health verdict",
@@ -77,7 +77,7 @@ export const server = {
   },
   monitor: {
     title: "Resource monitor",
-    description: "Watches CPU, memory and the units WASM manages, and writes down what stands out. It never acts on a process.",
+    description: "Watches CPU, memory and the units Noust manages, and writes down what stands out. It never acts on a process.",
     sendTestEmail: "Send test email",
     couldNotReadStatus: "Could not read the monitor's status",
     since: "Since {uptime}",

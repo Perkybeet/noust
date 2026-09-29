@@ -51,8 +51,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from wasm.core.exceptions import WASMError
-from wasm.core.fs import get_fs, is_rehearsal
+from noust.core.exceptions import NoustError
+from noust.core.fs import get_fs, is_rehearsal
 
 #: Directory, next to the store's database, that holds one lock file per application.
 LOCKS_DIR = "locks"
@@ -81,7 +81,7 @@ class LockHolder:
     started_at: str
 
 
-class AppBusyError(WASMError):
+class AppBusyError(NoustError):
     """
     Another operation is running on the application.
 
@@ -104,7 +104,7 @@ class AppBusyError(WASMError):
         if holder is not None:
             running = f"{holder.operation} started at {holder.started_at} (pid {holder.pid})"
         else:
-            running = "another WASM operation"
+            running = "another Noust operation"
         super().__init__(
             f"Cannot start the {operation} of {domain}: {running} is still running on it",
             details="Only one deploy, update, rollback, migration, restore or deletion runs on "
@@ -163,12 +163,12 @@ def locks_directory() -> Path:
     Return where the lock files are kept.
 
     Returns:
-        ``locks/`` beside the store's database: ``/var/lib/wasm/locks`` on a
+        ``locks/`` beside the store's database: ``/var/lib/noust/locks`` on a
         server, and inside the test's own directory in a test.
     """
     # Imported here: the store imports a great deal, and this module is
     # imported by modules the store's own imports reach.
-    from wasm.core.store import get_store
+    from noust.core.store import get_store
 
     return get_store().db_path.parent / LOCKS_DIR
 

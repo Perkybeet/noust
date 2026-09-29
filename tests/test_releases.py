@@ -18,10 +18,10 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.exceptions import DeploymentError
-from wasm.core.fs import DryRunFileSystem, RealFileSystem
-from wasm.core.logger import Logger
-from wasm.deployers.releases import Release, ReleaseManager
+from noust.core.exceptions import DeploymentError
+from noust.core.fs import DryRunFileSystem, RealFileSystem
+from noust.core.logger import Logger
+from noust.deployers.releases import Release, ReleaseManager
 
 SHA_A = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"
 SHA_B = "b2c3d4e5f60718293a4b5c6d7e8f901234567890"
@@ -837,7 +837,7 @@ class TestDryRun:
         self, deployed: Path, clock: Clock, monkeypatch
     ):
         """No fs passed: --dry-run installs the seam globally and it must apply."""
-        from wasm.core import fs as fs_module
+        from noust.core import fs as fs_module
 
         monkeypatch.setattr(fs_module, "_default_fs", DryRunFileSystem())
         manager = ReleaseManager(deployed, clock=clock, logger=Logger(stream=io.StringIO()))

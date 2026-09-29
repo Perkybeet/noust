@@ -1,5 +1,5 @@
 /**
- * An application's Diagnose tab against the real backend: the probes of `wasm diagnose` run
+ * An application's Diagnose tab against the real backend: the probes of `noust diagnose` run
  * over the seeded machine, the verdict and the probable cause first, every check with its
  * status as a word and its output verbatim, and "Run again" asking the machine again. Both
  * themes, with the CSP and console gates of the `problems` fixture.
@@ -56,7 +56,7 @@ test("Run again asks the machine again and keeps the page", async ({ page, conso
   await expect(page.getByText(/^Checked /)).toContainText("just now");
   await expect(verdict(page)).toBeVisible();
 
-  await expect(page.getByText(`wasm diagnose ${RUNNING}`)).toBeVisible();
+  await expect(page.getByText(`noust diagnose ${RUNNING}`)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "a running app's diagnosis");
 });

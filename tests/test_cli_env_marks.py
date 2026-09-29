@@ -20,12 +20,12 @@ from types import SimpleNamespace
 import pytest
 from click.testing import CliRunner
 
-from wasm.cli import app as app_module
-from wasm.cli.commands import env as env_module
-from wasm.core.logger import Logger
-from wasm.core.runner import FakeRunner
-from wasm.core.store import WASMStore
-from wasm.deployers.helpers import app_env as app_env_module
+from noust.cli import app as app_module
+from noust.cli.commands import env as env_module
+from noust.core.logger import Logger
+from noust.core.runner import FakeRunner
+from noust.core.store import NoustStore
+from noust.deployers.helpers import app_env as app_env_module
 
 
 @pytest.fixture
@@ -51,7 +51,7 @@ def logged(monkeypatch: pytest.MonkeyPatch) -> io.StringIO:
 
 
 @pytest.fixture
-def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[WASMStore]:
+def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[NoustStore]:
     """
     Provide an empty store in the test's directory, where the command looks.
 
@@ -62,16 +62,16 @@ def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[WASMStore
     Yields:
         The store.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     monkeypatch.setattr(app_env_module, "get_store", lambda: instance)
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture
 def deployed(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, store: WASMStore, runner: FakeRunner
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, store: NoustStore, runner: FakeRunner
 ) -> Path:
     """
     Provide an application deployed at example.com, with no store row.
@@ -99,7 +99,7 @@ def deployed(
 
 
 @pytest.fixture
-def registered(deployed: Path, store: WASMStore) -> Path:
+def registered(deployed: Path, store: NoustStore) -> Path:
     """
     A ``deployed`` application that also has a store row.
 
@@ -113,7 +113,7 @@ def registered(deployed: Path, store: WASMStore) -> Path:
     Returns:
         The application root.
     """
-    from wasm.core.store import App
+    from noust.core.store import App
 
     store.create_app(App(domain="example.com", app_path=str(deployed)))
     return deployed
@@ -153,7 +153,7 @@ def test_mark_not_secret_reveals_a_variable_show_would_otherwise_hide(
 
 
 def test_mark_auto_removes_a_previous_override(
-    cli_runner: CliRunner, registered: Path, store: WASMStore
+    cli_runner: CliRunner, registered: Path, store: NoustStore
 ) -> None:
     (registered / ".env").write_text("API_KEY=short\n", encoding="utf-8")
     cli_runner.invoke(app_module.cli, ["env", "mark", "example.com", "API_KEY", "--not-secret"])
@@ -184,9 +184,9 @@ def test_mark_rejects_more_than_one_flag(cli_runner: CliRunner, registered: Path
 
 
 def test_mark_on_an_undeployed_domain_is_an_error(
-    store: WASMStore, monkeypatch: pytest.MonkeyPatch
+    store: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Through the real CLI boundary, ``wasm.cli.app.main``, like the rest of the group."""
+    """Through the real CLI boundary, ``noust.cli.app.main``, like the rest of the group."""
     lines: list[str] = []
     monkeypatch.setattr(Logger, "_write", lambda self, message, newline=True: lines.append(message))
 
@@ -197,7 +197,7 @@ def test_mark_on_an_undeployed_domain_is_an_error(
 
 
 def test_mark_persists_across_separate_invocations(
-    cli_runner: CliRunner, registered: Path, store: WASMStore
+    cli_runner: CliRunner, registered: Path, store: NoustStore
 ) -> None:
     (registered / ".env").write_text("APP_NAME=storefront\nOTHER=1\n", encoding="utf-8")
 

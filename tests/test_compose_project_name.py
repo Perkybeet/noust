@@ -21,9 +21,9 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.runner import FakeRunner
-from wasm.core.store import WASMStore
-from wasm.deployers.docker_compose import DockerComposeDeployer, compose_project_name
+from noust.core.runner import FakeRunner
+from noust.core.store import NoustStore
+from noust.deployers.docker_compose import DockerComposeDeployer, compose_project_name
 
 # ---------------------------------------------------------------------------
 # compose_project_name(): the pure derivation
@@ -138,10 +138,10 @@ def test_compose_argv_has_no_project_flag_before_discovery(tmp_path: Path) -> No
 @pytest.fixture
 def store(tmp_path: Path):
     """An isolated store, installed as the process-wide singleton."""
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 class _FakeServiceManager:
@@ -181,7 +181,7 @@ class _FakeWebServer:
 
 def test_deploy_and_a_later_delete_use_the_same_project_for_one_app(
     tmp_path: Path,
-    store: WASMStore,
+    store: NoustStore,
     runner: FakeRunner,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -191,7 +191,7 @@ def test_deploy_and_a_later_delete_use_the_same_project_for_one_app(
     project Compose has never heard of, leaving the original containers,
     networks and volumes orphaned.
     """
-    from wasm.deployers import docker_compose as compose_module
+    from noust.deployers import docker_compose as compose_module
 
     monkeypatch.setattr(compose_module, "ServiceManager", lambda **kw: _FakeServiceManager())
     monkeypatch.setattr(compose_module, "NginxManager", lambda **kw: _FakeWebServer())

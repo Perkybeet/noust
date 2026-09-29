@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-from wasm.core.app_state import (
+from noust.core.app_state import (
     FAILED,
     NOT_RESPONDING,
     RESTARTING,
@@ -28,9 +28,9 @@ from wasm.core.app_state import (
     resolve_states,
     resolve_states_with_status,
 )
-from wasm.core.exceptions import ServiceError
-from wasm.core.store import App
-from wasm.core.utils import domain_to_app_name
+from noust.core.exceptions import ServiceError
+from noust.core.store import App
+from noust.core.utils import domain_to_app_name
 
 
 class _Services:
@@ -366,7 +366,7 @@ class _BlueGreenServices(_Services):
 
     def serving_units(self, app: App) -> list[str]:
         """The real rule, over this double's units."""
-        from wasm.managers.service_manager import ServiceManager
+        from noust.managers.service_manager import ServiceManager
 
         return ServiceManager.serving_units(self, app)  # type: ignore[arg-type]
 
@@ -377,7 +377,7 @@ def test_a_blue_green_application_is_as_healthy_as_its_serving_instance(
     """The idle instance is stopped by design; the serving one's port is the one asked."""
     probed: list[int] = []
     monkeypatch.setattr(
-        "wasm.core.app_state.port_answers", lambda port: probed.append(port) or True
+        "noust.core.app_state.port_answers", lambda port: probed.append(port) or True
     )
     app = _app()
     app.zero_downtime, app.active_color = True, "green"

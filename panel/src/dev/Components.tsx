@@ -36,8 +36,6 @@ import {
   Input,
   Kbd,
   LogViewer,
-  Logo,
-  LogoMark,
   Menu,
   MenuGroup,
   MenuItem,
@@ -61,6 +59,7 @@ import {
   toast,
 } from "../components/ui";
 import type { Column, LogLine, Status } from "../components/ui";
+import { Logo } from "../components/brand/Logo";
 import { Item, Row, Section, Stage } from "./gallery";
 import type { SampleApp } from "./sample";
 import { SAMPLE_APPS, SAMPLE_BUILD_LOG, ago, nextJournalLine, sampleMetrics, sampleWeekMetrics } from "./sample";
@@ -667,13 +666,13 @@ function Cards() {
       <EmptyState
         icon={<Boxes />}
         title="No applications yet"
-        description="Deploy a repository and WASM builds it, runs it as a systemd unit and puts nginx and a certificate in front of it."
+        description="Deploy a repository and Noust builds it, runs it as a systemd unit and puts nginx and a certificate in front of it."
         action={
           <Button variant="primary" icon={<Plus />}>
             New application
           </Button>
         }
-        command="wasm create -d example.com -s git@github.com:you/app.git"
+        command="noust create -d example.com -s git@github.com:you/app.git"
       />
     </Section>
   );
@@ -760,9 +759,9 @@ function Charts() {
   const metrics = sampleMetrics();
   const week = sampleWeekMetrics();
   const weekMarkers = [
-    { at: week.timestamps[24] ?? 0, label: "Deploy 118, succeeded, Sep 19, 14:00", state: "running" as const, href: "https://wasm.example.com/deploys/118" },
-    { at: week.timestamps[96] ?? 0, label: "Deploy 121, failed, Sep 22, 14:00", state: "failed" as const, href: "https://wasm.example.com/deploys/121" },
-    { at: week.timestamps[144] ?? 0, label: "Deploy 124, in progress, Sep 24, 14:00", state: "deploying" as const, href: "https://wasm.example.com/deploys/124" },
+    { at: week.timestamps[24] ?? 0, label: "Deploy 118, succeeded, Sep 19, 14:00", state: "running" as const, href: "https://noust.example.com/deploys/118" },
+    { at: week.timestamps[96] ?? 0, label: "Deploy 121, failed, Sep 22, 14:00", state: "failed" as const, href: "https://noust.example.com/deploys/121" },
+    { at: week.timestamps[144] ?? 0, label: "Deploy 124, in progress, Sep 24, 14:00", state: "deploying" as const, href: "https://noust.example.com/deploys/124" },
   ];
   return (
     <Section
@@ -847,13 +846,13 @@ function Brand() {
     <Section
       id="logo"
       title="Logo"
-      description="A gear for the server and an arrow rising from its hub for the deploy. The gradient from the original artwork lives in the mark and nowhere else."
+      description="The Noust icon, mark and wordmark: one drawing each, in assets/brand, referenced with <use> so they take the page's text colour."
     >
       <Stage>
         <Row>
-          {[16, 24, 32, 48, 72].map((size) => (
-            <Item key={size} label={`${String(size)} px`}>
-              <LogoMark size={size} title="WASM" />
+          {[16, 24, 32, 48, 72].map((height) => (
+            <Item key={height} label={`${String(height)} px`}>
+              <Logo variant="icon" height={height} />
             </Item>
           ))}
         </Row>
@@ -861,9 +860,9 @@ function Brand() {
       <div className="grid gap-4 sm:grid-cols-2">
         {(["light", "dark"] as const).map((theme) => (
           <div key={theme} data-theme={theme} className="flex flex-col gap-5 rounded-card border border-border bg-bg p-6 text-fg">
-            <Logo size="lg" />
-            <Logo size="md" product="Console" />
-            <Logo size="sm" />
+            <Logo variant="wordmark" height={36} />
+            <Logo variant="mark" height={36} />
+            <Logo variant="icon" height={32} />
           </div>
         ))}
       </div>

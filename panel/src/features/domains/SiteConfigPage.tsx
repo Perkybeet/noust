@@ -227,7 +227,7 @@ export function SiteConfigPage({ site }: { site: string }) {
               {t("domains.siteConfigPage.allSites")}
             </Link>
           }
-          command="wasm site list"
+          command="noust site list"
           className="py-16"
         />
       </>
@@ -369,7 +369,7 @@ export function SiteConfigPage({ site }: { site: string }) {
             </div>
           )}
         </Section>
-        <CommandHint command={`wasm site show ${site}`} label={t("domains.fromTerminal")} />
+        <CommandHint command={`noust site show ${site}`} label={t("domains.fromTerminal")} />
       </Sections>
 
       <ConfirmDialog

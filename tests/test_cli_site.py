@@ -31,13 +31,13 @@ import click
 import pytest
 from click.testing import CliRunner, Result
 
-from wasm.cli.app import Context
-from wasm.cli.commands import site as site_cli
-from wasm.core.logger import Logger
-from wasm.core.runner import FakeRunner
-from wasm.managers.apache_manager import ApacheManager
-from wasm.managers.nginx_manager import NginxManager
-from wasm.managers.webserver import APACHE_BACKEND, NGINX_BACKEND
+from noust.cli.app import Context
+from noust.cli.commands import site as site_cli
+from noust.core.logger import Logger
+from noust.core.runner import FakeRunner
+from noust.managers.apache_manager import ApacheManager
+from noust.managers.nginx_manager import NginxManager
+from noust.managers.webserver import APACHE_BACKEND, NGINX_BACKEND
 
 CONTRACT = json.loads(
     (Path(__file__).parent / "contracts/cli_surface.json").read_text(encoding="utf-8")
@@ -339,7 +339,7 @@ def store(monkeypatch: pytest.MonkeyPatch) -> FakeStore:
         The fake store.
     """
     fake = FakeStore()
-    monkeypatch.setattr("wasm.managers.webserver.get_store", lambda: fake)
+    monkeypatch.setattr("noust.managers.webserver.get_store", lambda: fake)
     return fake
 
 
@@ -423,7 +423,7 @@ class LiveStdout:
     """
     A stream that resolves ``sys.stdout`` at write time.
 
-    :class:`~wasm.core.logger.Logger` takes its stream as a default argument,
+    :class:`~noust.core.logger.Logger` takes its stream as a default argument,
     which binds whatever ``sys.stdout`` was when the module was imported. That
     is not the stream Click's test runner installs, so without this indirection
     nothing a command logs would be visible to a test.
@@ -570,7 +570,7 @@ def test_no_command_redeclares_a_global_flag() -> None:
 
 
 def test_the_group_is_exposed_as_cli_for_the_lazy_loader() -> None:
-    """``wasm.cli.app`` imports the module and looks for an object called cli."""
+    """``noust.cli.app`` imports the module and looks for an object called cli."""
     assert isinstance(site_cli.cli, click.Group)
     assert site_cli.cli.name == "site"
 
@@ -944,7 +944,7 @@ def test_delete_reports_an_unknown_site(
 def test_the_legacy_handler_runs_the_same_code(
     webservers: dict[str, Any], runner: FakeRunner
 ) -> None:
-    """``wasm.cli.parser`` and the interactive menu still dispatch through it."""
+    """``noust.cli.parser`` and the interactive menu still dispatch through it."""
     from argparse import Namespace
 
     write_site(webservers["nginx"], "example.com")

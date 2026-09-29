@@ -25,6 +25,7 @@ export const SESSION: SessionInfo = {
   version: "2.0.0",
   csrf_header: "X-WASM-CSRF",
   csrf_cookie: "wasm_csrf",
+  renamed_from_wasm: false,
 };
 
 export const ANONYMOUS: SessionInfo = { ...SESSION, authenticated: false, scope: null, expires_at: null };
@@ -129,7 +130,7 @@ export const SERVICES: ServiceList["services"] = [
 export const CRON_JOBS: CronJobList["jobs"] = [
   {
     name: "nightly-backup",
-    command: "wasm backup create shop.example.com",
+    command: "noust backup create shop.example.com",
     user: "wasm",
     working_directory: "/var/www/shop",
     app_domain: "shop.example.com",

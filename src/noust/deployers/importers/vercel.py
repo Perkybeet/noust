@@ -6,7 +6,7 @@ Vercel: ``vercel.json`` and, when it was committed, ``.vercel/project.json``.
 
 ``vercel.json`` overrides the project settings ``vercel link`` writes to
 ``.vercel/project.json``, as it does on Vercel. Most projects have neither
-checked in, because Vercel detects the framework itself; WASM detects it the
+checked in, because Vercel detects the framework itself; Noust detects it the
 same way, so the proposal then only carries the warnings.
 """
 
@@ -15,7 +15,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from wasm.deployers.importers.base import (
+from noust.deployers.importers.base import (
     Proposal,
     declared_env,
     read_json_object,
@@ -25,14 +25,14 @@ from wasm.deployers.importers.base import (
 PLATFORM = "vercel"
 FILES = ("vercel.json", ".vercel/project.json")
 
-#: Vercel framework presets WASM has a deployer for.
+#: Vercel framework presets Noust has a deployer for.
 FRAMEWORK_TYPES: dict[str, str] = {
     "nextjs": "nextjs",
     "vite": "vite",
 }
 
 #: Keys of vercel.json that shape routing at Vercel's edge, which the
-#: application does not see and WASM's generated site does not reproduce.
+#: application does not see and Noust's generated site does not reproduce.
 _ROUTING_KEYS = ("rewrites", "redirects", "headers", "routes")
 
 
@@ -75,7 +75,7 @@ def read(root: Path) -> Proposal:
         root_directory = text_value(settings, "rootDirectory")
         if root_directory and root_directory not in (".", "./"):
             proposal.warn(
-                f"The Vercel project builds from {root_directory}/; WASM deploys a "
+                f"The Vercel project builds from {root_directory}/; Noust deploys a "
                 "repository from its root. Deploy from a repository of its own, or "
                 "as a monorepo."
             )
@@ -99,7 +99,7 @@ def read(root: Path) -> Proposal:
 
 def _choose_type(root: Path, proposal: Proposal, framework: str | None) -> None:
     """
-    Map Vercel's framework preset to a WASM type.
+    Map Vercel's framework preset to a Noust type.
 
     Args:
         root: The repository.
@@ -110,13 +110,13 @@ def _choose_type(root: Path, proposal: Proposal, framework: str | None) -> None:
         proposal.app_type = FRAMEWORK_TYPES[framework]
         if framework == "vite" and proposal.output_directory not in (None, "dist"):
             proposal.warn(
-                f"Vercel publishes {proposal.output_directory}/; WASM reads the output "
+                f"Vercel publishes {proposal.output_directory}/; Noust reads the output "
                 "directory from the Vite configuration (build.outDir), so set it there."
             )
         return
     if framework is not None:
         proposal.warn(
-            f"Vercel builds this as {framework}, which WASM has no deployer for; "
+            f"Vercel builds this as {framework}, which Noust has no deployer for; "
             "detection decides the type, or build it into a container and deploy it "
             "as Docker Compose."
         )
@@ -126,7 +126,7 @@ def _choose_type(root: Path, proposal: Proposal, framework: str | None) -> None:
         proposal.app_type = "static"
         if proposal.output_directory not in (None, ".", "./", "public"):
             proposal.warn(
-                f"Vercel publishes {proposal.output_directory}/; WASM serves a static "
+                f"Vercel publishes {proposal.output_directory}/; Noust serves a static "
                 "site from the root of the repository."
             )
 
@@ -144,13 +144,13 @@ def _routing(config: dict[str, Any], proposal: Proposal) -> None:
         if isinstance(rules, list) and rules:
             proposal.warn(
                 f"vercel.json has {len(rules)} {key} rule(s), which Vercel applies at its "
-                "edge. WASM has no equivalent: handle them in the application (Next.js "
+                "edge. Noust has no equivalent: handle them in the application (Next.js "
                 "and Vite have their own), or send a name elsewhere with a redirect "
-                "domain ('wasm domain add --kind redirect')."
+                "domain ('noust domain add --kind redirect')."
             )
     for key in ("cleanUrls", "trailingSlash"):
         if key in config:
-            proposal.warn(f"vercel.json sets {key}, which WASM does not reproduce.")
+            proposal.warn(f"vercel.json sets {key}, which Noust does not reproduce.")
     crons = config.get("crons")
     if isinstance(crons, list) and crons:
         for cron in crons:
@@ -158,7 +158,7 @@ def _routing(config: dict[str, Any], proposal: Proposal) -> None:
                 path = text_value(cron, "path") or "?"
                 schedule = text_value(cron, "schedule") or "?"
                 proposal.warn(
-                    f"Vercel cron '{schedule}' calls {path}. Recreate it with 'wasm cron "
+                    f"Vercel cron '{schedule}' calls {path}. Recreate it with 'noust cron "
                     "create', running curl against the application on that schedule."
                 )
 
@@ -209,9 +209,9 @@ def _functions(config: dict[str, Any], proposal: Proposal) -> None:
     """
     if isinstance(config.get("functions"), dict) and config["functions"]:
         proposal.warn(
-            "vercel.json configures serverless functions (memory, duration); on WASM "
+            "vercel.json configures serverless functions (memory, duration); on Noust "
             "the application runs as one long-lived service, limited with "
-            "'wasm app limits'."
+            "'noust app limits'."
         )
     if config.get("regions"):
-        proposal.warn("vercel.json picks regions; a WASM application runs on this server.")
+        proposal.warn("vercel.json picks regions; a Noust application runs on this server.")

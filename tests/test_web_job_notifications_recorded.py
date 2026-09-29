@@ -5,10 +5,10 @@
 A console job's deployment is announced exactly once, whichever path fails.
 
 The deployment recorder announces every deployment it opens
-(:mod:`wasm.core.deploy_notifications`). Two things went wrong around it:
+(:mod:`noust.core.deploy_notifications`). Two things went wrong around it:
 
 - A rollback queued from the console was a ``restore`` job, the type a
-  backup restore still announces from :mod:`wasm.web.server` - so every
+  backup restore still announces from :mod:`noust.web.server` - so every
   console rollback was announced twice. Rollbacks are ``rollback`` jobs now.
 - A job that fails before the recorder opens (the application is busy, the
   in-place pull fails, the pre-flight check refuses) was announced by nobody.
@@ -25,13 +25,13 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-import wasm.web.server as server_module
+import noust.web.server as server_module
+from noust.core.config import Config
+from noust.core.notifier import NotificationEvent
+from noust.deployers.deploy_events import DeployEvent, DeployEventKind
+from noust.web.jobs import Job, JobStatus, JobType
+from noust.web.server import DeploymentWitness, JobNotificationSubscriber
 from tests.test_notifier import config  # noqa: F401  (pytest resolves fixtures by name)
-from wasm.core.config import Config
-from wasm.core.notifier import NotificationEvent
-from wasm.deployers.deploy_events import DeployEvent, DeployEventKind
-from wasm.web.jobs import Job, JobStatus, JobType
-from wasm.web.server import DeploymentWitness, JobNotificationSubscriber
 
 # The notifier's config fixture is imported rather than replicated, so there
 # stays one definition of "a sandboxed configuration".
@@ -157,7 +157,7 @@ def test_an_unrecorded_failure_is_announced_in_the_configured_language(
     config: Config,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The same wasm.core.messages catalog as a recorded deploy failure."""
+    """The same noust.core.messages catalog as a recorded deploy failure."""
     config.set("notifications.language", "es")
     monkeypatch.setattr(server_module, "fresh_config", lambda: config)
 
@@ -177,7 +177,7 @@ def test_an_unrecorded_failure_with_no_domain_names_the_job_instead(
 ) -> None:
     """
     No domain in metadata: the job's own English name is the fallback, but it
-    still goes through wasm.core.messages rather than a bare f-string, so a
+    still goes through noust.core.messages rather than a bare f-string, so a
     Spanish operator reads a Spanish sentence around it.
     """
     run(subscriber, JobType.DEPLOY, events=[], witness=witness, domain=None)
@@ -275,10 +275,10 @@ def test_both_rollback_endpoints_queue_a_rollback_job(
     sandbox: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Neither the deployments page nor POST /api/jobs/rollback queues a restore."""
-    from wasm.core.store import DeploymentStatus, get_store
-    from wasm.web.api import deployments as deployments_api
-    from wasm.web.auth import CSRF_HEADER_NAME, SecurityConfig
-    from wasm.web.server import create_app, get_token_manager
+    from noust.core.store import DeploymentStatus, get_store
+    from noust.web.api import deployments as deployments_api
+    from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
+    from noust.web.server import create_app, get_token_manager
 
     created: list[JobType] = []
 
@@ -287,7 +287,7 @@ def test_both_rollback_endpoints_queue_a_rollback_job(
             created.append(kwargs["job_type"])
             return make_job(JobStatus.PENDING, kwargs["job_type"], job_id="ab12cd34")
 
-    monkeypatch.setattr("wasm.web.api.jobs.get_job_manager", lambda: Jobs())
+    monkeypatch.setattr("noust.web.api.jobs.get_job_manager", lambda: Jobs())
     monkeypatch.setattr(deployments_api, "get_job_manager", lambda: Jobs())
     monkeypatch.setattr(deployments_api, "rollback_availability", lambda records: {})
 
@@ -298,7 +298,7 @@ def test_both_rollback_endpoints_queue_a_rollback_job(
     client.headers[CSRF_HEADER_NAME] = login.json()["csrf_token"]
     client.post("/api/auth/elevate", json={"token": token})
 
-    from wasm.core.store import App
+    from noust.core.store import App
 
     store = get_store()
     store.create_app(App(domain="example.com", app_type="static"))

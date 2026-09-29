@@ -49,7 +49,7 @@ describe("security facts", () => {
 
   it("writes the backup codes one per line", () => {
     expect(backupCodesFile(["a1b2-c3d4", "e5f6-a7b8"], "web-01")).toBe(
-      "WASM backup codes for web-01\nEach code signs in once in place of an authenticator code.\n\na1b2-c3d4\ne5f6-a7b8\n",
+      "Noust backup codes for web-01\nEach code signs in once in place of an authenticator code.\n\na1b2-c3d4\ne5f6-a7b8\n",
     );
   });
 
@@ -62,7 +62,7 @@ describe("security facts", () => {
     expect(perWindow(3600, "es")).toBe("por hora");
     expect(perWindow(300, "es")).toBe("cada 5 minutos");
     expect(backupCodesFile(["a1b2-c3d4"], "web-01", "es")).toBe(
-      "Códigos de respaldo de WASM para web-01\nCada código inicia sesión una vez en lugar de un código de autenticación.\n\na1b2-c3d4\n",
+      "Códigos de respaldo de Noust para web-01\nCada código inicia sesión una vez en lugar de un código de autenticación.\n\na1b2-c3d4\n",
     );
   });
 });

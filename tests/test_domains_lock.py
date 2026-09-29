@@ -9,7 +9,7 @@ blue/green switch that ran at the same time (turning the mode off, say)
 renders it too: interleaved, one could write a site that still includes an
 upstream the other just removed. Every change here takes the lock the
 switch, an update and a deletion take; the lock is reentrant, so the switch
-rendering the site through :func:`~wasm.deployers.domains.refresh_site`
+rendering the site through :func:`~noust.deployers.domains.refresh_site`
 still works.
 """
 
@@ -17,10 +17,10 @@ from __future__ import annotations
 
 import pytest
 
+from noust.core.applock import AppBusyError, app_lock, is_held_here
+from noust.deployers import domains
 from tests.test_applock import Holder
 from tests.test_domains import Machine, certs, machine, store, web
-from wasm.core.applock import AppBusyError, app_lock, is_held_here
-from wasm.deployers import domains
 
 __all__ = ["certs", "machine", "store", "web"]  # fixtures, imported for pytest
 

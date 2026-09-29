@@ -28,7 +28,7 @@ import asyncio
 
 import pytest
 
-from wasm.web.websockets.router import TERMINATE_GRACE_SECONDS, _terminate
+from noust.web.websockets.router import TERMINATE_GRACE_SECONDS, _terminate
 
 
 class FakeProcess:
@@ -176,7 +176,7 @@ def test_every_journal_stream_cleans_up_in_a_finally(handler: str) -> None:
 
     # The package exports the APIRouter object under the name "router", so the
     # module has to be imported by path.
-    module = importlib.import_module("wasm.web.websockets.router")
+    module = importlib.import_module("noust.web.websockets.router")
 
     source = textwrap.dedent(inspect.getsource(getattr(module, handler)))
     tree = ast.parse(source)

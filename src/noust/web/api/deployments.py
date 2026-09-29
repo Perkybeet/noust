@@ -4,25 +4,25 @@
 """
 Deployment history API endpoints.
 
-A thin client of :class:`~wasm.core.store.WASMStore`, which owns the
-``deployments`` table, and of :mod:`wasm.deployers.logs`, which owns reading a
+A thin client of :class:`~noust.core.store.NoustStore`, which owns the
+``deployments`` table, and of :mod:`noust.deployers.logs`, which owns reading a
 captured build log back off disk. Nothing here writes a deployment row: that
-happens inside :class:`~wasm.deployers.recorder.DeploymentRecorder`, driven by
+happens inside :class:`~noust.deployers.recorder.DeploymentRecorder`, driven by
 the CLI, the panel's job manager and the webhook, so the history the console
 reads is exactly what those three produced.
 
-The store's own :meth:`~wasm.core.store.WASMStore.list_deployments` only
+The store's own :meth:`~noust.core.store.NoustStore.list_deployments` only
 filters by domain and takes a flat ``limit``: it has no SQL-level filter for
 status or trigger, and no keyset cursor. Extending it is out of this module's
 reach (``core/store.py`` is owned elsewhere in this task's file split), and the
-table is small on any real machine - :func:`~wasm.core.store.WASMStore.prune_deployments`
+table is small on any real machine - :func:`~noust.core.store.NoustStore.prune_deployments`
 keeps at most twenty rows per domain - so :func:`_filtered_page` fetches a
 generous batch and does the filtering, ordering and pagination here instead.
 
 Two actions on one deployment live here too, mounted under ``/api/apps`` by
 :data:`app_router`: rebuilding its exact commit (the update job, with the
 commit) and going back to what it produced
-(:func:`~wasm.deployers.lifecycle.rollback_to_deployment`). Both need the
+(:func:`~noust.deployers.lifecycle.rollback_to_deployment`). Both need the
 ``deploy`` scope, like an update.
 """
 
@@ -33,26 +33,26 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from wasm.core.store import (
+from noust.core.store import (
     DeploymentRecord,
     DeploymentStatus,
     DeploymentTrigger,
     StoreError,
     get_store,
 )
-from wasm.deployers.lifecycle import rollback_availability
-from wasm.deployers.logs import read_deployment_log
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import JobAcceptedResponse, WASMErrorRoute, strict_domain
-from wasm.web.auth import actor_label
-from wasm.web.jobs import JobType, get_job_manager, rollback_deployment_job, update_app_job
-from wasm.web.pydantic_compat import iso_offset_validator
+from noust.deployers.lifecycle import rollback_availability
+from noust.deployers.logs import read_deployment_log
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, strict_domain
+from noust.web.auth import actor_label
+from noust.web.jobs import JobType, get_job_manager, rollback_deployment_job, update_app_job
+from noust.web.pydantic_compat import iso_offset_validator
 
-router = APIRouter(route_class=WASMErrorRoute)
+router = APIRouter(route_class=NoustErrorRoute)
 
 #: Actions on one deployment, mounted at ``/api/apps`` beside the apps
 #: router: ``/{domain}/deployments/{id}/...`` is a path apps.py never defines.
-app_router = APIRouter(route_class=WASMErrorRoute)
+app_router = APIRouter(route_class=NoustErrorRoute)
 
 #: Rows fetched from the store before this layer's own filtering and keyset
 #: pagination are applied. Generous on purpose: a page short of matches because
@@ -135,7 +135,7 @@ def _to_out(record: DeploymentRecord, availability: dict[int, str | None]) -> De
     """
     Args:
         record: A row read from the store.
-        availability: :func:`~wasm.deployers.lifecycle.rollback_availability`
+        availability: :func:`~noust.deployers.lifecycle.rollback_availability`
             of the rows being answered.
 
     Returns:
@@ -292,7 +292,7 @@ def get_deployment_log(
         deployment_id: The row's id.
         session: The authenticated session.
         tail: Bytes to return, counted from the end of the file. Defaults to
-            :data:`wasm.deployers.logs.DEFAULT_TAIL_BYTES`.
+            :data:`noust.deployers.logs.DEFAULT_TAIL_BYTES`.
 
     Returns:
         The log, or the reason there is nothing to show.
@@ -408,7 +408,7 @@ def rollback_deployment(
     the same gate; in place without history its snapshot backup (taken by
     the update that followed it) is restored after a safety backup, rebuilt
     and gated, keeping the deployed ``.env``. See
-    :func:`~wasm.deployers.lifecycle.rollback_to_deployment`.
+    :func:`~noust.deployers.lifecycle.rollback_to_deployment`.
 
     Args:
         domain: Domain of the application.

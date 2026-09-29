@@ -9,7 +9,7 @@ record pointed at another host printed only certbot's own, indirect words
 ("Fetching ...: Connection refused"). An operator without a matching mental
 model of "Let's Encrypt tries IPv6 first" has no way to connect that to their
 DNS. This turns it into the actual, actionable cause - reusing
-:func:`wasm.deployers.domains.check_dns`, the one implementation of "does this
+:func:`noust.deployers.domains.check_dns`, the one implementation of "does this
 name resolve to this machine", rather than a second resolver - while keeping
 certbot's own output verbatim in ``output``.
 
@@ -27,12 +27,12 @@ from typing import Any
 
 import pytest
 
-import wasm.deployers.domains as domains_module
-from wasm.core.exceptions import CertificateError
-from wasm.core.runner import FakeRunner
-from wasm.deployers.domains import DnsCheck
-from wasm.managers import cert_manager as cert_manager_module
-from wasm.managers.cert_manager import CertManager
+import noust.deployers.domains as domains_module
+from noust.core.exceptions import CertificateError
+from noust.core.runner import FakeRunner
+from noust.deployers.domains import DnsCheck
+from noust.managers import cert_manager as cert_manager_module
+from noust.managers.cert_manager import CertManager
 
 #: A realistic certbot authorization failure, HTTP-01 over the wrong address.
 _CHALLENGE_FAILURE = (
@@ -63,7 +63,7 @@ class _Store:
 @pytest.fixture
 def certs(runner: FakeRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> CertManager:
     """A certificate manager whose letsencrypt tree and store are disposable."""
-    monkeypatch.setattr("wasm.managers.cert_manager.get_store", lambda: _Store())
+    monkeypatch.setattr("noust.managers.cert_manager.get_store", lambda: _Store())
     manager = CertManager()
     manager.LETSENCRYPT_DIR = tmp_path / "letsencrypt"
     manager.LIVE_DIR = manager.LETSENCRYPT_DIR / "live"

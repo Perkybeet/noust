@@ -18,6 +18,12 @@ from typing import Any
 
 import pytest
 
+from noust.core.runner import FakeRunner
+from noust.core.store import NoustStore
+from noust.managers.nginx_manager import NginxManager
+from noust.monitor.timeseries import MetricsStore
+from noust.web.machine import AppTally, read_machine
+from noust.web.metrics_collector import MetricsCollector, unit_cgroup_path
 from tests.test_bluegreen_units import (
     BASE,
     DOMAIN,
@@ -29,12 +35,6 @@ from tests.test_bluegreen_units import (
     store,
     unit_dir,
 )
-from wasm.core.runner import FakeRunner
-from wasm.core.store import WASMStore
-from wasm.managers.nginx_manager import NginxManager
-from wasm.monitor.timeseries import MetricsStore
-from wasm.web.machine import AppTally, read_machine
-from wasm.web.metrics_collector import MetricsCollector, unit_cgroup_path
 
 __all__ = ["nginx", "store", "unit_dir"]  # fixtures, imported for pytest
 
@@ -50,7 +50,7 @@ def listed(runner: FakeRunner, green: str, blue: str) -> None:
 
 
 def test_an_app_whose_idle_instance_is_stopped_counts_as_running(
-    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: WASMStore
+    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: NoustStore
 ) -> None:
     root = tmp_path / "apps" / BASE
     bg_app(store, root, color="green")
@@ -61,7 +61,7 @@ def test_an_app_whose_idle_instance_is_stopped_counts_as_running(
 
 
 def test_an_app_whose_idle_instance_failed_its_gate_counts_as_running(
-    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: WASMStore
+    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: NoustStore
 ) -> None:
     """The failed instance never took traffic; the one that serves is fine."""
     root = tmp_path / "apps" / BASE
@@ -73,7 +73,7 @@ def test_an_app_whose_idle_instance_failed_its_gate_counts_as_running(
 
 
 def test_an_app_whose_serving_instance_failed_counts_as_failed(
-    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: WASMStore
+    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: NoustStore
 ) -> None:
     root = tmp_path / "apps" / BASE
     bg_app(store, root, color="blue")
@@ -103,11 +103,11 @@ def test_both_instances_of_a_blue_green_app_are_sampled(
     tmp_path: Path,
     runner: FakeRunner,
     unit_dir: Path,
-    store: WASMStore,
+    store: NoustStore,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The serving one, and the old one while it drains: the application is their sum."""
-    monkeypatch.setattr("wasm.web.metrics_collector.psutil", None)
+    monkeypatch.setattr("noust.web.metrics_collector.psutil", None)
     cgroups = tmp_path / "cgroup"
     slice_dir = cgroups / "system-bg\\x2dexample\\x2dcom.slice"
     for color, memory in (("green", 3000), ("blue", 1000)):
@@ -142,11 +142,11 @@ def test_the_diagnosis_names_the_unit_an_interrupted_switch_left_running(
     runner: FakeRunner,
     unit_dir: Path,
     nginx: NginxManager,
-    store: WASMStore,
+    store: NoustStore,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Turning the mode on was cut short: the app's own unit still runs on blue's port."""
-    from wasm.managers import diagnose as diagnose_module
+    from noust.managers import diagnose as diagnose_module
 
     root = tmp_path / "apps" / BASE
     bg_app(store, root, color="green")

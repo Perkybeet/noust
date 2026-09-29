@@ -6,7 +6,7 @@ Other platforms' files that are odd, hostile or merely unusual.
 
 The inspection reads a repository somebody else wrote, so a file nested
 past the parser's recursion limit is an unreadable file, not a 500. On
-Python 3.10 ``railway.toml`` is read by WASM's own TOML reader, pinned here
+Python 3.10 ``railway.toml`` is read by Noust's own TOML reader, pinned here
 against ``tomllib`` on a table of inputs (the comparison runs where
 ``tomllib`` exists; the expected values are written out for 3.10). Render
 and Heroku are pinned on the shapes their own importers used to trip on.
@@ -21,10 +21,10 @@ from typing import Any
 
 import pytest
 
+from noust.core.exceptions import ValidationError
+from noust.deployers.importers import propose, read_platform
+from noust.deployers.importers.toml_fallback import load_toml_fallback
 from tests.test_importers import joined, tree
-from wasm.core.exceptions import ValidationError
-from wasm.deployers.importers import propose, read_platform
-from wasm.deployers.importers.toml_fallback import load_toml_fallback
 
 # Nesting --------------------------------------------------------------------------
 
@@ -215,7 +215,7 @@ def test_heroku_reads_addons_written_as_a_mapping(tmp_path: Path) -> None:
     proposal = read_platform("heroku", tmp_path)
 
     assert proposal.databases == ["postgresql"]
-    assert "papertrail add-on has no WASM equivalent" in joined(proposal)
+    assert "papertrail add-on has no Noust equivalent" in joined(proposal)
 
 
 @pytest.mark.parametrize("addons", ["heroku-postgresql", 7])

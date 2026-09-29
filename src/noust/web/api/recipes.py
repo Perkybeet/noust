@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Recipes: the applications WASM deploys from a declarative file (2.3).
+Recipes: the applications Noust deploys from a declarative file (2.3).
 
-A client of :mod:`wasm.recipes`, like ``wasm recipe``: this only lists and
+A client of :mod:`noust.recipes`, like ``noust recipe``: this only lists and
 describes them. Deploying one is ``POST /api/apps`` with ``recipe``.
 """
 
@@ -15,11 +15,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from wasm.recipes import RecipeNotFoundError, get_recipe, list_recipes
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import WASMErrorRoute
+from noust.recipes import RecipeNotFoundError, get_recipe, list_recipes
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import NoustErrorRoute
 
-router = APIRouter(route_class=WASMErrorRoute)
+router = APIRouter(route_class=NoustErrorRoute)
 
 
 class RecipeSummaryOut(BaseModel):
@@ -82,7 +82,7 @@ class RecipeEnvOut(BaseModel):
 
     Attributes:
         name: The variable.
-        generated: Whether WASM generates its value (a secret, a database
+        generated: Whether Noust generates its value (a secret, a database
             credential, the domain); either way ``env_vars`` overrides it.
     """
 

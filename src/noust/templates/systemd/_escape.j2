@@ -1,7 +1,7 @@
 {#
   Escaping macros for systemd unit files.
 
-  Rendering is the last line of defence: wasm.validators.environment rejects
+  Rendering is the last line of defence: noust.validators.environment rejects
   control characters at the boundary, but any caller reaching a template
   directly must still be unable to append directives to a unit. See that
   module's docstring for the rules these macros implement.

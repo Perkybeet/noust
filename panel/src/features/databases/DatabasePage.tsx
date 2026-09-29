@@ -84,7 +84,7 @@ export function DatabasePage({ engine, name }: { engine: string; name: string })
       <div className="flex flex-col gap-8">
         <Section title={t("nav.appTabs.overview.label")}>
           <Overview engine={engine} name={name} />
-          <CommandHint command={`wasm db info ${name} --engine ${engine}`} label={t("databases.fromTerminal")} />
+          <CommandHint command={`noust db info ${name} --engine ${engine}`} label={t("databases.fromTerminal")} />
         </Section>
 
         {/* The console is what this page is opened for most: right under what the database is. */}

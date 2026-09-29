@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Tests for :mod:`wasm.deployers.domains`: aliases and redirects per application.
+Tests for :mod:`noust.deployers.domains`: aliases and redirects per application.
 
 Every test here runs the real store, the real nginx manager writing into a
 temporary tree, the real certificate manager and the real deployers; only the
@@ -30,23 +30,23 @@ from typing import Any
 
 import pytest
 
-from wasm.core.exceptions import (
+from noust.core.exceptions import (
     DependencyError,
     DeploymentError,
     DomainConflictError,
     DomainError,
+    NoustError,
     ValidationError,
-    WASMError,
 )
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, WASMStore
-from wasm.deployers import domains
-from wasm.deployers.base import BaseDeployer
-from wasm.deployers.registry import get_deployer
-from wasm.deployers.static import StaticDeployer
-from wasm.managers.cert_manager import CertManager
-from wasm.managers.nginx_manager import NginxManager
-from wasm.managers.webserver import NGINX_BACKEND
+from noust.core.runner import FakeRunner
+from noust.core.store import App, NoustStore
+from noust.deployers import domains
+from noust.deployers.base import BaseDeployer
+from noust.deployers.registry import get_deployer
+from noust.deployers.static import StaticDeployer
+from noust.managers.cert_manager import CertManager
+from noust.managers.nginx_manager import NginxManager
+from noust.managers.webserver import NGINX_BACKEND
 
 RELEASE_ID = "20260925-120000-abcdef0"
 
@@ -56,14 +56,14 @@ NGINX_REJECTS = "nginx: [emerg] duplicate listen options for 0.0.0.0:443 in /etc
 @pytest.fixture
 def store(tmp_path: Path) -> Any:
     """A store in the test's directory, installed as the process-wide singleton."""
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture
-def web(tmp_path: Path, runner: FakeRunner, store: WASMStore) -> NginxManager:
+def web(tmp_path: Path, runner: FakeRunner, store: NoustStore) -> NginxManager:
     """An nginx manager writing into a temporary configuration tree."""
     return NginxManager(
         backend=replace(
@@ -75,7 +75,7 @@ def web(tmp_path: Path, runner: FakeRunner, store: WASMStore) -> NginxManager:
 
 
 @pytest.fixture
-def certs(tmp_path: Path, runner: FakeRunner, store: WASMStore) -> CertManager:
+def certs(tmp_path: Path, runner: FakeRunner, store: NoustStore) -> CertManager:
     """A certificate manager whose letsencrypt tree is temporary."""
     manager = CertManager()
     manager.LETSENCRYPT_DIR = tmp_path / "letsencrypt"
@@ -98,7 +98,7 @@ class Machine:
     def __init__(
         self,
         tmp_path: Path,
-        store: WASMStore,
+        store: NoustStore,
         web: NginxManager,
         certs: CertManager,
         runner: FakeRunner,
@@ -185,7 +185,7 @@ class Machine:
 @pytest.fixture
 def machine(
     tmp_path: Path,
-    store: WASMStore,
+    store: NoustStore,
     web: NginxManager,
     certs: CertManager,
     runner: FakeRunner,
@@ -388,13 +388,13 @@ def test_another_applications_name_is_refused(machine: Machine) -> None:
 
 
 def test_an_unknown_application_is_refused(machine: Machine) -> None:
-    with pytest.raises(WASMError, match="Application not found"):
+    with pytest.raises(NoustError, match="Application not found"):
         domains.add_domain("ghost.example.com", "shop.example.com")
 
 
 @pytest.mark.parametrize("app_type", ["monorepo", "docker-compose"])
 def test_types_that_write_their_own_configuration_are_refused(
-    machine: Machine, store: WASMStore, app_type: str
+    machine: Machine, store: NoustStore, app_type: str
 ) -> None:
     store.create_app(App(domain="example.com", app_type=app_type, app_path="/srv/x"))
 
@@ -515,7 +515,7 @@ def test_listing_reads_the_store(machine: Machine) -> None:
         "example.com",
         "shop.example.com",
     ]
-    with pytest.raises(WASMError, match="Application not found"):
+    with pytest.raises(NoustError, match="Application not found"):
         domains.list_domains("ghost.example.com")
 
 

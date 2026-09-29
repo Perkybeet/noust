@@ -4,7 +4,7 @@
 """
 Read side of the append-only audit log.
 
-:class:`wasm.web.auth.AuditLogger` is where every privileged action already
+:class:`noust.web.auth.AuditLogger` is where every privileged action already
 writes; this module only exposes it. Audit is sensitive - it names sessions,
 IPs and what they did - so it is gated behind ``admin``, not the ``read``
 scope a GET would otherwise imply.
@@ -17,11 +17,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
-from wasm.web.api.deps import WASMErrorRoute, require_scope
-from wasm.web.auth import get_audit_logger
-from wasm.web.pydantic_compat import iso_offset_validator
+from noust.web.api.deps import NoustErrorRoute, require_scope
+from noust.web.auth import get_audit_logger
+from noust.web.pydantic_compat import iso_offset_validator
 
-router = APIRouter(route_class=WASMErrorRoute)
+router = APIRouter(route_class=NoustErrorRoute)
 
 #: Most entries a single page may carry.
 MAX_LIMIT = 200
@@ -71,7 +71,7 @@ def _to_entry(raw: dict) -> AuditEntry:
     Convert one of the logger's dicts into the API model.
 
     Args:
-        raw: An entry as :meth:`~wasm.web.auth.AuditLogger.record` wrote it.
+        raw: An entry as :meth:`~noust.web.auth.AuditLogger.record` wrote it.
 
     Returns:
         The API representation.

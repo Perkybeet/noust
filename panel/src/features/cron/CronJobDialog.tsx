@@ -91,7 +91,7 @@ function SchedulePreview({ schedule }: { schedule: string }) {
 }
 
 /**
- * Creates a cron job, or rewrites one WASM already owns - `POST /api/cron` does both. The
+ * Creates a cron job, or rewrites one Noust already owns - `POST /api/cron` does both. The
  * schedule previews live through `POST /api/cron/preview` as it is typed or a preset is
  * chosen (`SchedulePreview`, debounced by `useCronPreview`): the normalised calendar and next
  * runs when it validates, systemd's own refusal when it does not.
@@ -168,7 +168,7 @@ export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
             value={command}
             onValueChange={setCommand}
             mono
-            placeholder="/usr/bin/wasm backup create example.com"
+            placeholder="/usr/bin/noust backup create example.com"
             autoComplete="off"
             spellCheck={false}
           />

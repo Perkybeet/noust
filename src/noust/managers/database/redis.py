@@ -22,15 +22,15 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from wasm.core.exceptions import (
+from noust.core.exceptions import (
     DatabaseBackupError,
     DatabaseError,
     DatabaseNotFoundError,
     DatabaseQueryError,
     DatabaseUserError,
 )
-from wasm.deployers.helpers.permissions import hand_over_file
-from wasm.managers.database.base import (
+from noust.deployers.helpers.permissions import hand_over_file
+from noust.managers.database.base import (
     QUERY_TIMEOUT,
     TRANSFER_TIMEOUT,
     BackupInfo,
@@ -38,7 +38,7 @@ from wasm.managers.database.base import (
     DatabaseInfo,
     UserInfo,
 )
-from wasm.managers.database.registry import DatabaseRegistry
+from noust.managers.database.registry import DatabaseRegistry
 
 #: ACL rules that are bare keywords.
 ACL_KEYWORDS = frozenset(
@@ -492,7 +492,7 @@ class RedisManager(BaseDatabaseManager):
         if not self.user_exists(username):
             raise DatabaseUserError(
                 f"User '{username}' does not exist",
-                details="Run 'wasm db users --engine redis' to see the ACL users.",
+                details="Run 'noust db users --engine redis' to see the ACL users.",
             )
 
         success, output = self._execute_redis("ACL", "DELUSER", username)
@@ -607,7 +607,7 @@ class RedisManager(BaseDatabaseManager):
         if not self.user_exists(username):
             raise DatabaseUserError(
                 f"User '{username}' does not exist",
-                details="Run 'wasm db users --engine redis' to see the ACL users.",
+                details="Run 'noust db users --engine redis' to see the ACL users.",
             )
 
         success, output = self._execute_redis("ACL", "SETUSER", username, "nocommands", "resetkeys")
@@ -756,7 +756,7 @@ class RedisManager(BaseDatabaseManager):
         if not backup_path.exists():
             raise DatabaseBackupError(
                 f"Backup file not found: {backup_path}",
-                details="Run 'wasm db backups' to list the backups WASM knows about.",
+                details="Run 'noust db backups' to list the backups Noust knows about.",
             )
 
         rdb_file = self.DATA_DIR / "dump.rdb"

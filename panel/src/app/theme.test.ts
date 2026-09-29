@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { THEME_STORAGE_KEY, initTheme, readTheme, setTheme, useTheme } from "./theme";
+import { LEGACY_THEME_STORAGE_KEY, THEME_STORAGE_KEY, initTheme, readTheme, setTheme, useTheme } from "./theme";
 
 describe("theme", () => {
   beforeEach(() => {
@@ -40,5 +40,26 @@ describe("theme", () => {
       result.current[1]("light");
     });
     expect(result.current[0]).toBe("light");
+  });
+
+  describe("the WASM to Noust key migration", () => {
+    it("reads the new key when only it is set", () => {
+      window.localStorage.setItem(THEME_STORAGE_KEY, "dark");
+      expect(readTheme()).toBe("dark");
+      expect(window.localStorage.getItem(LEGACY_THEME_STORAGE_KEY)).toBeNull();
+    });
+
+    it("reads, migrates and removes the legacy key when only it is set", () => {
+      window.localStorage.setItem(LEGACY_THEME_STORAGE_KEY, "dark");
+      expect(readTheme()).toBe("dark");
+      expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe("dark");
+      expect(window.localStorage.getItem(LEGACY_THEME_STORAGE_KEY)).toBeNull();
+    });
+
+    it("prefers the new key when both are set", () => {
+      window.localStorage.setItem(LEGACY_THEME_STORAGE_KEY, "light");
+      window.localStorage.setItem(THEME_STORAGE_KEY, "dark");
+      expect(readTheme()).toBe("dark");
+    });
   });
 });

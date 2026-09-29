@@ -18,7 +18,7 @@ function backendNeedingElevation(session: SessionInfo = SESSION) {
     ...signedInRoutes(session),
     "POST /api/auth/elevate": (call: RecordedCall) => {
       const body = call.body as { code?: string; token?: string };
-      const ok = session.totp_enabled ? body.code === "123456" : body.token === "wasm_token";
+      const ok = session.totp_enabled ? body.code === "123456" : body.token === "noust_token";
       if (!ok) {
         return session.totp_enabled
           ? problem(401, "invalid_totp", "Invalid two-factor code. 4 attempts remaining.")
@@ -95,9 +95,9 @@ describe("Confirm it's you", () => {
     const dialog = await screen.findByRole("dialog", { name: "Confirm it's you" });
     const token = within(dialog).getByLabelText("Access token");
     expect(token).toHaveAttribute("type", "password");
-    await user.type(token, "wasm_token{Enter}");
+    await user.type(token, "noust_token{Enter}");
     await expect(deletion).resolves.toMatchObject({ job_id: "j1" });
-    expect(backend.callsTo("POST /api/auth/elevate").map((call) => call.body)).toEqual([{ token: "wasm_token" }]);
+    expect(backend.callsTo("POST /api/auth/elevate").map((call) => call.body)).toEqual([{ token: "noust_token" }]);
   });
 
   it("has no accessibility violations", async () => {

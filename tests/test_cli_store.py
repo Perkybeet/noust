@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Tests for ``wasm store``.
+Tests for ``noust store``.
 
-The store is the inventory WASM answers every other question from, so what is
+The store is the inventory Noust answers every other question from, so what is
 pinned here is that each subcommand still resolves, that a failure to open the
 database is an actionable error rather than a traceback, and that a dump which
 can contain service credentials is never written world readable.
@@ -25,11 +25,11 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from wasm.cli import app as app_module
-from wasm.cli.commands import store as store_module
-from wasm.core.exceptions import ConfigError
-from wasm.core.logger import Logger
-from wasm.core.utils import domain_to_app_name
+from noust.cli import app as app_module
+from noust.cli.commands import store as store_module
+from noust.core.exceptions import ConfigError
+from noust.core.logger import Logger
+from noust.core.utils import domain_to_app_name
 
 #: Flags the root group owns. A subcommand that declares one of them again is
 #: the shadowing defect the Click migration exists to remove.
@@ -164,7 +164,7 @@ def logged(monkeypatch: pytest.MonkeyPatch) -> io.StringIO:
     """
     Capture what the commands print.
 
-    :class:`~wasm.core.logger.Logger` binds ``sys.stdout`` as a default argument
+    :class:`~noust.core.logger.Logger` binds ``sys.stdout`` as a default argument
     at import time, so pytest's own capture never sees it. Handing the module a
     logger bound to a buffer is what makes the output assertable.
 
@@ -191,7 +191,7 @@ def fake_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _FakeStore:
     Returns:
         The store every command in the test will see.
     """
-    import wasm.core.store as real_store
+    import noust.core.store as real_store
 
     store = _FakeStore(tmp_path / "wasm.db")
     monkeypatch.setattr(real_store, "get_store", lambda *args, **kwargs: store)
@@ -204,7 +204,7 @@ def fake_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _FakeStore:
 
 
 def test_the_group_answers_help(cli_runner: CliRunner) -> None:
-    """``wasm store --help`` lists every action."""
+    """``noust store --help`` lists every action."""
     result = cli_runner.invoke(app_module.cli, ["store", "--help"])
 
     assert result.exit_code == 0, result.output
@@ -303,7 +303,7 @@ def test_stats_turns_an_unreadable_database_into_advice(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A missing database says how to create one instead of raising sqlite3."""
-    import wasm.core.store as real_store
+    import noust.core.store as real_store
 
     def _broken(*args: Any, **kwargs: Any) -> Any:
         raise sqlite3.OperationalError("unable to open database file")
@@ -313,16 +313,16 @@ def test_stats_turns_an_unreadable_database_into_advice(
     with pytest.raises(ConfigError) as excinfo:
         store_module._store_stats(json_output=False, verbose=False)
 
-    assert "wasm store init" in excinfo.value.details
+    assert "noust store init" in excinfo.value.details
 
 
 def test_init_turns_a_broken_database_into_an_exit_code(
     cli_runner: CliRunner, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The operator gets an actionable message, not a stack trace."""
-    import wasm.core.store as real_store
+    import noust.core.store as real_store
 
-    monkeypatch.setattr(real_store.WASMStore, "reset_instance", classmethod(lambda cls: None))
+    monkeypatch.setattr(real_store.NoustStore, "reset_instance", classmethod(lambda cls: None))
 
     def _broken(*args: Any, **kwargs: Any) -> Any:
         raise sqlite3.OperationalError("unable to open database file")
@@ -413,7 +413,7 @@ def test_sync_writes_back_only_what_changed(
             """
             return states[name]
 
-    import wasm.managers.service_manager as service_module
+    import noust.managers.service_manager as service_module
 
     monkeypatch.setattr(service_module, "ServiceManager", _FakeServiceManager)
 
@@ -427,7 +427,7 @@ def test_import_reports_nothing_to_do_on_a_clean_server(
     fake_store: _FakeStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, logged: io.StringIO
 ) -> None:
     """With no vhosts and no units, the import is a no-op that says so."""
-    import wasm.core.config as config_module
+    import noust.core.config as config_module
 
     absent = tmp_path / "absent"
     monkeypatch.setattr(config_module, "NGINX_SITES_AVAILABLE", absent)
@@ -494,7 +494,7 @@ def test_handle_store_still_routes_path(
 def test_handle_store_still_honours_its_own_json_flag(
     fake_store: _FakeStore, capfd: pytest.CaptureFixture[str]
 ) -> None:
-    """``wasm store stats --json`` keeps working from the legacy parser."""
+    """``noust store stats --json`` keeps working from the legacy parser."""
     assert store_module.handle_store(Namespace(action="stats", json=True, verbose=False)) == 0
     assert json.loads(capfd.readouterr().out) == STATISTICS
 
@@ -503,7 +503,7 @@ def test_handle_store_turns_a_broken_database_into_an_exit_code(
     monkeypatch: pytest.MonkeyPatch, logged: io.StringIO
 ) -> None:
     """The legacy path reports the error rather than raising through argparse."""
-    import wasm.core.store as real_store
+    import noust.core.store as real_store
 
     def _broken(*args: Any, **kwargs: Any) -> Any:
         raise sqlite3.OperationalError("unable to open database file")
@@ -511,13 +511,13 @@ def test_handle_store_turns_a_broken_database_into_an_exit_code(
     monkeypatch.setattr(real_store, "get_store", _broken)
 
     assert store_module.handle_store(Namespace(action="stats", json=False, verbose=False)) == 1
-    assert "wasm store init" in logged.getvalue()
+    assert "noust store init" in logged.getvalue()
 
 
 def test_handle_store_without_an_action_explains_itself(logged: io.StringIO) -> None:
     """An action is required, and the message says where to look."""
     assert store_module.handle_store(Namespace(verbose=False)) == 1
-    assert "wasm store --help" in logged.getvalue()
+    assert "noust store --help" in logged.getvalue()
 
 
 def test_handle_store_rejects_an_unknown_action(logged: io.StringIO) -> None:

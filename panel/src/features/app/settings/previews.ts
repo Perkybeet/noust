@@ -5,7 +5,7 @@ import type { StatusView } from "../../../components/page/status";
 import { translate } from "../../../i18n/translate";
 import type { MessageKey } from "../../../i18n/types";
 
-/** The bounds the backend holds previews to (`wasm.managers.previews`). */
+/** The bounds the backend holds previews to (`noust.managers.previews`). */
 export const MAX_PREVIEWS_MIN = 1;
 export const MAX_PREVIEWS_MAX = 20;
 export const TTL_HOURS_MIN = 1;

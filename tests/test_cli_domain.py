@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Tests for ``wasm domain``.
+Tests for ``noust domain``.
 
-The command decides nothing: :mod:`wasm.deployers.domains` does, and is
+The command decides nothing: :mod:`noust.deployers.domains` does, and is
 covered in ``tests/test_domains.py``. Pinned here is the translation: the
 arguments that reach it, ``--json`` on either side of ``list``, the DNS
 warning before a name is added, certbot's words when an order fails, and a
@@ -19,13 +19,13 @@ from typing import Any
 import pytest
 from click.testing import CliRunner, Result
 
-from wasm.cli.app import cli as root_cli
-from wasm.cli.app import main
-from wasm.cli.commands import domain as domain_module
-from wasm.core.exceptions import DependencyError, DomainError
-from wasm.core.logger import Logger
-from wasm.core.store import DomainRecord
-from wasm.deployers.domains import DnsCheck, DomainChange
+from noust.cli.app import cli as root_cli
+from noust.cli.app import main
+from noust.cli.commands import domain as domain_module
+from noust.core.exceptions import DependencyError, DomainError
+from noust.core.logger import Logger
+from noust.core.store import DomainRecord
+from noust.deployers.domains import DnsCheck, DomainChange
 
 APP = "example.com"
 PRIMARY = DomainRecord(id=1, app_id=1, domain=APP, kind="primary", created_at="2026-09-25")
@@ -161,7 +161,7 @@ def test_a_failed_order_shows_certbot_verbatim_and_how_to_retry(
     assert result.exit_code == 0, result.output
     text = "\n".join(log)
     assert "Challenge failed for domain shop.example.com" in text
-    assert f"wasm domain add {APP} shop.example.com" in text
+    assert f"noust domain add {APP} shop.example.com" in text
 
 
 def test_remove_reaches_the_operation(calls: list[Any], log: list[str]) -> None:

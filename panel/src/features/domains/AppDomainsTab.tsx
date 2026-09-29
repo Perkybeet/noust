@@ -316,7 +316,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
         )}
       </Section>
 
-      <CommandHint command={`wasm domain list ${domain}`} label={t("domains.fromTerminal")} />
+      <CommandHint command={`noust domain list ${domain}`} label={t("domains.fromTerminal")} />
 
       <AddDomainDialog app={domain} open={adding} onOpenChange={setAdding} onAdded={onAdded} />
       <DnsDialog app={domain} name={dnsFor} onClose={() => setDnsFor(null)} />

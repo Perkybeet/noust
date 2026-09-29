@@ -4,7 +4,7 @@
 """
 Tests for the previews API and for the event dispatch of per-application webhooks.
 
-The API is a client of :mod:`wasm.managers.previews` (covered in
+The API is a client of :mod:`noust.managers.previews` (covered in
 ``tests/test_previews.py``): pinned here are the shapes, sudo mode on every
 mutation, and that a removal is a job. The webhook half pins the 2.2 fix:
 ``POST /hooks/deploy/{domain}`` reads the event, so a pull request or ping
@@ -26,15 +26,15 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.core.forge_events import Forge, PullRequestAction, PullRequestEvent
-from wasm.core.forge_events import parse_pull_request as pull_request_event
-from wasm.core.store import App, PreviewRecord, PreviewSettings, WASMStore
-from wasm.managers import previews
-from wasm.web.api import hooks as hooks_module
-from wasm.web.api.hooks import mint_webhook_secret
-from wasm.web.auth import CSRF_HEADER_NAME, SecurityConfig
-from wasm.web.jobs import JobType
-from wasm.web.server import create_app, get_token_manager
+from noust.core.forge_events import Forge, PullRequestAction, PullRequestEvent
+from noust.core.forge_events import parse_pull_request as pull_request_event
+from noust.core.store import App, NoustStore, PreviewRecord, PreviewSettings
+from noust.managers import previews
+from noust.web.api import hooks as hooks_module
+from noust.web.api.hooks import mint_webhook_secret
+from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
+from noust.web.jobs import JobType
+from noust.web.server import create_app, get_token_manager
 
 PARENT = "shop.example.com"
 BASE = "previews.example.com"
@@ -42,10 +42,10 @@ CHILD = f"pr-7-shop-example-com.{BASE}"
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> Iterator[WASMStore]:
+def store(tmp_path: Path) -> Iterator[NoustStore]:
     """A store of the test's own with the application previewed, tracking no branch."""
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     instance.create_app(
         App(
             domain=PARENT,
@@ -58,7 +58,7 @@ def store(tmp_path: Path) -> Iterator[WASMStore]:
     )
     yield instance
     instance.close()
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture(autouse=True)
@@ -74,7 +74,7 @@ def fresh_delivery_cache() -> None:
 
 
 @pytest.fixture
-def app(tmp_path: Path, store: WASMStore) -> FastAPI:
+def app(tmp_path: Path, store: NoustStore) -> FastAPI:
     return create_app(SecurityConfig(state_dir=tmp_path / "state", rate_limit_requests=5000))
 
 
@@ -121,12 +121,12 @@ def queued(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
             return FakeJob(f"job-{len(captured)}")
 
     monkeypatch.setattr(previews, "_jobs", Manager)
-    monkeypatch.setattr("wasm.web.api.previews.get_job_manager", Manager)
-    monkeypatch.setattr("wasm.web.api.hooks.get_job_manager", Manager)
+    monkeypatch.setattr("noust.web.api.previews.get_job_manager", Manager)
+    monkeypatch.setattr("noust.web.api.hooks.get_job_manager", Manager)
     return captured
 
 
-def preview(store: WASMStore, number: int = 7) -> PreviewRecord:
+def preview(store: NoustStore, number: int = 7) -> PreviewRecord:
     return store.save_preview(
         PreviewRecord(
             parent_domain=PARENT,
@@ -148,7 +148,7 @@ def preview(store: WASMStore, number: int = 7) -> PreviewRecord:
 
 
 class TestApi:
-    def test_listing_says_previews_are_off(self, session: TestClient, store: WASMStore) -> None:
+    def test_listing_says_previews_are_off(self, session: TestClient, store: NoustStore) -> None:
         response = session.get(f"/api/apps/{PARENT}/previews")
 
         assert response.status_code == 200, response.text
@@ -161,7 +161,7 @@ class TestApi:
         }
 
     def test_listing_shows_settings_and_previews(
-        self, session: TestClient, store: WASMStore
+        self, session: TestClient, store: NoustStore
     ) -> None:
         store.save_preview_settings(PreviewSettings(app_domain=PARENT, base_domain=BASE))
         preview(store)
@@ -177,7 +177,7 @@ class TestApi:
         assert (item["number"], item["status"], item["provider"]) == (7, "ready", "github")
         assert item["expires_at"].endswith("+00:00")
 
-    def test_an_unknown_application_is_404(self, session: TestClient, store: WASMStore) -> None:
+    def test_an_unknown_application_is_404(self, session: TestClient, store: NoustStore) -> None:
         assert session.get("/api/apps/nope.example.com/previews").status_code == 404
 
     @pytest.mark.parametrize(
@@ -191,7 +191,7 @@ class TestApi:
     def test_every_mutation_needs_sudo_mode(
         self,
         session: TestClient,
-        store: WASMStore,
+        store: NoustStore,
         queued: list[dict[str, Any]],
         method: str,
         path: str,
@@ -206,7 +206,7 @@ class TestApi:
         assert queued == []
         assert store.get_preview(PARENT, 7) is not None
 
-    def test_turning_previews_on(self, elevated: TestClient, store: WASMStore) -> None:
+    def test_turning_previews_on(self, elevated: TestClient, store: NoustStore) -> None:
         response = elevated.put(
             f"/api/apps/{PARENT}/previews/settings",
             json={"base_domain": BASE, "max_previews": 5, "ttl_hours": 24},
@@ -218,7 +218,7 @@ class TestApi:
         assert stored is not None and (stored.max_previews, stored.ttl_hours) == (5, 24)
 
     def test_bots_and_excluded_variables_round_trip(
-        self, elevated: TestClient, store: WASMStore
+        self, elevated: TestClient, store: NoustStore
     ) -> None:
         response = elevated.put(
             f"/api/apps/{PARENT}/previews/settings",
@@ -240,7 +240,7 @@ class TestApi:
         assert (listed["allow_bots"], listed["exclude_env"]) == (True, ["STRIPE_KEY", "S3"])
 
     def test_new_settings_refuse_bots_and_copy_everything(
-        self, elevated: TestClient, store: WASMStore
+        self, elevated: TestClient, store: NoustStore
     ) -> None:
         body = elevated.put(
             f"/api/apps/{PARENT}/previews/settings", json={"base_domain": BASE}
@@ -249,7 +249,7 @@ class TestApi:
         assert (body["allow_bots"], body["exclude_env"]) == (False, [])
 
     def test_an_invalid_variable_name_is_refused_beside_its_field(
-        self, elevated: TestClient, store: WASMStore
+        self, elevated: TestClient, store: NoustStore
     ) -> None:
         response = elevated.put(
             f"/api/apps/{PARENT}/previews/settings",
@@ -269,7 +269,7 @@ class TestApi:
         ],
     )
     def test_refused_settings_are_400(
-        self, elevated: TestClient, store: WASMStore, body: dict[str, Any]
+        self, elevated: TestClient, store: NoustStore, body: dict[str, Any]
     ) -> None:
         response = elevated.put(f"/api/apps/{PARENT}/previews/settings", json=body)
 
@@ -277,7 +277,7 @@ class TestApi:
         assert store.get_preview_settings(PARENT) is None
 
     def test_turning_previews_off_queues_one_removal_job(
-        self, elevated: TestClient, store: WASMStore, queued: list[dict[str, Any]]
+        self, elevated: TestClient, store: NoustStore, queued: list[dict[str, Any]]
     ) -> None:
         store.save_preview_settings(PreviewSettings(app_domain=PARENT, base_domain=BASE))
         preview(store)
@@ -297,7 +297,7 @@ class TestApi:
         assert job["job_type"] == JobType.DELETE
 
     def test_turning_previews_off_without_previews_queues_nothing(
-        self, elevated: TestClient, store: WASMStore, queued: list[dict[str, Any]]
+        self, elevated: TestClient, store: NoustStore, queued: list[dict[str, Any]]
     ) -> None:
         store.save_preview_settings(PreviewSettings(app_domain=PARENT, base_domain=BASE))
 
@@ -307,7 +307,7 @@ class TestApi:
         assert queued == []
 
     def test_removing_one_preview_is_a_job(
-        self, elevated: TestClient, store: WASMStore, queued: list[dict[str, Any]]
+        self, elevated: TestClient, store: NoustStore, queued: list[dict[str, Any]]
     ) -> None:
         preview(store)
 
@@ -322,7 +322,7 @@ class TestApi:
         assert record is not None and record.status == "removing"
 
     def test_removing_an_unknown_preview_is_404(
-        self, elevated: TestClient, store: WASMStore, queued: list[dict[str, Any]]
+        self, elevated: TestClient, store: NoustStore, queued: list[dict[str, Any]]
     ) -> None:
         assert elevated.delete(f"/api/apps/{PARENT}/previews/9").status_code == 404
         assert queued == []
@@ -413,7 +413,7 @@ def signed(secret: str, body: bytes, provider: str, event: str | None) -> dict[s
 
 
 @pytest.fixture
-def secret(store: WASMStore) -> str:
+def secret(store: NoustStore) -> str:
     return mint_webhook_secret(PARENT)
 
 
@@ -467,7 +467,7 @@ class TestHookDispatch:
         )
 
     def test_a_pull_request_through_the_real_manager_queues_no_update(
-        self, forge: TestClient, secret: str, store: WASMStore, queued: list[dict[str, Any]]
+        self, forge: TestClient, secret: str, store: NoustStore, queued: list[dict[str, Any]]
     ) -> None:
         response = deliver(forge, secret, github_pull_request(), "github", "pull_request")
 
@@ -477,7 +477,7 @@ class TestHookDispatch:
         assert queued == []
 
     def test_with_previews_on_the_pull_request_builds_a_preview(
-        self, forge: TestClient, secret: str, store: WASMStore, queued: list[dict[str, Any]]
+        self, forge: TestClient, secret: str, store: NoustStore, queued: list[dict[str, Any]]
     ) -> None:
         store.save_preview_settings(PreviewSettings(app_domain=PARENT, base_domain=BASE))
 
@@ -500,7 +500,7 @@ class TestHookDispatch:
         self,
         forge: TestClient,
         secret: str,
-        store: WASMStore,
+        store: NoustStore,
         queued: list[dict[str, Any]],
         payload: dict[str, Any],
     ) -> None:
@@ -514,7 +514,7 @@ class TestHookDispatch:
         assert store.get_preview(PARENT, 7) is None
 
     def test_a_bot_gets_a_preview_when_bots_are_allowed(
-        self, forge: TestClient, secret: str, store: WASMStore, queued: list[dict[str, Any]]
+        self, forge: TestClient, secret: str, store: NoustStore, queued: list[dict[str, Any]]
     ) -> None:
         store.save_preview_settings(
             PreviewSettings(app_domain=PARENT, base_domain=BASE, allow_bots=True)

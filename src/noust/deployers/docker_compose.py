@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Docker Compose deployer for WASM.
+Docker Compose deployer for Noust.
 
 Handles deployment of applications defined by Docker Compose files,
 including multi-container setups with path-based Nginx routing,
@@ -30,26 +30,26 @@ from typing import Any, ClassVar
 
 import yaml
 
-from wasm.core.applock import app_lock
-from wasm.core.config import Config
-from wasm.core.exceptions import (
+from noust.core.applock import app_lock
+from noust.core.config import Config
+from noust.core.exceptions import (
     DeploymentError,
     DockerError,
+    NoustError,
     RolledBackError,
     SecurityError,
     ValidationError,
-    WASMError,
 )
-from wasm.core.fs import DryRunFileSystem, FileSystem
-from wasm.core.runner import CommandResult, CommandRunner, get_runner
-from wasm.core.store import AppStatus, AppType, DeploymentTrigger, get_store
-from wasm.core.utils import domain_to_app_name
-from wasm.deployers.helpers.health import wait_until_healthy
-from wasm.deployers.helpers.health_gate import HealthCheck, HealthGate
-from wasm.deployers.helpers.registration import StoreRegistrar
-from wasm.deployers.helpers.target import claim_deploy_target
-from wasm.deployers.interface import AppDeployer, StepReporter, UpdateResult
-from wasm.deployers.recorder import (
+from noust.core.fs import DryRunFileSystem, FileSystem
+from noust.core.runner import CommandResult, CommandRunner, get_runner
+from noust.core.store import AppStatus, AppType, DeploymentTrigger, get_store
+from noust.core.utils import domain_to_app_name
+from noust.deployers.helpers.health import wait_until_healthy
+from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
+from noust.deployers.helpers.registration import StoreRegistrar
+from noust.deployers.helpers.target import claim_deploy_target
+from noust.deployers.interface import AppDeployer, StepReporter, UpdateResult
+from noust.deployers.recorder import (
     CapturingLogger,
     DeploymentRecorder,
     GitInfo,
@@ -57,13 +57,13 @@ from wasm.deployers.recorder import (
     recorder_for,
     recording,
 )
-from wasm.deployers.registry import DeployerRegistry
-from wasm.deployers.releases import persistent_path
-from wasm.managers.cert_manager import CertManager
-from wasm.managers.nginx_manager import NginxManager
-from wasm.managers.service_manager import ServiceManager
-from wasm.managers.source_manager import SourceManager
-from wasm.validators.names import resolve_within
+from noust.deployers.registry import DeployerRegistry
+from noust.deployers.releases import persistent_path
+from noust.managers.cert_manager import CertManager
+from noust.managers.nginx_manager import NginxManager
+from noust.managers.service_manager import ServiceManager
+from noust.managers.source_manager import SourceManager
+from noust.validators.names import resolve_within
 
 #: Building images pulls layers and compiles; give it room but not forever.
 BUILD_TIMEOUT = 1800
@@ -650,7 +650,7 @@ class DockerComposeDeployer(AppDeployer):
                 details="Every site this deployer creates - the simple proxy and the "
                 "multi-service advanced config - is built with nginx; there is no Apache "
                 "equivalent yet. Deploy with --webserver nginx (the default), or configure "
-                "Apache by hand outside WASM.",
+                "Apache by hand outside Noust.",
             )
         given_limits = {
             key: options.get(key)
@@ -682,7 +682,7 @@ class DockerComposeDeployer(AppDeployer):
         self.compose_profiles = options.get("compose_profiles") or []
         self.port = port
         # A directory that already holds files - bind-mounted data among
-        # them - is only deployed into when asked for (wasm create --force).
+        # them - is only deployed into when asked for (noust create --force).
         self.replace_existing = bool(options.get("replace_existing", False))
         self.deploy_target = None
 
@@ -985,7 +985,7 @@ class DockerComposeDeployer(AppDeployer):
 
     def _configure_environment(self) -> None:
         """Configure environment variables using EnvManager."""
-        from wasm.deployers.helpers.env_manager import EnvManager
+        from noust.deployers.helpers.env_manager import EnvManager
 
         manager = EnvManager(verbose=self.verbose)
 
@@ -1060,7 +1060,7 @@ class DockerComposeDeployer(AppDeployer):
         primary_port = self._get_primary_port()
 
         # Check for advanced nginx config
-        from wasm.deployers.helpers.nginx_config import NginxConfigBuilder
+        from noust.deployers.helpers.nginx_config import NginxConfigBuilder
 
         builder = NginxConfigBuilder(verbose=self.verbose)
         config_path = builder.detect(self.app_path)
@@ -1122,7 +1122,7 @@ class DockerComposeDeployer(AppDeployer):
 
             primary_port = self._get_primary_port()
 
-            from wasm.deployers.helpers.nginx_config import NginxConfigBuilder
+            from noust.deployers.helpers.nginx_config import NginxConfigBuilder
 
             builder = NginxConfigBuilder(verbose=self.verbose)
             config_path = builder.detect(self.app_path)
@@ -1159,7 +1159,7 @@ class DockerComposeDeployer(AppDeployer):
             nginx.reload()
             self.logger.substep("SSL certificate obtained")
 
-        except WASMError as e:
+        except NoustError as e:
             # A missing certificate is not a failed deployment: the stack still
             # answers over HTTP, and DNS often needs longer than the deploy.
             self.logger.warning(f"SSL certificate failed: {e}")
@@ -1239,7 +1239,7 @@ class DockerComposeDeployer(AppDeployer):
 
     def _register_app(self) -> None:
         """
-        Register or update the application in the WASM store.
+        Register or update the application in the Noust store.
 
         Through the same registrar as every other deployer: a redeploy
         updates the row it has instead of failing to insert a second one,
@@ -1261,7 +1261,7 @@ class DockerComposeDeployer(AppDeployer):
                 is_static=False,
                 env_vars=self.env_vars,
             )
-        except (WASMError, sqlite3.Error) as e:
+        except (NoustError, sqlite3.Error) as e:
             self.logger.warning(f"Could not register app in store: {e}")
 
     def _recorder(self) -> DeploymentRecorder:
@@ -1311,7 +1311,7 @@ class DockerComposeDeployer(AppDeployer):
         try:
             service_manager = ServiceManager(verbose=self.verbose)
             service_manager.delete_service(self.app_name)
-        except (WASMError, OSError) as e:
+        except (NoustError, OSError) as e:
             self.logger.debug(f"Service cleanup failed: {e}")
 
         # Remove nginx config (only if web-facing)
@@ -1321,7 +1321,7 @@ class DockerComposeDeployer(AppDeployer):
                 if nginx.site_exists(self.domain):
                     nginx.delete_site(self.domain)
                     nginx.reload()
-            except (WASMError, OSError) as e:
+            except (NoustError, OSError) as e:
                 self.logger.debug(f"Site cleanup failed: {e}")
 
         # Remove app directory: only what this deploy put there.
@@ -1336,7 +1336,7 @@ class DockerComposeDeployer(AppDeployer):
         # Clean store
         try:
             self.store.delete_app(self.domain)
-        except (WASMError, sqlite3.Error) as e:
+        except (NoustError, sqlite3.Error) as e:
             self.logger.debug(f"Store cleanup failed: {e}")
 
         self.logger.info("Rollback complete")
@@ -1411,7 +1411,7 @@ class DockerComposeDeployer(AppDeployer):
         which is why the CLI could not drive it through the same call as every
         other deployer and grew a third copy of the update flow instead. The
         source is now fetched by whoever owns that step, exactly as
-        :meth:`~wasm.deployers.base.BaseDeployer.update` expects.
+        :meth:`~noust.deployers.base.BaseDeployer.update` expects.
 
         What serves is recorded first (see :class:`ServingState`). A build
         that fails puts the tree and the image names back and recreates
@@ -1643,7 +1643,7 @@ class DockerComposeDeployer(AppDeployer):
         else:
             try:
                 restart()
-            except WASMError as exc:
+            except NoustError as exc:
                 return False, str(exc)
         return self._containers_settle()
 
@@ -1704,7 +1704,7 @@ class DockerComposeDeployer(AppDeployer):
         if serving.commit:
             try:
                 full = self._source_manager().checkout_commit(self.app_path, serving.commit)
-            except WASMError as exc:
+            except NoustError as exc:
                 problems.append(f"The tree could not be checked out at {serving.commit[:7]}: {exc}")
             else:
                 self.logger.substep(f"Tree back on commit {full[:7]}")
@@ -1781,7 +1781,7 @@ class DockerComposeDeployer(AppDeployer):
         """
         Stop and remove the stack's containers, with the file and project it runs as.
 
-        What :func:`wasm.deployers.lifecycle.delete_app` takes a stack down
+        What :func:`noust.deployers.lifecycle.delete_app` takes a stack down
         with: the same compose file discovery and the same project name as
         every other command here, so ``docker-compose.prod.yml`` and a
         pinned project are honoured.
@@ -1812,7 +1812,7 @@ class DockerComposeDeployer(AppDeployer):
         """
         Remove the images updates kept under :data:`PREVIOUS_TAG` for this stack.
 
-        What :func:`wasm.deployers.lifecycle.delete_app` calls once the stack
+        What :func:`noust.deployers.lifecycle.delete_app` calls once the stack
         is down. An update tags the image each service ran as
         ``<project>-<service>:wasm-previous`` (see :func:`keep_tag`), and
         nothing else ever removes it. The tags this stack can have are derived
@@ -1898,7 +1898,7 @@ class DockerComposeDeployer(AppDeployer):
         try:
             service_manager = ServiceManager(verbose=self.verbose)
             service_manager.delete_service(self.app_name)
-        except (WASMError, OSError) as e:
+        except (NoustError, OSError) as e:
             self.logger.debug(f"Service cleanup failed: {e}")
 
         # Remove nginx config
@@ -1907,7 +1907,7 @@ class DockerComposeDeployer(AppDeployer):
             if nginx.site_exists(self.domain):
                 nginx.delete_site(self.domain)
                 nginx.reload()
-        except (WASMError, OSError) as e:
+        except (NoustError, OSError) as e:
             self.logger.debug(f"Site cleanup failed: {e}")
 
         # Clean store
@@ -1915,7 +1915,7 @@ class DockerComposeDeployer(AppDeployer):
             self.store.delete_site(self.domain)
             self.store.delete_service(self.app_name)
             self.store.delete_app(self.domain)
-        except (WASMError, sqlite3.Error) as e:
+        except (NoustError, sqlite3.Error) as e:
             self.logger.debug(f"Store cleanup failed: {e}")
 
 

@@ -4,7 +4,7 @@
 """
 Every response model that carries a timestamp applies the same conversion.
 
-:func:`wasm.web.pydantic_compat.iso_offset_validator` is exercised once,
+:func:`noust.web.pydantic_compat.iso_offset_validator` is exercised once,
 generically, in ``tests/test_pydantic_compat.py``. What is worth pinning
 here, model by model, is that each response class actually wired it up to
 the right fields - a typo'd field name or a forgotten class attribute would
@@ -42,7 +42,7 @@ def _has_offset(value: str | None) -> bool:
 
 @pytest.mark.parametrize("field", ["created_at", "activated_at"])
 def test_release_out(field: str) -> None:
-    from wasm.web.api.apps import ReleaseOut
+    from noust.web.api.apps import ReleaseOut
 
     values = {"created_at": NAIVE.isoformat(), "activated_at": NAIVE.isoformat()}
     model = ReleaseOut(
@@ -58,7 +58,7 @@ def test_release_out(field: str) -> None:
 
 
 def test_rollback_point_out() -> None:
-    from wasm.web.api.apps import RollbackPointOut
+    from noust.web.api.apps import RollbackPointOut
 
     model = RollbackPointOut(
         id="app_20260615_093000",
@@ -71,7 +71,7 @@ def test_rollback_point_out() -> None:
 
 
 def test_last_deployment_out() -> None:
-    from wasm.web.api.apps import LastDeploymentOut
+    from noust.web.api.apps import LastDeploymentOut
 
     model = LastDeploymentOut(id=1, status="success", finished_at=NAIVE.isoformat())
 
@@ -79,7 +79,7 @@ def test_last_deployment_out() -> None:
 
 
 def test_last_deployment_out_stays_none_while_running() -> None:
-    from wasm.web.api.apps import LastDeploymentOut
+    from noust.web.api.apps import LastDeploymentOut
 
     model = LastDeploymentOut(id=1, status="running", finished_at=None)
 
@@ -88,7 +88,7 @@ def test_last_deployment_out_stays_none_while_running() -> None:
 
 @pytest.mark.parametrize("field", ["created_at", "started_at", "completed_at"])
 def test_job_response(field: str) -> None:
-    from wasm.web.api.jobs import JobResponse
+    from noust.web.api.jobs import JobResponse
 
     values = {
         "created_at": NAIVE.isoformat(),
@@ -111,7 +111,7 @@ def test_job_response(field: str) -> None:
 
 
 def test_app_domain() -> None:
-    from wasm.web.api.domains import AppDomain
+    from noust.web.api.domains import AppDomain
 
     model = AppDomain(domain="shop.example.com", kind="primary", created_at=NAIVE.isoformat())
 
@@ -119,7 +119,7 @@ def test_app_domain() -> None:
 
 
 def test_backup_info() -> None:
-    from wasm.web.api.backups import BackupInfo
+    from noust.web.api.backups import BackupInfo
 
     model = BackupInfo(
         backup_id="shop-example-com_20260615_093000",
@@ -134,7 +134,7 @@ def test_backup_info() -> None:
 
 
 def test_database_backup_info_response() -> None:
-    from wasm.web.api.databases import BackupInfoResponse
+    from noust.web.api.databases import BackupInfoResponse
 
     model = BackupInfoResponse(
         path="/var/backups/wasm/db/shop.sql.gz",
@@ -150,7 +150,7 @@ def test_database_backup_info_response() -> None:
 
 
 def test_webhook_delivery_out() -> None:
-    from wasm.web.api.hooks import WebhookDeliveryOut
+    from noust.web.api.hooks import WebhookDeliveryOut
 
     model = WebhookDeliveryOut(deployment_id=1, status="success", started_at=NAIVE.isoformat())
 
@@ -158,7 +158,7 @@ def test_webhook_delivery_out() -> None:
 
 
 def test_deployment_out() -> None:
-    from wasm.web.api.deployments import DeploymentOut
+    from noust.web.api.deployments import DeploymentOut
 
     model = DeploymentOut(
         id=1,

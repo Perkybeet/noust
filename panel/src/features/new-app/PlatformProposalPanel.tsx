@@ -34,7 +34,7 @@ export interface PlatformProposalPanelProps {
 }
 
 /**
- * What another platform's configuration in the repository says, in WASM's terms: which files
+ * What another platform's configuration in the repository says, in Noust's terms: which files
  * were read, a toggle for the values filled in below (port, variables, persistent paths) and
  * for the health check the first deploy is gated on, the commands for reference, and every
  * warning the server wrote about what has no equivalent here, verbatim.

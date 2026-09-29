@@ -15,16 +15,16 @@ import shutil
 import socket
 from pathlib import Path
 
-from wasm.core.exceptions import WASMError
-from wasm.core.runner import CommandRunner
-from wasm.core.store import WASMStore, get_store
-from wasm.managers.source_manager import (
+from noust.core.exceptions import NoustError
+from noust.core.runner import CommandRunner
+from noust.core.store import NoustStore, get_store
+from noust.managers.source_manager import (
     GIT_AUTH_FAILURE_MESSAGE,
     git_auth_fix,
     git_environment,
     is_git_auth_failure,
 )
-from wasm.validators.source import is_archive_url
+from noust.validators.source import is_archive_url
 
 #: A repository probe answers in seconds or is not going to answer.
 GIT_PROBE_TIMEOUT = 30
@@ -66,7 +66,7 @@ def repository_unreachable(runner: CommandRunner, source: str) -> list[str]:
     if not source.startswith(_GIT_SCHEMES) or is_archive_url(source):
         return []
 
-    # Run from a directory that is certain to exist. After `wasm delete` the
+    # Run from a directory that is certain to exist. After `noust delete` the
     # operator's shell is often still sitting in the directory that was just
     # removed; the child would inherit that cwd and git would abort with
     # "Unable to read current working directory", which surfaced as an opaque
@@ -93,7 +93,7 @@ def repository_unreachable(runner: CommandRunner, source: str) -> list[str]:
     if is_git_auth_failure(probe.stderr or ""):
         issues.append(f"{GIT_AUTH_FAILURE_MESSAGE}. {git_auth_fix(source)}")
     if "Permission denied" in str(probe.stderr):
-        issues.append("Check SSH key configuration: wasm setup ssh --test")
+        issues.append("Check SSH key configuration: noust setup ssh --test")
     return issues
 
 
@@ -120,7 +120,7 @@ def insufficient_disk_space(directory: Path) -> list[str]:
 
 
 def port_taken(
-    port: int, *, allowed_owner_port: int | None, store: WASMStore | None = None
+    port: int, *, allowed_owner_port: int | None, store: NoustStore | None = None
 ) -> list[str]:
     """
     Check that nothing else listens on the port, and that no other application owns it.
@@ -147,7 +147,7 @@ def port_taken(
     return issues + port_owned_by_app(port, store=store if store is not None else get_store())
 
 
-def port_owned_by_app(port: int, *, store: WASMStore) -> list[str]:
+def port_owned_by_app(port: int, *, store: NoustStore) -> list[str]:
     """
     Check that the port is not an application's, whether or not it listens now.
 
@@ -166,7 +166,7 @@ def port_owned_by_app(port: int, *, store: WASMStore) -> list[str]:
         The problems found, empty when no application owns the port.
     """
     # Imported here: the blue/green engine imports the deployers' helpers.
-    from wasm.deployers.bluegreen import GREEN, color_port, ports_of
+    from noust.deployers.bluegreen import GREEN, color_port, ports_of
 
     for owner in store.list_apps():
         if port not in ports_of(owner):
@@ -193,7 +193,7 @@ def webserver_down(manager: object, name: str) -> list[str]:
     """
     try:
         running = bool(manager.is_running())  # type: ignore[attr-defined]
-    except (WASMError, OSError, AttributeError):
+    except (NoustError, OSError, AttributeError):
         # An unanswerable question is not a failed check; the site step will
         # report the real problem with a real error message.
         return []

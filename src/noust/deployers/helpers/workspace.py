@@ -12,9 +12,9 @@ import json
 from pathlib import Path
 from typing import ClassVar
 
-from wasm.core.exceptions import DeploymentError
-from wasm.core.logger import Logger
-from wasm.core.store import AppType, MonorepoWorkspace
+from noust.core.exceptions import DeploymentError
+from noust.core.logger import Logger
+from noust.core.store import AppType, MonorepoWorkspace
 
 
 class WorkspaceHelper:

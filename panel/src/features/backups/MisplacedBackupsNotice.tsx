@@ -7,7 +7,7 @@ import { StatusGlyph } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 
 /**
- * Backups WASM found outside the configured backup directory - in the old default one, or
+ * Backups Noust found outside the configured backup directory - in the old default one, or
  * where an empty `backup.directory` once sent them - which this page does not list and a
  * restore cannot reach until they are imported. Each place comes with the exact command that
  * moves them in; nothing is shown when there are none.

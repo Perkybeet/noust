@@ -9,11 +9,11 @@ Three defect classes are pinned here:
 - **Secrets served in clear.** ``GET /api/config`` and ``POST /api/config/reload``
   returned the MySQL root password, the OpenAI API key and the SMTP password to
   any panel session. Every response that carries configuration must go through
-  :func:`~wasm.core.config.redact_secrets`.
+  :func:`~noust.core.config.redact_secrets`.
 - **A second configuration writer.** The module used to write ``config.yaml``
   with ``open(path, 'w')`` and ``mkdir()`` without a mode, which silently undid
   the 0600/0700 hardening on the very path the panel uses. There is exactly one
-  writer, :class:`~wasm.core.config.Config`.
+  writer, :class:`~noust.core.config.Config`.
 - **Settings that no longer exist.** A body may not reintroduce a key the code
   stopped honouring, such as the monitor's process termination switches.
 """
@@ -30,12 +30,12 @@ import yaml
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.core.config import DEFAULT_CONFIG, REDACTED, Config
-from wasm.web.api import config as config_api
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import install_error_handlers
-from wasm.web.auth import CSRF_HEADER_NAME, AuditLogger, SecurityConfig, set_audit_logger
-from wasm.web.server import create_app, get_token_manager
+from noust.core.config import DEFAULT_CONFIG, REDACTED, Config
+from noust.web.api import config as config_api
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import install_error_handlers
+from noust.web.auth import CSRF_HEADER_NAME, AuditLogger, SecurityConfig, set_audit_logger
+from noust.web.server import create_app, get_token_manager
 
 #: Secrets planted in the stored configuration; none may reach a response.
 PLANTED_SECRETS = {
@@ -61,7 +61,7 @@ def config_path(sandbox: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path
         Path the API reads from and writes to.
     """
     path = sandbox / "etc" / "wasm" / "config.yaml"
-    monkeypatch.setattr("wasm.core.config.DEFAULT_CONFIG_PATH", path)
+    monkeypatch.setattr("noust.core.config.DEFAULT_CONFIG_PATH", path)
     Config.reset_instance()
     try:
         yield path
@@ -249,7 +249,7 @@ def _secret_keys(node: Any, prefix: str = "") -> list[str]:
     Returns:
         Dotted paths of values that must never be served in clear.
     """
-    from wasm.core.config import _is_secret_key
+    from noust.core.config import _is_secret_key
 
     found: list[str] = []
     if isinstance(node, dict):
@@ -697,7 +697,7 @@ class TestRelativeAppsDirectoryIsRefused:
 
 
 class TestNotificationLanguage:
-    """notifications.language picks the wasm.core.messages catalog for the console too."""
+    """notifications.language picks the noust.core.messages catalog for the console too."""
 
     def test_patch_accepts_spanish(self, client: TestClient, config_path: Path) -> None:
         response = client.patch(
@@ -765,8 +765,8 @@ class TestBackupDirectoryIsNeverRelative:
         response = client.put("/api/config/backup", json={"directory": "  ", "max_per_app": 5})
 
         assert response.status_code == 200, response.text
-        assert stored_value(config_path, "backup.directory") == "/var/backups/wasm"
-        assert client.get("/api/config/backup").json()["directory"] == "/var/backups/wasm"
+        assert stored_value(config_path, "backup.directory") == "/var/backups/noust"
+        assert client.get("/api/config/backup").json()["directory"] == "/var/backups/noust"
 
     def test_an_empty_value_on_disk_reads_as_the_default(
         self, client: TestClient, config_path: Path
@@ -777,7 +777,7 @@ class TestBackupDirectoryIsNeverRelative:
 
         body = client.get("/api/config/backup").json()
 
-        assert body == {"directory": "/var/backups/wasm", "max_per_app": 3}
+        assert body == {"directory": "/var/backups/noust", "max_per_app": 3}
 
     def test_an_absolute_path_is_accepted(self, client: TestClient, config_path: Path) -> None:
         response = client.put(
@@ -812,7 +812,7 @@ class TestSMTPSettings:
     alone"; and validation - a real hostname, a port in range, not both
     transports at once, valid addresses - lives at the ``Config.set``
     chokepoint, so it is pinned again directly against
-    ``wasm.core.config._KEY_VALIDATORS`` in ``tests/test_cli_config.py``.
+    ``noust.core.config._KEY_VALIDATORS`` in ``tests/test_cli_config.py``.
     """
 
     def test_get_reports_the_defaults_when_nothing_is_configured(self, client: TestClient) -> None:
@@ -1292,7 +1292,7 @@ def _notifier_with_opener(opener: Any) -> Any:
         A notifier over the current sandboxed configuration, wired with the
         given opener instead of a real socket.
     """
-    from wasm.core.notifier import Notifier
+    from noust.core.notifier import Notifier
 
     return Notifier(Config(), opener=opener)
 

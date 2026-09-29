@@ -2,13 +2,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The ``wasm notify`` command group: notification channels.
+The ``noust notify`` command group: notification channels.
 
 Trying a channel before turning notifications on used to be a button in the
 panel's settings screen and nothing else; a deployment with no panel installed
 had no way to check a webhook URL was right before relying on it during a real
 deploy failure. This is a thin front end over
-:class:`~wasm.core.notifier.Notifier`, the exact class the settings page's
+:class:`~noust.core.notifier.Notifier`, the exact class the settings page's
 "Test" button and every real event delivery use - one implementation of
 sending a message through a channel, reached from two places.
 """
@@ -20,12 +20,12 @@ import json
 
 import click
 
-from wasm.cli.app import Context, WasmGroup, global_flags, json_option, pass_context
-from wasm.core.config import Config
-from wasm.core.notifier import CHANNELS, Notifier
+from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
+from noust.core.config import Config
+from noust.core.notifier import CHANNELS, Notifier
 
 
-@click.group("notify", cls=WasmGroup)
+@click.group("notify", cls=NoustGroup)
 def cli() -> None:
     """Send test notifications through a configured channel."""
 
@@ -58,7 +58,7 @@ def telegram_chats_command(ctx: Context) -> None:
     List the chats the Telegram bot can send to, with their ids.
 
     Send the bot a message, or add it to the group or channel, then run this.
-    The first column is the chat id: set it with 'wasm config set
+    The first column is the chat id: set it with 'noust config set
     notifications.channels.telegram.chat_id ID'. Group and channel ids start
     with a minus sign, and it is part of the id. A chat shows up only after
     it has sent the bot something recently, so if the one you want is

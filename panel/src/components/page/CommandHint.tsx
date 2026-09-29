@@ -3,7 +3,7 @@ import { cx } from "../../lib/cx";
 import { CopyButton } from "../ui/CopyButton";
 
 export interface CommandHintProps {
-  /** The exact command, without the prompt: `wasm status example.com`. */
+  /** The exact command, without the prompt: `noust status example.com`. */
   command: string;
   /** Leads into the command for context: "From a terminal". Omit where the page already says it. */
   label?: string;

@@ -80,7 +80,7 @@ describe("the source", () => {
   });
 
   it("shortens a source to its last two parts", () => {
-    expect(shortSource("/tmp/wasm-console-x/var/www/src/storefront/")).toBe("src/storefront");
+    expect(shortSource("/tmp/noust-console-x/var/www/src/storefront/")).toBe("src/storefront");
     expect(shortSource("https://github.com/you/app.git")).toBe("you/app");
     expect(shortSource("git@github.com:you/app.git")).toBe("you/app");
   });
@@ -385,7 +385,7 @@ describe("another platform's configuration", () => {
     databases: ["postgresql"],
     domains: [],
     persistent_paths: ["data"],
-    warnings: ["Railway's cron schedule has no equivalent; add it with wasm cron add."],
+    warnings: ["Railway's cron schedule has no equivalent; add it with noust cron add."],
   };
   const WITH: Inspection = { ...INSPECTION, platform_proposal: PROPOSAL };
 

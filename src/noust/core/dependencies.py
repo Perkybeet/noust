@@ -1,5 +1,5 @@
 """
-System dependency management for WASM.
+System dependency management for Noust.
 
 Handles checking, installing, and managing system and runtime dependencies
 needed for deploying various types of applications.
@@ -12,9 +12,9 @@ from enum import Enum
 from pathlib import Path
 from typing import ClassVar, TypedDict
 
-from wasm.core.exceptions import DeploymentError, SecurityError
-from wasm.core.runner import CommandRunner, get_runner
-from wasm.core.utils import TRUSTED_INSTALLER_URLS, run_trusted_installer
+from noust.core.exceptions import DeploymentError, SecurityError
+from noust.core.runner import CommandRunner, get_runner
+from noust.core.utils import TRUSTED_INSTALLER_URLS, run_trusted_installer
 
 #: Package installs pull from the network and unpack; a minute is not enough
 #: and no deadline at all is how a deploy hangs on a stalled mirror.
@@ -78,7 +78,7 @@ def _chained_commands(script: str) -> list[list[str]]:
         return []
     vectors: list[list[str]] = []
     for chunk in script.split("&&")[1:]:
-        # ``sudo`` in the recipes predates decision D6 (WASM runs as root).
+        # ``sudo`` in the recipes predates decision D6 (Noust runs as root).
         words = [w for w in chunk.split() if w and w != "sudo"]
         if words:
             vectors.append(words)
@@ -268,13 +268,13 @@ BACKUP_DEPENDENCIES: list[Dependency] = [
 ]
 
 #: The rclone dependency on its own, for callers that only need to check or
-#: report on it - :mod:`wasm.managers.backup_destinations` does not need the
+#: report on it - :mod:`noust.managers.backup_destinations` does not need the
 #: rest of this module's tables.
 RCLONE_DEPENDENCY = BACKUP_DEPENDENCIES[0]
 
 # PHP (2.3): the php-fpm deployer and the WordPress recipe. PHP-FPM itself is
 # not probed by command name - Debian installs it as /usr/sbin/php-fpm8.2, off
-# PATH - but by wasm.deployers.helpers.php_fpm.find_fpm, which knows each
+# PATH - but by noust.deployers.helpers.php_fpm.find_fpm, which knows each
 # distribution's layout; its entry here carries the package names.
 PHP_FPM_DEPENDENCY = Dependency(
     name="php-fpm",
@@ -632,7 +632,7 @@ class DependencyChecker:
                     missing.append("docker compose: Docker Compose v2 plugin is required")
 
         elif app_type == "php-fpm":
-            from wasm.deployers.helpers.php_fpm import find_fpm
+            from noust.deployers.helpers.php_fpm import find_fpm
 
             try:
                 find_fpm()
@@ -843,7 +843,7 @@ class DependencyChecker:
                 }
         else:
             summary["recommendations"].append(
-                "Install Node.js: wasm setup init (installs the NodeSource 20.x release)"
+                "Install Node.js: noust setup init (installs the NodeSource 20.x release)"
             )
 
         # Check Python

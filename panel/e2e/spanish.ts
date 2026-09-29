@@ -11,11 +11,11 @@ import type { ConsoleServer } from "./fixtures";
 
 /**
  * Makes every page of this test's browser start in Spanish, the way a browser that picked
- * Español once does: `wasm.locale` is in storage before any of the console's scripts run.
+ * Español once does: `noust.locale` is in storage before any of the console's scripts run.
  */
 export async function useSpanish(page: Page): Promise<void> {
   await page.addInitScript(() => {
-    window.localStorage.setItem("wasm.locale", "es");
+    window.localStorage.setItem("noust.locale", "es");
   });
 }
 
@@ -48,7 +48,7 @@ export async function confirmItsYouSpanish(page: Page, server: ConsoleServer): P
 const CANDIDATES = englishLeftoverCandidates();
 
 /**
- * Text WASM's server wrote, which the console shows as it came and 2.3 leaves in English
+ * Text Noust's server wrote, which the console shows as it came and 2.3 leaves in English
  * (spec 2026-09-28, section 1: the CLI and the server's own text are out of its scope), that
  * happens to read like a catalog text. Listed by the page it is on, each with its origin,
  * so a real leftover on another page is still found.

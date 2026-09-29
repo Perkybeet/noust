@@ -5,10 +5,10 @@ import { useState } from "react";
 import type { Ref } from "react";
 
 import { sessionQuery } from "../api/queries/auth";
+import { Logo } from "../components/brand/Logo";
 import { Button } from "../components/ui/Button";
 import { IconButton } from "../components/ui/IconButton";
 import { Kbd } from "../components/ui/Kbd";
-import { LogoMark } from "../components/ui/Logo";
 import { Mono } from "../components/ui/Mono";
 import { Popover } from "../components/ui/Popover";
 import { useSignOut } from "../features/auth/useSignOut";
@@ -98,7 +98,7 @@ export function Topbar({ onOpenPalette, onOpenShortcuts, onOpenNav, searchTrigge
         aria-label={t("nav.overview.label")}
         className="-ml-1 flex shrink-0 rounded-control p-1 focus-visible:outline-2 focus-visible:outline-focus lg:hidden"
       >
-        <LogoMark size={22} />
+        <Logo variant="icon" height={22} decorative />
       </Link>
 
       <MachineStrip className="flex-1" />

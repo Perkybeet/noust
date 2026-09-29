@@ -4,12 +4,12 @@
 """
 The one classifier for whether an environment variable's value is a secret.
 
-Before this module WASM had three independent opinions on the question, and
-each missed what the others caught: :func:`wasm.core.config.is_secret_key`
+Before this module Noust had three independent opinions on the question, and
+each missed what the others caught: :func:`noust.core.config.is_secret_key`
 split a name into words and matched markers such as ``password`` or ``auth``;
-:data:`wasm.deployers.helpers.env_manager.EnvManager.SECRET_PATTERNS` matched
+:data:`noust.deployers.helpers.env_manager.EnvManager.SECRET_PATTERNS` matched
 substrings such as ``_PASS`` or ``API_KEY``; and
-:func:`wasm.deployers.helpers.env_manager.redact_url_credentials` caught a
+:func:`noust.deployers.helpers.env_manager.redact_url_credentials` caught a
 password embedded in a connection string, but only that shape. None of the
 three ever looked at a value that did not sit inside a URL, so
 ``STRIPE_SK=sk_live_...`` and a random session token both passed as harmless,
@@ -49,7 +49,7 @@ decision, in one order of precedence:
    masking one that did not need it.
 
 This only ever governs what a name-only verdict *displays* as. Scrubbing
-build and job logs (:func:`wasm.core.redact.secret_env_values`) does not use
+build and job logs (:func:`noust.core.redact.secret_env_values`) does not use
 this relaxation at all: it must remain a superset of the name-only heuristic
 regardless of a public-looking prefix, so over-scrubbing a log is preferred
 to a secret shaped like ``NEXT_PUBLIC_API_KEY`` appearing in one verbatim.
@@ -71,7 +71,7 @@ from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from wasm.core.config import REDACTED, is_secret_key
+from noust.core.config import REDACTED, is_secret_key
 
 #: A credential embedded in a connection string. ``DATABASE_URL`` is the
 #: canonical example: nothing in the *name* marks it as a secret, yet the
@@ -126,7 +126,7 @@ def name_looks_secret(name: str) -> bool:
     Decide whether a variable's name alone marks its value as a secret.
 
     :data:`NAME_PATTERNS` matches substrings (``ADMIN_PASS``,
-    ``STRIPE_API_KEY``); :func:`~wasm.core.config.is_secret_key` matches
+    ``STRIPE_API_KEY``); :func:`~noust.core.config.is_secret_key` matches
     whole words the configuration redacts (``AUTH``, ``SLACK_WEBHOOK``,
     ``apiKey``). Each misses names the other catches, so a name is a secret
     when either says so. This is the name-only step of :func:`classify`;

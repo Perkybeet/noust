@@ -45,7 +45,7 @@ function wholeNumber(value: string): number {
   return /^-?\d+$/.test(trimmed) ? Number(trimmed) : (trimmed as unknown as number);
 }
 
-/** The terminal form of a section: what `wasm config set` would change, or how to read it. */
+/** The terminal form of a section: what `noust config set` would change, or how to read it. */
 function commandsFor<V extends FormValues>(form: SettingsForm<V>, keys: Record<keyof V & string, string>, read: string): string[] {
   if (!form.dirty || form.values === undefined) return [configGetCommand(read)];
   const values = form.values;
@@ -310,8 +310,8 @@ function ConsoleAddressSection() {
     <SettingsSection
       title={t("settings.general.consoleAddress.title")}
       description={t.rich("settings.general.consoleAddress.description", {
-        statusCommand: <span className="mono text-12">wasm status --open</span>,
-        webCommand: <span className="mono text-12">wasm web start --host --port</span>,
+        statusCommand: <span className="mono text-12">noust status --open</span>,
+        webCommand: <span className="mono text-12">noust web start --host --port</span>,
       })}
       commands={commandsFor(form, { host: "web.host", port: "web.port" }, "web.host")}
     >
@@ -398,7 +398,7 @@ function ConfigFileLine() {
   );
 }
 
-/** Settings > General: how WASM lays out, serves, secures and backs up applications. */
+/** Settings > General: how Noust lays out, serves, secures and backs up applications. */
 export function GeneralSettings() {
   const t = useT();
   useDocumentTitle(t("settings.general.documentTitle"), 1);

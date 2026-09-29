@@ -10,11 +10,11 @@ import type { RouteHandler } from "../../test/fakes";
 function generalRoutes(extra: Record<string, RouteHandler> = {}): Record<string, RouteHandler> {
   return {
     ...signedInRoutes(),
-    "GET /api/config": () => json(200, { config: {}, path: "/etc/wasm/config.yaml", writable: true }),
+    "GET /api/config": () => json(200, { config: {}, path: "/etc/noust/config.yaml", writable: true }),
     "GET /api/config/apps-directory": () => json(200, { apps_directory: "/var/www/apps" }),
     "GET /api/config/webserver": () => json(200, { webserver: "nginx" }),
     "GET /api/config/ssl": () => json(200, { enabled: true, provider: "certbot", email: "ops@example.com" }),
-    "GET /api/config/backup": () => json(200, { directory: "/var/backups/wasm", max_per_app: 10 }),
+    "GET /api/config/backup": () => json(200, { directory: "/var/backups/noust", max_per_app: 10 }),
     "GET /api/config/web": () => json(200, { host: "127.0.0.1", port: 8080, session_timeout: 3600 }),
     ...extra,
   };
@@ -36,17 +36,17 @@ describe("Settings > General", () => {
     fakeBackend(generalRoutes());
     const { container } = renderConsole("/settings");
     await screen.findByDisplayValue("/var/www/apps");
-    expect(screen.getByText("/etc/wasm/config.yaml")).toBeInTheDocument();
+    expect(screen.getByText("/etc/noust/config.yaml")).toBeInTheDocument();
     expect(within(section("Backups")).getByLabelText("Backups kept per application")).toHaveValue(10);
     expect(within(section("Certificates")).getByLabelText(/Email for certificate notices/)).toHaveValue("ops@example.com");
     // Nothing changed: nothing to save, and the terminal form reads the setting.
     expect(within(section("Backups")).getByRole("button", { name: "Save changes" })).toBeDisabled();
-    expect(within(section("Backups")).getByText("wasm config get backup")).toBeInTheDocument();
+    expect(within(section("Backups")).getByText("noust config get backup")).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 
   it("shows the server's refusal beside the field it is about, and saves once it is fixed", { timeout: 20_000 }, async () => {
-    let stored = { directory: "/var/backups/wasm", max_per_app: 10 };
+    let stored = { directory: "/var/backups/noust", max_per_app: 10 };
     const backend = fakeBackend(
       generalRoutes({
         "GET /api/config/backup": () => json(200, stored),
@@ -70,13 +70,13 @@ describe("Settings > General", () => {
     await user.type(retention, "500");
     expect(within(backups).getByText("Unsaved changes")).toBeInTheDocument();
     // The terminal form follows the edit.
-    expect(within(backups).getByText("wasm config set backup.max_per_app 500")).toBeInTheDocument();
+    expect(within(backups).getByText("noust config set backup.max_per_app 500")).toBeInTheDocument();
     await user.click(within(backups).getByRole("button", { name: "Save changes" }));
 
     const message = await within(backups).findByText("Input should be less than or equal to 100");
     expect(retention).toHaveAttribute("aria-invalid", "true");
     expect(retention.getAttribute("aria-describedby") ?? "").toContain(message.closest("[id]")?.id ?? "missing");
-    expect(backend.callsTo("PUT /api/config/backup")[0]?.body).toEqual({ directory: "/var/backups/wasm", max_per_app: 500 });
+    expect(backend.callsTo("PUT /api/config/backup")[0]?.body).toEqual({ directory: "/var/backups/noust", max_per_app: 500 });
 
     // Editing the field retracts the message about the value that was sent.
     await user.clear(retention);
@@ -89,12 +89,12 @@ describe("Settings > General", () => {
       expect(within(backups).getByRole("button", { name: "Save changes" })).toBeDisabled();
     });
     expect(retention).toHaveValue(12);
-    expect(backend.callsTo("PUT /api/config/backup")[1]?.body).toEqual({ directory: "/var/backups/wasm", max_per_app: 12 });
+    expect(backend.callsTo("PUT /api/config/backup")[1]?.body).toEqual({ directory: "/var/backups/noust", max_per_app: 12 });
   });
 
   it("asks to confirm it's you before the first write of the session, then saves", { timeout: 20_000 }, async () => {
     let elevated = false;
-    let stored = { directory: "/var/backups/wasm", max_per_app: 10 };
+    let stored = { directory: "/var/backups/noust", max_per_app: 10 };
     const backend = fakeBackend(
       generalRoutes({
         "GET /api/config/backup": () => json(200, stored),
@@ -123,7 +123,7 @@ describe("Settings > General", () => {
 
     await expectToast("Saved the backup settings");
     expect(backend.callsTo("PUT /api/config/backup")).toHaveLength(2);
-    expect(backend.callsTo("PUT /api/config/backup")[1]?.body).toEqual({ directory: "/var/backups/wasm", max_per_app: 20 });
+    expect(backend.callsTo("PUT /api/config/backup")[1]?.body).toEqual({ directory: "/var/backups/noust", max_per_app: 20 });
   });
 
   it("gives a one-field section a refusal that names no field, with the server's fix", async () => {

@@ -129,7 +129,7 @@ export function RecipeGallery({ opening, failure, onChoose }: RecipeGalleryProps
       </h3>
       {failure !== null ? <ErrorBlock live error={failure.error} title={failure.title} /> : null}
       {body}
-      <CommandHint command="wasm recipe list" label={t("newApp.source.terminal")} />
+      <CommandHint command="noust recipe list" label={t("newApp.source.terminal")} />
     </div>
   );
 }

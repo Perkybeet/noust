@@ -33,7 +33,7 @@ import { QrCode } from "./QrCode";
 import { backupCodesFile, groupSecret } from "./security";
 import { SettingsSection } from "./SettingsForm";
 
-/** How many backup codes a confirmed enrolment issues (wasm.web.auth.BACKUP_CODE_COUNT). */
+/** How many backup codes a confirmed enrolment issues (noust.web.auth.BACKUP_CODE_COUNT). */
 const BACKUP_CODES = 8;
 
 /** Low enough that the operator should plan for new ones. */
@@ -180,7 +180,7 @@ export function EnrollDialog({ open, enrollment, onClose }: EnrollDialogProps) {
                 <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-13">
                   <dt className="text-fg-muted">{t("settings.security.twoFactor.enroll.account")}</dt>
                   <dd translate="no" className="mono text-12 text-fg">
-                    WASM:{hostname}
+                    Noust:{hostname}
                   </dd>
                   <dt className="text-fg-muted">{t("settings.security.twoFactor.enroll.type")}</dt>
                   <dd className="text-fg">{t("settings.security.twoFactor.enroll.typeValue")}</dd>
@@ -277,7 +277,7 @@ function BackupCodesDialog({ open, codes, hostname, description, saved, nudge, s
             size="sm"
             icon={<Download aria-hidden="true" />}
             onClick={() => {
-              downloadText(`wasm-backup-codes-${hostname}.txt`, backupCodesFile(codes, hostname, t.locale));
+              downloadText(`noust-backup-codes-${hostname}.txt`, backupCodesFile(codes, hostname, t.locale));
             }}
           >
             {t("settings.security.twoFactor.backupCodes.downloadAsText")}

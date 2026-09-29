@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 
 import { sessionQuery } from "../api/queries/auth";
 import { machineQuery } from "../api/queries/system";
-import { Logo } from "../components/ui/Logo";
+import { Logo } from "../components/brand/Logo";
 import { useT } from "../i18n";
 import { StatusGlyph } from "../components/ui/StatusPill";
 import { cx } from "../lib/cx";
@@ -101,7 +101,10 @@ export function Sidebar() {
           aria-label={t("shell.sidebarOverview")}
           className="-mx-1.5 rounded-control px-1.5 py-1 focus-visible:outline-2 focus-visible:outline-focus"
         >
-          <Logo size="sm" product={t("shell.consoleProduct")} />
+          <span className="inline-flex items-center gap-2">
+            <Logo variant="wordmark" height={18} decorative />
+            <span className="text-14 leading-none font-medium text-fg-muted">{t("shell.consoleProduct")}</span>
+          </span>
         </Link>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 scroll-thin">

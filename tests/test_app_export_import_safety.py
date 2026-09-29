@@ -25,6 +25,19 @@ from typing import Any
 
 import pytest
 
+from noust.core.exceptions import ValidationError
+from noust.core.store import App, NoustStore
+from noust.deployers import app_export
+from noust.deployers.app_export import (
+    CreateSpec,
+    apply_import,
+    export_app,
+    load_document,
+    plan_import,
+    plan_summary,
+    strip_url_secrets,
+    validate_document,
+)
 from tests.test_app_export import (  # noqa: F401  (pytest resolves fixtures by name)
     DOMAIN,
     NEW,
@@ -38,19 +51,6 @@ from tests.test_app_export import (  # noqa: F401  (pytest resolves fixtures by 
     no_sweep_timer,
     shop,
     store,
-)
-from wasm.core.exceptions import ValidationError
-from wasm.core.store import App, WASMStore
-from wasm.deployers import app_export
-from wasm.deployers.app_export import (
-    CreateSpec,
-    apply_import,
-    export_app,
-    load_document,
-    plan_import,
-    plan_summary,
-    strip_url_secrets,
-    validate_document,
 )
 
 SOURCE = "https://github.com/acme/shop.git"
@@ -76,7 +76,7 @@ ROOT_JOB = {
 
 
 def test_the_plan_shows_every_cron_job_with_its_user_directory_and_command(
-    store: WASMStore,
+    store: NoustStore,
 ) -> None:
     plan = plan_import(document(cron=[ROOT_JOB]))
 
@@ -91,7 +91,7 @@ def test_the_plan_shows_every_cron_job_with_its_user_directory_and_command(
     assert plan_summary(plan)["confirm"] == plan.confirm
 
 
-def test_a_job_in_the_applications_own_directory_is_not_called_out(store: WASMStore) -> None:
+def test_a_job_in_the_applications_own_directory_is_not_called_out(store: NoustStore) -> None:
     job = {"name": "tidy", "schedule": "daily", "command": "npm run tidy"}
     job["working_directory"] = f"/var/www/apps/{DOMAIN.replace('.', '-')}/current"
     plan = plan_import(document(cron=[job]))
@@ -100,7 +100,7 @@ def test_a_job_in_the_applications_own_directory_is_not_called_out(store: WASMSt
     assert line == (f"cron tidy [daily] as www-data in {job['working_directory']}: npm run tidy")
 
 
-def test_the_plan_shows_what_previews_copy_and_whether_bots_deploy(store: WASMStore) -> None:
+def test_the_plan_shows_what_previews_copy_and_whether_bots_deploy(store: NoustStore) -> None:
     everything = plan_import(
         document(previews={"base_domain": "pr.example.com", "allow_bots": True})
     )
@@ -138,7 +138,7 @@ def test_the_plan_shows_zero_downtime_and_backup_destinations(shop: App, cron: F
     ) in plan.steps
 
 
-def test_a_plain_document_needs_no_confirmation(store: WASMStore) -> None:
+def test_a_plain_document_needs_no_confirmation(store: NoustStore) -> None:
     assert plan_import(document()).confirm == []
 
 
@@ -146,14 +146,14 @@ def test_a_plain_document_needs_no_confirmation(store: WASMStore) -> None:
 
 
 def test_each_cron_job_an_import_creates_is_audited(
-    store: WASMStore,
+    store: NoustStore,
     cron: FakeCron,
     engine: list[str],
     tmp_path: Path,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     plan = plan_import(document(cron=[ROOT_JOB]), domain=NEW)
-    with caplog.at_level(logging.INFO, logger="wasm.audit"):
+    with caplog.at_level(logging.INFO, logger="noust.audit"):
         report = apply_import(
             plan,
             deploy=fake_deploy(store, tmp_path, engine),
@@ -162,7 +162,7 @@ def test_each_cron_job_an_import_creates_is_audited(
         )
 
     assert not report.not_applied
-    [record] = [r for r in caplog.records if r.name == "wasm.audit"]
+    [record] = [r for r in caplog.records if r.name == "noust.audit"]
     assert record.getMessage() == (
         "create_cron_job name=store-example-org-sync schedule=hourly session=token:ops "
         f"user=root via=import app={NEW}"
@@ -194,7 +194,7 @@ def test_the_query_and_fragment_of_an_http_source_are_stripped(source: str, expo
 
 
 def test_an_export_without_secrets_strips_the_query_and_the_import_asks_again(
-    store: WASMStore, tmp_path: Path, cron: FakeCron
+    store: NoustStore, tmp_path: Path, cron: FakeCron
 ) -> None:
     secret_url = "https://dl.example.com/app.tar.gz?token=" + "ab" + "cd1234"
     store.create_app(
@@ -223,14 +223,14 @@ def test_an_export_without_secrets_strips_the_query_and_the_import_asks_again(
 # The first deployment asks the document's health check ---------------------------
 
 
-def test_the_create_spec_carries_the_documents_health_check(store: WASMStore) -> None:
+def test_the_create_spec_carries_the_documents_health_check(store: NoustStore) -> None:
     plan = plan_import(minimal(source=SOURCE, health={"path": "/up", "timeout": 30}))
     assert plan.create.initial_health == ("/up", None, 30)
     assert plan_summary(plan)["create"]["health_path"] == "/up"
     assert plan_import(document()).create.initial_health is None
 
 
-def test_a_health_check_the_gate_cannot_use_stops_the_plan(store: WASMStore) -> None:
+def test_a_health_check_the_gate_cannot_use_stops_the_plan(store: NoustStore) -> None:
     doc = minimal(source=SOURCE, health={"path": "//evil.host"})
     with pytest.raises(ValidationError) as caught:
         plan_import(doc)
@@ -238,7 +238,7 @@ def test_a_health_check_the_gate_cannot_use_stops_the_plan(store: WASMStore) -> 
 
 
 def test_a_health_check_the_deployment_recorded_is_not_set_again(
-    store: WASMStore, cron: FakeCron, engine: list[str], tmp_path: Path
+    store: NoustStore, cron: FakeCron, engine: list[str], tmp_path: Path
 ) -> None:
     doc = minimal(source=SOURCE, health={"path": "/up"})
     plan = plan_import(doc, domain=NEW)
@@ -261,7 +261,7 @@ def test_a_health_check_the_deployment_recorded_is_not_set_again(
 # A document with sections left out -------------------------------------------------
 
 
-def test_a_document_without_optional_sections_is_filled_in(store: WASMStore) -> None:
+def test_a_document_without_optional_sections_is_filled_in(store: NoustStore) -> None:
     bare = {"format": "wasm-app", "version": 1, "app": {"domain": DOMAIN, "app_type": "static"}}
     doc = validate_document(bare)
 

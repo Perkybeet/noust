@@ -68,7 +68,7 @@ export function DatabasesPage() {
             skeleton={
               <div className="flex flex-col gap-3">
                 <DatabasesTable databases={[]} caption={t("nav.databases.label")} loading />
-                <CommandHint command="wasm db list" label={t("databases.fromTerminal")} />
+                <CommandHint command="noust db list" label={t("databases.fromTerminal")} />
               </div>
             }
             isEmpty={(data) => data.databases.length === 0}
@@ -87,7 +87,7 @@ export function DatabasesPage() {
                     }
                   />
                 }
-                command="wasm db create"
+                command="noust db create"
               />
             }
           >
@@ -97,7 +97,7 @@ export function DatabasesPage() {
                   databases={data.databases}
                   caption={filter === ALL ? t("nav.databases.label") : t("databases.page.databasesOn", { engine: engineLabel(filter) })}
                 />
-                <CommandHint command="wasm db list" label={t("databases.fromTerminal")} />
+                <CommandHint command="noust db list" label={t("databases.fromTerminal")} />
               </div>
             )}
           </QueryState>

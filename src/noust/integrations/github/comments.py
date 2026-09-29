@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The comment WASM keeps on a pull request about its preview.
+The comment Noust keeps on a pull request about its preview.
 
 One comment per pull request, edited as the preview changes, rather than a
 new comment for every push: the caller keeps the id the first call returned
@@ -13,16 +13,16 @@ from __future__ import annotations
 
 from urllib.parse import quote
 
-from wasm.integrations.github.app import installation_for, load_app
-from wasm.integrations.github.client import GitHubAPIError
-from wasm.validators.source import GITHUB_SHORTHAND_PATTERN
+from noust.integrations.github.app import installation_for, load_app
+from noust.integrations.github.client import GitHubAPIError
+from noust.validators.source import GITHUB_SHORTHAND_PATTERN
 
 
 def upsert_pr_comment(
     repository: str, number: int, body: str, comment_ref: str | None = None
 ) -> str | None:
     """
-    Create, or update, WASM's comment on a pull request.
+    Create, or update, Noust's comment on a pull request.
 
     Args:
         repository: ``owner/repo``.

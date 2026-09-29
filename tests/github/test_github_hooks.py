@@ -24,13 +24,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from noust.core.forge_events import Forge, PullRequestAction, PullRequestEvent
+from noust.core.store import App, NoustStore
+from noust.integrations.github import app as github_app
+from noust.web.api import github_hooks
+from noust.web.auth import SecurityConfig
+from noust.web.server import create_app as build_app
 from tests.github.fakes import INSTALLATION_ID
-from wasm.core.forge_events import Forge, PullRequestAction, PullRequestEvent
-from wasm.core.store import App, WASMStore
-from wasm.integrations.github import app as github_app
-from wasm.web.api import github_hooks
-from wasm.web.auth import SecurityConfig
-from wasm.web.server import create_app as build_app
 
 SECRET = "hook-secret"
 
@@ -88,7 +88,7 @@ def fresh_deliveries() -> None:
 
 
 @pytest.fixture
-def app(tmp_path: Path, store: WASMStore) -> FastAPI:
+def app(tmp_path: Path, store: NoustStore) -> FastAPI:
     """
     Args:
         tmp_path: Per-test directory.
@@ -149,7 +149,7 @@ def previews(monkeypatch: pytest.MonkeyPatch) -> list[PullRequestEvent]:
         received.append(event)
         return ["job-p"]
 
-    monkeypatch.setattr("wasm.managers.previews.handle_pull_request", handle)
+    monkeypatch.setattr("noust.managers.previews.handle_pull_request", handle)
     return received
 
 
@@ -224,7 +224,7 @@ def test_no_app_answers_404(client: TestClient) -> None:
 
 
 def test_missing_and_wrong_signatures_are_401(
-    client: TestClient, github_configured: WASMStore
+    client: TestClient, github_configured: NoustStore
 ) -> None:
     """Neither an unsigned delivery nor one signed with another secret passes."""
     assert deliver(client, "ping", {}, secret=None).status_code == 401
@@ -232,7 +232,7 @@ def test_missing_and_wrong_signatures_are_401(
 
 
 def test_repeated_wrong_signatures_lock_out_only_wrong_signatures(
-    client: TestClient, github_configured: WASMStore, tmp_path: Path
+    client: TestClient, github_configured: NoustStore, tmp_path: Path
 ) -> None:
     """
     A stranger's bad signatures must not stop GitHub's deliveries.
@@ -252,7 +252,7 @@ def test_repeated_wrong_signatures_lock_out_only_wrong_signatures(
 
 
 def test_a_replayed_body_under_a_new_delivery_id_is_ignored(
-    client: TestClient, github_configured: WASMStore, queued: list[dict[str, Any]]
+    client: TestClient, github_configured: NoustStore, queued: list[dict[str, Any]]
 ) -> None:
     """The delivery id is not signed: the signed body and signature are what repeat."""
     github_configured.create_app(
@@ -266,7 +266,7 @@ def test_a_replayed_body_under_a_new_delivery_id_is_ignored(
 
 
 def test_a_replayed_delivery_is_ignored(
-    client: TestClient, github_configured: WASMStore, queued: list[dict[str, Any]]
+    client: TestClient, github_configured: NoustStore, queued: list[dict[str, Any]]
 ) -> None:
     """One delivery id, one update."""
     github_configured.create_app(
@@ -283,7 +283,7 @@ def test_a_replayed_delivery_is_ignored(
 
 
 def test_ping_answers_and_records_the_webhook_as_working(
-    client: TestClient, github_configured: WASMStore, monkeypatch: pytest.MonkeyPatch
+    client: TestClient, github_configured: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """GitHub pings when the webhook is switched on; that is the proof it works."""
     monkeypatch.setattr(
@@ -299,7 +299,7 @@ def test_ping_answers_and_records_the_webhook_as_working(
 
 
 def test_a_push_updates_exactly_the_applications_that_follow_it(
-    client: TestClient, github_configured: WASMStore, queued: list[dict[str, Any]]
+    client: TestClient, github_configured: NoustStore, queued: list[dict[str, Any]]
 ) -> None:
     """Same repository and branch (own, or the default when unset); nothing else."""
     store = github_configured
@@ -328,7 +328,7 @@ def test_a_push_updates_exactly_the_applications_that_follow_it(
 
 
 def test_a_push_nobody_follows_is_ignored(
-    client: TestClient, github_configured: WASMStore, queued: list[dict[str, Any]]
+    client: TestClient, github_configured: NoustStore, queued: list[dict[str, Any]]
 ) -> None:
     """A branch no application deploys queues nothing."""
     github_configured.create_app(
@@ -340,7 +340,7 @@ def test_a_push_nobody_follows_is_ignored(
 
 
 def test_a_tag_push_is_ignored(
-    client: TestClient, github_configured: WASMStore, queued: list[dict[str, Any]]
+    client: TestClient, github_configured: NoustStore, queued: list[dict[str, Any]]
 ) -> None:
     """Tags deploy nothing."""
     payload = push_payload()
@@ -361,7 +361,7 @@ def test_a_tag_push_is_ignored(
 )
 def test_pull_requests_reach_the_previews(
     client: TestClient,
-    github_configured: WASMStore,
+    github_configured: NoustStore,
     previews: list[PullRequestEvent],
     action: str,
     expected: PullRequestAction,
@@ -388,7 +388,7 @@ def test_pull_requests_reach_the_previews(
 
 
 def test_a_fork_is_marked_as_one(
-    client: TestClient, github_configured: WASMStore, previews: list[PullRequestEvent]
+    client: TestClient, github_configured: NoustStore, previews: list[PullRequestEvent]
 ) -> None:
     """A branch in another repository is a fork; the previews refuse those."""
     deliver(client, "pull_request", pr_payload("opened", head_repo="mallory/app"))
@@ -397,7 +397,7 @@ def test_a_fork_is_marked_as_one(
 
 
 def test_pull_request_actions_that_change_no_code_are_ignored(
-    client: TestClient, github_configured: WASMStore, previews: list[PullRequestEvent]
+    client: TestClient, github_configured: NoustStore, previews: list[PullRequestEvent]
 ) -> None:
     """A label or an edit rebuilds nothing."""
     response = deliver(client, "pull_request", pr_payload("labeled"))
@@ -406,7 +406,7 @@ def test_pull_request_actions_that_change_no_code_are_ignored(
 
 
 def test_installation_events_keep_the_installations(
-    client: TestClient, github_configured: WASMStore
+    client: TestClient, github_configured: NoustStore
 ) -> None:
     """Created and repository changes are saved; deleted is forgotten."""
     created = {
@@ -433,7 +433,7 @@ def test_installation_events_keep_the_installations(
 
 
 def test_unknown_events_are_accepted_and_ignored(
-    client: TestClient, github_configured: WASMStore
+    client: TestClient, github_configured: NoustStore
 ) -> None:
     """GitHub is told the delivery arrived; nothing happens."""
     response = deliver(client, "star", {"action": "created"})

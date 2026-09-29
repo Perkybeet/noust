@@ -33,7 +33,7 @@ function configBody(notifications: Record<string, unknown> = {}) {
       },
       monitor: { smtp: { host: "", port: 465, from_address: "", password: "***" }, email_recipients: [] },
     },
-    path: "/etc/wasm/config.yaml",
+    path: "/etc/noust/config.yaml",
     writable: true,
   };
 }
@@ -55,8 +55,8 @@ const SMTP_SET = {
   port: 465,
   use_ssl: true,
   use_tls: false,
-  username: "wasm@example.com",
-  from_address: "wasm@example.com",
+  username: "noust@example.com",
+  from_address: "noust@example.com",
   recipients: ["ops@example.com"],
   password_set: true,
 };
@@ -79,7 +79,7 @@ function notificationsBackend(
     "PATCH /api/config": (call) => {
       if (!elevated) return problem(403, "elevation_required", "Confirm it's you to continue.");
       const body = call.body as { path: string; value: unknown };
-      return json(200, { message: `Configuration '${body.path}' updated`, path: "/etc/wasm/config.yaml", value: body.value });
+      return json(200, { message: `Configuration '${body.path}' updated`, path: "/etc/noust/config.yaml", value: body.value });
     },
     "POST /api/config/notifications/slack/test": () =>
       json(200, { ok: false, detail: "Channel slack is not configured; set notifications.channels.slack.webhook_url first." }),
@@ -110,7 +110,7 @@ describe("Settings > Notifications", () => {
     expect(url).toHaveAttribute("type", "password");
     expect(await within(channel("Email")).findByLabelText("SMTP server")).toHaveValue("");
     expect(screen.getByRole("checkbox", { name: /Certificate expiring/ })).toBeInTheDocument();
-    expect(screen.getByText(/Not sent by this version of WASM yet/)).toBeInTheDocument();
+    expect(screen.getByText(/Not sent by this version of Noust yet/)).toBeInTheDocument();
     // The two new deploy lifecycle events: off by default (noisy) and on by default (a rollback matters).
     expect(screen.getByRole("checkbox", { name: /Deployment started/ })).not.toBeChecked();
     expect(screen.getByText(/Noisy: one message per attempt/)).toBeInTheDocument();
@@ -254,7 +254,7 @@ describe("Settings > Notifications", () => {
 
     await user.click(screen.getByRole("checkbox", { name: /Deploy finished/ }));
     const events = screen.getByRole("region", { name: "Events" });
-    expect(within(events).getByText("wasm config set notifications.events.deploy_success false")).toBeInTheDocument();
+    expect(within(events).getByText("noust config set notifications.events.deploy_success false")).toBeInTheDocument();
     await user.click(within(events).getByRole("button", { name: "Save changes" }));
     await waitFor(() => {
       expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({
@@ -334,11 +334,11 @@ describe("Settings > Notifications", () => {
     await user.click(within(encryption).getByRole("radio", { name: "STARTTLS" }));
     expect(within(email).getByLabelText("Port")).toHaveValue("587");
 
-    await user.type(within(email).getByLabelText(/Username/), "wasm@example.com");
+    await user.type(within(email).getByLabelText(/Username/), "noust@example.com");
     const password = within(email).getByLabelText(/^Password/);
     expect(password).toHaveAttribute("type", "password");
     await user.type(password, "s3cret");
-    await user.type(within(email).getByLabelText(/From address/), "wasm@example.com");
+    await user.type(within(email).getByLabelText(/From address/), "noust@example.com");
 
     // Each address is checked as it is added; a mistake stays in the box with why.
     const add = within(email).getByLabelText("Add a recipient");
@@ -364,9 +364,9 @@ describe("Settings > Notifications", () => {
       port: 587,
       use_ssl: false,
       use_tls: true,
-      username: "wasm@example.com",
+      username: "noust@example.com",
       password: "s3cret",
-      from_address: "wasm@example.com",
+      from_address: "noust@example.com",
       recipients: ["ops@example.com"],
     });
   });
@@ -443,7 +443,7 @@ describe("Settings > Notifications", () => {
         "POST /api/config/notifications/telegram/chats": () =>
           json(200, {
             chats: [
-              { id: -1001987654321, type: "supergroup", title: "WASM alerts", username: null },
+              { id: -1001987654321, type: "supergroup", title: "Noust alerts", username: null },
               { id: 52345678, type: "private", title: null, username: "yago" },
             ],
           }),
@@ -454,7 +454,7 @@ describe("Settings > Notifications", () => {
     const telegram = channel("Telegram");
     await user.click(within(telegram).getByRole("button", { name: "Find my chat" }));
     const chats = await within(telegram).findByRole("list", { name: "Chats your bot has seen" });
-    expect(within(chats).getByText("WASM alerts")).toBeInTheDocument();
+    expect(within(chats).getByText("Noust alerts")).toBeInTheDocument();
     expect(within(chats).getByText("Supergroup")).toBeInTheDocument();
     expect(within(chats).getByText("-1001987654321")).toBeInTheDocument();
     expect(within(chats).getByText("@yago")).toBeInTheDocument();
@@ -462,7 +462,7 @@ describe("Settings > Notifications", () => {
     expect(screen.getByText("Found 2 chats.")).toBeInTheDocument();
     await expectNoAxeViolations(container);
 
-    await user.click(within(chats).getByRole("button", { name: "Use WASM alerts" }));
+    await user.click(within(chats).getByRole("button", { name: "Use Noust alerts" }));
     expect(within(telegram).getByLabelText("Chat ID")).toHaveValue("-1001987654321");
     expect(within(chats).getByText("Chosen")).toBeInTheDocument();
     await user.click(within(telegram).getByRole("button", { name: "Save" }));
@@ -540,10 +540,10 @@ describe("Settings > Notifications", () => {
     expect(english).toHaveAttribute("lang", "en");
     expect(spanish).toHaveAttribute("lang", "es");
     expect(english).toBeChecked();
-    expect(within(section).getByText("wasm config get notifications.language")).toBeInTheDocument();
+    expect(within(section).getByText("noust config get notifications.language")).toBeInTheDocument();
 
     await user.click(spanish);
-    expect(within(section).getByText("wasm config set notifications.language es")).toBeInTheDocument();
+    expect(within(section).getByText("noust config set notifications.language es")).toBeInTheDocument();
     await user.click(within(section).getByRole("button", { name: "Save changes" }));
     await confirmItsYou(user);
     await waitFor(() => {

@@ -33,21 +33,21 @@ from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
-from wasm.core.exceptions import DomainError
-from wasm.web import jobs as jobs_module
-from wasm.web.api import apps as apps_api
-from wasm.web.api import backups as backups_api
-from wasm.web.api import certs as certs_api
-from wasm.web.api import databases as databases_api
-from wasm.web.api import jobs as jobs_api
-from wasm.web.api import sites as sites_api
-from wasm.web.api import system as system_api
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import strict_domain
+from noust.core.exceptions import DomainError
+from noust.web import jobs as jobs_module
+from noust.web.api import apps as apps_api
+from noust.web.api import backups as backups_api
+from noust.web.api import certs as certs_api
+from noust.web.api import databases as databases_api
+from noust.web.api import jobs as jobs_api
+from noust.web.api import sites as sites_api
+from noust.web.api import system as system_api
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import strict_domain
 
 #: The aggregate router module, imported by path because the package re-exports
 #: the router object itself under the same name.
-router_module = import_module("wasm.web.api.router")
+router_module = import_module("noust.web.api.router")
 
 #: Every module this agent owns, plus the job system they all queue work on.
 API_MODULES = [
@@ -162,8 +162,8 @@ def sandbox_nginx(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
     """
     import dataclasses
 
-    from wasm.managers.nginx_manager import NginxManager
-    from wasm.managers.webserver import NGINX_BACKEND
+    from noust.managers.nginx_manager import NginxManager
+    from noust.managers.webserver import NGINX_BACKEND
 
     available = tmp_path / "etc" / "nginx" / "sites-available"
     enabled = tmp_path / "etc" / "nginx" / "sites-enabled"
@@ -581,8 +581,8 @@ class TestSiteTemplates:
     """GET /api/sites/templates names the one source of truth for templates."""
 
     def test_lists_the_backends_own_templates(self, sites_client: TestClient) -> None:
-        from wasm.managers.nginx_manager import NginxManager
-        from wasm.managers.webserver import NGINX_BACKEND
+        from noust.managers.nginx_manager import NginxManager
+        from noust.managers.webserver import NGINX_BACKEND
 
         expected = NginxManager(backend=NGINX_BACKEND).list_templates()
 
@@ -831,7 +831,7 @@ class TestErrorBoundary:
 
     def test_every_owned_router_installs_the_boundary(self) -> None:
         """A router built without it would answer 500 for a validation failure."""
-        from wasm.web.api.deps import WASMErrorRoute
+        from noust.web.api.deps import NoustErrorRoute
 
         for module in API_MODULES:
-            assert module.router.route_class is WASMErrorRoute, module.__name__
+            assert module.router.route_class is NoustErrorRoute, module.__name__

@@ -19,7 +19,7 @@ from typing import Any
 
 
 class Forge(str, Enum):
-    """The code hosts WASM understands."""
+    """The code hosts Noust understands."""
 
     GITHUB = "github"
     GITLAB = "gitlab"

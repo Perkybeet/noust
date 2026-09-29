@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Tests for :mod:`wasm.monitor.email_notifier`'s own WASM-authored text.
+Tests for :mod:`noust.monitor.email_notifier`'s own Noust-authored text.
 
-:class:`~wasm.monitor.email_notifier.EmailNotifier` renders its subjects and
-bodies directly into an :class:`~wasm.monitor.email_notifier.EmailContent`,
-a second path from :mod:`wasm.core.notifier`'s multi-channel one, which
-already builds every event from :mod:`wasm.core.messages`. That is why this
+:class:`~noust.monitor.email_notifier.EmailNotifier` renders its subjects and
+bodies directly into an :class:`~noust.monitor.email_notifier.EmailContent`,
+a second path from :mod:`noust.core.notifier`'s multi-channel one, which
+already builds every event from :mod:`noust.core.messages`. That is why this
 one used to ignore ``notifications.language`` entirely: nothing here ever
 called into the catalog. These tests pin that the process-observation report
 and the test email now render in the configured locale, while the evidence
@@ -16,7 +16,7 @@ kernel or the scan itself reported, never a catalog value.
 
 :meth:`EmailNotifier.__init__` reloads the shared :class:`Config` singleton
 from disk, so ``notifications.language`` is set on it *after* a notifier is
-built, the way :class:`~wasm.monitor.process_monitor.ProcessMonitor`'s own
+built, the way :class:`~noust.monitor.process_monitor.ProcessMonitor`'s own
 cached notifier reads whatever the singleton currently holds at send time.
 """
 
@@ -26,10 +26,10 @@ from typing import Any
 
 import pytest
 
+from noust.core.config import Config
+from noust.monitor.email_notifier import EmailContent, EmailNotifier, SMTPConfig
+from noust.monitor.models import SEVERITY_WARNING, ProcessInfo, ProcessObservation
 from tests.test_notifier import config  # noqa: F401  (pytest resolves fixtures by name)
-from wasm.core.config import Config
-from wasm.monitor.email_notifier import EmailContent, EmailNotifier, SMTPConfig
-from wasm.monitor.models import SEVERITY_WARNING, ProcessInfo, ProcessObservation
 
 # The notifier's config fixture is imported rather than replicated, so there
 # stays one definition of "a sandboxed configuration".
@@ -82,9 +82,9 @@ class TestRenderObservations:
 
         content = notifier.render_observations([_observation()])
 
-        assert content.subject == f"[WASM] 1 process observation(s) on {notifier._hostname()}"
-        assert "WASM monitor - process observations" in content.text
-        assert "<h2>WASM monitor - process observations</h2>" in content.html
+        assert content.subject == f"[Noust] 1 process observation(s) on {notifier._hostname()}"
+        assert "Noust monitor - process observations" in content.text
+        assert "<h2>Noust monitor - process observations</h2>" in content.html
 
     def test_spanish_subject_and_heading(self, config: Config) -> None:
         notifier = _notifier()
@@ -92,9 +92,9 @@ class TestRenderObservations:
 
         content = notifier.render_observations([_observation()])
 
-        assert content.subject == f"[WASM] 1 observación(es) de proceso en {notifier._hostname()}"
-        assert "WASM monitor - observaciones de procesos" in content.text
-        assert "<h2>WASM monitor - observaciones de procesos</h2>" in content.html
+        assert content.subject == f"[Noust] 1 observación(es) de proceso en {notifier._hostname()}"
+        assert "Noust monitor - observaciones de procesos" in content.text
+        assert "<h2>Noust monitor - observaciones de procesos</h2>" in content.html
 
     def test_spanish_counts_and_disclaimer(self, config: Config) -> None:
         notifier = _notifier()
@@ -152,12 +152,12 @@ class TestSendTestEmail:
 
         content = self._captured(notifier, monkeypatch)
 
-        assert content.subject == f"[WASM] Test email - {notifier._hostname()}"
-        assert "WASM monitor - test email" in content.text
+        assert content.subject == f"[Noust] Test email - {notifier._hostname()}"
+        assert "Noust monitor - test email" in content.text
         assert "Receiving this means monitor notifications are configured correctly." in (
             content.text
         )
-        assert "<h2>WASM monitor - test email</h2>" in content.html
+        assert "<h2>Noust monitor - test email</h2>" in content.html
 
     def test_spanish(self, config: Config, monkeypatch: pytest.MonkeyPatch) -> None:
         notifier = _notifier()
@@ -165,10 +165,10 @@ class TestSendTestEmail:
 
         content = self._captured(notifier, monkeypatch)
 
-        assert content.subject == f"[WASM] Correo de prueba - {notifier._hostname()}"
-        assert "WASM monitor - correo de prueba" in content.text
+        assert content.subject == f"[Noust] Correo de prueba - {notifier._hostname()}"
+        assert "Noust monitor - correo de prueba" in content.text
         assert (
             "Si recibes esto, las notificaciones del monitor están bien configuradas."
             in content.text
         )
-        assert "<h2>WASM monitor - correo de prueba</h2>" in content.html
+        assert "<h2>Noust monitor - correo de prueba</h2>" in content.html

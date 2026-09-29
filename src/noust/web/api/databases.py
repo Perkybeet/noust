@@ -4,7 +4,7 @@
 """
 Database API endpoints.
 
-A client of :mod:`wasm.managers.database`: every statement this module causes
+A client of :mod:`noust.managers.database`: every statement this module causes
 to run is built by an engine manager, which is where quoting, privilege
 whitelists and the command runner live.
 
@@ -20,12 +20,12 @@ into every database on the host. It is kept, and made explicit:
   ``mode="write"`` in the body, so no client writes by accident.
 - **One statement at a time.** An embedded ``;`` is refused, which is what
   turns "one SELECT" into "one SELECT and one DROP".
-- **Audited.** Every attempt is logged to ``wasm.audit`` with the session, the
+- **Audited.** Every attempt is logged to ``noust.audit`` with the session, the
   engine, the database and the statement, accepted or not.
 - **Bounded output.** The response is truncated to ``max_rows`` lines and says
   so, so a ``SELECT *`` over a large table cannot pull the panel over.
 
-Read mode is only offered for engines whose read grammar WASM actually knows
+Read mode is only offered for engines whose read grammar Noust actually knows
 (PostgreSQL and MySQL). For the others a query is a write by definition, and
 the client has to say so.
 """
@@ -39,37 +39,37 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from wasm.core.exceptions import (
+from noust.core.exceptions import (
     DatabaseEngineError,
     DatabaseError,
     DatabaseQueryError,
 )
-from wasm.managers.database import (
+from noust.managers.database import (
     BaseDatabaseManager,
     DatabaseRegistry,
     get_db_manager,
 )
-from wasm.managers.database.base import DEFAULT_STRUCTURED_ROW_CAP
-from wasm.managers.service_manager import ServiceManager
-from wasm.validators.names import resolve_within, validate_filename
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import (
+from noust.managers.database.base import DEFAULT_STRUCTURED_ROW_CAP
+from noust.managers.service_manager import ServiceManager
+from noust.validators.names import resolve_within, validate_filename
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import (
     JobAcceptedResponse,
-    WASMErrorRoute,
+    NoustErrorRoute,
     ensure_elevated,
     require_elevated,
 )
-from wasm.web.auth import actor_label
-from wasm.web.jobs import JobType, database_engine_job, get_job_manager
-from wasm.web.pydantic_compat import iso_offset_validator
+from noust.web.auth import actor_label
+from noust.web.jobs import JobType, database_engine_job, get_job_manager
+from noust.web.pydantic_compat import iso_offset_validator
 
-router = APIRouter(route_class=WASMErrorRoute)
+router = APIRouter(route_class=NoustErrorRoute)
 
 #: Append-only record of privileged actions. Kept separate from the module
 #: logger so an operator can route it somewhere durable.
-audit_log = logging.getLogger("wasm.audit")
+audit_log = logging.getLogger("noust.audit")
 
-#: Engines whose read-only grammar WASM knows well enough to enforce it.
+#: Engines whose read-only grammar Noust knows well enough to enforce it.
 READ_MODE_ENGINES = frozenset({"postgres", "postgresql", "mysql", "mariadb"})
 
 #: Statements accepted in read mode. Anything else needs mode="write".
@@ -192,7 +192,7 @@ class CreateUserResponse(BaseModel):
     """
     Response after creating a user.
 
-    The password is returned exactly once, at creation: WASM stores only what
+    The password is returned exactly once, at creation: Noust stores only what
     the engine stores, which is a hash, so there is nowhere to read it from
     later. It is deliberately absent from every other response.
     """
@@ -348,7 +348,7 @@ def get_manager(engine: str) -> BaseDatabaseManager:
         The engine manager.
 
     Raises:
-        DatabaseEngineError: When the engine is not one WASM supports. The name
+        DatabaseEngineError: When the engine is not one Noust supports. The name
             is checked against the registry, which is the allowlist.
     """
     manager = get_db_manager(engine, verbose=False)
@@ -387,7 +387,7 @@ def _database_name(manager: BaseDatabaseManager, name: str) -> str:
     Validate a database name with the engine's own rule.
 
     The engine's validator is used rather than
-    :func:`wasm.validators.names.validate_database_name` because the alphabets
+    :func:`noust.validators.names.validate_database_name` because the alphabets
     genuinely differ - a Redis database is a number - and the engine manager is
     the one that has to quote it.
 
@@ -465,14 +465,14 @@ def _check_read_only(engine: str, statement: str) -> None:
         statement: The single statement to run.
 
     Raises:
-        DatabaseQueryError: When the engine has no read grammar WASM enforces,
+        DatabaseQueryError: When the engine has no read grammar Noust enforces,
             or the statement does not begin with a read keyword.
     """
     if engine.lower() not in READ_MODE_ENGINES:
         raise DatabaseQueryError(
             f"Read-only mode is not available for {engine}",
             details=(
-                "WASM only enforces a read-only grammar for PostgreSQL and MySQL. "
+                "Noust only enforces a read-only grammar for PostgreSQL and MySQL. "
                 "Send mode='write' to run this statement, knowing it may change data."
             ),
         )
@@ -513,7 +513,7 @@ def _truncate(output: str, max_rows: int) -> tuple[str, bool, int]:
 @router.get("/engines", response_model=EngineListResponse)
 def list_engines(session: Annotated[dict, Depends(get_current_session)]) -> EngineListResponse:
     """
-    List every engine WASM can manage and its state on this host.
+    List every engine Noust can manage and its state on this host.
 
     Args:
         session: The authenticated session.
@@ -573,8 +573,8 @@ def get_engine_privileges(
     """
     List the privileges an engine's grant dialog may offer.
 
-    The manager's own whitelist is the one definition of what WASM will
-    grant - see :data:`wasm.managers.database.base.BaseDatabaseManager.VALID_PRIVILEGES` -
+    The manager's own whitelist is the one definition of what Noust will
+    grant - see :data:`noust.managers.database.base.BaseDatabaseManager.VALID_PRIVILEGES` -
     so the console reads it from here instead of keeping its own copy that
     could drift.
 
@@ -666,7 +666,7 @@ def uninstall_engine(
     Removing an engine can take every database it hosts with it - D5's sudo
     mode list treats it the same as dropping a single database, so a cookie
     session has to confirm itself first; an admin-scoped Bearer credential is
-    exempt, per :func:`wasm.web.api.deps.ensure_elevated`.
+    exempt, per :func:`noust.web.api.deps.ensure_elevated`.
 
     Args:
         engine: Engine name.
@@ -1215,7 +1215,7 @@ def restore_backup(
     Restoring overwrites whatever the target database currently holds - D5's
     sudo mode list treats it the same as dropping a database, so a cookie
     session has to confirm itself first; an admin-scoped Bearer credential is
-    exempt, per :func:`wasm.web.api.deps.ensure_elevated`.
+    exempt, per :func:`noust.web.api.deps.ensure_elevated`.
 
     Args:
         request: The restore request.

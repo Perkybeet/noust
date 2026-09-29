@@ -21,10 +21,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from noust.core.store import App, NoustStore
+from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig, required_scope
+from noust.web.server import create_app, get_token_manager
 from tests.test_web_auth import bearer, issue_token
-from wasm.core.store import App, WASMStore
-from wasm.web.auth import CSRF_HEADER_NAME, SecurityConfig, required_scope
-from wasm.web.server import create_app, get_token_manager
 
 LOCAL_SOURCES = ("/srv/app", "./app", "~/app", "/")
 
@@ -40,13 +40,13 @@ def store(tmp_path: Path) -> Any:
     Yields:
         The store the API reads and writes.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     try:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 @pytest.fixture
@@ -125,8 +125,8 @@ def queued(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
         return Queued()
 
     manager = type("FakeJobs", (), {"create_job": staticmethod(create_job)})()
-    monkeypatch.setattr("wasm.web.api.apps.get_job_manager", lambda: manager)
-    monkeypatch.setattr("wasm.web.api.jobs.get_job_manager", lambda: manager)
+    monkeypatch.setattr("noust.web.api.apps.get_job_manager", lambda: manager)
+    monkeypatch.setattr("noust.web.api.jobs.get_job_manager", lambda: manager)
     return captured
 
 
@@ -144,7 +144,7 @@ def inspected(monkeypatch: pytest.MonkeyPatch) -> list[str]:
         seen.append(source)
         raise AssertionError("the test only checks whether the fetch was reached")
 
-    monkeypatch.setattr("wasm.web.api.apps.inspect_source", fake_inspect)
+    monkeypatch.setattr("noust.web.api.apps.inspect_source", fake_inspect)
     return seen
 
 
@@ -201,7 +201,7 @@ def test_a_deploy_token_cannot_create_or_inspect_an_application(
 def test_a_deploy_token_still_queues_an_update(
     session: tuple[TestClient, str],
     master: str,
-    store: WASMStore,
+    store: NoustStore,
     queued: list[dict[str, Any]],
 ) -> None:
     """Narrowing creation must not take away what the scope exists for."""
@@ -261,7 +261,7 @@ def test_an_admin_api_token_cannot_inspect_a_local_path(
 def test_an_admin_api_token_still_deploys_from_a_repository(
     session: tuple[TestClient, str],
     master: str,
-    store: WASMStore,
+    store: NoustStore,
     queued: list[dict[str, Any]],
 ) -> None:
     """The refusal is about local paths, not about API tokens creating applications."""
@@ -280,7 +280,7 @@ def test_an_admin_api_token_still_deploys_from_a_repository(
 def test_a_console_session_must_confirm_before_deploying_a_local_path(
     session: tuple[TestClient, str],
     master: str,
-    store: WASMStore,
+    store: NoustStore,
     queued: list[dict[str, Any]],
 ) -> None:
     """An operator may deploy a directory, after proving it is still them."""
@@ -300,7 +300,7 @@ def test_a_console_session_must_confirm_before_deploying_a_local_path(
 
 
 def test_the_master_token_deploys_a_local_path(
-    app: FastAPI, master: str, store: WASMStore, queued: list[dict[str, Any]]
+    app: FastAPI, master: str, store: NoustStore, queued: list[dict[str, Any]]
 ) -> None:
     """The master token is root by definition; nothing is gained by refusing it."""
     anon = TestClient(app, client=("testclient", 50000))
@@ -323,7 +323,7 @@ def test_the_master_token_deploys_a_local_path(
     ],
 )
 def test_a_credential_stored_in_a_clone_url_never_comes_back_out(
-    app: FastAPI, master: str, store: WASMStore, runner: object, stored: str, leaked: str
+    app: FastAPI, master: str, store: NoustStore, runner: object, stored: str, leaked: str
 ) -> None:
     """
     Older releases stored whatever URL they were given, token included.
@@ -355,7 +355,7 @@ def test_a_credential_stored_in_a_clone_url_never_comes_back_out(
 
 
 def test_an_ssh_login_name_is_not_mistaken_for_a_credential(
-    app: FastAPI, master: str, store: WASMStore, runner: object
+    app: FastAPI, master: str, store: NoustStore, runner: object
 ) -> None:
     """``git@`` is who ssh logs in as, not a secret; redacting it would lie."""
     store.create_app(

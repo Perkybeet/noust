@@ -59,7 +59,7 @@ export function CronPage({ search, onSearchChange }: CronPageProps) {
           title={t("cron.page.empty.title")}
           description={t("cron.page.empty.description")}
           action={newJobButton}
-          command="wasm cron create nightly-report --schedule daily --command '...'"
+          command="noust cron create nightly-report --schedule daily --command '...'"
           className="py-16"
         />
       ) : (
@@ -106,7 +106,7 @@ export function CronPage({ search, onSearchChange }: CronPageProps) {
               />
             }
           />
-          <CommandHint command="wasm cron list" label={t("cron.common.fromTerminal")} />
+          <CommandHint command="noust cron list" label={t("cron.common.fromTerminal")} />
         </div>
       )}
 

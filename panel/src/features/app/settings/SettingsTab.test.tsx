@@ -137,8 +137,8 @@ describe("the Settings tab", () => {
     expect(within(source).getByText("main")).toBeInTheDocument();
     expect(within(source).getByText("npm run build")).toBeInTheDocument();
     expect(within(source).getByText("npm run start")).toBeInTheDocument();
-    expect(within(source).getByText(`wasm update ${DOMAIN} --branch <branch>`)).toBeInTheDocument();
-    expect(within(source).queryByText(`wasm status ${DOMAIN}`)).not.toBeInTheDocument();
+    expect(within(source).getByText(`noust update ${DOMAIN} --branch <branch>`)).toBeInTheDocument();
+    expect(within(source).queryByText(`noust status ${DOMAIN}`)).not.toBeInTheDocument();
   });
 
   it("shows a local path as plain text, not a link", async () => {
@@ -574,7 +574,7 @@ describe("enabling releases", () => {
       });
     });
     expect(await within(dialog).findByText(/did not answer on the new layout/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/WASM put everything back as it was/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Noust put everything back as it was/)).toBeInTheDocument();
   });
 });
 

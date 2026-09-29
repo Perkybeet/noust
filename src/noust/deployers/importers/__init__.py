@@ -6,8 +6,8 @@ Read other platforms' configuration from a repository.
 
 One module per platform, each with ``PLATFORM``, ``FILES``, ``detect(root)``
 and ``read(root) -> Proposal``. This package is the one place that knows
-which platforms there are: ``wasm import --from`` and the new-app wizard's
-inspection (:mod:`wasm.deployers.inspect`, which also adds :data:`PLATFORM_FILES`
+which platforms there are: ``noust import --from`` and the new-app wizard's
+inspection (:mod:`noust.deployers.inspect`, which also adds :data:`PLATFORM_FILES`
 to its sparse checkout) both go through :func:`propose`.
 """
 
@@ -16,9 +16,9 @@ from __future__ import annotations
 from pathlib import Path
 from types import ModuleType
 
-from wasm.core.exceptions import ValidationError
-from wasm.deployers.importers import heroku, railway, render, vercel
-from wasm.deployers.importers.base import Proposal, ProposedEnv
+from noust.core.exceptions import ValidationError
+from noust.deployers.importers import heroku, railway, render, vercel
+from noust.deployers.importers.base import Proposal, ProposedEnv
 
 __all__ = [
     "PLATFORMS",
@@ -46,9 +46,9 @@ UNSUPPORTED_PLATFORMS: dict[str, str] = {
     "coolify": (
         "Coolify keeps an application's configuration in its own database, not in the "
         "repository, so there is nothing here to read. Deploy the repository with "
-        "'wasm create' (the wizard detects the type), copy the variables from Coolify's "
+        "'noust create' (the wizard detects the type), copy the variables from Coolify's "
         "environment page to a file for --env-file, and add the domains with "
-        "'wasm domain add'. An importer can follow once Coolify has an export to read."
+        "'noust domain add'. An importer can follow once Coolify has an export to read."
     ),
 }
 
@@ -72,7 +72,7 @@ def _module(platform: str) -> ModuleType:
             return module
     if platform in UNSUPPORTED_PLATFORMS:
         raise ValidationError(
-            f"WASM cannot import from {platform.capitalize()}",
+            f"Noust cannot import from {platform.capitalize()}",
             details=UNSUPPORTED_PLATFORMS[platform],
         )
     raise ValidationError(
@@ -117,7 +117,7 @@ def read_platform(platform: str, root: Path) -> Proposal:
     if not module.detect(root):
         raise ValidationError(
             f"No {platform} configuration in {root}",
-            details=f"WASM reads {', '.join(module.FILES)} at the root of the repository.",
+            details=f"Noust reads {', '.join(module.FILES)} at the root of the repository.",
         )
     proposal: Proposal = module.read(root)
     return proposal
@@ -149,6 +149,6 @@ def propose(root: Path) -> Proposal | None:
     for other in found[1:]:
         proposal.warn(
             f"The repository also has {other} configuration; read it with "
-            f"'wasm import --from {other}'."
+            f"'noust import --from {other}'."
         )
     return proposal

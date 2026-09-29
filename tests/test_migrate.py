@@ -26,14 +26,14 @@ from typing import Any
 
 import pytest
 
-from wasm.core.exceptions import DeploymentError, ServiceError, ValidationError, WASMError
-from wasm.core.fs import DryRunFileSystem, RealFileSystem, set_fs
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, Service, Site, WASMStore
-from wasm.core.utils import domain_to_app_name
-from wasm.deployers import lifecycle
-from wasm.deployers import migrate as migrate_module
-from wasm.deployers.migrate import count_tree, migrate, plan_migration, relocate
+from noust.core.exceptions import DeploymentError, NoustError, ServiceError, ValidationError
+from noust.core.fs import DryRunFileSystem, RealFileSystem, set_fs
+from noust.core.runner import FakeRunner
+from noust.core.store import App, NoustStore, Service, Site
+from noust.core.utils import domain_to_app_name
+from noust.deployers import lifecycle
+from noust.deployers import migrate as migrate_module
+from noust.deployers.migrate import count_tree, migrate, plan_migration, relocate
 
 DOMAIN = "shop.example.com"
 PORT = 3100
@@ -135,19 +135,19 @@ def root(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[WASMStore]:
+def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[NoustStore]:
     """A store in the test directory, where both modules look."""
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     monkeypatch.setattr(migrate_module, "get_store", lambda: instance)
     monkeypatch.setattr(lifecycle, "get_store", lambda: instance)
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture
 def machine(
-    root: Path, store: WASMStore, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+    root: Path, store: NoustStore, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
 ) -> Any:
     """
     The application registered and running in place, with its machine faked.
@@ -315,7 +315,7 @@ def test_a_tree_that_is_not_a_checkout_keeps_the_usual_upload_directories(
 
 
 def test_only_in_place_applications_of_a_release_type_can_be_migrated(
-    store: WASMStore, machine: Any
+    store: NoustStore, machine: Any
 ) -> None:
     """On releases already, or a type with no release pipeline, is refused."""
     app = store.get_app(DOMAIN)
@@ -330,7 +330,7 @@ def test_only_in_place_applications_of_a_release_type_can_be_migrated(
     with pytest.raises(DeploymentError, match="cannot use the release layout"):
         plan_migration(DOMAIN)
 
-    with pytest.raises(WASMError, match="not found"):
+    with pytest.raises(NoustError, match="not found"):
         plan_migration("other.example.com")
 
 
@@ -340,7 +340,7 @@ def test_only_in_place_applications_of_a_release_type_can_be_migrated(
 
 
 def test_the_live_tree_becomes_the_first_release_and_uploads_move_to_shared(
-    root: Path, store: WASMStore, machine: Any
+    root: Path, store: NoustStore, machine: Any
 ) -> None:
     """Review Focus: every upload in shared/, served through the release; not a byte lost."""
     before_files = files_by_content(root)
@@ -398,7 +398,7 @@ def test_the_live_tree_becomes_the_first_release_and_uploads_move_to_shared(
 
 
 def test_a_migration_that_does_not_come_up_is_undone_exactly(
-    root: Path, store: WASMStore, machine: Any, monkeypatch: pytest.MonkeyPatch
+    root: Path, store: NoustStore, machine: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Every rename reversed, the unit put back byte for byte, restarted in place."""
     before = snapshot(root)
@@ -423,7 +423,7 @@ def test_a_migration_that_does_not_come_up_is_undone_exactly(
 
 
 def test_a_step_that_fails_halfway_is_undone_exactly(
-    root: Path, store: WASMStore, machine: Any
+    root: Path, store: NoustStore, machine: Any
 ) -> None:
     """The tenth rename fails; the nine before it are reversed."""
     before = snapshot(root)
@@ -449,7 +449,7 @@ def test_a_step_that_fails_halfway_is_undone_exactly(
     assert isinstance(failure.value.__cause__, OSError)
 
 
-def test_a_rehearsed_migration_changes_nothing(root: Path, store: WASMStore, machine: Any) -> None:
+def test_a_rehearsed_migration_changes_nothing(root: Path, store: NoustStore, machine: Any) -> None:
     """--dry-run: the tree, the unit, the site and the store are as they were."""
     before = snapshot(root)
     plan = plan_migration(DOMAIN)
@@ -470,7 +470,7 @@ def test_a_rehearsed_migration_changes_nothing(root: Path, store: WASMStore, mac
 
 
 def test_names_the_layout_uses_do_not_collide_with_the_application_own(
-    root: Path, store: WASMStore, machine: Any
+    root: Path, store: NoustStore, machine: Any
 ) -> None:
     """An application may have its own shared/ or releases/ directory; it moves like the rest."""
     (root / "shared").mkdir()
@@ -485,7 +485,7 @@ def test_names_the_layout_uses_do_not_collide_with_the_application_own(
     assert (release / "releases" / "notes.md").read_text() == "tracked release notes"
 
 
-def test_a_static_site_is_served_from_current(root: Path, store: WASMStore, machine: Any) -> None:
+def test_a_static_site_is_served_from_current(root: Path, store: NoustStore, machine: Any) -> None:
     """A site that names the directory is rewritten, reloaded and checked on disk."""
     (root / "dist").mkdir()
     (root / "dist" / "index.html").write_text("<h1>shop</h1>")
@@ -544,7 +544,7 @@ def test_relocation_points_at_current_and_starts_venv_scripts_through_python() -
 
 
 def test_a_file_lost_on_the_way_fails_the_migration(
-    root: Path, store: WASMStore, machine: Any
+    root: Path, store: NoustStore, machine: Any
 ) -> None:
     """The count is the proof: one file fewer, anywhere, and the migration is undone."""
     plan = plan_migration(DOMAIN)
@@ -574,7 +574,7 @@ def test_a_file_lost_on_the_way_fails_the_migration(
 
 
 def test_the_unit_is_stopped_before_anything_moves(
-    root: Path, store: WASMStore, machine: Any
+    root: Path, store: NoustStore, machine: Any
 ) -> None:
     """A running Next.js recreates .next under a moving tree; the undo then cannot put it back."""
     plan = plan_migration(DOMAIN)
@@ -599,7 +599,7 @@ def test_the_plan_states_the_downtime(root: Path, machine: Any) -> None:
 
 
 def test_a_unit_that_would_not_stop_moves_nothing(
-    root: Path, store: WASMStore, machine: Any, monkeypatch: pytest.MonkeyPatch
+    root: Path, store: NoustStore, machine: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     before = snapshot(root)
     plan = plan_migration(DOMAIN)
@@ -616,7 +616,7 @@ def test_a_unit_that_would_not_stop_moves_nothing(
 
 
 def test_a_failure_after_the_build_moved_is_undone_and_says_what_stayed(
-    root: Path, store: WASMStore, machine: Any
+    root: Path, store: NoustStore, machine: Any
 ) -> None:
     """
     The build output moved, the next rename fails, and one reversal fails too.
@@ -659,7 +659,7 @@ def test_a_failure_after_the_build_moved_is_undone_and_says_what_stayed(
 
 
 def test_every_reversal_runs_even_when_one_raises_something_unexpected(
-    root: Path, store: WASMStore, machine: Any, monkeypatch: pytest.MonkeyPatch
+    root: Path, store: NoustStore, machine: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A reversal that fails in a way nobody planned for does not stop the others."""
     before = snapshot(root)
@@ -714,7 +714,7 @@ def with_database(root: Path, machine: Any, relative: str = "db.sqlite3") -> Non
 
 
 def test_a_sqlite_database_is_shared_and_its_wal_moves_with_it(
-    root: Path, store: WASMStore, machine: Any
+    root: Path, store: NoustStore, machine: Any
 ) -> None:
     """Left in the first release, the next deploy would start from an empty database."""
     with_database(root, machine)
@@ -741,7 +741,7 @@ def test_a_sqlite_database_is_shared_and_its_wal_moves_with_it(
 
 
 def test_a_database_inside_a_shared_directory_needs_nothing_more(
-    root: Path, store: WASMStore, machine: Any
+    root: Path, store: NoustStore, machine: Any
 ) -> None:
     with_database(root, machine, "uploads/cache.db")
 
@@ -784,11 +784,11 @@ def test_build_output_and_non_databases_are_not_mistaken_for_databases(
 
 
 def test_a_migration_is_refused_while_another_operation_runs(
-    root: Path, store: WASMStore, machine: Any
+    root: Path, store: NoustStore, machine: Any
 ) -> None:
     """An update building in the tree, or a restore replacing it, must not see it move."""
+    from noust.core.applock import AppBusyError
     from tests.test_applock import Holder
-    from wasm.core.applock import AppBusyError
 
     before = snapshot(root)
     plan = plan_migration(DOMAIN)

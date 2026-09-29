@@ -42,7 +42,7 @@ function tokensBackend(initial: Token[]) {
         expires_at: body.expires_hours === null ? null : NOW + body.expires_hours * 3600,
       };
       tokens.unshift({ ...created, last_used_at: null, revoked_at: null });
-      return json(201, { ...created, token: "wasm_tok_s3cr3t-value" });
+      return json(201, { ...created, token: "noust_tok_s3cr3t-value" });
     },
   });
   for (const token of initial) {
@@ -113,7 +113,7 @@ describe("Settings > API tokens", () => {
     await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
 
     const once = await screen.findByRole("dialog", { name: "Copy your new token" });
-    expect(within(once).getByTestId("new-token")).toHaveTextContent("wasm_tok_s3cr3t-value");
+    expect(within(once).getByTestId("new-token")).toHaveTextContent("noust_tok_s3cr3t-value");
     expect(within(once).getByRole("alert")).toHaveTextContent("This is the only time the token is shown");
     expect(within(once).getByRole("button", { name: "Copy token" })).toBeInTheDocument();
     expect(backend.callsTo("POST /api/auth/tokens").at(-1)?.body).toEqual({ name: "ci-read", scope: "read", expires_hours: 90 * 24 });
@@ -122,7 +122,7 @@ describe("Settings > API tokens", () => {
     await expectToast("Created token ci-read");
     expect(await screen.findByText("ci-read")).toBeInTheDocument();
     // Gone from the page: it is never shown again.
-    expect(screen.queryByText("wasm_tok_s3cr3t-value")).not.toBeInTheDocument();
+    expect(screen.queryByText("noust_tok_s3cr3t-value")).not.toBeInTheDocument();
   });
 
   it("shows why a token could not be created, with the fix", { timeout: 20_000 }, async () => {

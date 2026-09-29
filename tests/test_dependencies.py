@@ -4,7 +4,7 @@ Tests for the dependencies module.
 
 from unittest.mock import patch
 
-from wasm.core.dependencies import (
+from noust.core.dependencies import (
     DependencyChecker,
     check_deployment_ready,
     get_package_manager_install_hint,
@@ -128,7 +128,7 @@ class TestDependencyChecker:
 class TestCheckDeploymentReady:
     """Tests for check_deployment_ready function."""
 
-    @patch("wasm.core.dependencies.DependencyChecker.check_command")
+    @patch("noust.core.dependencies.DependencyChecker.check_command")
     def test_nodejs_app_requires_node(self, mock_check, runner):
         """Test that nodejs apps require node."""
 
@@ -144,7 +144,7 @@ class TestCheckDeploymentReady:
         assert can_deploy is False
         assert any("node" in m.lower() for m in missing)
 
-    @patch("wasm.core.dependencies.DependencyChecker.check_command")
+    @patch("noust.core.dependencies.DependencyChecker.check_command")
     def test_python_app_requires_python(self, mock_check, runner):
         """Test that python apps require python3."""
 
@@ -159,7 +159,7 @@ class TestCheckDeploymentReady:
         assert can_deploy is False
         assert any("python" in m.lower() for m in missing)
 
-    @patch("wasm.core.dependencies.DependencyChecker.check_command")
+    @patch("noust.core.dependencies.DependencyChecker.check_command")
     def test_missing_webserver(self, mock_check, runner):
         """Test that missing webserver is reported."""
 
@@ -174,8 +174,8 @@ class TestCheckDeploymentReady:
         assert can_deploy is False
         assert any("nginx" in m.lower() or "apache" in m.lower() for m in missing)
 
-    @patch("wasm.core.dependencies.DependencyChecker.check_command")
-    @patch("wasm.core.dependencies.DependencyChecker.get_available_package_managers")
+    @patch("noust.core.dependencies.DependencyChecker.check_command")
+    @patch("noust.core.dependencies.DependencyChecker.get_available_package_managers")
     def test_unavailable_pm_with_alternatives_shows_warning(
         self, mock_available, mock_check, runner
     ):
@@ -191,8 +191,8 @@ class TestCheckDeploymentReady:
         assert len(warnings) > 0
         assert any("bun" in w.lower() and "available" in w.lower() for w in warnings)
 
-    @patch("wasm.core.dependencies.DependencyChecker.check_command")
-    @patch("wasm.core.dependencies.DependencyChecker.get_available_package_managers")
+    @patch("noust.core.dependencies.DependencyChecker.check_command")
+    @patch("noust.core.dependencies.DependencyChecker.get_available_package_managers")
     def test_no_package_managers_blocks_deployment(self, mock_available, mock_check, runner):
         """Test that having no package managers blocks JS app deployment."""
 

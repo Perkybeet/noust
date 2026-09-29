@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.fs import (
+from noust.core.fs import (
     SECRET_DIR_MODE,
     SECRET_MODE,
     DryRunFileSystem,
@@ -400,8 +400,8 @@ class TestDryRunIsWiredToTheFlag:
     """--dry-run installs both seams, not just the command runner."""
 
     def test_the_cli_flag_installs_a_rehearsing_filesystem(self):
-        from wasm.cli.app import Context, enable_dry_run
-        from wasm.core.runner import DryRunRunner, get_runner
+        from noust.cli.app import Context, enable_dry_run
+        from noust.core.runner import DryRunRunner, get_runner
 
         set_fs(None)
         state = Context(dry_run=True)
@@ -412,12 +412,12 @@ class TestDryRunIsWiredToTheFlag:
             assert isinstance(get_runner(), DryRunRunner)
         finally:
             set_fs(None)
-            from wasm.core.runner import set_runner
+            from noust.core.runner import set_runner
 
             set_runner(None)
 
     def test_turning_it_on_twice_announces_once(self):
-        from wasm.cli.app import Context, enable_dry_run
+        from noust.cli.app import Context, enable_dry_run
 
         set_fs(None)
         state = Context(dry_run=True)
@@ -429,7 +429,7 @@ class TestDryRunIsWiredToTheFlag:
             assert get_fs() is first
         finally:
             set_fs(None)
-            from wasm.core.runner import set_runner
+            from noust.core.runner import set_runner
 
             set_runner(None)
 
@@ -470,7 +470,7 @@ class TestTheTemporaryFileCannotBeHijacked:
                 seen.add(Path(path).name)
             return original(path, flags, mode, **kwargs)
 
-        import wasm.core.fs as fs_module
+        import noust.core.fs as fs_module
 
         monkey = fs_module.os
         try:
@@ -505,12 +505,12 @@ class TestTheStoreIsRehearsedToo:
     """
 
     def test_a_write_is_rolled_back_under_dry_run(self, tmp_path, monkeypatch):
-        from wasm.core.fs import DryRunFileSystem, set_fs
-        from wasm.core.store import App, WASMStore
+        from noust.core.fs import DryRunFileSystem, set_fs
+        from noust.core.store import App, NoustStore
 
         db = tmp_path / "wasm.db"
-        WASMStore.reset_instance()
-        store = WASMStore(db_path=db)
+        NoustStore.reset_instance()
+        store = NoustStore(db_path=db)
         store.create_app(App(domain="before.com", app_type="static", app_path="/x"))
 
         set_fs(DryRunFileSystem())
@@ -519,26 +519,26 @@ class TestTheStoreIsRehearsedToo:
         finally:
             set_fs(None)
 
-        WASMStore.reset_instance()
-        after = WASMStore(db_path=db)
+        NoustStore.reset_instance()
+        after = NoustStore(db_path=db)
         domains = {app.domain for app in after.list_apps()}
 
         assert "before.com" in domains
         assert "during.com" not in domains, "the rehearsal committed a row"
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
     def test_a_real_run_still_commits(self, tmp_path):
-        from wasm.core.fs import set_fs
-        from wasm.core.store import App, WASMStore
+        from noust.core.fs import set_fs
+        from noust.core.store import App, NoustStore
 
         db = tmp_path / "wasm.db"
         set_fs(None)
-        WASMStore.reset_instance()
-        store = WASMStore(db_path=db)
+        NoustStore.reset_instance()
+        store = NoustStore(db_path=db)
 
         store.create_app(App(domain="real.com", app_type="static", app_path="/x"))
 
-        WASMStore.reset_instance()
-        after = WASMStore(db_path=db)
+        NoustStore.reset_instance()
+        after = NoustStore(db_path=db)
         assert {a.domain for a in after.list_apps()} == {"real.com"}
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()

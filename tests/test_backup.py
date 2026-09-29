@@ -9,7 +9,7 @@ from unittest import mock
 
 import pytest
 
-from wasm.managers.backup_manager import (
+from noust.managers.backup_manager import (
     BackupError,
     BackupManager,
     BackupMetadata,
@@ -227,7 +227,7 @@ class TestBackupManager:
         manager.backup_dir = tmp_path
         frozen = datetime(2026, 9, 26, 12, 0, 0, 500000)
         monkeypatch.setattr(
-            "wasm.managers.backup_manager.datetime",
+            "noust.managers.backup_manager.datetime",
             type("FrozenDatetime", (datetime,), {"now": classmethod(lambda cls, tz=None: frozen)}),
         )
         first = manager._generate_backup_id("test.example.com")
@@ -364,7 +364,7 @@ class TestBackupManagerWithMocks:
     """
     Tests for BackupManager against a fake command runner.
 
-    These used to patch ``wasm.managers.backup_manager.run_command`` by name,
+    These used to patch ``noust.managers.backup_manager.run_command`` by name,
     which coupled them to an implementation detail rather than to behaviour and
     broke the moment the module started going through the injected runner.
     """
@@ -423,7 +423,7 @@ class TestRollbackManager:
         assert manager.backup_manager is not None
         assert manager.service_manager is not None
 
-    @mock.patch("wasm.managers.backup_manager.BackupManager.list_backups")
+    @mock.patch("noust.managers.backup_manager.BackupManager.list_backups")
     def test_rollback_no_backups(self, mock_list_backups, manager):
         """Test rollback with no available backups."""
         mock_list_backups.return_value = []
@@ -433,7 +433,7 @@ class TestRollbackManager:
 
         assert "No backups found" in str(exc_info.value)
 
-    @mock.patch("wasm.managers.backup_manager.BackupManager.get_backup")
+    @mock.patch("noust.managers.backup_manager.BackupManager.get_backup")
     def test_rollback_backup_not_found(self, mock_get_backup, manager):
         """Test rollback with specific backup that doesn't exist."""
         mock_get_backup.return_value = None
@@ -443,7 +443,7 @@ class TestRollbackManager:
 
         assert "Backup not found" in str(exc_info.value)
 
-    @mock.patch("wasm.managers.backup_manager.BackupManager.list_backups")
+    @mock.patch("noust.managers.backup_manager.BackupManager.list_backups")
     def test_list_rollback_points(self, mock_list, manager):
         """Test listing rollback points."""
         mock_backups = [
@@ -484,12 +484,12 @@ class TestRollbackManager:
 class TestBackupIntegration:
     """Integration-style tests (still mocked but testing full flows)."""
 
-    @mock.patch("wasm.cli.commands.backup.RollbackManager")
+    @mock.patch("noust.cli.commands.backup.RollbackManager")
     def test_rollback_flow(self, mock_rollback_cls):
         """Test full rollback flow."""
         from argparse import Namespace
 
-        from wasm.cli.commands.backup import handle_rollback
+        from noust.cli.commands.backup import handle_rollback
 
         mock_metadata = BackupMetadata(
             id="test-backup",

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Backup scheduler for WASM.
+Backup scheduler for Noust.
 
 Creates and manages systemd timers for automated application backups.
 
@@ -14,8 +14,8 @@ root-owned unit file, which is the exact injection the templates were fixed for.
 Only the Jinja renderer survives, and the values it receives are validated
 before they reach it.
 
-Unit files are written and removed through :mod:`wasm.core.fs`, for the same
-reason systemctl goes through the runner: ``wasm --dry-run backup schedule
+Unit files are written and removed through :mod:`noust.core.fs`, for the same
+reason systemctl goes through the runner: ``noust --dry-run backup schedule
 delete`` used to unlink two root-owned unit files while announcing that it would
 change nothing.
 """
@@ -30,21 +30,22 @@ from typing import Any
 
 from jinja2 import Environment, PackageLoader, TemplateError
 
-from wasm.core.applock import AppBusyError
-from wasm.core.config import SYSTEMD_DIR as _SYSTEMD_DIR
-from wasm.core.config import Config
-from wasm.core.exceptions import BackupError, WASMError
-from wasm.core.fs import FileSystem, get_fs
-from wasm.core.logger import Logger
-from wasm.core.messages import message, normalize_locale
-from wasm.core.notifier import NotificationEvent, Notifier
-from wasm.core.runner import CommandRunner, get_runner
-from wasm.core.store import BackupScheduleRecord, get_store
-from wasm.core.utils import domain_to_app_name, find_wasm_executable
-from wasm.managers.backup_destinations import BackupDestinationManager
-from wasm.managers.backup_manager import SCHEDULED_TAG, BackupManager
-from wasm.validators.domain import validate_domain
-from wasm.validators.names import resolve_within, validate_app_name, validate_service_name
+from noust.core import paths
+from noust.core.applock import AppBusyError
+from noust.core.config import SYSTEMD_DIR as _SYSTEMD_DIR
+from noust.core.config import Config
+from noust.core.exceptions import BackupError, NoustError
+from noust.core.fs import FileSystem, get_fs
+from noust.core.logger import Logger
+from noust.core.messages import message, normalize_locale
+from noust.core.notifier import NotificationEvent, Notifier
+from noust.core.runner import CommandRunner, get_runner
+from noust.core.store import BackupScheduleRecord, get_store
+from noust.core.utils import domain_to_app_name, find_noust_executable
+from noust.managers.backup_destinations import BackupDestinationManager
+from noust.managers.backup_manager import SCHEDULED_TAG, BackupManager
+from noust.validators.domain import validate_domain
+from noust.validators.names import resolve_within, validate_app_name, validate_service_name
 
 #: Deadline for a systemctl verb. Nothing here talks to the network.
 _SYSTEMCTL_TIMEOUT = 60
@@ -62,7 +63,7 @@ _RUN_SCHEDULE_COMMAND = "backup run-schedule"
 #: Unit files are world readable and root writable, like every other unit.
 _UNIT_MODE = 0o644
 
-#: Longest calendar expression WASM accepts. systemd's own parser is stricter
+#: Longest calendar expression Noust accepts. systemd's own parser is stricter
 #: still; this only bounds what reaches it.
 _MAX_CALENDAR_LENGTH = 128
 
@@ -81,7 +82,7 @@ SCHEDULE_ALIASES = {
 #: How a timer unit's description names the application it backs up. The
 #: description is rendered by this module's own template, so reading the
 #: domain back out of it is reading this module's own writing.
-_DESCRIPTION_PREFIX = "WASM backup timer for "
+_DESCRIPTION_PREFIX = "Noust backup timer for "
 
 #: The ``OnCalendar`` expression inside systemd's ``TimersCalendar`` property,
 #: which prints as ``{ OnCalendar=*-*-* 02:00:00 ; next_elapse=... }``.
@@ -92,7 +93,7 @@ def validate_calendar(schedule: str) -> str:
     """
     Expand a schedule alias and refuse anything a unit file must not contain.
 
-    This is the single definition of what WASM will write after ``OnCalendar=``
+    This is the single definition of what Noust will write after ``OnCalendar=``
     in a root-owned unit: :meth:`BackupScheduler._validate` and the web API's
     request model both call it, so the panel cannot accept an expression the
     scheduler would refuse.
@@ -143,7 +144,7 @@ class BackupSchedule:
         tags: Tags attached to the backups this schedule creates.
         destinations: Remote copies to push each scheduled backup to, as
             ``{"name", "retention_count", "retention_days"}`` per destination
-            - the same shape :attr:`wasm.core.store.BackupScheduleRecord.destinations`
+            - the same shape :attr:`noust.core.store.BackupScheduleRecord.destinations`
             stores.
     """
 
@@ -174,7 +175,7 @@ class BackupSchedule:
         Returns:
             The unit name without its ``.timer`` suffix.
         """
-        return f"wasm-backup-{self.app_name}"
+        return f"{paths.BACKUP_UNIT_PREFIX}{self.app_name}"
 
     @property
     def service_name(self) -> str:
@@ -184,15 +185,15 @@ class BackupSchedule:
         Returns:
             The unit name without its ``.service`` suffix.
         """
-        return f"wasm-backup-{self.app_name}"
+        return f"{paths.BACKUP_UNIT_PREFIX}{self.app_name}"
 
 
 class BackupScheduler:
     """
     Manager for scheduled backups using systemd timers.
 
-    Creates timer/service unit pairs that trigger ``wasm backup create`` on a
-    configurable schedule. WASM requires root, so unit files are written
+    Creates timer/service unit pairs that trigger ``noust backup create`` on a
+    configurable schedule. Noust requires root, so unit files are written
     directly and systemctl is invoked without sudo.
     """
 
@@ -219,7 +220,7 @@ class BackupScheduler:
         self._runner = runner
         self._fs = fs
         self.jinja_env = Environment(
-            loader=PackageLoader("wasm", "templates/systemd"),
+            loader=PackageLoader("noust", "templates/systemd"),
             trim_blocks=True,
             lstrip_blocks=True,
             # Systemd units are not markup: HTML escaping would corrupt them.
@@ -271,14 +272,14 @@ class BackupScheduler:
 
         Raises:
             BackupError: If the domain, the application name or the calendar
-                expression is not something WASM is willing to write into a
+                expression is not something Noust is willing to write into a
                 root-owned unit file.
         """
         try:
             domain = validate_domain(schedule.domain)
             app_name = validate_app_name(schedule.app_name or domain_to_app_name(domain))
-            validate_service_name(f"wasm-backup-{app_name}")
-        except WASMError as exc:
+            validate_service_name(f"{paths.BACKUP_UNIT_PREFIX}{app_name}")
+        except NoustError as exc:
             raise BackupError(
                 "Cannot schedule a backup for this application",
                 details=f"{exc}. A unit file is generated from these values, so they are "
@@ -319,7 +320,7 @@ class BackupScheduler:
         except OSError as exc:
             raise BackupError(
                 f"Failed to write unit file: {path}",
-                details=f"{exc}. WASM must run as root to manage systemd units.",
+                details=f"{exc}. Noust must run as root to manage systemd units.",
             ) from exc
 
     def create_schedule(self, schedule: BackupSchedule) -> bool:
@@ -328,7 +329,7 @@ class BackupScheduler:
 
         Scheduling the same domain again rewrites all three, which is also
         how a schedule is changed - there is one code path for "create" and
-        "update", the same way :meth:`~wasm.core.store.WASMStore.save_backup_schedule`
+        "update", the same way :meth:`~noust.core.store.NoustStore.save_backup_schedule`
         is itself an upsert.
 
         Args:
@@ -368,7 +369,7 @@ class BackupScheduler:
                 details=result.stderr.strip() or "Check 'systemctl status' for details.",
             )
 
-        # The timer's service now runs `wasm backup run-schedule DOMAIN`,
+        # The timer's service now runs `noust backup run-schedule DOMAIN`,
         # which reads everything - include_databases, retention, destinations
         # - from this row; the unit file itself carries none of it.
         get_store().save_backup_schedule(
@@ -403,7 +404,7 @@ class BackupScheduler:
         validated_domain, app_name, _ = self._validate(
             BackupSchedule(domain=domain, app_name=domain_to_app_name(domain), schedule="daily")
         )
-        timer_name = f"wasm-backup-{app_name}"
+        timer_name = f"{paths.BACKUP_UNIT_PREFIX}{app_name}"
 
         self._systemctl("stop", f"{timer_name}.timer")
         self._systemctl("disable", f"{timer_name}.timer")
@@ -423,7 +424,7 @@ class BackupScheduler:
 
     def list_schedules(self) -> list[dict[str, str]]:
         """
-        List all WASM backup schedules, adopting any that predate schema v10.
+        List all Noust backup schedules, adopting any that predate schema v10.
 
         ``list-timers`` only finds the units; every value comes from
         ``systemctl show``, whose ``Property=value`` lines are a stable
@@ -435,7 +436,7 @@ class BackupScheduler:
         server restored from an old backup - is adopted here: a row is
         created from what systemd itself reports, with no retention of its
         own (``backup.max_per_app``, as 2.1 applied) and no destinations,
-        and its service unit rewritten to run ``wasm backup run-schedule
+        and its service unit rewritten to run ``noust backup run-schedule
         DOMAIN`` instead of the ``backup create`` line it used to carry. A
         timer whose domain could not be read from its own description is
         left exactly as it is: it keeps running its 2.1 command, and a row
@@ -456,7 +457,7 @@ class BackupScheduler:
             "list-timers",
             "--no-legend",
             "--no-pager",
-            "wasm-backup-*",
+            f"{paths.BACKUP_UNIT_PREFIX}*",
         )
 
         schedules: list[dict[str, str]] = []
@@ -471,7 +472,7 @@ class BackupScheduler:
                 continue
 
             timer_name = unit[: -len(".timer")]
-            app_name = timer_name.replace("wasm-backup-", "")
+            app_name = timer_name.removeprefix(paths.BACKUP_UNIT_PREFIX)
             schedule_info: dict[str, str] = {
                 "timer": timer_name,
                 "app_name": app_name,
@@ -597,7 +598,7 @@ class BackupScheduler:
             Retention the row does not set stays None.
         """
         app_name = domain_to_app_name(domain)
-        timer_name = f"wasm-backup-{app_name}"
+        timer_name = f"{paths.BACKUP_UNIT_PREFIX}{app_name}"
 
         result = self._systemctl("is-enabled", f"{timer_name}.timer")
         if not result.success:
@@ -645,7 +646,7 @@ class BackupScheduler:
         except TemplateError as exc:
             raise BackupError(
                 f"Failed to render systemd template: {template_name}",
-                details=f"{exc}. The WASM installation may be incomplete.",
+                details=f"{exc}. The Noust installation may be incomplete.",
             ) from exc
 
     def render_timer(self, schedule: BackupSchedule) -> str:
@@ -680,12 +681,12 @@ class BackupScheduler:
         Raises:
             BackupError: If the template cannot be rendered.
         """
-        # The machine's own wasm: systemd has no PATH of the operator's, and a
-        # pip install puts it in /usr/local/bin, where /usr/bin/wasm misses it.
+        # The machine's own noust: systemd has no PATH of the operator's, and a
+        # pip install puts it in /usr/local/bin, where /usr/bin/noust misses it.
         return self._render(
             "backup-service.j2",
             domain=schedule.domain,
-            wasm=find_wasm_executable() or "/usr/bin/wasm",
+            noust=find_noust_executable() or "/usr/bin/noust",
         )
 
 
@@ -693,7 +694,7 @@ def _notify_backup_failed(config: Config, domain: str, title: str, body: str) ->
     """
     Tell the operator a scheduled backup step failed.
 
-    :meth:`~wasm.core.notifier.Notifier.notify` already isolates a failing
+    :meth:`~noust.core.notifier.Notifier.notify` already isolates a failing
     channel and never raises, so there is nothing further to guard here.
 
     Args:
@@ -730,7 +731,7 @@ def _create_when_free(
 
     Raises:
         AppBusyError: The lock was still held after :data:`_LOCK_WAIT_SECONDS`.
-        WASMError: The backup itself failed.
+        NoustError: The backup itself failed.
     """
     deadline = time.monotonic() + _LOCK_WAIT_SECONDS
     while True:
@@ -762,14 +763,14 @@ def run_schedule(
     Reads the schedule from the store, takes a local backup with its own
     retention applied, then pushes it to every configured destination, each
     with its own retention - continuing past one destination's failure so the
-    others still receive their copy. This is what the hidden ``wasm backup
+    others still receive their copy. This is what the hidden ``noust backup
     run-schedule DOMAIN`` runs, and it is what every scheduled timer's
-    service unit now calls instead of a bare ``wasm backup create``, so a
+    service unit now calls instead of a bare ``noust backup create``, so a
     schedule's retention and its destinations are applied for real rather
     than only recorded.
 
     A schedule's retention only ever deletes backups a schedule made (tagged
-    :data:`~wasm.managers.backup_manager.SCHEDULED_TAG`); a manual,
+    :data:`~noust.managers.backup_manager.SCHEDULED_TAG`); a manual,
     pre-deploy or rollback-safety backup is never its to delete.
 
     With no store row - a store that moved, was reset or was restored from an
@@ -822,7 +823,7 @@ def run_schedule(
 
     try:
         metadata = _create_when_free(backup_manager, domain, record)
-    except WASMError as exc:
+    except NoustError as exc:
         _notify_backup_failed(
             config,
             domain,
@@ -851,7 +852,7 @@ def run_schedule(
                 backup_manager=backup_manager,
             )
             result["destinations"][name] = {"ok": True, **summary}
-        except WASMError as exc:
+        except NoustError as exc:
             # str(exc) is "message\n  Details: ..."; for a BackupError raised
             # by BackupDestinationManager.push, details is rclone's own
             # stderr, already scrubbed of the destination's secrets.

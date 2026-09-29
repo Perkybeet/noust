@@ -4,7 +4,7 @@
 """
 Tests for ``GET /api/apps/{domain}/diagnose``.
 
-The route is a thin translation of :func:`wasm.managers.diagnose.diagnose` to
+The route is a thin translation of :func:`noust.managers.diagnose.diagnose` to
 HTTP - the correlation rules are pinned in ``tests/test_diagnose.py`` and are
 not repeated here. What this module owns: the endpoint calls the shared
 function with the validated domain, requires a session, and serialises the
@@ -21,11 +21,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from noust.core.runner import FakeRunner
+from noust.managers.diagnose import Check, Diagnosis
+from noust.web.api import diagnose as diagnose_api
+from noust.web.api.auth import get_current_session
 from tests.test_web_auth import build_client
-from wasm.core.runner import FakeRunner
-from wasm.managers.diagnose import Check, Diagnosis
-from wasm.web.api import diagnose as diagnose_api
-from wasm.web.api.auth import get_current_session
 
 
 @pytest.fixture
@@ -47,7 +47,7 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
 
 def _stub(monkeypatch: pytest.MonkeyPatch, diagnosis: Diagnosis) -> list[str]:
     """
-    Replace :func:`wasm.managers.diagnose.diagnose` with a stub.
+    Replace :func:`noust.managers.diagnose.diagnose` with a stub.
 
     Args:
         monkeypatch: Patching helper, scoped to the test.

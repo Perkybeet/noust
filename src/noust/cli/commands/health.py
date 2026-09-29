@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Health check command for WASM.
+Health check command for Noust.
 
 Provides system-wide health diagnostics.
 
@@ -13,12 +13,12 @@ every application was counted as failed, and it looked for an ``expires`` key
 in certificate data that carries ``expiry``, so no certificate ever appeared to
 be close to renewal.
 
-The check itself lives in :mod:`wasm.managers.health`, as
-:func:`~wasm.managers.health.collect_health_report`, so ``GET
+The check itself lives in :mod:`noust.managers.health`, as
+:func:`~noust.managers.health.collect_health_report`, so ``GET
 /api/system/health`` reports exactly what this command does rather than a
 second opinion. This module is the presentation layer over it: the Click
 command and the argparse-shaped :func:`handle_health` both go through
-:func:`run_health_check`, so the two cannot drift. ``wasm.cli.parser`` is gone
+:func:`run_health_check`, so the two cannot drift. ``noust.cli.parser`` is gone
 and nothing calls :func:`handle_health` in production anymore; it is kept, and
 tested directly, for the same reason.
 """
@@ -30,9 +30,9 @@ from argparse import Namespace
 
 import click
 
-from wasm.cli.app import Context, json_option, pass_context
-from wasm.core.logger import Logger
-from wasm.managers.health import HealthCheck, HealthReport, collect_health_report
+from noust.cli.app import Context, json_option, pass_context
+from noust.core.logger import Logger
+from noust.managers.health import HealthCheck, HealthReport, collect_health_report
 
 
 def _print_status(logger: Logger, key: str, value: str, status: str) -> None:
@@ -41,7 +41,7 @@ def _print_status(logger: Logger, key: str, value: str, status: str) -> None:
 
     Args:
         logger: Logger of the current command. Writing through it is what makes
-            ``wasm --no-color health`` colourless; the escape codes used to be
+            ``noust --no-color health`` colourless; the escape codes used to be
             written to stdout directly, so the flag did nothing here.
         key: Name of the checked item.
         value: Human readable result.
@@ -66,7 +66,7 @@ def _print_check(logger: Logger, check: HealthCheck | None) -> None:
 def _print_report(logger: Logger, report: HealthReport) -> None:
     """
     Render a health report the way an operator reads it: section by section,
-    in the same order :func:`~wasm.managers.health.collect_health_report`
+    in the same order :func:`~noust.managers.health.collect_health_report`
     runs its checks.
 
     Args:
@@ -120,9 +120,9 @@ def report_as_dict(report: HealthReport) -> dict:
     """
     Build the JSON payload for a health report.
 
-    Same shape as ``GET /api/system/health`` (:class:`~wasm.web.api.system.SystemHealthOut`),
-    both built from :func:`~wasm.managers.health.collect_health_report`, so the
-    console's server card and a script parsing ``wasm health --json`` can
+    Same shape as ``GET /api/system/health`` (:class:`~noust.web.api.system.SystemHealthOut`),
+    both built from :func:`~noust.managers.health.collect_health_report`, so the
+    console's server card and a script parsing ``noust health --json`` can
     never disagree about what a check found.
 
     Args:
@@ -189,7 +189,7 @@ def handle_health(args: Namespace) -> int:
     """
     Handle the health check command.
 
-    ``wasm.cli.parser`` is gone and nothing calls this in production; it is
+    ``noust.cli.parser`` is gone and nothing calls this in production; it is
     kept, and tested directly, sharing :func:`run_health_check` with the Click
     command rather than repeating it.
 

@@ -4,7 +4,7 @@
 """
 Tests for ``wasm preview``.
 
-The command decides nothing: the rules are :mod:`wasm.managers.previews`'s,
+The command decides nothing: the rules are :mod:`noust.managers.previews`'s,
 covered in ``tests/test_previews.py``. Pinned here is the translation: the
 arguments that reach the manager, the confirmation before previews are
 removed, ``--json``, and a refusal becoming exit code 1 with the manager's
@@ -21,9 +21,9 @@ from typing import Any
 import pytest
 from click.testing import CliRunner, Result
 
-from wasm.cli.app import cli as root_cli
-from wasm.core.store import App, PreviewRecord, PreviewSettings, WASMStore
-from wasm.managers import previews
+from noust.cli.app import cli as root_cli
+from noust.core.store import App, NoustStore, PreviewRecord, PreviewSettings
+from noust.managers import previews
 
 PARENT = "shop.example.com"
 BASE = "previews.example.com"
@@ -31,10 +31,10 @@ CHILD = f"pr-7-shop-example-com.{BASE}"
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> Iterator[WASMStore]:
+def store(tmp_path: Path) -> Iterator[NoustStore]:
     """The store the command reads, with the application previewed."""
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     instance.create_app(
         App(
             domain=PARENT,
@@ -46,7 +46,7 @@ def store(tmp_path: Path) -> Iterator[WASMStore]:
     )
     yield instance
     instance.close()
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture(autouse=True)
@@ -72,7 +72,7 @@ def invoke(args: list[str], stdin: str | None = None) -> Result:
     return CliRunner().invoke(root_cli, args, input=stdin)
 
 
-def preview(store: WASMStore) -> None:
+def preview(store: NoustStore) -> None:
     store.save_preview(
         PreviewRecord(
             parent_domain=PARENT,
@@ -86,7 +86,7 @@ def preview(store: WASMStore) -> None:
     )
 
 
-def test_enable_turns_previews_on(store: WASMStore, no_timer: list[str]) -> None:
+def test_enable_turns_previews_on(store: NoustStore, no_timer: list[str]) -> None:
     result = invoke(["preview", "enable", PARENT, "--domain", BASE, "--max", "5", "--ttl", "2d"])
 
     assert result.exit_code == 0, result.output
@@ -97,7 +97,7 @@ def test_enable_turns_previews_on(store: WASMStore, no_timer: list[str]) -> None
     assert "production secrets" in result.output
 
 
-def test_enable_prints_json(store: WASMStore) -> None:
+def test_enable_prints_json(store: NoustStore) -> None:
     result = invoke(["preview", "enable", PARENT, "--domain", BASE, "--json"])
 
     assert result.exit_code == 0, result.output
@@ -108,14 +108,14 @@ def test_enable_prints_json(store: WASMStore) -> None:
 @pytest.mark.parametrize(
     "extra", [["--max", "0"], ["--max", "21"], ["--ttl", "91d"], ["--ttl", "soon"]]
 )
-def test_enable_refuses_what_the_manager_refuses(store: WASMStore, extra: list[str]) -> None:
+def test_enable_refuses_what_the_manager_refuses(store: NoustStore, extra: list[str]) -> None:
     result = invoke(["preview", "enable", PARENT, "--domain", BASE, *extra])
 
     assert result.exit_code == 1, result.output
     assert store.get_preview_settings(PARENT) is None
 
 
-def test_enable_takes_bots_and_excluded_variables(store: WASMStore) -> None:
+def test_enable_takes_bots_and_excluded_variables(store: NoustStore) -> None:
     result = invoke(
         [
             "preview",
@@ -138,7 +138,7 @@ def test_enable_takes_bots_and_excluded_variables(store: WASMStore) -> None:
     assert "as root" in result.output
 
 
-def test_enable_changes_one_setting_and_keeps_the_rest(store: WASMStore) -> None:
+def test_enable_changes_one_setting_and_keeps_the_rest(store: NoustStore) -> None:
     invoke(["preview", "enable", PARENT, "--domain", BASE, "--max", "5", "--exclude-env", "A"])
 
     result = invoke(["preview", "enable", PARENT, "--no-allow-bots", "--ttl", "1d"])
@@ -155,14 +155,14 @@ def test_enable_changes_one_setting_and_keeps_the_rest(store: WASMStore) -> None
     assert settings is not None and settings.exclude_env == []
 
 
-def test_enable_without_a_base_domain_needs_previews_on(store: WASMStore) -> None:
+def test_enable_without_a_base_domain_needs_previews_on(store: NoustStore) -> None:
     result = invoke(["preview", "enable", PARENT])
 
     assert result.exit_code == 1, result.output
     assert store.get_preview_settings(PARENT) is None
 
 
-def test_enable_refuses_an_invalid_variable_name(store: WASMStore) -> None:
+def test_enable_refuses_an_invalid_variable_name(store: NoustStore) -> None:
     result = invoke(["preview", "enable", PARENT, "--domain", BASE, "--exclude-env", "NOT-A-NAME"])
 
     assert result.exit_code == 1, result.output
@@ -177,7 +177,7 @@ def test_enable_help_says_builds_run_as_root() -> None:
     assert "--allow-bots" in result.output and "--exclude-env" in result.output
 
 
-def test_list_prints_json(store: WASMStore) -> None:
+def test_list_prints_json(store: NoustStore) -> None:
     store.save_preview_settings(PreviewSettings(app_domain=PARENT, base_domain=BASE))
     preview(store)
 
@@ -191,13 +191,13 @@ def test_list_prints_json(store: WASMStore) -> None:
     assert (item["domain"], item["url"], item["status"]) == (CHILD, f"https://{CHILD}", "ready")
 
 
-def test_list_without_previews(store: WASMStore) -> None:
+def test_list_without_previews(store: NoustStore) -> None:
     result = invoke(["preview", "list"])
 
     assert result.exit_code == 0, result.output
 
 
-def test_disable_asks_before_removing_previews(store: WASMStore, deletions: list[str]) -> None:
+def test_disable_asks_before_removing_previews(store: NoustStore, deletions: list[str]) -> None:
     store.save_preview_settings(PreviewSettings(app_domain=PARENT, base_domain=BASE))
     preview(store)
 
@@ -208,7 +208,7 @@ def test_disable_asks_before_removing_previews(store: WASMStore, deletions: list
     assert store.get_preview(PARENT, 7) is not None
 
 
-def test_disable_yes_removes_them(store: WASMStore, deletions: list[str]) -> None:
+def test_disable_yes_removes_them(store: NoustStore, deletions: list[str]) -> None:
     store.save_preview_settings(PreviewSettings(app_domain=PARENT, base_domain=BASE))
     preview(store)
 
@@ -220,7 +220,7 @@ def test_disable_yes_removes_them(store: WASMStore, deletions: list[str]) -> Non
     assert store.get_preview(PARENT, 7) is None
 
 
-def test_remove_one(store: WASMStore, deletions: list[str]) -> None:
+def test_remove_one(store: NoustStore, deletions: list[str]) -> None:
     preview(store)
     store.create_app(App(domain=CHILD, app_type="nodejs", app_path="/x"))
     store.set_preview_parent(CHILD, PARENT)
@@ -233,7 +233,7 @@ def test_remove_one(store: WASMStore, deletions: list[str]) -> None:
 
 
 def test_remove_refuses_an_application_that_is_not_a_preview(
-    store: WASMStore, deletions: list[str]
+    store: NoustStore, deletions: list[str]
 ) -> None:
     result = invoke(["preview", "remove", PARENT])
 
@@ -243,7 +243,7 @@ def test_remove_refuses_an_application_that_is_not_a_preview(
 
 
 def test_sweep_removes_the_expired(
-    store: WASMStore, deletions: list[str], monkeypatch: pytest.MonkeyPatch
+    store: NoustStore, deletions: list[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from datetime import datetime, timezone
 

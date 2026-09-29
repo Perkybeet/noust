@@ -364,7 +364,7 @@ export function EmailChannel({ enabledStored }: { enabledStored: boolean }) {
               type="email"
               autoComplete="off"
               spellCheck={false}
-              placeholder="wasm@example.com"
+              placeholder="noust@example.com"
               value={form.from_address}
               disabled={save.isPending}
               onValueChange={(next: string) => {

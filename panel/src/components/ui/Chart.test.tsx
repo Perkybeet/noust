@@ -200,13 +200,13 @@ describe("Chart markers", () => {
     at: T0 + 60,
     label: "Deploy 25, succeeded, 14:01",
     state: "running",
-    href: "https://wasm.example.com/deploys/25",
+    href: "https://noust.example.com/deploys/25",
   };
   const outOfRange: ChartMarker = {
     at: T0 - 600,
     label: "Deploy 9, failed, 13:50",
     state: "failed",
-    href: "https://wasm.example.com/deploys/9",
+    href: "https://noust.example.com/deploys/9",
   };
 
   function WithMarkers({ markers }: { markers: readonly ChartMarker[] }) {
@@ -224,7 +224,7 @@ describe("Chart markers", () => {
   it("draws an in-range marker as a focusable link with its full accessible name", () => {
     render(<WithMarkers markers={[inRange]} />);
     const link = screen.getByRole("link", { name: inRange.label });
-    expect(link).toHaveAttribute("href", "https://wasm.example.com/deploys/25");
+    expect(link).toHaveAttribute("href", "https://noust.example.com/deploys/25");
   });
 
   it("does not draw a marker outside the time range", () => {

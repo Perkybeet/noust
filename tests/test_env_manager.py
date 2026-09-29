@@ -5,8 +5,8 @@
 Tests for the EnvManager helper.
 
 Two properties beyond the parsing surface. Everything this manager writes is a
-credential store, so it goes out through the :mod:`wasm.core.fs` seam with
-:data:`~wasm.core.fs.SECRET_MODE`, which is what makes ``--dry-run`` honest and
+credential store, so it goes out through the :mod:`noust.core.fs` seam with
+:data:`~noust.core.fs.SECRET_MODE`, which is what makes ``--dry-run`` honest and
 the file 0600. And a password hidden inside a connection string is redacted
 whether or not the URL names a user: ``redis://:password@host`` is the canonical
 Redis form and used to come out in clear.
@@ -17,15 +17,15 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.exceptions import SecurityError
-from wasm.core.fs import (
+from noust.core.exceptions import SecurityError
+from noust.core.fs import (
     SECRET_DIR_MODE,
     SECRET_MODE,
     DryRunFileSystem,
     RecordingFileSystem,
 )
-from wasm.deployers.helpers import env_manager as env_manager_module
-from wasm.deployers.helpers.env_manager import (
+from noust.deployers.helpers import env_manager as env_manager_module
+from noust.deployers.helpers.env_manager import (
     EnvConfig,
     EnvManager,
     EnvVariable,
@@ -721,7 +721,7 @@ class TestConnectionStringRedaction:
 
     def test_the_cli_prints_a_userless_redis_url_redacted(self):
         """The finding was reported against ``wasm env show``: prove it there."""
-        from wasm.cli.commands.env import _redact
+        from noust.cli.commands.env import _redact
 
         redacted = _redact({"REDIS_URL": "redis://:hunter2@cache:6379"})
 
@@ -730,7 +730,7 @@ class TestConnectionStringRedaction:
 
     def test_the_cli_keeps_no_second_copy_of_the_pattern(self):
         """Two copies of a security pattern is how one of them stays wrong."""
-        from wasm.cli.commands import env as env_cli
+        from noust.cli.commands import env as env_cli
 
         assert not hasattr(env_cli, "_URL_CREDENTIALS")
 
@@ -858,7 +858,7 @@ class TestNoMutationEscapesTheSeam:
         return found
 
     def test_the_env_manager_never_writes_outside_the_seam(self):
-        """Every .env and every directory goes through wasm.core.fs."""
+        """Every .env and every directory goes through noust.core.fs."""
         module = Path(env_manager_module.__file__)
 
         assert self._offenders(module) == []

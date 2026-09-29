@@ -58,8 +58,8 @@ def _build_schema() -> dict[str, Any]:
         The OpenAPI document as ``GET /api/openapi.json`` serves it, except
         for ``info.version``, which is :data:`EXPORTED_VERSION`.
     """
-    from wasm.web.auth import SecurityConfig
-    from wasm.web.server import create_app
+    from noust.web.auth import SecurityConfig
+    from noust.web.server import create_app
 
     with tempfile.TemporaryDirectory(prefix="wasm-openapi-") as tmp_dir:
         config = SecurityConfig(state_dir=Path(tmp_dir) / "state", rate_limit_requests=5000)

@@ -295,7 +295,7 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
   }
 
   // A Compose stack's unit only starts it; the containers live in Docker's own cgroups,
-  // which WASM does not sample, so charts here would read near zero and mislead.
+  // which Noust does not sample, so charts here would read near zero and mislead.
   if (app.data.app_type === "docker-compose") {
     return (
       <EmptyState

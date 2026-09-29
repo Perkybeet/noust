@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Run the real WASM panel against a seeded, sandboxed machine.
+Run the real Noust panel against a seeded, sandboxed machine.
 
 This is the backend the console is developed and tested against: the real
-FastAPI application from :func:`wasm.web.server.create_app`, served by uvicorn
+FastAPI application from :func:`noust.web.server.create_app`, served by uvicorn
 so its lifespan runs and the ``/events`` stream and the WebSockets work, over
 a store seeded by :func:`tests.panel_factory.seed_console_state` - running,
 stopped, failed and static applications, deployments with captured build
@@ -11,7 +11,7 @@ logs, sites, certificates, databases, backups, cron jobs and a job history.
 
 Nothing touches the machine it runs on:
 
-- every path WASM reads or writes (the store, the config file, the panel's
+- every path Noust reads or writes (the store, the config file, the panel's
   secrets and sessions, backups, systemd units, nginx sites, certificates) is
   redirected into a temporary directory, removed on exit;
 - a :class:`SandboxFileSystem` refuses any write that would still land
@@ -89,7 +89,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         The parsed options.
     """
     parser = argparse.ArgumentParser(
-        description="Serve the real WASM panel over a seeded, sandboxed machine."
+        description="Serve the real Noust panel over a seeded, sandboxed machine."
     )
     parser.add_argument(
         "--host", default="127.0.0.1", help="loopback address to bind (default 127.0.0.1)"
@@ -122,7 +122,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=Path,
         default=None,
         help=(
-            "serve the console build from this directory instead of wasm/web/static, "
+            "serve the console build from this directory instead of noust/web/static, "
             "so several builds can be exercised side by side (development only)"
         ),
     )
@@ -196,17 +196,17 @@ class Sandbox:
     @property
     def state_dir(self) -> Path:
         """The panel's secrets, sessions and audit log."""
-        return self.etc / "wasm"
+        return self.etc / "noust"
 
     @property
     def config_file(self) -> Path:
-        """The WASM configuration file."""
-        return self.etc / "wasm" / "config.yaml"
+        """The Noust configuration file."""
+        return self.etc / "noust" / "config.yaml"
 
     @property
     def store_file(self) -> Path:
         """The SQLite store; job and deploy logs live beside it."""
-        return self.var / "lib" / "wasm" / "wasm.db"
+        return self.var / "lib" / "noust" / "noust.db"
 
     @property
     def systemd_dir(self) -> Path:
@@ -216,7 +216,7 @@ class Sandbox:
     @property
     def backup_dir(self) -> Path:
         """Application backups."""
-        return self.var / "backups" / "wasm"
+        return self.var / "backups" / "noust"
 
     @property
     def apps_dir(self) -> Path:
@@ -242,9 +242,9 @@ class Sandbox:
 
 def prepare_environment(sandbox: Sandbox) -> None:
     """
-    Point every per-user path at the sandbox, before WASM is imported.
+    Point every per-user path at the sandbox, before Noust is imported.
 
-    ``wasm.core.store`` computes its per-user database path from ``HOME`` at
+    ``noust.core.store`` computes its per-user database path from ``HOME`` at
     import time, so this has to run first.
 
     Args:
@@ -257,14 +257,18 @@ def prepare_environment(sandbox: Sandbox) -> None:
         sandbox.store_file.parent,
         sandbox.backup_dir,
         sandbox.apps_dir,
-        sandbox.var / "log" / "wasm",
+        sandbox.var / "log" / "noust",
     ):
         directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     os.environ["HOME"] = str(sandbox.home)
     os.environ["XDG_DATA_HOME"] = str(sandbox.home / ".local" / "share")
     os.environ["XDG_CONFIG_HOME"] = str(sandbox.home / ".config")
     os.environ["XDG_CACHE_HOME"] = str(sandbox.home / ".cache")
-    os.environ["WASM_WEB_STATE_DIR"] = str(sandbox.state_dir)
+    os.environ["NOUST_WEB_STATE_DIR"] = str(sandbox.state_dir)
+    # Defensive: nothing seeded here models a server migrated from WASM, so
+    # the automatic migration noust.cli.app runs on a privileged invocation
+    # must never fire, even if some future code path reaches it.
+    os.environ["NOUST_NO_AUTO_MIGRATE"] = "1"
     # The repository's own code, never an installed copy, and tests.panel_factory.
     for entry in (str(REPO), str(REPO / "src")):
         if entry not in sys.path:
@@ -273,7 +277,18 @@ def prepare_environment(sandbox: Sandbox) -> None:
 
 def redirect_system_paths(sandbox: Sandbox) -> None:
     """
-    Repoint every system path WASM binds at import time into the sandbox.
+    Repoint every system path Noust binds at import time into the sandbox.
+
+    :mod:`noust.core.paths` is patched first, and everything that reads it -
+    directly, or through one of its functions - is imported only after:
+    several modules compute a path once at import time from its constants
+    (``noust.core.config``'s ``DEFAULT_CONFIG_PATH``, ``noust.core.store``'s
+    ``DEFAULT_DB_PATH``, ``noust.managers.webserver``'s
+    ``NGINX_UPSTREAMS_DIR``...), and ``paths.came_from_wasm()`` is read at
+    request time, on every ``/api/auth/session`` response. Patched after the
+    fact, any of those would keep resolving against the real ``/etc`` and
+    ``/var`` - exactly the developer's machine this script promises never to
+    touch, and on this one ``~/.local/share/wasm/wasm.db`` is real.
 
     Module constants are rebound on the module that reads them; class
     attributes on the class. A path this misses is still covered by
@@ -282,24 +297,42 @@ def redirect_system_paths(sandbox: Sandbox) -> None:
     Args:
         sandbox: The sandbox.
     """
-    import wasm.core.config as config_module
-    import wasm.core.store as store_module
-    import wasm.managers.diagnose as diagnose_module
-    import wasm.managers.webserver as webserver_module
-    import wasm.monitor.observation_store as observations_module
-    import wasm.monitor.process_monitor as process_monitor_module
-    import wasm.monitor.timeseries as timeseries_module
-    from wasm.managers.backup_manager import BackupManager
-    from wasm.managers.backup_scheduler import BackupScheduler
-    from wasm.managers.cert_manager import CertManager
-    from wasm.managers.cron_manager import CronManager
-    from wasm.managers.database.base import BaseDatabaseManager
-    from wasm.managers.service_manager import ServiceManager
+    import noust.core.paths as paths_module
 
     etc, var = sandbox.etc, sandbox.var
+
+    # The legacy names are pointed at sandbox paths that are never created,
+    # exactly like a machine that has never run WASM: nothing seeded here
+    # models a migration, so paths.came_from_wasm() must always answer False,
+    # whatever /etc/wasm or /var/lib/wasm hold on the machine running this.
+    paths_module.CONFIG_DIR = sandbox.state_dir
+    paths_module.LEGACY_CONFIG_DIR = etc / "wasm"
+    paths_module.STATE_DIR = sandbox.store_file.parent
+    paths_module.LEGACY_STATE_DIR = var / "lib" / "wasm"
+    paths_module.BACKUP_DIR = sandbox.backup_dir
+    paths_module.LEGACY_BACKUP_DIR = var / "backups" / "wasm"
+    paths_module.LOG_DIR = var / "log" / "noust"
+    paths_module.NGINX_UPSTREAMS_DIR = etc / "nginx" / "noust-upstreams"
+    paths_module.LEGACY_NGINX_UPSTREAMS_DIR = etc / "nginx" / "wasm-upstreams"
+    paths_module.MIGRATION_RECORD = paths_module.STATE_DIR / "migrated-from-wasm.json"
+
+    import noust.core.config as config_module
+    import noust.core.store as store_module
+    import noust.managers.diagnose as diagnose_module
+    import noust.managers.webserver as webserver_module
+    import noust.monitor.observation_store as observations_module
+    import noust.monitor.process_monitor as process_monitor_module
+    import noust.monitor.timeseries as timeseries_module
+    from noust.managers.backup_manager import BackupManager
+    from noust.managers.backup_scheduler import BackupScheduler
+    from noust.managers.cert_manager import CertManager
+    from noust.managers.cron_manager import CronManager
+    from noust.managers.database.base import BaseDatabaseManager
+    from noust.managers.service_manager import ServiceManager
+
     config_module.DEFAULT_CONFIG_PATH = sandbox.config_file
     config_module.DEFAULT_APPS_DIR = sandbox.apps_dir
-    config_module.DEFAULT_LOG_DIR = var / "log" / "wasm"
+    config_module.DEFAULT_LOG_DIR = var / "log" / "noust"
     config_module.NGINX_SITES_AVAILABLE = etc / "nginx" / "sites-available"
     config_module.NGINX_SITES_ENABLED = etc / "nginx" / "sites-enabled"
     config_module.APACHE_SITES_AVAILABLE = etc / "apache2" / "sites-available"
@@ -307,9 +340,14 @@ def redirect_system_paths(sandbox: Sandbox) -> None:
     config_module.SYSTEMD_DIR = sandbox.systemd_dir
 
     store_module.DEFAULT_DB_PATH = sandbox.store_file
-    store_module.USER_DB_PATH = sandbox.home / ".local" / "share" / "wasm" / "wasm.db"
-    timeseries_module.SYSTEM_DB_PATH = var / "lib" / "wasm" / "metrics.db"
-    observations_module.SYSTEM_DB_PATH = var / "lib" / "wasm" / "observations.db"
+    store_module.USER_DB_PATH = sandbox.home / ".local" / "share" / "noust" / "noust.db"
+    # Never created, for the same reason as the paths.py constants above: a
+    # real WASM store at either legacy location - system or per-user - must
+    # never surface through store_module._store_candidates().
+    store_module.LEGACY_DB_PATH = var / "lib" / "wasm" / "wasm.db"
+    store_module.LEGACY_USER_DB_PATH = sandbox.home / ".local" / "share" / "wasm" / "wasm.db"
+    timeseries_module.SYSTEM_DB_PATH = var / "lib" / "noust" / "metrics.db"
+    observations_module.SYSTEM_DB_PATH = var / "lib" / "noust" / "observations.db"
     diagnose_module.NGINX_ERROR_LOG = var / "log" / "nginx" / "error.log"
 
     for name in ("NGINX_BACKEND", "APACHE_BACKEND"):
@@ -326,7 +364,7 @@ def redirect_system_paths(sandbox: Sandbox) -> None:
                 sites_enabled=etc / server / "sites-enabled",
                 # Blue/green upstream files: nginx has a directory for them, Apache none.
                 upstreams_dir=(
-                    etc / server / "wasm-upstreams" if backend.upstreams_dir is not None else None
+                    etc / server / "noust-upstreams" if backend.upstreams_dir is not None else None
                 ),
             ),
         )
@@ -338,10 +376,10 @@ def redirect_system_paths(sandbox: Sandbox) -> None:
     CronManager.SYSTEMD_DIR = sandbox.systemd_dir
     BackupScheduler.SYSTEMD_DIR = sandbox.systemd_dir
     # ProcessMonitor.install_service() writes its unit through
-    # wasm.core.utils.write_file(), plain pathlib rather than the fs seam
+    # noust.core.utils.write_file(), plain pathlib rather than the fs seam
     # (SandboxFileSystem never sees the call, so it cannot refuse it). Without
     # this, "Install monitor" in the console would write
-    # /etc/systemd/system/wasm-monitor.service on whatever machine runs this
+    # /etc/systemd/system/noust-monitor.service on whatever machine runs this
     # script - exactly what the module docstring promises never happens.
     process_monitor_module.SYSTEMD_DIR = sandbox.systemd_dir
     BackupManager.DEFAULT_BACKUP_DIR = sandbox.backup_dir
@@ -355,7 +393,7 @@ def redirect_system_paths(sandbox: Sandbox) -> None:
     for directory in (
         etc / "nginx" / "sites-available",
         etc / "nginx" / "sites-enabled",
-        etc / "nginx" / "wasm-upstreams",
+        etc / "nginx" / "noust-upstreams",
         var / "log" / "nginx",
     ):
         directory.mkdir(parents=True, exist_ok=True)
@@ -363,7 +401,7 @@ def redirect_system_paths(sandbox: Sandbox) -> None:
 
 def write_config(sandbox: Sandbox) -> None:
     """
-    Write the WASM configuration the sandboxed machine runs with.
+    Write the Noust configuration the sandboxed machine runs with.
 
     Args:
         sandbox: The sandbox.
@@ -376,7 +414,7 @@ def write_config(sandbox: Sandbox) -> None:
         "service_user": "www-data",
         "service_group": "www-data",
         "ssl": {"enabled": True, "provider": "certbot", "email": "ops@example.com"},
-        "logging": {"level": "info", "file": str(sandbox.var / "log" / "wasm" / "wasm.log")},
+        "logging": {"level": "info", "file": str(sandbox.var / "log" / "noust" / "noust.log")},
         "backup": {"directory": str(sandbox.backup_dir), "max_per_app": 10},
     }
     sandbox.config_file.write_text(yaml.safe_dump(config, sort_keys=True), encoding="utf-8")
@@ -407,10 +445,10 @@ def make_sandbox_filesystem(sandbox: Sandbox) -> Any:
         sandbox: The sandbox.
 
     Returns:
-        A :class:`wasm.core.fs.RealFileSystem` that skips, and reports, any
+        A :class:`noust.core.fs.RealFileSystem` that skips, and reports, any
         change outside the sandbox.
     """
-    from wasm.core.fs import RealFileSystem
+    from noust.core.fs import RealFileSystem
 
     class SandboxFileSystem(RealFileSystem):
         """A real filesystem confined to the sandbox."""
@@ -490,7 +528,7 @@ class Unit:
         pid: Main PID while active.
         since: When it last changed state.
         restarts: How many times systemd restarted it.
-        managed: Whether it is one of WASM's units (listed by ``list-units``).
+        managed: Whether it is one of Noust's units (listed by ``list-units``).
     """
 
     active: str
@@ -508,12 +546,12 @@ class Unit:
 
 def _foreign_unit_lines(units: dict[str, Unit], patterns: list[str]) -> list[str]:
     """
-    Extra ``systemctl list-units`` lines for the machine's non-WASM units.
+    Extra ``systemctl list-units`` lines for the machine's non-Noust units.
 
-    ``_list_units`` only walks units WASM would create (it skips
+    ``_list_units`` only walks units Noust would create (it skips
     ``unit.managed is False`` entries): the model's postgresql/mysql/redis-server/nginx
     exist for direct queries such as ``is-active nginx``, not for a full listing. The
-    show-all-units toggle (``GET /api/services?wasm_only=false``) asks
+    show-all-units toggle (``GET /api/services?noust_only=false``) asks
     ``ServiceManager.list_services(all_services=True)``, which lists with
     ``patterns=["*"]`` and does its own managed/foreign split in Python, so it needs those
     units to appear here too - this is the console's only foreign, always-visible unit for
@@ -526,7 +564,7 @@ def _foreign_unit_lines(units: dict[str, Unit], patterns: list[str]) -> list[str
     Returns:
         One ``systemctl list-units`` line per foreign unit, when ``patterns`` is the
         unrestricted ``["*"]`` an all-units listing sends; empty otherwise, so a scoped
-        listing (``wasm-*`` and friends) is unaffected.
+        listing (``noust-*`` and friends) is unaffected.
     """
     if patterns != ["*"]:
         return []
@@ -748,9 +786,9 @@ def make_runner(
             ``systemctl list-unit-files`` reports.
 
     Returns:
-        A :class:`wasm.core.runner.FakeRunner` answering from the model.
+        A :class:`noust.core.runner.FakeRunner` answering from the model.
     """
-    from wasm.core.runner import CommandResult, FakeRunner, runuser_prefix
+    from noust.core.runner import CommandResult, FakeRunner, runuser_prefix
 
     lock = threading.Lock()
 
@@ -796,8 +834,8 @@ def make_runner(
     # enable/disable always succeeds against a real unit file, and `list-unit-files` and
     # `is-enabled` must be able to answer it afterwards. Keyed by base_name() so a `.timer`
     # and its paired `.service` - and a plain service - all agree. Absent means "enabled": a
-    # freshly written unit is enabled by default, matching what `wasm service create` and
-    # `wasm cron create` do on a real machine before this ever runs.
+    # freshly written unit is enabled by default, matching what `noust service create` and
+    # `noust cron create` do on a real machine before this ever runs.
     enabled_overrides: dict[str, bool] = {}
 
     def ok(argv: tuple[str, ...], stdout: str = "", exit_code: int = 0) -> CommandResult:
@@ -828,7 +866,7 @@ def make_runner(
             self._mysql_databases: dict[str, tuple[int, int]] = dict(_MYSQL_DATABASES)
 
         def run(self, argv: Sequence[str], **kwargs: Any) -> CommandResult:
-            # WASM's own SQL reaches the database clients on stdin; the psql
+            # Noust's own SQL reaches the database clients on stdin; the psql
             # console statement arrives in -c instead (see _psql_console_sql).
             self._stdin.value = kwargs.get("input") or ""
             return super().run(argv, **kwargs)
@@ -953,10 +991,10 @@ def make_runner(
                 enabled_overrides[base_name(name)] = verb == "enable"
                 return ok(args)
             if verb in ("start", "stop", "restart") and unit is None:
-                # Cron job units (wasm-cron-{name}.service) are written to the sandboxed
+                # Cron job units (noust-cron-{name}.service) are written to the sandboxed
                 # systemd directory but never registered in the live `units` model: they have
                 # no persistent active/inactive state worth modelling, only a one-shot run.
-                # "wasm cron run" starts one by name, so a unit that genuinely exists on disk
+                # "noust cron run" starts one by name, so a unit that genuinely exists on disk
                 # succeeds here; only a name with no unit file at all is "not found".
                 if (systemd_dir / f"{name}.service").exists():
                     return ok(args)
@@ -1282,9 +1320,9 @@ def seed_machine(
         The unit model, each unit's port, each unit's domain, and the domains
         holding certificates - what :func:`make_runner` answers from.
     """
+    from noust.core.store import get_store
+    from noust.managers.service_manager import UNIT_MARKER
     from tests.panel_factory import seed_console_state
-    from wasm.core.store import get_store
-    from wasm.managers.service_manager import WASM_UNIT_MARKER
 
     store = get_store(sandbox.store_file)
     # First, so the tabs' old deploys get lower ids than the ones seeded as of now.
@@ -1311,10 +1349,10 @@ def seed_machine(
         )
         ports[service.name] = service.port or 3000
         domains[service.name] = app.domain
-        # The file that makes ServiceManager treat it as a unit WASM owns and
+        # The file that makes ServiceManager treat it as a unit Noust owns and
         # that exists, which is what start, stop and restart require.
         (sandbox.systemd_dir / f"{service.name}.service").write_text(
-            f"# {WASM_UNIT_MARKER}\n"
+            f"# {UNIT_MARKER}\n"
             "[Unit]\n"
             f"Description={app.domain}\n\n"
             "[Service]\n"
@@ -1324,7 +1362,7 @@ def seed_machine(
             encoding="utf-8",
         )
 
-    # The database engines, answered as system units WASM does not own.
+    # The database engines, answered as system units Noust does not own.
     for engine, active in (
         ("postgresql", "active"),
         ("mysql", "active"),
@@ -1346,16 +1384,16 @@ def seed_machine(
     )
     seed_release_22(sandbox, store, units, ports, domains)
     seed_release_23(sandbox)
-    # PHP 8.3's FPM, a system unit WASM does not own, running the pools recipes write.
+    # PHP 8.3's FPM, a system unit Noust does not own, running the pools recipes write.
     units["php8.3-fpm"] = Unit(active="active", pid=912, managed=False)
     return units, ports, domains, list(state.cert_domains)
 
 
 def seed_overview_failed_worker(sandbox: Sandbox, store: Any, units: dict[str, Unit]) -> None:
     """
-    Seed a WASM unit that belongs to no application and has failed.
+    Seed a Noust unit that belongs to no application and has failed.
 
-    A worker created with ``wasm service create`` (a queue consumer, a mailer)
+    A worker created with ``noust service create`` (a queue consumer, a mailer)
     fails without any application's state saying so. The overview names the
     failed units beyond those an application already accounts for, and this
     is the one that makes that count non-zero on the seeded machine.
@@ -1365,8 +1403,8 @@ def seed_overview_failed_worker(sandbox: Sandbox, store: Any, units: dict[str, U
         store: The seeded store, which tracks the service.
         units: The unit model the runner answers from; gains the worker.
     """
-    from wasm.core.store import Service
-    from wasm.managers.service_manager import WASM_UNIT_MARKER
+    from noust.core.store import Service
+    from noust.managers.service_manager import UNIT_MARKER
 
     name = "queue-worker"
     command = "/usr/bin/node /var/www/apps/example.com/current/worker.js"
@@ -1385,7 +1423,7 @@ def seed_overview_failed_worker(sandbox: Sandbox, store: Any, units: dict[str, U
         restarts=5,
     )
     (sandbox.systemd_dir / f"{name}.service").write_text(
-        f"# {WASM_UNIT_MARKER}\n"
+        f"# {UNIT_MARKER}\n"
         "[Unit]\n"
         "Description=Queue worker for example.com\n\n"
         "[Service]\n"
@@ -1398,7 +1436,7 @@ def seed_overview_failed_worker(sandbox: Sandbox, store: Any, units: dict[str, U
 
 def seed_backups(sandbox: Sandbox, domains: list[str], *, root: Path | None = None) -> None:
     """
-    Write backups the way :class:`~wasm.managers.backup_manager.BackupManager` lists them.
+    Write backups the way :class:`~noust.managers.backup_manager.BackupManager` lists them.
 
     A metadata file beside a real, tiny archive: the manager only lists a
     backup whose archive is present.
@@ -1408,8 +1446,8 @@ def seed_backups(sandbox: Sandbox, domains: list[str], *, root: Path | None = No
         domains: Domains to give backups to, two each.
         root: Where the ``<app>/`` directories go; the backup directory by default.
     """
-    from wasm.core.utils import domain_to_app_name
-    from wasm.managers.backup_manager import BackupMetadata
+    from noust.core.utils import domain_to_app_name
+    from noust.managers.backup_manager import BackupMetadata
 
     now = datetime.now()
     for index, domain in enumerate(domains):
@@ -1457,7 +1495,7 @@ def seed_misplaced_backups(sandbox: Sandbox) -> None:
     Args:
         sandbox: The sandbox, its backups already seeded.
     """
-    from wasm.managers.backup_manager import BackupManager
+    from noust.managers.backup_manager import BackupManager
 
     known = sorted(sandbox.backup_dir.glob("*/*.json"))[0]
     domain = str(json.loads(known.read_text(encoding="utf-8"))["domain"])
@@ -1468,7 +1506,7 @@ def seed_misplaced_backups(sandbox: Sandbox) -> None:
 
 def seed_cron(domain: str) -> None:
     """
-    Create cron jobs through :class:`~wasm.managers.cron_manager.CronManager` itself.
+    Create cron jobs through :class:`~noust.managers.cron_manager.CronManager` itself.
 
     The units are written into the sandboxed systemd directory; enabling the
     timer is answered by the fake runner.
@@ -1476,7 +1514,7 @@ def seed_cron(domain: str) -> None:
     Args:
         domain: The application the first job belongs to.
     """
-    from wasm.managers.cron_manager import CronJob, CronManager
+    from noust.managers.cron_manager import CronJob, CronManager
 
     manager = CronManager()
     for job in (
@@ -1509,7 +1547,7 @@ def seed_monitor(sandbox: Sandbox, units: dict[str, Unit]) -> None:
     """
     Install the monitor's unit and give it a short findings history.
 
-    Mirrors a machine where ``wasm monitor install --enable`` has already run
+    Mirrors a machine where ``noust monitor install --enable`` has already run
     for a while: the unit active and enabled (answered by the fake runner,
     the same way an application's unit is), and a few observations already on
     record - a couple still open, one already acknowledged - for the
@@ -1521,7 +1559,7 @@ def seed_monitor(sandbox: Sandbox, units: dict[str, Unit]) -> None:
         units: The modelled machine's units, mutated in place so the fake
             runner reports the monitor unit as installed, active and enabled.
     """
-    from wasm.monitor.models import (
+    from noust.monitor.models import (
         SEVERITY_NOTICE,
         SEVERITY_WARNING,
         SIGNAL_NAME_PATTERN,
@@ -1529,16 +1567,16 @@ def seed_monitor(sandbox: Sandbox, units: dict[str, Unit]) -> None:
         ProcessInfo,
         ProcessObservation,
     )
-    from wasm.monitor.observation_store import ObservationStore
-    from wasm.monitor.process_monitor import ProcessMonitor
+    from noust.monitor.observation_store import ObservationStore
+    from noust.monitor.process_monitor import ProcessMonitor
 
     unit_name = ProcessMonitor.SERVICE_NAME
     units[unit_name] = Unit(
         active="active", enabled=True, pid=2114, since=datetime.now() - timedelta(days=6)
     )
     (sandbox.systemd_dir / f"{unit_name}.service").write_text(
-        "[Unit]\nDescription=WASM resource monitor\nAfter=network.target\n\n"
-        "[Service]\nType=simple\nExecStart=/usr/bin/wasm monitor run\nRestart=always\n\n"
+        "[Unit]\nDescription=Noust resource monitor\nAfter=network.target\n\n"
+        "[Service]\nType=simple\nExecStart=/usr/bin/noust monitor run\nRestart=always\n\n"
         "[Install]\nWantedBy=multi-user.target\n",
         encoding="utf-8",
     )
@@ -1620,9 +1658,9 @@ def seed_activity_audit_log(sandbox: Sandbox, domain: str) -> None:
     through the actual login endpoint, but that alone is only ever one actor
     and one result. This adds the mix an operator actually sees on the
     Activity page - a refusal, and an API token acting instead of a browser
-    session - written through :class:`wasm.web.auth.AuditLogger`, the same
+    session - written through :class:`noust.web.auth.AuditLogger`, the same
     writer the API server installs, at the path :class:`SecurityConfig`
-    resolves. This runs before :func:`wasm.web.server.create_app` replaces
+    resolves. This runs before :func:`noust.web.server.create_app` replaces
     the global logger with its own instance over that same file, so these
     are simply older lines already in the log the server reads from - never
     a hand-written format.
@@ -1631,7 +1669,7 @@ def seed_activity_audit_log(sandbox: Sandbox, domain: str) -> None:
         sandbox: The sandbox.
         domain: An application named in the denied action's resource.
     """
-    from wasm.web.auth import AuditLogger, SecurityConfig
+    from noust.web.auth import AuditLogger, SecurityConfig
 
     audit = AuditLogger(SecurityConfig(state_dir=sandbox.state_dir).audit_log)
     # The real refusal a deploy-scoped token gets from require_scope() (auth.py) when it
@@ -1671,7 +1709,7 @@ def seed_job_history(sandbox: Sandbox, store: Any, domain: str) -> None:
         store: The seeded store.
         domain: The application the job ran against.
     """
-    from wasm.core.store import JobRecord
+    from noust.core.store import JobRecord
 
     log_dir = sandbox.store_file.parent / "job-logs"
     log_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -1876,16 +1914,16 @@ def _tabs_register(
         app: The application row to create.
         working_directory: Where its unit runs from.
     """
-    from wasm.core.store import Service, Site
-    from wasm.core.utils import domain_to_app_name
-    from wasm.managers.service_manager import WASM_UNIT_MARKER
+    from noust.core.store import Service, Site
+    from noust.core.utils import domain_to_app_name
+    from noust.managers.service_manager import UNIT_MARKER
 
     created = store.create_app(app)
     unit = domain_to_app_name(app.domain)
     unit_file = sandbox.systemd_dir / f"{unit}.service"
     command = "/usr/bin/node dist/server.js"
     unit_file.write_text(
-        f"# {WASM_UNIT_MARKER}\n"
+        f"# {UNIT_MARKER}\n"
         "[Unit]\n"
         f"Description={app.domain}\n"
         "After=network.target\n\n"
@@ -2265,7 +2303,7 @@ def seed_app_tabs_history(store: Any) -> dict[str, _TabsApp]:
             previous = rid
     apps[TABS_RELEASE_APP] = release
 
-    from wasm.core.utils import domain_to_app_name
+    from noust.core.utils import domain_to_app_name
 
     for domain, history in _TABS_INPLACE_HISTORY.items():
         seeded = _TabsApp(port=_tabs_serve_ok())
@@ -2362,8 +2400,8 @@ def _tabs_release_app(
     """
     from datetime import timezone
 
-    from wasm.core.store import App, ReleaseRecord
-    from wasm.core.utils import domain_to_app_name
+    from noust.core.store import App, ReleaseRecord
+    from noust.core.utils import domain_to_app_name
 
     domain = TABS_RELEASE_APP
     root = sandbox.apps_dir / domain_to_app_name(domain)
@@ -2474,8 +2512,8 @@ def _tabs_inplace_app(
     Returns:
         Its directory.
     """
-    from wasm.core.store import App
-    from wasm.core.utils import domain_to_app_name
+    from noust.core.store import App
+    from noust.core.utils import domain_to_app_name
 
     name = domain_to_app_name(domain)
     root = sandbox.apps_dir / name
@@ -2484,7 +2522,7 @@ def _tabs_inplace_app(
     source_dir = sandbox.root / "sources" / name
     port = seeded.port
     env = (
-        "# Written by wasm env configure\n"
+        "# Written by noust env configure\n"
         "NODE_ENV=production\n"
         f"PORT={port}\n"
         f"DATABASE_URL=postgres://{name.split('-')[0]}:Wm4p8Zr2@127.0.0.1:5432/{name.split('-')[0]}\n"
@@ -2526,7 +2564,7 @@ def _tabs_metrics(domain: str, deploys: Sequence[datetime], *, base_mb: float) -
     """
     import math
 
-    from wasm.web.metrics_collector import get_metrics_store
+    from noust.web.metrics_collector import get_metrics_store
 
     store = get_metrics_store()
     now = int(time.time())
@@ -2561,7 +2599,7 @@ def _tabs_slow_live_builds(root: Path) -> None:
     Args:
         root: The live app's directory.
     """
-    from wasm.core.runner import CommandResult, get_runner
+    from noust.core.runner import CommandResult, get_runner
 
     runner = get_runner()
     original = runner.stream
@@ -2698,7 +2736,7 @@ def _tabs_journal_model(
 
 def _tabs_diagnose_model(units: dict[str, Unit], ports: dict[str, int]) -> None:
     """
-    Answer the questions ``wasm diagnose`` asks that the runner could not.
+    Answer the questions ``noust diagnose`` asks that the runner could not.
 
     ``ss -ltnpH`` lists the port of every active modelled unit, owned by its
     main PID, ``systemctl show -p A,B <unit>`` answers the properties asked
@@ -2710,7 +2748,7 @@ def _tabs_diagnose_model(units: dict[str, Unit], ports: dict[str, int]) -> None:
         units: The modelled units.
         ports: Each unit's port.
     """
-    from wasm.core.runner import CommandResult, get_runner
+    from noust.core.runner import CommandResult, get_runner
 
     runner = get_runner()
     original = runner.run
@@ -2758,7 +2796,7 @@ def _tabs_port_model(units: dict[str, Unit], ports: dict[str, int]) -> None:
     Say a port answers when an active modelled unit listens on it.
 
     An application's state checks that its port accepts connections
-    (:func:`wasm.core.app_state.port_answers`). The seeded units run no
+    (:func:`noust.core.app_state.port_answers`). The seeded units run no
     process, so without this every running app reads "No answer"; a port a
     real listener holds (the health servers above) still answers for real.
 
@@ -2766,7 +2804,7 @@ def _tabs_port_model(units: dict[str, Unit], ports: dict[str, int]) -> None:
         units: The modelled units.
         ports: Each unit's port.
     """
-    import wasm.core.app_state as app_state_module
+    import noust.core.app_state as app_state_module
 
     real = app_state_module.port_answers
 
@@ -2922,7 +2960,7 @@ def _nothing_new_ls_remote(args: tuple[str, ...]) -> Any:
     Returns:
         Its ``main`` at the live commit, or None for any other command.
     """
-    from wasm.core.runner import CommandResult
+    from noust.core.runner import CommandResult
 
     if args[:1] != ("git",) or "ls-remote" not in args or NOTHING_NEW_SOURCE not in args:
         return None
@@ -2955,9 +2993,9 @@ def seed_deploy_actions(
     """
     from datetime import timezone
 
-    from wasm.core.runner import get_runner
-    from wasm.core.store import App, ReleaseRecord
-    from wasm.core.utils import domain_to_app_name
+    from noust.core.runner import get_runner
+    from noust.core.store import App, ReleaseRecord
+    from noust.core.utils import domain_to_app_name
 
     # The snapshot: the older of the two backups seed_backups gave the in-place app.
     backups = sandbox.backup_dir / domain_to_app_name(TABS_LIVE_APP)
@@ -3026,7 +3064,7 @@ def seed_deploy_actions(
 
     runner.run = run  # type: ignore[method-assign]
 
-    # Only a Dockerfile: WASM runs containers through Compose, and says so.
+    # Only a Dockerfile: Noust runs containers through Compose, and says so.
     container = sandbox.var / "www" / "src" / WIZARD_DOCKERFILE_SOURCE
     container.mkdir(parents=True, exist_ok=True)
     (container / "Dockerfile").write_text(
@@ -3120,7 +3158,7 @@ def _domains_points_here(name: str, zones: frozenset[str]) -> bool:
     return bool(resolved) and set(resolved) <= set(DOMAINS_MACHINE_ADDRESSES)
 
 
-#: Arguments the simple directives of WASM's templates take: (fewest, most).
+#: Arguments the simple directives of Noust's templates take: (fewest, most).
 #: A lost semicolon joins two statements into one, which nginx reports as the
 #: wrong number of arguments of the first.
 _DOMAINS_NGINX_ARITY: dict[str, tuple[int, int]] = {
@@ -3169,7 +3207,7 @@ def _domains_nginx_syntax(text: str) -> tuple[str, int] | None:
     The grammar - statements end in ``;``, blocks open with ``{`` after a
     directive and close with ``}``, strings are quoted, ``#`` starts a
     comment, ``${var}`` belongs to its token - and the argument count of the
-    simple directives WASM's templates use. That is enough for the mistakes
+    simple directives Noust's templates use. That is enough for the mistakes
     a hand edit makes (a lost semicolon, a lost brace), reported in nginx's
     own words.
 
@@ -3356,7 +3394,7 @@ class _DomainsWebTools:
         Returns:
             nginx's answer.
         """
-        from wasm.core.runner import CommandResult
+        from noust.core.runner import CommandResult
 
         if "-c" in args and args.index("-c") + 1 < len(args):
             main = Path(args[args.index("-c") + 1])
@@ -3434,7 +3472,7 @@ class _DomainsWebTools:
         return [args[i + 1] for i, arg in enumerate(args[:-1]) if arg == flag]
 
     def _certificates(self, args: tuple[str, ...]) -> Any:
-        from wasm.core.runner import CommandResult
+        from noust.core.runner import CommandResult
 
         now = datetime.now()
         blocks = [_DOMAINS_CERTBOT_LOG, "", "-" * 79]
@@ -3469,7 +3507,7 @@ class _DomainsWebTools:
         return "nginx"
 
     def _certonly(self, args: tuple[str, ...]) -> Any:
-        from wasm.core.runner import CommandResult
+        from noust.core.runner import CommandResult
 
         domains = self._options(args, "-d")
         names = self._options(args, "--cert-name")
@@ -3542,7 +3580,7 @@ class _DomainsWebTools:
         )
 
     def _renew(self, args: tuple[str, ...]) -> Any:
-        from wasm.core.runner import CommandResult
+        from noust.core.runner import CommandResult
 
         names = self._options(args, "--cert-name") or list(self.lineages)
         unknown = [name for name in names if name not in self.lineages]
@@ -3597,7 +3635,7 @@ class _DomainsWebTools:
         return CommandResult(args, 0, "\n".join(lines) + "\n", "")
 
     def _revoke(self, args: tuple[str, ...]) -> Any:
-        from wasm.core.runner import CommandResult
+        from noust.core.runner import CommandResult
 
         paths = self._options(args, "--cert-path")
         name = Path(paths[0]).parent.name if paths else ""
@@ -3621,7 +3659,7 @@ class _DomainsWebTools:
         )
 
     def _delete(self, args: tuple[str, ...]) -> Any:
-        from wasm.core.runner import CommandResult
+        from noust.core.runner import CommandResult
 
         names = self._options(args, "--cert-name")
         name = names[0] if names else ""
@@ -3647,14 +3685,14 @@ def _domains_redirect_managers() -> None:
     Point the nginx and Apache managers' default backends at the sandbox.
 
     :func:`redirect_system_paths` rebinds the backends on
-    ``wasm.managers.webserver``, but ``NginxManager`` and ``ApacheManager``
+    ``noust.managers.webserver``, but ``NginxManager`` and ``ApacheManager``
     imported them by name before that, so a manager built without a backend
     (the sites API, a deployer rendering its site) still read and wrote the
     real /etc/nginx.
     """
-    import wasm.managers.apache_manager as apache_module
-    import wasm.managers.nginx_manager as nginx_module
-    import wasm.managers.webserver as webserver_module
+    import noust.managers.apache_manager as apache_module
+    import noust.managers.nginx_manager as nginx_module
+    import noust.managers.webserver as webserver_module
 
     nginx_module.NGINX_BACKEND = webserver_module.NGINX_BACKEND  # type: ignore[attr-defined]
     apache_module.APACHE_BACKEND = webserver_module.APACHE_BACKEND  # type: ignore[attr-defined]
@@ -3674,7 +3712,7 @@ def _domains_site_files(store: Any) -> None:
     Args:
         store: The seeded store.
     """
-    from wasm.managers.nginx_manager import NginxManager
+    from noust.managers.nginx_manager import NginxManager
 
     manager = NginxManager(verbose=False)
     apps = {app.id: app for app in store.list_apps()}
@@ -3706,14 +3744,14 @@ def seed_sites_server_names(domain: str, extra: Sequence[str]) -> None:
     edits the file ``_domains_site_files`` already wrote, in place, the same
     way an operator's own ``server_name`` edit would: no store row is added,
     since these are extra names of a *site*, not an application's own domains
-    (``wasm.web.api.domains``, seeded separately).
+    (``noust.web.api.domains``, seeded separately).
 
     Args:
         domain: Domain of an already-written nginx site.
         extra: Names to add beside it, unqualified (``www``, not
             ``www.<domain>``).
     """
-    from wasm.managers.nginx_manager import NginxManager
+    from noust.managers.nginx_manager import NginxManager
 
     manager = NginxManager(verbose=False)
     if not manager.site_exists(domain):
@@ -3805,7 +3843,7 @@ def seed_domains_and_sources(
     Temporary files move into the sandbox too: the wizard's inspection clones
     into one, and the web server check stages the configuration it tests in
     another, which the modelled nginx has to be able to read. nginx itself
-    runs, as a system unit WASM does not own: a deploy's pre-flight checks
+    runs, as a system unit Noust does not own: a deploy's pre-flight checks
     refuse to start on a machine whose web server is down.
 
     Args:
@@ -3818,9 +3856,9 @@ def seed_domains_and_sources(
     import functools
     import socket as socket_module
 
-    import wasm.deployers.domains as domains_core
-    import wasm.web.api.domains as domains_api
-    from wasm.core.runner import get_runner
+    import noust.deployers.domains as domains_core
+    import noust.web.api.domains as domains_api
+    from noust.core.runner import get_runner
 
     units.setdefault("nginx", Unit(active="active", pid=880, managed=False))
     scratch = sandbox.root / "tmp"
@@ -3861,7 +3899,7 @@ def seed_domains_and_sources(
         ]
 
     # Patched where it is defined, not only where the API imported it: the certificate
-    # diagnosis imports it lazily from wasm.deployers.domains and must see the same
+    # diagnosis imports it lazily from noust.deployers.domains and must see the same
     # modelled DNS, never this machine's real resolver and addresses.
     modelled = functools.partial(
         domains_core.check_dns,
@@ -3896,7 +3934,7 @@ def seed_settings_api_tokens() -> None:
     one, so each state the table draws exists. The clear tokens are discarded:
     nothing in the suite authenticates with them.
     """
-    from wasm.web.server import get_token_manager
+    from noust.web.server import get_token_manager
 
     manager = get_token_manager()
     for name, scope, hours, revoked in SETTINGS_API_TOKENS:
@@ -3918,8 +3956,8 @@ def pin_settings_update_check() -> str:
     Returns:
         The version the check reports as released.
     """
-    from wasm import __version__
-    from wasm.core.update_checker import UpdateChecker
+    from noust import __version__
+    from noust.core.update_checker import UpdateChecker
 
     numbers = [int(part) for part in re.findall(r"\d+", __version__)[:2]] + [0, 0]
     latest = f"{numbers[0]}.{numbers[1] + 1}.0"
@@ -3942,7 +3980,7 @@ def pin_settings_update_check() -> str:
 #: a private chat; the second none yet, which is what a bot never written to answers.
 TELEGRAM_BOTS: dict[str, list[dict[str, Any]]] = {
     "7000000001:console-sandbox-bot": [
-        {"id": -1001987654321, "type": "supergroup", "title": "WASM alerts"},
+        {"id": -1001987654321, "type": "supergroup", "title": "Noust alerts"},
         {"id": 52345678, "type": "private", "username": "ops_oncall", "first_name": "Ops"},
     ],
     "7000000002:console-sandbox-quiet": [],
@@ -3964,8 +4002,8 @@ def model_telegram_bot_api() -> None:
     from email.message import Message
     from urllib.error import HTTPError
 
-    import wasm.core.notifier as notifier_module
-    import wasm.web.api.config as config_api
+    import noust.core.notifier as notifier_module
+    import noust.web.api.config as config_api
 
     api = notifier_module._TELEGRAM_API + "/bot"
     guard = notifier_module._require_public_destination
@@ -4063,8 +4101,8 @@ def seed_zero_downtime(
     Seed an application in blue/green mode, turned on by the real engine.
 
     ``pagos.example.org`` is deployed on releases like the tabs' release app,
-    then :func:`wasm.deployers.bluegreen.set_zero_downtime` turns the mode on
-    exactly as ``wasm app zero-downtime`` would: the template written, green
+    then :func:`noust.deployers.bluegreen.set_zero_downtime` turns the mode on
+    exactly as ``noust app zero-downtime`` would: the template written, green
     started and probed, the upstream and the site switched, the old unit
     retired. So what the console reads is what the engine leaves, and turning
     it off and on again from the console runs the same code on the same model.
@@ -4082,10 +4120,10 @@ def seed_zero_downtime(
         ports: Each unit's port (unused).
         domains: Each unit's domain (unused).
     """
+    from noust.core.store import App, ReleaseRecord
+    from noust.core.utils import domain_to_app_name
+    from noust.deployers.bluegreen import BlueGreen, set_zero_downtime
     from tests.panel_factory import seed_zero_downtime_history
-    from wasm.core.store import App, ReleaseRecord
-    from wasm.core.utils import domain_to_app_name
-    from wasm.deployers.bluegreen import BlueGreen, set_zero_downtime
 
     model_units, model_ports, model_domains = _zd_model()
     _zd_probe_model(model_units, model_ports)
@@ -4200,7 +4238,7 @@ def _zd_model() -> tuple[dict[str, Unit], dict[str, int], dict[str, str]]:
     Returns:
         The maps the runner answers from.
     """
-    from wasm.core.runner import get_runner
+    from noust.core.runner import get_runner
 
     runner: Any = get_runner()
     return runner.model_units, runner.model_ports, runner.model_domains
@@ -4241,7 +4279,7 @@ def _zd_probe_model(units: dict[str, Unit], ports: dict[str, int]) -> None:
     other port is asked of the machine for real, so a probe of something
     that genuinely listens (the tabs' health servers) still reaches it. The
     application's state reads its port through
-    :func:`wasm.core.app_state.port_answers`, answered the same way.
+    :func:`noust.core.app_state.port_answers`, answered the same way.
 
     Args:
         units: The runner's units.
@@ -4249,8 +4287,8 @@ def _zd_probe_model(units: dict[str, Unit], ports: dict[str, int]) -> None:
     """
     from urllib.parse import urlsplit
 
-    import wasm.core.app_state as app_state_module
-    import wasm.deployers.bluegreen as bluegreen_module
+    import noust.core.app_state as app_state_module
+    import noust.deployers.bluegreen as bluegreen_module
 
     def held(port: int | None) -> bool:
         return port is not None and any(
@@ -4302,7 +4340,7 @@ def seed_previews(
         ports: Each unit's port, mutated in place.
         domains: Each unit's domain, mutated in place.
     """
-    import wasm.managers.previews as previews_module
+    import noust.managers.previews as previews_module
     from tests.panel_factory import PREVIEWS_BASE_DOMAIN, seed_previews_records
 
     # Written when the settings are saved: into the sandbox, like every other unit.
@@ -4357,8 +4395,8 @@ def _previews_release_app(
     Returns:
         Its directory.
     """
-    from wasm.core.store import App, ReleaseRecord
-    from wasm.core.utils import domain_to_app_name
+    from noust.core.store import App, ReleaseRecord
+    from noust.core.utils import domain_to_app_name
 
     root = sandbox.apps_dir / domain_to_app_name(domain)
     port = _tabs_serve_ok()
@@ -4418,7 +4456,7 @@ def _previews_release_app(
 # --- 2.2: the GitHub App -----------------------------------------------------
 
 
-#: Where this machine receives code hosts' events (``wasm web expose-hooks``).
+#: Where this machine receives code hosts' events (``noust web expose-hooks``).
 GITHUB_HOOKS_URL = "https://hooks.example.com/hooks"
 
 #: The one-time code GitHub's manifest flow hands back that it no longer honours
@@ -4452,18 +4490,18 @@ def seed_github_app(sandbox: Sandbox, store: Any) -> None:
         sandbox: The sandbox.
         store: The seeded store.
     """
-    from tests.panel_factory import GITHUB_APP
-    from tests.panel_factory import seed_github_app as record_github_app
-    from wasm.core.config import Config
-    from wasm.core.secrets import SecretStore
-    from wasm.integrations.github.app import (
+    from noust.core.config import Config
+    from noust.core.secrets import SecretStore
+    from noust.integrations.github.app import (
         CLIENT_SECRET,
         PRIVATE_KEY_SECRET,
         WEBHOOK_SECRET,
         write_meta,
     )
-    from wasm.integrations.github.client import GitHubClient, set_client
-    from wasm.integrations.hooks_site import HOOKS_URL_KEY
+    from noust.integrations.github.client import GitHubClient, set_client
+    from noust.integrations.hooks_site import HOOKS_URL_KEY
+    from tests.panel_factory import GITHUB_APP
+    from tests.panel_factory import seed_github_app as record_github_app
 
     record_github_app(store)
     secrets = SecretStore()
@@ -4650,8 +4688,8 @@ def _github_git_and_openssl(sandbox: Sandbox) -> None:
     Args:
         sandbox: The sandbox, whose ``/var/www/src/storefront`` is checked out.
     """
+    from noust.core.runner import CommandResult, get_runner
     from tests.panel_factory import GITHUB_REPOSITORIES
-    from wasm.core.runner import CommandResult, get_runner
 
     runner = get_runner()
     original = runner.run
@@ -4664,7 +4702,7 @@ def _github_git_and_openssl(sandbox: Sandbox) -> None:
         return match.group(1).lower() if match and match.group(1).lower() in repositories else None
 
     def git_verb(args: tuple[str, ...]) -> tuple[str, ...]:
-        """The git command without the ``-c key=value`` pairs every WASM git call starts with."""
+        """The git command without the ``-c key=value`` pairs every Noust git call starts with."""
         rest = args[1:]
         while rest[:1] == ("-c",):
             rest = rest[2:]
@@ -4724,7 +4762,7 @@ def seed_backup_destinations(sandbox: Sandbox, store: Any) -> None:
     Add two backup destinations, copies of backups on them, and a schedule using both.
 
     The destinations are created through
-    :class:`~wasm.managers.backup_destinations.BackupDestinationManager`, so their
+    :class:`~noust.managers.backup_destinations.BackupDestinationManager`, so their
     secrets are where the manager reads them (the sandboxed secret store beside the
     database) and the encrypted one has real crypt passphrases to show. rclone is
     answered from a directory per remote inside the sandbox (see
@@ -4735,10 +4773,10 @@ def seed_backup_destinations(sandbox: Sandbox, store: Any) -> None:
         sandbox: The sandbox, its local backups already seeded.
         store: The seeded store.
     """
+    from noust.core.utils import domain_to_app_name
+    from noust.managers.backup_destinations import BackupDestinationManager
+    from noust.managers.backup_scheduler import BackupSchedule, BackupScheduler
     from tests.panel_factory import DESTINATION_ENCRYPTED, DESTINATION_SFTP, seed_push_job
-    from wasm.core.utils import domain_to_app_name
-    from wasm.managers.backup_destinations import BackupDestinationManager
-    from wasm.managers.backup_scheduler import BackupSchedule, BackupScheduler
 
     remotes = sandbox.root / "remotes"
     _destinations_rclone_model(sandbox, remotes)
@@ -4817,7 +4855,7 @@ def _destinations_copy_backups(
         remote_only_days: Instead of copying every local backup, write one more,
             this many days old, that exists nowhere but on the remote.
     """
-    from wasm.core.utils import domain_to_app_name
+    from noust.core.utils import domain_to_app_name
 
     app_name = domain_to_app_name(domain)
     local = sandbox.backup_dir / app_name
@@ -4851,7 +4889,7 @@ def _destinations_rclone_model(sandbox: Sandbox, remotes: Path) -> None:
     layer), so ``copyto``, ``lsjson``, ``lsf``, ``mkdir`` and ``deletefile``
     act on real files. A destination whose host or endpoint ends in
     :data:`DESTINATIONS_UNREACHABLE` fails the way rclone fails on a name no
-    resolver knows. ``systemctl list-timers wasm-backup-*`` and ``show`` of
+    resolver knows. ``systemctl list-timers noust-backup-*`` and ``show`` of
     such a timer are answered from the unit files the scheduler wrote, so the
     Schedules section lists what is scheduled.
 
@@ -4861,7 +4899,7 @@ def _destinations_rclone_model(sandbox: Sandbox, remotes: Path) -> None:
     """
     import hashlib
 
-    from wasm.core.runner import CommandResult, get_runner
+    from noust.core.runner import CommandResult, get_runner
 
     remotes.mkdir(parents=True, exist_ok=True)
     runner = get_runner()
@@ -4974,7 +5012,7 @@ def _destinations_rclone_model(sandbox: Sandbox, remotes: Path) -> None:
     def timers(args: tuple[str, ...]) -> Any:
         now = datetime.now(timezone.utc)
         lines = []
-        for timer in sorted(sandbox.systemd_dir.glob("wasm-backup-*.timer")):
+        for timer in sorted(sandbox.systemd_dir.glob("noust-backup-*.timer")):
             next_run = (now + timedelta(hours=15)).strftime("%a %Y-%m-%d %H:%M:%S UTC")
             last_run = (now - timedelta(hours=9)).strftime("%a %Y-%m-%d %H:%M:%S UTC")
             service = timer.name.removesuffix(".timer") + ".service"
@@ -5005,13 +5043,13 @@ def _destinations_rclone_model(sandbox: Sandbox, remotes: Path) -> None:
         if program == "rclone":
             runner.calls.append(args)
             return rclone(args, kwargs.get("env") or {}, kwargs.get("input") or "")
-        if program == "systemctl" and "list-timers" in args and "wasm-backup-*" in args:
+        if program == "systemctl" and "list-timers" in args and "noust-backup-*" in args:
             runner.calls.append(args)
             return timers(args)
         if program == "systemctl" and args[1:2] == ("show",) and len(args) > 2:
             unit = args[2]
             if (
-                unit.startswith("wasm-backup-")
+                unit.startswith("noust-backup-")
                 and unit.endswith(".timer")
                 and (sandbox.systemd_dir / unit).is_file()
             ):
@@ -5038,9 +5076,9 @@ def seed_env_marks(sandbox: Sandbox, store: Any) -> None:
         sandbox: The sandbox.
         store: The seeded store.
     """
+    from noust.core.utils import domain_to_app_name
     from tests.panel_factory import ENV_MARKS_APP, ENV_MARKS_PUBLIC
     from tests.panel_factory import seed_env_marks as mark
-    from wasm.core.utils import domain_to_app_name
 
     env_file = sandbox.apps_dir / domain_to_app_name(ENV_MARKS_APP) / ".env"
     name, value = ENV_MARKS_PUBLIC
@@ -5131,7 +5169,7 @@ def _recipes_offline() -> None:
     import io
     from urllib.error import URLError
 
-    import wasm.managers.source_manager as source_module
+    import noust.managers.source_manager as source_module
 
     archive = _wordpress_archive()
     answers = {
@@ -5165,8 +5203,8 @@ def _recipes_php_fpm(sandbox: Sandbox) -> None:
     """
     import functools
 
-    import wasm.deployers.helpers.php_fpm as fpm_helpers
-    import wasm.deployers.php_fpm as php_module
+    import noust.deployers.helpers.php_fpm as fpm_helpers
+    import noust.deployers.php_fpm as php_module
 
     (sandbox.etc / "php" / "8.3" / "fpm" / "pool.d").mkdir(parents=True, exist_ok=True)
     binary = sandbox.root / "usr" / "sbin" / "php-fpm8.3"
@@ -5256,12 +5294,12 @@ def seed_exportable_app(sandbox: Sandbox) -> None:
     Args:
         sandbox: The sandbox.
     """
-    from wasm.core.store import Database, DomainKind, get_store
-    from wasm.deployers import domains as domain_changes
-    from wasm.deployers.helpers.app_env import write_app_env
-    from wasm.deployers.lifecycle import set_release_retention
-    from wasm.managers.cron_manager import CronJob, CronManager
-    from wasm.web.jobs import Job, JobContext, JobType, deploy_app_job
+    from noust.core.store import Database, DomainKind, get_store
+    from noust.deployers import domains as domain_changes
+    from noust.deployers.helpers.app_env import write_app_env
+    from noust.deployers.lifecycle import set_release_retention
+    from noust.managers.cron_manager import CronJob, CronManager
+    from noust.web.jobs import Job, JobContext, JobType, deploy_app_job
 
     source = sandbox.var / "www" / "src" / WIZARD_SOURCES[1]
     # Run as the job function it is, outside the job manager: seeding must not
@@ -5360,9 +5398,9 @@ def enable_totp(backup_codes: int | None = None) -> tuple[str, list[str]]:
     Returns:
         The secret, so a test can compute codes, and the backup codes.
     """
-    from wasm.core import totp
-    from wasm.web import auth
-    from wasm.web.server import get_token_manager
+    from noust.core import totp
+    from noust.web import auth
+    from noust.web.server import get_token_manager
 
     manager = get_token_manager()
     secret = manager.begin_totp_enrollment()
@@ -5384,7 +5422,7 @@ def use_console_build(static_dir: Path) -> None:
     Point the server at a console build other than the committed one.
 
     Development and E2E only: parallel work on the console builds into private
-    directories, because two builds racing into ``wasm/web/static`` would serve
+    directories, because two builds racing into ``noust/web/static`` would serve
     each other half-written chunks. Production always serves the committed build.
 
     Args:
@@ -5393,7 +5431,7 @@ def use_console_build(static_dir: Path) -> None:
     Raises:
         SystemExit: When the directory holds no build.
     """
-    from wasm.web import server
+    from noust.web import server
 
     static_dir = static_dir.resolve()
     if not (static_dir / "index.html").is_file():
@@ -5409,16 +5447,16 @@ def use_fixed_hostname(hostname: str) -> None:
 
     Development and screenshots only: a recording or a review screenshot should not carry
     the developer's real machine name. The name is read with a bare ``socket.gethostname()``
-    in two modules - the machine snapshot (``wasm.web.machine``) and the session answer and
-    TOTP account name (``wasm.web.api.auth``) - neither of which uses ``socket`` for anything
+    in two modules - the machine snapshot (``noust.web.machine``) and the session answer and
+    TOTP account name (``noust.web.api.auth``) - neither of which uses ``socket`` for anything
     else, so each gets a stand-in bound to its own name, and the real module is untouched for
     everything else in the process.
 
     Args:
         hostname: The name to report.
     """
-    import wasm.web.api.auth as auth_api
-    import wasm.web.machine as machine_module
+    import noust.web.api.auth as auth_api
+    import noust.web.machine as machine_module
 
     fixed = SimpleNamespace(gethostname=lambda: hostname)
     machine_module.socket = fixed  # type: ignore[assignment]
@@ -5435,10 +5473,10 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     """
     import uvicorn
 
-    from wasm.core.fs import set_fs
-    from wasm.core.runner import set_runner
-    from wasm.web.auth import SecurityConfig
-    from wasm.web.server import create_app, get_token_manager
+    from noust.core.fs import set_fs
+    from noust.core.runner import set_runner
+    from noust.web.auth import SecurityConfig
+    from noust.web.server import create_app, get_token_manager
 
     redirect_system_paths(sandbox)
     write_config(sandbox)
@@ -5535,7 +5573,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         The exit status.
     """
     args = parse_args(argv)
-    sandbox = Sandbox(Path(tempfile.mkdtemp(prefix="wasm-console-")).resolve())
+    sandbox = Sandbox(Path(tempfile.mkdtemp(prefix="noust-console-")).resolve())
     try:
         prepare_environment(sandbox)
         serve(args, sandbox)

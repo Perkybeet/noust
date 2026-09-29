@@ -26,7 +26,7 @@ test("creates a job with a daily preset and sees it listed with a next run", asy
   await expectNoA11yViolations(page, "the new job dialog");
 
   await dialog.getByLabel("Name", { exact: true }).fill("e2e-report");
-  await dialog.getByLabel("Command", { exact: true }).fill("/usr/bin/wasm backup create example.com");
+  await dialog.getByLabel("Command", { exact: true }).fill("/usr/bin/noust backup create example.com");
 
   const created = page.waitForResponse(
     (response) => response.url().endsWith("/api/cron") && response.request().method() === "POST" && response.status() !== 403,

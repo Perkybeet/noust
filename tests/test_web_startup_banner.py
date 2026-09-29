@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from wasm.web.server import startup_banner
+from noust.web.server import startup_banner
 
 
 def test_a_loopback_banner_carries_the_ssh_tunnel(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -29,8 +29,8 @@ def test_a_loopback_banner_carries_the_ssh_tunnel(monkeypatch: pytest.MonkeyPatc
     Args:
         monkeypatch: Patching helper, scoped to the test.
     """
-    monkeypatch.setattr("wasm.core.net.server_address", lambda: "198.51.100.7")
-    monkeypatch.setattr("wasm.core.net._current_user", lambda: "root")
+    monkeypatch.setattr("noust.core.net.server_address", lambda: "198.51.100.7")
+    monkeypatch.setattr("noust.core.net._current_user", lambda: "root")
 
     banner = "\n".join(startup_banner("wasm_tok", host="127.0.0.1", port=8081, scheme="http"))
 

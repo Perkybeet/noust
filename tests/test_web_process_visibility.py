@@ -24,10 +24,10 @@ import psutil
 import pytest
 from fastapi.testclient import TestClient
 
+from noust.monitor.models import ProcessInfo
+from noust.web.api import monitor as monitor_api
+from noust.web.server import get_token_manager
 from tests.test_web_auth import bearer, build_client, issue_token, login
-from wasm.monitor.models import ProcessInfo
-from wasm.web.api import monitor as monitor_api
-from wasm.web.server import get_token_manager
 
 #: What a secret-carrying process looks like on the wire: a password passed
 #: as a CLI flag, exactly the shape this guard exists for.
@@ -148,8 +148,8 @@ def test_monitor_observations_hide_the_command_line_from_a_read_token(
     earlier admin-run scan wrote to the store through this GET endpoint, so
     the redaction has to be applied here regardless of who ran the scan.
     """
-    from wasm.monitor.models import SIGNAL_RESOURCE_USAGE, ProcessObservation
-    from wasm.monitor.observation_store import ObservationStore
+    from noust.monitor.models import SIGNAL_RESOURCE_USAGE, ProcessObservation
+    from noust.monitor.observation_store import ObservationStore
 
     client, read_token = admin_client_and_reader
     fake = ProcessInfo(
@@ -192,7 +192,7 @@ def test_observation_entry_helper_hides_command_below_admin_scope() -> None:
     relaxation of the scan endpoint's own scope requirement from silently
     reopening this leak.
     """
-    from wasm.monitor.models import SIGNAL_RESOURCE_USAGE, ProcessObservation
+    from noust.monitor.models import SIGNAL_RESOURCE_USAGE, ProcessObservation
 
     fake = ProcessInfo(pid=1, name="mysqld", command=_SECRET_COMMAND)
     observation = ProcessObservation(

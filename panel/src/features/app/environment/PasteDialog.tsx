@@ -60,7 +60,7 @@ export interface PasteDialogProps {
 }
 
 /**
- * A whole `.env` pasted at once, parsed live the way WASM reads the file on disk, with what
+ * A whole `.env` pasted at once, parsed live the way Noust reads the file on disk, with what
  * is wrong said line by line before anything is staged.
  */
 export function PasteDialog({ open, onOpenChange, current, onStage }: PasteDialogProps) {

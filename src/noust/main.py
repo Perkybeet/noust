@@ -4,16 +4,16 @@
 """
 Entry point.
 
-The command tree lives in :mod:`wasm.cli.app`. This module stays because
-``wasm.main:cli`` is the console script recorded in every already-installed
+The command tree lives in :mod:`noust.cli.app`. This module stays because
+``noust.main:cli`` is the console script recorded in every already-installed
 copy, and an upgrade must not leave those users with a package whose entry
 point has moved.
 """
 
 from __future__ import annotations
 
-from wasm.cli.app import entrypoint as cli
-from wasm.cli.app import main
+from noust.cli.app import entrypoint as cli
+from noust.cli.app import main
 
 __all__ = ["cli", "main"]
 

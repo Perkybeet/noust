@@ -1,5 +1,5 @@
 """
-Source validation for WASM.
+Source validation for Noust.
 
 Validates Git URLs, local paths, and other source formats.
 """
@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from wasm.core.exceptions import SourceError
+from noust.core.exceptions import SourceError
 
 # Git URL patterns
 GIT_SSH_PATTERN = re.compile(r"^git@(?P<host>[\w.-]+):(?P<path>[\w./-]+?)(?:\.git)?$")
@@ -25,7 +25,7 @@ _GITHUB_OWNER = r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})"
 _GITHUB_REPO = r"[A-Za-z0-9._-]{1,100}"
 
 #: ``github:owner/repo``: the spelling the console's repository picker and
-#: ``wasm create --source`` share for a repository this server's GitHub App
+#: ``noust create --source`` share for a repository this server's GitHub App
 #: can reach. No ``#branch``: no other source takes one here either, the
 #: branch is its own field.
 GITHUB_SHORTHAND_PATTERN = re.compile(
@@ -165,7 +165,7 @@ def is_archive_url(source: str) -> bool:
     Check if source is a downloadable archive URL.
 
     An archive URL may carry its expected checksum in the URL fragment (see
-    :func:`wasm.managers.source_manager.split_archive_checksum`), so the
+    :func:`noust.managers.source_manager.split_archive_checksum`), so the
     extension check is made against the URL with any ``#...`` fragment
     removed.
 

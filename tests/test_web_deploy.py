@@ -30,10 +30,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.core.store import App, WASMStore
-from wasm.web.auth import CSRF_HEADER_NAME, SecurityConfig
-from wasm.web.server import create_app as build_app
-from wasm.web.server import get_token_manager
+from noust.core.store import App, NoustStore
+from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
+from noust.web.server import create_app as build_app
+from noust.web.server import get_token_manager
 
 
 @pytest.fixture
@@ -47,13 +47,13 @@ def store(tmp_path: Path) -> Any:
     Yields:
         The store the pages read.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     try:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 @pytest.fixture
@@ -138,7 +138,7 @@ def queued(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
         return Queued()
 
     manager = type("FakeJobs", (), {"create_job": staticmethod(create_job)})()
-    monkeypatch.setattr("wasm.web.api.apps.get_job_manager", lambda: manager)
+    monkeypatch.setattr("noust.web.api.apps.get_job_manager", lambda: manager)
     return captured
 
 
@@ -259,7 +259,7 @@ def _job_context() -> Any:
     Returns:
         A context the job functions accept.
     """
-    from wasm.web.jobs import Job, JobContext, JobType
+    from noust.web.jobs import Job, JobContext, JobType
 
     job = Job(id="job-test", type=JobType.DEPLOY, name="deploy", description="")
     return JobContext(job, lambda _job: None)
@@ -276,7 +276,7 @@ def test_deploy_job_hands_the_panel_trigger_to_the_deployer(
     Args:
         monkeypatch: Patching helper, scoped to the test.
     """
-    from wasm.web.jobs import deploy_app_job
+    from noust.web.jobs import deploy_app_job
 
     captured: dict[str, Any] = {}
 
@@ -291,7 +291,7 @@ def test_deploy_job_hands_the_panel_trigger_to_the_deployer(
         def deploy(self) -> bool:
             return True
 
-    monkeypatch.setattr("wasm.deployers.get_deployer", lambda *a, **k: FakeDeployer())
+    monkeypatch.setattr("noust.deployers.get_deployer", lambda *a, **k: FakeDeployer())
 
     deploy_app_job(
         "app.example.com",
@@ -307,7 +307,7 @@ def test_deploy_job_hands_its_own_id_to_the_deployer(monkeypatch: pytest.MonkeyP
     """
     The deployment history links back to the job that started it.
 
-    :class:`~wasm.deployers.recorder.DeploymentRecorder` records ``job_id`` at
+    :class:`~noust.deployers.recorder.DeploymentRecorder` records ``job_id`` at
     the start of the deploy, read off the deployer :func:`recorder_for` is
     built from - so the job has to hand its id to the deployer before
     ``deploy()`` runs, not after.
@@ -315,7 +315,7 @@ def test_deploy_job_hands_its_own_id_to_the_deployer(monkeypatch: pytest.MonkeyP
     Args:
         monkeypatch: Patching helper, scoped to the test.
     """
-    from wasm.web.jobs import deploy_app_job
+    from noust.web.jobs import deploy_app_job
 
     captured: dict[str, Any] = {}
 
@@ -330,7 +330,7 @@ def test_deploy_job_hands_its_own_id_to_the_deployer(monkeypatch: pytest.MonkeyP
 
         last_deployment_id = 42
 
-    monkeypatch.setattr("wasm.deployers.get_deployer", lambda *a, **k: FakeDeployer())
+    monkeypatch.setattr("noust.deployers.get_deployer", lambda *a, **k: FakeDeployer())
 
     result = deploy_app_job(
         "app.example.com",
@@ -350,7 +350,7 @@ def test_rollback_job_hands_the_panel_trigger_to_the_rollback(
     Args:
         monkeypatch: Patching helper, scoped to the test.
     """
-    from wasm.web.jobs import rollback_app_job
+    from noust.web.jobs import rollback_app_job
 
     captured: dict[str, Any] = {}
 
@@ -364,7 +364,7 @@ def test_rollback_job_hands_the_panel_trigger_to_the_rollback(
             captured.update(kwargs)
             return True
 
-    monkeypatch.setattr("wasm.managers.backup_manager.RollbackManager", FakeRollbackManager)
+    monkeypatch.setattr("noust.managers.backup_manager.RollbackManager", FakeRollbackManager)
 
     rollback_app_job("app.example.com", backup_id="backup-1", job_context=_job_context())
 
@@ -384,8 +384,8 @@ def test_the_deploy_job_links_the_application_to_its_installation(
     monkeypatch: pytest.MonkeyPatch, store: Any, tmp_path: Path
 ) -> None:
     """Once the application exists, its row records the installation."""
-    from wasm.core.store import App
-    from wasm.web.jobs import deploy_app_job
+    from noust.core.store import App
+    from noust.web.jobs import deploy_app_job
 
     class FakeDeployer:
         """Creates the row a real deploy would, and nothing else."""
@@ -399,7 +399,7 @@ def test_the_deploy_job_links_the_application_to_its_installation(
             store.create_app(App(domain=self.domain, app_path=str(tmp_path / "app")))
             return True
 
-    monkeypatch.setattr("wasm.deployers.get_deployer", lambda *a, **k: FakeDeployer())
+    monkeypatch.setattr("noust.deployers.get_deployer", lambda *a, **k: FakeDeployer())
 
     deploy_app_job(
         "app.example.com",
@@ -414,7 +414,7 @@ def test_the_deploy_job_links_the_application_to_its_installation(
 
 def test_new_ports_skip_the_second_port_of_a_blue_green_application(store: Any) -> None:
     """The idle instance's port is taken even while nothing listens on it."""
-    from wasm.core.store import App
+    from noust.core.store import App
 
     store.create_app(App(domain="bg.example.com", app_path="/x", port=3000))
     store.set_zero_downtime("bg.example.com", True)
@@ -457,7 +457,7 @@ def test_an_unusable_health_check_is_refused_before_anything_is_queued(
 
 def test_a_new_row_starts_with_the_health_check_it_was_given(store: Any, tmp_path: Path) -> None:
     """Written through set_app_health, which validates, before anything probes."""
-    from wasm.deployers.helpers.registration import StoreRegistrar
+    from noust.deployers.helpers.registration import StoreRegistrar
 
     registrar = StoreRegistrar(store)
     app = registrar.register_app(

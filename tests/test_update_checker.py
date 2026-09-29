@@ -4,12 +4,12 @@
 """
 Tests for the ``updates.check`` switch.
 
-The GitHub check used to be unconditional: every ``wasm`` command started a
+The GitHub check used to be unconditional: every ``noust`` command started a
 background thread that hit the network, and there was no way to turn it off
 for a server with no route to GitHub, or one where an operator simply does
 not want the request made. The switch must be read fresh every time - a
 long-lived process such as the panel must not need a restart for
-``wasm config set updates.check false`` to take effect - and turning it off
+``noust config set updates.check false`` to take effect - and turning it off
 must never make the check itself block anything: it already runs off the
 command's own path, in a background thread with a short timeout.
 """
@@ -22,10 +22,10 @@ from pathlib import Path
 
 import pytest
 
-from wasm import __version__
-from wasm.core import package_index
-from wasm.core.config import Config
-from wasm.core.update_checker import (
+from noust import __version__
+from noust.core import package_index
+from noust.core.config import Config
+from noust.core.update_checker import (
     UpdateChecker,
     UpdateCheckInProgress,
     VersionCheck,
@@ -81,8 +81,8 @@ def config_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Pat
     Yields:
         The path the singleton reads from and writes to.
     """
-    path = tmp_path / "etc" / "wasm" / "config.yaml"
-    monkeypatch.setattr("wasm.core.config.DEFAULT_CONFIG_PATH", path)
+    path = tmp_path / "etc" / "noust" / "config.yaml"
+    monkeypatch.setattr("noust.core.config.DEFAULT_CONFIG_PATH", path)
     Config.reset_instance()
     try:
         yield path
@@ -119,7 +119,7 @@ def test_enabled_by_default(config_path: Path) -> None:
 
 
 def test_disabled_when_configured_off(config_path: Path) -> None:
-    """'wasm config set updates.check false' must be honoured."""
+    """'noust config set updates.check false' must be honoured."""
     Config().set("updates.check", False)
 
     assert UpdateChecker.enabled() is False
@@ -144,7 +144,7 @@ def test_a_configuration_that_cannot_be_read_defaults_to_enabled(
     def _broken(self: object, key: str, default: object = None) -> object:
         raise OSError("no such file or directory")
 
-    monkeypatch.setattr("wasm.core.config.Config.get", _broken)
+    monkeypatch.setattr("noust.core.config.Config.get", _broken)
 
     assert UpdateChecker.enabled() is True
 
@@ -240,7 +240,7 @@ def test_the_banner_is_written_to_stderr_never_stdout(
     captured = capsys.readouterr()
     assert captured.out == ""
     assert "New version available: 99.0.0" in captured.err
-    assert "pip install --upgrade wasm-cli" in captured.err
+    assert "pip install --upgrade noust" in captured.err
 
 
 @pytest.mark.parametrize(
@@ -270,7 +270,7 @@ def test_entrypoint_neither_checks_nor_announces_under_json(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """--json output must be exactly the document: no request, no banner."""
-    from wasm.cli import app
+    from noust.cli import app
 
     calls: list[str] = []
     monkeypatch.setattr("sys.argv", ["wasm", "app", "list", "--json"])
@@ -294,7 +294,7 @@ def test_entrypoint_neither_checks_nor_announces_under_json(
 
 
 def test_entrypoint_checks_and_announces_on_a_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
-    from wasm.cli import app
+    from noust.cli import app
 
     calls: list[str] = []
     monkeypatch.setattr("sys.argv", ["wasm", "app", "list"])
@@ -327,7 +327,7 @@ def test_a_banner_that_cannot_be_written_is_logged_not_raised(
 
     monkeypatch.setattr("sys.stderr", Closed(True))
 
-    with caplog.at_level("DEBUG", logger="wasm.core.update_checker"):
+    with caplog.at_level("DEBUG", logger="noust.core.update_checker"):
         UpdateChecker.show_update_if_available(timeout=0)
 
     assert "reader went away" in caplog.text
@@ -358,7 +358,7 @@ def test_an_unreachable_github_is_logged_at_debug(
 
     monkeypatch.setattr(package_index, "fetch", unreachable)
 
-    with caplog.at_level("DEBUG", logger="wasm.core.package_index"):
+    with caplog.at_level("DEBUG", logger="noust.core.package_index"):
         assert UpdateChecker._fetch_published_version() is None
 
     assert "no route to host" in caplog.text
@@ -407,7 +407,7 @@ def test_on_the_way_announces_the_published_version_and_its_notes() -> None:
     check = _check(installable=__version__, published="99.0.0")
 
     assert check.announced_version == "99.0.0"
-    assert check.release_url == "https://github.com/Perkybeet/wasm/releases/tag/v99.0.0"
+    assert check.release_url == "https://github.com/Perkybeet/noust/releases/tag/v99.0.0"
 
 
 @pytest.fixture
@@ -482,7 +482,7 @@ def test_the_cache_is_invalidated_when_the_installation_moves(
     """From pip to apt, say: the method and the command are different now."""
     UpdateChecker._write_cache(_check(installable="99.0.0", method="pip").to_cache())
     monkeypatch.setattr(
-        "wasm.core.update_checker._location", lambda: "/usr/lib/python3/dist-packages/wasm"
+        "noust.core.update_checker._location", lambda: "/usr/lib/python3/dist-packages/wasm"
     )
 
     check = UpdateChecker.check()
@@ -599,7 +599,7 @@ def test_the_banner_names_the_installable_version_and_the_right_command(
 
     err = capsys.readouterr().err
     assert "New version available: 99.0.0" in err
-    assert "sudo apt update && sudo apt install --only-upgrade wasm" in err
+    assert "sudo apt update && sudo apt install noust" in err
     assert "releases/tag/v99.0.0" in err
 
 
@@ -614,7 +614,7 @@ def test_on_the_way_is_a_quiet_note_shown_once_per_cache_period(
     first = capsys.readouterr().err
 
     assert (
-        "WASM 99.0.0 is published; the package for this system is not available yet "
+        "Noust 99.0.0 is published; the package for this system is not available yet "
         "(usually 15-30 minutes). Nothing to do now." in first
     )
     assert "New version available" not in first
@@ -644,7 +644,7 @@ def installed_at(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     import importlib.metadata
 
     def place(location: str, *, dpkg: bool = False) -> None:
-        monkeypatch.setattr("wasm.core.update_checker._location", lambda: location)
+        monkeypatch.setattr("noust.core.update_checker._location", lambda: location)
         status = tmp_path / "dpkg-status"
         if dpkg:
             status.write_text("")
@@ -663,7 +663,19 @@ def test_detects_the_debian_package(installed_at, runner) -> None:
     runner.script(["dpkg-query", "-W"], stdout="install ok installed")
 
     assert UpdateChecker._detect_installation_method() == "apt"
-    assert runner.calls[0] == ("dpkg-query", "-W", "-f=${Status}", "wasm")
+    assert runner.calls[0] == ("dpkg-query", "-W", "-f=${Status}", "noust")
+
+
+def test_detects_the_debian_package_under_its_legacy_name(installed_at, runner) -> None:
+    """A server that never reinstalled since the rename still has ``wasm``."""
+    installed_at("/usr/lib/python3/dist-packages/wasm", dpkg=True)
+    runner.script(
+        ["dpkg-query", "-W", "-f=${Status}", "noust"], exit_code=1, stderr="no packages found"
+    )
+    runner.script(["dpkg-query", "-W", "-f=${Status}", "wasm"], stdout="install ok installed")
+
+    assert UpdateChecker._detect_installation_method() == "apt"
+    assert ("dpkg-query", "-W", "-f=${Status}", "wasm") in runner.calls
 
 
 def test_detects_the_rpm_and_the_manager_that_upgrades_it(installed_at, runner) -> None:
@@ -671,7 +683,7 @@ def test_detects_the_rpm_and_the_manager_that_upgrades_it(installed_at, runner) 
     runner.only_knows("rpm", "dnf")
 
     assert UpdateChecker._detect_installation_method() == "dnf"
-    assert ("rpm", "-q", "wasm-cli") in runner.calls
+    assert ("rpm", "-q", "noust") in runner.calls
 
 
 def test_a_pip_install_beside_a_leftover_package_is_pip(installed_at, runner, monkeypatch) -> None:
@@ -700,7 +712,7 @@ def test_detects_pipx_from_the_running_interpreter(installed_at, runner, monkeyp
 def test_detects_an_editable_checkout_as_source(installed_at, runner, monkeypatch) -> None:
     import importlib.metadata
 
-    installed_at("/opt/wasm/src/wasm")
+    installed_at("/opt/wasm/src/noust")
 
     class Distribution:
         def read_text(self, name: str) -> str | None:
@@ -723,6 +735,6 @@ def test_the_installable_version_is_read_where_the_method_upgrades_from(
     monkeypatch.setattr(package_index, "fetch", fetch)
 
     assert UpdateChecker._fetch_installable_version("pip") == "99.0.0"
-    assert asked == ["https://pypi.org/pypi/wasm-cli/json"]
+    assert asked == ["https://pypi.org/pypi/noust/json"]
     assert UpdateChecker._fetch_installable_version("source") == "99.1.0"
-    assert asked[-1] == "https://api.github.com/repos/Perkybeet/wasm/releases/latest"
+    assert asked[-1] == "https://api.github.com/repos/Perkybeet/noust/releases/latest"

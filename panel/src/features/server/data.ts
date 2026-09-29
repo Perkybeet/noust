@@ -4,7 +4,7 @@
  *
  * Labels are message keys, not text: this module has no language, so whoever renders a view
  * (`ServerPage.tsx`) calls `t()`. `verdict.message`, `check.value` and the report's own
- * issues and warnings are `collect_health_report`'s own words (wasm.managers.health) and are
+ * issues and warnings are `collect_health_report`'s own words (noust.managers.health) and are
  * shown verbatim, never translated.
  */
 
@@ -26,7 +26,7 @@ export interface VerdictView {
   label: VerdictLabel;
 }
 
-/** `collect_health_report`'s verdict: "error", "warning" or "healthy" (wasm.managers.health). */
+/** `collect_health_report`'s verdict: "error", "warning" or "healthy" (noust.managers.health). */
 export function verdictView(verdict: string): VerdictView {
   switch (verdict) {
     case "healthy":
@@ -84,7 +84,7 @@ export function verdictText(t: T, label: VerdictLabel | CheckLabel): string {
 }
 
 /**
- * `wasm health` names its checks in Title Case for the terminal ("Disk Space"); the console
+ * `noust health` names its checks in Title Case for the terminal ("Disk Space"); the console
  * writes labels in sentence case. Known names are reworded, anything else is shown as sent
  * (the backend's word beats a guess, so it stays in English rather than a wrong translation).
  */
@@ -118,10 +118,10 @@ export interface CertificateMention {
 /**
  * The certificate a health message names. `collect_health_report` words each one as
  * "Certificate for <name> expired N days ago", "... expires in N days" or "... has an
- * unreadable expiry date" (wasm.managers.health._check_certificates), with the certbot lineage
+ * unreadable expiry date" (noust.managers.health._check_certificates), with the certbot lineage
  * name, which carries no spaces.
  *
- * The contract is that wording, not a field: src/wasm/managers/health.py builds these strings
+ * The contract is that wording, not a field: src/noust/managers/health.py builds these strings
  * with f"Certificate for {label} ..." where the label comes from _certificate_label (the lineage
  * name, else the first covered domain). Rewording them there, or naming a certificate with
  * something that can hold a space, silently stops the link from appearing here: change this

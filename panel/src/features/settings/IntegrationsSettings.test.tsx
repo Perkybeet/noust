@@ -13,12 +13,12 @@ const NOT_CONFIGURED: GitHubStatus = { configured: false, installations: [], hoo
 const CONFIGURED: GitHubStatus = {
   configured: true,
   app_id: 424242,
-  slug: "wasm-web-01",
-  name: "WASM web-01",
+  slug: "noust-web-01",
+  name: "Noust web-01",
   owner: "acme",
-  html_url: "https://github.com/apps/wasm-web-01",
-  settings_url: "https://github.com/organizations/acme/settings/apps/wasm-web-01",
-  install_url: "https://github.com/apps/wasm-web-01/installations/new",
+  html_url: "https://github.com/apps/noust-web-01",
+  settings_url: "https://github.com/organizations/acme/settings/apps/noust-web-01",
+  install_url: "https://github.com/apps/noust-web-01/installations/new",
   installations: [
     {
       installation_id: 7001,
@@ -54,7 +54,7 @@ function integrations(status: GitHubStatus, extra: Record<string, RouteHandler> 
       const body = call.body as { origin: string; organization?: string };
       const base = body.organization ? `https://github.com/organizations/${body.organization}/settings/apps/new` : "https://github.com/settings/apps/new";
       return json(200, {
-        manifest: { name: "WASM web-01", url: body.origin, redirect_url: `${body.origin}/integrations/github/callback` },
+        manifest: { name: "Noust web-01", url: body.origin, redirect_url: `${body.origin}/integrations/github/callback` },
         post_url: `${base}?state=s7a7e`,
         state: "s7a7e",
       });
@@ -99,7 +99,7 @@ describe("Settings > Integrations", () => {
     expect(screen.getByLabelText(/^Organization/)).toBeInTheDocument();
     // No public hooks address: why GitHub cannot deliver, and the command that fixes it.
     expect(screen.getByText("Not reachable from GitHub")).toBeInTheDocument();
-    expect(screen.getAllByText("wasm web expose-hooks hooks.example.com").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("noust web expose-hooks hooks.example.com").length).toBeGreaterThan(0);
     // Nothing to remove yet.
     expect(screen.queryByRole("button", { name: "Remove GitHub App" })).not.toBeInTheDocument();
     await expectNoAxeViolations(container);
@@ -129,7 +129,7 @@ describe("Settings > Integrations", () => {
     expect(form.getAttribute("action")).toBe("https://github.com/organizations/acme/settings/apps/new?state=s7a7e");
     const field = form.querySelector<HTMLInputElement>("input[name=manifest]");
     expect(JSON.parse(field?.value ?? "null")).toEqual({
-      name: "WASM web-01",
+      name: "Noust web-01",
       url: window.location.origin,
       redirect_url: `${window.location.origin}/integrations/github/callback`,
     });
@@ -177,7 +177,7 @@ describe("Settings > Integrations", () => {
     expect(within(personal).getByText("Personal account")).toBeInTheDocument();
     expect(within(personal).getByText("All repositories")).toBeInTheDocument();
 
-    expect(screen.getByText("WASM web-01")).toBeInTheDocument();
+    expect(screen.getByText("Noust web-01")).toBeInTheDocument();
     expect(screen.getByText("424242")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Install on another account/ })).toHaveAttribute("href", CONFIGURED.install_url);
     expect(screen.getByText("Receiving events")).toBeInTheDocument();
@@ -205,7 +205,7 @@ describe("Settings > Integrations", () => {
     renderConsole("/settings/integrations");
     expect(await screen.findByText("Not reachable from GitHub")).toBeInTheDocument();
     expect(screen.getByText(/does not expose one yet/)).toBeInTheDocument();
-    expect(screen.getByText("wasm web expose-hooks hooks.example.com")).toBeInTheDocument();
+    expect(screen.getByText("noust web expose-hooks hooks.example.com")).toBeInTheDocument();
   });
 
   it("syncs the installations from GitHub", async () => {
@@ -225,15 +225,15 @@ describe("Settings > Integrations", () => {
     const backend = integrations(CONFIGURED);
     const { user } = renderConsole("/settings/integrations");
     await user.click(await screen.findByRole("button", { name: "Remove GitHub App" }));
-    const dialog = await screen.findByRole("alertdialog", { name: "Remove WASM web-01" });
+    const dialog = await screen.findByRole("alertdialog", { name: "Remove Noust web-01" });
     expect(dialog).toHaveTextContent("private key, webhook secret and installations are deleted here");
     expect(within(dialog).getByRole("link", { name: /the App's settings on GitHub/ })).toHaveAttribute("href", CONFIGURED.settings_url);
     const action = within(dialog).getByRole("button", { name: "Remove GitHub App" });
     expect(action).toBeDisabled();
-    await user.type(within(dialog).getByRole("textbox"), "WASM web-01");
+    await user.type(within(dialog).getByRole("textbox"), "Noust web-01");
     await user.click(action);
     await confirmItsMe(user);
-    await expectToast("Removed WASM web-01 from this server");
+    await expectToast("Removed Noust web-01 from this server");
     expect(backend.callsTo("DELETE /api/integrations/github").length).toBeGreaterThan(0);
     expect(await screen.findByText(/It still exists on GitHub/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Delete the App on GitHub/ })).toHaveAttribute("href", CONFIGURED.settings_url);
@@ -249,7 +249,7 @@ describe("Settings > Integrations in Spanish", () => {
     expect(await screen.findByRole("button", { name: "Crear GitHub App" })).toBeInTheDocument();
     expect(screen.getByText(/Repositorios privados, clonados con tokens de corta duración/)).toBeInTheDocument();
     expect(screen.getByText("No accesible desde GitHub")).toBeInTheDocument();
-    expect(screen.getAllByText("wasm web expose-hooks hooks.example.com").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("noust web expose-hooks hooks.example.com").length).toBeGreaterThan(0);
     await expectNoAxeViolations(container);
   });
 

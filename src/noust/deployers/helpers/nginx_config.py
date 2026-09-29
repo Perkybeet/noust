@@ -2,10 +2,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Advanced Nginx configuration builder for WASM.
+Advanced Nginx configuration builder for Noust.
 
 Supports multi-route path-based proxying, WebSocket upgrade,
-rate limiting, and custom security headers via wasm.nginx.yaml
+rate limiting, and custom security headers via noust.nginx.yaml (or the
+wasm.nginx.yaml a repository written for WASM carries)
 project configuration files.
 """
 
@@ -16,7 +17,8 @@ from typing import Any, ClassVar
 
 import yaml
 
-from wasm.core.logger import Logger
+from noust.core import paths
+from noust.core.logger import Logger
 
 
 @dataclass
@@ -48,11 +50,11 @@ class NginxConfigBuilder:
     """
     Builder for advanced Nginx configurations.
 
-    Reads wasm.nginx.yaml project files or auto-derives routes
+    Reads noust.nginx.yaml project files or auto-derives routes
     from Docker Compose port mappings.
     """
 
-    CONFIG_FILENAMES: ClassVar = ["wasm.nginx.yaml", "wasm.nginx.yml", "nginx.yaml", "nginx.yml"]
+    CONFIG_FILENAMES: ClassVar = list(paths.NGINX_OVERRIDE_FILES)
 
     def __init__(self, verbose: bool = False):
         self.verbose = verbose
@@ -60,7 +62,7 @@ class NginxConfigBuilder:
 
     def detect(self, app_path: Path) -> Path | None:
         """
-        Find a wasm.nginx.yaml config file.
+        Find the nginx overrides file: noust.nginx.yaml, or wasm.nginx.yaml.
 
         Args:
             app_path: Application root path.
@@ -76,7 +78,7 @@ class NginxConfigBuilder:
 
     def parse(self, config_path: Path) -> NginxAdvancedConfig:
         """
-        Parse a wasm.nginx.yaml config file.
+        Parse a noust.nginx.yaml config file.
 
         Args:
             config_path: Path to the YAML config file.

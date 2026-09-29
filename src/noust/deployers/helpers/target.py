@@ -4,12 +4,12 @@
 """
 The directory a deploy writes into, and whether it may.
 
-``wasm create`` over a domain whose directory already existed used to destroy
+``noust create`` over a domain whose directory already existed used to destroy
 it. The in-place fetch empties its target before cloning, so an application
 deployed in place lost its ``.env`` and every file it had written; a Docker
 Compose project lost the data its services bind-mount from the tree. And a
 deploy that failed afterwards ran its undo, which deleted the whole directory,
-including when WASM had no record of it because the store had moved.
+including when Noust had no record of it because the store had moved.
 
 Every deployer asks :func:`claim_deploy_target` before it fetches anything.
 A directory that is missing or empty is the deploy's to fill. One that holds
@@ -26,11 +26,11 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from wasm.core.exceptions import DeploymentError
-from wasm.core.fs import FileSystem
-from wasm.core.logger import Logger
-from wasm.core.store import App
-from wasm.deployers.helpers.layout import RELEASES
+from noust.core.exceptions import DeploymentError
+from noust.core.fs import FileSystem
+from noust.core.logger import Logger
+from noust.core.store import App
+from noust.deployers.helpers.layout import RELEASES
 
 
 @dataclass(frozen=True)
@@ -100,9 +100,9 @@ def claim_deploy_target(
     Args:
         path: The application directory.
         domain: The domain being deployed.
-        existing: The application's store row, when WASM has one.
+        existing: The application's store row, when Noust has one.
         replace: The operator asked to deploy over whatever is there
-            (``wasm create --force``).
+            (``noust create --force``).
 
     Returns:
         How the directory was found.
@@ -115,7 +115,7 @@ def claim_deploy_target(
     if existed and (path.is_symlink() or not path.is_dir()):
         raise DeploymentError(
             f"{path} is not a directory",
-            details="WASM deploys into a real directory. Move what is there aside and retry.",
+            details="Noust deploys into a real directory. Move what is there aside and retry.",
         )
     had_files = existed and any(path.iterdir())
     target = DeployTarget(path=path, existed=existed, had_files=had_files)
@@ -130,14 +130,14 @@ def claim_deploy_target(
         raise DeploymentError(
             f"{domain} is already deployed in place at {path}",
             details=f"A deploy would replace everything in {path}, its .env and the files the "
-            f"application wrote included. To bring it up to date, run: wasm update {domain}. "
-            f"To replace it anyway, back it up first (wasm backup create {domain}) and deploy "
+            f"application wrote included. To bring it up to date, run: noust update {domain}. "
+            f"To replace it anyway, back it up first (noust backup create {domain}) and deploy "
             "again with --force.",
         )
     raise DeploymentError(
         f"{path} already exists and is not empty",
-        details=f"WASM has no record of an application in it. If one was deployed there, the "
-        "store may have moved: compare 'wasm store path' with where it used to be before "
+        details=f"Noust has no record of an application in it. If one was deployed there, the "
+        "store may have moved: compare 'noust store path' with where it used to be before "
         f"deploying anything. Otherwise move {path} aside, or deploy with --force to deploy "
         "over it: in place its contents are replaced, on releases a release is added beside "
         "them.",

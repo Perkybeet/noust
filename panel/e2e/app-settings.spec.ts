@@ -6,7 +6,7 @@
  *
  * A migration cannot be undone through the API and both theme projects may run in the same
  * worker, so each project migrates its own app; the limits alternate by project for the same
- * reason. Screenshots of the states worth reviewing are written when WASM_TABS_SCREENS is set.
+ * reason. Screenshots of the states worth reviewing are written when NOUST_TABS_SCREENS is set.
  */
 
 import type { Page, TestInfo } from "@playwright/test";
@@ -21,9 +21,9 @@ function region(page: Page, name: string) {
   return page.getByRole("region", { name, exact: true });
 }
 
-/** A screenshot for review, when asked for: `WASM_TABS_SCREENS=/tmp/console-tabs`. */
+/** A screenshot for review, when asked for: `NOUST_TABS_SCREENS=/tmp/console-tabs`. */
 async function review(page: Page, testInfo: TestInfo, name: string): Promise<void> {
-  const out = process.env.WASM_TABS_SCREENS;
+  const out = process.env.NOUST_TABS_SCREENS;
   if (!out) return;
   await settle(page);
   await page.screenshot({ path: path.join(out, testInfo.project.name, `${name}.png`), fullPage: false });

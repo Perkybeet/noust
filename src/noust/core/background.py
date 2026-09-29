@@ -14,7 +14,7 @@ A :class:`BackgroundQueue` is the one implementation of that: tasks run on a
 single daemon thread, first in first out, and the first submission registers
 one :mod:`atexit` hook for the whole process that waits for every queue to
 empty, under one shared cap (:data:`DRAIN_TIMEOUT`) - enough for one slow
-channel's own timeout to be felt, never enough to hang a `wasm` command that
+channel's own timeout to be felt, never enough to hang a `noust` command that
 has already told the operator what happened.
 """
 

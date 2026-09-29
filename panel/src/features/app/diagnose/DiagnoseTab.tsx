@@ -254,7 +254,7 @@ function DiagnosisSkeleton({ t }: { t: T }) {
 }
 
 /**
- * "Why is it down": every probe WASM can run about the app, correlated into a verdict with the
+ * "Why is it down": every probe Noust can run about the app, correlated into a verdict with the
  * probable cause first, and each probe's own output verbatim. Nothing here changes the machine.
  */
 export function DiagnoseTab({ domain }: { domain: string }) {
@@ -294,7 +294,7 @@ export function DiagnoseTab({ domain }: { domain: string }) {
         )}
         </QueryState>
       </section>
-      <CommandHint command={`wasm diagnose ${domain}`} label={t("appPages.fromTerminal")} />
+      <CommandHint command={`noust diagnose ${domain}`} label={t("appPages.fromTerminal")} />
     </Sections>
   );
 }

@@ -9,8 +9,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from wasm.deployers.helpers.preflight import repository_unreachable
-from wasm.managers.backup_manager import BackupManager
+from noust.deployers.helpers.preflight import repository_unreachable
+from noust.managers.backup_manager import BackupManager
 
 
 class _NoGitRunner:
@@ -40,6 +40,6 @@ def test_a_new_backup_id_is_never_behind_the_newest_one(tmp_path: Path, monkeypa
         def now(cls, tz: Any = None) -> _Clock:
             return cls(2026, 9, 29, 0, 0, 44)
 
-    monkeypatch.setattr("wasm.managers.backup_manager.datetime", _Clock)
+    monkeypatch.setattr("noust.managers.backup_manager.datetime", _Clock)
 
     assert manager._generate_backup_id("bk.test") == "bk-test_20260929_000046"

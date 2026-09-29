@@ -25,14 +25,14 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.core.store import WASMStore
-from wasm.web.auth import CSRF_HEADER_NAME, SecurityConfig
-from wasm.web.jobs import Job, JobStatus, JobType
-from wasm.web.server import create_app, get_token_manager
+from noust.core.store import NoustStore
+from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
+from noust.web.jobs import Job, JobStatus, JobType
+from noust.web.server import create_app, get_token_manager
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> Iterator[WASMStore]:
+def store(tmp_path: Path) -> Iterator[NoustStore]:
     """
     Args:
         tmp_path: Per-test temporary directory.
@@ -40,17 +40,17 @@ def store(tmp_path: Path) -> Iterator[WASMStore]:
     Yields:
         A store of this test's own.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     try:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 @pytest.fixture
-def app(tmp_path: Path, store: WASMStore, runner: object) -> FastAPI:
+def app(tmp_path: Path, store: NoustStore, runner: object) -> FastAPI:
     """
     Args:
         tmp_path: Per-test temporary directory.
@@ -132,7 +132,7 @@ def queued_jobs(monkeypatch: pytest.MonkeyPatch) -> RecordingJobs:
         The recorder, for asserting on what was queued.
     """
     fake = RecordingJobs()
-    monkeypatch.setattr("wasm.web.api.jobs.get_job_manager", lambda: fake)
+    monkeypatch.setattr("noust.web.api.jobs.get_job_manager", lambda: fake)
     return fake
 
 

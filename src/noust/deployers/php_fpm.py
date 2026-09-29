@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-PHP deployer for WASM: an application served by nginx through its own PHP-FPM pool.
+PHP deployer for Noust: an application served by nginx through its own PHP-FPM pool.
 
 A PHP application runs no process of its own, so it has no unit. What runs it
 is a pool in the distribution's PHP-FPM (``/etc/php/<v>/fpm/pool.d`` on
@@ -15,7 +15,7 @@ atomic for every request after it.
 
 Activation reloads FPM (which also drops the opcache of the release that
 served before) and probes the pool over FastCGI with the application's health
-check; see :mod:`wasm.deployers.helpers.php_fpm`.
+check; see :mod:`noust.deployers.helpers.php_fpm`.
 
 Settings a recipe gives (the web root, the paths nginx refuses, the upload
 size, the directories moved out of the release into ``shared/``) are kept in
@@ -24,7 +24,7 @@ site or a rollback use the same ones. The file is validated every time it is
 read: in place it lives in a tree the service user owns.
 
 Apache is refused: the Apache equivalent needs ``mod_proxy_fcgi`` and a site
-template of its own, which WASM does not ship.
+template of its own, which Noust does not ship.
 """
 
 from __future__ import annotations
@@ -37,19 +37,19 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, ClassVar
 
-from wasm.core.applock import app_lock
-from wasm.core.config import Config
-from wasm.core.exceptions import DeploymentError, ValidationError
-from wasm.core.fs import FileSystem
-from wasm.core.logger import Icons, Logger
-from wasm.core.runner import CommandRunner, get_runner
-from wasm.core.store import App
-from wasm.deployers.base import INSTALL_TIMEOUT, BaseDeployer
-from wasm.deployers.helpers.env_manager import EnvManager
-from wasm.deployers.helpers.health import failure_output
-from wasm.deployers.helpers.health_gate import HealthCheck, HealthGate
-from wasm.deployers.helpers.layout import app_root, code_path_for, env_file_for
-from wasm.deployers.helpers.php_fpm import (
+from noust.core.applock import app_lock
+from noust.core.config import Config
+from noust.core.exceptions import DeploymentError, ValidationError
+from noust.core.fs import FileSystem
+from noust.core.logger import Icons, Logger
+from noust.core.runner import CommandRunner, get_runner
+from noust.core.store import App
+from noust.deployers.base import INSTALL_TIMEOUT, BaseDeployer
+from noust.deployers.helpers.env_manager import EnvManager
+from noust.deployers.helpers.health import failure_output
+from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
+from noust.deployers.helpers.layout import app_root, code_path_for, env_file_for
+from noust.deployers.helpers.php_fpm import (
     DEFAULT_MAX_CHILDREN,
     PHP_FPM_TYPE,
     FpmInstallation,
@@ -65,11 +65,11 @@ from wasm.deployers.helpers.php_fpm import (
     socket_accepts,
     validate_size,
 )
-from wasm.deployers.helpers.release_build import stage_release
-from wasm.deployers.interface import StepReporter, UpdateResult
-from wasm.deployers.pipeline import DeployStep
-from wasm.deployers.registry import DeployerRegistry
-from wasm.deployers.releases import first_obstacle, persistent_path
+from noust.deployers.helpers.release_build import stage_release
+from noust.deployers.interface import StepReporter, UpdateResult
+from noust.deployers.pipeline import DeployStep
+from noust.deployers.registry import DeployerRegistry
+from noust.deployers.releases import first_obstacle, persistent_path
 
 #: Where an application's PHP settings are kept, in its directory.
 PHP_SETTINGS_FILE = ".wasm-php.json"
@@ -98,7 +98,7 @@ FPM_ROOT = Path("/")
 MAX_POOL_CHILDREN = 64
 
 #: How long a state probe gives the pool to answer the health check: long
-#: enough for a WordPress page, short enough for ``wasm list``.
+#: enough for a WordPress page, short enough for ``noust list``.
 STATE_PROBE_WITHIN = 5.0
 
 #: FPM states in which it serves requests.
@@ -281,7 +281,7 @@ def fpm_service(
     Raises:
         DeploymentError: When PHP-FPM is not installed.
     """
-    from wasm.core.fs import get_fs
+    from noust.core.fs import get_fs
 
     return FpmService(
         find_fpm(FPM_ROOT),
@@ -460,7 +460,7 @@ def remove_pool_of(app_path: Path, log: Logger) -> bool:
     Raises:
         DeploymentError: When FPM did not reload after the removal.
     """
-    from wasm.core.fs import get_fs
+    from noust.core.fs import get_fs
 
     tmp = pool_tmp_dir(app_path)
     if tmp.is_dir() and not tmp.is_symlink():
@@ -650,7 +650,7 @@ def control_pool(app: App, action: str, *, logger: Logger | None = None) -> str:
             if not path.is_file():
                 raise DeploymentError(
                     f"{app.domain} is stopped; there is no pool to restart",
-                    details=f"Start it with: wasm start {app.domain}",
+                    details=f"Start it with: noust start {app.domain}",
                 )
             fpm.reload()
             return f"Reloaded {service}: the workers of every PHP pool restarted gracefully"
@@ -698,7 +698,7 @@ def set_pool_limits(
     if not path.is_file():
         raise DeploymentError(
             f"{app.domain} is stopped; its pool is not running to be limited",
-            details=f"Start it first: wasm start {app.domain}",
+            details=f"Start it first: noust start {app.domain}",
         )
     previous = path.read_text(encoding="utf-8")
     env_file = env_file_for(app)
@@ -896,7 +896,7 @@ class PhpFpmDeployer(BaseDeployer):
         """
         return DeploymentError(
             "PHP applications are served by nginx only",
-            details="WASM serves PHP through nginx and a PHP-FPM pool; it has no Apache "
+            details="Noust serves PHP through nginx and a PHP-FPM pool; it has no Apache "
             "template for it. Deploy with --webserver nginx.",
         )
 
@@ -922,7 +922,7 @@ class PhpFpmDeployer(BaseDeployer):
         if path.is_symlink():
             raise DeploymentError(
                 f"Refusing to write {path}: it is a symlink",
-                details="Remove the link; WASM writes this file itself.",
+                details="Remove the link; Noust writes this file itself.",
             )
         # Rewritten after the tree was handed over, so it is root's again
         # after every deploy; it is validated on every read regardless.

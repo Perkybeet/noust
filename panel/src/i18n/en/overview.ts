@@ -11,7 +11,7 @@ export const overview = {
     caption: "Applications on this machine",
     emptyTitle: "Deploy your first application",
     emptyDescription:
-      "Point WASM at a Git repository or a directory: it detects the stack, builds it and serves it with a certificate.",
+      "Point Noust at a Git repository or a directory: it detects the stack, builds it and serves it with a certificate.",
   },
   attention: {
     title: "Needs attention",
@@ -44,8 +44,8 @@ export const overview = {
     unitFailed: "The unit has failed",
     unitRestarting: "systemd keeps restarting the unit",
     unitsFailedCount: {
-      one: "systemd reports {count} failed WASM unit",
-      other: "systemd reports {count} failed WASM units",
+      one: "systemd reports {count} failed Noust unit",
+      other: "systemd reports {count} failed Noust units",
     },
     monitorFinding: "Monitor {severity}: {signal}",
   },

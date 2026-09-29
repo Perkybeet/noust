@@ -9,6 +9,7 @@ import { CommandPalette } from "./CommandPalette";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { focusPageTitle } from "./focus";
 import { NAV_GROUPS, SETTINGS_ITEM } from "./nav";
+import { RenameNotice } from "./RenameNotice";
 import { useKeyboardShortcuts } from "./shortcuts";
 import type { KeyBinding } from "./shortcuts";
 import { ShortcutsDialog } from "./ShortcutsDialog";
@@ -157,6 +158,7 @@ export function Shell() {
               reading measure (Section and DangerZone cap it in ch), and forms, wizards and
               dialogs keep caps of their own. */}
           <div className="mx-auto w-full max-w-[1600px] px-4 pt-6 pb-16 sm:px-6 lg:px-8 lg:pt-8">
+            <RenameNotice />
             <ErrorBoundary resetKey={pathname}>
               <Outlet />
             </ErrorBoundary>

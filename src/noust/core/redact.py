@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-One scrubber for the text WASM keeps about the work it did.
+One scrubber for the text Noust keeps about the work it did.
 
 Build output, job log lines and failure messages are raw tool output, and the
 tools run with the application's environment: a build script that echoes
@@ -16,7 +16,7 @@ came from, which is 0600.
 that text is persisted or published. It works on values, not on shapes: it
 cannot recognise a secret it was not told about, so its inputs matter -
 :func:`secret_env_values` for an environment, :func:`app_secret_values` for a
-deployed application and :func:`known_credentials` for WASM's own
+deployed application and :func:`known_credentials` for Noust's own
 configuration - and :func:`scrubber_for` combines them for the usual case.
 
 Values shorter than :data:`MIN_SECRET_LENGTH` are never scrubbed: a secret
@@ -35,9 +35,9 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 from urllib.parse import unquote
 
-from wasm.core.config import REDACTED, Config, redact_secrets
-from wasm.core.exceptions import WASMError
-from wasm.core.secret_detection import URL_CREDENTIALS, classify, name_looks_secret
+from noust.core.config import REDACTED, Config, redact_secrets
+from noust.core.exceptions import NoustError
+from noust.core.secret_detection import URL_CREDENTIALS, classify, name_looks_secret
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +116,7 @@ def secret_env_values(env: Mapping[str, Any], marks: Mapping[str, bool] | None =
     """
     Pick the values of an environment that are secrets.
 
-    Uses :func:`~wasm.core.secret_detection.classify`, the one classifier for
+    Uses :func:`~noust.core.secret_detection.classify`, the one classifier for
     the question, rather than a third opinion here. A value classified secret
     for any reason other than an embedded URL credential is scrubbed whole; a
     value that is only secret because of a credential inside it (a password
@@ -125,7 +125,7 @@ def secret_env_values(env: Mapping[str, Any], marks: Mapping[str, bool] | None =
     what makes the log worth reading afterwards.
 
     Scrubbing is deliberately a superset of the name-only heuristic
-    (:func:`~wasm.core.secret_detection.name_looks_secret`), even when
+    (:func:`~noust.core.secret_detection.name_looks_secret`), even when
     ``classify`` relaxes a name-based verdict because the name also looks
     public (``NEXT_PUBLIC_API_KEY``, ``VITE_API_SECRET``): that relaxation
     exists to decide what a human is shown, not what a build tool might echo
@@ -137,7 +137,7 @@ def secret_env_values(env: Mapping[str, Any], marks: Mapping[str, bool] | None =
     Args:
         env: Variable name to value. Non-string values are ignored.
         marks: Operator overrides for this application, as for
-            :func:`~wasm.core.secret_detection.classify`. A variable marked
+            :func:`~noust.core.secret_detection.classify`. A variable marked
             not secret is trusted completely: nothing about it, including a
             credential embedded in its value, is scrubbed.
 
@@ -169,8 +169,8 @@ def config_secret_values(config: Any) -> list[str]:
     """
     Collect the secret values of a configuration structure.
 
-    Walks the structure alongside :func:`~wasm.core.config.redact_secrets`'
-    output, so a value is a secret here exactly when ``wasm config show``
+    Walks the structure alongside :func:`~noust.core.config.redact_secrets`'
+    output, so a value is a secret here exactly when ``noust config show``
     would hide it.
 
     Args:
@@ -197,7 +197,7 @@ def config_secret_values(config: Any) -> list[str]:
 
 def known_credentials() -> list[str]:
     """
-    Collect WASM's own credentials: database passwords, SMTP, webhooks.
+    Collect Noust's own credentials: database passwords, SMTP, webhooks.
 
     Returns:
         The secret values of the loaded configuration; none when it cannot
@@ -205,7 +205,7 @@ def known_credentials() -> list[str]:
     """
     try:
         return config_secret_values(Config().to_dict())
-    except (WASMError, OSError) as exc:
+    except (NoustError, OSError) as exc:
         logger.warning("Could not read the configuration to scrub its credentials: %s", exc)
         return []
 
@@ -229,9 +229,9 @@ def app_secret_values(domain: str) -> list[str]:
     """
     # Deferred for the same reason as in secret_env_values: these live in the
     # deployers package, which imports this module.
-    from wasm.core.store import get_store
-    from wasm.core.utils import domain_to_app_name
-    from wasm.deployers.helpers.app_env import read_app_env
+    from noust.core.store import get_store
+    from noust.core.utils import domain_to_app_name
+    from noust.deployers.helpers.app_env import read_app_env
 
     values: list[str] = []
     try:
@@ -248,7 +248,7 @@ def app_secret_values(domain: str) -> list[str]:
         if webhook_secret:
             values.append(webhook_secret)
         values.extend(secret_env_values(read_app_env(app), marks))
-    except (WASMError, OSError, sqlite3.Error) as exc:
+    except (NoustError, OSError, sqlite3.Error) as exc:
         logger.warning("Could not read the secrets of %s to scrub its logs: %s", domain, exc)
     return values
 
@@ -265,11 +265,11 @@ def _marks_for(domain: str) -> dict[str, bool]:
         cannot be read - the same best-effort contract as
         :func:`app_secret_values`.
     """
-    from wasm.core.store import get_store
+    from noust.core.store import get_store
 
     try:
         app = get_store().get_app(domain)
-    except (WASMError, sqlite3.Error) as exc:
+    except (NoustError, sqlite3.Error) as exc:
         logger.warning("Could not read the secret marks of %s: %s", domain, exc)
         return {}
     return app.env_secret_marks if app is not None else {}
@@ -285,7 +285,7 @@ def scrubber_for(domain: str | None = None, env: Mapping[str, Any] | None = None
             fresh deploy was given before any ``.env`` exists.
 
     Returns:
-        A scrubber for WASM's credentials, the application's secrets and the
+        A scrubber for Noust's credentials, the application's secrets and the
         secret values of ``env``.
     """
     scrubber = Scrubber(known_credentials())

@@ -192,7 +192,7 @@ export function LogViewer({
   wrap: initialWrap,
   onLoadMore,
   label,
-  filename = "wasm.log",
+  filename = "noust.log",
   emptyMessage,
   className,
 }: LogViewerProps) {

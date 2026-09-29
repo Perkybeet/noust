@@ -24,34 +24,34 @@ from typing import Any
 import pytest
 from jinja2 import Environment, PackageLoader
 
-from wasm.core.exceptions import DeploymentError, ServiceError, SourceError
-from wasm.core.fs import DryRunFileSystem, set_fs
-from wasm.core.logger import Logger
-from wasm.core.runner import DryRunRunner, FakeRunner, is_read_only
-from wasm.core.store import App, ReleaseStatus, WASMStore
-from wasm.deployers import base as base_module
-from wasm.deployers import lifecycle
-from wasm.deployers.auto import AutoDeployer
-from wasm.deployers.helpers.health_gate import collapse_attempts as _collapse_attempts
-from wasm.deployers.helpers.layout import (
+from noust.core.exceptions import DeploymentError, ServiceError, SourceError
+from noust.core.fs import DryRunFileSystem, set_fs
+from noust.core.logger import Logger
+from noust.core.runner import DryRunRunner, FakeRunner, is_read_only
+from noust.core.store import App, NoustStore, ReleaseStatus
+from noust.deployers import base as base_module
+from noust.deployers import lifecycle
+from noust.deployers.auto import AutoDeployer
+from noust.deployers.helpers.health_gate import collapse_attempts as _collapse_attempts
+from noust.deployers.helpers.layout import (
     CONFIGURED,
     INPLACE,
     RELEASES,
     choose_layout,
     configured_layout,
 )
-from wasm.deployers.helpers.release_build import (
+from noust.deployers.helpers.release_build import (
     StagedRelease,
     lockfiles_match,
     stage_release,
 )
-from wasm.deployers.nodejs import NodeJSDeployer
-from wasm.deployers.python import PythonDeployer
-from wasm.deployers.releases import ReleaseManager
-from wasm.deployers.static import StaticDeployer
-from wasm.deployers.vite import ViteDeployer
-from wasm.managers.nginx_manager import NginxManager
-from wasm.managers.source_manager import SourceManager
+from noust.deployers.nodejs import NodeJSDeployer
+from noust.deployers.python import PythonDeployer
+from noust.deployers.releases import ReleaseManager
+from noust.deployers.static import StaticDeployer
+from noust.deployers.vite import ViteDeployer
+from noust.managers.nginx_manager import NginxManager
+from noust.managers.source_manager import SourceManager
 
 DOMAIN = "rel.example.com"
 #: Not any deployer's default, so a probe of the wrong port shows.
@@ -239,11 +239,11 @@ class FakeWeb:
 @pytest.fixture
 def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
     """A store in the test's directory, installed wherever it is looked up."""
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     monkeypatch.setattr(lifecycle, "get_store", lambda: instance)
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture
@@ -403,7 +403,7 @@ def active_id(root: Path) -> str:
 
 
 def test_a_new_app_deploys_as_a_release(
-    tmp_path: Path, root: Path, store: WASMStore, machine: SimpleNamespace
+    tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace
 ) -> None:
     """The source lands in releases/<id>, current points at it, shared holds the .env."""
     commit = machine.git.publish(node_tree(tmp_path / "v1"))
@@ -441,7 +441,7 @@ def test_a_new_app_deploys_as_a_release(
 
 
 def test_the_unit_and_the_site_are_written_against_current(
-    tmp_path: Path, root: Path, store: WASMStore, machine: SimpleNamespace
+    tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace
 ) -> None:
     """Activation must not need the unit or the site to be rewritten."""
     machine.git.publish(node_tree(tmp_path / "v1"))
@@ -452,7 +452,7 @@ def test_the_unit_and_the_site_are_written_against_current(
     assert unit["working_directory"] == str(root / "current")
     rendered = (
         Environment(  # noqa: S701 - unit files, escaped by their own macros
-            loader=PackageLoader("wasm", "templates/systemd"), trim_blocks=True, lstrip_blocks=True
+            loader=PackageLoader("noust", "templates/systemd"), trim_blocks=True, lstrip_blocks=True
         )
         .get_template("app.service.j2")
         .render(name="wasm-rel-example-com", user="www-data", **unit)
@@ -465,7 +465,7 @@ def test_the_unit_and_the_site_are_written_against_current(
 
 
 def test_a_static_build_is_served_through_current(
-    tmp_path: Path, root: Path, store: WASMStore, machine: SimpleNamespace
+    tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace
 ) -> None:
     """nginx's root follows current, so activating a release needs no reload."""
     machine.git.publish(
@@ -500,7 +500,7 @@ def test_a_static_build_is_served_through_current(
 
 
 def test_a_static_site_deploys_as_a_release_without_a_unit(
-    tmp_path: Path, root: Path, store: WASMStore, machine: SimpleNamespace
+    tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace
 ) -> None:
     """The static pipeline builds releases too, and never asks systemd for anything."""
     machine.git.publish(write_tree(tmp_path / "site", {"public/index.html": "<h1>hi</h1>"}))
@@ -513,7 +513,7 @@ def test_a_static_site_deploys_as_a_release_without_a_unit(
 
 
 def test_a_redeploy_as_a_static_type_retires_the_unit_of_the_process_type(
-    tmp_path: Path, root: Path, store: WASMStore, machine: SimpleNamespace
+    tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace
 ) -> None:
     """
     Review Focus: nextjs redeployed as vite left a unit restarting "npm run start" forever.
@@ -538,7 +538,7 @@ def test_a_redeploy_as_a_static_type_retires_the_unit_of_the_process_type(
 
 
 def test_a_redeploy_of_a_process_type_keeps_its_unit(
-    tmp_path: Path, root: Path, store: WASMStore, machine: SimpleNamespace
+    tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace
 ) -> None:
     """Only a type that runs nothing loses its unit; a redeploy of a server keeps it."""
     machine.git.publish(node_tree(tmp_path / "v1"))
@@ -558,7 +558,7 @@ def test_a_redeploy_of_a_process_type_keeps_its_unit(
 def test_an_update_of_a_static_app_retires_a_leftover_unit(
     tmp_path: Path,
     root: Path,
-    store: WASMStore,
+    store: NoustStore,
     machine: SimpleNamespace,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -578,7 +578,7 @@ def test_an_update_of_a_static_app_retires_a_leftover_unit(
 
 
 def test_a_unit_the_service_manager_refuses_to_delete_does_not_fail_the_deploy(
-    tmp_path: Path, root: Path, store: WASMStore, machine: SimpleNamespace
+    tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace
 ) -> None:
     """Ownership is the service manager's to enforce; its refusal is reported, not fatal."""
     machine.git.publish(write_tree(tmp_path / "site", {"public/index.html": "<h1>hi</h1>"}))
@@ -602,7 +602,7 @@ def test_a_unit_the_service_manager_refuses_to_delete_does_not_fail_the_deploy(
 
 
 def test_a_first_release_that_does_not_answer_leaves_nothing_behind(
-    tmp_path: Path, root: Path, store: WASMStore, machine: SimpleNamespace
+    tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace
 ) -> None:
     """With nothing to go back to, the pipeline's undo removes everything the deploy made."""
     machine.git.publish(node_tree(tmp_path / "v1", server=BROKEN_SERVER))
@@ -628,7 +628,7 @@ def test_a_first_release_that_does_not_answer_leaves_nothing_behind(
 def test_an_update_builds_a_new_release_and_keeps_shared_data(
     tmp_path: Path,
     root: Path,
-    store: WASMStore,
+    store: NoustStore,
     machine: SimpleNamespace,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -658,7 +658,7 @@ def test_an_update_builds_a_new_release_and_keeps_shared_data(
 def test_an_unhealthy_release_rolls_back_to_the_previous_one(
     tmp_path: Path,
     root: Path,
-    store: WASMStore,
+    store: NoustStore,
     machine: SimpleNamespace,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -696,7 +696,7 @@ def test_an_unhealthy_release_rolls_back_to_the_previous_one(
 def test_an_identical_lockfile_reuses_the_installed_dependencies(
     tmp_path: Path,
     root: Path,
-    store: WASMStore,
+    store: NoustStore,
     machine: SimpleNamespace,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -727,7 +727,7 @@ def test_an_identical_lockfile_reuses_the_installed_dependencies(
 def test_a_changed_lockfile_installs_again(
     tmp_path: Path,
     root: Path,
-    store: WASMStore,
+    store: NoustStore,
     machine: SimpleNamespace,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -748,7 +748,7 @@ def test_a_changed_lockfile_installs_again(
 
 
 def test_a_stamp_is_written_after_a_real_install(
-    tmp_path: Path, root: Path, store: WASMStore, machine: SimpleNamespace
+    tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace
 ) -> None:
     """A fresh install records the runtime it was built with, so the next deploy can trust it."""
     machine.runner.script(["node", "--version"], stdout="v20.11.0\n")
@@ -765,7 +765,7 @@ def test_a_stamp_is_written_after_a_real_install(
 def test_matching_runtime_reuses_dependencies(
     tmp_path: Path,
     root: Path,
-    store: WASMStore,
+    store: NoustStore,
     machine: SimpleNamespace,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -795,7 +795,7 @@ def test_matching_runtime_reuses_dependencies(
 def test_a_node_version_change_reinstalls_dependencies(
     tmp_path: Path,
     root: Path,
-    store: WASMStore,
+    store: NoustStore,
     machine: SimpleNamespace,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -817,7 +817,7 @@ def test_a_node_version_change_reinstalls_dependencies(
 def test_a_package_manager_version_change_reinstalls_dependencies(
     tmp_path: Path,
     root: Path,
-    store: WASMStore,
+    store: NoustStore,
     machine: SimpleNamespace,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -839,7 +839,7 @@ def test_a_package_manager_version_change_reinstalls_dependencies(
 def test_a_release_without_a_runtime_stamp_reinstalls(
     tmp_path: Path,
     root: Path,
-    store: WASMStore,
+    store: NoustStore,
     machine: SimpleNamespace,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -861,7 +861,7 @@ def test_a_release_without_a_runtime_stamp_reinstalls(
 def test_a_python_interpreter_change_reinstalls_the_venv(
     tmp_path: Path,
     root: Path,
-    store: WASMStore,
+    store: NoustStore,
     machine: SimpleNamespace,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -887,7 +887,7 @@ def test_a_python_interpreter_change_reinstalls_the_venv(
 def test_old_releases_are_pruned_to_the_retention(
     tmp_path: Path,
     root: Path,
-    store: WASMStore,
+    store: NoustStore,
     machine: SimpleNamespace,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -913,7 +913,7 @@ def test_old_releases_are_pruned_to_the_retention(
 
 
 def test_an_in_place_app_updated_by_v2_stays_in_place(
-    tmp_path: Path, root: Path, store: WASMStore, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, root: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """
     Review Focus: the release engine is never applied to a 1.x app implicitly.
@@ -1016,7 +1016,7 @@ def test_types_without_a_release_pipeline_stay_in_place() -> None:
 
 
 def test_auto_detects_inside_the_release_and_hands_it_over(
-    tmp_path: Path, root: Path, store: WASMStore, machine: SimpleNamespace
+    tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace
 ) -> None:
     """Detection needs the source; the release it was fetched into is the one built."""
     machine.git.publish(node_tree(tmp_path / "v1"))
@@ -1034,7 +1034,7 @@ def test_auto_detects_inside_the_release_and_hands_it_over(
 
 
 def test_auto_leaves_a_monorepo_in_place_under_the_default(
-    tmp_path: Path, root: Path, store: WASMStore, machine: SimpleNamespace
+    tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace
 ) -> None:
     """A monorepo found in a release is fetched again in place; nothing of the release stays."""
     source = write_tree(
@@ -1058,7 +1058,7 @@ def test_auto_leaves_a_monorepo_in_place_under_the_default(
 
 
 def test_auto_leaves_nothing_behind_when_the_source_is_empty(
-    tmp_path: Path, root: Path, store: WASMStore, machine: SimpleNamespace
+    tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace
 ) -> None:
     """A new application that turned out to be nothing does not keep a cache or a release."""
     machine.git.publish((tmp_path / "empty").resolve())
@@ -1113,7 +1113,7 @@ def test_repeated_probe_failures_read_as_one_line() -> None:
 
 
 def test_python_on_releases_runs_through_current_and_python_m(
-    tmp_path: Path, store: WASMStore
+    tmp_path: Path, store: NoustStore
 ) -> None:
     """A reused venv's scripts name the release that made them; python -m does not."""
     app_root = tmp_path / "app"
@@ -1138,7 +1138,7 @@ def test_python_on_releases_runs_through_current_and_python_m(
     )
 
 
-def test_python_in_place_commands_are_unchanged(tmp_path: Path, store: WASMStore) -> None:
+def test_python_in_place_commands_are_unchanged(tmp_path: Path, store: NoustStore) -> None:
     """The in-place layout keeps the exact argv it always had."""
     write_tree(tmp_path / "app", {"requirements.txt": "flask\n"})
     deployer = PythonDeployer(verbose=False, runner=FakeRunner())
@@ -1257,7 +1257,7 @@ def test_export_refuses_something_that_is_not_a_commit(tmp_path: Path) -> None:
 
 
 def test_a_rehearsed_release_deploy_changes_nothing(
-    tmp_path: Path, root: Path, store: WASMStore, machine: SimpleNamespace
+    tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace
 ) -> None:
     """No directory, no link, no row, no mutating command."""
     source = node_tree(tmp_path / "src")

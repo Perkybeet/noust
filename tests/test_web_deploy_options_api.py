@@ -29,13 +29,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.core.store import WASMStore
-from wasm.web.auth import CSRF_HEADER_NAME, SecurityConfig
-from wasm.web.server import create_app, get_token_manager
+from noust.core.store import NoustStore
+from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
+from noust.web.server import create_app, get_token_manager
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> Iterator[WASMStore]:
+def store(tmp_path: Path) -> Iterator[NoustStore]:
     """
     Args:
         tmp_path: Per-test temporary directory.
@@ -43,17 +43,17 @@ def store(tmp_path: Path) -> Iterator[WASMStore]:
     Yields:
         A store of this test's own.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     try:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 @pytest.fixture
-def app(tmp_path: Path, store: WASMStore, runner: object) -> FastAPI:
+def app(tmp_path: Path, store: NoustStore, runner: object) -> FastAPI:
     """
     Args:
         tmp_path: Per-test temporary directory.
@@ -122,7 +122,7 @@ def queued(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
         return Queued()
 
     manager = type("FakeJobs", (), {"create_job": staticmethod(create_job)})()
-    monkeypatch.setattr("wasm.web.api.apps.get_job_manager", lambda: manager)
+    monkeypatch.setattr("noust.web.api.apps.get_job_manager", lambda: manager)
     return captured
 
 
@@ -190,7 +190,7 @@ def test_the_job_hands_the_options_to_the_deployer(monkeypatch: pytest.MonkeyPat
     Args:
         monkeypatch: Patching helper, scoped to the test.
     """
-    from wasm.web.jobs import Job, JobContext, JobType, deploy_app_job
+    from noust.web.jobs import Job, JobContext, JobType, deploy_app_job
 
     captured: dict[str, Any] = {}
 
@@ -205,7 +205,7 @@ def test_the_job_hands_the_options_to_the_deployer(monkeypatch: pytest.MonkeyPat
         def deploy(self) -> bool:
             return True
 
-    monkeypatch.setattr("wasm.deployers.get_deployer", lambda *a, **k: FakeDeployer())
+    monkeypatch.setattr("noust.deployers.get_deployer", lambda *a, **k: FakeDeployer())
 
     job = Job(id="job-test", type=JobType.DEPLOY, name="deploy", description="")
     deploy_app_job(
@@ -270,7 +270,7 @@ def test_the_job_hands_www_paths_and_limits_to_the_deployer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """deploy_app_job forwards include_www, persistent_paths and the limits to configure()."""
-    from wasm.web.jobs import Job, JobContext, JobType, deploy_app_job
+    from noust.web.jobs import Job, JobContext, JobType, deploy_app_job
 
     captured: dict[str, Any] = {}
 
@@ -285,7 +285,7 @@ def test_the_job_hands_www_paths_and_limits_to_the_deployer(
         def deploy(self) -> bool:
             return True
 
-    monkeypatch.setattr("wasm.deployers.get_deployer", lambda *a, **k: FakeDeployer())
+    monkeypatch.setattr("noust.deployers.get_deployer", lambda *a, **k: FakeDeployer())
 
     job = Job(id="job-test", type=JobType.DEPLOY, name="deploy", description="")
     deploy_app_job(
@@ -337,7 +337,7 @@ def test_the_job_hands_the_package_manager_to_the_deployer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """deploy_app_job forwards package_manager to configure(), defaulting to auto."""
-    from wasm.web.jobs import Job, JobContext, JobType, deploy_app_job
+    from noust.web.jobs import Job, JobContext, JobType, deploy_app_job
 
     captured: dict[str, Any] = {}
 
@@ -352,7 +352,7 @@ def test_the_job_hands_the_package_manager_to_the_deployer(
         def deploy(self) -> bool:
             return True
 
-    monkeypatch.setattr("wasm.deployers.get_deployer", lambda *a, **k: FakeDeployer())
+    monkeypatch.setattr("noust.deployers.get_deployer", lambda *a, **k: FakeDeployer())
 
     job = Job(id="job-test", type=JobType.DEPLOY, name="deploy", description="")
     deploy_app_job(
@@ -368,7 +368,7 @@ def test_the_job_hands_the_package_manager_to_the_deployer(
 
 def test_the_job_defaults_the_package_manager_to_auto(monkeypatch: pytest.MonkeyPatch) -> None:
     """Omitting package_manager entirely must not hand configure() a bare None."""
-    from wasm.web.jobs import Job, JobContext, JobType, deploy_app_job
+    from noust.web.jobs import Job, JobContext, JobType, deploy_app_job
 
     captured: dict[str, Any] = {}
 
@@ -383,7 +383,7 @@ def test_the_job_defaults_the_package_manager_to_auto(monkeypatch: pytest.Monkey
         def deploy(self) -> bool:
             return True
 
-    monkeypatch.setattr("wasm.deployers.get_deployer", lambda *a, **k: FakeDeployer())
+    monkeypatch.setattr("noust.deployers.get_deployer", lambda *a, **k: FakeDeployer())
 
     job = Job(id="job-test", type=JobType.DEPLOY, name="deploy", description="")
     deploy_app_job(

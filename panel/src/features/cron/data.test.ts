@@ -48,7 +48,7 @@ describe("validateCronSearch", () => {
 });
 
 describe("filterJobs", () => {
-  const jobs = [job("nightly-backup", "wasm backup create example.com"), job("hourly-sync", "rsync -a /a /b")];
+  const jobs = [job("nightly-backup", "noust backup create example.com"), job("hourly-sync", "rsync -a /a /b")];
 
   it("matches the name or the command", () => {
     expect(filterJobs(jobs, { q: "BACKUP" }).map((j) => j.name)).toEqual(["nightly-backup"]);

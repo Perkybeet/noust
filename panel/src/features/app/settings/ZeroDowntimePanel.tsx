@@ -309,7 +309,7 @@ export function ZeroDowntimePanel({ app }: { app: App }) {
         </form>
       ) : null}
 
-      <CommandHint command={`wasm app zero-downtime ${domain} on --drain 10`} label={t("appSettings.fromTerminal")} />
+      <CommandHint command={`noust app zero-downtime ${domain} on --drain 10`} label={t("appSettings.fromTerminal")} />
 
       <Dialog
         open={confirming !== null}

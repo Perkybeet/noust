@@ -31,9 +31,9 @@ from pathlib import Path
 import pytest
 from fastapi import FastAPI
 
+from noust.core.runner import FakeRunner
+from noust.web.server import create_app, get_token_manager
 from tests.test_web_auth import build_client, login, make_config
-from wasm.core.runner import FakeRunner
-from wasm.web.server import create_app, get_token_manager
 
 
 @pytest.fixture
@@ -160,7 +160,7 @@ class TestTheSchemaCarriesTheRealVersion:
     """
 
     def test_the_served_schema_names_the_running_release(self, app: FastAPI) -> None:
-        from wasm import __version__
+        from noust import __version__
 
         assert app.openapi()["info"]["version"] == __version__
 
@@ -176,7 +176,7 @@ class TestTheSchemaCarriesTheRealVersion:
         from scripts.export_openapi import EXPORTED_VERSION, export_openapi
 
         first = export_openapi(tmp_path / "a.json")
-        monkeypatch.setattr("wasm.web.server.__version__", "99.0.0.dev7")
+        monkeypatch.setattr("noust.web.server.__version__", "99.0.0.dev7")
         second = export_openapi(tmp_path / "b.json")
 
         assert first.read_bytes() == second.read_bytes()

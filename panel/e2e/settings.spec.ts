@@ -45,7 +45,7 @@ test("a refused value is shown beside its field, verbatim; the fixed value saves
 
   await retention.fill("500");
   await expect(backups.getByText("Unsaved changes")).toBeVisible();
-  await expect(backups.getByText("wasm config set backup.max_per_app 500")).toBeVisible();
+  await expect(backups.getByText("noust config set backup.max_per_app 500")).toBeVisible();
   await save.click();
 
   const elevate = page.getByRole("dialog", { name: "Confirm it's you" });

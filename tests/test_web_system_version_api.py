@@ -19,11 +19,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm import __version__
-from wasm.core.config import Config
-from wasm.core.update_checker import UpdateChecker
-from wasm.web.api import system as system_api
-from wasm.web.api.auth import get_current_session
+from noust import __version__
+from noust.core.config import Config
+from noust.core.update_checker import UpdateChecker
+from noust.web.api import system as system_api
+from noust.web.api.auth import get_current_session
 
 
 @pytest.fixture
@@ -39,7 +39,7 @@ def config_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         The path the singleton reads from and writes to.
     """
     path = tmp_path / "etc" / "wasm" / "config.yaml"
-    monkeypatch.setattr("wasm.core.config.DEFAULT_CONFIG_PATH", path)
+    monkeypatch.setattr("noust.core.config.DEFAULT_CONFIG_PATH", path)
     Config.reset_instance()
     yield path
     Config.reset_instance()
@@ -137,8 +137,8 @@ def test_an_installable_update_is_offered_with_its_command(
     assert body["update_state"] == "update_available"
     assert body["has_update"] is True
     assert body["latest_version"] == "99.0.0"
-    assert body["update_command"] == "sudo apt update && sudo apt install --only-upgrade wasm"
-    assert body["release_url"] == "https://github.com/Perkybeet/wasm/releases/tag/v99.0.0"
+    assert body["update_command"] == "sudo apt update && sudo apt install noust"
+    assert body["release_url"] == "https://github.com/Perkybeet/noust/releases/tag/v99.0.0"
 
 
 def test_a_published_release_not_yet_packaged_is_on_the_way(
@@ -153,7 +153,7 @@ def test_a_published_release_not_yet_packaged_is_on_the_way(
     assert body["has_update"] is False
     assert body["latest_version"] == __version__
     assert body["published_version"] == "99.0.0"
-    assert body["release_url"] == "https://github.com/Perkybeet/wasm/releases/tag/v99.0.0"
+    assert body["release_url"] == "https://github.com/Perkybeet/noust/releases/tag/v99.0.0"
     # Nothing is installable yet: the CLI banner shows no command either
     # (UpdateChecker._show_on_the_way_message), so the API must not offer one.
     assert body["update_command"] is None

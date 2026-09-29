@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Environment variable manager for WASM.
+Environment variable manager for Noust.
 
 Handles discovering, prompting, and writing environment variables
 for deployed applications, with support for .env.example parsing,
@@ -11,7 +11,7 @@ secret auto-generation, and interactive configuration.
 Everything this module writes holds credentials: a deployed ``.env`` carries
 ``DATABASE_URL``, API keys and the secrets generated here, and
 ``.wasm/env-config.json`` records the same inventory. Both go out through
-:mod:`wasm.core.fs` with :data:`~wasm.core.fs.SECRET_MODE`, so the mode is
+:mod:`noust.core.fs` with :data:`~noust.core.fs.SECRET_MODE`, so the mode is
 applied by the ``os.open`` that creates the file rather than by a ``chmod``
 afterwards, and the write lands on a temporary file that is renamed into place,
 so a half-written ``.env`` never exists and a symlink planted at the destination
@@ -30,10 +30,10 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
 
-from wasm.core.exceptions import SecurityError, WASMError
-from wasm.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
-from wasm.core.logger import Logger
-from wasm.core.secret_detection import (
+from noust.core.exceptions import NoustError, SecurityError
+from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
+from noust.core.logger import Logger
+from noust.core.secret_detection import (
     NAME_PATTERNS,
     URL_CREDENTIALS,
     classify,
@@ -41,9 +41,9 @@ from wasm.core.secret_detection import (
     redact_url_credentials,
 )
 
-# URL_CREDENTIALS and redact_url_credentials moved to wasm.core.secret_detection,
+# URL_CREDENTIALS and redact_url_credentials moved to noust.core.secret_detection,
 # which is the one place that now knows every shape a secret can take;
-# re-exported here because wasm.deployers.inspect and other callers already
+# re-exported here because noust.deployers.inspect and other callers already
 # import them from this module and there is no reason to make them change.
 __all__ = [
     "URL_CREDENTIALS",
@@ -72,7 +72,7 @@ def _is_real_directory(path: Path) -> bool:
         return False
 
 
-class EnvConfigError(WASMError):
+class EnvConfigError(NoustError):
     """Raised when environment configuration fails."""
 
     pass
@@ -166,7 +166,7 @@ class EnvManager:
         "CORS": "Security",
     }
 
-    # Secret detection patterns, moved to wasm.core.secret_detection so
+    # Secret detection patterns, moved to noust.core.secret_detection so
     # discovery-time flagging and the full classifier share one list; kept as
     # a class attribute because callers already read it off the class.
     SECRET_PATTERNS: ClassVar[tuple[str, ...]] = NAME_PATTERNS
@@ -240,7 +240,7 @@ class EnvManager:
         not a workspace directory, not ``apps`` itself. A link to
         ``/etc/shadow`` or to another application's ``.env`` would otherwise
         come back as a list of defaults. ``app_path`` itself may be a link
-        (``current`` on the releases layout is one WASM made).
+        (``current`` on the releases layout is one Noust made).
 
         Args:
             app_path: Path to the application root.
@@ -442,7 +442,7 @@ class EnvManager:
         """
         Interactively prompt for variable values grouped by category.
 
-        Prompts come from :mod:`wasm.cli.prompts`, falling back to input()
+        Prompts come from :mod:`noust.cli.prompts`, falling back to input()
         when questionary is missing.
 
         Args:
@@ -463,7 +463,7 @@ class EnvManager:
                 categories[cat] = []
             categories[cat].append(var)
 
-        from wasm.cli import prompts
+        from noust.cli import prompts
 
         for category, cat_vars in sorted(categories.items()):
             self.logger.info(f"\n  [{category}]")
@@ -535,7 +535,7 @@ class EnvManager:
                 self.logger.warning(
                     f"{var.name} has a placeholder default "
                     f"({var.default!r}); pass --env-file or run "
-                    f"'wasm env set' to provide a real value before the "
+                    f"'noust env set' to provide a real value before the "
                     f"application starts."
                 )
 
@@ -650,7 +650,7 @@ class EnvManager:
         Persist environment configuration to .wasm/env-config.json.
 
         The file records the variable inventory, defaults included, so it is
-        written 0600 inside a 0700 directory. Nothing but WASM reads ``.wasm``,
+        written 0600 inside a 0700 directory. Nothing but Noust reads ``.wasm``,
         so tightening that directory costs the deployment nothing.
 
         Args:
@@ -706,7 +706,7 @@ class EnvManager:
         Mask a value if it's a secret.
 
         Shows only the first 4 characters followed by asterisks. Uses the
-        full classifier (:func:`~wasm.core.secret_detection.classify`), not
+        full classifier (:func:`~noust.core.secret_detection.classify`), not
         just the name-substring check :meth:`_is_secret` makes while parsing
         ``.env.example``, so a value that only looks secret on its own shape
         - a Stripe key behind an innocuous name - is masked here too.
@@ -729,7 +729,7 @@ class EnvManager:
         Only right for a directory that holds its own ``.env``: an in-place
         application, or ``shared/`` of a release one. Callers that have an
         application rather than a directory read through
-        :func:`wasm.deployers.helpers.app_env.read_app_env`, which knows which.
+        :func:`noust.deployers.helpers.app_env.read_app_env`, which knows which.
 
         Args:
             app_path: Directory holding the ``.env``.
@@ -806,12 +806,12 @@ def is_secret_env_name(name: str) -> bool:
     """
     Decide whether an environment variable's name marks its value as a secret.
 
-    The name-only step of :func:`~wasm.core.secret_detection.classify`,
+    The name-only step of :func:`~noust.core.secret_detection.classify`,
     kept here under its established name for callers that have a name and
-    nothing else - :mod:`wasm.deployers.inspect` flags a discovered
+    nothing else - :mod:`noust.deployers.inspect` flags a discovered
     ``.env.example`` default this way before any value has been chosen for
     it. A caller that also has the value should call
-    :func:`~wasm.core.secret_detection.classify` directly instead: it also
+    :func:`~noust.core.secret_detection.classify` directly instead: it also
     catches a secret-shaped value behind an innocuous name, and honours an
     operator's own mark.
 

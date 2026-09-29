@@ -1,10 +1,10 @@
 <?php
 /**
- * WordPress configuration, written by WASM.
+ * WordPress configuration, written by Noust.
  *
- * Every value comes from the application's environment, which WASM keeps in
+ * Every value comes from the application's environment, which Noust keeps in
  * shared/.env and hands to its PHP-FPM pool. Change one with
- * `wasm env set <domain> NAME=value` followed by `wasm update <domain>`,
+ * `noust env set <domain> NAME=value` followed by `noust update <domain>`,
  * not here. This file lives in shared/ and is linked into every release.
  */
 

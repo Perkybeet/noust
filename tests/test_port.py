@@ -4,8 +4,8 @@ from unittest.mock import patch
 
 import pytest
 
-from wasm.core.exceptions import PortError
-from wasm.validators.port import (
+from noust.core.exceptions import PortError
+from noust.validators.port import (
     check_port,
     find_available_port,
     get_default_port,
@@ -66,14 +66,14 @@ class TestCheckPort:
 class TestValidatePort:
     """Tests for validate_port function."""
 
-    @patch("wasm.validators.port.is_port_available")
+    @patch("noust.validators.port.is_port_available")
     def test_valid_port_returns_int(self, mock_available):
         """Test that validate_port returns integer."""
         mock_available.return_value = True
         assert validate_port(3000) == 3000
         assert validate_port("8080") == 8080
 
-    @patch("wasm.validators.port.is_port_available")
+    @patch("noust.validators.port.is_port_available")
     def test_string_port_converted(self, mock_available):
         """Test string port is converted to int."""
         mock_available.return_value = True
@@ -120,14 +120,14 @@ class TestIsPortAvailable:
 class TestFindAvailablePort:
     """Tests for find_available_port function."""
 
-    @patch("wasm.validators.port.is_port_available")
+    @patch("noust.validators.port.is_port_available")
     def test_finds_preferred_if_available(self, mock_available):
         """Test preferred port is returned if available."""
         mock_available.return_value = True
         result = find_available_port(preferred=3000)
         assert result == 3000
 
-    @patch("wasm.validators.port.is_port_available")
+    @patch("noust.validators.port.is_port_available")
     def test_finds_next_available(self, mock_available):
         """Test finds next available port if preferred is taken."""
         # First call (preferred) returns False, subsequent return True

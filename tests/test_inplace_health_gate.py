@@ -25,17 +25,17 @@ from typing import Any
 
 import pytest
 
-from wasm.core.exceptions import DeploymentError, DockerError, WASMError
-from wasm.core.runner import CommandResult, FakeRunner
-from wasm.core.store import App, Service, WASMStore
-from wasm.deployers import docker_compose, lifecycle, monorepo
-from wasm.deployers.docker_compose import (
+from noust.core.exceptions import DeploymentError, DockerError, NoustError
+from noust.core.runner import CommandResult, FakeRunner
+from noust.core.store import App, NoustStore, Service
+from noust.deployers import docker_compose, lifecycle, monorepo
+from noust.deployers.docker_compose import (
     PREVIOUS_TAG,
     DockerComposeDeployer,
     parse_compose_ps,
 )
-from wasm.deployers.interface import UpdateResult
-from wasm.deployers.monorepo import MonorepoDeployer
+from noust.deployers.interface import UpdateResult
+from noust.deployers.monorepo import MonorepoDeployer
 
 DOMAIN = "stack.example.com"
 PREVIOUS = "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b"
@@ -62,15 +62,15 @@ VOLUME_ARGUMENTS = {"down", "-v", "--volumes", "volume", "rm", "-V", "--renew-an
 
 
 @pytest.fixture
-def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[WASMStore]:
+def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[NoustStore]:
     """A store in the test directory, where the lifecycle and both deployers look."""
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     monkeypatch.setattr(lifecycle, "get_store", lambda: instance)
     monkeypatch.setattr(monorepo, "get_store", lambda: instance)
     monkeypatch.setattr(docker_compose, "get_store", lambda: instance)
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture(autouse=True)
@@ -191,7 +191,7 @@ class Stack(FakeRunner):
 @pytest.fixture
 def stack_runner() -> Iterator[Stack]:
     """The stack runner, installed as the process-wide one too (the gate's journal)."""
-    from wasm.core.runner import set_runner
+    from noust.core.runner import set_runner
 
     fake = Stack()
     set_runner(fake)
@@ -208,7 +208,7 @@ def probe(monkeypatch: pytest.MonkeyPatch) -> Probe:
     return fake
 
 
-def compose_app(store: WASMStore, root: Path, *, port: int = 8080) -> App:
+def compose_app(store: NoustStore, root: Path, *, port: int = 8080) -> App:
     """A deployed stack at ``root``: its tree, a checkout, and its row."""
     root.mkdir(parents=True, exist_ok=True)
     (root / ".git").mkdir(exist_ok=True)
@@ -242,7 +242,7 @@ def compose_deployer(
 
 
 def test_a_stack_that_answers_keeps_its_new_containers(
-    tmp_path: Path, store: WASMStore, stack_runner: Stack, probe: Probe
+    tmp_path: Path, store: NoustStore, stack_runner: Stack, probe: Probe
 ) -> None:
     """What serves is recorded before the build, and nothing is put back."""
     root = tmp_path / "stack"
@@ -267,7 +267,7 @@ def test_a_stack_that_answers_keeps_its_new_containers(
 
 
 def test_the_gate_asks_the_path_and_statuses_the_application_set(
-    tmp_path: Path, store: WASMStore, stack_runner: Stack, probe: Probe
+    tmp_path: Path, store: NoustStore, stack_runner: Stack, probe: Probe
 ) -> None:
     """The stack is judged by its own health check, not by a hardcoded '/'."""
     root = tmp_path / "stack"
@@ -280,7 +280,7 @@ def test_the_gate_asks_the_path_and_statuses_the_application_set(
 
 
 def test_a_stack_that_does_not_answer_goes_back_to_what_served(
-    tmp_path: Path, store: WASMStore, stack_runner: Stack, probe: Probe
+    tmp_path: Path, store: NoustStore, stack_runner: Stack, probe: Probe
 ) -> None:
     """The previous commit and the previous images, with the evidence verbatim."""
     root = tmp_path / "stack"
@@ -314,7 +314,7 @@ def test_a_stack_that_does_not_answer_goes_back_to_what_served(
 
 
 def test_going_back_never_touches_a_volume(
-    tmp_path: Path, store: WASMStore, stack_runner: Stack, probe: Probe
+    tmp_path: Path, store: NoustStore, stack_runner: Stack, probe: Probe
 ) -> None:
     """The stack's databases live in its volumes: no down, no -v, no volume command."""
     root = tmp_path / "stack"
@@ -331,7 +331,7 @@ def test_going_back_never_touches_a_volume(
 
 
 def test_a_failure_while_going_back_is_reported_not_swallowed(
-    tmp_path: Path, store: WASMStore, stack_runner: Stack, probe: Probe
+    tmp_path: Path, store: NoustStore, stack_runner: Stack, probe: Probe
 ) -> None:
     """Every step of the way back is attempted, and each one that failed is named."""
     root = tmp_path / "stack"
@@ -356,7 +356,7 @@ def test_a_failure_while_going_back_is_reported_not_swallowed(
 
 
 def test_a_stack_put_back_that_does_not_answer_either_says_so(
-    tmp_path: Path, store: WASMStore, stack_runner: Stack, probe: Probe
+    tmp_path: Path, store: NoustStore, stack_runner: Stack, probe: Probe
 ) -> None:
     """Restored is not the same as serving."""
     root = tmp_path / "stack"
@@ -373,7 +373,7 @@ def test_a_stack_put_back_that_does_not_answer_either_says_so(
 
 
 def test_a_recreate_that_fails_goes_back_with_dockers_own_words(
-    tmp_path: Path, store: WASMStore, stack_runner: Stack, probe: Probe
+    tmp_path: Path, store: NoustStore, stack_runner: Stack, probe: Probe
 ) -> None:
     """up -d failing is a failed gate like any other."""
     root = tmp_path / "stack"
@@ -389,7 +389,7 @@ def test_a_recreate_that_fails_goes_back_with_dockers_own_words(
 
 
 def test_a_failed_build_puts_the_tree_and_the_tags_back_and_recreates_nothing(
-    tmp_path: Path, store: WASMStore, stack_runner: Stack, probe: Probe
+    tmp_path: Path, store: NoustStore, stack_runner: Stack, probe: Probe
 ) -> None:
     """The containers were never touched; the next start must not run a half-built stack."""
     root = tmp_path / "stack"
@@ -407,7 +407,7 @@ def test_a_failed_build_puts_the_tree_and_the_tags_back_and_recreates_nothing(
 
 
 def test_a_headless_stack_is_judged_by_its_containers(
-    tmp_path: Path, store: WASMStore, stack_runner: Stack, probe: Probe
+    tmp_path: Path, store: NoustStore, stack_runner: Stack, probe: Probe
 ) -> None:
     """A worker has no port to ask; a container that keeps restarting is the answer."""
     root = tmp_path / "stack"
@@ -428,7 +428,7 @@ def test_a_headless_stack_is_judged_by_its_containers(
 
 
 def test_a_one_shot_container_that_exited_cleanly_is_not_a_failure(
-    tmp_path: Path, store: WASMStore, stack_runner: Stack, probe: Probe
+    tmp_path: Path, store: NoustStore, stack_runner: Stack, probe: Probe
 ) -> None:
     """A migration container that ran and exited 0 did its job."""
     root = tmp_path / "stack"
@@ -446,7 +446,7 @@ def test_a_one_shot_container_that_exited_cleanly_is_not_a_failure(
 
 
 def test_without_a_previous_commit_the_compose_file_cannot_go_back(
-    tmp_path: Path, store: WASMStore, stack_runner: Stack, probe: Probe
+    tmp_path: Path, store: NoustStore, stack_runner: Stack, probe: Probe
 ) -> None:
     """A tree that is not a checkout gets its images back, and is told the rest."""
     root = tmp_path / "stack"
@@ -476,7 +476,7 @@ def test_ps_output_is_read_in_every_compose_v2_format(stdout: str) -> None:
 
 
 def test_rebuild_compose_passes_the_commit_that_served(
-    tmp_path: Path, store: WASMStore, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The commit is read before the pull moves it, and reaches the deployer."""
     root = tmp_path / "stack"
@@ -567,7 +567,7 @@ class Workspaces(FakeRunner):
 MONO = "mono.example.com"
 
 
-def mono_app(store: WASMStore, root: Path, *, git: bool = True) -> App:
+def mono_app(store: NoustStore, root: Path, *, git: bool = True) -> App:
     """A deployed monorepo with two workspaces, each its own unit on its own port."""
     (root / "apps" / "web").mkdir(parents=True)
     (root / "apps" / "web" / "package.json").write_text('{"name": "web"}')
@@ -607,7 +607,7 @@ def mono_deployer(
 @pytest.fixture
 def workspaces() -> Iterator[Workspaces]:
     """The workspace runner, installed as the process-wide one too."""
-    from wasm.core.runner import set_runner
+    from noust.core.runner import set_runner
 
     fake = Workspaces()
     set_runner(fake)
@@ -616,7 +616,7 @@ def workspaces() -> Iterator[Workspaces]:
 
 
 def test_every_workspace_is_probed_on_its_own_port_after_every_restart(
-    tmp_path: Path, store: WASMStore, workspaces: Workspaces, probe: Probe
+    tmp_path: Path, store: NoustStore, workspaces: Workspaces, probe: Probe
 ) -> None:
     """One workspace down is an application down, however many siblings answer."""
     root = tmp_path / "mono"
@@ -636,7 +636,7 @@ def test_every_workspace_is_probed_on_its_own_port_after_every_restart(
 
 
 def test_a_workspace_that_does_not_answer_puts_the_previous_commit_back(
-    tmp_path: Path, store: WASMStore, workspaces: Workspaces, probe: Probe
+    tmp_path: Path, store: NoustStore, workspaces: Workspaces, probe: Probe
 ) -> None:
     """Checked out, rebuilt, restarted, probed again; the evidence names the unit."""
     root = tmp_path / "mono"
@@ -667,7 +667,7 @@ def test_a_workspace_that_does_not_answer_puts_the_previous_commit_back(
 
 
 def test_a_previous_commit_that_does_not_rebuild_is_reported(
-    tmp_path: Path, store: WASMStore, workspaces: Workspaces, probe: Probe
+    tmp_path: Path, store: NoustStore, workspaces: Workspaces, probe: Probe
 ) -> None:
     """Nothing is restarted on a half-built tree; the build's own words are in the error."""
     root = tmp_path / "mono"
@@ -685,7 +685,7 @@ def test_a_previous_commit_that_does_not_rebuild_is_reported(
 
 
 def test_a_monorepo_that_is_not_a_checkout_has_nothing_to_go_back_to(
-    tmp_path: Path, store: WASMStore, workspaces: Workspaces, probe: Probe
+    tmp_path: Path, store: NoustStore, workspaces: Workspaces, probe: Probe
 ) -> None:
     """Said as such, with the backup that is the way back."""
     root = tmp_path / "mono"
@@ -697,11 +697,11 @@ def test_a_monorepo_that_is_not_a_checkout_has_nothing_to_go_back_to(
         mono_deployer(root, workspaces, units, previous=None).update()
 
     assert not [c for c in workspaces.calls if "checkout" in c]
-    assert f"wasm rollback {MONO}" in (caught.value.details or "")
+    assert f"noust rollback {MONO}" in (caught.value.details or "")
 
 
 def test_a_unit_without_a_port_is_judged_by_systemd(
-    tmp_path: Path, store: WASMStore, workspaces: Workspaces, probe: Probe
+    tmp_path: Path, store: NoustStore, workspaces: Workspaces, probe: Probe
 ) -> None:
     """A worker workspace has nothing to ask over HTTP; it has to be running."""
     root = tmp_path / "mono"
@@ -719,7 +719,7 @@ def test_a_unit_without_a_port_is_judged_by_systemd(
 
 
 def test_update_app_does_not_restart_what_the_monorepo_already_gated(
-    tmp_path: Path, store: WASMStore, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The deployer restarted and probed every unit; a second restart is downtime for nothing."""
     root = tmp_path / "mono"
@@ -765,7 +765,7 @@ def test_update_app_does_not_restart_what_the_monorepo_already_gated(
 
 
 def test_other_types_do_not_pay_for_reading_the_commit(
-    tmp_path: Path, store: WASMStore, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Only the types that go back by commit need to know it."""
     root = tmp_path / "node"
@@ -773,7 +773,7 @@ def test_other_types_do_not_pay_for_reading_the_commit(
     store.create_app(App(domain="node.example.com", app_type="nodejs", app_path=str(root)))
 
     def refuse(path: Path) -> dict[str, Any]:
-        raise WASMError("the commit was read for a type that does not need it")
+        raise NoustError("the commit was read for a type that does not need it")
 
     monkeypatch.setattr(
         lifecycle,

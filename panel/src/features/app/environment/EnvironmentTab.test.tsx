@@ -123,7 +123,7 @@ describe("the environment tab", () => {
       },
     });
 
-    expect(screen.getByText(/WASM hides a value automatically/)).toBeInTheDocument();
+    expect(screen.getByText(/Noust hides a value automatically/)).toBeInTheDocument();
     const table = screen.getByRole("table", { name: `Environment variables of ${DOMAIN}` });
     expect(within(table).getByText("Shown: nothing about it looks like a secret")).toBeInTheDocument();
     expect(within(table).getByText("Hidden: the URL carries credentials")).toBeInTheDocument();
@@ -180,7 +180,7 @@ describe("the environment tab", () => {
     await user.paste('# comment\r\nNODE_ENV=staging\r\nPORT = "3000"\r\n\r\nnot an assignment\r\nPORT=8080\r\n');
     expect(within(paste).getByText("2 variables found")).toBeInTheDocument();
     expect(within(paste).getByText("PORT is set on lines 3 and 6; the later line wins.")).toBeInTheDocument();
-    expect(within(paste).getByText("Line 5 has no = and is skipped, as WASM skips it.")).toBeInTheDocument();
+    expect(within(paste).getByText("Line 5 has no = and is skipped, as Noust skips it.")).toBeInTheDocument();
     await user.click(within(paste).getByRole("radio", { name: "Replace all" }));
     expect(within(paste).getByText(/2 current variables are removed/)).toBeInTheDocument();
     await user.click(within(paste).getByRole("button", { name: "Stage 2 variables" }));

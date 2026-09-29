@@ -6,9 +6,9 @@ Tests for what the API's error boundary deliberately does not catch.
 
 Ported from the deleted server-rendered panel's own failure-boundary tests
 (tests/test_web_failure.py), which exercised a page-level boundary that no
-longer exists. The JSON API has always had its own, ``WASMErrorRoute`` (see
+longer exists. The JSON API has always had its own, ``NoustErrorRoute`` (see
 tests/test_web_errors.py for the shape of what it *does* catch); what matters
-here is that it only ever catches :class:`~wasm.core.exceptions.WASMError`.
+here is that it only ever catches :class:`~noust.core.exceptions.NoustError`.
 An ``AttributeError`` is a bug in the endpoint, not something a manager or a
 system tool reported, and this project's position on those is that they stay
 loud: catching them to answer a polite JSON error is precisely the mechanism
@@ -24,8 +24,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.web.auth import SecurityConfig
-from wasm.web.server import create_app, get_token_manager
+from noust.web.auth import SecurityConfig
+from noust.web.server import create_app, get_token_manager
 
 
 @pytest.fixture
@@ -45,7 +45,7 @@ def test_a_bug_in_an_endpoint_is_not_dressed_up_as_a_system_error(
     app: FastAPI, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """
-    The boundary catches WASMError and nothing else, on purpose.
+    The boundary catches NoustError and nothing else, on purpose.
 
     An AttributeError here is a bug in the endpoint, not something the
     machine did; it must propagate rather than come back as a tidy
@@ -56,7 +56,7 @@ def test_a_bug_in_an_endpoint_is_not_dressed_up_as_a_system_error(
     def broken() -> None:
         raise AttributeError("'NoneType' object has no attribute 'domain'")
 
-    monkeypatch.setattr("wasm.web.api.apps.get_store", broken)
+    monkeypatch.setattr("noust.web.api.apps.get_store", broken)
 
     client = TestClient(app, client=("testclient", 50000), raise_server_exceptions=True)
     token = get_token_manager().generate_master_token()

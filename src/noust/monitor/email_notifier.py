@@ -25,11 +25,11 @@ from email.mime.text import MIMEText
 from html import escape
 from typing import Any
 
-from wasm.core.config import Config
-from wasm.core.exceptions import EmailError
-from wasm.core.logger import Logger
-from wasm.core.messages import Locale, message, normalize_locale
-from wasm.monitor.models import SEVERITY_WARNING, ProcessObservation
+from noust.core.config import Config
+from noust.core.exceptions import EmailError
+from noust.core.logger import Logger
+from noust.core.messages import Locale, message, normalize_locale
+from noust.monitor.models import SEVERITY_WARNING, ProcessObservation
 
 #: Deadline for every SMTP socket operation, in seconds. Long enough for a slow
 #: relay, short enough that a scan loop recovers within one interval.
@@ -169,7 +169,7 @@ class EmailNotifier:
         Language this notifier's own subjects and bodies render in.
 
         Read from the same configuration object every other reader of
-        ``notifications.language`` shares (:class:`~wasm.core.config.Config`
+        ``notifications.language`` shares (:class:`~noust.core.config.Config`
         is a singleton), so a language switched in the panel takes effect
         from the next report this notifier sends - the same lag every other
         setting read from this instance's ``self.config`` already has, since

@@ -5,7 +5,7 @@
 Diagnose why an application is down.
 
 An operator staring at a 502 has to correlate several independent sources by
-hand: is the unit even running, is it listening on the port WASM thinks it is,
+hand: is the unit even running, is it listening on the port Noust thinks it is,
 does nginx reach it, what does the process's own log say, did the kernel kill
 it for memory, is the certificate still valid, did the last deploy even
 succeed, is the disk full. Each of those lives behind a different command.
@@ -17,7 +17,7 @@ Two things shape the design:
 
 - **Every probe is isolated.** A host with certbot uninstalled or a journal
   that has rotated away must not stop the port check from running. Each probe
-  is called by :func:`diagnose`, and only :class:`~wasm.core.exceptions.WASMError`,
+  is called by :func:`diagnose`, and only :class:`~noust.core.exceptions.NoustError`,
   :class:`OSError` and :class:`ValueError` - the exceptions a probe can
   actually raise - are caught there and turned into a ``skip`` check carrying
   the error as evidence. A probe that returns cleanly always reports on its
@@ -25,7 +25,7 @@ Two things shape the design:
 - **Evidence is verbatim.** CLAUDE.md's rule for the panel applies here too: a
   system error is never paraphrased. ``journalctl``, ``ss`` and nginx's own
   error log reach the operator exactly as those programs printed them; only
-  the summary line and the probable cause are WASM's own words.
+  the summary line and the probable cause are Noust's own words.
 
 The verdict and probable cause come from an explicit, ordered list of rules in
 :func:`_decide`, each backed by its own test: a rule earlier in the list wins
@@ -47,12 +47,12 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.error import HTTPError, URLError
 
-from wasm.core.config import Config
-from wasm.core.exceptions import WASMError
-from wasm.core.runner import CommandRunner, get_runner
-from wasm.core.store import BLUE_GREEN_COLORS, App, DeploymentStatus, WASMStore, get_store
-from wasm.core.utils import domain_to_app_name
-from wasm.deployers.bluegreen import (
+from noust.core.config import Config
+from noust.core.exceptions import NoustError
+from noust.core.runner import CommandRunner, get_runner
+from noust.core.store import BLUE_GREEN_COLORS, App, DeploymentStatus, NoustStore, get_store
+from noust.core.utils import domain_to_app_name
+from noust.deployers.bluegreen import (
     color_port,
     instance_unit,
     leftover_advice,
@@ -60,12 +60,12 @@ from wasm.deployers.bluegreen import (
     other_color,
     serving_port,
 )
-from wasm.deployers.helpers.health_gate import HealthCheck
-from wasm.deployers.helpers.layout import app_root
-from wasm.deployers.releases import Release, ReleaseManager
-from wasm.managers.cert_manager import CertManager
-from wasm.managers.nginx_manager import NginxManager
-from wasm.managers.service_manager import ServiceManager
+from noust.deployers.helpers.health_gate import HealthCheck
+from noust.deployers.helpers.layout import app_root
+from noust.deployers.releases import Release, ReleaseManager
+from noust.managers.cert_manager import CertManager
+from noust.managers.nginx_manager import NginxManager
+from noust.managers.service_manager import ServiceManager
 
 log = logging.getLogger(__name__)
 
@@ -92,7 +92,7 @@ _NGINX_LOG_TAIL_BYTES = 65536
 _NGINX_LOG_MAX_LINES = 20
 
 #: A certificate this close to expiry is worth a warning on its own check,
-#: even when it is not yet the probable cause. Mirrors wasm health.
+#: even when it is not yet the probable cause. Mirrors noust health.
 _CERT_WARNING_DAYS = 30
 
 #: Disk usage past this is the probable cause by itself.
@@ -125,7 +125,7 @@ class Check:
             an operator's attention that is not the cause, ``"fail"`` for
             something that likely is, ``"skip"`` when the probe itself could
             not run.
-        summary: One line, in WASM's own words.
+        summary: One line, in Noust's own words.
         evidence: The raw output the probe collected - journal lines, ss
             output, an exception message - verbatim and unmodified.
     """
@@ -165,7 +165,7 @@ class _Context:
     app_name: str
     app: App | None
     runner: CommandRunner
-    store: WASMStore
+    store: NoustStore
     now: datetime
     http_get: HttpGet
     disk_usage: DiskUsage
@@ -340,7 +340,7 @@ def _check_php_fpm(ctx: _Context) -> ProbeResult:
     journal checks in one. FPM's journal is shared by every pool, so only
     the lines naming this pool are kept (all of the last ones when none do).
     """
-    from wasm.deployers.php_fpm import inspect_pool
+    from noust.deployers.php_fpm import inspect_pool
 
     if ctx.app is None:
         return Check("php_fpm", "skip", "No application record", ""), {}
@@ -381,9 +381,9 @@ def _check_php_fpm(ctx: _Context) -> ProbeResult:
 
     cause: str | None = None
     if not pool.enabled and pool.disabled:
-        cause = f"The PHP-FPM pool is disabled (stopped); start it with wasm start {ctx.domain}."
+        cause = f"The PHP-FPM pool is disabled (stopped); start it with noust start {ctx.domain}."
     elif not pool.enabled:
-        cause = f"The PHP-FPM pool file {pool.pool_file} is missing; redeploy with wasm update {ctx.domain}."
+        cause = f"The PHP-FPM pool file {pool.pool_file} is missing; redeploy with noust update {ctx.domain}."
     elif not pool.fpm_up:
         cause = f"{pool.service}, which runs every PHP pool, is {pool.service_state}."
     elif facts.get("config_ok") is False:
@@ -406,7 +406,7 @@ def _no_unit(ctx: _Context) -> str | None:
     Returns:
         The reason, or None when it runs as a unit.
     """
-    from wasm.deployers.helpers.php_fpm import is_php_fpm
+    from noust.deployers.helpers.php_fpm import is_php_fpm
 
     if ctx.app is None or not ctx.app.is_static:
         return None
@@ -450,7 +450,7 @@ def _check_unit(ctx: _Context) -> ProbeResult:
     exec_main_status = fields.get("ExecMainStatus", "")
     restarts = _as_int(fields.get("NRestarts"))
 
-    caveat = "" if info.managed else " (not managed by WASM)"
+    caveat = "" if info.managed else " (not managed by Noust)"
     if active_state == "active" and sub_state == "running":
         status: CheckStatus = "ok"
         summary = f"{info.unit_file} is active (running){caveat}"
@@ -479,7 +479,7 @@ def _check_unit(ctx: _Context) -> ProbeResult:
 
 
 def _check_port(ctx: _Context) -> ProbeResult:
-    """Check whether anything listens on the port WASM recorded for this app."""
+    """Check whether anything listens on the port Noust recorded for this app."""
     reason = _no_unit(ctx)
     if reason is not None:
         return Check("port", "skip", f"{reason}, no backend port to check", ""), {}
@@ -504,7 +504,7 @@ def _check_port(ctx: _Context) -> ProbeResult:
 
     # Nothing answers on the recorded port. Before calling it dead, check
     # whether the app's own process is listening somewhere else - a config
-    # drift between the unit's PORT and what WASM has on record.
+    # drift between the unit's PORT and what Noust has on record.
     info = ctx.service_manager.inspect_unit(ctx.app_name)
     main_pid = None
     if info.exists:
@@ -666,7 +666,7 @@ def _check_blue_green(ctx: _Context) -> ProbeResult:
                 "blue_green",
                 "fail",
                 "Zero-downtime mode is on but no instance is recorded as serving",
-                f"Turn it off and on again: wasm app zero-downtime {app.domain} off",
+                f"Turn it off and on again: noust app zero-downtime {app.domain} off",
             ),
             {"no_color": True},
         )
@@ -1017,7 +1017,7 @@ def _decide(
     if port.get("recorded_port") is not None and not port.get("listening"):
         recorded_port = port["recorded_port"]
         if port.get("mismatch"):
-            return "down", f"Listening on {port['actual_port']}, WASM routes to {recorded_port}."
+            return "down", f"Listening on {port['actual_port']}, Noust routes to {recorded_port}."
         return "down", f"The process is running but not listening on port {recorded_port}."
 
     if http_direct.get("ok") and not http_nginx.get("ok"):
@@ -1052,7 +1052,7 @@ def _decide(
 # -- Entry point --------------------------------------------------------------
 
 
-def _safe_get_app(store: WASMStore, domain: str) -> App | None:
+def _safe_get_app(store: NoustStore, domain: str) -> App | None:
     """
     Look up an application record, tolerating a store that cannot answer.
 
@@ -1066,7 +1066,7 @@ def _safe_get_app(store: WASMStore, domain: str) -> App | None:
     """
     try:
         return store.get_app(domain)
-    except (WASMError, sqlite3.Error) as exc:
+    except (NoustError, sqlite3.Error) as exc:
         log.debug(f"Could not read {domain} from the store: {exc}")
         return None
 
@@ -1075,13 +1075,13 @@ def diagnose(
     domain: str,
     *,
     runner: CommandRunner | None = None,
-    store: WASMStore | None = None,
+    store: NoustStore | None = None,
     now: Callable[[], datetime] | None = None,
     http_get: HttpGet | None = None,
     disk_usage: DiskUsage | None = None,
 ) -> Diagnosis:
     """
-    Correlate everything WASM can read about a domain into one diagnosis.
+    Correlate everything Noust can read about a domain into one diagnosis.
 
     Args:
         domain: The domain to diagnose.
@@ -1126,7 +1126,7 @@ def diagnose(
 
     checks: list[Check] = []
     facts: dict[str, dict[str, Any]] = {}
-    from wasm.deployers.helpers.php_fpm import is_php_fpm
+    from noust.deployers.helpers.php_fpm import is_php_fpm
 
     probes = _PROBES
     if app is not None and app.zero_downtime:
@@ -1138,7 +1138,7 @@ def diagnose(
     for name, probe in probes:
         try:
             check, probe_facts = probe(ctx)
-        except (WASMError, OSError, ValueError) as exc:
+        except (NoustError, OSError, ValueError) as exc:
             check = Check(name, "skip", "Could not complete this check", str(exc))
             probe_facts = {}
         checks.append(check)

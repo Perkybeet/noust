@@ -16,8 +16,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from wasm.core.exceptions import ValidationError
-from wasm.deployers.importers.base import (
+from noust.core.exceptions import ValidationError
+from noust.deployers.importers.base import (
     Proposal,
     check_nesting,
     health_timeout,
@@ -27,7 +27,7 @@ from wasm.deployers.importers.base import (
     text_value,
     too_deep,
 )
-from wasm.deployers.importers.toml_fallback import load_toml_fallback
+from noust.deployers.importers.toml_fallback import load_toml_fallback
 
 PLATFORM = "railway"
 FILES = ("railway.toml", "railway.json")
@@ -96,7 +96,7 @@ def read(root: Path) -> Proposal:
     proposal.warn(
         "Railway keeps variables, domains and databases in its dashboard, not in the "
         "repository: copy the variables over (to a file for --env-file) and create the "
-        "databases with 'wasm db create'."
+        "databases with 'noust db create'."
     )
     return proposal
 
@@ -118,9 +118,9 @@ def _section(config: dict[str, Any], key: str) -> dict[str, Any]:
 
 def _builder(build: dict[str, Any], proposal: Proposal) -> None:
     """
-    Map Railway's builder to a WASM type.
+    Map Railway's builder to a Noust type.
 
-    Nixpacks and Railpack detect the stack from the repository the way WASM
+    Nixpacks and Railpack detect the stack from the repository the way Noust
     does, so the type is left to detection; a Dockerfile has no deployer of
     its own here.
 
@@ -131,14 +131,14 @@ def _builder(build: dict[str, Any], proposal: Proposal) -> None:
     builder = (text_value(build, "builder") or "").upper()
     if builder == "DOCKERFILE" or text_value(build, "dockerfilePath"):
         proposal.warn(
-            "Railway builds this from a Dockerfile. WASM runs containers through Docker "
+            "Railway builds this from a Dockerfile. Noust runs containers through Docker "
             "Compose: commit a compose.yaml that builds it and deploy it as docker-compose."
         )
     if text_value(build, "nixpacksPlan") or isinstance(build.get("nixpacksPlan"), dict):
-        proposal.warn("The Nixpacks plan has no equivalent; WASM detects the stack itself.")
+        proposal.warn("The Nixpacks plan has no equivalent; Noust detects the stack itself.")
     if isinstance(build.get("watchPatterns"), list) and build["watchPatterns"]:
         proposal.warn(
-            "watchPatterns decide which pushes redeploy on Railway; a WASM webhook "
+            "watchPatterns decide which pushes redeploy on Railway; a Noust webhook "
             "redeploys on every push to the branch."
         )
 
@@ -154,20 +154,20 @@ def _deploy_settings(deploy: dict[str, Any], proposal: Proposal) -> None:
     policy = text_value(deploy, "restartPolicyType")
     if policy is not None:
         proposal.warn(
-            f"restartPolicyType is {policy}; systemd restarts a WASM application whenever "
+            f"restartPolicyType is {policy}; systemd restarts a Noust application whenever "
             "it exits with an error, without a retry limit."
         )
     replicas = int_value(deploy, "numReplicas")
     if replicas is not None and replicas > 1:
         proposal.warn(
-            f"Railway runs {replicas} replicas; a WASM application runs one instance "
+            f"Railway runs {replicas} replicas; a Noust application runs one instance "
             "(two, briefly, with zero-downtime on)."
         )
     schedule = text_value(deploy, "cronSchedule")
     if schedule is not None:
         proposal.warn(
             f"The service runs as a cron job ({schedule}) on Railway. Create it with "
-            "'wasm cron create' instead of deploying it as an application."
+            "'noust cron create' instead of deploying it as an application."
         )
     if text_value(deploy, "preDeployCommand") or isinstance(deploy.get("preDeployCommand"), list):
         proposal.warn(
@@ -175,10 +175,10 @@ def _deploy_settings(deploy: dict[str, Any], proposal: Proposal) -> None:
             "by hand after the deploy."
         )
     if deploy.get("sleepApplication"):
-        proposal.warn("sleepApplication has no equivalent; a WASM application keeps running.")
+        proposal.warn("sleepApplication has no equivalent; a Noust application keeps running.")
     for key in ("region", "multiRegionConfig"):
         if deploy.get(key):
-            proposal.warn(f"{key} has no equivalent; a WASM application runs on this server.")
+            proposal.warn(f"{key} has no equivalent; a Noust application runs on this server.")
 
 
 # TOML ----------------------------------------------------------------------
@@ -186,10 +186,10 @@ def _deploy_settings(deploy: dict[str, Any], proposal: Proposal) -> None:
 
 def load_toml(text: str, *, name: str, warn: Callable[[str], None] | None = None) -> dict[str, Any]:
     """
-    Parse a TOML file with the standard library, or WASM's own reader on 3.10.
+    Parse a TOML file with the standard library, or Noust's own reader on 3.10.
 
     ``tomllib`` arrived in Python 3.11; Ubuntu 22.04 ships 3.10 and no TOML
-    parser WASM may depend on, so there :func:`_load_simple_toml` reads it.
+    parser Noust may depend on, so there :func:`_load_simple_toml` reads it.
 
     Args:
         text: The file's text.
@@ -220,7 +220,7 @@ def _load_simple_toml(
     text: str, *, name: str, warn: Callable[[str], None] | None = None
 ) -> dict[str, Any]:
     """
-    Read TOML without ``tomllib``; see :mod:`wasm.deployers.importers.toml_fallback`.
+    Read TOML without ``tomllib``; see :mod:`noust.deployers.importers.toml_fallback`.
 
     Args:
         text: The file's text.

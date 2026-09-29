@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Tests for three defects in the restore path of :mod:`wasm.managers.backup_manager`.
+Tests for three defects in the restore path of :mod:`noust.managers.backup_manager`.
 
 - A restore used to hand the whole tree over to the service account, Docker
   Compose applications included. Their bind mounts and named volumes carry the
@@ -26,11 +26,11 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.applock import AppBusyError, app_lock
-from wasm.core.fs import DryRunFileSystem, set_fs
-from wasm.core.runner import FakeRunner
-from wasm.core.store import WASMStore
-from wasm.managers.backup_manager import BackupError, BackupManager
+from noust.core.applock import AppBusyError, app_lock
+from noust.core.fs import DryRunFileSystem, set_fs
+from noust.core.runner import FakeRunner
+from noust.core.store import NoustStore
+from noust.managers.backup_manager import BackupError, BackupManager
 
 DOMAIN = "shop.example.com"
 APP_NAME = "shop-example-com"
@@ -95,7 +95,7 @@ def _use_store(monkeypatch: pytest.MonkeyPatch, app: FakeApp | None) -> None:
     """
     Point the backup manager's own store lookups at a double.
 
-    This does not affect :mod:`wasm.core.applock`, which reads the real,
+    This does not affect :mod:`noust.core.applock`, which reads the real,
     process-wide store to find where lock files live; tests that exercise the
     lock provide one of their own.
 
@@ -103,7 +103,7 @@ def _use_store(monkeypatch: pytest.MonkeyPatch, app: FakeApp | None) -> None:
         monkeypatch: Patching helper, scoped to the test.
         app: Application record the store should return.
     """
-    monkeypatch.setattr("wasm.managers.backup_manager.get_store", lambda: FakeStore(app))
+    monkeypatch.setattr("noust.managers.backup_manager.get_store", lambda: FakeStore(app))
 
 
 @pytest.fixture
@@ -315,7 +315,7 @@ class TestRestoreIsLocked:
     """A restore must not interleave with another operation on the same app."""
 
     @pytest.fixture(autouse=True)
-    def real_store(self, tmp_path: Path) -> Iterator[WASMStore]:
+    def real_store(self, tmp_path: Path) -> Iterator[NoustStore]:
         """
         Provide a real, isolated store: the lock lives beside its database.
 
@@ -325,10 +325,10 @@ class TestRestoreIsLocked:
         Yields:
             The store instance.
         """
-        WASMStore.reset_instance()
-        instance = WASMStore(tmp_path / "state" / "wasm.db")
+        NoustStore.reset_instance()
+        instance = NoustStore(tmp_path / "state" / "wasm.db")
         yield instance
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
     def test_a_restore_is_refused_while_another_operation_holds_the_lock(
         self, manager: BackupManager, apps_dir: Path, monkeypatch: pytest.MonkeyPatch
@@ -353,7 +353,7 @@ class TestRestoreIsLocked:
         self, manager: BackupManager, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """RollbackManager.rollback locks too, under the ``rollback`` operation."""
-        from wasm.managers.backup_manager import RollbackManager
+        from noust.managers.backup_manager import RollbackManager
 
         _use_store(monkeypatch, None)
         manager.create(DOMAIN)

@@ -49,7 +49,7 @@ export function SourceSection({ app }: { app: App }) {
       </div>
       <div className="flex min-w-0 flex-col gap-2">
         <p className="text-13 text-pretty text-fg-muted">{t("appSettings.source.branchNote")}</p>
-        <CommandHint command={`wasm update ${app.domain} --branch <branch>`} label={t("appSettings.fromTerminal")} />
+        <CommandHint command={`noust update ${app.domain} --branch <branch>`} label={t("appSettings.fromTerminal")} />
       </div>
     </Section>
   );

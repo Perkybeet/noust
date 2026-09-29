@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Tests for the command helpers in :mod:`wasm.core.utils`.
+Tests for the command helpers in :mod:`noust.core.utils`.
 
 These pin down the three properties the old implementation did not have: no
 string splitting, no shell, and no unbounded wait.
@@ -16,9 +16,9 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core import utils
-from wasm.core.exceptions import SecurityError
-from wasm.core.runner import CommandResult, CommandRunner, FakeRunner
+from noust.core import utils
+from noust.core.exceptions import SecurityError
+from noust.core.runner import CommandResult, CommandRunner, FakeRunner
 
 
 class RecordingRunner(FakeRunner):

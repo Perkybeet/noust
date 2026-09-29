@@ -23,9 +23,9 @@ from pathlib import Path
 
 import pytest
 
-import wasm
+import noust
 
-SRC = Path(wasm.__file__).resolve().parent
+SRC = Path(noust.__file__).resolve().parent
 REPO = SRC.parent.parent
 
 
@@ -91,7 +91,7 @@ class TestExecutionSeam:
 
     #: Only the seam itself. This started at sixteen files and is now closed:
     #: adding a second entry is not paying down debt, it is reopening the hole.
-    SUBPROCESS_ALLOWED = {"src/wasm/core/runner.py"}
+    SUBPROCESS_ALLOWED = {"src/noust/core/runner.py"}
 
     #: The same rule for asyncio's process API, which spells the escape hatch
     #: differently and therefore walked straight past the import check above:
@@ -104,7 +104,7 @@ class TestExecutionSeam:
     #: only, mandatory timeouts, one place that knows how to clean a process up
     #: - are hand-rolled there instead. Closing it means an async streaming
     #: method on CommandRunner. Until then, this list must not grow.
-    ASYNC_SUBPROCESS_ALLOWED = {"src/wasm/web/websockets/router.py"}
+    ASYNC_SUBPROCESS_ALLOWED = {"src/noust/web/websockets/router.py"}
 
     def test_nothing_else_imports_subprocess(self):
         offenders = set()
@@ -247,22 +247,22 @@ class TestOneImplementation:
         shared context, differing only in incidental details (``hidden=True``
         here, a missing logger-cache invalidation there) that made the
         duplication easy to miss in review. All four now import the one
-        decorator ``wasm.cli.app`` declares - the same module ``json_option``
+        decorator ``noust.cli.app`` declares - the same module ``json_option``
         already lives in.
         """
-        from wasm.cli.app import global_flags
-        from wasm.cli.commands import config, setup, web, webapp
+        from noust.cli.app import global_flags
+        from noust.cli.commands import config, setup, web, webapp
 
         for module in (config, setup, web, webapp):
             assert module.global_flags is global_flags, (
-                f"{module.__name__}.global_flags is not wasm.cli.app.global_flags - "
+                f"{module.__name__}.global_flags is not noust.cli.app.global_flags - "
                 "it has its own copy of the folding logic"
             )
 
 
 class TestFilesystemSeam:
     """
-    Changes to disk go through wasm.core.fs, so --dry-run can refuse them.
+    Changes to disk go through noust.core.fs, so --dry-run can refuse them.
 
     Enforcing the flag only in the command runner made it true for what WASM
     executes and false for what WASM writes: an adversarial review showed
@@ -291,7 +291,7 @@ class TestFilesystemSeam:
     #: the runner streams a database dump straight to a file descriptor it
     #: opens with the right mode, which is the point of that method, and the
     #: auth store writes its own state before the CLI context exists.
-    SEAM_FILES = {"src/wasm/core/fs.py", "src/wasm/core/runner.py"}
+    SEAM_FILES = {"src/noust/core/fs.py", "src/noust/core/runner.py"}
 
     #: What is left of the migration, by file. This may only fall.
     DIRECT_MUTATIONS_ALLOWED = 32
@@ -326,7 +326,7 @@ class TestFilesystemSeam:
 
         assert len(found) <= self.DIRECT_MUTATIONS_ALLOWED, (
             f"direct filesystem mutations went from {self.DIRECT_MUTATIONS_ALLOWED} to "
-            f"{len(found)}. Route the change through wasm.core.fs, or --dry-run "
+            f"{len(found)}. Route the change through noust.core.fs, or --dry-run "
             "will announce that nothing changed and then change it.\n"
             + "\n".join(f"  {line}" for line in found[-15:])
         )
@@ -377,12 +377,12 @@ class TestPydanticBridge:
     ``field_validator`` - a name pydantic 1 does not have - and ``wasm web
     start`` died with ImportError on every Ubuntu 24.04 install while every
     test stayed green. The names the two majors spell differently are bridged
-    once, in ``wasm.web.pydantic_compat``, and nowhere else.
+    once, in ``noust.web.pydantic_compat``, and nowhere else.
     """
 
     #: The bridge itself, the only module allowed to know which pydantic is
     #: installed.
-    SHIM = "src/wasm/web/pydantic_compat.py"
+    SHIM = "src/noust/web/pydantic_compat.py"
 
     #: Names only one major version has. The v2 spellings raise ImportError
     #: under 1.10; the v1 spellings are deprecated shims under 2.x and their
@@ -439,7 +439,7 @@ class TestPydanticBridge:
         assert not offenders, (
             "These files import a name only one pydantic major version has:\n"
             + "\n".join(f"  {name}" for name in sorted(offenders))
-            + "\n\nImport it from wasm.web.pydantic_compat instead, adding the "
+            + "\n\nImport it from noust.web.pydantic_compat instead, adding the "
             "bridge there if it is missing. Ubuntu 24.04 ships pydantic 1.10."
         )
 
@@ -459,7 +459,7 @@ class TestPydanticBridge:
             "These calls exist only on pydantic 2 models and raise "
             "AttributeError under the pydantic 1.10 that Ubuntu 24.04 ships:\n"
             + "\n".join(f"  {name}" for name in sorted(offenders))
-            + "\n\nUse the helpers in wasm.web.pydantic_compat instead."
+            + "\n\nUse the helpers in noust.web.pydantic_compat instead."
         )
 
     def test_field_constraints_spelled_only_one_major_understands(self):
@@ -490,7 +490,7 @@ class TestPydanticBridge:
             "version:\n"
             + "\n".join(f"  {name}" for name in sorted(offenders))
             + "\n\nValidate with an explicit field_validator from "
-            "wasm.web.pydantic_compat instead."
+            "noust.web.pydantic_compat instead."
         )
 
 
@@ -582,7 +582,7 @@ class TestPackaging:
     #: Modules imported conditionally, inside a try/except ImportError, to
     #: degrade when an optional extra is absent.
     #:
-    #: rich is not one of these: wasm.core.logger imports it unconditionally
+    #: rich is not one of these: noust.core.logger imports it unconditionally
     #: at module scope, so a machine without it cannot run any command at
     #: all. It is a hard dependency in all four packaging files and belongs
     #: in the checked set, not here.
@@ -620,7 +620,7 @@ class TestPackaging:
                     continue
                 for name in names:
                     root = name.split(".")[0]
-                    if root and root not in stdlib and root != "wasm":
+                    if root and root not in stdlib and root != "noust":
                         found.add(root)
         return found
 
@@ -646,7 +646,7 @@ class TestPackaging:
             "pyproject.toml": (REPO / "pyproject.toml").read_text(encoding="utf-8").lower(),
             "setup.py": (REPO / "setup.py").read_text(encoding="utf-8").lower(),
             "obs/debian.control": (REPO / "obs/debian.control").read_text(encoding="utf-8").lower(),
-            "rpm/wasm.spec": (REPO / "rpm/wasm.spec").read_text(encoding="utf-8").lower(),
+            "rpm/noust.spec": (REPO / "rpm/noust.spec").read_text(encoding="utf-8").lower(),
         }
         pypi_sources = {"pyproject.toml", "setup.py"}
 
@@ -699,14 +699,14 @@ class TestPackaging:
         """
         manifest = (REPO / "MANIFEST.in").read_text(encoding="utf-8")
 
-        assert "recursive-include src/wasm/web/static *" in manifest
-        assert "recursive-include src/wasm/recipes *.yaml" in manifest
-        assert "recursive-include src/wasm/recipes/assets *" in manifest
+        assert "recursive-include src/noust/web/static *" in manifest
+        assert "recursive-include src/noust/recipes *.yaml" in manifest
+        assert "recursive-include src/noust/recipes/assets *" in manifest
         assert "web/templates" not in manifest, "the Jinja pages are gone"
 
     def test_the_debian_build_dependencies_agree(self):
         """
-        wasm.dsc and debian.control must declare the same build dependencies.
+        noust.dsc and debian.control must declare the same build dependencies.
 
         OBS builds the buildroot from the .dsc and debhelper checks against
         debian/control, so a difference between them means the build either
@@ -724,12 +724,12 @@ class TestPackaging:
                 collected += lines[index]
             return {part.strip() for part in collected.split(",") if part.strip()}
 
-        dsc = build_deps((REPO / "obs/wasm.dsc").read_text(encoding="utf-8"))
+        dsc = build_deps((REPO / "obs/noust.dsc").read_text(encoding="utf-8"))
         control = build_deps((REPO / "obs/debian.control").read_text(encoding="utf-8"))
 
         assert dsc == control, (
-            "obs/wasm.dsc and obs/debian.control disagree:\n"
-            f"  only in wasm.dsc:      {sorted(dsc - control)}\n"
+            "obs/noust.dsc and obs/debian.control disagree:\n"
+            f"  only in noust.dsc:     {sorted(dsc - control)}\n"
             f"  only in debian.control: {sorted(control - dsc)}"
         )
 
@@ -743,14 +743,17 @@ class TestPackaging:
         """
         recipes = {
             "obs/debian.rules": (REPO / "obs/debian.rules").read_text(encoding="utf-8"),
-            "rpm/wasm.spec": (REPO / "rpm/wasm.spec").read_text(encoding="utf-8"),
+            "rpm/noust.spec": (REPO / "rpm/noust.spec").read_text(encoding="utf-8"),
         }
 
         offenders = [
             f"{name}: {line.strip()}"
             for name, text in recipes.items()
             for line in text.splitlines()
-            if "_WASM_COMPLETE" in line or "-m wasm" in line
+            if any(
+                needle in line
+                for needle in ("_WASM_COMPLETE", "_NOUST_COMPLETE", "-m wasm", "-m noust")
+            )
         ]
 
         assert not offenders, (
@@ -760,19 +763,21 @@ class TestPackaging:
 
     def test_the_packaged_default_config_names_no_dead_or_removed_setting(self):
         """
-        obs/wasm.default.yaml is what a fresh package installs as
-        /etc/wasm/config.yaml, so it is a default like DEFAULT_CONFIG is.
+        obs/noust.default.yaml is the reference configuration the packages
+        install (as /usr/share/noust/config.example.yaml; until 2.3 it was a
+        fresh install's /etc/wasm/config.yaml), so it is a default like
+        DEFAULT_CONFIG is.
 
         It shipped ``use_ai: true`` and an OpenAI key slot for an AI
         analysis that no longer exists, and ``auto_terminate: true`` for a
-        switch wasm.core.config refuses to read at all (REMOVED_KEYS).
+        switch noust.core.config refuses to read at all (REMOVED_KEYS).
         """
         import yaml
 
-        from wasm.core.config import REMOVED_KEYS
+        from noust.core.config import REMOVED_KEYS
 
         dead = {"monitor.use_ai", "monitor.ai_interval", "monitor.openai", "databases.backup_dir"}
-        packaged = yaml.safe_load((REPO / "obs/wasm.default.yaml").read_text(encoding="utf-8"))
+        packaged = yaml.safe_load((REPO / "obs/noust.default.yaml").read_text(encoding="utf-8"))
 
         def dotted(tree: dict, prefix: str = "") -> set[str]:
             keys = set()
@@ -796,25 +801,30 @@ class TestPackaging:
         /etc/wasm and config.yaml, which hold credentials, to a group. It ran on
         every upgrade.
         """
-        spec = (REPO / "rpm/wasm.spec").read_text(encoding="utf-8")
+        spec = (REPO / "rpm/noust.spec").read_text(encoding="utf-8")
         # Only the scriptlet runs on the machine; the changelog below it is prose.
         post = spec.split("\n%post", 1)[1].split("\n%", 1)[0] if "\n%post" in spec else ""
         preun = spec.split("\n%preun", 1)[1].split("\n%", 1)[0] if "\n%preun" in spec else ""
         scripts = {
             "obs/debian.postinst": (REPO / "obs/debian.postinst").read_text(encoding="utf-8"),
-            "rpm/wasm.spec %post": post,
+            "rpm/noust.spec %post": post,
         }
         prerm_path = REPO / "obs/debian.prerm"
         if prerm_path.exists():
             scripts["obs/debian.prerm"] = prerm_path.read_text(encoding="utf-8")
         if preun:
-            scripts["rpm/wasm.spec %preun"] = preun
+            scripts["rpm/noust.spec %preun"] = preun
         forbidden = (
             ("pip install", "pip3 install", "--break-system-packages"),
             # Not just the www-data/var-www spelling that shipped: no maintainer
             # script may recursively chown anything, anywhere.
             ("chown -R",),
-            ("chmod 755 /etc/wasm", "chmod 640 /etc/wasm/config.yaml"),
+            (
+                "chmod 755 /etc/wasm",
+                "chmod 640 /etc/wasm/config.yaml",
+                "chmod 755 /etc/noust",
+                "chmod 640 /etc/noust/config.yaml",
+            ),
         )
 
         offenders = [
@@ -871,7 +881,7 @@ class TestPackaging:
         # roff escapes every hyphen; the licence expression is compared as written.
         return "\n".join(lines[start:end]).replace("\\-", "-")
 
-    @pytest.mark.parametrize("page", ["man/wasm.1", "obs/wasm.1"])
+    @pytest.mark.parametrize("page", ["man/noust.1", "obs/noust.1"])
     def test_the_man_page_declares_the_licence_pyproject_declares(self, page: str):
         """
         The man page shipped "WASM-NCSAL 1.0. Source-available, non-commercial
@@ -885,7 +895,7 @@ class TestPackaging:
             f"{page} declares {first_line!r}; run scripts/generate_man.py"
         )
 
-    @pytest.mark.parametrize("page", ["man/wasm.1", "obs/wasm.1"])
+    @pytest.mark.parametrize("page", ["man/noust.1", "obs/noust.1"])
     def test_the_man_page_names_the_version_pyproject_declares(self, page: str):
         """
         The version came from the installed distribution's metadata, so a
@@ -894,7 +904,7 @@ class TestPackaging:
         header = (REPO / page).read_text(encoding="utf-8").splitlines()[0]
         version = self._pyproject_project()["version"]
 
-        assert f'"WASM {version}"' in header, (
+        assert f'"Noust {version}"' in header, (
             f"{page} header is {header!r}, not version {version}; run scripts/generate_man.py"
         )
 
@@ -917,8 +927,8 @@ class TestPackaging:
         setup = (REPO / "setup.py").read_text(encoding="utf-8")
         found["setup.py"] = re.findall(r'^\s*license="([^"]+)"', setup, re.MULTILINE)
 
-        spec = (REPO / "rpm/wasm.spec").read_text(encoding="utf-8")
-        found["rpm/wasm.spec"] = re.findall(r"^License:\s*(\S+)", spec, re.MULTILINE)
+        spec = (REPO / "rpm/noust.spec").read_text(encoding="utf-8")
+        found["rpm/noust.spec"] = re.findall(r"^License:\s*(\S+)", spec, re.MULTILINE)
 
         copyright_text = (REPO / "obs/debian.copyright").read_text(encoding="utf-8")
         found["obs/debian.copyright"] = re.findall(
@@ -940,7 +950,7 @@ class TestMaintainerScripts:
     A ``pip install`` there reaches outside the package manager's view entirely:
     it is what put 'inquirer' in the system Python on every Debian upgrade,
     unmanaged and unremovable by dpkg. A permission loosened there defeats what
-    wasm.core.config and wasm.web.auth enforce at runtime: /etc/wasm holds the
+    noust.core.config and noust.web.auth enforce at runtime: /etc/wasm holds the
     web panel's signing key and token hash next to config.yaml's credentials, so
     both must land at 0700/0600, root:root, on every distribution and stay
     there across upgrades.
@@ -977,14 +987,14 @@ class TestMaintainerScripts:
         return found
 
     def _rpm_text(self) -> str:
-        return (REPO / "rpm/wasm.spec").read_text(encoding="utf-8")
+        return (REPO / "rpm/noust.spec").read_text(encoding="utf-8")
 
     def _rpm_scriptlets(self) -> dict[str, str]:
         """
-        Split rpm/wasm.spec into the body of each %pre/%post/%preun/%postun/%posttrans.
+        Split rpm/noust.spec into the body of each %pre/%post/%preun/%postun/%posttrans.
 
         Returns:
-            Mapping of "rpm/wasm.spec %scriptlet" to its body text, for every
+            Mapping of "rpm/noust.spec %scriptlet" to its body text, for every
             scriptlet the spec actually defines.
         """
         sections: dict[str, list[str]] = {}
@@ -1001,7 +1011,7 @@ class TestMaintainerScripts:
                 continue
             if current is not None:
                 sections[current].append(line)
-        return {f"rpm/wasm.spec {name}": "\n".join(body) for name, body in sections.items()}
+        return {f"rpm/noust.spec {name}": "\n".join(body) for name, body in sections.items()}
 
     def test_no_maintainer_script_pip_installs(self):
         """
@@ -1039,12 +1049,12 @@ class TestMaintainerScripts:
         for name, text in sources.items():
             for lineno, line in enumerate(text.splitlines(), start=1):
                 chmod = self.CHMOD_LINE.search(line)
-                if chmod and chmod.group(2).rstrip("/").endswith("etc/wasm"):
+                if chmod and chmod.group(2).rstrip("/").endswith(("etc/wasm", "etc/noust")):
                     exists.append(f"{name}:{lineno}")
                     if int(chmod.group(1), 8) != 0o700:
                         offenders.append(f"{name}:{lineno}: {line.strip()} (must be 0700)")
                 chown = self.CHOWN_LINE.search(line)
-                if chown and chown.group(2).rstrip("/").endswith("etc/wasm"):
+                if chown and chown.group(2).rstrip("/").endswith(("etc/wasm", "etc/noust")):
                     spec = chown.group(1)
                     group = spec.split(":")[-1] if ":" in spec else spec
                     if group != "root":
@@ -1057,13 +1067,13 @@ class TestMaintainerScripts:
             if not attr:
                 continue
             mode, owner, group, rest = attr.groups()
-            if "wasm" not in rest or "config.yaml" in rest:
+            if ("wasm" not in rest and "noust" not in rest) or "config.yaml" in rest:
                 continue
-            exists.append(f"rpm/wasm.spec:{lineno}")
+            exists.append(f"rpm/noust.spec:{lineno}")
             if int(mode, 8) != 0o700:
-                offenders.append(f"rpm/wasm.spec:{lineno}: {line.strip()} (must be 0700)")
+                offenders.append(f"rpm/noust.spec:{lineno}: {line.strip()} (must be 0700)")
             if owner.strip() != "root" or group.strip() != "root":
-                offenders.append(f"rpm/wasm.spec:{lineno}: {line.strip()} (must be root:root)")
+                offenders.append(f"rpm/noust.spec:{lineno}: {line.strip()} (must be root:root)")
 
         assert exists, "no chmod/%attr for /etc/wasm found in any packaging script"
         assert not offenders, "\n".join(f"  {o}" for o in offenders)
@@ -1106,96 +1116,102 @@ class TestMaintainerScripts:
             mode, owner, group, rest = attr.groups()
             if "config.yaml" not in rest:
                 continue
-            exists.append(f"rpm/wasm.spec:{lineno}")
+            exists.append(f"rpm/noust.spec:{lineno}")
             if int(mode, 8) != 0o600:
-                offenders.append(f"rpm/wasm.spec:{lineno}: {line.strip()} (must be 0600)")
+                offenders.append(f"rpm/noust.spec:{lineno}: {line.strip()} (must be 0600)")
             if owner.strip() != "root" or group.strip() != "root":
-                offenders.append(f"rpm/wasm.spec:{lineno}: {line.strip()} (must be root:root)")
+                offenders.append(f"rpm/noust.spec:{lineno}: {line.strip()} (must be root:root)")
 
         assert exists, "no chmod/%attr for config.yaml found in any packaging script"
         assert not offenders, "\n".join(f"  {o}" for o in offenders)
 
-    def test_package_removal_stops_and_disables_wasm_monitor(self):
+    @pytest.mark.parametrize("unit", ["noust-monitor", "wasm-monitor"])
+    def test_package_removal_stops_and_disables_the_monitor(self, unit: str):
         """
-        'wasm monitor install' writes and enables a systemd unit that neither
+        'noust monitor install' writes and enables a systemd unit that neither
         dpkg nor rpm ever shipped, so removing the package left it running
         under a binary that had just disappeared. Both maintainer scripts
-        must stop and disable it.
+        must stop and disable it, under its name and under the wasm-* name a
+        server keeps until noust first runs as root and renames it.
         """
         prerm = (REPO / "obs/debian.prerm").read_text(encoding="utf-8")
-        preun = self._rpm_scriptlets().get("rpm/wasm.spec %preun")
+        preun = self._rpm_scriptlets().get("rpm/noust.spec %preun")
 
-        assert preun is not None, "rpm/wasm.spec has no %preun scriptlet"
+        assert preun is not None, "rpm/noust.spec has no %preun scriptlet"
 
-        for name, text in (("obs/debian.prerm", prerm), ("rpm/wasm.spec %preun", preun)):
-            assert "wasm-monitor" in text, f"{name} never mentions wasm-monitor.service"
-            assert re.search(r"systemctl\s+stop\s+wasm-monitor", text), (
-                f"{name} does not stop wasm-monitor.service"
+        for name, text in (("obs/debian.prerm", prerm), ("rpm/noust.spec %preun", preun)):
+            assert re.search(rf"systemctl\s+stop\s+{unit}", text), (
+                f"{name} does not stop {unit}.service"
             )
-            assert re.search(r"systemctl\s+disable\s+wasm-monitor", text), (
-                f"{name} does not disable wasm-monitor.service"
+            assert re.search(rf"systemctl\s+disable\s+{unit}", text), (
+                f"{name} does not disable {unit}.service"
             )
 
-    def test_package_removal_stops_and_disables_the_console_service(self):
+    @pytest.mark.parametrize("unit", ["noust-web", "wasm-web"])
+    def test_package_removal_stops_and_disables_the_console_service(self, unit: str):
         """
-        'wasm web enable' writes and enables wasm-web.service, which neither
-        dpkg nor rpm ships: removal must stop and disable it like the monitor,
-        and still stop a console started with 'wasm web start -d'.
+        'noust web enable' writes and enables the console's unit, which
+        neither dpkg nor rpm ships: removal must stop and disable it like the
+        monitor, and still stop a console started with 'noust web start -d'.
         """
         prerm = (REPO / "obs/debian.prerm").read_text(encoding="utf-8")
-        preun = self._rpm_scriptlets().get("rpm/wasm.spec %preun", "")
+        preun = self._rpm_scriptlets().get("rpm/noust.spec %preun", "")
 
-        for name, text in (("obs/debian.prerm", prerm), ("rpm/wasm.spec %preun", preun)):
-            assert re.search(r"systemctl\s+stop\s+wasm-web\.service", text), (
-                f"{name} does not stop wasm-web.service"
+        for name, text in (("obs/debian.prerm", prerm), ("rpm/noust.spec %preun", preun)):
+            assert re.search(rf"systemctl\s+stop\s+{unit}\.service", text), (
+                f"{name} does not stop {unit}.service"
             )
-            assert re.search(r"systemctl\s+disable\s+wasm-web\.service", text), (
-                f"{name} does not disable wasm-web.service"
+            assert re.search(rf"systemctl\s+disable\s+{unit}\.service", text), (
+                f"{name} does not disable {unit}.service"
             )
-            assert re.search(r"wasm\s+web\s+stop", text), (
-                f"{name} no longer stops a console started with 'wasm web start -d'"
+            assert re.search(r"noust\s+web\s+stop", text), (
+                f"{name} no longer stops a console started with 'noust web start -d'"
             )
 
-    def test_debian_upgrade_restarts_a_running_console_service(self):
+    @pytest.mark.parametrize("unit", ["noust-web", "wasm-web"])
+    def test_debian_upgrade_restarts_a_running_console_service(self, unit: str):
         """
-        prerm leaves wasm-web.service running across an upgrade, so postinst's
-        configure branch restarts it onto the new code - only when the unit
-        exists and is active, so a console the operator stopped stays stopped.
+        prerm leaves the console's unit running across an upgrade, so
+        postinst's configure branch restarts it onto the new code - only when
+        the unit exists and is active, so a console the operator stopped
+        stays stopped.
         """
         postinst = (REPO / "obs/debian.postinst").read_text(encoding="utf-8")
         configure_start = postinst.index("configure)")
         configure_body = postinst[configure_start : postinst.index(";;", configure_start)]
         after_configure = postinst[postinst.index(";;", configure_start) :]
 
-        assert re.search(r"systemctl\s+restart\s+wasm-web\.service", configure_body), (
-            "postinst's configure) branch never restarts wasm-web.service"
+        assert re.search(rf"systemctl\s+restart\s+{unit}\.service", configure_body), (
+            f"postinst's configure) branch never restarts {unit}.service"
         )
-        assert "wasm-web" not in after_configure, "postinst touches the console outside configure)"
+        assert unit not in after_configure, "postinst touches the console outside configure)"
 
-        guard = configure_body[: configure_body.index("systemctl restart wasm-web")]
+        guard = configure_body[: configure_body.index(f"systemctl restart {unit}")]
         guard = guard[guard.rindex("if ") :]
-        assert "/etc/systemd/system/wasm-web.service" in guard, (
+        assert f"/etc/systemd/system/{unit}.service" in guard, (
             "the restart is not guarded on the unit existing"
         )
-        assert re.search(r"systemctl\s+is-active\s+(--quiet\s+)?wasm-web\.service", guard), (
+        assert re.search(rf"systemctl\s+is-active\s+(--quiet\s+)?{unit}\.service", guard), (
             "the restart is not guarded on the unit being active"
         )
 
-    def test_rpm_upgrade_restarts_a_running_console_service(self):
+    @pytest.mark.parametrize("unit", ["noust-web", "wasm-web"])
+    def test_rpm_upgrade_restarts_a_running_console_service(self, unit: str):
         """
-        %preun leaves wasm-web.service running across an upgrade; %posttrans,
-        after the old files are gone, restarts it only if it is running.
+        %preun leaves the console's unit running across an upgrade;
+        %posttrans, after the old files are gone, restarts it only if it is
+        running.
         """
         scriptlets = self._rpm_scriptlets()
-        posttrans = scriptlets.get("rpm/wasm.spec %posttrans", "")
+        posttrans = scriptlets.get("rpm/noust.spec %posttrans", "")
 
-        assert re.search(r"systemctl\s+try-restart\s+wasm-web\.service", posttrans), (
-            "rpm/wasm.spec %posttrans does not try-restart wasm-web.service"
+        assert re.search(rf"systemctl\s+try-restart\s+{unit}\.service", posttrans), (
+            f"rpm/noust.spec %posttrans does not try-restart {unit}.service"
         )
         for name in ("%pre", "%post", "%postun"):
-            body = scriptlets.get(f"rpm/wasm.spec {name}", "")
-            assert not re.search(r"systemctl\s+\S*restart\s+wasm-web", body), (
-                f"rpm/wasm.spec {name} restarts the console; only %posttrans may"
+            body = scriptlets.get(f"rpm/noust.spec {name}", "")
+            assert not re.search(rf"systemctl\s+\S*restart\s+{unit}", body), (
+                f"rpm/noust.spec {name} restarts the console; only %posttrans may"
             )
 
     def test_removal_scripts_never_start_or_enable_anything(self):
@@ -1206,9 +1222,9 @@ class TestMaintainerScripts:
         landing where it can only ever fire on the way out.
         """
         prerm = (REPO / "obs/debian.prerm").read_text(encoding="utf-8")
-        preun = self._rpm_scriptlets().get("rpm/wasm.spec %preun", "")
+        preun = self._rpm_scriptlets().get("rpm/noust.spec %preun", "")
 
-        for name, text in (("obs/debian.prerm", prerm), ("rpm/wasm.spec %preun", preun)):
+        for name, text in (("obs/debian.prerm", prerm), ("rpm/noust.spec %preun", preun)):
             offenders = [
                 line.strip()
                 for line in text.splitlines()
@@ -1235,8 +1251,14 @@ class TestMaintainerScripts:
         upgrade_body = after_remove[upgrade_start : after_remove.index(";;", upgrade_start)]
         assert "systemctl" not in upgrade_body, "prerm must not touch the unit on upgrade"
 
-    #: The units WASM writes at runtime that no package ships.
-    RUNTIME_UNITS = ("wasm-web.service", "wasm-monitor.service")
+    #: The units noust writes at runtime that no package ships, under both
+    #: names: the wasm-* ones are what a server keeps until noust renames them.
+    RUNTIME_UNITS = (
+        "noust-web.service",
+        "noust-monitor.service",
+        "wasm-web.service",
+        "wasm-monitor.service",
+    )
 
     def _debian_postrm_branch(self, branch: str) -> str:
         postrm = (REPO / "obs/debian.postrm").read_text(encoding="utf-8")
@@ -1253,8 +1275,8 @@ class TestMaintainerScripts:
 
         for unit in self.RUNTIME_UNITS:
             assert unit in purge, f"postrm purge never removes {unit}"
-        assert "Generated by WASM" in purge, (
-            "postrm purge removes the units without checking WASM's marker"
+        assert "Generated by" in purge and "WASM" in purge and "Noust" in purge, (
+            "postrm purge removes the units without checking the markers, WASM's and Noust's"
         )
         assert re.search(r"systemctl\s+daemon-reload", purge), (
             "postrm purge removes unit files without reloading systemd"
@@ -1312,14 +1334,14 @@ class TestMaintainerScripts:
 
     def test_rpm_preun_only_stops_units_on_an_actual_removal(self):
         """$1 is 0 in %preun only on final removal, never on an upgrade."""
-        preun = self._rpm_scriptlets().get("rpm/wasm.spec %preun", "")
+        preun = self._rpm_scriptlets().get("rpm/noust.spec %preun", "")
         assert re.search(r"\$1\s*(-eq|=)\s*0", preun), (
-            "rpm/wasm.spec %preun does not guard on $1 == 0 (final removal)"
+            "rpm/noust.spec %preun does not guard on $1 == 0 (final removal)"
         )
 
     def test_python3_venv_is_a_debian_dependency(self):
         """
-        wasm.deployers.python.PythonDeployer.pre_install runs
+        noust.deployers.python.PythonDeployer.pre_install runs
         'python3 -m venv <path>'. On Debian and Ubuntu, venv (and the
         ensurepip bootstrap it uses without --without-pip) ships in the
         separate python3-venv package, not in python3 itself.
@@ -1360,7 +1382,7 @@ class TestImportable:
         code paths no test happens to reach.
         """
         failures = []
-        for module in pkgutil.walk_packages(wasm.__path__, "wasm."):
+        for module in pkgutil.walk_packages(noust.__path__, "noust."):
             try:
                 importlib.import_module(module.name)
             except Exception as exc:

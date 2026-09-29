@@ -6,7 +6,7 @@ Tests for blue/green activation: the next release answers before it serves.
 
 The releases, ``current`` and the instance links are real directories and
 links in a temporary tree; systemd, nginx and the HTTP probe are faked
-through the seams :class:`~wasm.deployers.bluegreen.BlueGreen` takes. The
+through the seams :class:`~noust.deployers.bluegreen.BlueGreen` takes. The
 fakes simulate what matters: a unit that is started runs the release its link
 points at, on its port, and the probe answers for a port only while a unit
 that runs a healthy release listens on it. What is pinned:
@@ -31,13 +31,13 @@ from typing import Any
 
 import pytest
 
-from wasm.core.exceptions import DeploymentError, RolledBackError, ValidationError, WASMError
-from wasm.core.fs import DryRunFileSystem, set_fs
-from wasm.core.logger import Logger
-from wasm.core.store import App, Service, WASMStore, get_store
-from wasm.deployers import bluegreen
-from wasm.deployers.bluegreen import BlueGreen, instance_command
-from wasm.deployers.releases import ReleaseManager
+from noust.core.exceptions import DeploymentError, NoustError, RolledBackError, ValidationError
+from noust.core.fs import DryRunFileSystem, set_fs
+from noust.core.logger import Logger
+from noust.core.store import App, NoustStore, Service, get_store
+from noust.deployers import bluegreen
+from noust.deployers.bluegreen import BlueGreen, instance_command
+from noust.deployers.releases import ReleaseManager
 
 DOMAIN = "bg.example.com"
 BASE = "bg-example-com"
@@ -71,7 +71,7 @@ class Machine:
         sleeps: Every drain.
     """
 
-    def __init__(self, root: Path, store: WASMStore) -> None:
+    def __init__(self, root: Path, store: NoustStore) -> None:
         self.root = root
         self.store = store
         self.events: list[tuple[Any, ...]] = []
@@ -275,10 +275,10 @@ def nobody_can_name_listeners(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 def store() -> Any:
     """The process-wide store, at the location conftest redirects it to."""
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
     instance = get_store()
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture
@@ -292,7 +292,7 @@ def root(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def app(root: Path, store: WASMStore) -> App:
+def app(root: Path, store: NoustStore) -> App:
     """The application's rows: a Node app on releases, behind nginx."""
     row = store.create_app(
         App(
@@ -319,14 +319,14 @@ def app(root: Path, store: WASMStore) -> App:
 
 
 @pytest.fixture
-def machine(root: Path, store: WASMStore) -> Machine:
+def machine(root: Path, store: NoustStore) -> Machine:
     """The fake machine, with the application's own unit running the active release."""
     fake = Machine(root, store)
     fake.running[BASE] = root / "releases" / SECOND
     return fake
 
 
-def engine(machine: Machine, store: WASMStore, **kwargs: Any) -> BlueGreen:
+def engine(machine: Machine, store: NoustStore, **kwargs: Any) -> BlueGreen:
     """Build the engine over the fakes, for the application as the store has it now."""
     row = store.get_app(DOMAIN)
     assert row is not None
@@ -346,7 +346,7 @@ def engine(machine: Machine, store: WASMStore, **kwargs: Any) -> BlueGreen:
     )
 
 
-def switched_on(machine: Machine, store: WASMStore, app: App, *, drain: int | None = 5) -> None:
+def switched_on(machine: Machine, store: NoustStore, app: App, *, drain: int | None = 5) -> None:
     """Turn the mode on, and forget what that took."""
     engine(machine, store).enable(drain_seconds=drain)
     machine.events.clear()
@@ -363,7 +363,7 @@ def link(root: Path, name: str) -> str:
 
 
 def test_enabling_starts_green_beside_the_unit_and_retires_the_unit_after_the_switch(
-    root: Path, store: WASMStore, app: App, machine: Machine
+    root: Path, store: NoustStore, app: App, machine: Machine
 ) -> None:
     """The unit serves until nginx has moved to green; nothing is ever down."""
     engine(machine, store).enable(drain_seconds=5)
@@ -398,7 +398,7 @@ def test_enabling_starts_green_beside_the_unit_and_retires_the_unit_after_the_sw
 
 
 def test_a_green_that_does_not_answer_leaves_everything_as_it_was(
-    root: Path, store: WASMStore, app: App, machine: Machine
+    root: Path, store: NoustStore, app: App, machine: Machine
 ) -> None:
     """The unit never stopped; the template, the links and the mode are gone again."""
     (root / "releases" / SECOND / "server.js").write_text(BROKEN)
@@ -419,7 +419,7 @@ def test_a_green_that_does_not_answer_leaves_everything_as_it_was(
 
 
 def test_a_site_nginx_refuses_turns_the_mode_back_off(
-    root: Path, store: WASMStore, app: App, machine: Machine
+    root: Path, store: NoustStore, app: App, machine: Machine
 ) -> None:
     """The upstream goes, the flag goes, green stops; the unit still serves."""
     machine.refresh_fails = True
@@ -441,7 +441,7 @@ def test_a_site_nginx_refuses_turns_the_mode_back_off(
 
 
 def test_an_activation_starts_probes_switches_drains_and_stops_in_that_order(
-    root: Path, store: WASMStore, app: App, machine: Machine
+    root: Path, store: NoustStore, app: App, machine: Machine
 ) -> None:
     """New first, traffic second, old last; current moves at the very end."""
     switched_on(machine, store, app)
@@ -473,7 +473,7 @@ def test_an_activation_starts_probes_switches_drains_and_stops_in_that_order(
 
 
 def test_a_release_that_fails_the_gate_is_stopped_and_the_old_instance_never_is(
-    root: Path, store: WASMStore, app: App, machine: Machine
+    root: Path, store: NoustStore, app: App, machine: Machine
 ) -> None:
     """Nothing to undo in nginx: the upstream was never touched."""
     switched_on(machine, store, app)
@@ -495,7 +495,7 @@ def test_a_release_that_fails_the_gate_is_stopped_and_the_old_instance_never_is(
 
 
 def test_a_failed_gate_with_the_old_instance_down_too_is_not_a_rollback(
-    root: Path, store: WASMStore, app: App, machine: Machine
+    root: Path, store: NoustStore, app: App, machine: Machine
 ) -> None:
     """RolledBackError promises the previous version answers; here it does not."""
     switched_on(machine, store, app)
@@ -509,7 +509,7 @@ def test_a_failed_gate_with_the_old_instance_down_too_is_not_a_rollback(
 
 
 def test_an_upstream_nginx_refuses_is_put_back_before_anything_reloads(
-    root: Path, store: WASMStore, app: App, machine: Machine
+    root: Path, store: NoustStore, app: App, machine: Machine
 ) -> None:
     """nginx -t fails: the old upstream is back, nothing reloaded, the new one stopped."""
     switched_on(machine, store, app)
@@ -528,7 +528,7 @@ def test_an_upstream_nginx_refuses_is_put_back_before_anything_reloads(
 
 
 def test_a_reload_that_fails_puts_the_old_upstream_back_and_reloads_it(
-    root: Path, store: WASMStore, app: App, machine: Machine
+    root: Path, store: NoustStore, app: App, machine: Machine
 ) -> None:
     """A valid configuration nginx did not load: what nginx holds matches the disk again."""
     switched_on(machine, store, app)
@@ -543,10 +543,10 @@ def test_a_reload_that_fails_puts_the_old_upstream_back_and_reloads_it(
 
 
 def test_rolling_back_through_releases_is_the_same_switch(
-    root: Path, store: WASMStore, app: App, machine: Machine, monkeypatch: pytest.MonkeyPatch
+    root: Path, store: NoustStore, app: App, machine: Machine, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """wasm releases rollback: the idle instance takes the previous release; one history row."""
-    from wasm.deployers import lifecycle
+    from noust.deployers import lifecycle
 
     switched_on(machine, store, app)
     monkeypatch.setattr(lifecycle, "ServiceManager", lambda **kwargs: machine)
@@ -565,11 +565,11 @@ def test_rolling_back_through_releases_is_the_same_switch(
 
 
 def test_a_rollback_that_fails_its_gate_is_recorded_as_rolled_back(
-    root: Path, store: WASMStore, app: App, machine: Machine, monkeypatch: pytest.MonkeyPatch
+    root: Path, store: NoustStore, app: App, machine: Machine, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The history row fails, and says the previous version kept serving."""
-    from wasm.deployers import deploy_events, lifecycle
-    from wasm.deployers.deploy_events import DeployEventKind
+    from noust.deployers import deploy_events, lifecycle
+    from noust.deployers.deploy_events import DeployEventKind
 
     switched_on(machine, store, app)
     (root / "releases" / FIRST / "server.js").write_text(BROKEN)
@@ -595,7 +595,7 @@ def test_a_rollback_that_fails_its_gate_is_recorded_as_rolled_back(
 
 
 def test_disabling_from_green_starts_the_unit_and_removes_both_instances(
-    root: Path, store: WASMStore, app: App, machine: Machine
+    root: Path, store: NoustStore, app: App, machine: Machine
 ) -> None:
     """The unit answers on the application's port before the site moves back to it."""
     switched_on(machine, store, app)
@@ -619,7 +619,7 @@ def test_disabling_from_green_starts_the_unit_and_removes_both_instances(
 
 
 def test_disabling_from_blue_moves_to_green_first(
-    root: Path, store: WASMStore, app: App, machine: Machine
+    root: Path, store: NoustStore, app: App, machine: Machine
 ) -> None:
     """Blue holds the application's port, which its own unit needs back."""
     switched_on(machine, store, app)
@@ -637,7 +637,7 @@ def test_disabling_from_blue_moves_to_green_first(
 
 
 def test_a_unit_that_does_not_answer_leaves_the_instances_serving(
-    root: Path, store: WASMStore, app: App, machine: Machine
+    root: Path, store: NoustStore, app: App, machine: Machine
 ) -> None:
     """Turning the mode off is undone whole too."""
     switched_on(machine, store, app)
@@ -678,7 +678,7 @@ def test_a_unit_that_does_not_answer_leaves_the_instances_serving(
     ],
 )
 def test_what_cannot_run_twice_is_refused_with_the_way_forward(
-    store: WASMStore, app: App, change: dict[str, Any], message: str
+    store: NoustStore, app: App, change: dict[str, Any], message: str
 ) -> None:
     """Each refusal says why, and what to do."""
     row = store.get_app(DOMAIN)
@@ -692,7 +692,7 @@ def test_what_cannot_run_twice_is_refused_with_the_way_forward(
     assert refusal.value.details
 
 
-def test_the_port_after_the_apps_own_must_be_free(store: WASMStore, app: App) -> None:
+def test_the_port_after_the_apps_own_must_be_free(store: NoustStore, app: App) -> None:
     """Another application on port + 1, or anything listening there, is refused."""
     other = store.create_app(App(domain="other.example.com", port=PORT + 1, app_type="nodejs"))
     row = store.get_app(DOMAIN)
@@ -707,7 +707,7 @@ def test_the_port_after_the_apps_own_must_be_free(store: WASMStore, app: App) ->
     bluegreen.check_eligible(row, store=store, port_free=lambda port: True)
 
 
-def test_a_site_with_its_own_routes_is_refused(root: Path, store: WASMStore, app: App) -> None:
+def test_a_site_with_its_own_routes_is_refused(root: Path, store: NoustStore, app: App) -> None:
     """wasm.nginx.yaml routes to ports two instances cannot share."""
     (root / "releases" / SECOND / "wasm.nginx.yaml").write_text("routes: []\n")
     row = store.get_app(DOMAIN)
@@ -723,7 +723,7 @@ def test_a_site_with_its_own_routes_is_refused(root: Path, store: WASMStore, app
 
 
 def test_a_rehearsal_checks_and_changes_nothing(
-    store: WASMStore, app: App, machine: Machine, monkeypatch: pytest.MonkeyPatch
+    store: NoustStore, app: App, machine: Machine, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """--dry-run: the checks run, no engine is built, the row is untouched."""
     monkeypatch.setattr(bluegreen, "is_port_available", lambda port: True)
@@ -739,7 +739,7 @@ def test_a_rehearsal_checks_and_changes_nothing(
 
 
 def test_changing_the_drain_of_an_app_already_on_only_records_it(
-    store: WASMStore, app: App, machine: Machine
+    store: NoustStore, app: App, machine: Machine
 ) -> None:
     """No switch runs for a new drain."""
     switched_on(machine, store, app)
@@ -754,7 +754,7 @@ def test_changing_the_drain_of_an_app_already_on_only_records_it(
 
 
 def test_set_zero_downtime_switches_through_the_engine_both_ways(
-    store: WASMStore, app: App, machine: Machine
+    store: NoustStore, app: App, machine: Machine
 ) -> None:
     """On, then off: the round trip ends where it started."""
     build = lambda row, log: engine(machine, store)  # noqa: E731
@@ -776,7 +776,9 @@ def test_set_zero_downtime_switches_through_the_engine_both_ways(
     assert machine.sleeps == [], "a drain of 0 does not wait"
 
 
-def test_the_status_of_an_app_that_cannot_use_the_mode_says_why(store: WASMStore, app: App) -> None:
+def test_the_status_of_an_app_that_cannot_use_the_mode_says_why(
+    store: NoustStore, app: App
+) -> None:
     """Off and ineligible: the reason and the hint, for the console to show."""
     row = store.get_app(DOMAIN)
     assert row is not None
@@ -790,7 +792,7 @@ def test_the_status_of_an_app_that_cannot_use_the_mode_says_why(store: WASMStore
     assert status.hint is not None and "migrate" in status.hint
 
 
-def test_an_unknown_drain_is_refused_before_anything(store: WASMStore, app: App) -> None:
+def test_an_unknown_drain_is_refused_before_anything(store: NoustStore, app: App) -> None:
     """The range is the store's."""
     with pytest.raises(ValidationError):
         bluegreen.set_zero_downtime(DOMAIN, True, drain_seconds=301)
@@ -814,8 +816,8 @@ def test_node_and_next_commands_read_port_from_the_instance_environment() -> Non
 
 def test_a_python_command_binds_the_instance_port_from_its_own_release() -> None:
     """gunicorn's -b names the port, and the interpreter is found through current."""
-    from wasm.deployers.helpers.release_build import StagedRelease
-    from wasm.deployers.python import PythonDeployer
+    from noust.deployers.helpers.release_build import StagedRelease
+    from noust.deployers.python import PythonDeployer
 
     root = Path("/var/www/apps/shop")
     deployer = PythonDeployer()
@@ -863,11 +865,11 @@ def test_a_port_that_only_looks_like_the_apps_is_left_alone() -> None:
 
 
 def test_a_redeploy_writes_the_template_and_activates_blue_green(
-    tmp_path: Path, root: Path, store: WASMStore, app: App, machine: Machine
+    tmp_path: Path, root: Path, store: NoustStore, app: App, machine: Machine
 ) -> None:
     """The deployer's own activation: no restart of current, the idle instance takes it."""
-    from wasm.deployers.helpers.release_build import StagedRelease
-    from wasm.deployers.nodejs import NodeJSDeployer
+    from noust.deployers.helpers.release_build import StagedRelease
+    from noust.deployers.nodejs import NodeJSDeployer
 
     switched_on(machine, store, app)
     deployer = NodeJSDeployer()
@@ -877,7 +879,7 @@ def test_a_redeploy_writes_the_template_and_activates_blue_green(
     deployer._webserver_manager = lambda: machine  # type: ignore[method-assign]
     third = write_release(root, "20260927-100000-ccccccc")
     deployer._staged = StagedRelease(path=third, commit=None, manager=ReleaseManager(root))
-    from wasm.deployers import base as base_module
+    from noust.deployers import base as base_module
 
     original = base_module.wait_until_healthy
     base_module.wait_until_healthy = machine.probe  # type: ignore[assignment]
@@ -899,10 +901,10 @@ def test_a_redeploy_writes_the_template_and_activates_blue_green(
 
 
 def test_a_redeploy_that_renders_an_advanced_site_is_refused_in_the_mode(
-    root: Path, store: WASMStore, app: App, machine: Machine
+    root: Path, store: NoustStore, app: App, machine: Machine
 ) -> None:
     """The instances share one upstream; a site with routes of its own cannot."""
-    from wasm.deployers.nodejs import NodeJSDeployer
+    from noust.deployers.nodejs import NodeJSDeployer
 
     switched_on(machine, store, app)
     deployer = NodeJSDeployer()
@@ -915,10 +917,10 @@ def test_a_redeploy_that_renders_an_advanced_site_is_refused_in_the_mode(
 
 
 def test_nothing_about_the_mode_is_consulted_for_a_new_application(
-    root: Path, store: WASMStore
+    root: Path, store: NoustStore
 ) -> None:
     """No row, no mode: a first deploy activates exactly as before."""
-    from wasm.deployers.nodejs import NodeJSDeployer
+    from noust.deployers.nodejs import NodeJSDeployer
 
     deployer = NodeJSDeployer()
     deployer.configure("new.example.com", "https://example.com/r.git", port=PORT, app_path=root)
@@ -928,11 +930,11 @@ def test_nothing_about_the_mode_is_consulted_for_a_new_application(
 
 
 def test_limits_restarted_in_the_mode_switch_instances_instead_of_restarting(
-    root: Path, store: WASMStore, app: App, machine: Machine, monkeypatch: pytest.MonkeyPatch
+    root: Path, store: NoustStore, app: App, machine: Machine, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The template gets the limits once; the idle instance starts under them first."""
-    from wasm.deployers import lifecycle
-    from wasm.managers.service_manager import ResourceLimits
+    from noust.deployers import lifecycle
+    from noust.managers.service_manager import ResourceLimits
 
     switched_on(machine, store, app)
     written: list[tuple[str, ResourceLimits]] = []
@@ -956,7 +958,7 @@ def test_limits_restarted_in_the_mode_switch_instances_instead_of_restarting(
 
 
 def test_an_engine_without_a_serving_instance_refuses_to_guess(
-    root: Path, store: WASMStore, app: App, machine: Machine
+    root: Path, store: NoustStore, app: App, machine: Machine
 ) -> None:
     """A row in the mode without a color says how to repair it."""
     store.set_zero_downtime(DOMAIN, True)
@@ -969,11 +971,11 @@ def test_an_engine_without_a_serving_instance_refuses_to_guess(
 
 def test_errors_are_wasm_errors() -> None:
     """The CLI and API boundaries translate them; nothing else escapes."""
-    assert issubclass(RolledBackError, WASMError)
+    assert issubclass(RolledBackError, NoustError)
 
 
 def test_a_rehearsed_activation_starts_nothing_and_moves_nothing(
-    root: Path, store: WASMStore, app: App, machine: Machine
+    root: Path, store: NoustStore, app: App, machine: Machine
 ) -> None:
     """--dry-run: the switch is described, not made."""
     switched_on(machine, store, app)
@@ -987,10 +989,10 @@ def test_a_rehearsed_activation_starts_nothing_and_moves_nothing(
 
 
 def test_the_gate_an_operator_restart_passes_is_the_serving_instances(
-    store: WASMStore, app: App, machine: Machine
+    store: NoustStore, app: App, machine: Machine
 ) -> None:
     """health_gate_for: the unit and the port that answer now."""
-    from wasm.deployers import lifecycle
+    from noust.deployers import lifecycle
 
     switched_on(machine, store, app)
     row = store.get_app(DOMAIN)

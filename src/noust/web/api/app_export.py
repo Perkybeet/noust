@@ -4,8 +4,8 @@
 """
 Exporting an application's definition, and importing one (2.3).
 
-A client of :mod:`wasm.deployers.app_export`, like ``wasm app export`` and
-``wasm app import``. ``GET /api/apps/{domain}/export`` answers the document;
+A client of :mod:`noust.deployers.app_export`, like ``noust app export`` and
+``noust app import``. ``GET /api/apps/{domain}/export`` answers the document;
 its secret values need an admin credential in sudo mode and are audited.
 ``POST /api/apps/import`` checks the document and the domain in the request,
 so a bad document or a missing secret is a 400 the form can show, and queues
@@ -21,8 +21,8 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from wasm.core.store import get_store
-from wasm.deployers.app_export import (
+from noust.core.store import get_store
+from noust.deployers.app_export import (
     CreateSpec,
     ImportPlan,
     apply_import,
@@ -31,22 +31,22 @@ from wasm.deployers.app_export import (
     plan_summary,
     report_summary,
 )
-from wasm.deployers.recorder import CapturingLogger
-from wasm.validators.port import find_available_port
-from wasm.web.api.apps import DEFAULT_PORT, _require_local_source_privilege
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import (
+from noust.deployers.recorder import CapturingLogger
+from noust.validators.port import find_available_port
+from noust.web.api.apps import DEFAULT_PORT, _require_local_source_privilege
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import (
     JobAcceptedResponse,
-    WASMErrorRoute,
+    NoustErrorRoute,
     ensure_elevated,
     require_elevated,
     strict_domain,
 )
-from wasm.web.auth import actor_label, ensure_scope, get_audit_logger, get_client_ip
-from wasm.web.jobs import JobContext, JobType, deploy_app_job, get_job_manager
-from wasm.web.pydantic_compat import dump_model
+from noust.web.auth import actor_label, ensure_scope, get_audit_logger, get_client_ip
+from noust.web.jobs import JobContext, JobType, deploy_app_job, get_job_manager
+from noust.web.pydantic_compat import dump_model
 
-router = APIRouter(route_class=WASMErrorRoute)
+router = APIRouter(route_class=NoustErrorRoute)
 
 
 class ExportLimits(BaseModel):
@@ -162,7 +162,7 @@ class ExportDatabase(BaseModel):
 
 
 class AppExportDocument(BaseModel):
-    """An application's definition, as ``wasm app export`` writes it."""
+    """An application's definition, as ``noust app export`` writes it."""
 
     format: str = Field(description='Always "wasm-app"')
     version: int = Field(description="Shape of the document; this release writes 1")

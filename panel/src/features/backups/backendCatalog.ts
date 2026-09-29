@@ -2,7 +2,7 @@
  * Backend metadata the API's `/backends` catalogue does not carry: a human label, a short
  * description, and which backends authenticate through a token pasted from `rclone
  * authorize` instead of a form field. Mirrors `BACKEND_FIELDS` in
- * `wasm.managers.backup_destinations`; a backend not listed here (the server added one this
+ * `noust.managers.backup_destinations`; a backend not listed here (the server added one this
  * build does not know about yet) still renders, under its own raw name.
  */
 

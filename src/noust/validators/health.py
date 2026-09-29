@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import re
 
-from wasm.core.exceptions import ValidationError
+from noust.core.exceptions import ValidationError
 
 #: The fewest and the most seconds an application may be given to come up.
 #: Below 5 a process that is merely starting fails the gate; past ten minutes

@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Validation of the identifiers WASM turns into paths, unit names and SQL.
+Validation of the identifiers Noust turns into paths, unit names and SQL.
 
 Every name here eventually leaves Python: a service name becomes
 ``/etc/systemd/system/<name>.service``, an app name becomes a directory under
-``/var/www/apps``, a database name is interpolated into DDL. WASM runs as root,
+``/var/www/apps``, a database name is interpolated into DDL. Noust runs as root,
 so a name that carries a path separator, a NUL byte or a newline is not a
 cosmetic problem: it is arbitrary file write, arbitrary unit installation or
 statement injection.
@@ -31,9 +31,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from wasm.core.exceptions import SecurityError, ValidationError
+from noust.core.exceptions import SecurityError, ValidationError
 
-#: systemd allows longer unit names, but nothing WASM manages needs more and a
+#: systemd allows longer unit names, but nothing Noust manages needs more and a
 #: short cap keeps names readable in journalctl and in the panel.
 MAX_SERVICE_NAME_LENGTH = 64
 

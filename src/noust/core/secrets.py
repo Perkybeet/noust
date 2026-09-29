@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Credentials WASM keeps for itself, one 0600 file each.
+Credentials Noust keeps for itself, one 0600 file each.
 
 A GitHub App's private key, a backup destination's password, a fleet node's
 token: none of them belongs in ``config.yaml``, which is read, printed and
 edited, nor in a database column every query can reach. Each lives in a file
-of its own under ``secrets/`` beside the store (``/var/lib/wasm/secrets`` on a
+of its own under ``secrets/`` beside the store (``/var/lib/noust/secrets`` on a
 server), created 0600 in a 0700 directory through the filesystem seam, so a
 rehearsal writes nothing and there is never a moment when one is readable by
 another user.
@@ -29,8 +29,8 @@ import re
 from pathlib import Path
 from typing import Any
 
-from wasm.core.exceptions import ConfigError
-from wasm.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
+from noust.core.exceptions import ConfigError
+from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
 
 # One segment: letters, digits, dot, dash, underscore; not starting with a
 # dot, so neither ``..`` nor a hidden file can be named. Always used with
@@ -48,7 +48,7 @@ def secrets_dir() -> Path:
     Returns:
         The ``secrets`` directory path (not created here).
     """
-    from wasm.core.store import get_store
+    from noust.core.store import get_store
 
     return get_store().db_path.parent / "secrets"
 
@@ -77,7 +77,7 @@ def _checked_name(name: str) -> tuple[str, ...]:
 
 class SecretStore:
     """
-    Read, write and delete WASM's own secret files.
+    Read, write and delete Noust's own secret files.
 
     Args:
         root: Directory to keep them in; defaults to :func:`secrets_dir`.
@@ -150,7 +150,7 @@ class SecretStore:
         except OSError as exc:
             raise ConfigError(
                 f"Cannot read the secret {name}",
-                details=f"{path} is not a regular file WASM wrote ({exc.strerror}).",
+                details=f"{path} is not a regular file Noust wrote ({exc.strerror}).",
             ) from exc
         with os.fdopen(descriptor, encoding="utf-8") as handle:
             return handle.read()

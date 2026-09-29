@@ -35,6 +35,17 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from noust.core.exceptions import DeploymentError, NoustError
+from noust.core.store import App, DeploymentStatus, NoustStore
+from noust.deployers import lifecycle
+from noust.managers import backup_manager as backup_module
+from noust.managers.backup_manager import BackupMetadata, RollbackManager
+from noust.web import auth as web_auth
+from noust.web.api import deployments as deployments_api
+from noust.web.api import jobs as jobs_api
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import install_error_handlers
+from noust.web.jobs import Job, JobStatus
 from tests.test_rebuild_commit import git  # noqa: F401  (pytest resolves fixtures by name)
 from tests.test_release_activation import two_releases  # noqa: F401
 from tests.test_release_pipeline import (  # noqa: F401
@@ -44,17 +55,6 @@ from tests.test_release_pipeline import (  # noqa: F401
     root,
     store,
 )
-from wasm.core.exceptions import DeploymentError, WASMError
-from wasm.core.store import App, DeploymentStatus, WASMStore
-from wasm.deployers import lifecycle
-from wasm.managers import backup_manager as backup_module
-from wasm.managers.backup_manager import BackupMetadata, RollbackManager
-from wasm.web import auth as web_auth
-from wasm.web.api import deployments as deployments_api
-from wasm.web.api import jobs as jobs_api
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import install_error_handlers
-from wasm.web.jobs import Job, JobStatus
 
 INPLACE = "shop.example.com"
 
@@ -83,7 +83,7 @@ def backup(backup_id: str = "shop-example-com-20260926-120000", commit: str | No
 
 
 def deployment(
-    store: WASMStore,
+    store: NoustStore,
     status: str,
     *,
     domain: str = INPLACE,
@@ -99,7 +99,7 @@ def deployment(
     return deployment_id
 
 
-def inplace_app(store: WASMStore, tmp_path: Path) -> App:
+def inplace_app(store: NoustStore, tmp_path: Path) -> App:
     """An in-place application with its directory."""
     app_path = tmp_path / "apps" / "shop-example-com"
     app_path.mkdir(parents=True)
@@ -117,7 +117,7 @@ def inplace_app(store: WASMStore, tmp_path: Path) -> App:
 
 @pytest.fixture
 def rollback_manager(
-    tmp_path: Path, store: WASMStore, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> RollbackManager:
     """A RollbackManager whose backups are faked and whose store is the test's."""
     inplace_app(store, tmp_path)
@@ -136,7 +136,7 @@ def rollback_manager(
 
 
 def test_a_pre_update_backup_is_the_snapshot_of_the_previous_deployment(
-    store: WASMStore, rollback_manager: RollbackManager
+    store: NoustStore, rollback_manager: RollbackManager
 ) -> None:
     """The tree backed up is what the last successful deployment produced."""
     older = deployment(store, "success")
@@ -150,7 +150,7 @@ def test_a_pre_update_backup_is_the_snapshot_of_the_previous_deployment(
 
 
 def test_the_operation_taking_the_backup_is_skipped_while_it_runs(
-    store: WASMStore, rollback_manager: RollbackManager
+    store: NoustStore, rollback_manager: RollbackManager
 ) -> None:
     """A rollback records before its safety backup; the row it replaces gets it."""
     previous = deployment(store, "success")
@@ -163,7 +163,7 @@ def test_the_operation_taking_the_backup_is_skipped_while_it_runs(
 
 
 def test_after_a_failed_deployment_the_tree_is_nobodys_snapshot(
-    store: WASMStore, rollback_manager: RollbackManager
+    store: NoustStore, rollback_manager: RollbackManager
 ) -> None:
     """A failed build left the tree half-changed; linking it would lie."""
     good = deployment(store, "success")
@@ -175,7 +175,7 @@ def test_after_a_failed_deployment_the_tree_is_nobodys_snapshot(
 
 
 def test_a_tree_on_another_commit_is_not_the_deployments_snapshot(
-    store: WASMStore, rollback_manager: RollbackManager
+    store: NoustStore, rollback_manager: RollbackManager
 ) -> None:
     """Changed by hand since: the commits disagree, so no link."""
     previous = deployment(store, "success", commit="abc1234")
@@ -187,7 +187,7 @@ def test_a_tree_on_another_commit_is_not_the_deployments_snapshot(
 
 
 def test_a_matching_commit_of_another_length_is_linked(
-    store: WASMStore, rollback_manager: RollbackManager
+    store: NoustStore, rollback_manager: RollbackManager
 ) -> None:
     """The backup records twelve characters and the history seven."""
     previous = deployment(store, "success", commit="abc1234")
@@ -199,7 +199,7 @@ def test_a_matching_commit_of_another_length_is_linked(
 
 
 def test_a_release_application_gets_no_snapshot(
-    tmp_path: Path, store: WASMStore, rollback_manager: RollbackManager
+    tmp_path: Path, store: NoustStore, rollback_manager: RollbackManager
 ) -> None:
     """On releases the previous build stays on disk; that is its way back."""
     previous = deployment(store, "success")
@@ -230,7 +230,7 @@ def backups(monkeypatch: pytest.MonkeyPatch) -> set[str]:
 
 
 def test_in_place_without_history_a_snapshot_is_restored_through_the_rollback_manager(
-    tmp_path: Path, store: WASMStore, backups: set[str], monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, store: NoustStore, backups: set[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Keeping .git and the .env, rebuilt as the recorded type, behind the gate."""
     inplace_app(store, tmp_path)
@@ -269,7 +269,7 @@ def test_in_place_without_history_a_snapshot_is_restored_through_the_rollback_ma
 
 
 def test_in_place_without_a_snapshot_the_refusal_says_to_rebuild(
-    tmp_path: Path, store: WASMStore, backups: set[str]
+    tmp_path: Path, store: NoustStore, backups: set[str]
 ) -> None:
     """The live deployment has no snapshot until the next update takes one."""
     inplace_app(store, tmp_path)
@@ -281,7 +281,7 @@ def test_in_place_without_a_snapshot_the_refusal_says_to_rebuild(
 
 
 def test_a_snapshot_rotated_away_is_not_offered(
-    tmp_path: Path, store: WASMStore, backups: set[str]
+    tmp_path: Path, store: NoustStore, backups: set[str]
 ) -> None:
     """The link outlives the backup; availability checks the backup."""
     inplace_app(store, tmp_path)
@@ -293,7 +293,7 @@ def test_a_snapshot_rotated_away_is_not_offered(
 
 
 def test_a_failed_deployment_is_not_something_to_go_back_to(
-    tmp_path: Path, store: WASMStore, backups: set[str]
+    tmp_path: Path, store: NoustStore, backups: set[str]
 ) -> None:
     """Only what served can be put back."""
     inplace_app(store, tmp_path)
@@ -304,17 +304,19 @@ def test_a_failed_deployment_is_not_something_to_go_back_to(
     assert lifecycle.rollback_availability([store.get_deployment(target)])[target] is not None
 
 
-def test_a_deployment_of_another_application_is_not_found(tmp_path: Path, store: WASMStore) -> None:
+def test_a_deployment_of_another_application_is_not_found(
+    tmp_path: Path, store: NoustStore
+) -> None:
     """The id alone is not enough: it must be this application's."""
     inplace_app(store, tmp_path)
     other = deployment(store, "success", domain="other.example.com")
 
-    with pytest.raises(WASMError, match="not found"):
+    with pytest.raises(NoustError, match="not found"):
         lifecycle.rollback_to_deployment(INPLACE, other)
 
 
 def test_on_releases_going_back_to_a_deployment_activates_its_release(
-    root: Path, store: WASMStore, machine: SimpleNamespace, two_releases: tuple[str, str]
+    root: Path, store: NoustStore, machine: SimpleNamespace, two_releases: tuple[str, str]
 ) -> None:
     """The deployment that built the first release, activated behind the gate."""
     first, second = two_releases
@@ -366,7 +368,7 @@ def jobs(monkeypatch: pytest.MonkeyPatch) -> Jobs:
 
 
 @pytest.fixture
-def client(store: WASMStore, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+def client(store: NoustStore, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     """The deployments, deployment actions and jobs routers, authenticated."""
     monkeypatch.setattr(deployments_api, "get_store", lambda: store)
     app = FastAPI()
@@ -435,7 +437,7 @@ def test_an_update_with_news_or_no_answer_is_queued(
 
 
 def test_rebuilding_a_deployment_queues_the_update_with_its_commit(
-    tmp_path: Path, client: TestClient, jobs: Jobs, store: WASMStore
+    tmp_path: Path, client: TestClient, jobs: Jobs, store: NoustStore
 ) -> None:
     """The update job, given the deployment's own commit; no nothing-new check."""
     inplace_app(store, tmp_path)
@@ -451,7 +453,7 @@ def test_rebuilding_a_deployment_queues_the_update_with_its_commit(
 
 
 def test_a_deployment_without_a_commit_cannot_be_rebuilt_exactly(
-    tmp_path: Path, client: TestClient, jobs: Jobs, store: WASMStore
+    tmp_path: Path, client: TestClient, jobs: Jobs, store: NoustStore
 ) -> None:
     """A local source recorded no commit: 409 with the way forward."""
     inplace_app(store, tmp_path)
@@ -465,7 +467,7 @@ def test_a_deployment_without_a_commit_cannot_be_rebuilt_exactly(
 
 
 def test_a_deployment_of_another_domain_is_404_on_either_action(
-    tmp_path: Path, client: TestClient, jobs: Jobs, store: WASMStore
+    tmp_path: Path, client: TestClient, jobs: Jobs, store: NoustStore
 ) -> None:
     """The domain in the path is checked against the row."""
     inplace_app(store, tmp_path)
@@ -478,7 +480,7 @@ def test_a_deployment_of_another_domain_is_404_on_either_action(
 
 
 def test_rolling_back_to_a_deployment_is_queued_when_available(
-    tmp_path: Path, client: TestClient, jobs: Jobs, store: WASMStore, backups: set[str]
+    tmp_path: Path, client: TestClient, jobs: Jobs, store: NoustStore, backups: set[str]
 ) -> None:
     """A snapshot that exists: the rollback job, for that deployment."""
     inplace_app(store, tmp_path)
@@ -494,7 +496,7 @@ def test_rolling_back_to_a_deployment_is_queued_when_available(
 
 
 def test_rolling_back_to_a_deployment_without_a_snapshot_is_409_with_why(
-    tmp_path: Path, client: TestClient, jobs: Jobs, store: WASMStore, backups: set[str]
+    tmp_path: Path, client: TestClient, jobs: Jobs, store: NoustStore, backups: set[str]
 ) -> None:
     """rollback_unavailable carries the reason and the alternative."""
     inplace_app(store, tmp_path)
@@ -511,7 +513,7 @@ def test_rolling_back_to_a_deployment_without_a_snapshot_is_409_with_why(
 
 
 def test_the_history_says_which_deployments_can_be_gone_back_to(
-    tmp_path: Path, client: TestClient, store: WASMStore, backups: set[str]
+    tmp_path: Path, client: TestClient, store: NoustStore, backups: set[str]
 ) -> None:
     """snapshot_backup, rollback_available and the reason when not."""
     inplace_app(store, tmp_path)
@@ -548,7 +550,7 @@ def test_both_actions_need_the_deploy_scope_like_an_update(action: str) -> None:
 
 
 def test_on_releases_a_release_that_failed_its_gate_is_not_offered(
-    store: WASMStore, machine: SimpleNamespace, two_releases: tuple[str, str]
+    store: NoustStore, machine: SimpleNamespace, two_releases: tuple[str, str]
 ) -> None:
     """Still on disk after a failed activation, and still not something to go back to."""
     first, _ = two_releases

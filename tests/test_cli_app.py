@@ -5,7 +5,7 @@
 Tests for ``wasm app``.
 
 ``migrate`` and ``limits`` decide nothing themselves: the migration is
-:mod:`wasm.deployers.migrate` (``tests/test_migrate.py``) and the limits are
+:mod:`noust.deployers.migrate` (``tests/test_migrate.py``) and the limits are
 the service manager's (``tests/test_resource_limits.py``). Pinned here: what
 reaches them, the confirmation before a migration, and that a rehearsal or a
 refusal changes nothing.
@@ -20,11 +20,11 @@ from typing import Any
 import pytest
 from click.testing import CliRunner, Result
 
-from wasm.cli.app import cli as root_cli
-from wasm.cli.commands import app as app_module
-from wasm.core.logger import Logger
-from wasm.core.runner import set_runner
-from wasm.deployers.migrate import MigrationPlan, MigrationResult, TreeCount
+from noust.cli.app import cli as root_cli
+from noust.cli.commands import app as app_module
+from noust.core.logger import Logger
+from noust.core.runner import set_runner
+from noust.deployers.migrate import MigrationPlan, MigrationResult, TreeCount
 
 DOMAIN = "shop.example.com"
 COUNT = TreeCount(files=12, bytes=3400, links=1)
@@ -71,7 +71,7 @@ def engine(monkeypatch: pytest.MonkeyPatch) -> list[tuple[Any, ...]]:
 
     def run(domain: str, plan: MigrationPlan, **kwargs: Any) -> MigrationResult:
         calls.append(("migrate", domain, kwargs["trigger"]))
-        from wasm.core.fs import is_rehearsal
+        from noust.core.fs import is_rehearsal
 
         return MigrationResult(
             domain=domain,
@@ -151,11 +151,11 @@ def test_json_without_yes_prints_the_plan_and_changes_nothing(
 @pytest.fixture
 def limited(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> list[tuple[Any, ...]]:
     """An application with a memory limit, and the lifecycle call recorded."""
-    from wasm.core.store import App, WASMStore
-    from wasm.deployers.lifecycle import LimitsChange
+    from noust.core.store import App, NoustStore
+    from noust.deployers.lifecycle import LimitsChange
 
-    WASMStore.reset_instance()
-    store = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    store = NoustStore(tmp_path / "wasm.db")
     store.create_app(App(domain=DOMAIN, app_type="nodejs", memory_max_mb=512, tasks_max=100))
     monkeypatch.setattr(app_module, "get_store", lambda: store)
     calls: list[tuple[Any, ...]] = []
@@ -166,14 +166,14 @@ def limited(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> list[tuple[Any, .
 
     monkeypatch.setattr(app_module, "set_resource_limits", apply)
     yield calls
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 def test_limits_not_named_keep_their_value_and_none_removes_one(
     limited: list[tuple[Any, ...]], log: list[str]
 ) -> None:
     """--cpu 50% adds one, --tasks none removes one, the memory limit stays."""
-    from wasm.managers.service_manager import ResourceLimits
+    from noust.managers.service_manager import ResourceLimits
 
     result = invoke(["app", "limits", DOMAIN, "--cpu", "50%", "--tasks", "none", "--restart"])
 
@@ -223,17 +223,17 @@ def test_a_value_that_is_not_a_size_is_a_usage_error(limited: list[tuple[Any, ..
 @pytest.fixture
 def checked(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> Any:
     """An application with a health path, in a store the command and lifecycle share."""
-    from wasm.core.store import App, WASMStore
-    from wasm.deployers import lifecycle
+    from noust.core.store import App, NoustStore
+    from noust.deployers import lifecycle
 
-    WASMStore.reset_instance()
-    store = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    store = NoustStore(tmp_path / "wasm.db")
     store.create_app(App(domain=DOMAIN, app_type="nodejs", port=3100, app_path=str(tmp_path)))
     store.set_app_health(DOMAIN, path="/healthz", expect=None, timeout=None)
     monkeypatch.setattr(app_module, "get_store", lambda: store)
     monkeypatch.setattr(lifecycle, "get_store", lambda: store)
     yield store
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 def test_health_without_options_shows_the_settings_and_their_defaults(
@@ -279,7 +279,7 @@ def test_health_json_prints_the_settings(checked: Any) -> None:
 
 
 def test_health_refuses_a_bad_value_and_changes_nothing(checked: Any, log: list[str]) -> None:
-    from wasm.cli.app import main
+    from noust.cli.app import main
 
     assert main(["app", "health", DOMAIN, "--path", "http://evil.example.com/"]) == 1
     assert checked.get_app(DOMAIN).health_path == "/healthz"

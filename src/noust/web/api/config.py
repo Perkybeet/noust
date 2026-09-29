@@ -1,20 +1,20 @@
 """
-Configuration API endpoints for WASM Web Interface.
+Configuration API endpoints for Noust Web Interface.
 
 Two rules govern this module:
 
-- **Nothing here writes configuration.** :class:`~wasm.core.config.Config` is
+- **Nothing here writes configuration.** :class:`~noust.core.config.Config` is
   the single writer of ``config.yaml``; it creates the file 0600 inside a 0700
   directory, refuses to follow a symlink, and drops settings the code no longer
   honours. This module used to keep a second writer (``save_config_file``) built
   on ``open(path, "w")`` and a mode-less ``mkdir``, which quietly undid all of
   that on the very path the panel uses.
 - **No response carries a secret.** Every payload built from configuration goes
-  through :func:`~wasm.core.config.redact_secrets` first. The panel is
+  through :func:`~noust.core.config.redact_secrets` first. The panel is
   authenticated, but a session is not a reason to hand out the MySQL root
   password, the OpenAI API key and the SMTP account in a JSON body that ends up
   in browser caches, screenshots and bug reports. Writes accept the
-  :data:`~wasm.core.config.REDACTED` placeholder back and keep the stored value.
+  :data:`~noust.core.config.REDACTED` placeholder back and keep the stored value.
 
 Handlers are synchronous: they read and write a file, and declared ``async def``
 that I/O would run on the event loop and stall every other request.
@@ -31,8 +31,8 @@ import yaml
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from wasm.core.config import (
-    DEFAULT_BACKUP_DIR,
+from noust.core import paths
+from noust.core.config import (
     DEFAULT_CONFIG,
     NO_DEFAULT,
     REDACTED,
@@ -40,21 +40,21 @@ from wasm.core.config import (
     coerce_config_value,
     redact_secrets,
 )
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import WASMErrorRoute, require_elevated
-from wasm.web.auth import actor_label, get_audit_logger, get_client_ip
-from wasm.web.pydantic_compat import field_validator
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import NoustErrorRoute, require_elevated
+from noust.web.auth import actor_label, get_audit_logger, get_client_ip
+from noust.web.pydantic_compat import field_validator
 
 if TYPE_CHECKING:
-    from wasm.core.notifier import Notifier
+    from noust.core.notifier import Notifier
 
-# The error boundary: Config.replace()/set() raise ConfigError (a WASMError)
+# The error boundary: Config.replace()/set() raise ConfigError (a NoustError)
 # for a rejected key, which used to crash with a bare 500 because this router
-# had no way to catch it - WASMErrorRoute is the one place that translation
+# had no way to catch it - NoustErrorRoute is the one place that translation
 # is stated.
-router = APIRouter(route_class=WASMErrorRoute)
+router = APIRouter(route_class=NoustErrorRoute)
 
-#: Web servers WASM can actually configure.
+#: Web servers Noust can actually configure.
 SUPPORTED_WEBSERVERS = frozenset({"nginx", "apache"})
 
 
@@ -82,9 +82,9 @@ def persist(config: Config) -> Path:
 
     Raises:
         HTTPException: 403 when the path is not writable, 500 when the write
-            itself fails for a reason that is not a WASM error (disk full,
+            itself fails for a reason that is not a Noust error (disk full,
             unserialisable value). A ``SecurityError`` from a symlinked
-            destination is a WASMError and is left to propagate: WASMErrorRoute
+            destination is a NoustError and is left to propagate: NoustErrorRoute
             maps it to 400, which a bare 500 here used to hide.
     """
     try:
@@ -205,7 +205,9 @@ class BackupConfig(BaseModel):
     """Backup configuration."""
 
     directory: str = Field(
-        str(DEFAULT_BACKUP_DIR),
+        # The canonical path, not the one resolved on this machine, so the
+        # published schema is the same wherever it is generated.
+        str(paths.BACKUP_DIR),
         description="Backup storage directory: an absolute path, or empty for the default",
     )
     max_per_app: int = Field(10, ge=1, le=100, description="Maximum backups per application")
@@ -234,14 +236,14 @@ class SMTPConfig(BaseModel):
     ``password`` is write-only: it is never sent back by ``GET /config/smtp``
     (see :class:`SMTPSettingsResponse`), so unlike a secret round-tripped
     through the generic ``PUT``/``PATCH /api/config`` there is no
-    :data:`~wasm.core.config.REDACTED` placeholder for the console to echo
+    :data:`~noust.core.config.REDACTED` placeholder for the console to echo
     back untouched. Instead an empty ``password`` keeps whatever is already
     stored - but only while it would still go where it went before: the same
     host, port, username and transport. Changing any of those with a blank
     password is refused (see :func:`_refuse_smtp_password_move`), so a
     credential that may write this section but never saw the password cannot
     point it at a server of its own and send itself a test email. There is no
-    way to explicitly blank the password through this endpoint; ``wasm config
+    way to explicitly blank the password through this endpoint; ``noust config
     set monitor.smtp.password ''`` still does that directly.
     """
 
@@ -411,7 +413,7 @@ def update_config(
 
     Placeholders sent back for secrets keep the stored value, and settings the
     code no longer honours are dropped. ``Config.replace`` refuses a value that
-    ``wasm config set`` or the typed endpoints below would also refuse - an
+    ``noust config set`` or the typed endpoints below would also refuse - an
     unsupported web server, a relative apps directory - so a whole-config body
     is not a back door around either.
 
@@ -451,7 +453,7 @@ def patch_config(
 
     The stored value is echoed back redacted, so a secret does not travel twice.
 
-    A string value is coerced against the key's schema exactly as ``wasm
+    A string value is coerced against the key's schema exactly as ``noust
     config set`` coerces argv: a key with a default is parsed as that
     default's type, and a key with none is parsed as a JSON scalar or list,
     falling back to a plain string. Without it, a caller that posts
@@ -625,7 +627,7 @@ def update_backup_config(
     Raises:
         ConfigError: When the directory is a relative path; an empty one is
             stored as the default. The rule is Config.set's, the same one
-            'wasm config set backup.directory' meets.
+            'noust config set backup.directory' meets.
         HTTPException: If the configuration cannot be written.
     """
     config = load_config()
@@ -851,12 +853,12 @@ def update_smtp_config(
     """
     Update the monitor's SMTP settings.
 
-    Goes through :meth:`~wasm.core.config.Config.set`, so the same rule 'wasm
+    Goes through :meth:`~noust.core.config.Config.set`, so the same rule 'noust
     config set monitor.smtp.*' enforces - a hostname for ``host``, a port in
     range, ``use_ssl`` and ``use_tls`` not both on, a valid address for
     ``from_address`` and every recipient - rejects a value here too, in the
     same words. An empty ``password`` is translated to the
-    :data:`~wasm.core.config.REDACTED` placeholder before the write, which is
+    :data:`~noust.core.config.REDACTED` placeholder before the write, which is
     what actually keeps the stored password, and is refused when the
     password would go somewhere else: see :class:`SMTPConfig`.
 
@@ -970,7 +972,7 @@ class TelegramConfig(BaseModel):
         """
         if not value:
             return value
-        from wasm.core.notifier import validate_telegram_bot_token
+        from noust.core.notifier import validate_telegram_bot_token
 
         return validate_telegram_bot_token(value)
 
@@ -999,7 +1001,7 @@ class TelegramConfig(BaseModel):
         """
         if not value:
             return value
-        from wasm.validators.telegram import validate_telegram_chat_id
+        from noust.validators.telegram import validate_telegram_chat_id
 
         return validate_telegram_chat_id(value)
 
@@ -1076,18 +1078,18 @@ def _build_notifier() -> Notifier:
     """
     Build the notifier over the configuration as it stands on disk.
 
-    The same one-line construction :mod:`wasm.web.views.settings_editor` uses
+    The same one-line construction :mod:`noust.web.views.settings_editor` uses
     for its own notifier - ``Notifier(config_api.load_config())``, reading
     this module's :func:`load_config` - because the meaningful logic (the SSRF
     guard, the redirect re-checking, never echoing a remote body) lives once
-    in :class:`~wasm.core.notifier.Notifier`, and both callers are thin wiring
+    in :class:`~noust.core.notifier.Notifier`, and both callers are thin wiring
     over it. Module level so a test can stand in a notifier whose opener never
     opens a socket.
 
     Returns:
         A notifier reading the freshly reloaded configuration.
     """
-    from wasm.core.notifier import Notifier
+    from noust.core.notifier import Notifier
 
     return Notifier(load_config())
 
@@ -1102,7 +1104,7 @@ def test_notification_channel(
     Ignores the master switch and the per-event filters on purpose - the
     button exists to try a channel before notifications are turned on - and
     never echoes the remote server's response body back to the client:
-    :meth:`~wasm.core.notifier.Notifier.test_channel` already refuses a
+    :meth:`~noust.core.notifier.Notifier.test_channel` already refuses a
     private destination and scrubs configured secrets out of any failure it
     reports.
 
@@ -1130,7 +1132,7 @@ class TelegramChatOut(BaseModel):
 
 
 class TelegramChatsResult(BaseModel):
-    """Every chat :meth:`~wasm.core.notifier.Notifier.list_telegram_chats` found."""
+    """Every chat :meth:`~noust.core.notifier.Notifier.list_telegram_chats` found."""
 
     chats: list[TelegramChatOut]
 
@@ -1148,7 +1150,7 @@ def list_telegram_chats(session: dict = Depends(get_current_session)) -> Telegra
     Plain ``get_current_session``, not :func:`require_elevated`: this only
     reads what Telegram has queued for the bot, the same reasoning
     :func:`test_notification_channel` already applies to sending a message -
-    neither one changes anything WASM manages.
+    neither one changes anything Noust manages.
 
     Args:
         session: Authenticated session, injected by the dependency.

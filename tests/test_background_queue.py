@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Tests for :mod:`wasm.core.background`.
+Tests for :mod:`noust.core.background`.
 
 Defended: tasks run in submission order on one thread (a notification's
 "failed" never overtakes its "Deploying"), submitting never waits for the
@@ -19,8 +19,8 @@ from typing import Any
 
 import pytest
 
-from wasm.core import background
-from wasm.core.background import BackgroundQueue
+from noust.core import background
+from noust.core.background import BackgroundQueue
 
 
 @pytest.fixture(autouse=True)

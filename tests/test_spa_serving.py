@@ -1,7 +1,7 @@
 """
 Tests for how the server hands out the console.
 
-The console is a static Vite build committed to ``src/wasm/web/static``; the
+The console is a static Vite build committed to ``src/noust/web/static``; the
 server renders no pages. What is defended here is the seam between the two:
 
 - **Every console address answers with the console.** A reload on a deep link
@@ -25,9 +25,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.web import server as server_module
-from wasm.web.auth import SecurityConfig
-from wasm.web.server import (
+from noust.web import server as server_module
+from noust.web.auth import SecurityConfig
+from noust.web.server import (
     CONTENT_SECURITY_POLICY,
     STATIC_DIR,
     create_app,
@@ -227,7 +227,7 @@ def test_the_health_probe_is_not_the_console(client: TestClient) -> None:
     """A load balancer reads this body; HTML here would be a false healthy."""
     response = client.get("/health")
 
-    assert response.json() == {"status": "healthy", "service": "wasm-web"}
+    assert response.json() == {"status": "healthy", "service": "noust-web"}
 
 
 def test_the_event_stream_demands_a_session(client: TestClient) -> None:

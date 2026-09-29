@@ -4,11 +4,11 @@
 """
 Integrations with code hosts: this server's GitHub App (2.2).
 
-A thin layer over :mod:`wasm.integrations.github`: every endpoint translates
+A thin layer over :mod:`noust.integrations.github`: every endpoint translates
 HTTP to one call there and back. Creating the App, recording an installation
 and removing the App change what this server trusts, so they require sudo
 mode; reading the status and listing repositories do not. Every change is
-audited by name on the ``wasm.audit`` logger.
+audited by name on the ``noust.audit`` logger.
 
 The manifest flow, as the console runs it:
 
@@ -30,17 +30,17 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from wasm.integrations.github import manifest, service
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import WASMErrorRoute, require_elevated
-from wasm.web.auth import actor_label
+from noust.integrations.github import manifest, service
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import NoustErrorRoute, require_elevated
+from noust.web.auth import actor_label
 
-router = APIRouter(route_class=WASMErrorRoute)
+router = APIRouter(route_class=NoustErrorRoute)
 
 #: Every change to what this server trusts on GitHub is written here by name,
 #: like every other mutation the console makes; never the code GitHub hands
 #: back or the App's key.
-audit_log = logging.getLogger("wasm.audit")
+audit_log = logging.getLogger("noust.audit")
 
 
 class InstallationOut(BaseModel):
@@ -164,7 +164,7 @@ class RemovalOut(BaseModel):
     Attributes:
         removed: Whether there was an App to forget.
         settings_url: The App's page on GitHub, where it is uninstalled and
-            deleted; WASM cannot do that itself.
+            deleted; Noust cannot do that itself.
     """
 
     removed: bool

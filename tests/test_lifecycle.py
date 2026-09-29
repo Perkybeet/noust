@@ -17,23 +17,23 @@ from typing import Any
 
 import pytest
 
-from wasm.core.exceptions import WASMError
-from wasm.core.fs import SECRET_MODE, RealFileSystem, set_fs
-from wasm.core.store import App, Service, WASMStore
-from wasm.deployers import lifecycle
-from wasm.deployers.interface import UpdateResult
+from noust.core.exceptions import NoustError
+from noust.core.fs import SECRET_MODE, RealFileSystem, set_fs
+from noust.core.store import App, NoustStore, Service
+from noust.deployers import lifecycle
+from noust.deployers.interface import UpdateResult
 
 DOMAIN = "example.com"
 
 
 @pytest.fixture
-def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> WASMStore:
+def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> NoustStore:
     """A store in the test's directory, installed where the module looks for it."""
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     monkeypatch.setattr(lifecycle, "get_store", lambda: instance)
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture
@@ -124,7 +124,7 @@ def recorder(monkeypatch: pytest.MonkeyPatch) -> Recorder:
     return rec
 
 
-def make_app(store: WASMStore, app_path: Path, app_type: str = "nextjs") -> App:
+def make_app(store: NoustStore, app_path: Path, app_type: str = "nextjs") -> App:
     """Register an application whose tree lives at ``app_path``."""
     (app_path / ".git").mkdir(parents=True, exist_ok=True)
     return store.create_app(
@@ -140,7 +140,7 @@ def make_app(store: WASMStore, app_path: Path, app_type: str = "nextjs") -> App:
 
 
 def test_update_never_deletes_what_is_not_in_the_repository(
-    store: WASMStore, recorder: Recorder, tmp_path: Path
+    store: NoustStore, recorder: Recorder, tmp_path: Path
 ) -> None:
     """The panel and the webhook wiped the tree; uploads and .env must survive."""
     app_path = tmp_path / "apps" / "example-com"
@@ -160,7 +160,7 @@ def test_update_never_deletes_what_is_not_in_the_repository(
 
 
 def test_update_backs_up_then_pulls_then_rebuilds_then_restarts(
-    store: WASMStore, recorder: Recorder, tmp_path: Path
+    store: NoustStore, recorder: Recorder, tmp_path: Path
 ) -> None:
     """The order is what makes a broken build leave the old one serving."""
     make_app(store, tmp_path / "apps" / "example-com")
@@ -175,7 +175,7 @@ def test_update_backs_up_then_pulls_then_rebuilds_then_restarts(
 
 
 def test_the_trigger_reaches_the_deployment_history(
-    store: WASMStore, recorder: Recorder, tmp_path: Path
+    store: NoustStore, recorder: Recorder, tmp_path: Path
 ) -> None:
     """History must say whether the operator, the panel or a push did it."""
     make_app(store, tmp_path / "apps" / "example-com")
@@ -188,7 +188,7 @@ def test_the_trigger_reaches_the_deployment_history(
 
 
 def test_a_new_source_keeps_the_env_file_private(
-    store: WASMStore,
+    store: NoustStore,
     recorder: Recorder,
     tmp_path: Path,
     real_fs: Any,
@@ -220,7 +220,7 @@ def test_a_new_source_keeps_the_env_file_private(
 
 
 def test_a_static_application_is_not_restarted(
-    store: WASMStore, recorder: Recorder, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    store: NoustStore, recorder: Recorder, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Nothing runs for a static site; the web server serves the new files."""
     make_app(store, tmp_path / "apps" / "example-com", app_type="static")
@@ -237,7 +237,7 @@ def test_a_static_application_is_not_restarted(
 
 
 def test_a_missing_unit_is_reported_not_restarted(
-    store: WASMStore, recorder: Recorder, tmp_path: Path
+    store: NoustStore, recorder: Recorder, tmp_path: Path
 ) -> None:
     """The build is done; there is just nothing to restart it into."""
     make_app(store, tmp_path / "apps" / "example-com")
@@ -251,7 +251,7 @@ def test_a_missing_unit_is_reported_not_restarted(
 
 
 def test_a_monorepo_restarts_every_unit_of_the_application(
-    store: WASMStore, recorder: Recorder, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    store: NoustStore, recorder: Recorder, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Each workspace runs as its own unit; all of them run the new build."""
     app = make_app(store, tmp_path / "apps" / "example-com", app_type="monorepo")
@@ -266,7 +266,7 @@ def test_a_monorepo_restarts_every_unit_of_the_application(
 
 
 def test_docker_compose_goes_through_its_deployer(
-    store: WASMStore, recorder: Recorder, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    store: NoustStore, recorder: Recorder, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The CLI reached into the deployer's private methods with its own timeout."""
     make_app(store, tmp_path / "apps" / "example-com", app_type="docker-compose")
@@ -284,21 +284,21 @@ def test_docker_compose_goes_through_its_deployer(
 
 
 def test_an_unknown_application_is_a_clear_error(
-    store: WASMStore, recorder: Recorder, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    store: NoustStore, recorder: Recorder, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Nothing to update is said as such, with the command that would deploy it."""
     monkeypatch.setattr(
         lifecycle, "Config", lambda: SimpleNamespace(apps_directory=tmp_path / "nowhere")
     )
 
-    with pytest.raises(WASMError, match=r"Application not found: example\.com") as exc:
+    with pytest.raises(NoustError, match=r"Application not found: example\.com") as exc:
         lifecycle.update_app(DOMAIN)
 
-    assert exc.value.details and "wasm create" in exc.value.details
+    assert exc.value.details and "noust create" in exc.value.details
 
 
 def test_phases_are_reported_with_their_position(
-    store: WASMStore, recorder: Recorder, tmp_path: Path
+    store: NoustStore, recorder: Recorder, tmp_path: Path
 ) -> None:
     """Callers number the steps; the web job turns them into progress."""
     make_app(store, tmp_path / "apps" / "example-com")
@@ -312,11 +312,11 @@ def test_phases_are_reported_with_their_position(
 
 
 def test_the_panel_update_job_runs_the_shared_update(
-    store: WASMStore, recorder: Recorder, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    store: NoustStore, recorder: Recorder, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The panel's Update used to redeploy from scratch, wiping the tree."""
-    from wasm.web import jobs
-    from wasm.web.jobs import Job, JobContext, JobType, update_app_job
+    from noust.web import jobs
+    from noust.web.jobs import Job, JobContext, JobType, update_app_job
 
     monkeypatch.setattr(jobs, "get_store", lambda: store)
     app_path = tmp_path / "apps" / "example-com"
@@ -337,7 +337,7 @@ def test_the_panel_update_job_runs_the_shared_update(
 
 
 def test_a_tree_that_is_not_a_checkout_fetches_its_recorded_source(
-    store: WASMStore, recorder: Recorder, tmp_path: Path, real_fs: Any
+    store: NoustStore, recorder: Recorder, tmp_path: Path, real_fs: Any
 ) -> None:
     """An archive or a local directory has no remote to pull from."""
     app_path = tmp_path / "apps" / "example-com"
@@ -354,10 +354,10 @@ def test_a_tree_that_is_not_a_checkout_fetches_its_recorded_source(
 
 
 def test_a_monorepo_with_a_unit_that_failed_to_restart_is_not_active(
-    store: WASMStore, recorder: Recorder, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    store: NoustStore, recorder: Recorder, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Two workspaces down and one up must not read as "Running"."""
-    from wasm.core.exceptions import ServiceError
+    from noust.core.exceptions import ServiceError
 
     app = make_app(store, tmp_path / "apps" / "example-com", app_type="monorepo")
     for name in ("example-com-web", "example-com-api"):
@@ -384,7 +384,7 @@ def test_a_monorepo_with_a_unit_that_failed_to_restart_is_not_active(
 
 
 def test_updating_from_a_local_directory_keeps_what_the_app_wrote(
-    store: WASMStore,
+    store: NoustStore,
     recorder: Recorder,
     tmp_path: Path,
     real_fs: Any,
@@ -397,7 +397,7 @@ def test_updating_from_a_local_directory_keeps_what_the_app_wrote(
     fetches the directory again. That fetch used to wipe the tree first; the
     new source must be copied over it instead, leaving the app's own files.
     """
-    from wasm.managers.source_manager import SourceManager
+    from noust.managers.source_manager import SourceManager
 
     source = tmp_path / "src-app"
     source.mkdir()
@@ -424,8 +424,8 @@ def test_updating_from_a_local_directory_keeps_what_the_app_wrote(
 
 def test_a_forced_git_update_never_deletes_untracked_files(tmp_path: Path) -> None:
     """git clean -fd removed every untracked, unignored file: the uploads."""
-    from wasm.core.runner import FakeRunner
-    from wasm.managers.source_manager import SourceManager
+    from noust.core.runner import FakeRunner
+    from noust.managers.source_manager import SourceManager
 
     runner = FakeRunner()
     repo = tmp_path / "app"
@@ -441,8 +441,8 @@ def test_a_forced_git_update_never_deletes_untracked_files(tmp_path: Path) -> No
 
 def test_npm_without_a_lockfile_installs_instead_of_failing(tmp_path: Path) -> None:
     """npm ci refuses to run without package-lock.json, with a useless message."""
-    from wasm.core.runner import FakeRunner
-    from wasm.deployers.helpers.package_manager import PackageManagerHelper
+    from noust.core.runner import FakeRunner
+    from noust.deployers.helpers.package_manager import PackageManagerHelper
 
     helper = PackageManagerHelper(runner=FakeRunner())
 

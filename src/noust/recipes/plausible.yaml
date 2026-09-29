@@ -3,4 +3,4 @@ title: Plausible Analytics
 description: Lightweight, privacy-friendly web analytics.
 homepage: https://plausible.io
 available: false
-unavailable_reason: "Plausible needs ClickHouse besides PostgreSQL, and ships as an Elixir release built for its Docker image; WASM provisions neither. Not available in 2.3."
+unavailable_reason: "Plausible needs ClickHouse besides PostgreSQL, and ships as an Elixir release built for its Docker image; Noust provisions neither. Not available in 2.3."

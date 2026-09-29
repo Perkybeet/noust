@@ -22,21 +22,21 @@ import pytest
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from tests.test_web_auth import build_client, issue_token, login
-from tests.test_web_websockets import connect_code, token_subprotocols
-from wasm.managers.service_manager import WASM_UNIT_MARKER, ServiceManager
-from wasm.web import events as events_module
-from wasm.web.auth import (
+from noust.managers.service_manager import UNIT_MARKER, ServiceManager
+from noust.web import events as events_module
+from noust.web.auth import (
     CSRF_HEADER_NAME,
     WS_CLOSE_RATE_LIMITED,
     WS_CLOSE_UNAUTHORIZED,
     credential_is_current,
 )
-from wasm.web.server import get_token_manager
+from noust.web.server import get_token_manager
+from tests.test_web_auth import build_client, issue_token, login
+from tests.test_web_websockets import connect_code, token_subprotocols
 
 # The package re-exports the APIRouter under the module's own name, so the
 # module is fetched from sys.modules to patch its constants.
-ws_module = importlib.import_module("wasm.web.websockets.router")
+ws_module = importlib.import_module("noust.web.websockets.router")
 
 
 @pytest.fixture
@@ -79,7 +79,7 @@ def unit_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     Point the service manager at a private unit directory.
 
     Returns:
-        The directory WASM's units live in for the test.
+        The directory Noust's units live in for the test.
     """
     directory = tmp_path / "units"
     directory.mkdir()
@@ -168,7 +168,7 @@ def test_the_log_stream_follows_a_unit_wasm_manages(
 ) -> None:
     """An application's own unit still streams, which is what the log tab is for."""
     (unit_dir / "app-example-com.service").write_text(
-        f"# {WASM_UNIT_MARKER}\n[Service]\nExecStart=/usr/bin/node server.js\n"
+        f"# {UNIT_MARKER}\n[Service]\nExecStart=/usr/bin/node server.js\n"
     )
     client = build_client(sandbox)
     token = get_token_manager().generate_master_token()
@@ -189,7 +189,7 @@ def test_the_log_stream_follows_a_unit_wasm_manages(
     assert spawned and spawned[0][:3] == ("journalctl", "-u", "app-example-com.service")
 
 
-@pytest.mark.parametrize("unit", ["wasm-web", "wasm-monitor"])
+@pytest.mark.parametrize("unit", ["wasm-web", "wasm-monitor", "noust-web", "noust-monitor"])
 def test_the_consoles_own_journal_streams_only_to_admin(
     sandbox: Path,
     runner: object,
@@ -203,7 +203,7 @@ def test_the_consoles_own_journal_streams_only_to_admin(
     asks for admin, and the stream must not be the way around it.
     """
     (unit_dir / f"{unit}.service").write_text(
-        f"# {WASM_UNIT_MARKER}\n[Service]\nExecStart=/usr/bin/wasm\n"
+        f"# {UNIT_MARKER}\n[Service]\nExecStart=/usr/bin/wasm\n"
     )
     client = build_client(sandbox)
     manager = get_token_manager()
@@ -271,7 +271,7 @@ def test_the_budget_is_per_credential(sandbox: Path) -> None:
 
 
 def test_revoking_an_api_token_closes_its_open_sockets(sandbox: Path, fast_recheck: None) -> None:
-    """``wasm token revoke`` has to end what the token already opened, not only what it opens next."""
+    """``noust token revoke`` has to end what the token already opened, not only what it opens next."""
     client = build_client(sandbox)
     master = get_token_manager().generate_master_token()
     csrf = login(client, master)["csrf_token"]
@@ -291,7 +291,7 @@ def test_revoking_an_api_token_closes_its_open_sockets(sandbox: Path, fast_reche
 def test_rotating_the_master_token_closes_the_sockets_it_opened(
     sandbox: Path, fast_recheck: None
 ) -> None:
-    """A leaked master token is retired with ``wasm web token --new``, streams included."""
+    """A leaked master token is retired with ``noust web token --new``, streams included."""
     client = build_client(sandbox)
     token = get_token_manager().generate_master_token()
 
@@ -413,7 +413,7 @@ def test_a_live_credential_keeps_the_event_stream_open(sandbox: Path, fast_reche
     build_client(sandbox)
     master = get_token_manager().generate_master_token()
 
-    from wasm.web.auth import check_credential
+    from noust.web.auth import check_credential
 
     payload = check_credential(master, "testclient")
     assert payload is not None

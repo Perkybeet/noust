@@ -89,7 +89,7 @@ test("sets the console's public address, refusing one that is not https", async 
   await page.reload();
   await expect(link(page).getByLabel("Console address")).toHaveValue("https://console.example.org");
   // The terminal equivalent names the key it reads.
-  await expect(link(page).getByText("wasm config get web.public_url")).toBeVisible();
+  await expect(link(page).getByText("noust config get web.public_url")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "a saved public address");
 

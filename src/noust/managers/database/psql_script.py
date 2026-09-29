@@ -39,7 +39,7 @@ the ``postgres`` account (``COPY ... TO PROGRAM``) - the same account psql runs
 as. So the scanner follows the settings the dump states; SQL that changes
 psql's reading behind its back (dynamic SQL flipping a setting) gains nothing
 the SQL did not already have. See
-:meth:`wasm.managers.database.postgres.PostgresManager.restore`.
+:meth:`noust.managers.database.postgres.PostgresManager.restore`.
 """
 
 from __future__ import annotations
@@ -49,7 +49,7 @@ import re
 from itertools import pairwise
 from pathlib import Path
 
-from wasm.core.exceptions import DatabaseBackupError
+from noust.core.exceptions import DatabaseBackupError
 
 #: The meta-commands pg_dump itself writes that are accepted, alone on a line.
 _ALLOWED_META = re.compile(r"\\(?:restrict|unrestrict)[ \t]+[A-Za-z0-9]+[ \t]*\r?\n?")
@@ -488,8 +488,8 @@ class _Scanner:
                 self.line,
                 f"switches to another database ({command})",
                 "The dump was taken with pg_dump --create, which connects to the database "
-                "it creates. WASM restores into the database you chose: take the dump "
-                "without --create (WASM's own backups are), or remove its CREATE DATABASE "
+                "it creates. Noust restores into the database you chose: take the dump "
+                "without --create (Noust's own backups are), or remove its CREATE DATABASE "
                 "and \\connect lines.",
             )
         raise _refuse(

@@ -2,8 +2,8 @@
 
 import pytest
 
-from wasm.core.exceptions import SourceError
-from wasm.validators.source import (
+from noust.core.exceptions import SourceError
+from noust.validators.source import (
     get_repo_name,
     is_archive_url,
     is_git_url,

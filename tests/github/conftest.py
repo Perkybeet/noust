@@ -10,6 +10,12 @@ from pathlib import Path
 
 import pytest
 
+from noust.core.runner import FakeRunner, set_runner
+from noust.core.secrets import SecretStore
+from noust.core.store import GitHubAppRecord, GitHubInstallationRecord, NoustStore
+from noust.integrations.github import app as github_app
+from noust.integrations.github import manifest as github_manifest
+from noust.integrations.github.client import GitHubClient, set_client
 from tests.github.fakes import (
     APP_ID,
     FAKE_SIGNATURE_HEX,
@@ -17,12 +23,6 @@ from tests.github.fakes import (
     FakeGitHub,
     start_server,
 )
-from wasm.core.runner import FakeRunner, set_runner
-from wasm.core.secrets import SecretStore
-from wasm.core.store import GitHubAppRecord, GitHubInstallationRecord, WASMStore
-from wasm.integrations.github import app as github_app
-from wasm.integrations.github import manifest as github_manifest
-from wasm.integrations.github.client import GitHubClient, set_client
 
 
 @pytest.fixture
@@ -45,15 +45,15 @@ def fake_github() -> Iterator[FakeGitHub]:
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> Iterator[WASMStore]:
+def store(tmp_path: Path) -> Iterator[NoustStore]:
     """
     Give the test a store of its own; secrets live beside it.
 
     Yields:
         The store.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     github_app.forget_tokens()
     github_manifest.states.clear()
     try:
@@ -61,7 +61,7 @@ def store(tmp_path: Path) -> Iterator[WASMStore]:
     finally:
         github_app.forget_tokens()
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 @pytest.fixture
@@ -82,7 +82,7 @@ def openssl() -> Iterator[FakeRunner]:
 
 
 @pytest.fixture
-def github_configured(store: WASMStore) -> WASMStore:
+def github_configured(store: NoustStore) -> NoustStore:
     """
     Record an App with one installation on the ``you`` account.
 

@@ -222,7 +222,7 @@ function AppStates() {
     <Section
       id="app-state"
       title="App and deploy state"
-      description="The backend says an app's state in three vocabularies (the API, the store, `wasm list`); AppStatePill draws each word in the one state language, and shows an unknown word verbatim. DeployStatePill does the same for deployments and jobs."
+      description="The backend says an app's state in three vocabularies (the API, the store, `noust list`); AppStatePill draws each word in the one state language, and shows an unknown word verbatim. DeployStatePill does the same for deployments and jobs."
     >
       <Stage>
         <Row>
@@ -283,8 +283,8 @@ function Terminal() {
     >
       <Stage>
         <div className="flex flex-col gap-4">
-          <CommandHint command="wasm status shop.example.dev" label="From a terminal" />
-          <CommandHint command="wasm create -d shop.example.dev -s git@github.com:acme/shop.git -t nextjs --branch main" />
+          <CommandHint command="noust status shop.example.dev" label="From a terminal" />
+          <CommandHint command="noust create -d shop.example.dev -s git@github.com:acme/shop.git -t nextjs --branch main" />
         </div>
       </Stage>
     </Section>

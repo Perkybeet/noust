@@ -1,10 +1,10 @@
 /**
- * The `.env` grammar, exactly as WASM reads the file on disk.
+ * The `.env` grammar, exactly as Noust reads the file on disk.
  *
- * `EnvManager.read_env_file` (src/wasm/deployers/helpers/env_manager.py) is the one reader
- * of an app's environment: `wasm env show`, the API and the deploy all go through it. What
+ * `EnvManager.read_env_file` (src/noust/deployers/helpers/env_manager.py) is the one reader
+ * of an app's environment: `noust env show`, the API and the deploy all go through it. What
  * the operator pastes here is parsed the same way, character for character, so the preview
- * they approve is what WASM will read back. `tests/fixtures/env/*.env` pins it: the Python
+ * they approve is what Noust will read back. `tests/fixtures/env/*.env` pins it: the Python
  * suite parses each fixture with EnvManager, this module's test parses the same files, and
  * both compare with the `.json` beside them.
  *
@@ -75,7 +75,7 @@ export interface ParsedDotenv {
   variables: Map<string, string>;
   /** Every assignment line, in order, duplicates included. */
   assignments: ParsedLine[];
-  /** Lines that were neither blank, a comment nor an assignment: skipped, as WASM skips them. */
+  /** Lines that were neither blank, a comment nor an assignment: skipped, as Noust skips them. */
   skipped: ParsedLine[];
 }
 
@@ -109,7 +109,7 @@ export function parseDotenv(text: string): ParsedDotenv {
 }
 
 // ---------------------------------------------------------------------------------------
-// What the API accepts (wasm/validators/environment.py), checked before sending.
+// What the API accepts (noust/validators/environment.py), checked before sending.
 
 /** ENV_NAME_PATTERN: a POSIX environment identifier. */
 const NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;

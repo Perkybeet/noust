@@ -29,6 +29,14 @@ from typing import Any
 
 import pytest
 
+from noust.core.exceptions import DeploymentError, NginxError, NoustError, RolledBackError
+from noust.core.logger import Logger
+from noust.core.runner import FakeRunner
+from noust.core.store import App, NoustStore
+from noust.deployers import bluegreen, lifecycle
+from noust.deployers.bluegreen import Listener
+from noust.deployers.helpers import preflight
+from noust.deployers.releases import ReleaseManager
 from tests.test_bluegreen import (
     BASE,
     DOMAIN,
@@ -44,14 +52,6 @@ from tests.test_bluegreen import (
     store,
     switched_on,
 )
-from wasm.core.exceptions import DeploymentError, NginxError, RolledBackError, WASMError
-from wasm.core.logger import Logger
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, WASMStore
-from wasm.deployers import bluegreen, lifecycle
-from wasm.deployers.bluegreen import Listener
-from wasm.deployers.helpers import preflight
-from wasm.deployers.releases import ReleaseManager
 
 __all__ = ["app", "machine", "root", "store"]  # fixtures, imported for pytest
 
@@ -69,7 +69,7 @@ def port_free(machine: Machine) -> Any:
 
 
 def test_a_stranger_on_the_idle_port_is_refused_and_nothing_is_switched(
-    root: Path, store: WASMStore, app: App, machine: Machine
+    root: Path, store: NoustStore, app: App, machine: Machine
 ) -> None:
     """Something else answers on blue's port: it would have passed the gate."""
     switched_on(machine, store, app)
@@ -93,7 +93,7 @@ def test_a_stranger_on_the_idle_port_is_refused_and_nothing_is_switched(
 
 
 def test_the_idle_instance_left_running_is_stopped_before_it_starts_again(
-    root: Path, store: WASMStore, app: App, machine: Machine
+    root: Path, store: NoustStore, app: App, machine: Machine
 ) -> None:
     """An interrupted drain or a crash loop leaves the instance itself on its port."""
     switched_on(machine, store, app)
@@ -110,7 +110,7 @@ def test_the_idle_instance_left_running_is_stopped_before_it_starts_again(
 
 
 def test_the_unit_an_interrupted_switch_left_running_is_named_and_refused(
-    root: Path, store: WASMStore, app: App, machine: Machine
+    root: Path, store: NoustStore, app: App, machine: Machine
 ) -> None:
     """
     Turning the mode on was interrupted during the drain: the application's own unit
@@ -141,7 +141,7 @@ def leftover_state(runner: FakeRunner, state: str, file_state: str) -> None:
 
 
 def test_the_status_reports_the_unit_an_interrupted_switch_left_running(
-    root: Path, store: WASMStore, app: App, machine: Machine, runner: FakeRunner
+    root: Path, store: NoustStore, app: App, machine: Machine, runner: FakeRunner
 ) -> None:
     """``wasm app zero-downtime DOMAIN`` says so before an activation trips on it."""
     switched_on(machine, store, app)
@@ -160,7 +160,7 @@ def test_the_status_reports_the_unit_an_interrupted_switch_left_running(
 
 
 def test_a_unit_left_enabled_is_reported_too(
-    root: Path, store: WASMStore, app: App, machine: Machine, runner: FakeRunner
+    root: Path, store: NoustStore, app: App, machine: Machine, runner: FakeRunner
 ) -> None:
     """Stopped but enabled: it takes blue's port again at the next boot."""
     switched_on(machine, store, app)
@@ -177,7 +177,7 @@ def test_a_unit_left_enabled_is_reported_too(
 
 
 def test_the_status_of_a_clean_switch_reports_nothing_left_over(
-    root: Path, store: WASMStore, app: App, machine: Machine, runner: FakeRunner
+    root: Path, store: NoustStore, app: App, machine: Machine, runner: FakeRunner
 ) -> None:
     switched_on(machine, store, app)
     leftover_state(runner, "inactive", "disabled")
@@ -193,7 +193,7 @@ def test_the_status_of_a_clean_switch_reports_nothing_left_over(
 
 
 def test_turning_the_mode_on_refuses_a_stranger_on_greens_port(
-    root: Path, store: WASMStore, app: App, machine: Machine
+    root: Path, store: NoustStore, app: App, machine: Machine
 ) -> None:
     machine.strangers[PORT + 1] = [STRANGER]
 
@@ -208,7 +208,7 @@ def test_turning_the_mode_on_refuses_a_stranger_on_greens_port(
 
 
 def test_turning_the_mode_on_stops_a_green_instance_left_running(
-    root: Path, store: WASMStore, app: App, machine: Machine
+    root: Path, store: NoustStore, app: App, machine: Machine
 ) -> None:
     machine.running[f"{BASE}@green"] = root / "releases" / FIRST
 
@@ -225,7 +225,7 @@ def test_turning_the_mode_on_stops_a_green_instance_left_running(
 
 
 def test_a_probe_answered_by_a_stranger_that_bound_first_is_refused(
-    root: Path, store: WASMStore, app: App, machine: Machine
+    root: Path, store: NoustStore, app: App, machine: Machine
 ) -> None:
     """The port was free at the check, and taken by someone else before the instance bound."""
     switched_on(machine, store, app)
@@ -245,7 +245,7 @@ def test_a_probe_answered_by_a_stranger_that_bound_first_is_refused(
 
 
 def test_a_probe_that_passed_while_the_instance_is_not_active_is_refused(
-    root: Path, store: WASMStore, app: App, machine: Machine
+    root: Path, store: NoustStore, app: App, machine: Machine
 ) -> None:
     """Something answered, but the instance itself is not running: it was not what answered."""
     switched_on(machine, store, app)
@@ -271,7 +271,7 @@ def test_a_probe_that_passed_while_the_instance_is_not_active_is_refused(
 
 
 def test_listeners_nobody_can_name_do_not_block_an_activation(
-    root: Path, store: WASMStore, app: App, machine: Machine
+    root: Path, store: NoustStore, app: App, machine: Machine
 ) -> None:
     """No ss, or a cgroup that cannot be read: the unit's state is what is left to trust."""
     switched_on(machine, store, app)
@@ -292,7 +292,7 @@ def test_listeners_nobody_can_name_do_not_block_an_activation(
 
 
 def test_an_upstream_that_cannot_be_written_stops_the_new_instance(
-    root: Path, store: WASMStore, app: App, machine: Machine
+    root: Path, store: NoustStore, app: App, machine: Machine
 ) -> None:
     switched_on(machine, store, app)
 
@@ -310,7 +310,7 @@ def test_an_upstream_that_cannot_be_written_stops_the_new_instance(
 
 
 def test_new_limits_are_put_back_when_the_switch_fails_with_any_wasm_error(
-    root: Path, store: WASMStore, app: App, monkeypatch: pytest.MonkeyPatch
+    root: Path, store: NoustStore, app: App, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """An NginxError is not a DeploymentError; the old limits must come back all the same."""
 
@@ -403,7 +403,7 @@ def test_a_unit_without_a_readable_cgroup_has_unknown_processes(
 
 
 def test_a_state_systemd_does_not_give_is_not_held_against_the_instance(
-    root: Path, store: WASMStore, app: App, machine: Machine
+    root: Path, store: NoustStore, app: App, machine: Machine
 ) -> None:
     """Only a state systemd names refuses; an empty answer is no evidence either way."""
     switched_on(machine, store, app)
@@ -421,7 +421,7 @@ def test_a_state_systemd_does_not_give_is_not_held_against_the_instance(
 
 
 @pytest.fixture
-def owners(store: WASMStore) -> WASMStore:
+def owners(store: NoustStore) -> NoustStore:
     """Two applications: one in zero-downtime mode on 3000 and 3001, one on 3005."""
     store.create_app(App(domain="bg.example.com", app_path="/x", port=3000))
     store.set_zero_downtime("bg.example.com", True)
@@ -430,7 +430,7 @@ def owners(store: WASMStore) -> WASMStore:
     return store
 
 
-def test_the_idle_instances_port_cannot_be_given_to_a_new_application(owners: WASMStore) -> None:
+def test_the_idle_instances_port_cannot_be_given_to_a_new_application(owners: NoustStore) -> None:
     issues = preflight.port_taken(3001, allowed_owner_port=None, store=owners)
 
     assert len(issues) == 1
@@ -438,29 +438,29 @@ def test_the_idle_instances_port_cannot_be_given_to_a_new_application(owners: WA
 
 
 def test_another_applications_port_cannot_be_given_to_a_new_application(
-    owners: WASMStore,
+    owners: NoustStore,
 ) -> None:
     issues = preflight.port_taken(3005, allowed_owner_port=None, store=owners)
 
     assert len(issues) == 1 and "plain.example.com" in issues[0]
 
 
-def test_an_application_keeps_its_own_port_on_a_redeploy(owners: WASMStore) -> None:
+def test_an_application_keeps_its_own_port_on_a_redeploy(owners: NoustStore) -> None:
     assert preflight.port_taken(3000, allowed_owner_port=3000, store=owners) == []
     assert preflight.port_taken(3002, allowed_owner_port=None, store=owners) == []
 
 
-def test_a_redeploy_cannot_move_onto_another_applications_port(owners: WASMStore) -> None:
+def test_a_redeploy_cannot_move_onto_another_applications_port(owners: NoustStore) -> None:
     issues = preflight.port_taken(3000, allowed_owner_port=3005, store=owners)
 
     assert len(issues) == 1 and "bg.example.com" in issues[0]
 
 
 def test_the_deploy_preflight_refuses_a_port_another_application_owns(
-    owners: WASMStore, monkeypatch: pytest.MonkeyPatch
+    owners: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The one chokepoint the CLI, the console and every other deploy go through."""
-    from wasm.deployers.registry import get_deployer
+    from noust.deployers.registry import get_deployer
 
     deployer: Any = get_deployer("nodejs")
     deployer.configure("new.example.com", "/srv/src", port=3001, webserver="nginx")
@@ -469,7 +469,7 @@ def test_the_deploy_preflight_refuses_a_port_another_application_owns(
     monkeypatch.setattr(preflight, "insufficient_disk_space", lambda directory: [])
     monkeypatch.setattr(preflight, "webserver_down", lambda manager, name: [])
 
-    with pytest.raises(WASMError, match="Pre-flight") as refused:
+    with pytest.raises(NoustError, match="Pre-flight") as refused:
         deployer.pre_flight_check()
 
     assert "bg.example.com" in str(refused.value)

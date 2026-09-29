@@ -30,6 +30,9 @@ from typing import Any
 
 import pytest
 
+from noust.core.exceptions import DeploymentError, NoustError
+from noust.core.store import App, NoustStore
+from noust.deployers import lifecycle
 from tests.test_release_pipeline import (  # noqa: F401  (pytest resolves fixtures by name)
     BROKEN_SERVER,
     DOMAIN,
@@ -44,16 +47,13 @@ from tests.test_release_pipeline import (  # noqa: F401  (pytest resolves fixtur
     store,
     update,
 )
-from wasm.core.exceptions import DeploymentError, WASMError
-from wasm.core.store import App, WASMStore
-from wasm.deployers import lifecycle
 
 
 @pytest.fixture
 def two_releases(
     tmp_path: Path,
     root: Path,
-    store: WASMStore,
+    store: NoustStore,
     machine: SimpleNamespace,
     monkeypatch: pytest.MonkeyPatch,
 ) -> tuple[str, str]:
@@ -86,7 +86,7 @@ def two_releases(
     return first, second
 
 
-def statuses(store: WASMStore) -> dict[str, str]:
+def statuses(store: NoustStore) -> dict[str, str]:
     """Release id to status, as the store records them."""
     app = store.get_app(DOMAIN)
     assert app is not None and app.id is not None
@@ -94,7 +94,7 @@ def statuses(store: WASMStore) -> dict[str, str]:
 
 
 def test_rolling_back_activates_the_previous_release_and_restarts(
-    root: Path, store: WASMStore, machine: SimpleNamespace, two_releases: tuple[str, str]
+    root: Path, store: NoustStore, machine: SimpleNamespace, two_releases: tuple[str, str]
 ) -> None:
     """No build, no fetch: current moves, the unit restarts, the gate passes."""
     first, second = two_releases
@@ -122,7 +122,7 @@ def test_rolling_back_activates_the_previous_release_and_restarts(
 
 
 def test_activating_a_newer_release_again_is_not_a_rollback(
-    root: Path, store: WASMStore, two_releases: tuple[str, str]
+    root: Path, store: NoustStore, two_releases: tuple[str, str]
 ) -> None:
     """Forward after a rollback supersedes; nothing more is marked rolled back."""
     first, second = two_releases
@@ -137,7 +137,7 @@ def test_activating_a_newer_release_again_is_not_a_rollback(
 
 
 def test_a_release_that_fails_the_gate_puts_the_serving_one_back(
-    root: Path, store: WASMStore, machine: SimpleNamespace, two_releases: tuple[str, str]
+    root: Path, store: NoustStore, machine: SimpleNamespace, two_releases: tuple[str, str]
 ) -> None:
     """The operator ends where they started, told why in the process's own words."""
     first, second = two_releases
@@ -159,7 +159,7 @@ def test_a_release_that_fails_the_gate_puts_the_serving_one_back(
 
 
 def test_the_active_release_is_not_activated_twice(
-    store: WASMStore, machine: SimpleNamespace, two_releases: tuple[str, str]
+    store: NoustStore, machine: SimpleNamespace, two_releases: tuple[str, str]
 ) -> None:
     """Nothing to do is nothing done: no restart, no history row."""
     _, second = two_releases
@@ -173,7 +173,7 @@ def test_the_active_release_is_not_activated_twice(
 
 
 def test_an_unknown_release_is_refused_with_what_there_is(
-    store: WASMStore, two_releases: tuple[str, str]
+    store: NoustStore, two_releases: tuple[str, str]
 ) -> None:
     """The error lists the releases on disk."""
     first, second = two_releases
@@ -185,7 +185,7 @@ def test_an_unknown_release_is_refused_with_what_there_is(
 
 
 def test_the_oldest_release_has_nothing_to_roll_back_to(
-    root: Path, store: WASMStore, two_releases: tuple[str, str]
+    root: Path, store: NoustStore, two_releases: tuple[str, str]
 ) -> None:
     """Going back from the oldest release says so, with the alternatives."""
     lifecycle.activate_release(DOMAIN)
@@ -195,7 +195,7 @@ def test_the_oldest_release_has_nothing_to_roll_back_to(
 
 
 def test_an_in_place_app_has_no_releases_and_is_left_alone(
-    tmp_path: Path, store: WASMStore
+    tmp_path: Path, store: NoustStore
 ) -> None:
     """Review Focus: an in-place app is never converted by a side door."""
     root = tmp_path / "inplace"
@@ -205,25 +205,25 @@ def test_an_in_place_app_has_no_releases_and_is_left_alone(
     with pytest.raises(DeploymentError, match="in place") as failure:
         lifecycle.activate_release(DOMAIN)
 
-    assert "wasm app migrate" in failure.value.details
+    assert "noust app migrate" in failure.value.details
     assert os.listdir(root) == []
 
 
-def test_an_unknown_application_is_an_error(store: WASMStore) -> None:
+def test_an_unknown_application_is_an_error(store: NoustStore) -> None:
     """Nothing deployed at the domain."""
-    with pytest.raises(WASMError, match="not found"):
+    with pytest.raises(NoustError, match="not found"):
         lifecycle.list_releases(DOMAIN)
 
 
 def test_the_listing_joins_the_disk_and_the_history(
-    root: Path, store: WASMStore, machine: SimpleNamespace, two_releases: tuple[str, str]
+    root: Path, store: NoustStore, machine: SimpleNamespace, two_releases: tuple[str, str]
 ) -> None:
     """A failed release removed from disk is still listed, and marked as gone."""
     first, second = two_releases
     app = store.get_app(DOMAIN)
     assert app is not None and app.id is not None
     gone = "20260101-000000-ccccccc"
-    from wasm.core.store import ReleaseRecord
+    from noust.core.store import ReleaseRecord
 
     store.record_release(
         ReleaseRecord(

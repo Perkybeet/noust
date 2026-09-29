@@ -6,9 +6,9 @@ import { defineConfig, devices } from "@playwright/test";
 //
 // The screenshot pass (e2e/screenshots.spec.ts, tagged @screens) is slow and produces
 // files for a person to review, so it is left out of the default run. `npm run e2e:screens`
-// sets WASM_SCREENS=1, which lifts the exclusion; passing --grep alone would not, because
+// sets NOUST_SCREENS=1, which lifts the exclusion; passing --grep alone would not, because
 // Playwright applies grep and grepInvert together.
-const screens = process.env.WASM_SCREENS === "1";
+const screens = process.env.NOUST_SCREENS === "1";
 
 export default defineConfig({
   testDir: "./e2e",

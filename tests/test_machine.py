@@ -4,7 +4,7 @@
 """
 Tests for the machine snapshot: one implementation, JSON in and out.
 
-:func:`wasm.web.machine.read_machine` is now the only place that samples
+:func:`noust.web.machine.read_machine` is now the only place that samples
 psutil and systemd for the machine's headline numbers. The console's topbar,
 the ``machine`` SSE event and ``GET /api/system/machine`` all read the exact
 same snapshot, instead of the SSE side rendering its own HTML fragment from a
@@ -14,13 +14,13 @@ What is defended:
 
 - **The snapshot has the console's shape** and survives ``dataclasses.asdict``
   plus ``json.dumps`` unchanged, because that is exactly how it reaches the
-  wire in :func:`wasm.web.events.machine_frame`.
+  wire in :func:`noust.web.events.machine_frame`.
 - **Unit counts come from ServiceManager, not a probe per unit.** One
   ``systemctl list-units`` call, scripted on a ``FakeRunner``, is all a test -
   and the five-second SSE timer - can afford.
 - **Application counts are read off that same unit list**, matched by name,
   rather than costing a second round trip per application the way
-  :func:`wasm.core.app_state.resolve_states` would.
+  :func:`noust.core.app_state.resolve_states` would.
 - **A systemd or store failure degrades the snapshot to zero, not a crash.**
   The strip refreshes on a timer; one bad tick must not take the stream
   carrying it down.
@@ -40,15 +40,15 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.core.config import Config
-from wasm.core.exceptions import ServiceError, WASMError
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, Service, WASMStore
-from wasm.core.utils import domain_to_app_name, legacy_app_name
-from wasm.managers.service_manager import ServiceManager
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.system import router as system_router
-from wasm.web.machine import (
+from noust.core.config import Config
+from noust.core.exceptions import NoustError, ServiceError
+from noust.core.runner import FakeRunner
+from noust.core.store import App, NoustStore, Service
+from noust.core.utils import domain_to_app_name, legacy_app_name
+from noust.managers.service_manager import ServiceManager
+from noust.web.api.auth import get_current_session
+from noust.web.api.system import router as system_router
+from noust.web.machine import (
     AppTally,
     DiskSnapshot,
     MachineState,
@@ -67,7 +67,7 @@ LIST_UNITS = ["systemctl", "list-units", "--type=service", "--all", "--no-pager"
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> Iterator[WASMStore]:
+def store(tmp_path: Path) -> Iterator[NoustStore]:
     """
     Give the snapshot a store of its own.
 
@@ -77,16 +77,16 @@ def store(tmp_path: Path) -> Iterator[WASMStore]:
     Yields:
         The store the applications tally reads.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     try:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
-def deploy(store: WASMStore, domain: str, **overrides: Any) -> App:
+def deploy(store: NoustStore, domain: str, **overrides: Any) -> App:
     """
     Record an application the way a deploy would, for the applications tally.
 
@@ -111,7 +111,7 @@ def deploy(store: WASMStore, domain: str, **overrides: Any) -> App:
     return store.create_app(App(**fields))
 
 
-def register_service(store: WASMStore, name: str, *, status: str = "active") -> None:
+def register_service(store: NoustStore, name: str, *, status: str = "active") -> None:
     """
     Register a unit in the store the way ``ServiceManager.create_service``
     would during a real deploy.
@@ -134,7 +134,7 @@ def register_service(store: WASMStore, name: str, *, status: str = "active") -> 
 # --------------------------------------------------------------------- shape
 
 
-def test_the_snapshot_has_the_console_s_shape(runner: FakeRunner, store: WASMStore) -> None:
+def test_the_snapshot_has_the_console_s_shape(runner: FakeRunner, store: NoustStore) -> None:
     """Every field the topbar, the SSE event and the REST endpoint rely on is present."""
     state = read_machine(apps_root="/tmp")
 
@@ -150,14 +150,14 @@ def test_the_snapshot_has_the_console_s_shape(runner: FakeRunner, store: WASMSto
     assert isinstance(state.apps, AppTally)
 
 
-def test_the_snapshot_survives_asdict_and_json_dumps(runner: FakeRunner, store: WASMStore) -> None:
-    """`wasm.web.events.machine_frame` hands this straight to `json.dumps`."""
+def test_the_snapshot_survives_asdict_and_json_dumps(runner: FakeRunner, store: NoustStore) -> None:
+    """`noust.web.events.machine_frame` hands this straight to `json.dumps`."""
     payload = asdict(read_machine(apps_root="/tmp"))
 
     # `dataclasses.asdict` keeps `load` a tuple; the wire format does not
     # have tuples. Round-tripping through JSON must reproduce the same
     # values, the array/tuple distinction included, since that is exactly
-    # what `wasm.web.events.machine_frame` does before sending it.
+    # what `noust.web.events.machine_frame` does before sending it.
     round_tripped = json.loads(json.dumps(payload))
     assert round_tripped["load"] == list(payload["load"])
     assert round_tripped["load_history"] == payload["load_history"]
@@ -192,7 +192,7 @@ def test_classify_unit_sorts_the_four_systemd_signals() -> None:
 
 
 def test_units_come_from_service_manager_not_a_probe_per_unit(
-    runner: FakeRunner, store: WASMStore
+    runner: FakeRunner, store: NoustStore
 ) -> None:
     """
     The header used to always read "0 running / 0 failed": nothing ever
@@ -219,7 +219,7 @@ def test_units_come_from_service_manager_not_a_probe_per_unit(
     )
 
 
-def test_a_crash_looping_unit_folds_into_stopped(runner: FakeRunner, store: WASMStore) -> None:
+def test_a_crash_looping_unit_folds_into_stopped(runner: FakeRunner, store: NoustStore) -> None:
     """
     A unit systemd is restarting every few seconds reads as active in between
     restarts. The JSON schema has no "busy" bucket of its own - the console
@@ -239,7 +239,7 @@ def test_a_crash_looping_unit_folds_into_stopped(runner: FakeRunner, store: WASM
     assert state.units == UnitTally(running=0, failed=0, stopped=1)
 
 
-def test_only_units_wasm_manages_are_counted(runner: FakeRunner, store: WASMStore) -> None:
+def test_only_units_wasm_manages_are_counted(runner: FakeRunner, store: NoustStore) -> None:
     """A unit systemd happens to report alongside them, such as ssh, never inflates the tally."""
     runner.script(
         LIST_UNITS,
@@ -256,7 +256,7 @@ def test_only_units_wasm_manages_are_counted(runner: FakeRunner, store: WASMStor
 
 
 def test_a_systemd_that_cannot_be_reached_degrades_the_snapshot_to_zero(
-    runner: FakeRunner, store: WASMStore, monkeypatch: pytest.MonkeyPatch
+    runner: FakeRunner, store: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The snapshot refreshes on a timer; a systemd that cannot be reached must not raise."""
 
@@ -272,7 +272,7 @@ def test_a_systemd_that_cannot_be_reached_degrades_the_snapshot_to_zero(
 
 
 def test_fetch_service_states_is_the_one_call_both_tallies_share(
-    runner: FakeRunner, store: WASMStore
+    runner: FakeRunner, store: NoustStore
 ) -> None:
     """Both the unit tally and the applications tally read this, not systemd directly."""
     runner.script(
@@ -298,7 +298,7 @@ def test_fetch_service_states_is_the_one_call_both_tallies_share(
 
 
 def test_a_static_app_is_counted_without_asking_systemd_about_it(
-    runner: FakeRunner, store: WASMStore
+    runner: FakeRunner, store: NoustStore
 ) -> None:
     """A static site has no unit; asking systemd about one would always say "not running"."""
     deploy(store, domain="static.example.com", is_static=True)
@@ -309,7 +309,7 @@ def test_a_static_app_is_counted_without_asking_systemd_about_it(
 
 
 def test_a_running_application_is_matched_by_its_unit_name(
-    runner: FakeRunner, store: WASMStore
+    runner: FakeRunner, store: NoustStore
 ) -> None:
     """The current naming convention: the unit is the sanitised domain, no prefix."""
     deploy(store, domain="one.example.com")
@@ -328,7 +328,7 @@ def test_a_running_application_is_matched_by_its_unit_name(
 
 
 def test_a_legacy_prefixed_unit_still_matches_its_application(
-    runner: FakeRunner, store: WASMStore
+    runner: FakeRunner, store: NoustStore
 ) -> None:
     """An application deployed before the ``wasm-`` prefix was dropped is still found."""
     deploy(store, domain="old.example.com")
@@ -346,7 +346,7 @@ def test_a_legacy_prefixed_unit_still_matches_its_application(
 
 
 def test_an_application_with_no_matching_unit_counts_as_stopped(
-    runner: FakeRunner, store: WASMStore
+    runner: FakeRunner, store: NoustStore
 ) -> None:
     """A deployed application whose unit is gone reads as stopped, not silently dropped."""
     deploy(store, domain="ghost.example.com")
@@ -357,7 +357,7 @@ def test_an_application_with_no_matching_unit_counts_as_stopped(
 
 
 def test_applications_and_units_are_tallied_from_one_systemctl_call(
-    runner: FakeRunner, store: WASMStore
+    runner: FakeRunner, store: NoustStore
 ) -> None:
     """
     A mix of static, running and unmatched applications alongside a
@@ -383,14 +383,14 @@ def test_applications_and_units_are_tallied_from_one_systemctl_call(
 
 
 def test_the_store_being_unreadable_degrades_apps_to_zero_not_a_crash(
-    runner: FakeRunner, store: WASMStore, monkeypatch: pytest.MonkeyPatch
+    runner: FakeRunner, store: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The applications tally must not take the snapshot down with it."""
 
-    def broken() -> WASMStore:
-        raise WASMError("store is locked")
+    def broken() -> NoustStore:
+        raise NoustError("store is locked")
 
-    monkeypatch.setattr("wasm.core.store.get_store", broken)
+    monkeypatch.setattr("noust.core.store.get_store", broken)
 
     state = read_machine(apps_root="/tmp")
 
@@ -401,7 +401,7 @@ def test_the_store_being_unreadable_degrades_apps_to_zero_not_a_crash(
 
 
 @pytest.fixture
-def client(runner: FakeRunner, store: WASMStore) -> TestClient:
+def client(runner: FakeRunner, store: NoustStore) -> TestClient:
     """
     Build a client for the system router with authentication stubbed.
 
@@ -458,8 +458,8 @@ def test_get_machine_reports_the_live_unit_tally(client: TestClient, runner: Fak
 
 def test_get_machine_demands_a_session(tmp_path: Path, runner: FakeRunner) -> None:
     """The machine snapshot names every application on the host; it is not public."""
-    from wasm.web.auth import SecurityConfig
-    from wasm.web.server import create_app
+    from noust.web.auth import SecurityConfig
+    from noust.web.server import create_app
 
     app = create_app(SecurityConfig(state_dir=tmp_path / "state", rate_limit_requests=5000))
     client = TestClient(app, client=("testclient", 50000), follow_redirects=False)
@@ -479,7 +479,7 @@ def test_the_disk_meter_reads_the_key_every_deployer_writes(
     applications were actually deployed.
     """
     monkeypatch.setattr(
-        "wasm.core.config.DEFAULT_CONFIG_PATH", tmp_path / "etc" / "wasm" / "config.yaml"
+        "noust.core.config.DEFAULT_CONFIG_PATH", tmp_path / "etc" / "wasm" / "config.yaml"
     )
     Config.reset_instance()
     try:

@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-``wasm preview``: pull request previews of an application (2.2).
+``noust preview``: pull request previews of an application (2.2).
 
-A presentation layer over :mod:`wasm.managers.previews`, the module the
+A presentation layer over :mod:`noust.managers.previews`, the module the
 console's ``/api/apps/{domain}/previews`` endpoints and the webhooks call
 too. The CLI runs without the console, so removals here happen in this
 process instead of as console jobs.
@@ -17,13 +17,13 @@ import json
 
 import click
 
-from wasm.cli.app import Context, WasmGroup, global_flags, json_option, pass_context
-from wasm.core.store import get_store
-from wasm.managers import previews
-from wasm.validators.domain import validate_domain
+from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
+from noust.core.store import get_store
+from noust.managers import previews
+from noust.validators.domain import validate_domain
 
 
-@click.group("preview", cls=WasmGroup)
+@click.group("preview", cls=NoustGroup)
 def cli() -> None:
     """Pull request previews: a short-lived copy of an application per pull request."""
 
@@ -249,7 +249,7 @@ def sweep_command(ctx: Context) -> None:
     """
     Remove expired previews, and those whose application is gone.
 
-    What wasm-previews.timer runs every hour.
+    What noust-previews.timer runs every hour.
     """
     removed = previews.sweep(logger=ctx.logger)
     if ctx.json_output:

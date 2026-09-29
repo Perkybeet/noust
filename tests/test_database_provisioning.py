@@ -20,12 +20,12 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.exceptions import DatabaseError
-from wasm.core.logger import Logger
-from wasm.core.secrets import SecretStore
-from wasm.core.store import App, Database, WASMStore
-from wasm.deployers.helpers import databases as db_helpers
-from wasm.deployers.helpers.databases import (
+from noust.core.exceptions import DatabaseError
+from noust.core.logger import Logger
+from noust.core.secrets import SecretStore
+from noust.core.store import App, Database, NoustStore
+from noust.deployers.helpers import databases as db_helpers
+from noust.deployers.helpers.databases import (
     SUPPORTED_ENGINES,
     DatabaseCredentials,
     database_identifiers,
@@ -126,10 +126,10 @@ class FakeRegistry:
 @pytest.fixture
 def store(tmp_path: Path):
     """Provide an isolated store, installed as the process-wide singleton."""
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture
@@ -152,7 +152,7 @@ def _patch_registry(monkeypatch: pytest.MonkeyPatch, registry: FakeRegistry) -> 
 
 
 def test_provision_creates_database_and_user_and_writes_secret_before_create_user(
-    store: WASMStore,
+    store: NoustStore,
     secrets_root: Path,
     logger: Logger,
     monkeypatch: pytest.MonkeyPatch,
@@ -184,7 +184,7 @@ def test_provision_creates_database_and_user_and_writes_secret_before_create_use
     assert creds.port == 5432
 
     # The secret reaches disk before create_user runs: a crash in between must
-    # never leave a user whose password WASM cannot recall.
+    # never leave a user whose password Noust cannot recall.
     write_index = calls.index("secret_write:databases/postgresql/app_user")
     create_user_index = calls.index("create_user:app_user")
     assert write_index < create_user_index
@@ -203,7 +203,7 @@ def test_provision_creates_database_and_user_and_writes_secret_before_create_use
 
 
 def test_provision_is_idempotent_on_retry(
-    store: WASMStore, secrets_root: Path, logger: Logger, monkeypatch: pytest.MonkeyPatch
+    store: NoustStore, secrets_root: Path, logger: Logger, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     manager = FakeManager("postgresql", "PostgreSQL")
     _patch_registry(monkeypatch, FakeRegistry({"postgresql": manager}))
@@ -236,7 +236,7 @@ def test_provision_is_idempotent_on_retry(
 
 
 def test_provision_refuses_an_existing_user_it_did_not_create(
-    store: WASMStore, secrets_root: Path, logger: Logger, monkeypatch: pytest.MonkeyPatch
+    store: NoustStore, secrets_root: Path, logger: Logger, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     manager = FakeManager("postgresql", "PostgreSQL")
     manager.users["app_user"] = "some-password-wasm-never-recorded"
@@ -253,14 +253,14 @@ def test_provision_refuses_an_existing_user_it_did_not_create(
             secret_store=secret_store,
         )
 
-    # WASM did not create it, so dropping it is not WASM's advice to give
-    # (see tests/test_database_ownership.py for the user WASM did create).
-    assert "WASM did not create" in str(excinfo.value)
+    # Noust did not create it, so dropping it is not Noust's advice to give
+    # (see tests/test_database_ownership.py for the user Noust did create).
+    assert "Noust did not create" in str(excinfo.value)
     assert "user-delete" not in excinfo.value.details
 
 
 def test_provision_refuses_database_owned_by_another_app(
-    store: WASMStore, secrets_root: Path, logger: Logger, monkeypatch: pytest.MonkeyPatch
+    store: NoustStore, secrets_root: Path, logger: Logger, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     manager = FakeManager("postgresql", "PostgreSQL")
     _patch_registry(monkeypatch, FakeRegistry({"postgresql": manager}))
@@ -290,7 +290,7 @@ def test_provision_refuses_database_owned_by_another_app(
 
 
 def test_provision_refuses_engine_that_is_not_installed(
-    store: WASMStore, secrets_root: Path, logger: Logger, monkeypatch: pytest.MonkeyPatch
+    store: NoustStore, secrets_root: Path, logger: Logger, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     manager = FakeManager("postgresql", "PostgreSQL", installed=False)
     _patch_registry(monkeypatch, FakeRegistry({"postgresql": manager}))
@@ -307,11 +307,11 @@ def test_provision_refuses_engine_that_is_not_installed(
         )
 
     assert "PostgreSQL is not installed" in str(excinfo.value)
-    assert "wasm db install postgresql" in excinfo.value.details
+    assert "noust db install postgresql" in excinfo.value.details
 
 
 def test_provision_refuses_unknown_engine(
-    store: WASMStore, secrets_root: Path, logger: Logger, monkeypatch: pytest.MonkeyPatch
+    store: NoustStore, secrets_root: Path, logger: Logger, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _patch_registry(monkeypatch, FakeRegistry({}))
     secret_store = SecretStore(root=secrets_root)
@@ -328,7 +328,7 @@ def test_provision_refuses_unknown_engine(
 
 
 def test_provision_refuses_engine_it_does_not_support(
-    store: WASMStore, secrets_root: Path, logger: Logger, monkeypatch: pytest.MonkeyPatch
+    store: NoustStore, secrets_root: Path, logger: Logger, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     manager = FakeManager("redis", "Redis")
     _patch_registry(monkeypatch, FakeRegistry({"redis": manager}))
@@ -346,7 +346,7 @@ def test_provision_refuses_engine_it_does_not_support(
 
 
 def test_provision_resolves_mariadb_alias_to_mysql(
-    store: WASMStore, secrets_root: Path, logger: Logger, monkeypatch: pytest.MonkeyPatch
+    store: NoustStore, secrets_root: Path, logger: Logger, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     manager = FakeManager("mysql", "MySQL/MariaDB", max_user_name_length=32, port=3306)
     _patch_registry(monkeypatch, FakeRegistry({"mysql": manager}, aliases={"mariadb": "mysql"}))
@@ -470,11 +470,11 @@ def test_supported_engines_are_mysql_and_postgresql() -> None:
 
 
 def test_monorepo_provision_postgresql_delegates_to_the_helper(
-    tmp_path: Path, store: WASMStore, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from wasm.core.runner import FakeRunner
-    from wasm.deployers import monorepo as monorepo_module
-    from wasm.deployers.monorepo import DatabaseConfig, MonorepoDeployer
+    from noust.core.runner import FakeRunner
+    from noust.deployers import monorepo as monorepo_module
+    from noust.deployers.monorepo import DatabaseConfig, MonorepoDeployer
 
     captured: dict[str, object] = {}
 
@@ -523,11 +523,11 @@ def test_monorepo_provision_postgresql_delegates_to_the_helper(
 
 
 def test_monorepo_provision_databases_treats_a_provisioning_failure_as_a_warning(
-    tmp_path: Path, store: WASMStore, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from wasm.core.runner import FakeRunner
-    from wasm.deployers import monorepo as monorepo_module
-    from wasm.deployers.monorepo import DatabaseConfig, MonorepoDeployer
+    from noust.core.runner import FakeRunner
+    from noust.deployers import monorepo as monorepo_module
+    from noust.deployers.monorepo import DatabaseConfig, MonorepoDeployer
 
     def failing_provision_database(engine: str, **kwargs: object) -> DatabaseCredentials:
         raise DatabaseError("PostgreSQL is not installed", details="Install it first.")

@@ -4,11 +4,11 @@
  * error boundary). Destinations themselves live in nav.ts.
  */
 export const shell = {
-  area: "WASM Console",
-  /** The wordmark's product suffix (Logo's `product` prop), apart from "WASM Console" above. */
+  area: "Noust Console",
+  /** The wordmark's product suffix (Logo's `product` prop), apart from "Noust Console" above. */
   consoleProduct: "Console",
   /** The sidebar's logo link, which doubles as the overview link. */
-  sidebarOverview: "WASM Console, overview",
+  sidebarOverview: "Noust Console, overview",
   version: "Version {version}",
   skipToContent: "Skip to content",
   menu: {
@@ -63,7 +63,7 @@ export const shell = {
   },
   machine: {
     landmark: "This machine",
-    unitsSummary: "WASM units: {running} running, {failed} failed, {stopped} stopped",
+    unitsSummary: "Noust units: {running} running, {failed} failed, {stopped} stopped",
     load: "Load",
     loadAverage: "Load average: {one} {five} {fifteen}",
     loadDetail: "over one minute, {five} over five, {fifteen} over fifteen",
@@ -89,5 +89,10 @@ export const shell = {
     title: "Page not found",
     body: "Nothing lives at this address. Check the link, or go back to the {overview}.",
     overviewLink: "overview",
+  },
+  renameNotice: {
+    text: "WASM is now Noust — nothing else changed: same console, same applications.",
+    link: "What changed and why",
+    dismiss: "Dismiss",
   },
 } as const;

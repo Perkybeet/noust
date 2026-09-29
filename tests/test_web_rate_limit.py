@@ -34,9 +34,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from wasm.web import auth
-from wasm.web.auth import RateLimiter, SecurityConfig
-from wasm.web.server import create_app, get_brute_force, get_token_manager
+from noust.web import auth
+from noust.web.auth import RateLimiter, SecurityConfig
+from noust.web.server import create_app, get_brute_force, get_token_manager
 
 
 def build_client(sandbox: Path, **overrides: object) -> TestClient:
@@ -306,7 +306,7 @@ def test_a_websocket_guess_counts_once(sandbox: Path) -> None:
     """The handshake is checked by the limiter and by the handshake itself."""
     from starlette.websockets import WebSocketDisconnect
 
-    from wasm.web.websockets.router import WS_SUBPROTOCOL, WS_TOKEN_PREFIX
+    from noust.web.websockets.router import WS_SUBPROTOCOL, WS_TOKEN_PREFIX
 
     client = build_client(sandbox, rate_limit_requests=1000, max_failed_attempts=5)
 
@@ -340,7 +340,7 @@ def test_retry_after_is_when_the_oldest_request_leaves_the_window(
 ) -> None:
     """Not the whole window: the console should wait exactly as long as it must."""
     now = [1000.0]
-    monkeypatch.setattr("wasm.web.auth.time.time", lambda: now[0])
+    monkeypatch.setattr("noust.web.auth.time.time", lambda: now[0])
     limiter = RateLimiter(max_requests=2, window=60)
 
     assert limiter.is_allowed("k")

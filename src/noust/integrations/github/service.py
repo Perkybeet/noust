@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-What the console and ``wasm github`` do with this server's GitHub App.
+What the console and ``noust github`` do with this server's GitHub App.
 
 One implementation for both front ends: status, installations, the
 repositories and branches the wizard offers, the webhook URL, and removal.
@@ -18,10 +18,10 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 from urllib.parse import quote
 
-from wasm.core.exceptions import IntegrationError, ValidationError
-from wasm.core.secrets import SecretStore
-from wasm.core.store import GitHubInstallationRecord, get_store
-from wasm.integrations.github.app import (
+from noust.core.exceptions import IntegrationError, ValidationError
+from noust.core.secrets import SecretStore
+from noust.core.store import GitHubInstallationRecord, get_store
+from noust.integrations.github.app import (
     SECRET_NAMESPACE,
     WEBHOOK_SECRET,
     GitHubApp,
@@ -31,9 +31,9 @@ from wasm.integrations.github.app import (
     read_meta,
     write_meta,
 )
-from wasm.integrations.github.client import WEB_URL, json_object
-from wasm.integrations.hooks_site import public_hooks_url
-from wasm.validators.source import GITHUB_SHORTHAND_PATTERN
+from noust.integrations.github.client import WEB_URL, json_object
+from noust.integrations.hooks_site import public_hooks_url
+from noust.validators.source import GITHUB_SHORTHAND_PATTERN
 
 logger = logging.getLogger(__name__)
 

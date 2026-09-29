@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-``wasm diagnose``: why is this application down.
+``noust diagnose``: why is this application down.
 
-The command is a thin presentation layer over :func:`wasm.managers.diagnose.diagnose`;
+The command is a thin presentation layer over :func:`noust.managers.diagnose.diagnose`;
 every correlation rule lives there, not here. What this module owns is turning
-a :class:`~wasm.managers.diagnose.Diagnosis` into what an operator reads: the
+a :class:`~noust.managers.diagnose.Diagnosis` into what an operator reads: the
 verdict first, the probable cause in bold, then each check with its status and
 its evidence printed verbatim underneath - CLAUDE.md's rule that a system
 error is never paraphrased applies to the CLI exactly as it does to the panel.
@@ -19,9 +19,9 @@ import json
 
 import click
 
-from wasm.cli.app import Context, json_option, pass_context
-from wasm.core.logger import Colors, Logger
-from wasm.managers.diagnose import Diagnosis, diagnose
+from noust.cli.app import Context, json_option, pass_context
+from noust.core.logger import Colors, Logger
+from noust.managers.diagnose import Diagnosis, diagnose
 
 #: A check's status in Logger.check's vocabulary.
 _CHECK_OUTCOME: dict[str, str] = {"ok": "ok", "warn": "warning", "fail": "error", "skip": "info"}
@@ -49,7 +49,7 @@ def print_diagnosis(logger: Logger, diagnosis: Diagnosis) -> None:
 
     Args:
         logger: Logger the command writes through.
-        diagnosis: The result of :func:`wasm.managers.diagnose.diagnose`.
+        diagnosis: The result of :func:`noust.managers.diagnose.diagnose`.
     """
     logger.check("Verdict", diagnosis.verdict, _VERDICT_OUTCOME[diagnosis.verdict])
 
@@ -89,6 +89,6 @@ def cli(ctx: Context, domain: str) -> None:
 
     # A plain `return 1` is not enough: Click only turns a callback's return
     # value into a process exit code when the command calls ctx.exit itself,
-    # see wasm.cli.commands.backup._finish for the same pattern.
+    # see noust.cli.commands.backup._finish for the same pattern.
     if result.verdict == "down":
         click.get_current_context().exit(1)

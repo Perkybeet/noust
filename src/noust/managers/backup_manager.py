@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Backup manager for WASM.
+Backup manager for Noust.
 
 A backup is a promise that the data can come back. Three things used to break
 that promise, and this module exists in its current shape because of them:
@@ -18,7 +18,7 @@ that promise, and this module exists in its current shape because of them:
   file with no metadata and no store next to it.
 - **Extraction trusted the archive.** ``restore()`` ran ``tar -xzf``, which
   writes ``../`` members outside the destination and follows symlinks. The
-  member-by-member extractor written for :mod:`wasm.managers.source_manager` is
+  member-by-member extractor written for :mod:`noust.managers.source_manager` is
   reused here rather than re-implemented.
 - **``verify()`` verified nothing** it could not see: it shelled out to
   ``sha256sum`` and ``tar -tzf``. Both checks now run in process, and the
@@ -35,7 +35,7 @@ that promise, and this module exists in its current shape because of them:
   machine that built it.
 
 **Rehearsals.** Everything that changes the persistent filesystem goes through
-:mod:`wasm.core.fs`, because ``wasm --dry-run backup delete <id> --force`` used
+:mod:`noust.core.fs`, because ``noust --dry-run backup delete <id> --force`` used
 to announce a rehearsal and then unlink the archive. The one thing that does not
 is the archive built inside a :class:`tempfile.TemporaryDirectory`: it is
 staging, it is removed by its own context manager, and a rehearsal never reaches
@@ -47,8 +47,8 @@ bounded by :data:`MAX_BACKUP_ENTRIES` and :data:`MAX_BACKUP_BYTES` (overridable
 through ``backup.max_entries`` and ``backup.max_bytes``); an archive past those
 limits is refused rather than allowed to fill the disk during a restore.
 
-WASM requires root, so file operations happen in process and external commands
-(docker, chown, the hooks) go through the :class:`~wasm.core.runner.CommandRunner`
+Noust requires root, so file operations happen in process and external commands
+(docker, chown, the hooks) go through the :class:`~noust.core.runner.CommandRunner`
 with a timeout. There is no ``sudo`` here.
 """
 
@@ -70,42 +70,42 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any, ClassVar, Protocol, runtime_checkable
 
-from wasm.core.applock import app_lock
-from wasm.core.config import DEFAULT_BACKUP_DIR as _DEFAULT_BACKUP_DIR
-from wasm.core.config import Config, resolve_backup_directory
-from wasm.core.exceptions import (
+from noust.core.applock import app_lock
+from noust.core.config import DEFAULT_BACKUP_DIR as _DEFAULT_BACKUP_DIR
+from noust.core.config import Config, resolve_backup_directory
+from noust.core.exceptions import (
     BackupError,
     DatabaseError,
     DeploymentError,
+    NoustError,
     SecurityError,
     ServiceError,
     ValidationError,
-    WASMError,
 )
-from wasm.core.fs import (
+from noust.core.fs import (
     SECRET_DIR_MODE,
     SECRET_MODE,
     DryRunFileSystem,
     FileSystem,
     get_fs,
 )
-from wasm.core.logger import Logger
-from wasm.core.runner import DEFAULT_TIMEOUT, CommandResult, CommandRunner, get_runner
-from wasm.core.store import AppType, DeploymentStatus, DeploymentTrigger, get_store
-from wasm.core.utils import domain_to_app_name
-from wasm.deployers.helpers.layout import INPLACE, RELEASES, env_file_in, layout_on_disk
-from wasm.deployers.helpers.permissions import hand_over_tree
-from wasm.deployers.recorder import CapturingLogger, DeploymentRecorder
-from wasm.deployers.releases import (
+from noust.core.logger import Logger
+from noust.core.runner import DEFAULT_TIMEOUT, CommandResult, CommandRunner, get_runner
+from noust.core.store import AppType, DeploymentStatus, DeploymentTrigger, get_store
+from noust.core.utils import domain_to_app_name
+from noust.deployers.helpers.layout import INPLACE, RELEASES, env_file_in, layout_on_disk
+from noust.deployers.helpers.permissions import hand_over_tree
+from noust.deployers.recorder import CapturingLogger, DeploymentRecorder
+from noust.deployers.releases import (
     CURRENT_LINK,
     RELEASES_DIR,
     REPO_CACHE_DIR,
     SHARED_DIR,
     ReleaseManager,
 )
-from wasm.managers.service_manager import ServiceManager
-from wasm.managers.source_manager import SourceError, extract_archive
-from wasm.validators.names import resolve_within, validate_app_name, validate_filename
+from noust.managers.service_manager import ServiceManager
+from noust.managers.source_manager import SourceError, extract_archive
+from noust.validators.names import resolve_within, validate_app_name, validate_filename
 
 __all__ = [
     "DATABASES_DIR",
@@ -158,7 +158,7 @@ MAX_BACKUP_BYTES = 256 * 1024**3
 ARCHIVE_SUFFIX = ".tar.gz"
 
 #: What :meth:`BackupManager._generate_backup_id` writes: the domain with dots
-#: as dashes, then the local date and time. Matching it is how a WASM backup is
+#: as dashes, then the local date and time. Matching it is how a Noust backup is
 #: told apart from whatever else shares a directory with it - a misplaced backup
 #: directory was ``/root``, next to ``.ssh`` and ``.docker``.
 BACKUP_ID_PATTERN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?_\d{8}_\d{6}$")
@@ -207,7 +207,7 @@ def backup_id_of_archive(path: Path) -> str | None:
         path: A file that may be a backup archive.
 
     Returns:
-        The identifier, or None when the name is not a WASM backup's.
+        The identifier, or None when the name is not a Noust backup's.
     """
     if not path.name.endswith(ARCHIVE_SUFFIX):
         return None
@@ -221,7 +221,7 @@ def app_name_of_backup_id(backup_id: str) -> str | None:
 
     :meth:`BackupManager._generate_backup_id` builds an id as
     ``<app-name>_<YYYYMMDD>_<HHMMSS>``, so the application name is always
-    recoverable from the id alone - which is what lets ``wasm backup restore
+    recoverable from the id alone - which is what lets ``noust backup restore
     --from`` locate a remote backup's ``<app_name>/`` directory without being
     told the application separately.
 
@@ -229,7 +229,7 @@ def app_name_of_backup_id(backup_id: str) -> str | None:
         backup_id: A backup identifier.
 
     Returns:
-        The application name, or None when the id is not one WASM generated.
+        The application name, or None when the id is not one Noust generated.
     """
     if not BACKUP_ID_PATTERN.match(backup_id):
         return None
@@ -382,7 +382,7 @@ class BackupMetadata:
 @dataclass
 class MisplacedBackups:
     """
-    WASM backups found outside the configured backup directory.
+    Noust backups found outside the configured backup directory.
 
     Attributes:
         directory: The directory holding them, in the ``<app>/<id>.tar.gz``
@@ -399,9 +399,9 @@ class MisplacedBackups:
         The command that moves them into the backup directory.
 
         Returns:
-            A ``wasm backup import`` command line.
+            A ``noust backup import`` command line.
         """
-        return f"wasm backup import {self.directory}"
+        return f"noust backup import {self.directory}"
 
 
 @dataclass
@@ -444,7 +444,7 @@ class BackupManager:
     enforces retention.
     """
 
-    # Default backup directory. The value is owned by wasm.core.config; the
+    # Default backup directory. The value is owned by noust.core.config; the
     # class attribute is what a sandbox redirects.
     DEFAULT_BACKUP_DIR = _DEFAULT_BACKUP_DIR
 
@@ -618,7 +618,7 @@ class BackupManager:
         except OSError as exc:
             raise BackupError(
                 f"Failed to create backup directory: {self.backup_dir}",
-                details=f"{exc}. WASM must run as root.",
+                details=f"{exc}. Noust must run as root.",
             ) from exc
 
     def _get_app_backup_dir(self, app_name: str) -> Path:
@@ -910,7 +910,7 @@ class BackupManager:
         (sockets, devices, FIFOs) have to be dropped rather than guessed at, and
         a backup nobody can reason about is a backup nobody can trust.
 
-        This is the one write that does not go through :mod:`wasm.core.fs`: a
+        This is the one write that does not go through :mod:`noust.core.fs`: a
         tar stream cannot, and ``destination`` is always a file inside the
         caller's :class:`tempfile.TemporaryDirectory`, which removes itself and
         which a rehearsal never reaches.
@@ -1081,7 +1081,7 @@ class BackupManager:
         if schemas:
             raise BackupError(
                 "Per-schema dumps cannot be placed inside a self-contained backup",
-                details="Back up the whole database, or use 'wasm db backup --schema' separately.",
+                details="Back up the whole database, or use 'noust db backup --schema' separately.",
             )
 
         app_name = validate_app_name(domain_to_app_name(domain))
@@ -1149,7 +1149,7 @@ class BackupManager:
             # By name, anywhere: shared/.env on the release layout too.
             excludes.extend([".env", ".env.*"])
 
-        with tempfile.TemporaryDirectory(prefix="wasm-backup-") as staging:
+        with tempfile.TemporaryDirectory(prefix="noust-backup-") as staging:
             staging_path = Path(staging)
             payload_dir = staging_path / PAYLOAD_DIR
             self.fs.make_dir(payload_dir, mode=SECRET_DIR_MODE)
@@ -1513,7 +1513,7 @@ class BackupManager:
         if not metadata:
             raise BackupError(
                 f"Backup not found: {backup_id}",
-                details="Run 'wasm backup list' to see the backups WASM knows about.",
+                details="Run 'noust backup list' to see the backups Noust knows about.",
             )
 
         source_app_name = domain_to_app_name(metadata.domain)
@@ -1586,7 +1586,7 @@ class BackupManager:
         if not archive.is_file():
             raise BackupError(
                 f"Backup archive not found: {archive}",
-                details="Pass the path of a .tar.gz written by 'wasm backup create'.",
+                details="Pass the path of a .tar.gz written by 'noust backup create'.",
             )
 
         if expected_checksum:
@@ -1875,7 +1875,7 @@ class BackupManager:
         place, so the rehearsal announces that deletion through the seam and
         stops. It deliberately does not unpack the archive: the extraction is
         the size of the backup, and a rehearsal that fills ``/tmp`` has damaged
-        the machine it promised not to touch. ``wasm backup verify`` is the
+        the machine it promised not to touch. ``noust backup verify`` is the
         command that unpacks an archive to prove it is restorable.
 
         Args:
@@ -1924,7 +1924,7 @@ class BackupManager:
         if active is None:
             self.logger.warning(
                 f"{app_path / CURRENT_LINK} does not point at a release; "
-                "run 'wasm releases list <domain>' and activate one"
+                "run 'noust releases list <domain>' and activate one"
             )
             return
         try:
@@ -1957,7 +1957,7 @@ class BackupManager:
         """
         Say so when the restored tree is not on the layout the store records.
 
-        Restoring a backup taken before ``wasm app migrate`` puts an in-place
+        Restoring a backup taken before ``noust app migrate`` puts an in-place
         tree under a unit that runs ``current``, and the reverse; neither can
         start, and nothing else would say why.
 
@@ -1967,7 +1967,7 @@ class BackupManager:
         """
         try:
             app = get_store().get_app(domain)
-        except (WASMError, sqlite3.Error) as exc:
+        except (NoustError, sqlite3.Error) as exc:
             self.logger.debug(f"Could not read the application's layout: {exc}")
             return
         recorded = getattr(app, "layout", None) if app is not None else None
@@ -1992,7 +1992,7 @@ class BackupManager:
         """
         try:
             app = get_store().get_app(domain)
-        except (WASMError, sqlite3.Error) as exc:
+        except (NoustError, sqlite3.Error) as exc:
             self.logger.debug(f"Could not read the application's type: {exc}")
             return False
         return app is not None and getattr(app, "app_type", None) == AppType.DOCKER_COMPOSE.value
@@ -2025,12 +2025,12 @@ class BackupManager:
         except (tarfile.TarError, OSError, EOFError, ValueError, UnicodeDecodeError) as exc:
             raise BackupError(
                 f"Cannot read {archive.name}",
-                details=f"{exc}. The archive is corrupted or was not written by WASM.",
+                details=f"{exc}. The archive is corrupted or was not written by Noust.",
             ) from exc
         if not isinstance(data, dict):
             raise BackupError(
                 "Backup manifest is not an object",
-                details="The archive was not written by WASM.",
+                details="The archive was not written by Noust.",
             )
         return data
 
@@ -2051,12 +2051,12 @@ class BackupManager:
         if app_type == "python" and not (app_path / "venv").is_dir():
             self.logger.warning(
                 "The restored application has no virtualenv: a venv holds absolute paths "
-                "and is never archived. Run 'wasm update <domain>' to rebuild it."
+                "and is never archived. Run 'noust update <domain>' to rebuild it."
             )
         elif app_type in {"nextjs", "nodejs", "vite"} and not (app_path / "node_modules").is_dir():
             self.logger.warning(
                 "The restored application has no node_modules: dependencies are not archived. "
-                "Run 'wasm update <domain>' to install them."
+                "Run 'noust update <domain>' to install them."
             )
 
     def _stop_service_for_restore(self, app_name: str, stop_service: bool) -> bool:
@@ -2189,12 +2189,12 @@ class BackupManager:
         except (OSError, ValueError) as exc:
             raise BackupError(
                 "Backup manifest is unreadable",
-                details=f"{exc}. The archive is corrupted or was not written by WASM.",
+                details=f"{exc}. The archive is corrupted or was not written by Noust.",
             ) from exc
         if not isinstance(data, dict):
             raise BackupError(
                 "Backup manifest is not an object",
-                details="The archive was not written by WASM.",
+                details="The archive was not written by Noust.",
             )
         return data
 
@@ -2346,8 +2346,8 @@ class BackupManager:
         """
         Delete a backup and everything that belongs to it.
 
-        Every unlink goes through :mod:`wasm.core.fs`. This method is the reason
-        that seam exists: ``wasm --dry-run backup delete <id> --force`` printed
+        Every unlink goes through :mod:`noust.core.fs`. This method is the reason
+        that seam exists: ``noust --dry-run backup delete <id> --force`` printed
         "no changes will be made to this machine" and then removed the archive,
         because a deletion never goes near a subprocess.
 
@@ -2364,7 +2364,7 @@ class BackupManager:
         if not metadata:
             raise BackupError(
                 f"Backup not found: {backup_id}",
-                details="Run 'wasm backup list' to see the backups WASM knows about.",
+                details="Run 'noust backup list' to see the backups Noust knows about.",
             )
 
         app_backup_dir = self._get_app_backup_dir(domain_to_app_name(metadata.domain))
@@ -2402,7 +2402,7 @@ class BackupManager:
 
         Raises:
             sqlite3.Error: The store could not be read.
-            WASMError: The store refused the query.
+            NoustError: The store refused the query.
         """
         store = get_store()
         protected: set[str] = set()
@@ -2431,7 +2431,7 @@ class BackupManager:
         backups = self.list_backups(app_name=app_name)
         try:
             protected = self._protected_backup_ids(backups) | set(protect)
-        except (sqlite3.Error, WASMError) as exc:
+        except (sqlite3.Error, NoustError) as exc:
             self.logger.warning(
                 f"Skipped rotating the backups of {app_name}: could not read which of them "
                 f"deployments depend on ({exc}). Nothing was deleted."
@@ -2550,7 +2550,7 @@ class BackupManager:
         # The engine managers pull in optional client libraries; a machine
         # without them can still back up files.
         try:
-            from wasm.managers.database.registry import DatabaseRegistry
+            from noust.managers.database.registry import DatabaseRegistry
         except ImportError as exc:
             raise BackupError(
                 "Database backup requested but the database managers are unavailable",
@@ -2559,7 +2559,7 @@ class BackupManager:
 
         try:
             app = get_store().get_app(domain)
-        except (WASMError, sqlite3.Error) as exc:
+        except (NoustError, sqlite3.Error) as exc:
             raise BackupError(
                 f"Could not read the application record for {domain}",
                 details=str(exc),
@@ -2730,7 +2730,7 @@ class BackupManager:
             return
 
         try:
-            from wasm.managers.database.registry import DatabaseRegistry
+            from noust.managers.database.registry import DatabaseRegistry
         except ImportError as exc:
             raise BackupError(
                 "This backup contains databases but the database managers are unavailable",
@@ -3148,7 +3148,7 @@ class BackupManager:
         """
         Report how much disk the backups take.
 
-        Only archives named like a WASM backup count, and only directories
+        Only archives named like a Noust backup count, and only directories
         holding one are listed. Every subdirectory used to be an
         "application": with the backup directory resolved to ``/root``, the
         console listed ``.ssh``, ``.docker`` and ``.claude``. An archive with
@@ -3216,7 +3216,7 @@ class BackupManager:
         self, root: Path, names: set[str] | None = None
     ) -> tuple[list[_BackupPair], list[tuple[Path, str]]]:
         """
-        Find complete WASM backups laid out as ``<root>/<app>/<id>.tar.gz``.
+        Find complete Noust backups laid out as ``<root>/<app>/<id>.tar.gz``.
 
         A pair counts only when every part agrees: the archive is named like a
         backup, its ``.json`` sits next to it and describes that same
@@ -3281,7 +3281,7 @@ class BackupManager:
 
     def import_backups(self, source: Path) -> BackupImportReport:
         """
-        Move WASM backups from another directory into the backup directory.
+        Move Noust backups from another directory into the backup directory.
 
         This is the way back for backups written somewhere else, above all
         the ones ``backup.directory: ''`` sent to the working directory
@@ -3401,7 +3401,7 @@ class BackupManager:
 
     def find_misplaced_backups(self) -> list[MisplacedBackups]:
         """
-        Look for WASM backups outside the configured backup directory.
+        Look for Noust backups outside the configured backup directory.
 
         Two places are checked. The default directory, when the configured
         one is elsewhere and holds nothing: backups taken before the setting
@@ -3570,7 +3570,7 @@ class RollbackManager:
                 store.set_deployment_snapshot(record.id, backup.id)
                 self.logger.debug(f"Backup {backup.id} holds deployment {record.id}")
                 return
-        except (WASMError, sqlite3.Error) as exc:
+        except (NoustError, sqlite3.Error) as exc:
             # The backup exists and serves its purpose; only the link to the
             # deployment it holds is missing, which costs that deployment its
             # one-step rollback.
@@ -3677,7 +3677,7 @@ class RollbackManager:
                     safety = self.create_pre_deploy_backup(
                         domain, description="Pre-rollback safety backup", protect=[metadata.id]
                     )
-                except WASMError as exc:
+                except NoustError as exc:
                     self.logger.warning(f"Could not create safety backup: {exc}")
 
                 self.logger.info(f"Rolling back to: {metadata.id}")
@@ -3699,10 +3699,10 @@ class RollbackManager:
                     # A rebuild in place would install and build in the
                     # application directory, which on releases is not where the
                     # code is. A release is built by an update, behind the health
-                    # gate, and going back to one is `wasm releases rollback`.
+                    # gate, and going back to one is `noust releases rollback`.
                     self.logger.warning(
                         "The restored application is on the release layout and was not "
-                        f"rebuilt. Run 'wasm update {domain}' to build a release from it."
+                        f"rebuilt. Run 'noust update {domain}' to build a release from it."
                     )
                 elif rebuild:
                     self._rebuild(
@@ -3715,7 +3715,7 @@ class RollbackManager:
                     if not healthy:
                         way_back = (
                             f"What served before the rollback is in backup {safety.id}: "
-                            f"wasm rollback {domain} {safety.id}"
+                            f"noust rollback {domain} {safety.id}"
                             if safety is not None
                             else "No safety backup could be taken before the rollback."
                         )
@@ -3767,14 +3767,14 @@ class RollbackManager:
         """
         self.logger.info("Rebuilding application...")
 
-        from wasm.deployers import detect_app_type, get_deployer
+        from noust.deployers import detect_app_type, get_deployer
 
         app_type = app_type or detect_app_type(app_path, verbose=self.verbose)
         if not app_type:
             if strict:
                 raise DeploymentError(
                     f"Cannot tell what kind of application the restored tree of {domain} is",
-                    details="Nothing was rebuilt. Redeploy it with: wasm update " + domain,
+                    details="Nothing was rebuilt. Redeploy it with: noust update " + domain,
                 )
             return
         deployer = get_deployer(app_type, verbose=self.verbose)
@@ -3800,7 +3800,7 @@ class RollbackManager:
 
         try:
             built = deployer.install_dependencies() and deployer.build()
-        except WASMError as exc:
+        except NoustError as exc:
             if strict:
                 raise
             self.logger.warning(f"Rebuild failed: {exc}")

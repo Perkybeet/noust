@@ -96,7 +96,7 @@ export function ImportFile({ loaded, problem, types, onFile, onContinue }: Impor
         </div>
       ) : null}
 
-      <CommandHint command="wasm app import app.wasm-app.json --domain example.com" label={t("newApp.source.terminal")} />
+      <CommandHint command="noust app import app.wasm-app.json --domain example.com" label={t("newApp.source.terminal")} />
     </div>
   );
 }

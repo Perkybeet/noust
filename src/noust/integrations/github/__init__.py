@@ -5,7 +5,7 @@
 This server's GitHub App (2.2).
 
 One App per server, created from the console with GitHub's manifest flow and
-owned by the operator's account. Its installations give WASM short-lived
+owned by the operator's account. Its installations give Noust short-lived
 tokens to clone private repositories, receive push and pull request events at
 ``/hooks/github``, report deployment statuses and comment preview links.
 """

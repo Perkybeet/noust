@@ -25,15 +25,15 @@ nothing else does.
 A delivery is dispatched on the event its forge says it is (``X-GitHub-Event``,
 ``X-Gitea-Event``, ``X-Gitlab-Event`` or GitLab's ``object_kind``): a push
 updates the application, a ping is answered and nothing else, a pull (merge)
-request goes to :func:`wasm.managers.previews.handle_pull_request`, and every
+request goes to :func:`noust.managers.previews.handle_pull_request`, and every
 other event is acknowledged and ignored. Before 2.2 the event was never read,
 so a pull request or ping delivery to an application without a pinned branch -
 neither carries a ``ref`` - queued an update of production. A delivery that
 names no event at all is still read as a push, which is what every forge sent
 this endpoint until then.
 
-The routers here are mounted in :mod:`wasm.web.server`, not in
-:mod:`wasm.web.api.router`: the hook must not inherit the ``/api`` prefix and
+The routers here are mounted in :mod:`noust.web.server`, not in
+:mod:`noust.web.api.router`: the hook must not inherit the ``/api`` prefix and
 its conventions, and the secret-management endpoints live under ``/api/apps``
 where the middleware audits them like any other authenticated mutation.
 """
@@ -54,24 +54,24 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
-from wasm.core.exceptions import DeploymentError, DomainError
-from wasm.core.forge_events import parse_pull_request
-from wasm.core.store import DeploymentRecord, DeploymentTrigger, StoreError, get_store
-from wasm.managers.previews import handle_pull_request
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import WASMErrorRoute, require_elevated, strict_domain
-from wasm.web.auth import actor_label, get_audit_logger, get_client_ip
-from wasm.web.jobs import JobContext, JobType, get_job_manager, run_update
-from wasm.web.pydantic_compat import iso_offset_validator
-from wasm.web.server import get_webhook_failures
+from noust.core.exceptions import DeploymentError, DomainError
+from noust.core.forge_events import parse_pull_request
+from noust.core.store import DeploymentRecord, DeploymentTrigger, StoreError, get_store
+from noust.managers.previews import handle_pull_request
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
+from noust.web.auth import actor_label, get_audit_logger, get_client_ip
+from noust.web.jobs import JobContext, JobType, get_job_manager, run_update
+from noust.web.pydantic_compat import iso_offset_validator
+from noust.web.server import get_webhook_failures
 
 #: The unauthenticated delivery surface, mounted at ``/hooks``.
-router = APIRouter(route_class=WASMErrorRoute)
+router = APIRouter(route_class=NoustErrorRoute)
 
 #: Secret management, mounted under ``/api/apps`` with ordinary session
 #: authentication; POST and DELETE there require the ``admin`` scope through
-#: the blanket policy in :func:`wasm.web.auth.required_scope`.
-admin_router = APIRouter(route_class=WASMErrorRoute)
+#: the blanket policy in :func:`noust.web.auth.required_scope`.
+admin_router = APIRouter(route_class=NoustErrorRoute)
 
 #: How many delivery ids the replay cache remembers.
 DELIVERY_CACHE_SIZE = 512
@@ -190,7 +190,7 @@ def mint_webhook_secret(domain: str) -> str:
     if not get_store().set_webhook_secret(domain, secret):
         raise DeploymentError(
             f"Application not found: {domain}",
-            details="Deploy it first, or check 'wasm list' for the exact domain.",
+            details="Deploy it first, or check 'noust list' for the exact domain.",
         )
     return secret
 
@@ -210,7 +210,7 @@ def webhook_update_job(domain: str, job_context: JobContext | None = None) -> di
         Summary of the update.
 
     Raises:
-        WASMError: When the application is unknown or a step fails.
+        NoustError: When the application is unknown or a step fails.
     """
     return run_update(domain, trigger=DeploymentTrigger.WEBHOOK.value, job_context=job_context)
 
@@ -548,7 +548,7 @@ def _hooks_base(request: Request) -> str:
 
     The address the console was opened at is usually an SSH tunnel's
     ``localhost``, which no code host can deliver to; the public URL
-    ``wasm web expose-hooks`` recorded is the one to give out when there is.
+    ``noust web expose-hooks`` recorded is the one to give out when there is.
 
     Args:
         request: The request asking, for its own address as the fallback.
@@ -556,7 +556,7 @@ def _hooks_base(request: Request) -> str:
     Returns:
         The base URL of ``/hooks``, without a trailing slash.
     """
-    from wasm.integrations.hooks_site import public_hooks_url
+    from noust.integrations.hooks_site import public_hooks_url
 
     return public_hooks_url() or f"{str(request.base_url).rstrip('/')}/hooks"
 
@@ -689,7 +689,7 @@ class WebhookDeliveriesResponse(BaseModel):
 
 #: Deployment rows fetched before filtering to webhook-triggered ones. History
 #: is pruned to twenty rows per domain (see
-#: :meth:`~wasm.core.store.WASMStore.prune_deployments`), so this comfortably
+#: :meth:`~noust.core.store.NoustStore.prune_deployments`), so this comfortably
 #: covers every attempt the store still keeps, webhook-triggered or not.
 _DELIVERY_FETCH_LIMIT = 200
 

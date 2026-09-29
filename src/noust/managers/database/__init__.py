@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Database managers package for WASM.
+Database managers package for Noust.
 
 Provides managers for different database engines:
 - MySQL/MariaDB
@@ -11,12 +11,12 @@ Provides managers for different database engines:
 - MongoDB
 """
 
-from wasm.managers.database.base import BaseDatabaseManager, DatabaseInfo, UserInfo
-from wasm.managers.database.mongodb import MongoDBManager
-from wasm.managers.database.mysql import MySQLManager
-from wasm.managers.database.postgres import PostgresManager
-from wasm.managers.database.redis import RedisManager
-from wasm.managers.database.registry import DatabaseRegistry, get_db_manager
+from noust.managers.database.base import BaseDatabaseManager, DatabaseInfo, UserInfo
+from noust.managers.database.mongodb import MongoDBManager
+from noust.managers.database.mysql import MySQLManager
+from noust.managers.database.postgres import PostgresManager
+from noust.managers.database.redis import RedisManager
+from noust.managers.database.registry import DatabaseRegistry, get_db_manager
 
 __all__ = [
     "BaseDatabaseManager",

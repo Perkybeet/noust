@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.runner import FakeRunner
-from wasm.deployers.helpers import preflight
+from noust.core.runner import FakeRunner
+from noust.deployers.helpers import preflight
 
 
 class TestRepositoryProbe:
@@ -20,7 +20,7 @@ class TestRepositoryProbe:
 
     def test_runs_from_a_directory_that_exists(self, runner: FakeRunner, monkeypatch):
         """
-        After `wasm delete` the operator's shell is often still inside the
+        After `noust delete` the operator's shell is often still inside the
         directory that was just removed. A child inheriting that cwd makes git
         abort with "Unable to read current working directory", which used to
         surface as an opaque "Repository not accessible" even when the
@@ -59,7 +59,7 @@ class TestRepositoryProbe:
 
         issues = preflight.repository_unreachable(runner, "git@github.com:user/repo.git")
 
-        assert any("wasm setup ssh --test" in issue for issue in issues)
+        assert any("noust setup ssh --test" in issue for issue in issues)
 
     def test_a_reachable_repository_reports_nothing(self, runner: FakeRunner):
         runner.script(["git", "ls-remote"], stdout="abc123\tHEAD")

@@ -27,12 +27,12 @@ import click
 import pytest
 from click.testing import CliRunner, Result
 
-from wasm.cli.commands import health as cli_health
-from wasm.core.exceptions import ServiceError
-from wasm.core.logger import Logger
-from wasm.core.store import App
-from wasm.core.utils import domain_to_app_name
-from wasm.managers import health as health_module
+from noust.cli.commands import health as cli_health
+from noust.core.exceptions import ServiceError
+from noust.core.logger import Logger
+from noust.core.store import App
+from noust.core.utils import domain_to_app_name
+from noust.managers import health as health_module
 
 #: Flags that belong to the root command and to no other.
 GLOBAL_FLAGS = frozenset({"-v", "--verbose", "--dry-run", "--json", "--no-color"})
@@ -177,7 +177,7 @@ def server(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Any:
         },
     )()
 
-    # The check itself lives in wasm.managers.health, shared with the panel's
+    # The check itself lives in noust.managers.health, shared with the panel's
     # GET /api/system/health; that is the module whose names this patches.
     monkeypatch.setattr(
         health_module,
@@ -311,7 +311,7 @@ def test_health_declares_no_global_flag() -> None:
 
 def test_verbose_comes_from_the_context(server: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     """``wasm --verbose health`` reaches the check without a local flag."""
-    from wasm.cli.app import Context
+    from noust.cli.app import Context
 
     asked: list[bool] = []
     buffer = io.StringIO()
@@ -354,7 +354,7 @@ def test_json_reports_the_same_verdict_as_the_human_report(server: Any) -> None:
 
 def test_json_before_the_command_name(server: Any) -> None:
     """The root's --json also drives 'wasm health'."""
-    from wasm.cli.app import cli as root_cli
+    from noust.cli.app import cli as root_cli
 
     result = CliRunner().invoke(root_cli, ["--json", "health"])
 
@@ -442,7 +442,7 @@ def test_list_and_health_agree_on_the_same_machine(server: Any) -> None:
     wording: given the same store and the same systemd, both reach the same
     state for every application.
     """
-    from wasm.core.app_state import RUNNING, STATIC, STOPPED, resolve_states
+    from noust.core.app_state import RUNNING, STATIC, STOPPED, resolve_states
 
     apps = [
         _app("running.example.com"),
@@ -497,7 +497,7 @@ def test_a_stopped_apache_with_an_enabled_site_is_a_warning(server: Any) -> None
 
 def test_a_stopped_apache_with_an_apache_app_is_a_warning(server: Any) -> None:
     """No site enabled in Apache's own directory, but an app is recorded as its."""
-    from wasm.core.store import WebServer
+    from noust.core.store import WebServer
 
     server.apache = _FakeWebServer(installed=True, active=False, sites=[])
     app = _app("example.com")
@@ -610,7 +610,7 @@ def test_a_healthy_server_says_so(server: Any, logged: io.StringIO) -> None:
 
 def test_the_argparse_handler_runs_the_same_check(server: Any) -> None:
     """
-    ``wasm.cli.parser`` still calls ``handle_health``; it shares the check.
+    ``noust.cli.parser`` still calls ``handle_health``; it shares the check.
 
     Both paths call :func:`run_health_check`, so a fix to one is a fix to both.
     """

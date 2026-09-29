@@ -25,8 +25,8 @@ test("inspects a directory on the server, deploys it and lands on its deployment
   expect((await inspected).request().postDataJSON()).toEqual({ source });
 
   // What the real inspection found: a Next.js project on npm with a lock file, deployable here.
-  const found = page.getByRole("region", { name: "What WASM found" });
-  await expect(found.getByText(/^WASM can deploy this as Next\.js/)).toBeVisible();
+  const found = page.getByRole("region", { name: "What Noust found" });
+  await expect(found.getByText(/^Noust can deploy this as Next\.js/)).toBeVisible();
   await expect(found.getByText("npm ci")).toBeVisible();
   await expect(found.getByText("npm run build")).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Deploy as" })).toHaveText(/Next\.js/);
@@ -141,7 +141,7 @@ test("also serving www and resource limits reach the deploy request", async ({ p
   test.setTimeout(120_000);
   // A bare two-label domain outside any seeded zone: www only ever means something for one of
   // these, and this one deliberately has no DNS record, which is not a reason to refuse it.
-  const domain = "wasm-e2e-wizard.example";
+  const domain = "noust-e2e-wizard.example";
   await signIn(page, consoleServer, "/apps/new");
   await inspectSource(page, consoleServer, problems, await wizardSource(page, "landing"));
   await page.getByLabel("Domain", { exact: true }).fill(domain);
@@ -168,7 +168,7 @@ test("also serving www and resource limits reach the deploy request", async ({ p
   await forgetApp(page, consoleServer, domain);
 });
 
-test("a source WASM cannot deploy as it is gets the inspection's verdict and the file to add", async ({ page, consoleServer, problems }) => {
+test("a source Noust cannot deploy as it is gets the inspection's verdict and the file to add", async ({ page, consoleServer, problems }) => {
   // Chromium logs the inspection's refusal as a failed resource.
   problems.expect(/status of 400 .* \/api\/apps\/inspect$/);
   problems.expect(/status of 403 .* \/api\/apps\/inspect$/);
@@ -177,7 +177,7 @@ test("a source WASM cannot deploy as it is gets the inspection's verdict and the
   await (await typedSource(page)).fill(source);
   await page.getByRole("button", { name: "Inspect source" }).click();
   const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
-  const verdict = page.getByRole("alert").filter({ hasText: `WASM cannot deploy ${source} as it is` });
+  const verdict = page.getByRole("alert").filter({ hasText: `Noust cannot deploy ${source} as it is` });
   await expect(confirm.or(verdict)).toBeVisible();
   if (await confirm.isVisible()) await confirmItsYou(page, consoleServer);
 

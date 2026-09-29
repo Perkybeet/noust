@@ -4,7 +4,7 @@
 """
 Pull request previews of an application: settings and the previews themselves (2.2).
 
-A client of :mod:`wasm.managers.previews`, like ``wasm preview``: every rule
+A client of :mod:`noust.managers.previews`, like ``noust preview``: every rule
 (what can be previewed, the limits, the naming, the sweep timer) is the
 manager's, and an endpoint only translates HTTP to a call and back. Removing
 a preview takes an application down, so it runs as a job, and every mutation
@@ -18,15 +18,15 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from wasm.core.store import PreviewRecord, PreviewSettings, get_store
-from wasm.managers import previews
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import JobAcceptedResponse, WASMErrorRoute, require_elevated, strict_domain
-from wasm.web.auth import actor_label, get_audit_logger, get_client_ip
-from wasm.web.jobs import JobType, get_job_manager
-from wasm.web.pydantic_compat import iso_offset_validator
+from noust.core.store import PreviewRecord, PreviewSettings, get_store
+from noust.managers import previews
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated, strict_domain
+from noust.web.auth import actor_label, get_audit_logger, get_client_ip
+from noust.web.jobs import JobType, get_job_manager
+from noust.web.pydantic_compat import iso_offset_validator
 
-router = APIRouter(route_class=WASMErrorRoute)
+router = APIRouter(route_class=NoustErrorRoute)
 
 
 class PreviewSettingsOut(BaseModel):
@@ -273,11 +273,11 @@ def put_preview_settings(
     """
     Turn previews on for an application, or change their settings.
 
-    Installs ``wasm-previews.timer`` the first time any application turns
+    Installs ``noust-previews.timer`` the first time any application turns
     previews on. A preview is built as root, like every deployment, with a
     copy of the application's environment minus ``exclude_env``; only pull
     requests from people trusted with the repository get one (see
-    :func:`wasm.managers.previews.handle_pull_request`).
+    :func:`noust.managers.previews.handle_pull_request`).
 
     Args:
         domain: The application.

@@ -4,8 +4,8 @@ Tests for archive checksum verification.
 An archive source URL may carry its expected checksum in the URL fragment
 (never sent to the server), either pinned directly (``#sha256=<hex>``) or as
 a URL to fetch it from (``#checksum=<https url>``). See
-:func:`wasm.managers.source_manager.split_archive_checksum` for the grammar
-and :meth:`wasm.managers.source_manager.SourceManager.download_archive` for
+:func:`noust.managers.source_manager.split_archive_checksum` for the grammar
+and :meth:`noust.managers.source_manager.SourceManager.download_archive` for
 where it is enforced. No test here opens a real socket: every download goes
 through a fake replacing ``_open_url``.
 """
@@ -19,11 +19,11 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.exceptions import SourceError
-from wasm.core.runner import FakeRunner
-from wasm.managers import source_manager as sm
-from wasm.managers.source_manager import ArchiveChecksum, SourceManager
-from wasm.validators.source import is_archive_url, validate_source
+from noust.core.exceptions import SourceError
+from noust.core.runner import FakeRunner
+from noust.managers import source_manager as sm
+from noust.managers.source_manager import ArchiveChecksum, SourceManager
+from noust.validators.source import is_archive_url, validate_source
 
 ARCHIVE_URL = "https://archives.example.test/app.tar.gz"
 CHECKSUM_URL = "https://archives.example.test/app.tar.gz.sha256"
@@ -95,7 +95,7 @@ def manager(runner: FakeRunner) -> SourceManager:
 
 
 class TestSplitArchiveChecksum:
-    """Tests for :func:`wasm.managers.source_manager.split_archive_checksum`."""
+    """Tests for :func:`noust.managers.source_manager.split_archive_checksum`."""
 
     def test_no_fragment_is_unchanged(self) -> None:
         """A plain archive URL keeps working exactly as before this existed."""
@@ -211,7 +211,7 @@ class TestFragmentAwareValidators:
 
 
 class TestFetchChecksumDigest:
-    """Tests for :func:`wasm.managers.source_manager._fetch_checksum_digest`."""
+    """Tests for :func:`noust.managers.source_manager._fetch_checksum_digest`."""
 
     def test_bare_digest(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """A checksum file that is only the digest, as WordPress publishes."""
@@ -376,7 +376,7 @@ class TestDownloadArchiveChecksum:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """A rehearsal must not fetch the archive or its checksum."""
-        from wasm.core.fs import DryRunFileSystem
+        from noust.core.fs import DryRunFileSystem
 
         def _refuse(*args: object, **kwargs: object) -> None:
             raise AssertionError("a rehearsal must not open a connection")

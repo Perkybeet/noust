@@ -15,14 +15,14 @@ Three properties, each one a defect this module used to have:
   prefix comparison, both linear in the length of a name that is itself capped.
   A test asserts that ``re`` is not imported here.
 - **Nothing returns an action.** The only output is a
-  :class:`~wasm.monitor.models.ProcessObservation` for a human to read.
+  :class:`~noust.monitor.models.ProcessObservation` for a human to read.
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
 
-from wasm.monitor.models import (
+from noust.monitor.models import (
     SEVERITY_NOTICE,
     SEVERITY_WARNING,
     SIGNAL_NAME_PATTERN,
@@ -97,9 +97,11 @@ KNOWN_SAFE_NAMES: frozenset[str] = frozenset(
         "systemd-resolved",
         "systemd-timesyncd",
         "systemd-udevd",
+        "noust",
+        "noust-monitor",
         "uvicorn",
+        # The names WASM had before 3.0, still running until the migration.
         "wasm",
-        "wasm-monitor",
         "yarn",
     }
 )

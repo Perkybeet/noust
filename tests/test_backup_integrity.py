@@ -15,7 +15,7 @@ opened a hole:
   archive whose members ``restore()`` refuses on sight.
 - ``delete()`` removed the two files it knew about and left every sidecar
   behind.
-- ``wasm --dry-run backup delete <id> --force`` printed "no changes will be made
+- ``noust --dry-run backup delete <id> --force`` printed "no changes will be made
   to this machine" and then deleted the archive, because a deletion is a
   ``Path.unlink`` and never goes near a subprocess.
 - Every backup of a Python application was unrestorable: the archive carried
@@ -36,12 +36,12 @@ from typing import Any, ClassVar
 
 import pytest
 
-import wasm.managers.backup_manager as backup_manager_module
-import wasm.managers.backup_scheduler as backup_scheduler_module
-from wasm.core.exceptions import ValidationError
-from wasm.core.fs import DryRunFileSystem, RecordingFileSystem, set_fs
-from wasm.core.runner import FakeRunner, get_runner, set_runner
-from wasm.managers.backup_manager import (
+import noust.managers.backup_manager as backup_manager_module
+import noust.managers.backup_scheduler as backup_scheduler_module
+from noust.core.exceptions import ValidationError
+from noust.core.fs import DryRunFileSystem, RecordingFileSystem, set_fs
+from noust.core.runner import FakeRunner, get_runner, set_runner
+from noust.managers.backup_manager import (
     DATABASES_DIR,
     MANIFEST_NAME,
     PAYLOAD_DIR,
@@ -49,7 +49,7 @@ from wasm.managers.backup_manager import (
     BackupManager,
     BackupMetadata,
 )
-from wasm.managers.backup_scheduler import BackupSchedule, BackupScheduler
+from noust.managers.backup_scheduler import BackupSchedule, BackupScheduler
 
 
 class FakeApp:
@@ -225,7 +225,7 @@ def manager(
     Returns:
         A backup manager that cannot touch the real machine.
     """
-    from wasm.managers.database.registry import DatabaseRegistry
+    from noust.managers.database.registry import DatabaseRegistry
 
     FakeDatabaseManager.restored = []
     backup_manager = BackupManager(verbose=False, runner=runner)
@@ -252,7 +252,7 @@ def rehearsal() -> Iterator[DryRunFileSystem]:
 
     The test installs it with ``set_fs`` at the point where the rehearsal
     starts, usually after arranging a real backup to act on. Managers read the
-    filesystem from :func:`wasm.core.fs.get_fs` exactly as they read the runner,
+    filesystem from :func:`noust.core.fs.get_fs` exactly as they read the runner,
     so this exercises the wiring ``--dry-run`` uses rather than a test-only
     injection point.
 
@@ -289,7 +289,7 @@ def _use_store(monkeypatch, app: FakeApp | None, databases: list[FakeDatabase]) 
         databases: Databases attached to it.
     """
     store = FakeStore(app, databases)
-    monkeypatch.setattr("wasm.managers.backup_manager.get_store", lambda: store)
+    monkeypatch.setattr("noust.managers.backup_manager.get_store", lambda: store)
 
 
 class TestSelfContainedBackup:
@@ -678,23 +678,23 @@ class TestScheduler:
 
         assert scheduler.create_schedule(schedule) is True
 
-        timer = scheduler.SYSTEMD_DIR / "wasm-backup-shop-example-com.timer"
-        service = scheduler.SYSTEMD_DIR / "wasm-backup-shop-example-com.service"
+        timer = scheduler.SYSTEMD_DIR / "noust-backup-shop-example-com.timer"
+        service = scheduler.SYSTEMD_DIR / "noust-backup-shop-example-com.service"
         assert "OnCalendar=*-*-* 02:00:00" in timer.read_text()
         assert "shop.example.com" in service.read_text()
 
         runner: FakeRunner = scheduler.runner
         assert runner.ran("systemctl", "daemon-reload")
-        assert runner.ran("systemctl", "enable", "--now", "wasm-backup-shop-example-com.timer")
+        assert runner.ran("systemctl", "enable", "--now", "noust-backup-shop-example-com.timer")
         assert not any(call[0] == "sudo" for call in runner.calls), runner.calls
 
 
 class TestRehearsalChangesNothing:
     """
-    ``--dry-run`` has to be true for what WASM writes, not only for what it runs.
+    ``--dry-run`` has to be true for what Noust writes, not only for what it runs.
 
     The bug these tests exist for was reproduced on a real machine:
-    ``wasm --dry-run backup delete <id> --force`` printed "Dry run: no changes
+    ``noust --dry-run backup delete <id> --force`` printed "Dry run: no changes
     will be made to this machine" and then deleted the archive.
     """
 
@@ -828,8 +828,8 @@ class TestRehearsalChangesNothing:
         scheduler = BackupScheduler(verbose=False, runner=runner)
         scheduler.SYSTEMD_DIR = tmp_path / "systemd"
         scheduler.SYSTEMD_DIR.mkdir()
-        timer = scheduler.SYSTEMD_DIR / "wasm-backup-shop-example-com.timer"
-        service = scheduler.SYSTEMD_DIR / "wasm-backup-shop-example-com.service"
+        timer = scheduler.SYSTEMD_DIR / "noust-backup-shop-example-com.timer"
+        service = scheduler.SYSTEMD_DIR / "noust-backup-shop-example-com.service"
         timer.write_text("[Timer]\n")
         service.write_text("[Service]\n")
 
@@ -1161,7 +1161,7 @@ def _enclosing_functions(tree: ast.AST) -> dict[ast.AST, str]:
 
 def _direct_mutations(source: str) -> list[str]:
     """
-    Find filesystem mutations that bypass :mod:`wasm.core.fs`.
+    Find filesystem mutations that bypass :mod:`noust.core.fs`.
 
     Args:
         source: Module source code.
@@ -1218,7 +1218,7 @@ class TestEveryMutationGoesThroughTheSeam:
         offenders = _direct_mutations(source)
 
         assert offenders == [], (
-            f"{module.__name__} changes the filesystem without going through wasm.core.fs, "
+            f"{module.__name__} changes the filesystem without going through noust.core.fs, "
             f"so --dry-run is a lie for these calls:\n  " + "\n  ".join(offenders)
         )
 
@@ -1267,7 +1267,7 @@ class TestTheReproducedCommand:
     """
     The exact invocation an adversarial review ran, end to end.
 
-    ``wasm --dry-run backup delete <id> --force`` printed "Dry run: nothing on
+    ``noust --dry-run backup delete <id> --force`` printed "Dry run: nothing on
     this machine will be changed" and deleted the archive. This drives the real
     command tree, so it also covers the wiring between the flag and the seam,
     not only the manager.
@@ -1277,7 +1277,7 @@ class TestTheReproducedCommand:
         """The archive, its sidecar and the directory are all still there."""
         from click.testing import CliRunner
 
-        from wasm.cli.app import cli
+        from noust.cli.app import cli
 
         _use_store(monkeypatch, None, [])
         metadata = manager.create("shop.example.com")

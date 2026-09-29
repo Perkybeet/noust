@@ -140,13 +140,13 @@ function columnsFor(t: T, mixed: boolean): Column<ServiceInfo>[] {
 }
 
 /**
- * Systemd units: their state, whether they start at boot and their live readings. WASM's own
- * by default; with every unit listed, a column says which are WASM's and which are foreign
+ * Systemd units: their state, whether they start at boot and their live readings. Noust's own
+ * by default; with every unit listed, a column says which are Noust's and which are foreign
  * (read-only: see `./data`).
  */
 export function ServicesTable({ services, caption, loading = false, empty, rowActions, className }: ServicesTableProps) {
   const t = useT();
-  // Only worth a column when the list mixes both: otherwise every row would say "WASM".
+  // Only worth a column when the list mixes both: otherwise every row would say "Noust".
   const mixed = services.some((service) => !service.managed);
   const columns = columnsFor(t, mixed);
 

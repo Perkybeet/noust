@@ -31,9 +31,9 @@ from typing import Any
 
 import pytest
 
-from wasm.monitor.timeseries import MetricsStore
-from wasm.web import metrics_collector
-from wasm.web.metrics_collector import MetricsCollector, _read_cpu_usec
+from noust.monitor.timeseries import MetricsStore
+from noust.web import metrics_collector
+from noust.web.metrics_collector import MetricsCollector, _read_cpu_usec
 
 #: A fixed wall-clock "now" for the store, so persisted rows have known stamps.
 NOW = 1_700_002_800
@@ -122,7 +122,7 @@ def fake_psutil(monkeypatch: pytest.MonkeyPatch) -> FakePsutil:
 def domains(monkeypatch: pytest.MonkeyPatch) -> FakeAppStore:
     """Give the collector a deterministic application list."""
     fake = FakeAppStore([])
-    monkeypatch.setattr("wasm.core.store.get_store", lambda: fake)
+    monkeypatch.setattr("noust.core.store.get_store", lambda: fake)
     return fake
 
 
@@ -381,7 +381,7 @@ def test_a_failing_app_store_keeps_the_previous_domain_list(
     def refuse() -> Any:
         raise sqlite3.OperationalError("store unavailable")
 
-    monkeypatch.setattr("wasm.core.store.get_store", refuse)
+    monkeypatch.setattr("noust.core.store.get_store", refuse)
     clock.advance(metrics_collector.APPS_REFRESH_SECONDS + 1)
     snapshot = collector.sample_once()
 
@@ -540,7 +540,7 @@ def test_the_default_mapping_reads_the_unit_named_after_the_application(
     The collector used to look for wasm-<domain>.service, a name no unit has had since 0.14.1
     (units are named after the app, dots as dashes), so no application was ever sampled.
     """
-    from wasm.managers.service_manager import ServiceManager
+    from noust.managers.service_manager import ServiceManager
 
     monkeypatch.setattr(ServiceManager, "app_units", lambda self, app: [unit_of(app.domain)])
     domains.domains = ["shop.example.com"]

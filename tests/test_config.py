@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Tests for the thread safety of the :class:`~wasm.core.config.Config` singleton.
+Tests for the thread safety of the :class:`~noust.core.config.Config` singleton.
 
 The CLI and every panel request handler read ``Config()`` from their own
 thread. The check-and-set of the singleton used to hold no lock at all, and
@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.config import Config
+from noust.core.config import Config
 
 
 @pytest.fixture
@@ -37,7 +37,7 @@ def config_path(sandbox: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         Path the config module will read from and write to.
     """
     path = sandbox / "etc" / "wasm" / "config.yaml"
-    monkeypatch.setattr("wasm.core.config.DEFAULT_CONFIG_PATH", path)
+    monkeypatch.setattr("noust.core.config.DEFAULT_CONFIG_PATH", path)
     Config.reset_instance()
     try:
         yield path

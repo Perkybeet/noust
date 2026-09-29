@@ -2,7 +2,7 @@
  * The health check and retention forms: what each field accepts and how its value reaches
  * `PATCH /api/apps/{domain}/health` and `PATCH /api/apps/{domain}/releases/retention`.
  *
- * The rules and the words mirror `wasm.validators.health` and the store's retention bounds,
+ * The rules and the words mirror `noust.validators.health` and the store's retention bounds,
  * which are the checks that count; these only save a round trip. An empty field is the
  * default, exactly as a null is in the request.
  *

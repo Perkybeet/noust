@@ -5,7 +5,7 @@
 
 import pytest
 
-from wasm.deployers.helpers.nginx_config import (
+from noust.deployers.helpers.nginx_config import (
     NginxAdvancedConfig,
     NginxConfigBuilder,
     NginxRoute,
@@ -276,7 +276,7 @@ class TestDomains:
     """An app with a wasm.nginx.yaml answers on its aliases and redirects like any other."""
 
     def test_the_advanced_template_serves_aliases_and_redirects(self, builder, sample_config):
-        from wasm.managers.nginx_manager import NginxManager
+        from noust.managers.nginx_manager import NginxManager
 
         context = builder.build_context(sample_config, "example.com", ssl=True)
         context["server_names"] = "example.com shop.example.com"

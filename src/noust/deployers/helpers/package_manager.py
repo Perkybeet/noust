@@ -7,7 +7,7 @@ Package manager helper for deployers.
 Handles detection, verification, and command generation for
 Node.js package managers (npm, pnpm, yarn, bun).
 
-Availability is asked of the injected :class:`~wasm.core.runner.CommandRunner`,
+Availability is asked of the injected :class:`~noust.core.runner.CommandRunner`,
 not of the process PATH. Reading the PATH directly made the answer depend on
 whichever machine happened to run the code, which is untestable and, worse,
 meant a deploy could silently substitute one package manager for another.
@@ -18,13 +18,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-from wasm.core.exceptions import DeploymentError
-from wasm.core.logger import Logger
-from wasm.core.runner import CommandRunner, get_runner
+from noust.core.exceptions import DeploymentError
+from noust.core.logger import Logger
+from noust.core.runner import CommandRunner, get_runner
 
 PackageManager = Literal["npm", "pnpm", "bun", "yarn", "auto"]
 
-#: Every Node package manager WASM knows how to drive. The one list: the
+#: Every Node package manager Noust knows how to drive. The one list: the
 #: CLI's ``--pm`` choices and the API's ``package_manager`` field both derive
 #: from it, so a manager this helper supports - yarn, historically - cannot
 #: be rejected by a front end before it ever reaches here. "auto" is not one
@@ -123,7 +123,7 @@ class PackageManagerHelper:
                 details=(
                     "No Node.js package manager (npm, pnpm, yarn, bun) is installed.\n\n"
                     "To fix this, run the setup wizard:\n"
-                    "  sudo wasm setup init\n\n"
+                    "  sudo noust setup init\n\n"
                     "Or install Node.js manually which includes npm:\n"
                     "  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -\n"
                     "  sudo apt install -y nodejs"

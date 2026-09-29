@@ -41,7 +41,7 @@ test("the expiring certificate and the failed unit are named too", async ({ page
   const cert = attention.getByRole("listitem").filter({ has: page.getByRole("link", { name: "example.com", exact: true }) });
   await expect(cert.getByText(/^Certificate expires in \d+ days$/)).toBeVisible();
 
-  // A failed app names its own unit; each failed WASM unit beyond those is named and links to it.
+  // A failed app names its own unit; each failed Noust unit beyond those is named and links to it.
   const services = (await (await page.request.get("/api/services")).json()) as {
     services: { name: string; managed: boolean; active_state?: string | null }[];
   };

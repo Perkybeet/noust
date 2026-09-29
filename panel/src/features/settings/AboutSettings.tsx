@@ -38,15 +38,15 @@ function links(t: T): readonly { label: string; href: string; description: strin
 /** What the console does, and the command that does it from a terminal. */
 function terminalRows(t: T): readonly { task: string; command: string }[] {
   return [
-    { task: t("settings.about.terminal.showConfig"), command: "wasm config show" },
-    { task: t("settings.about.terminal.readSetting"), command: "wasm config get backup.max_per_app" },
-    { task: t("settings.about.terminal.changeSetting"), command: "wasm config set ssl.email ops@example.com" },
-    { task: t("settings.about.terminal.configPath"), command: "wasm config path" },
-    { task: t("settings.about.terminal.checkMachine"), command: "wasm health" },
-    { task: t("settings.about.terminal.consoleStatus"), command: "wasm web status" },
-    { task: t("settings.about.terminal.restartConsole"), command: "wasm web restart" },
-    { task: t("settings.about.terminal.newToken"), command: "wasm web token --new" },
-    { task: t("settings.about.terminal.installedVersion"), command: "wasm --version" },
+    { task: t("settings.about.terminal.showConfig"), command: "noust config show" },
+    { task: t("settings.about.terminal.readSetting"), command: "noust config get backup.max_per_app" },
+    { task: t("settings.about.terminal.changeSetting"), command: "noust config set ssl.email ops@example.com" },
+    { task: t("settings.about.terminal.configPath"), command: "noust config path" },
+    { task: t("settings.about.terminal.checkMachine"), command: "noust health" },
+    { task: t("settings.about.terminal.consoleStatus"), command: "noust web status" },
+    { task: t("settings.about.terminal.restartConsole"), command: "noust web restart" },
+    { task: t("settings.about.terminal.newToken"), command: "noust web token --new" },
+    { task: t("settings.about.terminal.installedVersion"), command: "noust --version" },
   ];
 }
 

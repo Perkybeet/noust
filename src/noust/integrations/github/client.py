@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The one way WASM talks to GitHub's REST API.
+The one way Noust talks to GitHub's REST API.
 
 A small JSON client over :mod:`urllib`, on purpose: no new dependency, one
 fixed host, a timeout on every request, and one error for every way a request
 can fail. The host is a constructor argument only so the tests can point it at
-a fake GitHub on loopback; nothing in WASM builds a client for another host,
+a fake GitHub on loopback; nothing in Noust builds a client for another host,
 and a path that is not a path on that host (an absolute URL a response handed
 back, say) is refused rather than followed.
 
@@ -26,8 +26,8 @@ from typing import IO, Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 
-from wasm import __version__
-from wasm.core.exceptions import IntegrationError
+from noust import __version__
+from noust.core.exceptions import IntegrationError
 
 #: GitHub's REST API.
 API_URL = "https://api.github.com"
@@ -126,7 +126,7 @@ class GitHubClient:
     JSON over HTTPS to one GitHub API host.
 
     Args:
-        base_url: The API root. Always :data:`API_URL` in WASM; tests pass a
+        base_url: The API root. Always :data:`API_URL` in Noust; tests pass a
             loopback server.
         timeout: Seconds per request.
         opener: Replacement for :func:`urllib.request.urlopen`.
@@ -221,7 +221,7 @@ class GitHubClient:
 
     def _error(self, method: str, path: str, exc: HTTPError) -> GitHubAPIError:
         """
-        Turn an error status into the error WASM raises, GitHub's words kept.
+        Turn an error status into the error Noust raises, GitHub's words kept.
 
         Args:
             method: The request's method.
@@ -308,7 +308,7 @@ def get_client() -> GitHubClient:
     Return the process-wide client.
 
     Returns:
-        The client every GitHub call in WASM goes through.
+        The client every GitHub call in Noust goes through.
     """
     global _client
     with _lock:

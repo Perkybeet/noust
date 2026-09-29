@@ -11,10 +11,10 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.exceptions import ConfigError
-from wasm.core.fs import DryRunFileSystem
-from wasm.core.secrets import SecretStore, secrets_dir
-from wasm.core.store import WASMStore
+from noust.core.exceptions import ConfigError
+from noust.core.fs import DryRunFileSystem
+from noust.core.secrets import SecretStore, secrets_dir
+from noust.core.store import NoustStore
 
 
 def test_written_secret_is_private_and_reads_back(tmp_path: Path) -> None:
@@ -85,9 +85,9 @@ def test_rehearsal_writes_nothing(tmp_path: Path) -> None:
 
 
 def test_default_directory_sits_beside_the_store(tmp_path: Path) -> None:
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
     try:
-        store = WASMStore(tmp_path / "state" / "wasm.db")
+        store = NoustStore(tmp_path / "state" / "wasm.db")
         assert secrets_dir() == store.db_path.parent / "secrets"
     finally:
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()

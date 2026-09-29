@@ -19,9 +19,9 @@ from typing import Any
 
 import pytest
 
-from wasm.core.exceptions import SourceError
-from wasm.core.runner import CommandResult, FakeRunner
-from wasm.managers.source_manager import (
+from noust.core.exceptions import SourceError
+from noust.core.runner import CommandResult, FakeRunner
+from noust.managers.source_manager import (
     GIT_NETWORK_TIMEOUT,
     SourceManager,
     redact_git_text,

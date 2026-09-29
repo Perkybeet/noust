@@ -19,9 +19,9 @@ from urllib.error import URLError
 
 import pytest
 
-from wasm.deployers.helpers import health as health_module
-from wasm.deployers.helpers.health import PROBE_TIMEOUT, wait_until_healthy
-from wasm.deployers.helpers.health_gate import HealthCheck, HealthGate
+from noust.deployers.helpers import health as health_module
+from noust.deployers.helpers.health import PROBE_TIMEOUT, wait_until_healthy
+from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
 
 URL = "http://127.0.0.1:3000/"
 

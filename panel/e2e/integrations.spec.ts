@@ -16,7 +16,7 @@ import type { Page, Request } from "@playwright/test";
 import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, test, toasts } from "./fixtures";
 import type { ConsoleServer } from "./fixtures";
 
-const APP = "wasm-acme";
+const APP = "noust-acme";
 const HOOKS = "https://hooks.example.com/hooks/github";
 /** The manifest code GitHub's fake no longer honours (scripts/console_server.py GITHUB_SPENT_CODE). */
 const SPENT_CODE = "spent-manifest-code";
@@ -80,7 +80,7 @@ test("a connected App: what it is, where it is installed and that GitHub deliver
   const github = page.getByRole("region", { name: "GitHub" });
   await expect(github.getByText(APP, { exact: true })).toBeVisible();
   await expect(github.getByText("1043871")).toBeVisible();
-  await expect(github.getByRole("link", { name: /github\.com\/apps\/wasm-acme/ })).toHaveAttribute("href", "https://github.com/apps/wasm-acme");
+  await expect(github.getByRole("link", { name: /github\.com\/apps\/noust-acme/ })).toHaveAttribute("href", "https://github.com/apps/noust-acme");
 
   const installations = page.getByRole("table", { name: "GitHub App installations" });
   const rows = installations.getByRole("row");
@@ -114,7 +114,7 @@ const STATES: readonly { name: string; change: (status: GitHubStatus) => GitHubS
       await expect(page.getByText("Next: install the App")).toBeVisible();
       await expect(page.getByRole("link", { name: /Install on GitHub/ })).toHaveAttribute(
         "href",
-        "https://github.com/apps/wasm-acme/installations/new",
+        "https://github.com/apps/noust-acme/installations/new",
       );
       await expect(page.getByRole("table", { name: "GitHub App installations" })).toHaveCount(0);
     },
@@ -125,7 +125,7 @@ const STATES: readonly { name: string; change: (status: GitHubStatus) => GitHubS
     expect: async (page) => {
       const events = page.getByRole("region", { name: "Push and pull request events" });
       await expect(events.getByText("Not reachable from GitHub")).toBeVisible();
-      await expect(events.getByText("wasm web expose-hooks hooks.example.com")).toBeVisible();
+      await expect(events.getByText("noust web expose-hooks hooks.example.com")).toBeVisible();
     },
   },
   {
@@ -137,7 +137,7 @@ const STATES: readonly { name: string; change: (status: GitHubStatus) => GitHubS
       await expect(events.getByText(HOOKS)).toBeVisible();
       await expect(events.getByRole("link", { name: /Open the App's settings on GitHub/ })).toHaveAttribute(
         "href",
-        "https://github.com/organizations/acme/settings/apps/wasm-acme",
+        "https://github.com/organizations/acme/settings/apps/noust-acme",
       );
     },
   },
@@ -290,7 +290,7 @@ test("removing the App forgets it here and says where to delete it on GitHub; cr
   await expect(removed).toBeVisible();
   await expect(removed.getByRole("link", { name: /Delete the App on GitHub/ })).toHaveAttribute(
     "href",
-    "https://github.com/organizations/acme/settings/apps/wasm-acme",
+    "https://github.com/organizations/acme/settings/apps/noust-acme",
   );
   await expect(page.getByRole("button", { name: "Create GitHub App" })).toBeVisible();
   await settle(page);

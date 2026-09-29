@@ -59,6 +59,6 @@ export const nav: Catalog<typeof en> = {
       command: "Ajustes de integraciones",
     },
     tokens: { label: "Tokens de API", keywords: "automatización ci alcance tokens", command: "Tokens de API" },
-    about: { label: "Acerca de", keywords: "versión actualización about", command: "Acerca de WASM" },
+    about: { label: "Acerca de", keywords: "versión actualización about", command: "Acerca de Noust" },
   },
 };

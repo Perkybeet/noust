@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from wasm.deployers.helpers.env_manager import EnvManager
+from noust.deployers.helpers.env_manager import EnvManager
 
 FIXTURES = Path(__file__).parent / "fixtures" / "env"
 

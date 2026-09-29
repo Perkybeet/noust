@@ -27,12 +27,12 @@ import pytest
 import yaml
 from click.testing import CliRunner, Result
 
-from wasm.cli.app import cli as root_cli
-from wasm.cli.commands import cert as cert_module
-from wasm.core.exceptions import CertificateError
-from wasm.core.logger import Logger
-from wasm.core.runner import FakeRunner
-from wasm.managers.cert_manager import CertManager
+from noust.cli.app import cli as root_cli
+from noust.cli.commands import cert as cert_module
+from noust.core.exceptions import CertificateError
+from noust.core.logger import Logger
+from noust.core.runner import FakeRunner
+from noust.managers.cert_manager import CertManager
 
 CERTBOT_OUTPUT = (
     "Found the following certs:\n"
@@ -96,7 +96,7 @@ def log(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     """
     Collect what the commands report to the operator.
 
-    :class:`~wasm.core.logger.Logger` binds ``sys.stdout`` as a default
+    :class:`~noust.core.logger.Logger` binds ``sys.stdout`` as a default
     argument when its module is imported, so its output does not travel through
     the stream ``CliRunner`` installs and cannot be read from the result. The
     write is intercepted instead.
@@ -129,7 +129,7 @@ def live_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, runner: FakeRunner
     Returns:
         The directory that stands in for /etc/letsencrypt/live.
     """
-    monkeypatch.setattr("wasm.managers.cert_manager.get_store", lambda: _Store())
+    monkeypatch.setattr("noust.managers.cert_manager.get_store", lambda: _Store())
     live = tmp_path / "letsencrypt/live"
     monkeypatch.setattr(CertManager, "LETSENCRYPT_DIR", tmp_path / "letsencrypt")
     monkeypatch.setattr(CertManager, "LIVE_DIR", live)
@@ -196,8 +196,8 @@ def isolated_panel_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Pa
     Yields:
         The configuration file the test may write.
     """
-    from wasm.cli.commands import web as web_module
-    from wasm.core import config as config_module
+    from noust.cli.commands import web as web_module
+    from noust.core import config as config_module
 
     path = tmp_path / "config.yaml"
     monkeypatch.setattr(config_module, "DEFAULT_CONFIG_PATH", path)
@@ -217,7 +217,7 @@ def _configure_panel(path: Path, **settings: Any) -> None:
         **settings: Overrides for the ``web`` section; ``enabled``, ``host``
             and ``port`` fall back to a plain local panel when not given.
     """
-    from wasm.core.config import Config
+    from noust.core.config import Config
 
     settings.setdefault("enabled", True)
     settings.setdefault("host", "127.0.0.1")

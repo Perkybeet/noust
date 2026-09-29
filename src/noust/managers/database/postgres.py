@@ -4,7 +4,7 @@
 """
 PostgreSQL manager.
 
-Statements WASM builds are fed to ``psql`` on stdin, never with ``-c``: a
+Statements Noust builds are fed to ``psql`` on stdin, never with ``-c``: a
 CREATE ROLE carries a password, and everything in argv is visible in ``ps``.
 The console's statement is the one exception, and goes the other way for a
 reason: psql reads stdin as a script and runs its meta-commands (``\\!`` is a
@@ -18,8 +18,8 @@ nothing but ``SELECT``: a superuser session that merely switched roles can
 switch back from inside a single SELECT (``set_config('role', ...)``), so the
 limit has to be the login itself. See :meth:`PostgresManager._ensure_read_only_role`.
 
-That TCP login, and every connection string WASM shows, uses the port of the
-cluster WASM administers, found by :meth:`PostgresManager.server_port`: the
+That TCP login, and every connection string Noust shows, uses the port of the
+cluster Noust administers, found by :meth:`PostgresManager.server_port`: the
 superuser session reaches that cluster through Debian's pg_wrapper, which
 picks the cluster's port by itself, but a TCP client has to be told, and a
 fixed 5432 on a server whose cluster listens on 5433 signs in to whatever else
@@ -39,8 +39,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from wasm.core.config import secure_write
-from wasm.core.exceptions import (
+from noust.core.config import secure_write
+from noust.core.exceptions import (
     DatabaseBackupError,
     DatabaseError,
     DatabaseExistsError,
@@ -48,9 +48,9 @@ from wasm.core.exceptions import (
     DatabaseQueryError,
     DatabaseUserError,
 )
-from wasm.core.fs import FileSystem
-from wasm.core.runner import CommandResult, CommandRunner, runuser_prefix
-from wasm.managers.database.base import (
+from noust.core.fs import FileSystem
+from noust.core.runner import CommandResult, CommandRunner, runuser_prefix
+from noust.managers.database.base import (
     QUERY_TIMEOUT,
     TRANSFER_TIMEOUT,
     BackupInfo,
@@ -64,8 +64,8 @@ from wasm.managers.database.base import (
     quote_identifier,
     validate_name,
 )
-from wasm.managers.database.psql_script import check_plain_dump
-from wasm.managers.database.registry import DatabaseRegistry
+from noust.managers.database.psql_script import check_plain_dump
+from noust.managers.database.registry import DatabaseRegistry
 
 #: Privileges PostgreSQL accepts on a DATABASE object.
 DATABASE_PRIVILEGES = frozenset(
@@ -109,11 +109,11 @@ _IDENTIFIER_MAX_LENGTH = 63
 READ_ONLY_HOST = "127.0.0.1"
 
 #: Where each read-only role's password is kept, under the store's directory:
-#: ``/var/lib/wasm/secrets/postgresql`` on a server.
+#: ``/var/lib/noust/secrets/postgresql`` on a server.
 _READ_ONLY_SECRETS_PATH = ("secrets", "postgresql")
 
 #: What :func:`secrets.token_urlsafe` produces. A stored value that is anything
-#: else was not written by WASM and is replaced rather than used.
+#: else was not written by Noust and is replaced rather than used.
 _STORED_PASSWORD = re.compile(r"[A-Za-z0-9_-]{32,128}")
 
 #: psql's exit status when it could not connect (EXIT_BADCONN), as opposed to 3
@@ -174,7 +174,7 @@ def _scram_sha256_verifier(password: str) -> str:
     ``pg_stat_activity`` while it runs, only ever show the verifier, which
     cannot be turned back into the password. The algorithm is RFC 5802 with
     the RFC 7677 hash, the same one libpq's ``PQencryptPasswordConn`` runs.
-    SASLprep is the identity for the ASCII passwords WASM generates.
+    SASLprep is the identity for the ASCII passwords Noust generates.
 
     Args:
         password: The plaintext password.
@@ -307,7 +307,7 @@ class PostgresManager(BaseDatabaseManager):
         Runs as :data:`SUPERUSER`, applied by the caller through ``_exec``'s
         ``user=`` rather than baked in here: PostgreSQL's peer authentication
         only accepts a connection from the OS account of the same name, and
-        WASM runs as root, not ``postgres``.
+        Noust runs as root, not ``postgres``.
 
         Args:
             database: Database to connect to.
@@ -363,10 +363,10 @@ class PostgresManager(BaseDatabaseManager):
 
     def _show(self, setting: str) -> str | None:
         """
-        Ask the cluster WASM administers for one of its settings.
+        Ask the cluster Noust administers for one of its settings.
 
         Args:
-            setting: A setting name WASM chose, never input.
+            setting: A setting name Noust chose, never input.
 
         Returns:
             The value as the server prints it, or None when the superuser
@@ -379,7 +379,7 @@ class PostgresManager(BaseDatabaseManager):
 
     def server_port(self) -> int:
         """
-        Return the TCP port of the PostgreSQL WASM administers.
+        Return the TCP port of the PostgreSQL Noust administers.
 
         What every TCP path uses: the read-only console's login and the
         connection strings shown to operators. Precedence:
@@ -388,7 +388,7 @@ class PostgresManager(BaseDatabaseManager):
            operator's word, for a server the superuser session cannot
            describe (pg_hba.conf answers, but TCP is forwarded elsewhere).
         2. ``SHOW port`` over the superuser session, which reaches the cluster
-           WASM administers however it was found (Debian's pg_wrapper picks
+           Noust administers however it was found (Debian's pg_wrapper picks
            the cluster's port for ``psql``; a TCP client has to be told).
         3. :data:`DEFAULT_PORT`, when neither answers. Not remembered, so a
            server started later is asked on the next call.
@@ -431,7 +431,7 @@ class PostgresManager(BaseDatabaseManager):
                 raise DatabaseQueryError(
                     f"Invalid PostgreSQL port in the configuration: {configured!r}",
                     details=(
-                        f"Set {_PORT_SETTING} in /etc/wasm/config.yaml to the port "
+                        f"Set {_PORT_SETTING} in /etc/noust/config.yaml to the port "
                         "PostgreSQL listens on, or remove it to ask the server."
                     ),
                 )
@@ -532,7 +532,7 @@ class PostgresManager(BaseDatabaseManager):
                 return
             raise DatabaseNotFoundError(
                 f"Database '{name}' does not exist",
-                details="Run 'wasm db list --engine postgresql' to see the databases.",
+                details="Run 'noust db list --engine postgresql' to see the databases.",
             )
 
         if force:
@@ -725,7 +725,7 @@ class PostgresManager(BaseDatabaseManager):
         if not self.user_exists(username):
             raise DatabaseUserError(
                 f"User '{username}' does not exist",
-                details="Run 'wasm db users --engine postgresql' to see the roles.",
+                details="Run 'noust db users --engine postgresql' to see the roles.",
             )
 
         success, output = self._execute_sql(f"DROP ROLE {self._escape_identifier(username)};")
@@ -1123,7 +1123,7 @@ class PostgresManager(BaseDatabaseManager):
         is why it is an elevated, audited action. What it does not trust is
         the client: psql reads a plain dump with ``-f``, where it would run
         ``\\!``, ``\\o`` or ``\\set`` as happily as SQL, so the dump is checked
-        by :func:`~wasm.managers.database.psql_script.check_plain_dump` first,
+        by :func:`~noust.managers.database.psql_script.check_plain_dump` first,
         before the database is touched, and refused if psql would find a
         meta-command in it outside COPY data. pg_restore, for the custom
         format, has no such commands.
@@ -1143,7 +1143,7 @@ class PostgresManager(BaseDatabaseManager):
         if not backup_path.exists():
             raise DatabaseBackupError(
                 f"Backup file not found: {backup_path}",
-                details="Run 'wasm db backups' to list the backups WASM knows about.",
+                details="Run 'noust db backups' to list the backups Noust knows about.",
             )
 
         dump_format = kwargs.get("format", "plain")
@@ -1236,7 +1236,7 @@ class PostgresManager(BaseDatabaseManager):
         The trade-off is that the statement is in argv, visible in ``ps`` for
         as long as it runs. That is acceptable for the operator's own query,
         which is not a credential. A statement that embeds a password
-        (``ALTER ROLE ... PASSWORD``) is better sent through ``wasm db user``,
+        (``ALTER ROLE ... PASSWORD``) is better sent through ``noust db user``,
         which keeps it on stdin.
 
         Args:
@@ -1259,7 +1259,7 @@ class PostgresManager(BaseDatabaseManager):
                 details=(
                     "A statement starting with a backslash is a psql meta-command "
                     "(\\! runs a shell, \\o writes a file), not SQL. Send SQL only; "
-                    "use 'wasm db connect' for an interactive psql session."
+                    "use 'noust db connect' for an interactive psql session."
                 ),
             )
         if not self.database_exists(database):
@@ -1402,8 +1402,8 @@ class PostgresManager(BaseDatabaseManager):
         where = f"{READ_ONLY_HOST}:{port}"
         origin = f"Port {port} is {source}."
         elsewhere = (
-            f"If the PostgreSQL WASM administers listens on another port, set {_PORT_SETTING} "
-            "in /etc/wasm/config.yaml to it."
+            f"If the PostgreSQL Noust administers listens on another port, set {_PORT_SETTING} "
+            "in /etc/noust/config.yaml to it."
         )
         if "no pg_hba.conf entry" in stderr:
             hba_line = f"host {database} {role} {READ_ONLY_HOST}/32 scram-sha-256"
@@ -1416,11 +1416,11 @@ class PostgresManager(BaseDatabaseManager):
         elif "password authentication failed" in stderr or _ROLE_MISSING.search(stderr):
             steps = (
                 f"The server answering on {where} does not know {role}, or rejects the "
-                "password WASM set for it on the cluster it administers, so another "
+                "password Noust set for it on the cluster it administers, so another "
                 f"PostgreSQL (a container publishing port {port}, a second cluster) is "
                 f"probably answering on port {port}. {origin} Set {_PORT_SETTING} in "
-                "/etc/wasm/config.yaml to the port of the cluster WASM administers: "
-                "'SHOW port' in 'wasm db connect' prints it."
+                "/etc/noust/config.yaml to the port of the cluster Noust administers: "
+                "'SHOW port' in 'noust db connect' prints it."
             )
         elif "Connection refused" in stderr:
             reported = self._show("listen_addresses")
@@ -1522,7 +1522,7 @@ class PostgresManager(BaseDatabaseManager):
         Return where a read-only role's password is kept.
 
         Beside the store, like the lock files and the job logs: under
-        ``/var/lib/wasm`` on a server, inside the test's own directory in a
+        ``/var/lib/noust`` on a server, inside the test's own directory in a
         test, inside the sandbox under ``scripts/console_server.py``.
 
         Args:
@@ -1533,17 +1533,17 @@ class PostgresManager(BaseDatabaseManager):
         """
         # Imported here: the store imports a great deal, and nothing else in
         # this module needs it.
-        from wasm.core.store import get_store
+        from noust.core.store import get_store
 
         return get_store().db_path.parent.joinpath(*_READ_ONLY_SECRETS_PATH, f"{role}.password")
 
     def _stored_password(self, path: Path) -> str | None:
         """
-        Read a read-only role's stored password, if WASM wrote a usable one.
+        Read a read-only role's stored password, if Noust wrote a usable one.
 
         The file is opened without following a symlink and must be a regular
         file owned by this user with no group or other access; anything else
-        was not left by :func:`~wasm.core.config.secure_write` and is
+        was not left by :func:`~noust.core.config.secure_write` and is
         replaced, not trusted.
 
         Args:

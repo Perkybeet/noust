@@ -7,7 +7,7 @@ Monorepo and docker-compose deployments join the deployment history.
 Both deployers are their own pipelines rather than subclasses of the base, and
 both used to leave no history at all: a push that rebuilt a monorepo or a
 compose stack was invisible in the panel. They now record through the same
-construction as the base (:func:`wasm.deployers.recorder.recorder_for`), with
+construction as the base (:func:`noust.deployers.recorder.recorder_for`), with
 the trigger and the captured log; and they write their application row
 through the same registrar, so a redeploy keeps the settings it does not know
 about (the v5 columns) instead of rebuilding the row from scratch.
@@ -21,29 +21,29 @@ from typing import Any
 
 import pytest
 
-from wasm.core.exceptions import DeploymentError
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, WASMStore
-from wasm.deployers import lifecycle
-from wasm.deployers.docker_compose import DockerComposeDeployer
-from wasm.deployers.monorepo import MonorepoDeployer
+from noust.core.exceptions import DeploymentError
+from noust.core.runner import FakeRunner
+from noust.core.store import App, NoustStore
+from noust.deployers import lifecycle
+from noust.deployers.docker_compose import DockerComposeDeployer
+from noust.deployers.monorepo import MonorepoDeployer
 
 DOMAIN = "mono.example.com"
 
 
 @pytest.fixture
-def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[WASMStore]:
+def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[NoustStore]:
     """A store in the test directory, where the lifecycle and the deployers look."""
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     monkeypatch.setattr(lifecycle, "get_store", lambda: instance)
-    monkeypatch.setattr("wasm.deployers.monorepo.get_store", lambda: instance)
-    monkeypatch.setattr("wasm.deployers.docker_compose.get_store", lambda: instance)
+    monkeypatch.setattr("noust.deployers.monorepo.get_store", lambda: instance)
+    monkeypatch.setattr("noust.deployers.docker_compose.get_store", lambda: instance)
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
-def existing_app(store: WASMStore, app_type: str, root: Path) -> App:
+def existing_app(store: NoustStore, app_type: str, root: Path) -> App:
     """An application whose row carries settings no deploy knows about."""
     app = store.create_app(App(domain=DOMAIN, app_type=app_type, app_path=str(root)))
     app.persistent_paths = ["uploads"]
@@ -81,7 +81,7 @@ def monorepo(root: Path, runner: FakeRunner) -> MonorepoDeployer:
 
 
 def test_a_monorepo_update_writes_a_history_row_with_its_trigger_and_log(
-    tmp_path: Path, store: WASMStore, runner: FakeRunner
+    tmp_path: Path, store: NoustStore, runner: FakeRunner
 ) -> None:
     """The row says who asked and how it ended; the log holds the build."""
     runner.script(["pnpm", "install"], stdout="Packages: +42\nDone in 3.1s")
@@ -95,7 +95,7 @@ def test_a_monorepo_update_writes_a_history_row_with_its_trigger_and_log(
 
 
 def test_a_failed_monorepo_update_is_recorded_with_its_error(
-    tmp_path: Path, store: WASMStore, runner: FakeRunner
+    tmp_path: Path, store: NoustStore, runner: FakeRunner
 ) -> None:
     """pnpm's own words end up in the row."""
     runner.script(["pnpm", "install"], stderr="ERR_PNPM_OUTDATED_LOCKFILE", exit_code=1)
@@ -109,7 +109,7 @@ def test_a_failed_monorepo_update_is_recorded_with_its_error(
 
 
 def test_update_app_passes_its_trigger_to_a_monorepo(
-    tmp_path: Path, store: WASMStore, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, store: NoustStore, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The panel's and the webhook's updates are told apart in the history."""
     root = tmp_path / "mono"
@@ -141,7 +141,7 @@ def test_update_app_passes_its_trigger_to_a_monorepo(
 
 
 def test_a_monorepo_redeploy_keeps_the_settings_of_its_row(
-    tmp_path: Path, store: WASMStore, runner: FakeRunner
+    tmp_path: Path, store: NoustStore, runner: FakeRunner
 ) -> None:
     """The row is updated through the registrar, not rebuilt from scratch."""
     before = v5_columns(existing_app(store, "monorepo", tmp_path))
@@ -161,7 +161,7 @@ def compose(root: Path, runner: FakeRunner) -> DockerComposeDeployer:
 
 
 def test_a_compose_update_writes_a_history_row(
-    tmp_path: Path, store: WASMStore, runner: FakeRunner
+    tmp_path: Path, store: NoustStore, runner: FakeRunner
 ) -> None:
     """Rebuild and recreate, recorded with trigger and log."""
     runner.script(["docker", "compose"], stdout="Container mono-web-1  Started")
@@ -176,7 +176,7 @@ def test_a_compose_update_writes_a_history_row(
 
 
 def test_a_compose_redeploy_updates_its_row_and_keeps_its_settings(
-    tmp_path: Path, store: WASMStore, runner: FakeRunner
+    tmp_path: Path, store: NoustStore, runner: FakeRunner
 ) -> None:
     """It used to insert a second row, fail on the unique domain, and warn."""
     root = tmp_path / "stack"
@@ -193,7 +193,7 @@ def test_a_compose_redeploy_updates_its_row_and_keeps_its_settings(
 
 
 def test_a_failed_compose_redeploy_leaves_the_stack_that_was_serving(
-    tmp_path: Path, store: WASMStore, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, store: NoustStore, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Undoing a redeploy would delete the directory and the row of a live stack."""
     root = tmp_path / "stack"

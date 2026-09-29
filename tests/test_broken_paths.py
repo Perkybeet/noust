@@ -27,25 +27,25 @@ from typing import Any
 
 import pytest
 
-from wasm.core.runner import FakeRunner
+from noust.core.runner import FakeRunner
 
-SRC_ROOT = Path(__file__).resolve().parents[1] / "src" / "wasm"
+SRC_ROOT = Path(__file__).resolve().parents[1] / "src" / "noust"
 
 # Classes whose call sites are checked statically. The key is the class name as
 # written in the source; the value is the import path.
 _TRACKED_CLASSES: dict[str, str] = {
-    "WASMStore": "wasm.core.store",
-    "ServiceManager": "wasm.managers.service_manager",
-    "CertManager": "wasm.managers.cert_manager",
-    "BackupManager": "wasm.managers.backup_manager",
-    "RollbackManager": "wasm.managers.backup_manager",
-    "NginxManager": "wasm.managers.nginx_manager",
-    "ApacheManager": "wasm.managers.apache_manager",
-    "SourceManager": "wasm.managers.source_manager",
+    "NoustStore": "noust.core.store",
+    "ServiceManager": "noust.managers.service_manager",
+    "CertManager": "noust.managers.cert_manager",
+    "BackupManager": "noust.managers.backup_manager",
+    "RollbackManager": "noust.managers.backup_manager",
+    "NginxManager": "noust.managers.nginx_manager",
+    "ApacheManager": "noust.managers.apache_manager",
+    "SourceManager": "noust.managers.source_manager",
 }
 
 # Factory functions that return an instance of a tracked class.
-_FACTORIES: dict[str, str] = {"get_store": "WASMStore"}
+_FACTORIES: dict[str, str] = {"get_store": "NoustStore"}
 
 # Call sites that are still broken and live in modules outside the scope of
 # this fix. The assertion is a subset check, so fixing one of these elsewhere
@@ -159,7 +159,7 @@ def _shadowed_attributes(tree: ast.Module) -> set[str]:
     """
     Attribute names a module defines for itself.
 
-    ``self.store`` is a WASMStore in the managers and an observation store
+    ``self.store`` is a NoustStore in the managers and an observation store
     behind a property in the monitor. When a module defines the name, the
     package-wide binding says nothing about it.
 
@@ -312,7 +312,7 @@ def _find_missing_methods() -> list[tuple[str, int, str]]:
 
 
 class FakeStore:
-    """A stand-in for :class:`~wasm.core.store.WASMStore`."""
+    """A stand-in for :class:`~noust.core.store.NoustStore`."""
 
     def __init__(self, db_path: Path | None = None) -> None:
         self.apps: dict[str, Any] = {}
@@ -433,17 +433,17 @@ def fake_store(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> FakeStore:
     """
     store = FakeStore(db_path=tmp_path / "store" / "wasm.db")
     modules = (
-        "wasm.core.store",
-        "wasm.managers.service_manager",
-        "wasm.managers.cert_manager",
-        "wasm.managers.backup_manager",
+        "noust.core.store",
+        "noust.managers.service_manager",
+        "noust.managers.cert_manager",
+        "noust.managers.backup_manager",
     )
     for module_name in modules:
         module = importlib.import_module(module_name)
         if hasattr(module, "get_store"):
             monkeypatch.setattr(module, "get_store", lambda: store)
-        if hasattr(module, "WASMStore"):
-            monkeypatch.setattr(module, "WASMStore", lambda *a, **k: store)
+        if hasattr(module, "NoustStore"):
+            monkeypatch.setattr(module, "NoustStore", lambda *a, **k: store)
     return store
 
 
@@ -479,8 +479,8 @@ def health_environment(monkeypatch: pytest.MonkeyPatch, fake_store: FakeStore) -
     Returns:
         The store, so a test can register applications.
     """
-    from wasm.managers.apache_manager import ApacheManager
-    from wasm.managers.nginx_manager import NginxManager
+    from noust.managers.apache_manager import ApacheManager
+    from noust.managers.nginx_manager import NginxManager
 
     monkeypatch.setattr(NginxManager, "is_installed", lambda self: True)
     monkeypatch.setattr(NginxManager, "get_status", lambda self: {"active": True})
@@ -499,7 +499,7 @@ def test_health_counts_a_running_application(
         domain="example.com", is_static=False, port=3000, id=None, app_type="nextjs"
     )
 
-    from wasm.cli.commands.health import handle_health
+    from noust.cli.commands.health import handle_health
 
     handle_health(Namespace(verbose=False))
 
@@ -534,7 +534,7 @@ def test_health_warns_about_a_certificate_close_to_expiry(
         ),
     )
 
-    from wasm.cli.commands.health import handle_health
+    from noust.cli.commands.health import handle_health
 
     exit_code = handle_health(Namespace(verbose=False))
 
@@ -553,10 +553,10 @@ def test_site_delete_removes_the_certificate(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """``site delete`` must reach the certificate manager, not a NameError."""
-    from wasm.cli.commands import site as site_command
-    from wasm.managers.apache_manager import ApacheManager
-    from wasm.managers.cert_manager import CertManager
-    from wasm.managers.nginx_manager import NginxManager
+    from noust.cli.commands import site as site_command
+    from noust.managers.apache_manager import ApacheManager
+    from noust.managers.cert_manager import CertManager
+    from noust.managers.nginx_manager import NginxManager
 
     deleted: list[str] = []
     monkeypatch.setattr(NginxManager, "site_exists", lambda self, domain: True)
@@ -592,7 +592,7 @@ def test_service_list_excludes_units_wasm_does_not_manage(
     runner: FakeRunner, fake_store: FakeStore
 ) -> None:
     """Listing services must never surface ssh, cron or any other system unit."""
-    from wasm.managers.service_manager import ServiceManager
+    from noust.managers.service_manager import ServiceManager
 
     runner.script(["systemctl", "list-units"], stdout=_UNIT_LISTING)
     manager = ServiceManager()
@@ -608,7 +608,7 @@ def test_service_list_asks_systemd_only_for_managed_units(
     runner: FakeRunner, fake_store: FakeStore
 ) -> None:
     """The systemd query itself must be scoped, not a bare wildcard."""
-    from wasm.managers.service_manager import ServiceManager
+    from noust.managers.service_manager import ServiceManager
 
     runner.script(["systemctl", "list-units"], stdout=_UNIT_LISTING)
     ServiceManager().list_services()
@@ -622,8 +622,8 @@ def test_delete_service_refuses_a_foreign_unit(
     runner: FakeRunner, fake_store: FakeStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A unit WASM did not write must never be deleted."""
-    from wasm.core.exceptions import ServiceError
-    from wasm.managers.service_manager import ServiceManager
+    from noust.core.exceptions import ServiceError
+    from noust.managers.service_manager import ServiceManager
 
     (tmp_path / "ssh.service").write_text("[Unit]\nDescription=OpenBSD Secure Shell server\n")
     monkeypatch.setattr(ServiceManager, "SYSTEMD_DIR", tmp_path)
@@ -645,7 +645,7 @@ def test_certbot_plugin_probe_runs_with_privileges(
     runner: FakeRunner, fake_store: FakeStore
 ) -> None:
     """``certbot plugins`` returns nothing useful unless it runs as root."""
-    from wasm.managers.cert_manager import CertManager
+    from noust.managers.cert_manager import CertManager
 
     runner.script(["certbot", "plugins"], stdout="* nginx\nDescription: Nginx Web Server\n")
 
@@ -719,7 +719,7 @@ def database_engine(monkeypatch: pytest.MonkeyPatch) -> FakeDatabaseManager:
     Returns:
         The fake engine manager.
     """
-    from wasm.managers.database.registry import DatabaseRegistry
+    from noust.managers.database.registry import DatabaseRegistry
 
     engine = FakeDatabaseManager()
     monkeypatch.setattr(
@@ -739,7 +739,7 @@ def _build_backup_manager(tmp_path: Path, apps_dir: Path) -> Any:
     Returns:
         The configured manager.
     """
-    from wasm.managers.backup_manager import BackupManager
+    from noust.managers.backup_manager import BackupManager
 
     manager = BackupManager()
     manager.backup_dir = tmp_path / "backups"

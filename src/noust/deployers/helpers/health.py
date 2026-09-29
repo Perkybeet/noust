@@ -14,7 +14,7 @@ from email.message import Message
 from typing import IO
 from urllib.error import HTTPError, URLError
 
-from wasm.core.runner import CommandResult
+from noust.core.runner import CommandResult
 
 #: A local HTTP request that has not answered in this long is not going to.
 PROBE_TIMEOUT = 5

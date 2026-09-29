@@ -1,5 +1,5 @@
 """
-Authentication and session security for the WASM web panel.
+Authentication and session security for the Noust web panel.
 
 The panel drives systemd, nginx and certbot as root, so a session here is
 equivalent to a root shell. The design decisions that follow from that:
@@ -60,9 +60,9 @@ from urllib.parse import quote
 from fastapi import HTTPException, Request, status
 from starlette.requests import HTTPConnection
 
-from wasm.core import totp
-from wasm.core.exceptions import SecurityError
-from wasm.core.fs import SECRET_MODE, get_fs, is_rehearsal
+from noust.core import paths, totp
+from noust.core.exceptions import SecurityError
+from noust.core.fs import SECRET_MODE, get_fs, is_rehearsal
 
 logger = logging.getLogger(__name__)
 
@@ -96,9 +96,11 @@ RATE_LIMIT_AUTHENTICATED_MAX_REQUESTS = 1200
 RATE_LIMIT_MAX_TRACKED_IPS = 4096
 
 #: Where the signing key, the master token hash, the session database and the
-#: audit log live. Overridable for tests and for unprivileged installs.
-DEFAULT_STATE_DIR = Path("/etc/wasm")
-STATE_DIR_ENV = "WASM_WEB_STATE_DIR"
+#: audit log live: the configuration directory, ``/etc/noust`` (``/etc/wasm``
+#: on a server not migrated yet, see :func:`noust.core.paths.config_dir`).
+#: Overridable for tests and for unprivileged installs with this variable, or
+#: with its WASM spelling, ``WASM_WEB_STATE_DIR``.
+STATE_DIR_ENV = "NOUST_WEB_STATE_DIR"
 
 SECRET_FILE_NAME = "web-secret"  # noqa: S105 - file name, not a credential
 TOKEN_FILE_NAME = "web-token"  # noqa: S105 - file name, not a credential
@@ -161,8 +163,12 @@ WS_TOKEN_PREFIX = "wasm.token."  # noqa: S105 - subprotocol prefix, not a creden
 
 #: Prefix that routes a Bearer credential to the API token table instead of
 #: the session store or the master token. The master token's own prefix is
-#: ``wasm_``, so the two are distinguishable at a glance in a config file.
-API_TOKEN_PREFIX = "wasm_tok_"  # noqa: S105 - a prefix, not a credential
+#: ``noust_``, so the two are distinguishable at a glance in a config file.
+API_TOKEN_PREFIX = "noust_tok_"  # noqa: S105 - a prefix, not a credential
+#: What API tokens issued before 3.0 start with. They are stored hashed and
+#: keep working until revoked or expired; only new tokens get the new prefix.
+LEGACY_API_TOKEN_PREFIX = "wasm_tok_"  # noqa: S105 - a prefix, not a credential
+API_TOKEN_PREFIXES = (API_TOKEN_PREFIX, LEGACY_API_TOKEN_PREFIX)
 
 #: The ``sid`` of the master token's payload, and of a WebSocket ticket it was
 #: issued to. API tokens use ``token:<name>``; cookie sessions a random hex id.
@@ -209,7 +215,7 @@ DEPLOY_SCOPE_PATTERNS: tuple[re.Pattern[str], ...] = (
 
 #: Recorded in the payload the auth dependency hands to endpoints. Kept as
 #: names rather than a JWT: see SessionStore._encode for why the JWT went.
-SESSION_ISSUER = "wasm-web"
+SESSION_ISSUER = "noust-web"
 SESSION_SUBJECT = "wasm_session"
 JWT_EXPIRATION_HOURS = 12
 
@@ -332,15 +338,15 @@ class SecurityConfig:
         Directory used for secrets, sessions and audit records.
 
         Returns:
-            The explicit ``state_dir``, else ``WASM_WEB_STATE_DIR``, else
-            ``/etc/wasm``.
+            The explicit ``state_dir``, else ``NOUST_WEB_STATE_DIR`` (or
+            ``WASM_WEB_STATE_DIR``), else the configuration directory.
         """
         if self.state_dir is not None:
             return Path(self.state_dir)
-        env_dir = os.environ.get(STATE_DIR_ENV)
+        env_dir = paths.getenv("WEB_STATE_DIR")
         if env_dir:
             return Path(env_dir)
-        return DEFAULT_STATE_DIR
+        return paths.config_dir()
 
     @property
     def secret_file(self) -> Path:
@@ -464,7 +470,7 @@ def ensure_state_dir(path: Path) -> None:
     """
     Create the state directory with owner-only permissions.
 
-    Through the filesystem seam, like every other change WASM makes, so a
+    Through the filesystem seam, like every other change Noust makes, so a
     ``--dry-run`` reports the directory it would create and creates nothing.
 
     Args:
@@ -488,7 +494,7 @@ def ensure_state_dir(path: Path) -> None:
             fs.chmod(path, DIR_MODE)
     except OSError as exc:
         raise SecurityError(
-            f"Cannot create the WASM web state directory {path}",
+            f"Cannot create the Noust web state directory {path}",
             details=(
                 "The web panel stores its signing key, sessions and audit log there. "
                 f"Create it as root with 'install -d -m 700 {path}', or point the panel "
@@ -946,7 +952,7 @@ class SessionStore:
         Open a private, in-memory copy of the database for a ``--dry-run``.
 
         SQLite writes past the filesystem seam, so a rehearsal cannot open the
-        real file: ``wasm --dry-run token create`` would issue a live token,
+        real file: ``noust --dry-run token create`` would issue a live token,
         and on a fresh machine simply connecting creates the file. The copy
         answers reads with the real state and forgets every write when the
         process ends, which is what a rehearsal promises.
@@ -1507,7 +1513,7 @@ class AuditLogger:
     interesting record there is - which means an anonymous client can drive the
     write rate. The file is therefore rotated at a fixed size and a fixed number
     of backups, so the worst an attacker achieves is erasing their own older
-    footprints rather than filling the disk of a machine WASM runs as root.
+    footprints rather than filling the disk of a machine Noust runs as root.
     """
 
     def __init__(
@@ -1746,7 +1752,7 @@ class TokenManager:
 
     The files in the state directory are the only record of the master token
     and the key, and a running console answers from them, not from a copy it
-    took at start. ``wasm web token --new`` and ``--regenerate`` run in a
+    took at start. ``noust web token --new`` and ``--regenerate`` run in a
     process of their own; if the console kept the token it issued in memory,
     the token those commands retire would keep opening it until a restart -
     and the restart would issue yet another token. So the token hash is read
@@ -1805,7 +1811,7 @@ class TokenManager:
             raise SecurityError(
                 f"The web signing key {secret_file} exists but is empty",
                 details=(
-                    "WASM refuses to invent a new key silently, because that logs every "
+                    "Noust refuses to invent a new key silently, because that logs every "
                     "operator out and hides whatever truncated the file. Restore the file "
                     f"from backup, or delete it with 'rm {secret_file}' to start over, "
                     "which revokes all existing sessions on purpose."
@@ -1830,7 +1836,9 @@ class TokenManager:
         Raises:
             SecurityError: When the token hash cannot be persisted.
         """
-        token = f"wasm_{secrets.token_urlsafe(TOKEN_LENGTH)}"
+        # A master token issued before 3.0 starts with wasm_; it is verified
+        # by its hash, so it keeps working until it is replaced.
+        token = f"{paths.NAME}_{secrets.token_urlsafe(TOKEN_LENGTH)}"
         write_private_file(self.config.token_file, self._hash_token(token))
         # A ticket issued to the retired token would otherwise outlive it by
         # up to WS_TICKET_TTL seconds. The table is shared with a running
@@ -1842,7 +1850,7 @@ class TokenManager:
         """
         The signing key in force, re-read when another process rotated it.
 
-        ``wasm web token --regenerate`` rewrites the key file from its own
+        ``noust web token --regenerate`` rewrites the key file from its own
         process. A console holding on to the key it loaded would refuse the
         token issued under the new key and keep signing sessions that the next
         start rejects. A stat per call is the price of noticing.
@@ -1921,7 +1929,7 @@ class TokenManager:
 
         A stream opened with the master token stays open long after the
         handshake; it is re-checked by comparing this value with
-        :meth:`current_master_generation`, so ``wasm web token --new`` ends
+        :meth:`current_master_generation`, so ``noust web token --new`` ends
         it without the stream having to keep the token itself.
 
         Args:
@@ -2042,7 +2050,7 @@ class TokenManager:
             raise SecurityError(
                 f"The two-factor state file {path} is corrupt",
                 details=(
-                    "WASM refuses to guess whether two-factor authentication was on. "
+                    "Noust refuses to guess whether two-factor authentication was on. "
                     f"Restore the file from backup, or delete it with 'rm {path}' to "
                     "disable the second factor on purpose."
                 ),
@@ -2397,7 +2405,7 @@ class TokenManager:
             The payload, carrying the token's scope, or None when the token is
             unknown, revoked or expired.
         """
-        if not token.startswith(API_TOKEN_PREFIX):
+        if not token.startswith(API_TOKEN_PREFIXES):
             return None
 
         presented = self._hash_token(token)
@@ -3246,7 +3254,7 @@ def is_elevated(payload: dict[str, Any]) -> bool:
     Args:
         payload: A verified session payload, as :func:`require_auth` builds
             it. Only a cookie session ever carries a meaningful
-            ``elevated_until``; see :func:`wasm.web.api.deps.ensure_elevated`
+            ``elevated_until``; see :func:`noust.web.api.deps.ensure_elevated`
             for who is asked at all.
 
     Returns:
@@ -3337,7 +3345,7 @@ def required_scope(method: str, path: str) -> str:
     mutation, creating an application included, needs ``admin``. Endpoints
     with a stricter need than this table gives them - listing the API tokens
     is a GET that must not be readable by a ``read`` token - declare it with
-    :func:`wasm.web.api.deps.require_scope`; nothing may declare a looser one.
+    :func:`noust.web.api.deps.require_scope`; nothing may declare a looser one.
 
     Args:
         method: The HTTP method.
@@ -3649,7 +3657,7 @@ def check_credential(credential: str, client_ip: str) -> dict[str, Any] | None:
 
     # The prefix routes to the token table and nowhere else, so an expired or
     # revoked API token cannot fall through to a slower master-token check.
-    if credential.startswith(API_TOKEN_PREFIX):
+    if credential.startswith(API_TOKEN_PREFIXES):
         return manager.verify_api_token(credential, client_ip)
 
     payload = manager.verify_session_token(credential, client_ip)

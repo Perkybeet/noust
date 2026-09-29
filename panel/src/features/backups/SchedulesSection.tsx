@@ -159,7 +159,7 @@ export function SchedulesSection() {
                 {t("backups.schedules.newSchedule")}
               </Button>
             }
-            command="wasm backup schedule <domain> --schedule daily"
+            command="noust backup schedule <domain> --schedule daily"
           />
         }
       >

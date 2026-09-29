@@ -4,14 +4,14 @@
 """
 A TOML reader for Python 3.10, where ``tomllib`` does not exist.
 
-Ubuntu 22.04 ships Python 3.10 and no TOML parser WASM may depend on, so
+Ubuntu 22.04 ships Python 3.10 and no TOML parser Noust may depend on, so
 ``railway.toml`` is read here there. It reads TOML 1.0 as ``tomllib`` does -
 tables, dotted and quoted keys, the four kinds of string with their escapes,
 integers in every base, floats, booleans, arrays over several lines and
-inline tables - so a file means the same on every release WASM runs on. Two
+inline tables - so a file means the same on every release Noust runs on. Two
 constructs a platform configuration has no use for are not read: arrays of
 tables (``[[name]]``) and dates and times. They are reported as warnings
-and left out, because refusing a whole file for one setting WASM would
+and left out, because refusing a whole file for one setting Noust would
 ignore anyway costs the operator everything else in it. Text that is not
 TOML at all is refused, as ``tomllib`` refuses it.
 """
@@ -22,7 +22,7 @@ import re
 from collections.abc import Callable
 from typing import Any
 
-from wasm.core.exceptions import ValidationError
+from noust.core.exceptions import ValidationError
 
 #: Deepest nesting of arrays and inline tables read; a configuration file
 #: needs two or three, and a recursive reader must stop somewhere.
@@ -160,7 +160,7 @@ class _Reader:
                 self.end_of_line()
                 self.warn(
                     f"{self.name} line {line}: [[{'.'.join(keys)}]] is an array of tables, "
-                    "which WASM does not read on Python 3.10; that section is ignored."
+                    "which Noust does not read on Python 3.10; that section is ignored."
                 )
                 # Its keys go nowhere: a table no one reads.
                 table = {}
@@ -185,7 +185,7 @@ class _Reader:
             if value is _SKIPPED:
                 self.warn(
                     f"{self.name} line {line}: {'.'.join([*where, *keys])} holds a date or a time, "
-                    "which WASM does not read on Python 3.10; it is ignored."
+                    "which Noust does not read on Python 3.10; it is ignored."
                 )
                 continue
             self.assign(table, keys, value, line)

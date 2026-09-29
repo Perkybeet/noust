@@ -120,7 +120,7 @@ export function SitesTab() {
           title={t("domains.sitesTab.noSitesYetTitle")}
           description={t("domains.sitesTab.noSitesYetDescription")}
           action={createButton}
-          command="wasm site create --domain example.com"
+          command="noust site create --domain example.com"
           className="py-16"
         />
       ) : (
@@ -186,7 +186,7 @@ export function SitesTab() {
           />
           {/* Drawn with the rows, not before: under a list of unknown length it would only be
               pushed down the page when they arrive. */}
-          {sites.isPending ? null : <CommandHint command="wasm site list" label={t("domains.fromTerminal")} />}
+          {sites.isPending ? null : <CommandHint command="noust site list" label={t("domains.fromTerminal")} />}
         </>
       )}
 

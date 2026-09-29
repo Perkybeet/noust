@@ -23,7 +23,7 @@ function hasFinder(dark: Set<string>, top: number, left: number): boolean {
   return true;
 }
 
-const URI = "otpauth://totp/WASM%3Aweb-01?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=WASM&algorithm=SHA1&digits=6&period=30";
+const URI = "otpauth://totp/Noust%3Aweb-01?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=Noust&algorithm=SHA1&digits=6&period=30";
 
 describe("qrPath", () => {
   it("encodes an otpauth URI into a code with the three finder patterns", () => {

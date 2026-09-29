@@ -8,7 +8,7 @@ export const apps = {
     couldNotLoad: "Could not load applications",
     emptyTitle: "Deploy your first application",
     emptyDescription:
-      "Point WASM at a Git repository or a directory. It detects the stack, builds it, gives it a systemd unit, a site and a certificate.",
+      "Point Noust at a Git repository or a directory. It detects the stack, builds it, gives it a systemd unit, a site and a certificate.",
     filterLabel: "Filter applications",
     searchLabel: "Search applications",
     searchPlaceholder: "Search by domain or type",

@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-``wasm releases``: what an application on the release layout has built, and
+``noust releases``: what an application on the release layout has built, and
 going back to one of them.
 
-A presentation layer over :func:`wasm.deployers.lifecycle.list_releases`,
-:func:`wasm.deployers.lifecycle.activate_release` and
-:func:`wasm.deployers.lifecycle.set_release_retention`, the functions the
+A presentation layer over :func:`noust.deployers.lifecycle.list_releases`,
+:func:`noust.deployers.lifecycle.activate_release` and
+:func:`noust.deployers.lifecycle.set_release_retention`, the functions the
 panel's ``/api/apps/{domain}/releases`` endpoints call too. Going back is instant
 because nothing is rebuilt: ``current`` is re-pointed, the unit restarted,
 and the release kept only if it passes the same health gate as a deploy.
@@ -20,17 +20,17 @@ import json
 
 import click
 
-from wasm.cli.app import Context, WasmGroup, global_flags, json_option, pass_context
-from wasm.core.exceptions import WASMError
-from wasm.core.logger import Logger
-from wasm.core.store import DeploymentTrigger, get_store
-from wasm.deployers.lifecycle import (
+from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
+from noust.core.exceptions import NoustError
+from noust.core.logger import Logger
+from noust.core.store import DeploymentTrigger, get_store
+from noust.deployers.lifecycle import (
     ReleaseInfo,
     activate_release,
     list_releases,
     set_release_retention,
 )
-from wasm.deployers.recorder import CapturingLogger
+from noust.deployers.recorder import CapturingLogger
 
 
 def print_releases(logger: Logger, domain: str, releases: list[ReleaseInfo]) -> None:
@@ -59,10 +59,10 @@ def print_releases(logger: Logger, domain: str, releases: list[ReleaseInfo]) -> 
         ],
     )
     logger.blank()
-    logger.info(f"Go back to one with: wasm releases rollback {domain} <release>")
+    logger.info(f"Go back to one with: noust releases rollback {domain} <release>")
 
 
-@click.group("releases", cls=WasmGroup)
+@click.group("releases", cls=NoustGroup)
 def cli() -> None:
     """List an application's releases and go back to one instantly."""
 
@@ -114,7 +114,7 @@ def rollback(ctx: Context, domain: str, release: str | None) -> None:
     if outcome.previous is not None:
         logger.info(
             f"Release {outcome.previous.id} stays on disk: "
-            f"wasm releases rollback {outcome.domain} {outcome.previous.id}"
+            f"noust releases rollback {outcome.domain} {outcome.previous.id}"
         )
 
 
@@ -135,9 +135,9 @@ def keep_command(ctx: Context, domain: str, count: int | None) -> None:
     if count is None:
         app = get_store().get_app(domain)
         if app is None:
-            raise WASMError(
+            raise NoustError(
                 f"Application not found: {domain}",
-                details="Run 'wasm list' to see what is deployed.",
+                details="Run 'noust list' to see what is deployed.",
             )
         if ctx.json_output:
             click.echo(json.dumps({"domain": app.domain, "keep_releases": app.keep_releases}))

@@ -19,13 +19,13 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.exceptions import DependencyError
+from noust.core.exceptions import DependencyError
 
-SRC = Path(__file__).resolve().parent.parent / "src" / "wasm"
+SRC = Path(__file__).resolve().parent.parent / "src" / "noust"
 
 #: What only the console needs. Importing any of it at module level outside
 #: wasm/web makes every command depend on the console being installed.
-CONSOLE_ONLY = ("wasm.web", "fastapi", "starlette", "uvicorn")
+CONSOLE_ONLY = ("noust.web", "fastapi", "starlette", "uvicorn")
 
 
 def _module_level_imports(tree: ast.Module) -> list[tuple[int, str]]:
@@ -62,7 +62,7 @@ def test_nothing_outside_the_console_imports_it_at_module_level() -> None:
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for line, module in _module_level_imports(tree):
-            if module == "wasm.web" or module.startswith(CONSOLE_ONLY):
+            if module == "noust.web" or module.startswith(CONSOLE_ONLY):
                 offenders.append(f"{relative}:{line} imports {module}")
     assert not offenders, "Import these inside the function that needs them:\n" + "\n".join(
         offenders
@@ -70,12 +70,12 @@ def test_nothing_outside_the_console_imports_it_at_module_level() -> None:
 
 
 def test_a_console_command_says_what_to_install(monkeypatch: pytest.MonkeyPatch) -> None:
-    from wasm.cli.web_state import token_manager
+    from noust.cli.web_state import token_manager
 
     # None in sys.modules makes the import statement raise ImportError.
-    monkeypatch.setitem(sys.modules, "wasm.web.auth", None)
+    monkeypatch.setitem(sys.modules, "noust.web.auth", None)
 
     with pytest.raises(DependencyError) as caught:
         token_manager()
 
-    assert "wasm-cli[web]" in caught.value.details
+    assert "noust[web]" in caught.value.details

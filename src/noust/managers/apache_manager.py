@@ -4,18 +4,18 @@
 """
 Apache virtual host manager.
 
-The implementation lives in :mod:`wasm.managers.webserver`. This module is the
+The implementation lives in :mod:`noust.managers.webserver`. This module is the
 apache backend binding and nothing else: every method this class used to define
 was the nginx one with ``apache2`` written in it, and the differences that were
 real - the ``.conf`` suffix, ``a2ensite``, the module list - are now data on
-:data:`~wasm.managers.webserver.APACHE_BACKEND`.
+:data:`~noust.managers.webserver.APACHE_BACKEND`.
 """
 
 from __future__ import annotations
 
-from wasm.core.fs import FileSystem
-from wasm.core.runner import CommandRunner
-from wasm.managers.webserver import (
+from noust.core.fs import FileSystem
+from noust.core.runner import CommandRunner
+from noust.managers.webserver import (
     APACHE_BACKEND,
     SiteInfo,
     WebServerBackend,

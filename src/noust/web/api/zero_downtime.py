@@ -4,9 +4,9 @@
 """
 Blue/green activation of an application: turning it on and off (2.2).
 
-A client of :mod:`wasm.deployers.bluegreen`, like ``wasm app zero-downtime``:
-``GET`` reads :func:`~wasm.deployers.bluegreen.zero_downtime_status`, ``PUT``
-queues :func:`~wasm.deployers.bluegreen.set_zero_downtime` as a job, because
+A client of :mod:`noust.deployers.bluegreen`, like ``noust app zero-downtime``:
+``GET`` reads :func:`~noust.deployers.bluegreen.zero_downtime_status`, ``PUT``
+queues :func:`~noust.deployers.bluegreen.set_zero_downtime` as a job, because
 switching the mode starts an instance, waits for its health check and drains
 the old one, which is longer than a request should hold a connection.
 """
@@ -18,25 +18,25 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from wasm.core.store import MAX_DRAIN_SECONDS, get_store
-from wasm.deployers.bluegreen import (
+from noust.core.store import MAX_DRAIN_SECONDS, get_store
+from noust.deployers.bluegreen import (
     ZeroDowntimeStatus,
     check_eligible,
     set_zero_downtime,
     zero_downtime_status,
 )
-from wasm.deployers.recorder import CapturingLogger
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import (
+from noust.deployers.recorder import CapturingLogger
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import (
     JobAcceptedResponse,
-    WASMErrorRoute,
+    NoustErrorRoute,
     require_elevated,
     strict_domain,
 )
-from wasm.web.auth import actor_label
-from wasm.web.jobs import JobContext, JobType, get_job_manager
+from noust.web.auth import actor_label
+from noust.web.jobs import JobContext, JobType, get_job_manager
 
-router = APIRouter(route_class=WASMErrorRoute)
+router = APIRouter(route_class=NoustErrorRoute)
 
 
 class ZeroDowntimeInstance(BaseModel):

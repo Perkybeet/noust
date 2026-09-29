@@ -15,9 +15,9 @@ import { formatBytes } from "../../lib/format";
 import { normalizeDomain } from "../domains/names";
 import { domainError, sourceProblems } from "./wizard";
 
-/** What `wasm app export` writes in `format`. */
+/** What `noust app export` writes in `format`. */
 export const EXPORT_FORMAT = "wasm-app";
-/** The newest document version this console reads (`VERSION` in wasm.deployers.app_export). */
+/** The newest document version this console reads (`VERSION` in noust.deployers.app_export). */
 export const EXPORT_VERSION = 1;
 /** An export is a few kilobytes; anything this large is some other file. */
 export const EXPORT_MAX_BYTES = 2 * 1024 * 1024;

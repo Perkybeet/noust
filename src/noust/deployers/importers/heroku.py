@@ -14,8 +14,8 @@ import re
 from pathlib import Path
 from typing import Any
 
-from wasm.core.exceptions import ValidationError
-from wasm.deployers.importers.base import (
+from noust.core.exceptions import ValidationError
+from noust.deployers.importers.base import (
     Proposal,
     declared_env,
     read_json_object,
@@ -42,7 +42,7 @@ _DATABASE_ADDONS: tuple[tuple[str, str], ...] = (
     ("ormongo", "mongodb"),
 )
 
-#: Buildpacks and the WASM type each implies; None leaves Node to detection.
+#: Buildpacks and the Noust type each implies; None leaves Node to detection.
 _BUILDPACK_TYPES: dict[str, str | None] = {
     "heroku/nodejs": None,
     "heroku/python": "python",
@@ -114,7 +114,7 @@ def read(root: Path) -> Proposal:
     proposal.note_commands()
     if proposal.start_command and _READS_PORT.search(proposal.start_command):
         proposal.warn(
-            "The web command reads $PORT; WASM sets PORT for the application, so it keeps working."
+            "The web command reads $PORT; Noust sets PORT for the application, so it keeps working."
         )
     return proposal
 
@@ -155,7 +155,7 @@ def _manifest(manifest: dict[str, Any], proposal: Proposal) -> None:
                 proposal.app_type = _BUILDPACK_TYPES[url]
         else:
             proposal.warn(
-                f"The buildpack {url} has no WASM equivalent; build it into a container "
+                f"The buildpack {url} has no Noust equivalent; build it into a container "
                 "and deploy it as Docker Compose if detection does not recognise the project."
             )
 
@@ -165,12 +165,12 @@ def _manifest(manifest: dict[str, Any], proposal: Proposal) -> None:
             quantity = spec.get("quantity") if isinstance(spec, dict) else None
             if process != "web":
                 proposal.warn(
-                    f"The {process} process has no equivalent; a WASM application runs its "
-                    "web process. Run it as an application of its own or a 'wasm cron' job."
+                    f"The {process} process has no equivalent; a Noust application runs its "
+                    "web process. Run it as an application of its own or a 'noust cron' job."
                 )
             elif isinstance(quantity, int) and quantity > 1:
                 proposal.warn(
-                    f"Heroku runs {quantity} web dynos; a WASM application runs one instance."
+                    f"Heroku runs {quantity} web dynos; a Noust application runs one instance."
                 )
 
     scripts = manifest.get("scripts")
@@ -181,8 +181,8 @@ def _manifest(manifest: dict[str, Any], proposal: Proposal) -> None:
             )
     if isinstance(manifest.get("environments"), dict) and manifest["environments"]:
         proposal.warn(
-            "Per-environment settings (review apps, CI) are not read; WASM previews are set "
-            "with 'wasm preview enable'."
+            "Per-environment settings (review apps, CI) are not read; Noust previews are set "
+            "with 'noust preview enable'."
         )
 
 
@@ -233,12 +233,12 @@ def _addon(addon: Any, proposal: Proposal) -> None:
         if service.startswith(prefix):
             proposal.need_database(engine)
             proposal.warn(
-                f"The {service} add-on is a {engine} database: create it with 'wasm db "
+                f"The {service} add-on is a {engine} database: create it with 'noust db "
                 f"create --engine {engine}' and give the application its URL (Heroku set "
                 "it as DATABASE_URL or REDIS_URL)."
             )
             return
-    proposal.warn(f"The {service} add-on has no WASM equivalent.")
+    proposal.warn(f"The {service} add-on has no Noust equivalent.")
 
 
 def _procfile(text: str, proposal: Proposal) -> None:
@@ -272,5 +272,5 @@ def _procfile(text: str, proposal: Proposal) -> None:
         else:
             proposal.warn(
                 f"The {process} process ({command}) has no equivalent; run it as an "
-                "application of its own or a 'wasm cron' job."
+                "application of its own or a 'noust cron' job."
             )

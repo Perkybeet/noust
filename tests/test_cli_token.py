@@ -7,7 +7,7 @@ Tests for ``wasm token``: API tokens from the command line.
 Before this command group existed, an API token could only be issued from the
 panel's settings screen - a server with no browser open had no way to mint
 one. These tests pin the CLI as a client of the exact
-:class:`~wasm.web.auth.TokenManager` the API uses, over the same on-disk
+:class:`~noust.web.auth.TokenManager` the API uses, over the same on-disk
 state, so a token minted here works against a running panel.
 """
 
@@ -19,8 +19,8 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from wasm.cli.app import cli as root_cli
-from wasm.web.auth import STATE_DIR_ENV, SecurityConfig, TokenManager
+from noust.cli.app import cli as root_cli
+from noust.web.auth import STATE_DIR_ENV, SecurityConfig, TokenManager
 
 
 @pytest.fixture
@@ -58,7 +58,7 @@ def test_create_prints_the_token_exactly_once(cli_runner: CliRunner, state_dir: 
     result = cli_runner.invoke(root_cli, ["token", "create", "ci-script", "--scope", "deploy"])
 
     assert result.exit_code == 0, result.output
-    assert "Token: wasm_" in result.output
+    assert "Token: noust_" in result.output
     assert "only time" in result.output.lower()
 
 
@@ -67,7 +67,7 @@ def test_dry_run_create_says_the_token_was_not_saved(
 ) -> None:
     """
     A dry run opens the session database as a private in-memory copy
-    (wasm.web.auth.SessionStore._rehearsal_copy), so the printed token was
+    (noust.web.auth.SessionStore._rehearsal_copy), so the printed token was
     never written to the one WASM actually authenticates against. Printing
     it as if it were real, the way 'this is the only time it is shown' does
     outside a rehearsal, would send an operator off with a credential that
@@ -76,7 +76,7 @@ def test_dry_run_create_says_the_token_was_not_saved(
     result = cli_runner.invoke(root_cli, ["--dry-run", "token", "create", "ci-script"])
 
     assert result.exit_code == 0, result.output
-    assert "Token: wasm_" in result.output
+    assert "Token: noust_" in result.output
     assert "not saved" in result.output.lower()
     assert "will not authenticate" in result.output.lower()
 

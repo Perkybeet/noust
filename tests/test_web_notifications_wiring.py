@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Tests for the job-to-notifier wiring in :mod:`wasm.web.server`.
+Tests for the job-to-notifier wiring in :mod:`noust.web.server`.
 
 The subscriber sits on the job manager's ``subscribe_all`` for the life of
 the server and turns terminal job transitions into notification events - but
 only for the ones that do not already announce themselves. A deploy, an
 update and a rollback are recorded by
-:mod:`wasm.deployers.deploy_events`'s ``DeploymentRecorder`` in every
-process, CLI included, and :mod:`wasm.core.deploy_notifications` is a
+:mod:`noust.deployers.deploy_events`'s ``DeploymentRecorder`` in every
+process, CLI included, and :mod:`noust.core.deploy_notifications` is a
 default subscriber of that publisher - so this subscriber must stay out of
 their way, or the console's own deploys would be announced twice. A backup
 restore is not a deployment and is not recorded there, so it is still
@@ -41,16 +41,16 @@ from datetime import datetime
 
 import pytest
 
-import wasm.web.server as server_module
+import noust.web.server as server_module
+from noust.core.config import Config
+from noust.core.notifier import NotificationEvent, Notifier
+from noust.web.jobs import Job, JobStatus, JobType
+from noust.web.server import DEPLOY_JOB_TYPES, JobNotificationSubscriber, deployment_notification
 from tests.test_notifier import (  # noqa: F401  (pytest resolves fixtures by name)
     CapturingOpener,
     config,
     public_dns,
 )
-from wasm.core.config import Config
-from wasm.core.notifier import NotificationEvent, Notifier
-from wasm.web.jobs import Job, JobStatus, JobType
-from wasm.web.server import DEPLOY_JOB_TYPES, JobNotificationSubscriber, deployment_notification
 
 WEBHOOK_URL = "https://hooks.example.test/wasm"
 
@@ -69,7 +69,7 @@ def make_job(
 
     Defaults to a restore: the one deployment-shaped job type this
     subscriber still reports on its own, deploy and update jobs having moved
-    to wasm.core.deploy_notifications.
+    to noust.core.deploy_notifications.
 
     Args:
         status: Status to report.
@@ -104,7 +104,7 @@ class TestDeployJobTypes:
     """The set this module still reports on its own."""
 
     def test_only_restore_remains(self) -> None:
-        """Deploy and update moved to wasm.core.deploy_notifications."""
+        """Deploy and update moved to noust.core.deploy_notifications."""
         assert DEPLOY_JOB_TYPES == frozenset({"restore"})
 
 
@@ -134,7 +134,7 @@ class TestDeploymentNotification:
     def test_a_completed_restore_body_carries_the_backup_id(self) -> None:
         """
         v2.2.1 put the backup id in job.description, reused as the body; 2.3
-        builds the title fresh from wasm.core.messages instead (job.description
+        builds the title fresh from noust.core.messages instead (job.description
         is untranslated console text), so the id must still reach the body
         through the catalog rather than being silently dropped.
         """
@@ -200,7 +200,7 @@ class TestDeploymentNotification:
         assert event.domain is None
 
     def test_a_job_about_nothing_still_gets_a_title(self) -> None:
-        """No domain to name must not crash the wasm.core.messages lookup."""
+        """No domain to name must not crash the noust.core.messages lookup."""
         event = deployment_notification(make_job(JobStatus.FAILED, domain=None, error="boom"))
 
         assert event is not None
@@ -218,7 +218,7 @@ class TestDeploymentNotificationInSpanish:
         """
         config.set("notifications.language", "es")
         # deployment_notification has no config parameter of its own - it
-        # reads wasm.core.notifier.fresh_config() the same way a real
+        # reads noust.core.notifier.fresh_config() the same way a real
         # deployment does, so the test stands in for the disk read the same
         # way tests/test_deploy_notifications.py's fake_notifier stands in
         # for delivery.

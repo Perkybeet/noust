@@ -10,21 +10,21 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.exceptions import DeploymentError, RolledBackError
-from wasm.core.logger import Logger
-from wasm.core.store import App, DeploymentTrigger, WASMStore
-from wasm.deployers import deploy_events
-from wasm.deployers.deploy_events import DeployEvent, DeployEventKind
-from wasm.deployers.recorder import DeploymentRecorder
+from noust.core.exceptions import DeploymentError, RolledBackError
+from noust.core.logger import Logger
+from noust.core.store import App, DeploymentTrigger, NoustStore
+from noust.deployers import deploy_events
+from noust.deployers.deploy_events import DeployEvent, DeployEventKind
+from noust.deployers.recorder import DeploymentRecorder
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> Iterator[WASMStore]:
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "state" / "wasm.db")
+def store(tmp_path: Path) -> Iterator[NoustStore]:
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "state" / "wasm.db")
     instance.create_app(App(domain="shop.example.com", app_path=str(tmp_path / "app")))
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture
@@ -35,7 +35,7 @@ def events() -> Iterator[list[DeployEvent]]:
     stop()
 
 
-def recorder(store: WASMStore, tmp_path: Path) -> DeploymentRecorder:
+def recorder(store: NoustStore, tmp_path: Path) -> DeploymentRecorder:
     return DeploymentRecorder(
         store,
         "shop.example.com",
@@ -48,7 +48,7 @@ def recorder(store: WASMStore, tmp_path: Path) -> DeploymentRecorder:
 
 
 def test_success_is_announced_with_its_commit(
-    store: WASMStore, tmp_path: Path, events: list[DeployEvent]
+    store: NoustStore, tmp_path: Path, events: list[DeployEvent]
 ) -> None:
     rec = recorder(store, tmp_path)
     rec.start(git_branch="main")
@@ -64,7 +64,7 @@ def test_success_is_announced_with_its_commit(
 
 
 def test_failure_and_rollback_are_told_apart(
-    store: WASMStore, tmp_path: Path, events: list[DeployEvent]
+    store: NoustStore, tmp_path: Path, events: list[DeployEvent]
 ) -> None:
     failed = recorder(store, tmp_path)
     failed.start()
@@ -80,7 +80,7 @@ def test_failure_and_rollback_are_told_apart(
 
 
 def test_a_failing_subscriber_does_not_break_the_deployment(
-    store: WASMStore, tmp_path: Path, events: list[DeployEvent], caplog: pytest.LogCaptureFixture
+    store: NoustStore, tmp_path: Path, events: list[DeployEvent], caplog: pytest.LogCaptureFixture
 ) -> None:
     def broken(event: DeployEvent) -> None:
         raise RuntimeError("listener bug")

@@ -10,38 +10,38 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.exceptions import ValidationError
-from wasm.core.store import (
+from noust.core.exceptions import ValidationError
+from noust.core.store import (
     App,
     BackupDestinationRecord,
     BackupScheduleRecord,
     GitHubAppRecord,
     GitHubInstallationRecord,
+    NoustStore,
     PreviewRecord,
     PreviewSettings,
-    WASMStore,
 )
 
 DOMAIN = "shop.example.com"
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> Iterator[WASMStore]:
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "state" / "wasm.db")
+def store(tmp_path: Path) -> Iterator[NoustStore]:
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "state" / "wasm.db")
     instance.create_app(App(domain=DOMAIN, app_path=str(tmp_path / "app"), port=3000))
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
-def app(store: WASMStore) -> App:
+def app(store: NoustStore) -> App:
     record = store.get_app(DOMAIN)
     assert record is not None
     return record
 
 
 class TestBlueGreenColumns:
-    def test_turning_it_on_and_off(self, store: WASMStore) -> None:
+    def test_turning_it_on_and_off(self, store: NoustStore) -> None:
         assert store.set_zero_downtime(DOMAIN, True, drain_seconds=5)
         assert store.set_active_color(DOMAIN, "green")
         assert (app(store).zero_downtime, app(store).drain_seconds) == (True, 5)
@@ -51,15 +51,15 @@ class TestBlueGreenColumns:
         assert (app(store).zero_downtime, app(store).active_color) == (False, None)
 
     @pytest.mark.parametrize("drain", [-1, 301, True, "10"])
-    def test_a_drain_out_of_range_is_refused(self, store: WASMStore, drain: object) -> None:
+    def test_a_drain_out_of_range_is_refused(self, store: NoustStore, drain: object) -> None:
         with pytest.raises(ValidationError):
             store.set_zero_downtime(DOMAIN, True, drain_seconds=drain)  # type: ignore[arg-type]
 
-    def test_an_unknown_color_is_refused(self, store: WASMStore) -> None:
+    def test_an_unknown_color_is_refused(self, store: NoustStore) -> None:
         with pytest.raises(ValidationError):
             store.set_active_color(DOMAIN, "red")
 
-    def test_a_redeploy_rewriting_the_row_keeps_them(self, store: WASMStore) -> None:
+    def test_a_redeploy_rewriting_the_row_keeps_them(self, store: NoustStore) -> None:
         """update_app writes back the row a deploy read before; it must not undo a setter."""
         stale = app(store)
         store.set_zero_downtime(DOMAIN, True)
@@ -76,18 +76,18 @@ class TestBlueGreenColumns:
 
 
 class TestSecretMarks:
-    def test_marks_round_trip(self, store: WASMStore) -> None:
+    def test_marks_round_trip(self, store: NoustStore) -> None:
         store.set_env_secret_marks(DOMAIN, {"STRIPE_SK": True, "NEXT_PUBLIC_API_KEY": False})
         assert app(store).env_secret_marks == {"STRIPE_SK": True, "NEXT_PUBLIC_API_KEY": False}
 
     @pytest.mark.parametrize("marks", [{"1BAD": True}, {"A B": True}, {"OK": "yes"}])
-    def test_invalid_marks_are_refused(self, store: WASMStore, marks: dict) -> None:
+    def test_invalid_marks_are_refused(self, store: NoustStore, marks: dict) -> None:
         with pytest.raises(ValidationError):
             store.set_env_secret_marks(DOMAIN, marks)
 
 
 class TestPreviews:
-    def test_settings_and_previews(self, store: WASMStore) -> None:
+    def test_settings_and_previews(self, store: NoustStore) -> None:
         store.save_preview_settings(
             PreviewSettings(app_domain=DOMAIN, base_domain="previews.example.com", max_previews=2)
         )
@@ -120,7 +120,7 @@ class TestPreviews:
 
 
 class TestBackups:
-    def test_destinations(self, store: WASMStore) -> None:
+    def test_destinations(self, store: NoustStore) -> None:
         store.save_backup_destination(
             BackupDestinationRecord(name="nas", backend="sftp", settings={"host": "nas.lan"})
         )
@@ -136,7 +136,7 @@ class TestBackups:
         assert store.delete_backup_destination("nas")
         assert store.get_backup_destination("nas") is None
 
-    def test_schedules(self, store: WASMStore) -> None:
+    def test_schedules(self, store: NoustStore) -> None:
         store.save_backup_schedule(
             BackupScheduleRecord(
                 app_domain=DOMAIN,
@@ -156,7 +156,7 @@ class TestBackups:
 class TestReviewFixes:
     """The 2.2 pre-release review: previews settings, narrow updates, damaged columns."""
 
-    def preview(self, store: WASMStore, status: str = "deploying") -> PreviewRecord:
+    def preview(self, store: NoustStore, status: str = "deploying") -> PreviewRecord:
         return store.save_preview(
             PreviewRecord(
                 parent_domain=DOMAIN,
@@ -170,7 +170,7 @@ class TestReviewFixes:
             )
         )
 
-    def test_bots_and_excluded_variables_are_kept(self, store: WASMStore) -> None:
+    def test_bots_and_excluded_variables_are_kept(self, store: NoustStore) -> None:
         store.save_preview_settings(
             PreviewSettings(
                 app_domain=DOMAIN,
@@ -184,7 +184,7 @@ class TestReviewFixes:
         assert (stored.allow_bots, stored.exclude_env) == (True, ["STRIPE_KEY"])
 
     @pytest.mark.parametrize("raw", ["null", "{}", "not json", '["A", 1]'])
-    def test_a_damaged_excluded_list_still_loads(self, store: WASMStore, raw: str) -> None:
+    def test_a_damaged_excluded_list_still_loads(self, store: NoustStore, raw: str) -> None:
         store.save_preview_settings(PreviewSettings(app_domain=DOMAIN, base_domain="p.example.com"))
         store._get_connection().execute("UPDATE preview_settings SET exclude_env = ?", (raw,))
         store._get_connection().commit()
@@ -193,7 +193,7 @@ class TestReviewFixes:
         assert stored is not None
         assert stored.exclude_env == (["A"] if raw.startswith("[") else [])
 
-    def test_update_writes_only_the_columns_given(self, store: WASMStore) -> None:
+    def test_update_writes_only_the_columns_given(self, store: NoustStore) -> None:
         stale = self.preview(store)
         store.save_preview(PreviewRecord(**{**stale.__dict__, "head_sha": "b" * 40}))
 
@@ -201,7 +201,7 @@ class TestReviewFixes:
 
         assert updated is not None and (updated.status, updated.head_sha) == ("ready", "b" * 40)
 
-    def test_update_only_while_the_preview_is_as_expected(self, store: WASMStore) -> None:
+    def test_update_only_while_the_preview_is_as_expected(self, store: NoustStore) -> None:
         self.preview(store)
 
         assert (
@@ -215,7 +215,7 @@ class TestReviewFixes:
         with pytest.raises(ValueError):
             store.update_preview(DOMAIN, 7, {"domain": "elsewhere.example.com"})
 
-    def test_a_save_without_a_comment_keeps_the_stored_one(self, store: WASMStore) -> None:
+    def test_a_save_without_a_comment_keeps_the_stored_one(self, store: NoustStore) -> None:
         record = self.preview(store)
         store.update_preview(DOMAIN, 7, {"comment_ref": "c-1"})
 
@@ -223,7 +223,7 @@ class TestReviewFixes:
 
         assert again.comment_ref == "c-1"
 
-    def test_delete_only_with_the_status_given(self, store: WASMStore) -> None:
+    def test_delete_only_with_the_status_given(self, store: NoustStore) -> None:
         record = self.preview(store, status="pending")
 
         assert not store.delete_preview(record.domain, status="removing")
@@ -232,7 +232,7 @@ class TestReviewFixes:
 
     @pytest.mark.parametrize("raw", ["null", "{}", '"nas"', "3"])
     def test_schedule_destinations_that_are_not_a_list_read_as_none(
-        self, store: WASMStore, raw: str
+        self, store: NoustStore, raw: str
     ) -> None:
         store.save_backup_schedule(BackupScheduleRecord(app_domain=DOMAIN, schedule="daily"))
         store._get_connection().execute("UPDATE backup_schedules SET destinations = ?", (raw,))
@@ -243,7 +243,7 @@ class TestReviewFixes:
 
 
 class TestGitHub:
-    def test_app_and_installations(self, store: WASMStore) -> None:
+    def test_app_and_installations(self, store: NoustStore) -> None:
         store.save_github_app(GitHubAppRecord(app_id=1, slug="wasm-host", owner="acme"))
         store.save_github_installation(GitHubInstallationRecord(installation_id=9, account="acme"))
         store.set_github_installation(DOMAIN, 9)
@@ -255,7 +255,7 @@ class TestGitHub:
         assert store.delete_github_installation(9)
         assert app(store).github_installation_id is None
 
-    def test_deleting_the_app_forgets_everything_linked(self, store: WASMStore) -> None:
+    def test_deleting_the_app_forgets_everything_linked(self, store: NoustStore) -> None:
         store.save_github_app(GitHubAppRecord(app_id=1, slug="wasm-host"))
         store.save_github_installation(GitHubInstallationRecord(installation_id=9, account="acme"))
         store.set_github_installation(DOMAIN, 9)
@@ -269,8 +269,8 @@ class TestGitHub:
 class TestDeletingAnApplicationWithPreviews:
     """lifecycle's check for previews to remove before an application goes."""
 
-    def test_settings_a_record_or_a_child_app_each_count(self, store: WASMStore) -> None:
-        from wasm.deployers.lifecycle import _has_previews
+    def test_settings_a_record_or_a_child_app_each_count(self, store: NoustStore) -> None:
+        from noust.deployers.lifecycle import _has_previews
 
         assert not _has_previews(store, DOMAIN)
 

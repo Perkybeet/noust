@@ -4,14 +4,14 @@
 """
 The nine commands that act on a deployed application.
 
-They are top level (``wasm create``, ``wasm logs``) rather than nested under a
+They are top level (``noust create``, ``noust logs``) rather than nested under a
 ``webapp`` group because that is how they have always been typed. The Click
-group below only exists as a container: :mod:`wasm.cli.app` picks the command
+group below only exists as a container: :mod:`noust.cli.app` picks the command
 whose name the user typed out of it.
 
 Each command is a thin shell around a private function that takes explicit
 arguments. That seam is what lets the argparse-shaped entry point
-(:func:`handle_webapp`, still called by :mod:`wasm.cli.interactive` for its
+(:func:`handle_webapp`, still called by :mod:`noust.cli.interactive` for its
 create, list and update flows) and the Click commands share one implementation
 instead of drifting into two.
 
@@ -31,42 +31,42 @@ from typing import Any
 
 import click
 
-from wasm.cli.app import Context, WasmGroup, global_flags, json_option, pass_context
-from wasm.cli.panel_links import open_in_panel
-from wasm.core.app_state import RUNNING, STATIC, resolve_states
-from wasm.core.config import Config
-from wasm.core.dependencies import check_deployment_ready
-from wasm.core.exceptions import DeploymentError, ServiceError, WASMError
-from wasm.core.logger import Logger, state, styled
-from wasm.core.runner import (
+from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
+from noust.cli.panel_links import open_in_panel
+from noust.core.app_state import RUNNING, STATIC, resolve_states
+from noust.core.config import Config
+from noust.core.dependencies import check_deployment_ready
+from noust.core.exceptions import DeploymentError, NoustError, ServiceError
+from noust.core.logger import Logger, state, styled
+from noust.core.runner import (
     CommandResult,
     get_runner,
 )
-from wasm.core.store import DeploymentTrigger, get_store
-from wasm.core.utils import domain_to_app_name
-from wasm.deployers import get_deployer
-from wasm.deployers.docker_compose import DockerComposeDeployer
-from wasm.deployers.helpers.env_manager import EnvManager
-from wasm.deployers.helpers.layout import CONFIGURED, LAYOUTS, choose_layout
-from wasm.deployers.helpers.package_manager import SUPPORTED_PACKAGE_MANAGERS
-from wasm.deployers.helpers.php_fpm import is_php_fpm
-from wasm.deployers.lifecycle import (
+from noust.core.store import DeploymentTrigger, get_store
+from noust.core.utils import domain_to_app_name
+from noust.deployers import get_deployer
+from noust.deployers.docker_compose import DockerComposeDeployer
+from noust.deployers.helpers.env_manager import EnvManager
+from noust.deployers.helpers.layout import CONFIGURED, LAYOUTS, choose_layout
+from noust.deployers.helpers.package_manager import SUPPORTED_PACKAGE_MANAGERS
+from noust.deployers.helpers.php_fpm import is_php_fpm
+from noust.deployers.lifecycle import (
     NOTHING_NEW_HINT,
     check_upstream,
     delete_app,
     update_app,
 )
-from wasm.deployers.monorepo import MonorepoDeployer
-from wasm.deployers.php_fpm import control_pool
-from wasm.deployers.registry import available_types
-from wasm.managers.apache_manager import ApacheManager
-from wasm.managers.nginx_manager import NginxManager
-from wasm.managers.service_manager import ResourceLimits, ServiceManager
-from wasm.recipes import RecipeError, get_recipe
-from wasm.recipes.deploy import finish_recipe, plan_recipe, refuse_conflicts
-from wasm.validators.domain import should_include_www, validate_domain
-from wasm.validators.environment import is_valid_env_name
-from wasm.validators.port import find_available_port, validate_port
+from noust.deployers.monorepo import MonorepoDeployer
+from noust.deployers.php_fpm import control_pool
+from noust.deployers.registry import available_types
+from noust.managers.apache_manager import ApacheManager
+from noust.managers.nginx_manager import NginxManager
+from noust.managers.service_manager import ResourceLimits, ServiceManager
+from noust.recipes import RecipeError, get_recipe
+from noust.recipes.deploy import finish_recipe, plan_recipe, refuse_conflicts
+from noust.validators.domain import should_include_www, validate_domain
+from noust.validators.environment import is_valid_env_name
+from noust.validators.port import find_available_port, validate_port
 
 #: Larger than any environment file a person writes; a bigger one is an
 #: archive or a build artefact passed by mistake.
@@ -123,8 +123,8 @@ def _read_env_file(env_file: Path, logger: Logger) -> dict[str, str]:
     """
     Read the variables of the file given to ``--env-file``.
 
-    Parsed by :meth:`~wasm.deployers.helpers.env_manager.EnvManager.read_env_file`,
-    the grammar ``wasm env`` and the panel read the application's own env file
+    Parsed by :meth:`~noust.deployers.helpers.env_manager.EnvManager.read_env_file`,
+    the grammar ``noust env`` and the panel read the application's own env file
     with, so ``export FOO=bar``, quotes and comments mean the same thing on the
     way in as they do once deployed. A name that is not an environment
     variable is reported and skipped rather than aborting the deployment,
@@ -234,7 +234,7 @@ def _create_app(
         replace_existing: Deploy into an application directory that already
             holds files (``--force``); refused otherwise.
         env_vars: Variables for the application environment, over those of
-            ``env_file``: what ``wasm app import`` and ``wasm import`` give.
+            ``env_file``: what ``noust app import`` and ``noust import`` give.
         env_secret_marks: The secret marks the new application's row starts
             with, so its first build's log is already scrubbed of them.
         limits: The unit's memory, CPU and task limits from the start; None
@@ -247,7 +247,7 @@ def _create_app(
         Exit code.
 
     Raises:
-        WASMError: When validation or any deployment step fails.
+        NoustError: When validation or any deployment step fails.
     """
     domain = validate_domain(domain)
 
@@ -263,7 +263,7 @@ def _create_app(
         if not port:
             raise DeploymentError(
                 "No available port found",
-                details="Free a port in the range WASM allocates from, or pass --port.",
+                details="Free a port in the range Noust allocates from, or pass --port.",
             )
 
     # The readiness check needs a concrete type before anything is fetched, so
@@ -289,15 +289,15 @@ def _create_app(
             logger.error(f"  - {item}")
         logger.blank()
         logger.info("To fix these issues, run:")
-        logger.info("  sudo wasm setup init")
+        logger.info("  sudo noust setup init")
         logger.blank()
         logger.info("Or for detailed diagnostics:")
-        logger.info("  wasm setup doctor")
+        logger.info("  noust setup doctor")
         return 1
 
     env_vars = {**(_read_env_file(env_file, logger) if env_file else {}), **(env_vars or {})}
 
-    logger.header("WASM Deployment")
+    logger.header("Noust Deployment")
     logger.key_value("Domain", domain)
     logger.key_value("Source", source)
     logger.key_value("Type", "detected from the source" if app_type == "auto" else app_type)
@@ -369,7 +369,7 @@ def _import_options(
     """
     The deployer options only an import gives.
 
-    Passed only when given, so a plain ``wasm create`` configures the
+    Passed only when given, so a plain ``noust create`` configures the
     deployer exactly as it always has.
 
     Args:
@@ -441,7 +441,7 @@ def _create_from_recipe(
     """
     Deploy an application from a recipe.
 
-    The recipe's plan (:func:`wasm.recipes.deploy.plan_recipe`, which the
+    The recipe's plan (:func:`noust.recipes.deploy.plan_recipe`, which the
     API's job uses too) provisions the database and renders the variables;
     the deployment is then the ordinary one, and the recipe's notes are
     printed at the end.
@@ -468,7 +468,7 @@ def _create_from_recipe(
         Exit code.
 
     Raises:
-        WASMError: When the recipe, the database or any deployment step fails.
+        NoustError: When the recipe, the database or any deployment step fails.
     """
     refuse_conflicts(source=source, app_type=app_type)
     if branch or layout or persist:
@@ -481,7 +481,7 @@ def _create_from_recipe(
     if not chosen.available:
         raise RecipeError(
             f"{chosen.title} is not available in this release",
-            details=chosen.unavailable_reason or "See: wasm recipe list",
+            details=chosen.unavailable_reason or "See: noust recipe list",
         )
 
     if port:
@@ -493,7 +493,7 @@ def _create_from_recipe(
         if not port:
             raise DeploymentError(
                 "No available port found",
-                details="Free a port in the range WASM allocates from, or pass --port.",
+                details="Free a port in the range Noust allocates from, or pass --port.",
             )
 
     can_deploy, missing, warnings = check_deployment_ready(
@@ -511,7 +511,7 @@ def _create_from_recipe(
 
     overrides = {**(_read_env_file(env_file, logger) if env_file else {}), **env_vars}
 
-    logger.header(f"WASM Deployment: {chosen.title}")
+    logger.header(f"Noust Deployment: {chosen.title}")
     logger.key_value("Domain", domain)
     logger.key_value("Recipe", chosen.name)
     logger.key_value("Type", chosen.app_type)
@@ -578,7 +578,7 @@ def _create_monorepo(
         Exit code.
 
     Raises:
-        WASMError: When a deployment step fails.
+        NoustError: When a deployment step fails.
     """
     subdomain_overrides: dict[str, str] = {}
     for mapping in subdomains:
@@ -640,7 +640,7 @@ def _create_docker_compose(
         Exit code.
 
     Raises:
-        WASMError: When a deployment step fails.
+        NoustError: When a deployment step fails.
     """
     deployer = DockerComposeDeployer(verbose=logger.verbose)
     deployer.configure(
@@ -666,7 +666,7 @@ def _app_summary(app: Any, current: Any) -> dict[str, Any]:
 
     Args:
         app: Store row for the application.
-        current: Live state, as :func:`~wasm.core.app_state.resolve_states`
+        current: Live state, as :func:`~noust.core.app_state.resolve_states`
             reports it.
 
     Returns:
@@ -706,7 +706,7 @@ def _list_apps(logger: Logger, *, json_output: bool = False) -> int:
         logger.info("No applications deployed")
         logger.blank()
         logger.info("Deploy an application with:")
-        logger.info("  wasm deploy -d example.com -s https://github.com/user/repo")
+        logger.info("  noust deploy -d example.com -s https://github.com/user/repo")
         return 0
 
     # Asked of systemd and of the port, not read from the status column. That
@@ -770,7 +770,7 @@ def _show_status(domain: str, logger: Logger, *, json_output: bool = False) -> i
         Exit code.
 
     Raises:
-        WASMError: When the domain is not a valid domain.
+        NoustError: When the domain is not a valid domain.
     """
     service_manager = ServiceManager(verbose=logger.verbose)
     store = get_store()
@@ -915,7 +915,7 @@ def _control_service(domain: str, action: str, logger: Logger) -> int:
         Exit code.
 
     Raises:
-        WASMError: When the domain is invalid or systemd refuses the operation.
+        NoustError: When the domain is invalid or systemd refuses the operation.
     """
     present, past = _SERVICE_VERBS[action]
 
@@ -978,11 +978,11 @@ def _update_app(
     """
     Rebuild a deployed application from its source, then restart it.
 
-    The sequence itself is :func:`wasm.deployers.lifecycle.update_app`, shared
+    The sequence itself is :func:`noust.deployers.lifecycle.update_app`, shared
     with the panel and the git webhook; this only presents it.
 
     A plain update first asks the remote whether the branch has anything the
-    live build lacks (:func:`~wasm.deployers.lifecycle.check_upstream`). When
+    live build lacks (:func:`~noust.deployers.lifecycle.check_upstream`). When
     it does not, a terminal is asked whether to rebuild anyway; a script, with
     no one to ask, rebuilds and says so. ``force`` skips the question.
 
@@ -999,7 +999,7 @@ def _update_app(
         Exit code.
 
     Raises:
-        WASMError: When the application is unknown or a step fails.
+        NoustError: When the application is unknown or a step fails.
     """
     # A commit or a new source is explicit about what to build; only a plain
     # update can be "the same thing again".
@@ -1042,12 +1042,12 @@ def _update_app(
 
     if not outcome.restarted:
         logger.warning("No service found to restart - the application may need to be redeployed")
-        logger.info(f"Try: wasm create -d {outcome.domain}")
+        logger.info(f"Try: noust create -d {outcome.domain}")
         return 0
 
     if not outcome.active:
         logger.warning("Application restarted but may not be running correctly")
-        logger.info(f"Check logs with: wasm logs {outcome.domain}")
+        logger.info(f"Check logs with: noust logs {outcome.domain}")
         return 0
 
     logger.success(f"Application updated successfully: {outcome.domain}")
@@ -1083,7 +1083,7 @@ def _delete_app(
         Exit code.
 
     Raises:
-        WASMError: When the domain is invalid.
+        NoustError: When the domain is invalid.
     """
     config = Config()
     store = get_store()
@@ -1242,7 +1242,7 @@ def _show_logs(
         Exit code.
 
     Raises:
-        WASMError: When the domain is invalid.
+        NoustError: When the domain is invalid.
     """
     service_manager = ServiceManager(verbose=logger.verbose)
 
@@ -1303,7 +1303,7 @@ def _show_logs(
 
 
 # ---------------------------------------------------------------------------
-# argparse-shaped entry point, still used by wasm.cli.interactive
+# argparse-shaped entry point, still used by noust.cli.interactive
 # ---------------------------------------------------------------------------
 
 
@@ -1345,7 +1345,7 @@ def handle_webapp(args: Namespace) -> int:
 
     try:
         return handler(args)
-    except WASMError as e:
+    except NoustError as e:
         logger = Logger(verbose=args.verbose)
         logger.error(e.message)
         if e.details:
@@ -1552,7 +1552,7 @@ def _exit(code: int) -> None:
         click.get_current_context().exit(code)
 
 
-@click.group(cls=WasmGroup)
+@click.group(cls=NoustGroup)
 def cli() -> None:
     """Commands that act on a deployed application."""
 
@@ -1567,7 +1567,7 @@ def cli() -> None:
 @click.option(
     "--recipe",
     metavar="NAME",
-    help="Deploy a known application from its recipe (see 'wasm recipe list'): its "
+    help="Deploy a known application from its recipe (see 'noust recipe list'): its "
     "source, type, database and settings come from the recipe.",
 )
 @click.option(
@@ -1606,7 +1606,7 @@ def cli() -> None:
 @click.option(
     "--www",
     is_flag=True,
-    help="Also answer on www.<domain>, redirecting it to the domain (see 'wasm domain').",
+    help="Also answer on www.<domain>, redirecting it to the domain (see 'noust domain').",
 )
 @click.option(
     "--env-file",

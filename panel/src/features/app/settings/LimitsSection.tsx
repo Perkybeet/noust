@@ -255,7 +255,7 @@ export function LimitsSection({ app }: { app: App }) {
           </div>
         </div>
       </form>
-      <CommandHint command={`wasm app limits ${domain} --memory 512M --cpu 50% --tasks 256`} label={t("appSettings.fromTerminal")} />
+      <CommandHint command={`noust app limits ${domain} --memory 512M --cpu 50% --tasks 256`} label={t("appSettings.fromTerminal")} />
     </Section>
   );
 }

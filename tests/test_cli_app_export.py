@@ -4,7 +4,7 @@
 """
 Tests for ``wasm app export``, ``wasm app import`` and ``wasm import --from``.
 
-The document and the import are :mod:`wasm.deployers.app_export`'s
+The document and the import are :mod:`noust.deployers.app_export`'s
 (``tests/test_app_export.py``) and the reading is the importers'
 (``tests/test_importers.py``). Pinned here: what reaches ``wasm create``'s
 own deploy function, that a rehearsal deploys nothing, that a file with
@@ -22,14 +22,14 @@ from typing import Any
 import pytest
 from click.testing import CliRunner, Result
 
-from wasm.cli.app import cli as root_cli
-from wasm.cli.commands import app as app_module
-from wasm.core.exceptions import ValidationError
-from wasm.core.logger import Logger
-from wasm.core.runner import set_runner
-from wasm.core.store import App, WASMStore
-from wasm.deployers import app_export
-from wasm.deployers.helpers.layout import env_file_for
+from noust.cli.app import cli as root_cli
+from noust.cli.commands import app as app_module
+from noust.core.exceptions import ValidationError
+from noust.core.logger import Logger
+from noust.core.runner import set_runner
+from noust.core.store import App, NoustStore
+from noust.deployers import app_export
+from noust.deployers.helpers.layout import env_file_for
 
 DOMAIN = "shop.example.com"
 STRIPE = "sk_live_" + "51Habcdefghijklmn" + "opqrstuvwxyz"
@@ -50,13 +50,13 @@ def _real_runner() -> Iterator[None]:
 
 
 @pytest.fixture
-def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[WASMStore]:
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[NoustStore]:
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     monkeypatch.setattr(app_export, "CronManager", NoCron)
     yield instance
     instance.close()
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture
@@ -67,7 +67,7 @@ def log(monkeypatch: pytest.MonkeyPatch) -> list[str]:
 
 
 @pytest.fixture
-def shop(store: WASMStore, tmp_path: Path) -> App:
+def shop(store: NoustStore, tmp_path: Path) -> App:
     app = store.create_app(
         App(
             domain=DOMAIN,
@@ -120,7 +120,7 @@ def test_export_with_secrets_to_a_file_is_0600(shop: App, tmp_path: Path, log: l
     assert json.loads(target.read_text())["env"]["STRIPE_KEY"]["value"] == STRIPE
 
 
-def test_export_of_an_unknown_application_fails(store: WASMStore) -> None:
+def test_export_of_an_unknown_application_fails(store: NoustStore) -> None:
     result = invoke(["app", "export", "nothing.example.com"])
     assert result.exit_code != 0
 
@@ -259,7 +259,7 @@ def test_import_from_options_need_deploy(tmp_path: Path) -> None:
 
 
 def test_import_from_deploys_through_wasm_create(
-    store: WASMStore, tmp_path: Path, created: list[dict[str, Any]], log: list[str]
+    store: NoustStore, tmp_path: Path, created: list[dict[str, Any]], log: list[str]
 ) -> None:
     (tmp_path / "render.yaml").write_text(RENDER)
     result = invoke(
@@ -284,11 +284,11 @@ def test_import_from_deploys_through_wasm_create(
 
 
 def test_create_hands_an_imports_marks_and_limits_to_the_deployer(
-    store: WASMStore, monkeypatch: pytest.MonkeyPatch, log: list[str]
+    store: NoustStore, monkeypatch: pytest.MonkeyPatch, log: list[str]
 ) -> None:
     """wasm create's deploy function takes what an import adds; a plain create does not."""
-    from wasm.cli.commands import webapp
-    from wasm.managers.service_manager import ResourceLimits
+    from noust.cli.commands import webapp
+    from noust.managers.service_manager import ResourceLimits
 
     configured: list[dict[str, Any]] = []
 

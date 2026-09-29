@@ -10,7 +10,7 @@ tested is the command surface (every name the frozen contract froze still
 answers, a bad value is refused before anything happens) and the call each
 command makes.
 
-The commands report through :class:`~wasm.core.logger.Logger`, which binds its
+The commands report through :class:`~noust.core.logger.Logger`, which binds its
 stream when it is built, so the tests hand the command a logger writing into a
 buffer through the Click context rather than trying to capture stdout after
 the fact.
@@ -31,13 +31,13 @@ import pytest
 import yaml
 from click.testing import CliRunner, Result
 
-from wasm.cli.app import Context
-from wasm.cli.commands import backup as backup_cmd
-from wasm.cli.commands.backup import cli, handle_backup, handle_rollback
-from wasm.core.exceptions import BackupError
-from wasm.core.logger import Logger
-from wasm.core.runner import FakeRunner
-from wasm.managers.backup_manager import BackupMetadata
+from noust.cli.app import Context
+from noust.cli.commands import backup as backup_cmd
+from noust.cli.commands.backup import cli, handle_backup, handle_rollback
+from noust.core.exceptions import BackupError
+from noust.core.logger import Logger
+from noust.core.runner import FakeRunner
+from noust.managers.backup_manager import BackupMetadata
 
 CONTRACT = json.loads(
     (Path(__file__).parent / "contracts" / "cli_surface.json").read_text(encoding="utf-8")
@@ -233,7 +233,7 @@ class FakeBackupManager:
         Returns:
             A report with nothing moved.
         """
-        from wasm.managers.backup_manager import BackupImportReport
+        from noust.managers.backup_manager import BackupImportReport
 
         self._record("import_backups", {"source": source})
         return BackupImportReport(source=source, destination=self.backup_dir)
@@ -403,8 +403,8 @@ def isolated_panel_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Pa
     Yields:
         The configuration file the test may write.
     """
-    from wasm.cli.commands import web as web_module
-    from wasm.core import config as config_module
+    from noust.cli.commands import web as web_module
+    from noust.core import config as config_module
 
     path = tmp_path / "config.yaml"
     monkeypatch.setattr(config_module, "DEFAULT_CONFIG_PATH", path)
@@ -424,7 +424,7 @@ def _configure_panel(path: Path, **settings: Any) -> None:
         **settings: Overrides for the ``web`` section; ``enabled``, ``host``
             and ``port`` fall back to a plain local panel when not given.
     """
-    from wasm.core.config import Config
+    from noust.core.config import Config
 
     settings.setdefault("enabled", True)
     settings.setdefault("host", "127.0.0.1")
@@ -1021,7 +1021,7 @@ def test_schedule_create_forwards_retention(wasm: Invoker, monkeypatch: pytest.M
         wasm: Command runner.
         monkeypatch: Patching helper, scoped to the test.
     """
-    from wasm.managers import backup_scheduler
+    from noust.managers import backup_scheduler
 
     created: list[Any] = []
 
@@ -1078,7 +1078,7 @@ def test_schedule_list_reports_nothing_scheduled(
         wasm: Command runner.
         monkeypatch: Patching helper, scoped to the test.
     """
-    from wasm.managers import backup_scheduler
+    from noust.managers import backup_scheduler
 
     class Empty:
         """Scheduler with nothing installed."""
@@ -1114,7 +1114,7 @@ def test_schedule_delete_names_the_domain(wasm: Invoker, monkeypatch: pytest.Mon
         wasm: Command runner.
         monkeypatch: Patching helper, scoped to the test.
     """
-    from wasm.managers import backup_scheduler
+    from noust.managers import backup_scheduler
 
     removed: list[str] = []
 
@@ -1225,7 +1225,7 @@ def test_json_comes_from_the_root_command(wasm: Invoker, manager: type[FakeBacku
         wasm: Command runner.
         manager: Fake backup manager.
     """
-    from wasm.cli.app import cli as root
+    from noust.cli.app import cli as root
 
     result = wasm.invoke(["--json", "backup", "list"], command=root)
 
@@ -1243,7 +1243,7 @@ def test_verbose_from_the_root_reaches_the_manager(manager: type[FakeBackupManag
     Args:
         manager: Fake backup manager.
     """
-    from wasm.cli.app import cli as root
+    from noust.cli.app import cli as root
 
     state = Context()
     result = CliRunner().invoke(root, ["-v", "backup", "storage"], obj=state)
@@ -1261,7 +1261,7 @@ def test_root_alias_reaches_the_group(wasm: Invoker, manager: type[FakeBackupMan
         wasm: Command runner.
         manager: Fake backup manager.
     """
-    from wasm.cli.app import cli as root
+    from noust.cli.app import cli as root
 
     result = wasm.invoke(["bak", "ls", "example.com"], command=root)
 
@@ -1271,7 +1271,7 @@ def test_root_alias_reaches_the_group(wasm: Invoker, manager: type[FakeBackupMan
 
 def test_argparse_handler_shares_the_helpers(manager: type[FakeBackupManager]) -> None:
     """
-    The handler wasm.cli.parser still calls runs the same code as the command.
+    The handler noust.cli.parser still calls runs the same code as the command.
 
     Args:
         manager: Fake backup manager.

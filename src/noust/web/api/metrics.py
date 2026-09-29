@@ -6,7 +6,7 @@ Metrics history endpoints.
 
 The charts get their live points over the ``/events`` stream; this is where
 they load the past from. It is a thin read of
-:class:`~wasm.monitor.timeseries.MetricsStore` - the collector writes it, this
+:class:`~noust.monitor.timeseries.MetricsStore` - the collector writes it, this
 translates a window name into seconds and hands the points back.
 
 The windows are a fixed vocabulary rather than a free ``seconds`` parameter
@@ -15,7 +15,7 @@ day of minute means, thirty days of hour means. A window the store cannot
 honour would come back misleadingly sparse, so it cannot be asked for.
 
 ``7d`` is not a fourth tier: it is the same hour-mean tier ``30d`` reads,
-asked for a shorter stretch of it. :func:`~wasm.monitor.timeseries.MetricsStore.query`
+asked for a shorter stretch of it. :func:`~noust.monitor.timeseries.MetricsStore.query`
 already takes an arbitrary ``window_s`` and unions whichever tiers it
 reaches into, so there is nothing to add there - only a name for callers to
 ask by.
@@ -28,12 +28,12 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
-from wasm.monitor.timeseries import resolution_label
-from wasm.web import metrics_collector
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import WASMErrorRoute
+from noust.monitor.timeseries import resolution_label
+from noust.web import metrics_collector
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import NoustErrorRoute
 
-router = APIRouter(route_class=WASMErrorRoute)
+router = APIRouter(route_class=NoustErrorRoute)
 
 #: The windows the panel offers, mapped onto the store's retention tiers.
 #: "7d" is filtered from the same hour-mean tier "30d" reads, not a tier of

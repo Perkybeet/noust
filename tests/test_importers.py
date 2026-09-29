@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Tests for reading other platforms' configuration (``wasm.deployers.importers``).
+Tests for reading other platforms' configuration (``noust.deployers.importers``).
 
 Each importer is fed the files its platform keeps in a repository, as a fake
 tree, and pinned on what it proposes and on what it warns about: the warnings
@@ -17,16 +17,16 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.exceptions import ValidationError
-from wasm.deployers.importers import (
+from noust.core.exceptions import ValidationError
+from noust.deployers.importers import (
     PLATFORM_FILES,
     PLATFORMS,
     detect_platforms,
     propose,
     read_platform,
 )
-from wasm.deployers.importers import railway as railway_module
-from wasm.deployers.importers.base import Proposal, declared_env, health_timeout
+from noust.deployers.importers import railway as railway_module
+from noust.deployers.importers.base import Proposal, declared_env, health_timeout
 
 
 def tree(root: Path, files: dict[str, str]) -> Path:
@@ -96,7 +96,7 @@ def test_propose_reads_the_first_and_names_the_others(tmp_path: Path) -> None:
     tree(tmp_path, {"vercel.json": "{}", "Procfile": "web: node server.js\n"})
     proposal = propose(tmp_path)
     assert proposal is not None and proposal.platform == "vercel"
-    assert "wasm import --from heroku" in joined(proposal)
+    assert "noust import --from heroku" in joined(proposal)
 
 
 def test_propose_turns_an_unreadable_file_into_a_warning(tmp_path: Path) -> None:
@@ -160,7 +160,7 @@ def test_vercel_nextjs_with_edge_rules(tmp_path: Path) -> None:
     warnings = joined(proposal)
     for key in ("rewrites", "redirects", "headers"):
         assert f"1 {key} rule(s)" in warnings
-    assert "/api/cron" in warnings and "wasm cron create" in warnings
+    assert "/api/cron" in warnings and "noust cron create" in warnings
     assert "package.json's scripts" in warnings
     env = env_of(proposal)
     assert env["PUBLIC_URL"]["value"] == "https://example.com"
@@ -244,7 +244,7 @@ def test_railway_json_with_a_dockerfile(tmp_path: Path) -> None:
     proposal = read_platform("railway", tmp_path)
     warnings = joined(proposal)
     assert "compose.yaml" in warnings
-    assert "wasm cron create" in warnings
+    assert "noust cron create" in warnings
     assert "preDeployCommand" in warnings
 
 

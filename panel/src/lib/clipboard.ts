@@ -1,7 +1,7 @@
 /**
  * Copies text to the clipboard.
  *
- * The async Clipboard API only exists in secure contexts, and a WASM panel is often reached
+ * The async Clipboard API only exists in secure contexts, and a Noust panel is often reached
  * over plain HTTP on a private network before TLS is set up. The fallback selects a detached
  * textarea and uses the legacy copy command, which browsers still honour on a user gesture.
  *

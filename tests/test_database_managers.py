@@ -20,25 +20,25 @@ from typing import Any
 
 import pytest
 
-from wasm.core.exceptions import (
+from noust.core.exceptions import (
     DatabaseBackupError,
     DatabaseError,
     DatabaseQueryError,
     DatabaseUserError,
 )
-from wasm.core.runner import FakeRunner, SubprocessRunner, set_runner
-from wasm.core.store import WASMStore
-from wasm.managers.database.base import (
+from noust.core.runner import FakeRunner, SubprocessRunner, set_runner
+from noust.core.store import NoustStore
+from noust.managers.database.base import (
     NAME_PATTERN,
     PRIVILEGE_PATTERN,
     quote_identifier,
     validate_name,
 )
-from wasm.managers.database.mongodb import MongoDBManager
-from wasm.managers.database.mysql import MySQLManager, escape_option_file_value
-from wasm.managers.database.postgres import PostgresManager
-from wasm.managers.database.redis import ACL_COMMAND_PATTERN, ACL_PATTERN_RULE, RedisManager
-from wasm.managers.database.registry import DatabaseRegistry, get_db_manager
+from noust.managers.database.mongodb import MongoDBManager
+from noust.managers.database.mysql import MySQLManager, escape_option_file_value
+from noust.managers.database.postgres import PostgresManager
+from noust.managers.database.redis import ACL_COMMAND_PATTERN, ACL_PATTERN_RULE, RedisManager
+from noust.managers.database.registry import DatabaseRegistry, get_db_manager
 
 # A dump that breaks every naive "echo '...' > file" implementation: single
 # quotes, shell metacharacters and a run of non-ASCII bytes.
@@ -113,7 +113,7 @@ def postgres(runner: FakeRunner, tmp_path: Path) -> Iterator[PostgresManager]:
     Yields:
         A configured manager.
     """
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
     manager = PostgresManager()
     manager.BACKUP_DIR = tmp_path / "backups"
     # The host's own /etc/wasm/config.yaml must not leak into the argv tables.
@@ -121,7 +121,7 @@ def postgres(runner: FakeRunner, tmp_path: Path) -> Iterator[PostgresManager]:
     try:
         yield manager
     finally:
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 @pytest.fixture

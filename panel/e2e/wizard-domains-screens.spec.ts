@@ -3,9 +3,9 @@
  * Domains tab, for review: both themes (the light and dark projects), a 1440px desktop and a
  * 390px phone. Tagged @screens, so left out of the default run; write them with
  *
- *     WASM_SCREENS=1 npx playwright test e2e/wizard-domains-screens.spec.ts
+ *     NOUST_SCREENS=1 npx playwright test e2e/wizard-domains-screens.spec.ts
  *
- * into $WASM_WIZARD_SCREENS (default /tmp/console-wizard/<theme>/).
+ * into $NOUST_WIZARD_SCREENS (default /tmp/console-wizard/<theme>/).
  *
  * The pages still pass the CSP and console gates of every test, so a screenshot is never of
  * a page that is quietly broken.
@@ -18,7 +18,7 @@ import { confirmItsYou, expect, settle, signIn, stillness, test } from "./fixtur
 import type { ConsoleServer, PageProblems } from "./fixtures";
 import { inspectSource, typedSource, wizardSource } from "./wizard-sources";
 
-const OUT = process.env.WASM_WIZARD_SCREENS ?? "/tmp/console-wizard";
+const OUT = process.env.NOUST_WIZARD_SCREENS ?? "/tmp/console-wizard";
 
 const DESKTOP = { width: 1440, height: 900 };
 const PHONE = { width: 390, height: 844 };

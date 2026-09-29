@@ -376,7 +376,7 @@ export const appPages = {
       disk: "Disk space",
     },
     causeFallback: {
-      healthy: "Everything WASM can check about this app answers as it should.",
+      healthy: "Everything Noust can check about this app answers as it should.",
       down: "The app is down, and the checks do not point to one cause. Start with the failed ones below.",
       default: "Some checks did not pass, and they do not point to one cause. Start with the failed ones below.",
     },
@@ -434,7 +434,7 @@ export const appPages = {
     staticDescription: "The web server serves its files directly, so there is no unit whose CPU and memory could be charted. The machine's own charts are on the overview.",
     dockerTitle: "Docker measures this application's containers",
     dockerDescription:
-      "The unit only starts the stack; the containers run in Docker's own cgroups, which WASM does not sample. Use docker stats on the server for their CPU and memory. The machine's own charts are on the overview.",
+      "The unit only starts the stack; the containers run in Docker's own cgroups, which Noust does not sample. Use docker stats on the server for their CPU and memory. The machine's own charts are on the overview.",
     machineOverview: "Machine overview",
     documentTitle: "Metrics - {domain}",
   },

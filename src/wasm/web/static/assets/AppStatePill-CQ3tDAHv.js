@@ -1,0 +1,1 @@
+import{n as e,u as t}from"./cx-B7cgLwFB.js";import{n,r}from"./status-DXQSy2_M.js";import{r as i}from"./StatusPill-CIP1Qtya.js";var a=t();function o({status:t,...r}){let o=e(),s=n(t,o.locale);return(0,a.jsx)(i,{state:s.state,label:s.label,...r})}function s({status:t,...n}){let o=e(),s=r(t,o.locale);return(0,a.jsx)(i,{state:s.state,label:s.label,...n})}export{s as n,o as t};

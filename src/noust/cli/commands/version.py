@@ -4,9 +4,9 @@
 """
 What changed in the release that is installed.
 
-``wasm --changelog`` reads the Debian changelog that ships with the package
+``noust --changelog`` reads the Debian changelog that ships with the package
 rather than calling home, so it answers on a server with no outbound network.
-The flag lives on the root group in :mod:`wasm.cli.app`; this module only knows
+The flag lives on the root group in :mod:`noust.cli.app`; this module only knows
 how to find the file and print the entry for the running version.
 """
 
@@ -18,19 +18,23 @@ from pathlib import Path
 
 import click
 
-from wasm import __version__
+from noust import __version__
 
 #: Where the changelog ends up, in the order the packagings put it there: the
 #: source checkout, a pip install, then a distribution package.
 CHANGELOG_PATHS: tuple[Path, ...] = (
     Path(__file__).parent.parent.parent.parent.parent / "obs" / "debian.changelog",
     Path(__file__).parent.parent.parent / "obs" / "debian.changelog",
+    Path("/usr/share/doc/noust/changelog.gz"),
+    Path("/usr/share/doc/noust/changelog"),
+    # The Debian package was called noust until the rename.
     Path("/usr/share/doc/wasm/changelog.gz"),
     Path("/usr/share/doc/wasm/changelog"),
 )
 
-#: Start of any release stanza, used to know where the current one ends.
-_ANY_VERSION = re.compile(r"wasm \(\d+\.\d+\.\d+-\d+\)")
+#: Start of any release stanza, used to know where the current one ends. The
+#: package is ``noust`` from 3.0 and was ``wasm`` before.
+_ANY_VERSION = re.compile(r"(?:noust|wasm) \(\d+\.\d+\.\d+-\d+\)")
 
 
 def _read_changelog() -> str | None:
@@ -61,16 +65,16 @@ def get_current_version_changelog() -> str | None:
     Extract the changelog stanza for the running version.
 
     Returns:
-        The stanza for :data:`wasm.__version__`, or None if the changelog is
+        The stanza for :data:`noust.__version__`, or None if the changelog is
         absent or does not mention this version.
     """
     content = _read_changelog()
     if not content:
         return None
 
-    # Debian format: "wasm (VERSION-REVISION) ...", then the bullet list, then
+    # Debian format: "noust (VERSION-REVISION) ...", then the bullet list, then
     # the trailer line that starts with "--".
-    version_pattern = re.compile(rf"wasm \({re.escape(__version__)}-\d+\)")
+    version_pattern = re.compile(rf"(?:noust|wasm) \({re.escape(__version__)}-\d+\)")
 
     stanza: list[str] = []
     in_version = False
@@ -94,19 +98,19 @@ def get_current_version_changelog() -> str | None:
 
 def show_changelog() -> None:
     """Print what changed in the installed release."""
-    click.echo(f"WASM v{__version__} - Changelog\n")
+    click.echo(f"Noust v{__version__} - Changelog\n")
 
     changelog = get_current_version_changelog()
 
     if not changelog:
         click.echo("Changelog not available locally.")
         click.echo("View release notes at:")
-        click.echo(f"https://github.com/Perkybeet/wasm/releases/tag/v{__version__}\n")
+        click.echo(f"https://github.com/Perkybeet/noust/releases/tag/v{__version__}\n")
         return
 
     for line in changelog.split("\n"):
         stripped = line.strip()
-        if stripped.startswith("--") or "wasm (" in line:
+        if stripped.startswith("--") or line.startswith(("noust (", "wasm (")):
             # The stanza header and the maintainer trailer frame the entry.
             click.echo(f"\n{stripped}")
         elif stripped:

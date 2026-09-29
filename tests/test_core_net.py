@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Tests for :mod:`wasm.core.net`.
+Tests for :mod:`noust.core.net`.
 
 Two things are being defended here:
 
@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pytest
 
-from wasm.core.net import (
+from noust.core.net import (
     ALL_INTERFACES,
     is_loopback_host,
     local_address,
@@ -94,7 +94,7 @@ def test_a_loopback_panel_is_explained_with_an_ssh_tunnel(
         monkeypatch: Patching helper, scoped to the test.
     """
     monkeypatch.setenv("SSH_CONNECTION", "203.0.113.9 51000 198.51.100.7 22")
-    monkeypatch.setattr("wasm.core.net._current_user", lambda: "root")
+    monkeypatch.setattr("noust.core.net._current_user", lambda: "root")
 
     lines = loopback_access_lines("127.0.0.1", 8081)
 
@@ -109,8 +109,8 @@ def test_the_forwarded_url_keeps_the_scheme_the_panel_serves(
     Args:
         monkeypatch: Patching helper, scoped to the test.
     """
-    monkeypatch.setattr("wasm.core.net.server_address", lambda: "198.51.100.7")
-    monkeypatch.setattr("wasm.core.net._current_user", lambda: "root")
+    monkeypatch.setattr("noust.core.net.server_address", lambda: "198.51.100.7")
+    monkeypatch.setattr("noust.core.net._current_user", lambda: "root")
 
     lines = loopback_access_lines("127.0.0.1", 8443, scheme="https")
 
@@ -123,8 +123,8 @@ def test_an_ipv6_loopback_is_forwarded_with_brackets(monkeypatch: pytest.MonkeyP
     Args:
         monkeypatch: Patching helper, scoped to the test.
     """
-    monkeypatch.setattr("wasm.core.net.server_address", lambda: "198.51.100.7")
-    monkeypatch.setattr("wasm.core.net._current_user", lambda: "root")
+    monkeypatch.setattr("noust.core.net.server_address", lambda: "198.51.100.7")
+    monkeypatch.setattr("noust.core.net._current_user", lambda: "root")
 
     lines = loopback_access_lines("::1", 8080)
 
@@ -159,7 +159,7 @@ def test_a_malformed_ssh_connection_falls_back_to_the_local_address(
         monkeypatch: Patching helper, scoped to the test.
     """
     monkeypatch.setenv("SSH_CONNECTION", "nonsense")
-    monkeypatch.setattr("wasm.core.net.local_address", lambda: "10.0.0.4")
+    monkeypatch.setattr("noust.core.net.local_address", lambda: "10.0.0.4")
 
     assert server_address() == "10.0.0.4"
 
@@ -172,7 +172,7 @@ def test_a_console_session_falls_back_to_the_local_address(
         monkeypatch: Patching helper, scoped to the test.
     """
     monkeypatch.delenv("SSH_CONNECTION", raising=False)
-    monkeypatch.setattr("wasm.core.net.local_address", lambda: "10.0.0.4")
+    monkeypatch.setattr("noust.core.net.local_address", lambda: "10.0.0.4")
 
     assert server_address() == "10.0.0.4"
 
@@ -207,6 +207,6 @@ def test_an_unknown_user_still_produces_a_usable_command(
         raise KeyError("getpwuid(): uid not found")
 
     monkeypatch.setattr("getpass.getuser", no_passwd_entry)
-    monkeypatch.setattr("wasm.core.net.server_address", lambda: "198.51.100.7")
+    monkeypatch.setattr("noust.core.net.server_address", lambda: "198.51.100.7")
 
     assert ssh_target() == "user@198.51.100.7"

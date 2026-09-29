@@ -1,11 +1,11 @@
 """
-Utility functions for WASM.
+Utility functions for Noust.
 
 Common helper functions for shell commands, file operations,
 string manipulation, and other utilities.
 
 The command helpers here are a thin facade over
-:class:`~wasm.core.runner.CommandRunner`. They exist so that legacy call sites
+:class:`~noust.core.runner.CommandRunner`. They exist so that legacy call sites
 keep working, not as a second way to reach the machine: every one of them
 delegates, which is what makes ``--dry-run``, the timeout policy and the
 "no real subprocess in tests" guarantee hold for the whole program.
@@ -19,7 +19,8 @@ import shutil
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from wasm.core.runner import DEFAULT_TIMEOUT, CommandResult, CommandRunner, get_runner
+from noust.core import paths
+from noust.core.runner import DEFAULT_TIMEOUT, CommandResult, CommandRunner, get_runner
 
 __all__ = [
     "DEFAULT_COMMAND_TIMEOUT",
@@ -128,7 +129,7 @@ def run_trusted_installer(
     Raises:
         SecurityError: If the URL is not in the trusted whitelist.
     """
-    from wasm.core.exceptions import SecurityError
+    from noust.core.exceptions import SecurityError
 
     if url not in TRUSTED_INSTALLER_URLS:
         raise SecurityError(
@@ -160,19 +161,20 @@ def command_exists(command: str) -> bool:
     return shutil.which(command) is not None
 
 
-def find_wasm_executable() -> str | None:
+def find_noust_executable() -> str | None:
     """
-    Locate the wasm entry point a systemd unit's ExecStart runs.
+    Locate the noust entry point a systemd unit's ExecStart runs.
 
     systemd has no PATH of the operator's, so a unit needs the absolute path,
-    and it is not always ``/usr/bin/wasm``: ``pip install`` as root puts it in
-    ``/usr/local/bin``.
+    and it is not always ``/usr/bin/noust``: ``pip install`` as root puts it in
+    ``/usr/local/bin``. ``wasm``, the name the same entry point had before
+    3.0 and still has as an alias, is the fallback.
 
     Returns:
-        The absolute path ``shutil.which`` finds, or None when wasm is not
-        on PATH.
+        The absolute path ``shutil.which`` finds, or None when neither
+        ``noust`` nor ``wasm`` is on PATH.
     """
-    found = shutil.which("wasm")
+    found = shutil.which(paths.NAME) or shutil.which(paths.LEGACY_NAME)
     return os.path.abspath(found) if found else None
 
 

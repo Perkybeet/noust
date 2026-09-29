@@ -13,7 +13,7 @@ import shlex
 import shutil
 from typing import ClassVar
 
-from wasm.core.logger import Logger
+from noust.core.logger import Logger
 
 
 class PathResolver:

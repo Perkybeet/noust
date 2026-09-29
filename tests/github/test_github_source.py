@@ -16,20 +16,20 @@ from pathlib import Path
 
 import pytest
 
-from tests.github.fakes import (
-    FAKE_SIGNATURE_HEX,
-    FakeGitHub,
-    token_route,
-)
-from wasm.core.runner import FakeRunner
-from wasm.core.store import WASMStore
-from wasm.managers.source_manager import SourceManager
-from wasm.validators.source import (
+from noust.core.runner import FakeRunner
+from noust.core.store import NoustStore
+from noust.managers.source_manager import SourceManager
+from noust.validators.source import (
     expand_github_shorthand,
     github_repository,
     is_git_url,
     parse_git_url,
     validate_source,
+)
+from tests.github.fakes import (
+    FAKE_SIGNATURE_HEX,
+    FakeGitHub,
+    token_route,
 )
 
 TOKEN = "ghs_secret_installation_token"
@@ -102,7 +102,7 @@ def test_other_sources_name_no_github_repository(source: str | None) -> None:
 
 
 @pytest.fixture
-def git(github_configured: WASMStore, fake_github: FakeGitHub, runner: FakeRunner) -> FakeRunner:
+def git(github_configured: NoustStore, fake_github: FakeGitHub, runner: FakeRunner) -> FakeRunner:
     """
     A runner answering openssl, with GitHub handing out TOKEN.
 
@@ -251,7 +251,7 @@ def test_an_uncovered_repository_clones_without_a_token(git: FakeRunner, tmp_pat
 
 
 def test_a_refused_token_leaves_git_to_answer(
-    github_configured: WASMStore, fake_github: FakeGitHub, runner: FakeRunner, tmp_path: Path
+    github_configured: NoustStore, fake_github: FakeGitHub, runner: FakeRunner, tmp_path: Path
 ) -> None:
     """GitHub refusing the token is a warning; the clone runs without it."""
     runner.script(["openssl", "dgst"], stdout=f"SHA2-256(stdin)= {FAKE_SIGNATURE_HEX}\n")
@@ -263,7 +263,7 @@ def test_a_refused_token_leaves_git_to_answer(
     assert "GIT_CONFIG_COUNT" not in env
 
 
-def test_no_app_means_no_change(store: WASMStore, runner: FakeRunner, tmp_path: Path) -> None:
+def test_no_app_means_no_change(store: NoustStore, runner: FakeRunner, tmp_path: Path) -> None:
     """Without a GitHub App, git runs exactly as before."""
     SourceManager(runner=runner).clone_git("https://github.com/you/app.git", tmp_path / "c")
     ((argv, env),) = [c for c in git_calls(runner) if "clone" in c[0]]
@@ -272,7 +272,7 @@ def test_no_app_means_no_change(store: WASMStore, runner: FakeRunner, tmp_path: 
 
 
 def test_the_explicit_installation_is_used(
-    github_configured: WASMStore, fake_github: FakeGitHub, runner: FakeRunner, tmp_path: Path
+    github_configured: NoustStore, fake_github: FakeGitHub, runner: FakeRunner, tmp_path: Path
 ) -> None:
     """An application's own installation id is the one asked for a token."""
     runner.script(["openssl", "dgst"], stdout=f"SHA2-256(stdin)= {FAKE_SIGNATURE_HEX}\n")

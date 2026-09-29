@@ -25,6 +25,12 @@ from typing import Any
 import pytest
 from click.testing import CliRunner
 
+from noust.cli.app import cli as root_cli
+from noust.cli.commands import app as app_module
+from noust.core.exceptions import ValidationError
+from noust.core.store import App, NoustStore
+from noust.deployers import app_export
+from noust.managers.cron_manager import CronJob
 from tests.test_cli_app_export import (  # noqa: F401  (pytest resolves fixtures by name)
     DOMAIN,
     STRIPE,
@@ -35,12 +41,6 @@ from tests.test_cli_app_export import (  # noqa: F401  (pytest resolves fixtures
     shop,
     store,
 )
-from wasm.cli.app import cli as root_cli
-from wasm.cli.commands import app as app_module
-from wasm.core.exceptions import ValidationError
-from wasm.core.store import App, WASMStore
-from wasm.deployers import app_export
-from wasm.managers.cron_manager import CronJob
 
 JOB = {
     "name": "shop-example-com-sync",
@@ -93,7 +93,7 @@ def cron(monkeypatch: pytest.MonkeyPatch) -> RecordingCron:
 
 
 def test_a_document_without_domains_imports_with_its_health_check(
-    store: WASMStore, tmp_path: Path, created: list[dict[str, Any]], log: list[str]
+    store: NoustStore, tmp_path: Path, created: list[dict[str, Any]], log: list[str]
 ) -> None:
     result = invoke(["app", "import", str(write_document(tmp_path))])
 
@@ -103,7 +103,7 @@ def test_a_document_without_domains_imports_with_its_health_check(
 
 
 def test_without_a_terminal_a_document_with_cron_jobs_needs_yes(
-    store: WASMStore,
+    store: NoustStore,
     tmp_path: Path,
     created: list[dict[str, Any]],
     log: list[str],
@@ -123,7 +123,7 @@ def test_without_a_terminal_a_document_with_cron_jobs_needs_yes(
 
 
 def test_yes_creates_them(
-    store: WASMStore,
+    store: NoustStore,
     tmp_path: Path,
     created: list[dict[str, Any]],
     log: list[str],
@@ -149,7 +149,7 @@ def test_yes_creates_them(
 
 
 def test_at_a_terminal_the_operator_is_asked(
-    store: WASMStore,
+    store: NoustStore,
     tmp_path: Path,
     created: list[dict[str, Any]],
     log: list[str],
@@ -167,7 +167,7 @@ def test_at_a_terminal_the_operator_is_asked(
 
 
 def test_a_rehearsal_needs_no_confirmation(
-    store: WASMStore,
+    store: NoustStore,
     tmp_path: Path,
     created: list[dict[str, Any]],
     cron: RecordingCron,
@@ -200,13 +200,13 @@ def test_export_without_secrets_does_not_warn(shop: App) -> None:
 
 
 def test_the_import_job_deploys_with_the_health_check_and_audits_cron_jobs(
-    store: WASMStore,
+    store: NoustStore,
     tmp_path: Path,
     cron: RecordingCron,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    from wasm.web.api import app_export as api_module
+    from noust.web.api import app_export as api_module
 
     doc = json.loads(write_document(tmp_path, cron=[JOB]).read_text())
     plan = app_export.plan_import(doc)
@@ -219,7 +219,7 @@ def test_the_import_job_deploys_with_the_health_check_and_audits_cron_jobs(
         )
 
     monkeypatch.setattr(api_module, "deploy_app_job", deploy_app_job)
-    with caplog.at_level(logging.INFO, logger="wasm.audit"):
+    with caplog.at_level(logging.INFO, logger="noust.audit"):
         api_module.import_app_job(plan, actor="token:ops")
 
     [call] = deployed
@@ -228,7 +228,7 @@ def test_the_import_job_deploys_with_the_health_check_and_audits_cron_jobs(
         "200",
         30,
     )
-    audit = [r.getMessage() for r in caplog.records if r.name == "wasm.audit"]
+    audit = [r.getMessage() for r in caplog.records if r.name == "noust.audit"]
     assert audit == [
         "create_cron_job name=shop-example-com-sync schedule=hourly session=token:ops "
         "user=root via=import app=store.example.org"

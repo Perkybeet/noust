@@ -4,8 +4,8 @@ Tests for security-related functions in WASM.
 
 import pytest
 
-from wasm.core.exceptions import SecurityError
-from wasm.core.utils import (
+from noust.core.exceptions import SecurityError
+from noust.core.utils import (
     TRUSTED_INSTALLER_URLS,
     run_trusted_installer,
 )
@@ -15,11 +15,11 @@ class TestSecurityError:
     """Tests for SecurityError exception."""
 
     def test_security_error_inherits_from_wasm_error(self):
-        """SecurityError should inherit from WASMError."""
-        from wasm.core.exceptions import WASMError
+        """SecurityError should inherit from NoustError."""
+        from noust.core.exceptions import NoustError
 
         error = SecurityError("test message")
-        assert isinstance(error, WASMError)
+        assert isinstance(error, NoustError)
 
     def test_security_error_message(self):
         """SecurityError should store message."""

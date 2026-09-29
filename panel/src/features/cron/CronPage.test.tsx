@@ -40,7 +40,7 @@ function previewRoute(call: RecordedCall) {
 const JOBS = [
   {
     name: "nightly-backup",
-    command: "wasm backup create shop.example.com",
+    command: "noust backup create shop.example.com",
     user: "wasm",
     working_directory: "/var/www/shop",
     app_domain: "shop.example.com",
@@ -123,7 +123,7 @@ describe("the cron jobs list", () => {
     await user.click(screen.getByRole("button", { name: "New job" }));
     const dialog = await screen.findByRole("dialog", { name: "New cron job" });
     await user.type(within(dialog).getByLabelText("Name", { exact: true }), "e2e-report");
-    await user.type(within(dialog).getByLabelText("Command", { exact: true }), "/usr/bin/wasm backup create example.com");
+    await user.type(within(dialog).getByLabelText("Command", { exact: true }), "/usr/bin/noust backup create example.com");
     await user.click(within(dialog).getByRole("button", { name: "Create job" }));
     await waitFor(() => {
       expect(backend.callsTo("POST /api/cron")).toHaveLength(1);

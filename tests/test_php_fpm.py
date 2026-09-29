@@ -25,18 +25,16 @@ from typing import Any
 
 import pytest
 
-from tests.test_release_pipeline import FakeGit, FakeServices, FakeWeb, TreeRunner, write_tree
-from tests.test_webserver_managers import FakeStore
-from wasm.core.exceptions import DeploymentError, ValidationError
-from wasm.core.logger import Logger
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, WASMStore
-from wasm.deployers import lifecycle
-from wasm.deployers import php_fpm as php_module
-from wasm.deployers.helpers import php_fpm as fpm_module
-from wasm.deployers.helpers.health_gate import HealthCheck
-from wasm.deployers.helpers.layout import INPLACE, RELEASES
-from wasm.deployers.helpers.php_fpm import (
+from noust.core.exceptions import DeploymentError, ValidationError
+from noust.core.logger import Logger
+from noust.core.runner import FakeRunner
+from noust.core.store import App, NoustStore
+from noust.deployers import lifecycle
+from noust.deployers import php_fpm as php_module
+from noust.deployers.helpers import php_fpm as fpm_module
+from noust.deployers.helpers.health_gate import HealthCheck
+from noust.deployers.helpers.layout import INPLACE, RELEASES
+from noust.deployers.helpers.php_fpm import (
     FastCgiResponse,
     FpmService,
     PoolSpec,
@@ -48,15 +46,17 @@ from wasm.deployers.helpers.php_fpm import (
     pool_env_lines,
     render_pool,
 )
-from wasm.deployers.php_fpm import (
+from noust.deployers.php_fpm import (
     PHP_SETTINGS_FILE,
     PhpFpmDeployer,
     PhpSettings,
     detect_webroot,
     load_php_settings,
 )
-from wasm.deployers.registry import detect_app_type
-from wasm.managers.nginx_manager import NGINX_BACKEND, NginxManager
+from noust.deployers.registry import detect_app_type
+from noust.managers.nginx_manager import NGINX_BACKEND, NginxManager
+from tests.test_release_pipeline import FakeGit, FakeServices, FakeWeb, TreeRunner, write_tree
+from tests.test_webserver_managers import FakeStore
 
 DOMAIN = "blog.example.com"
 APP = "blog-example-com"
@@ -97,8 +97,8 @@ def test_debian_picks_the_newest_version_that_has_a_binary(tmp_path: Path) -> No
     assert found.pool_dir == root / "etc/php/8.1/fpm/pool.d"
     assert found.service == "php8.1-fpm"
     assert found.binary == "/usr/sbin/php-fpm8.1"
-    assert found.socket(APP) == Path(f"/run/php/wasm-{APP}.sock")
-    assert found.pool_file(APP).name == f"wasm-{APP}.conf"
+    assert found.socket(APP) == Path(f"/run/php/noust-{APP}.sock")
+    assert found.pool_file(APP).name == f"noust-{APP}.conf"
 
 
 def test_versions_compare_numerically(tmp_path: Path) -> None:
@@ -535,13 +535,13 @@ def test_settings_that_would_escape_or_inject_are_refused(settings: dict[str, An
 
 
 @pytest.fixture
-def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[WASMStore]:
+def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[NoustStore]:
     """A store in the test's directory."""
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     monkeypatch.setattr(lifecycle, "get_store", lambda: instance)
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture
@@ -577,7 +577,7 @@ def machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     return SimpleNamespace(
         root=root,
         fpm_root=fpm_root,
-        pool=fpm_root / POOL_DIR / f"wasm-{APP}.conf",
+        pool=fpm_root / POOL_DIR / f"noust-{APP}.conf",
         runner=runner,
         git=FakeGit(),
         web=FakeWeb(),
@@ -625,7 +625,7 @@ WORDPRESS_OPTIONS: dict[str, Any] = {
 
 
 def test_a_wordpress_release_gets_a_pool_a_fastcgi_site_and_shared_content(
-    tmp_path: Path, machine: SimpleNamespace, store: WASMStore
+    tmp_path: Path, machine: SimpleNamespace, store: NoustStore
 ) -> None:
     """Everything a first deploy writes, and where."""
     machine.git.publish(write_tree(tmp_path / "v1", WORDPRESS))
@@ -644,7 +644,7 @@ def test_a_wordpress_release_gets_a_pool_a_fastcgi_site_and_shared_content(
     site = machine.web.sites[DOMAIN]
     assert site["template"] == "fastcgi"
     assert site["context"]["document_root"] == str(root / "current")
-    assert site["context"]["fastcgi_socket"] == f"/run/php/wasm-{APP}.sock"
+    assert site["context"]["fastcgi_socket"] == f"/run/php/noust-{APP}.sock"
     assert site["context"]["deny_paths"] == ["wp-config.php", "readme.html"]
     assert site["context"]["max_upload"] == "128m"
     # wp-content moved to shared/ and linked; wp-config.php seeded and linked.
@@ -653,7 +653,7 @@ def test_a_wordpress_release_gets_a_pool_a_fastcgi_site_and_shared_content(
     assert (root / "current/wp-config.php").read_text() == "<?php /* reads getenv() */\n"
     assert stat.S_IMODE((root / "shared/wp-config.php").stat().st_mode) == 0o640
     # The gate asked the pool, through current, as the domain.
-    assert machine.probes[-1]["socket"] == f"/run/php/wasm-{APP}.sock"
+    assert machine.probes[-1]["socket"] == f"/run/php/noust-{APP}.sock"
     assert machine.probes[-1]["HTTP_HOST"] == DOMAIN
     assert machine.probes[-1]["SCRIPT_FILENAME"].startswith(str(root / "releases"))
     # The row: static (no unit), with the recipe's health check.
@@ -670,7 +670,7 @@ def test_a_wordpress_release_gets_a_pool_a_fastcgi_site_and_shared_content(
 def test_a_later_release_keeps_what_was_installed_through_the_admin(
     tmp_path: Path,
     machine: SimpleNamespace,
-    store: WASMStore,
+    store: NoustStore,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A plugin installed in production survives an update; the stock copy does not come back."""
@@ -700,7 +700,7 @@ def test_a_later_release_keeps_what_was_installed_through_the_admin(
 
 
 def test_a_first_release_that_does_not_answer_leaves_no_pool_behind(
-    tmp_path: Path, machine: SimpleNamespace, store: WASMStore
+    tmp_path: Path, machine: SimpleNamespace, store: NoustStore
 ) -> None:
     """The pool's undo runs with the rest, and the failure carries PHP's error."""
     machine.git.publish(write_tree(tmp_path / "v1", {**WORDPRESS, "index.php": "<?php fatal"}))
@@ -718,7 +718,7 @@ def test_a_first_release_that_does_not_answer_leaves_no_pool_behind(
 def test_a_release_that_does_not_answer_goes_back_to_the_previous_one(
     tmp_path: Path,
     machine: SimpleNamespace,
-    store: WASMStore,
+    store: NoustStore,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The same gate as any release: current goes back, and the pool stays."""
@@ -742,7 +742,7 @@ def test_a_release_that_does_not_answer_goes_back_to_the_previous_one(
 
 
 def test_in_place_serves_the_tree_itself_and_detects_public(
-    tmp_path: Path, machine: SimpleNamespace, store: WASMStore
+    tmp_path: Path, machine: SimpleNamespace, store: NoustStore
 ) -> None:
     """A Laravel-shaped tree in place: the web root is public/, composer runs as root."""
     tree = write_tree(
@@ -776,7 +776,7 @@ def test_in_place_serves_the_tree_itself_and_detects_public(
 
 
 def test_composer_missing_is_an_error_with_the_install_hint(
-    tmp_path: Path, machine: SimpleNamespace, store: WASMStore
+    tmp_path: Path, machine: SimpleNamespace, store: NoustStore
 ) -> None:
     """Only when the tree has a composer.json."""
     machine.runner.only_knows("git", "systemctl")
@@ -789,7 +789,7 @@ def test_composer_missing_is_an_error_with_the_install_hint(
 
 
 def test_apache_is_refused_before_anything_changes(
-    tmp_path: Path, machine: SimpleNamespace, store: WASMStore
+    tmp_path: Path, machine: SimpleNamespace, store: NoustStore
 ) -> None:
     """No Apache template exists for PHP-FPM."""
     machine.git.publish(write_tree(tmp_path / "v1", WORDPRESS))
@@ -801,7 +801,7 @@ def test_apache_is_refused_before_anything_changes(
 
 
 def test_a_rollback_uses_the_php_gate(
-    tmp_path: Path, machine: SimpleNamespace, store: WASMStore
+    tmp_path: Path, machine: SimpleNamespace, store: NoustStore
 ) -> None:
     """lifecycle's gate for a PHP row reloads FPM and asks the pool, not a port."""
     machine.git.publish(write_tree(tmp_path / "v1", WORDPRESS))
@@ -812,7 +812,7 @@ def test_a_rollback_uses_the_php_gate(
     gate = lifecycle.health_gate_for(app, store, Logger(verbose=False))
 
     assert gate.unit == "php8.2-fpm"
-    assert gate.url is not None and gate.url.startswith(f"unix:/run/php/wasm-{APP}.sock")
+    assert gate.url is not None and gate.url.startswith(f"unix:/run/php/noust-{APP}.sock")
     assert gate.check is not None and gate.check.expect == "200-399"
 
 
@@ -848,7 +848,7 @@ def test_health_gate_for_app_reads_the_settings_file(
     gate = php_module.health_gate_for_app(app, Logger(verbose=False))
 
     assert gate.check == HealthCheck.for_app(app)
-    assert gate.url == f"unix:/run/php/wasm-{APP}.sock /"
+    assert gate.url == f"unix:/run/php/noust-{APP}.sock /"
 
 
 # ---------------------------------------------------------------------------
@@ -860,7 +860,7 @@ def test_health_gate_for_app_reads_the_settings_file(
 def nginx(tmp_path: Path, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch) -> NginxManager:
     """An nginx manager over a temporary tree and an in-memory store."""
     fake = FakeStore()
-    monkeypatch.setattr("wasm.managers.webserver.get_store", lambda: fake)
+    monkeypatch.setattr("noust.managers.webserver.get_store", lambda: fake)
     return NginxManager(
         backend=replace(
             NGINX_BACKEND,

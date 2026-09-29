@@ -1,7 +1,7 @@
 """
 Certificates API endpoints.
 
-This module is a client of :class:`~wasm.managers.cert_manager.CertManager`. It
+This module is a client of :class:`~noust.managers.cert_manager.CertManager`. It
 used to invoke certbot itself, which meant the panel had its own opinion about
 which plugin to use, its own timeout, its own parsing of certbot's output and
 no idea that the CLI records the resulting SSL state in the store. Issuing a
@@ -27,14 +27,14 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from wasm.core.exceptions import ValidationError
-from wasm.managers.cert_manager import CertificateInfo, CertManager
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import JobAcceptedResponse, WASMErrorRoute, require_elevated, strict_domain
-from wasm.web.auth import actor_label
-from wasm.web.jobs import JobType, cert_create_job, cert_renew_job, get_job_manager
+from noust.core.exceptions import ValidationError
+from noust.managers.cert_manager import CertificateInfo, CertManager
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated, strict_domain
+from noust.web.auth import actor_label
+from noust.web.jobs import JobType, cert_create_job, cert_renew_job, get_job_manager
 
-router = APIRouter(route_class=WASMErrorRoute)
+router = APIRouter(route_class=NoustErrorRoute)
 
 
 class CertInfo(BaseModel):
@@ -82,7 +82,7 @@ class CertActionResponse(BaseModel):
 
 #: Ways to prove control of a domain, matching the CLI's --nginx/--apache/
 #: --webroot/--standalone flags. None (the default, when the field is
-#: omitted) lets WASM pick the method that suits the web server it finds
+#: omitted) lets Noust pick the method that suits the web server it finds
 #: running, same as passing none of the CLI's flags.
 CERT_METHODS = frozenset({"nginx", "apache", "webroot", "standalone"})
 
@@ -96,7 +96,7 @@ class CreateCertRequest(BaseModel):
         domains: Extra domains (SANs) to cover, beyond the primary domain in
             the path and the ``www`` alias ``include_www`` may add.
         method: How to prove control of the domain. One of "nginx", "apache",
-            "webroot" or "standalone". Omitted lets WASM pick.
+            "webroot" or "standalone". Omitted lets Noust pick.
         webroot: Webroot path, used when ``method`` is "webroot".
         include_www: Also cover the ``www`` subdomain.
         expand: Expand an existing certificate even when it already covers
@@ -350,7 +350,7 @@ def revoke_certificate(
     Revoking takes the certificate down at the CA and cannot be undone, so a
     cookie session must have confirmed it's them recently (D5); a Bearer
     credential is exempt, as issuing it already required that confirmation
-    once. See :func:`~wasm.web.api.deps.require_elevated`.
+    once. See :func:`~noust.web.api.deps.require_elevated`.
 
     Args:
         domain: Certificate name.
@@ -362,7 +362,7 @@ def revoke_certificate(
     Raises:
         CertificateError: When certbot refuses the revocation.
         HTTPException: 403 with ``error: "elevation_required"`` per
-            :func:`~wasm.web.api.deps.require_elevated`.
+            :func:`~noust.web.api.deps.require_elevated`.
     """
     validated = strict_domain(domain)
 
@@ -383,7 +383,7 @@ def delete_certificate(
     Deleting removes the certificate files for good, so a cookie session must
     have confirmed it's them recently (D5), the same rule
     ``POST /{domain}/revoke`` applies. See
-    :func:`~wasm.web.api.deps.require_elevated`.
+    :func:`~noust.web.api.deps.require_elevated`.
 
     Args:
         domain: Certificate name.
@@ -395,7 +395,7 @@ def delete_certificate(
     Raises:
         CertificateError: When certbot refuses the deletion.
         HTTPException: 403 with ``error: "elevation_required"`` per
-            :func:`~wasm.web.api.deps.require_elevated`.
+            :func:`~noust.web.api.deps.require_elevated`.
     """
     validated = strict_domain(domain)
 

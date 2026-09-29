@@ -2,45 +2,45 @@
 The API router, assembled from one module per resource.
 
 Every sub-router is built with
-:class:`~wasm.web.api.deps.WASMErrorRoute`, so a manager error becomes an HTTP
+:class:`~noust.web.api.deps.NoustErrorRoute`, so a manager error becomes an HTTP
 response with a status that matches what went wrong, instead of the ``500`` a
 per-handler ``except Exception`` used to produce.
 
-:func:`~wasm.web.api.deps.install_error_handlers` is re-exported here so the
+:func:`~noust.web.api.deps.install_error_handlers` is re-exported here so the
 application can register the same translation for anything raised outside a
 route, such as in a dependency.
 """
 
 from fastapi import APIRouter
 
-from wasm.web.api.app_export import router as app_export_router
-from wasm.web.api.apps import router as apps_router
-from wasm.web.api.audit import router as audit_router
-from wasm.web.api.auth import router as auth_router
-from wasm.web.api.backup_destinations import router as backup_destinations_router
-from wasm.web.api.backup_schedules import router as backup_schedules_router
-from wasm.web.api.backups import router as backups_router
-from wasm.web.api.certs import router as certs_router
-from wasm.web.api.config import router as config_router
-from wasm.web.api.cron import router as cron_router
-from wasm.web.api.databases import router as databases_router
-from wasm.web.api.deployments import app_router as deployment_actions_router
-from wasm.web.api.deployments import router as deployments_router
-from wasm.web.api.deps import install_error_handlers
-from wasm.web.api.diagnose import router as diagnose_router
-from wasm.web.api.domains import dns_router
-from wasm.web.api.domains import router as domains_router
-from wasm.web.api.integrations import router as integrations_router
-from wasm.web.api.jobs import router as jobs_router
-from wasm.web.api.metrics import router as metrics_router
-from wasm.web.api.monitor import router as monitor_router
-from wasm.web.api.openapi import router as openapi_router
-from wasm.web.api.previews import router as previews_router
-from wasm.web.api.recipes import router as recipes_router
-from wasm.web.api.services import router as services_router
-from wasm.web.api.sites import router as sites_router
-from wasm.web.api.system import router as system_router
-from wasm.web.api.zero_downtime import router as zero_downtime_router
+from noust.web.api.app_export import router as app_export_router
+from noust.web.api.apps import router as apps_router
+from noust.web.api.audit import router as audit_router
+from noust.web.api.auth import router as auth_router
+from noust.web.api.backup_destinations import router as backup_destinations_router
+from noust.web.api.backup_schedules import router as backup_schedules_router
+from noust.web.api.backups import router as backups_router
+from noust.web.api.certs import router as certs_router
+from noust.web.api.config import router as config_router
+from noust.web.api.cron import router as cron_router
+from noust.web.api.databases import router as databases_router
+from noust.web.api.deployments import app_router as deployment_actions_router
+from noust.web.api.deployments import router as deployments_router
+from noust.web.api.deps import install_error_handlers
+from noust.web.api.diagnose import router as diagnose_router
+from noust.web.api.domains import dns_router
+from noust.web.api.domains import router as domains_router
+from noust.web.api.integrations import router as integrations_router
+from noust.web.api.jobs import router as jobs_router
+from noust.web.api.metrics import router as metrics_router
+from noust.web.api.monitor import router as monitor_router
+from noust.web.api.openapi import router as openapi_router
+from noust.web.api.previews import router as previews_router
+from noust.web.api.recipes import router as recipes_router
+from noust.web.api.services import router as services_router
+from noust.web.api.sites import router as sites_router
+from noust.web.api.system import router as system_router
+from noust.web.api.zero_downtime import router as zero_downtime_router
 
 __all__ = ["install_error_handlers", "router"]
 

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Commands for reading, upgrading and editing WASM's configuration file.
+Commands for reading, upgrading and editing Noust's configuration file.
 
 ``upgrade``, ``show`` and ``path`` write nothing: bulk editing ``config.yaml``,
 which holds the MySQL root password and the SMTP account, belongs in an
@@ -10,15 +10,15 @@ editor, on a file the operator can review before saving.
 
 ``get`` and ``set`` are the exception, addressed one dotted key at a time -
 the same shape the panel's own settings page tells an operator to use, for
-example ``wasm config set apps_directory /var/www/apps``. ``set`` goes through
-:meth:`~wasm.core.config.Config.set`, which carries the same rule
-:mod:`wasm.web.api.config` enforces on its own typed endpoints (a webserver
-WASM has no manager for, a port or timeout out of range), so a value the panel
+example ``noust config set apps_directory /var/www/apps``. ``set`` goes through
+:meth:`~noust.core.config.Config.set`, which carries the same rule
+:mod:`noust.web.api.config` enforces on its own typed endpoints (a webserver
+Noust has no manager for, a port or timeout out of range), so a value the panel
 would reject is rejected here too. A secret value is never printed back by
-either command: both redact it exactly as :func:`~wasm.core.config.redact_secrets`
+either command: both redact it exactly as :func:`~noust.core.config.redact_secrets`
 does for the panel. ``set`` also never requires a secret *in* on the command
 line: ``--stdin`` reads VALUE from standard input and ``--prompt`` asks for it
-without echoing it back, because everything typed after ``wasm`` lands in the
+without echoing it back, because everything typed after ``noust`` lands in the
 shell's history and, for as long as the process runs, in ``ps`` for every
 local user to read.
 """
@@ -33,8 +33,8 @@ from typing import Any, NoReturn
 import click
 import yaml
 
-from wasm.cli.app import Context, WasmGroup, global_flags, json_option, pass_context
-from wasm.core.config import (
+from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
+from noust.core.config import (
     DEFAULT_CONFIG_PATH,
     NO_DEFAULT,
     Config,
@@ -42,12 +42,12 @@ from wasm.core.config import (
     is_secret_key,
     redact_secrets,
 )
-from wasm.core.exceptions import ConfigError
-from wasm.core.logger import Logger
+from noust.core.exceptions import ConfigError
+from noust.core.logger import Logger
 
 #: Marks "no default and no stored value" apart from a key genuinely holding
 #: None, since Config.get(key, default) cannot otherwise tell the two apart.
-#: The same sentinel :func:`~wasm.core.config.coerce_config_value` uses for
+#: The same sentinel :func:`~noust.core.config.coerce_config_value` uses for
 #: "no schema to match", so a key with no default falls through to its JSON
 #: scalar/list parsing rather than being treated as a string.
 _MISSING = NO_DEFAULT
@@ -71,7 +71,7 @@ def _exit(code: int) -> NoReturn:
 
 def _run_upgrade(logger: Logger, quiet: bool) -> int:
     """
-    Add the options a newer WASM expects, keeping every value already set.
+    Add the options a newer Noust expects, keeping every value already set.
 
     Args:
         logger: Logger used to report progress.
@@ -110,9 +110,9 @@ def _run_upgrade(logger: Logger, quiet: bool) -> int:
 
 def _run_show(logger: Logger, *, json_output: bool = False) -> int:
     """
-    Print the configuration WASM is actually running with.
+    Print the configuration Noust is actually running with.
 
-    Dumps through :func:`~wasm.core.config.redact_secrets` first, the same
+    Dumps through :func:`~noust.core.config.redact_secrets` first, the same
     helper 'config get' and 'config set' already use: this prints the whole
     tree at once, so skipping it would put every credential in the file - the
     MySQL root password and the SMTP account included - on the operator's
@@ -162,7 +162,7 @@ def _redacted(key: str, value: Any) -> Any:
         value: The value to display.
 
     Returns:
-        ``value``, or :data:`~wasm.core.config.REDACTED` when the key's leaf
+        ``value``, or :data:`~noust.core.config.REDACTED` when the key's leaf
         name marks it as a secret.
     """
     leaf = key.rsplit(".", 1)[-1]
@@ -198,7 +198,7 @@ def _parse_list_value(raw: str) -> list[str]:
     Split a comma-separated command line value into a list.
 
     This is what ``--list`` asks for: argv has no native list type, and
-    typing ``wasm config set notifications.allow_private_hosts
+    typing ``noust config set notifications.allow_private_hosts
     internal.example,partner.example --list`` is the documented way to give a
     list value to a key such as ``notifications.allow_private_hosts``, which
     has no default for :func:`_coerce_cli_value` to recognise as one.
@@ -219,12 +219,12 @@ def _coerce_cli_value(existing: Any, raw: str) -> Any:
     """
     Parse a command line value using the key's schema.
 
-    ``wasm config set`` only ever has a string to work with - argv has no other
+    ``noust config set`` only ever has a string to work with - argv has no other
     type - so a boolean, numeric or list setting has to be recovered from the
-    shape it already has, the default included, or ``wasm config set
+    shape it already has, the default included, or ``noust config set
     ssl.enabled false`` would store the literal string ``"false"``, which is
     truthy. A key whose current or default value is a list also accepts a
-    JSON array (``wasm config set monitor.email_recipients
+    JSON array (``noust config set monitor.email_recipients
     '["a@example.com"]'``) without needing ``--list``, since argv already
     hands over one string a command line has no other way to shape.
 
@@ -232,7 +232,7 @@ def _coerce_cli_value(existing: Any, raw: str) -> Any:
     parsed as a JSON scalar (``true``, ``false``, ``null``, a number) or a
     JSON array instead, falling back to the plain string it looks like when it
     is not valid JSON or parses to something else, such as an object. This is
-    the same coercion :func:`~wasm.web.api.config.patch_config` applies to a
+    the same coercion :func:`~noust.web.api.config.patch_config` applies to a
     string value arriving over ``PATCH /api/config``, so a key without a
     schema does not behave differently depending on which front end wrote it.
 
@@ -259,7 +259,7 @@ def _read_stdin_value() -> str:
 
     A secret typed in argv lands in shell history and is visible in ``ps`` to
     every local user for as long as the process runs; piping it in instead
-    (``printf '%s' "$TOKEN" | wasm config set monitor.smtp.password --stdin``)
+    (``printf '%s' "$TOKEN" | noust config set monitor.smtp.password --stdin``)
     keeps it out of both.
 
     Returns:
@@ -278,7 +278,7 @@ def _secrets_in_value(key: str, raw_value: str) -> list[str]:
     """
     Name the secrets a value typed for ``key`` carries.
 
-    A secret-bearing section can be set whole, as a JSON object - ``wasm
+    A secret-bearing section can be set whole, as a JSON object - ``noust
     config set monitor.smtp '{"password": "..."}'`` - and that puts the
     password on the command line exactly as ``monitor.smtp.password`` would.
     The nested keys are judged by the same classifier the redaction uses.
@@ -341,7 +341,7 @@ def _warn_if_secret_typed_in_argv(key: str, logger: Logger, raw_value: str) -> N
     logger.warning(
         f"{what}. Typing it here puts it in this shell's history "
         "and lets other users on this machine see it with 'ps'. Use "
-        f"'wasm config set {key} --stdin' (or --prompt) instead."
+        f"'noust config set {key} --stdin' (or --prompt) instead."
     )
 
 
@@ -349,7 +349,7 @@ def _run_set(key: str, raw_value: str, logger: Logger, *, as_list: bool = False)
     """
     Set one configuration value, addressed by its dotted key, and save it.
 
-    Goes through :meth:`~wasm.core.config.Config.set`, so a value the panel's
+    Goes through :meth:`~noust.core.config.Config.set`, so a value the panel's
     own endpoints would reject - an unsupported webserver, a port or a timeout
     out of range - is rejected here in the same words.
 
@@ -392,7 +392,7 @@ def handle_config(args: Namespace) -> int:
     """
     Dispatch a config action parsed by argparse.
 
-    ``wasm.cli.parser`` is gone and nothing calls this in production; it is
+    ``noust.cli.parser`` is gone and nothing calls this in production; it is
     kept, and tested directly, sharing every function with the Click commands
     below so there is one implementation of each action. ``get`` and ``set``
     never existed in the argparse tree and are not routed here: they are
@@ -414,10 +414,10 @@ def handle_config(args: Namespace) -> int:
     if action == "path":
         return _run_path(logger)
 
-    logger.info("Usage: wasm config <command>")
+    logger.info("Usage: noust config <command>")
     logger.blank()
     logger.info("Commands:")
-    logger.info("  upgrade    Add the options a newer WASM expects")
+    logger.info("  upgrade    Add the options a newer Noust expects")
     logger.info("  show       Show the configuration in effect")
     logger.info("  path       Show where the configuration file lives")
     logger.info("  get        Print one configuration value")
@@ -425,10 +425,10 @@ def handle_config(args: Namespace) -> int:
     return 0
 
 
-@click.group("config", cls=WasmGroup)
+@click.group("config", cls=NoustGroup)
 @global_flags
 def cli() -> None:
-    """Read and upgrade WASM's configuration file."""
+    """Read and upgrade Noust's configuration file."""
 
 
 @cli.command("upgrade")
@@ -442,7 +442,7 @@ def cli() -> None:
 @pass_context
 def upgrade(ctx: Context, quiet: bool) -> None:
     """
-    Add the options a newer WASM expects.
+    Add the options a newer Noust expects.
 
     Values already set are kept exactly as they are.
     """
@@ -457,8 +457,8 @@ def show(ctx: Context) -> None:
     """
     Show the configuration in effect.
 
-    This is the merge of the defaults, the file and any WASM_* environment
-    variable, which is what WASM actually reads.
+    This is the merge of the defaults, the file and any NOUST_* (or WASM_*) environment
+    variable, which is what Noust actually reads.
     """
     _exit(_run_show(ctx.logger, json_output=ctx.json_output))
 
@@ -479,7 +479,7 @@ def get(ctx: Context, key: str) -> None:
     """
     Print one configuration value, addressed by its dotted key.
 
-    For example: 'wasm config get monitor.smtp.host'. A secret value is
+    For example: 'noust config get monitor.smtp.host'. A secret value is
     printed as *** rather than in the clear, exactly as the panel shows it.
     """
     _exit(_run_get(key, ctx.logger))
@@ -525,14 +525,14 @@ def set_(
     """
     Set one configuration value, addressed by its dotted key, and save it.
 
-    For example: 'wasm config set apps_directory /var/www/apps'. The value is
+    For example: 'noust config set apps_directory /var/www/apps'. The value is
     checked against the same rule the panel applies to that key, when it has
     one, so an unsupported webserver or a port out of range is refused here
     too rather than written and discovered later. 'apps.directory' is accepted
     as a deprecated alias for 'apps_directory' and is normalised to it, on
     both 'get' and 'set'.
 
-    A key needing a list value takes it two ways: 'wasm config set
+    A key needing a list value takes it two ways: 'noust config set
     notifications.allow_private_hosts internal.example,partner.example
     --list' splits VALUE on commas, and a key that already holds a list (for
     example monitor.email_recipients) also accepts a plain comma-separated
@@ -540,7 +540,7 @@ def set_(
 
     VALUE is coerced by the key's schema: a key with a default is parsed as
     that default's type (a boolean, a whole number, a decimal or a list), so
-    'wasm config set ssl.enabled false' stores False, not the string "false".
+    'noust config set ssl.enabled false' stores False, not the string "false".
     A key with no default, such as monitor.notify, is parsed as a JSON scalar
     or list instead - true, false, null, a number, or a JSON array - and
     falls back to a plain string when VALUE is not valid JSON.
@@ -549,7 +549,7 @@ def set_(
     the command runs, is visible to every local user through 'ps' - fine for
     apps_directory, not for monitor.smtp.password. '--stdin' reads VALUE from
     standard input instead, stripping exactly one trailing newline, so
-    'printf '%s' "$PASSWORD" | wasm config set monitor.smtp.password --stdin'
+    'printf '%s' "$PASSWORD" | noust config set monitor.smtp.password --stdin'
     never puts it on the command line; '--prompt' asks for it interactively,
     twice, without echoing it back. Typing a secret straight into VALUE on a
     real terminal, for a key that looks like one or inside a JSON object such

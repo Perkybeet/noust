@@ -1,5 +1,5 @@
 """
-Tests for the ``wasm monitor`` command surface after the move to Click.
+Tests for the ``noust monitor`` command surface after the move to Click.
 
 The migration has one job beyond "it still runs": the command line a user typed
 last week has to keep working. So these tests are written against
@@ -28,9 +28,9 @@ import pytest
 import yaml
 from click.testing import CliRunner, Result
 
-from wasm.cli.commands import monitor as cli_monitor
-from wasm.core.exceptions import MonitorError
-from wasm.core.logger import Logger
+from noust.cli.commands import monitor as cli_monitor
+from noust.core.exceptions import MonitorError
+from noust.core.logger import Logger
 
 #: Flags that belong to the root command and to no other. A subcommand that
 #: declares one of them is the shadowing defect the migration exists to remove.
@@ -41,7 +41,7 @@ CONTRACT = Path(__file__).parent / "contracts" / "cli_surface.json"
 
 def contract_subcommands() -> list[str]:
     """
-    Read the frozen ``wasm monitor`` subcommand names.
+    Read the frozen ``noust monitor`` subcommand names.
 
     Returns:
         Every action the argparse tree offered, in sorted order.
@@ -81,7 +81,7 @@ def monitor_env(
     Returns:
         A namespace with the runner and the systemd unit directory.
     """
-    from wasm.monitor import process_monitor as process_monitor_module
+    from noust.monitor import process_monitor as process_monitor_module
 
     process = _FakeProcess(
         pid=4242,
@@ -98,7 +98,7 @@ def monitor_env(
     )
     monkeypatch.setattr(psutil, "process_iter", lambda attrs=None, *a, **kw: iter([process]))
     # A one-shot scan samples CPU over a real window; tests do not need to wait.
-    monkeypatch.setattr("wasm.monitor.metrics.time.sleep", lambda seconds: None)
+    monkeypatch.setattr("noust.monitor.metrics.time.sleep", lambda seconds: None)
 
     unit_dir = tmp_path / "systemd"
     unit_dir.mkdir()
@@ -142,7 +142,7 @@ def cli_output(monkeypatch: pytest.MonkeyPatch) -> io.StringIO:
 
 def invoke(*args: str, **kwargs: Any) -> Result:
     """
-    Run ``wasm monitor`` with the given arguments.
+    Run ``noust monitor`` with the given arguments.
 
     Args:
         args: Arguments after ``monitor``.
@@ -160,10 +160,10 @@ def isolated_panel_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Pa
     Point the layered configuration at a per-test file.
 
     ``panel_url`` reads ``web.*`` through the Config singleton, which would
-    otherwise read the developer's real ``/etc/wasm/config.yaml`` and make
+    otherwise read the developer's real ``/etc/noust/config.yaml`` and make
     these tests depend on the machine they run on. The self-signed TLS pair
     path is pinned the same way, so a machine that has actually run
-    ``wasm web start --self-signed`` does not turn "http" into "https" under
+    ``noust web start --self-signed`` does not turn "http" into "https" under
     a test.
 
     Args:
@@ -173,8 +173,8 @@ def isolated_panel_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Pa
     Yields:
         The configuration file the test may write.
     """
-    from wasm.cli.commands import web as web_module
-    from wasm.core import config as config_module
+    from noust.cli.commands import web as web_module
+    from noust.core import config as config_module
 
     path = tmp_path / "config.yaml"
     monkeypatch.setattr(config_module, "DEFAULT_CONFIG_PATH", path)
@@ -194,7 +194,7 @@ def _configure_panel(path: Path, **settings: Any) -> None:
         **settings: Overrides for the ``web`` section; ``enabled``, ``host``
             and ``port`` fall back to a plain local panel when not given.
     """
-    from wasm.core.config import Config
+    from noust.core.config import Config
 
     settings.setdefault("enabled", True)
     settings.setdefault("host", "127.0.0.1")
@@ -247,8 +247,8 @@ def test_the_alias_reports_the_name_it_resolves_to() -> None:
 
 
 def test_the_root_group_reaches_monitor_through_its_alias() -> None:
-    """``wasm mon scan`` is in scripts; the root alias table must still map it."""
-    from wasm.cli.app import cli as root
+    """``noust mon scan`` is in scripts; the root alias table must still map it."""
+    from noust.cli.app import cli as root
 
     result = CliRunner().invoke(root, ["mon", "scan", "--help"])
 
@@ -279,7 +279,7 @@ def test_no_subcommand_redeclares_a_global_flag() -> None:
     """
     Global state lives on the context, not on nine copies of the same flag.
 
-    ``wasm --dry-run monitor scan`` used to run a real scan because argparse
+    ``noust --dry-run monitor scan`` used to run a real scan because argparse
     copied the subparser's default over the value the root parser had parsed.
     A subcommand that declares the flag again can reintroduce exactly that.
     """
@@ -312,10 +312,10 @@ def test_verbose_is_read_from_the_context_not_from_the_command(
     """
     The command honours a flag it does not declare.
 
-    ``wasm --verbose monitor config`` has to reach the logger the command
+    ``noust --verbose monitor config`` has to reach the logger the command
     builds, which is the half of the shadowing bug that stayed silent.
     """
-    from wasm.cli.app import Context
+    from noust.cli.app import Context
 
     asked: list[bool] = []
     buffer = io.StringIO()
@@ -360,7 +360,7 @@ def test_an_unknown_option_is_rejected_before_anything_runs(monitor_env: Any) ->
 
 def test_an_extra_argument_is_a_usage_error(monitor_env: Any) -> None:
     """None of these actions takes a positional argument."""
-    result = invoke("status", "wasm-monitor")
+    result = invoke("status", "noust-monitor")
 
     assert result.exit_code == 2
     assert monitor_env.runner.calls == []
@@ -443,7 +443,7 @@ def test_status_states_what_the_monitor_will_not_do(
 
 def test_status_json_carries_the_same_fields_the_api_uses(monitor_env: Any) -> None:
     """
-    'wasm monitor status --json' matches GET /api/monitor/status's
+    'noust monitor status --json' matches GET /api/monitor/status's
     MonitorStatus and GET /api/monitor/config's MonitorSettings, both built
     from the same ProcessMonitor.
     """
@@ -460,7 +460,7 @@ def test_status_warns_about_a_scan_interval_that_hides_failures(
     monitor_env: Any, cli_output: io.StringIO, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """An operator's 3600 s is respected, and the status says what it costs."""
-    from wasm.monitor.process_monitor import MonitorConfig
+    from noust.monitor.process_monitor import MonitorConfig
 
     monkeypatch.setattr(
         cli_monitor.ProcessMonitor,
@@ -482,14 +482,14 @@ def test_status_does_not_warn_about_the_default_interval(
     monitor_env: Any, cli_output: io.StringIO, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A minute is prompt; the report says every WASM unit is watched."""
-    from wasm.monitor.process_monitor import MonitorConfig
+    from noust.monitor.process_monitor import MonitorConfig
 
     monkeypatch.setattr(cli_monitor.ProcessMonitor, "_load_config", lambda self: MonitorConfig())
 
     assert invoke("status", standalone_mode=False).return_value == 0
     output = cli_output.getvalue()
     assert "unnoticed" not in output
-    assert "every unit WASM manages" in output
+    assert "every unit Noust manages" in output
     assert json.loads(invoke("status", "--json").output)["warnings"] == []
 
 
@@ -557,7 +557,7 @@ def test_enable_drives_systemd_through_the_runner(monitor_env: Any) -> None:
     result = invoke("enable", standalone_mode=False)
 
     assert result.return_value == 0, result.output
-    assert ("systemctl", "enable", "--now", "wasm-monitor") in monitor_env.runner.calls
+    assert ("systemctl", "enable", "--now", "noust-monitor") in monitor_env.runner.calls
 
 
 def test_install_writes_the_unit_and_reloads_systemd(monitor_env: Any) -> None:
@@ -565,7 +565,7 @@ def test_install_writes_the_unit_and_reloads_systemd(monitor_env: Any) -> None:
     result = invoke("install", standalone_mode=False)
 
     assert result.return_value == 0, result.output
-    assert (monitor_env.unit_dir / "wasm-monitor.service").exists()
+    assert (monitor_env.unit_dir / "noust-monitor.service").exists()
     assert ("systemctl", "daemon-reload") in monitor_env.runner.calls
 
 
@@ -599,8 +599,8 @@ def test_run_starts_the_loop_and_stops_on_interrupt(
     def _interrupt(self: Any) -> None:
         raise KeyboardInterrupt
 
-    monkeypatch.setattr("wasm.monitor.process_monitor.ProcessMonitor.run", _interrupt)
-    monkeypatch.setattr("wasm.monitor.process_monitor.ProcessMonitor.stop", lambda self: None)
+    monkeypatch.setattr("noust.monitor.process_monitor.ProcessMonitor.run", _interrupt)
+    monkeypatch.setattr("noust.monitor.process_monitor.ProcessMonitor.stop", lambda self: None)
 
     result = invoke("run", standalone_mode=False)
 
@@ -675,7 +675,7 @@ def test_actions_that_touch_systemd_require_root(
 
     assert isinstance(result.exception, MonitorError)
     assert "needs root" in str(result.exception)
-    assert not (monitor_env.unit_dir / "wasm-monitor.service").exists()
+    assert not (monitor_env.unit_dir / "noust-monitor.service").exists()
 
 
 def test_uninstall_names_the_unit_and_the_consequence(monitor_env: Any) -> None:
@@ -685,9 +685,9 @@ def test_uninstall_names_the_unit_and_the_consequence(monitor_env: Any) -> None:
     result = invoke("uninstall", input="n\n", standalone_mode=False)
 
     assert result.return_value == 0
-    assert "wasm-monitor" in result.output
+    assert "noust-monitor" in result.output
     assert "watch this server" in result.output
-    assert (monitor_env.unit_dir / "wasm-monitor.service").exists(), "declining still removed it"
+    assert (monitor_env.unit_dir / "noust-monitor.service").exists(), "declining still removed it"
 
 
 def test_uninstall_removes_the_unit_once_confirmed(monitor_env: Any) -> None:
@@ -697,7 +697,7 @@ def test_uninstall_removes_the_unit_once_confirmed(monitor_env: Any) -> None:
     result = invoke("uninstall", input="y\n", standalone_mode=False)
 
     assert result.return_value == 0, result.output
-    assert not (monitor_env.unit_dir / "wasm-monitor.service").exists()
+    assert not (monitor_env.unit_dir / "noust-monitor.service").exists()
 
 
 def test_uninstall_yes_skips_the_prompt(monitor_env: Any) -> None:
@@ -707,7 +707,7 @@ def test_uninstall_yes_skips_the_prompt(monitor_env: Any) -> None:
     result = invoke("uninstall", "--yes", standalone_mode=False)
 
     assert result.return_value == 0, result.output
-    assert not (monitor_env.unit_dir / "wasm-monitor.service").exists()
+    assert not (monitor_env.unit_dir / "noust-monitor.service").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -717,7 +717,7 @@ def test_uninstall_yes_skips_the_prompt(monitor_env: Any) -> None:
 
 def test_the_argparse_handler_and_the_click_group_share_one_action_table() -> None:
     """
-    ``wasm.cli.parser`` still calls ``handle_monitor``; it may not drift.
+    ``noust.cli.parser`` still calls ``handle_monitor``; it may not drift.
 
     Both entry points dispatch through ACTIONS, so a command added to one is a
     command added to the other.

@@ -135,7 +135,7 @@ test("the grant dialog offers the engine's own privileges, not a fixed list", as
   await page.getByRole("menuitem", { name: "Grant privileges" }).click();
   const dialog = page.getByRole("dialog", { name: "Grant privileges to wasm_app" });
 
-  // PostgreSQL's own whitelist (wasm.managers.database.postgres.PostgresManager.VALID_PRIVILEGES),
+  // PostgreSQL's own whitelist (noust.managers.database.postgres.PostgresManager.VALID_PRIVILEGES),
   // read from the server rather than kept as a copy in the console.
   await expect(dialog.getByRole("checkbox", { name: "SELECT" })).toBeVisible();
   await expect(dialog.getByRole("checkbox", { name: "ALL PRIVILEGES" })).toBeVisible();

@@ -12,7 +12,7 @@ export interface SettingsSectionProps {
   title: string;
   description: ReactNode;
   /**
-   * The same thing from a terminal: the `wasm config` commands for the change being made, or
+   * The same thing from a terminal: the `noust config` commands for the change being made, or
    * for reading the setting when nothing has changed.
    */
   commands?: readonly string[];

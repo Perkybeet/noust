@@ -4,19 +4,19 @@
 """
 Nginx virtual host manager.
 
-The implementation lives in :mod:`wasm.managers.webserver`; what remains here is
+The implementation lives in :mod:`noust.managers.webserver`; what remains here is
 the nginx backend binding plus the one operation nginx has and apache does not.
 Keeping the class name means the two dozen call sites, the AST test that checks
-them and the ``from wasm.managers import NginxManager`` imports all keep working.
+them and the ``from noust.managers import NginxManager`` imports all keep working.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from wasm.core.fs import FileSystem
-from wasm.core.runner import CommandRunner
-from wasm.managers.webserver import (
+from noust.core.fs import FileSystem
+from noust.core.runner import CommandRunner
+from noust.managers.webserver import (
     NGINX_BACKEND,
     SiteInfo,
     WebServerBackend,
@@ -27,7 +27,7 @@ from wasm.managers.webserver import (
 if TYPE_CHECKING:
     # Imported for typing only: the builder pulls in the deployer helpers, which
     # is a heavier dependency than a site manager should take at import time.
-    from wasm.deployers.helpers.nginx_config import NginxAdvancedConfig
+    from noust.deployers.helpers.nginx_config import NginxAdvancedConfig
 
 __all__ = ["NginxManager", "SiteInfo", "WebServerStatus"]
 
@@ -88,7 +88,7 @@ class NginxManager(WebServerManager):
             DomainError: When the domain is not a valid domain name.
             TemplateError: When the advanced template fails to render.
         """
-        from wasm.deployers.helpers.nginx_config import NginxConfigBuilder
+        from noust.deployers.helpers.nginx_config import NginxConfigBuilder
 
         builder = NginxConfigBuilder(verbose=self.verbose)
         context = builder.build_context(config, domain, ssl, app_path)

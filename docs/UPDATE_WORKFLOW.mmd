@@ -1,5 +1,5 @@
 graph TB
-    Start([Usuario ejecuta: wasm update domain.com]) --> ParseArgs[Parser CLI: webapp.py]
+    Start([Usuario ejecuta: noust update domain.com]) --> ParseArgs[Parser CLI: webapp.py]
     
     ParseArgs --> HandleUpdate{handle_update}
     
@@ -278,7 +278,7 @@ graph TB
     InfoPrisma -->|No| UpdateComplete([Update Completo - Return 0])
     
     InfoPrismaUpdated --> UpdateComplete
-    ShowWarning --> SuggestLogs[Sugerir: wasm logs domain.com]
+    ShowWarning --> SuggestLogs[Sugerir: noust logs domain.com]
     SuggestLogs --> UpdateComplete
     
     %% Error handlers

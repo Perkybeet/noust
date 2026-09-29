@@ -8,7 +8,7 @@ Everything here goes through the FakeRunner: no real rclone, no real
 network. What is asserted is the exact environment and argv the manager
 builds - a secret must reach rclone only through ``RCLONE_CONFIG_*``
 environment variables or through stdin (``rclone obscure -``), never as an
-argument, which is what :mod:`wasm.core.runner` would otherwise leak to
+argument, which is what :mod:`noust.core.runner` would otherwise leak to
 every local user's ``ps``.
 """
 
@@ -20,12 +20,12 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.exceptions import BackupError, DependencyError
-from wasm.core.runner import FakeRunner
-from wasm.core.secrets import SecretStore
-from wasm.core.store import BackupScheduleRecord, WASMStore, get_store
-from wasm.managers.backup_destinations import BackupDestinationManager
-from wasm.managers.backup_manager import BackupManager, BackupMetadata, server_id
+from noust.core.exceptions import BackupError, DependencyError
+from noust.core.runner import FakeRunner
+from noust.core.secrets import SecretStore
+from noust.core.store import BackupScheduleRecord, NoustStore, get_store
+from noust.managers.backup_destinations import BackupDestinationManager
+from noust.managers.backup_manager import BackupManager, BackupMetadata, server_id
 
 
 @pytest.fixture(autouse=True)
@@ -33,13 +33,13 @@ def _reset_store() -> Iterator[None]:
     """
     Force a fresh store singleton per test.
 
-    ``WASMStore`` caches itself on the class; without this, a destination
+    ``NoustStore`` caches itself on the class; without this, a destination
     created by one test would still be there - at the previous test's
     ``tmp_path`` - when the next one asks for it.
     """
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
     yield
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture

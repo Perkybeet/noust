@@ -20,12 +20,12 @@ from typing import Any
 import pytest
 from click.testing import CliRunner
 
-from wasm.cli.app import cli
-from wasm.core.exceptions import CertificateError, DomainError, SiteError
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, WASMStore
-from wasm.integrations import hooks_site
-from wasm.managers.webserver import NGINX_BACKEND, WebServerManager
+from noust.cli.app import cli
+from noust.core.exceptions import CertificateError, DomainError, SiteError
+from noust.core.runner import FakeRunner
+from noust.core.store import App, NoustStore
+from noust.integrations import hooks_site
+from noust.managers.webserver import NGINX_BACKEND, WebServerManager
 
 DOMAIN = "hooks.example.com"
 
@@ -67,7 +67,7 @@ class FakeCerts:
 
 
 @pytest.fixture
-def nginx(tmp_path: Path, runner: FakeRunner, store: WASMStore) -> WebServerManager:
+def nginx(tmp_path: Path, runner: FakeRunner, store: NoustStore) -> WebServerManager:
     """
     An nginx manager over a temporary tree.
 
@@ -143,7 +143,7 @@ def test_a_console_serving_tls_is_reached_over_https(
 
 
 def test_an_applications_name_is_refused(
-    nginx: WebServerManager, store: WASMStore, saved: list[str | None]
+    nginx: WebServerManager, store: NoustStore, saved: list[str | None]
 ) -> None:
     """The hooks site never takes over, or edits, an application's site."""
     store.create_app(App(domain=DOMAIN, source="github:you/app"))
@@ -195,7 +195,7 @@ def test_plain_http_when_asked(nginx: WebServerManager, saved: list[str | None])
 
 def test_the_github_webhook_follows(
     nginx: WebServerManager,
-    github_configured: WASMStore,
+    github_configured: NoustStore,
     saved: list[str | None],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -206,7 +206,7 @@ def test_the_github_webhook_follows(
         pointed.append(url)
         return False
 
-    monkeypatch.setattr("wasm.integrations.github.service.configure_webhook", configure)
+    monkeypatch.setattr("noust.integrations.github.service.configure_webhook", configure)
     result = hooks_site.expose(DOMAIN, port=8080, manager=nginx, cert_manager=FakeCerts())
     assert pointed == ["https://hooks.example.com/hooks/github"]
     assert result.github_webhook == "inactive"
@@ -231,7 +231,7 @@ def test_removal(nginx: WebServerManager, saved: list[str | None]) -> None:
 
 
 def test_expose_hooks_reads_the_consoles_port_from_its_unit(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, store: WASMStore
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, store: NoustStore
 ) -> None:
     """The service's own command line says where the console listens."""
     unit = tmp_path / "wasm-web.service"
@@ -239,8 +239,8 @@ def test_expose_hooks_reads_the_consoles_port_from_its_unit(
         "[Service]\nExecStart=/usr/bin/wasm web start --under-systemd --host 0.0.0.0 "
         "--port 9443 --self-signed\n"
     )
-    monkeypatch.setattr("wasm.cli.commands.web._service_unit_path", lambda: unit)
-    monkeypatch.setattr("wasm.cli.commands.web._service_status", lambda verbose: None)
+    monkeypatch.setattr("noust.cli.commands.web._service_unit_path", lambda: unit)
+    monkeypatch.setattr("noust.cli.commands.web._service_status", lambda verbose: None)
     calls: list[dict[str, Any]] = []
 
     def expose(domain: str, **kwargs: Any) -> hooks_site.HooksExposure:
@@ -253,17 +253,17 @@ def test_expose_hooks_reads_the_consoles_port_from_its_unit(
     assert calls[0]["port"] == 9443 and calls[0]["scheme"] == "https" and calls[0]["ssl"] is True
     body = json.loads(result.output)
     assert body["hooks_url"] == "https://hooks.example.com/hooks"
-    assert any("wasm web enable" in note for note in body["notes"])
+    assert any("noust web enable" in note for note in body["notes"])
 
 
-def test_github_status_json(store: WASMStore) -> None:
+def test_github_status_json(store: NoustStore) -> None:
     """Without an App, the status says so."""
     result = CliRunner().invoke(cli, ["github", "status", "--json"])
     assert result.exit_code == 0, result.output
     assert json.loads(result.output)["configured"] is False
 
 
-def test_github_remove_asks_first(github_configured: WASMStore) -> None:
+def test_github_remove_asks_first(github_configured: NoustStore) -> None:
     """Declining keeps the App; --yes removes it and names GitHub's page."""
     declined = CliRunner().invoke(cli, ["github", "remove"], input="n\n")
     assert declined.exit_code != 0
@@ -276,7 +276,7 @@ def test_github_remove_asks_first(github_configured: WASMStore) -> None:
     assert github_configured.get_github_app() is None
 
 
-def test_github_setup_prints_the_manifest(store: WASMStore) -> None:
+def test_github_setup_prints_the_manifest(store: NoustStore) -> None:
     """The manifest the console would post, for a look."""
     result = CliRunner().invoke(
         cli, ["github", "setup", "--print-manifest", "--origin", "http://localhost:9000"]

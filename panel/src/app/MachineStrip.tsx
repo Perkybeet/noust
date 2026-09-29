@@ -92,7 +92,7 @@ function UnitTally({ units }: { units: Machine["units"] }) {
 
 /**
  * The instrument readout of this one machine: its name, how long it has been up, load, CPU,
- * memory and disk, and how many of WASM's units are running, failed or stopped. Painted from
+ * memory and disk, and how many of Noust's units are running, failed or stopped. Painted from
  * GET /api/system/machine, then kept current by the `machine` event every five seconds.
  * Deliberately not a live region: numbers that change every five seconds are not news.
  *

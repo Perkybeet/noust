@@ -2,9 +2,9 @@ import type { shell as en } from "../en/shell";
 import type { Catalog } from "../types";
 
 export const shell: Catalog<typeof en> = {
-  area: "Consola WASM",
+  area: "Consola Noust",
   consoleProduct: "Consola",
-  sidebarOverview: "Consola WASM, resumen",
+  sidebarOverview: "Consola Noust, resumen",
   version: "Versión {version}",
   skipToContent: "Saltar al contenido",
   menu: {
@@ -59,7 +59,7 @@ export const shell: Catalog<typeof en> = {
   },
   machine: {
     landmark: "Esta máquina",
-    unitsSummary: "Unidades de WASM: {running} en ejecución, {failed} con fallos, {stopped} detenidas",
+    unitsSummary: "Unidades de Noust: {running} en ejecución, {failed} con fallos, {stopped} detenidas",
     load: "Carga",
     loadAverage: "Carga media: {one} {five} {fifteen}",
     loadDetail: "en un minuto, {five} en cinco, {fifteen} en quince",
@@ -85,5 +85,10 @@ export const shell: Catalog<typeof en> = {
     title: "Página no encontrada",
     body: "No hay nada en esta dirección. Comprueba el enlace o vuelve al {overview}.",
     overviewLink: "resumen",
+  },
+  renameNotice: {
+    text: "WASM ahora se llama Noust: nada más ha cambiado, la misma consola y las mismas aplicaciones.",
+    link: "Qué ha cambiado y por qué",
+    dismiss: "Descartar",
   },
 };

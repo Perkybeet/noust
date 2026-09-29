@@ -13,7 +13,7 @@ What is defended:
   ``total`` counts every row the filters match, not just the page.
 - **Filters compose.** ``domain``, ``status`` and ``trigger`` narrow together,
   not each replacing the others.
-- **The log reader is the one implementation.** ``wasm.deployers.logs`` is
+- **The log reader is the one implementation.** ``noust.deployers.logs`` is
   exercised directly and through the API: a path outside the deployment log
   directory is refused, never read; a rotated file is reported, not a 500; a
   large log is truncated on a whole line, not mid-character.
@@ -21,7 +21,7 @@ What is defended:
   not new bookkeeping.** They read `RollbackManager.list_rollback_points` and
   the deployment history's own ``triggered_by`` column.
 - **The notification test button never leaks a remote body or a secret**,
-  because it is wired to :class:`~wasm.core.notifier.Notifier` and nothing
+  because it is wired to :class:`~noust.core.notifier.Notifier` and nothing
   else answers on its behalf.
 """
 
@@ -39,19 +39,19 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from noust.core.store import App, DeploymentStatus, DeploymentTrigger, NoustStore
+from noust.deployers.logs import DEFAULT_TAIL_BYTES, read_deployment_log
+from noust.managers.backup_manager import BackupMetadata
+from noust.web.api import apps as apps_api
+from noust.web.api import config as config_api
+from noust.web.api import deployments as deployments_api
+from noust.web.api import hooks as hooks_module
+from noust.web.api.auth import get_current_session
 from tests.test_notifier import (  # noqa: F401  (pytest resolves fixtures by name)
     CapturingOpener,
     config,
     public_dns,
 )
-from wasm.core.store import App, DeploymentStatus, DeploymentTrigger, WASMStore
-from wasm.deployers.logs import DEFAULT_TAIL_BYTES, read_deployment_log
-from wasm.managers.backup_manager import BackupMetadata
-from wasm.web.api import apps as apps_api
-from wasm.web.api import config as config_api
-from wasm.web.api import deployments as deployments_api
-from wasm.web.api import hooks as hooks_module
-from wasm.web.api.auth import get_current_session
 
 DOMAIN = "app.example.com"
 OTHER_DOMAIN = "other.example.com"
@@ -71,17 +71,17 @@ def store(tmp_path: Path):
     Yields:
         The store the endpoints under test read.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     try:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 @pytest.fixture
-def client(store: WASMStore) -> TestClient:
+def client(store: NoustStore) -> TestClient:
     """
     Build a test client carrying every router this task adds or extends.
 
@@ -100,7 +100,7 @@ def client(store: WASMStore) -> TestClient:
     return TestClient(app, raise_server_exceptions=False)
 
 
-def seed_app(store: WASMStore, domain: str = DOMAIN) -> App:
+def seed_app(store: NoustStore, domain: str = DOMAIN) -> App:
     """
     Deploy one application on paper.
 
@@ -124,7 +124,7 @@ def seed_app(store: WASMStore, domain: str = DOMAIN) -> App:
 
 
 def seed_deployment(
-    store: WASMStore,
+    store: NoustStore,
     domain: str,
     *,
     trigger: str = DeploymentTrigger.CLI.value,
@@ -157,7 +157,7 @@ def seed_deployment(
     return deployment_id
 
 
-def write_log(store: WASMStore, domain: str, deployment_id: int, content: str) -> Path:
+def write_log(store: NoustStore, domain: str, deployment_id: int, content: str) -> Path:
     """
     Write a captured log where the recorder would have written it.
 
@@ -182,7 +182,7 @@ def write_log(store: WASMStore, domain: str, deployment_id: int, content: str) -
 
 class TestListDeployments:
     def test_defaults_to_every_domain_newest_first(
-        self, client: TestClient, store: WASMStore
+        self, client: TestClient, store: NoustStore
     ) -> None:
         first = seed_deployment(store, DOMAIN)
         second = seed_deployment(store, OTHER_DOMAIN)
@@ -195,7 +195,7 @@ class TestListDeployments:
         assert body["total"] == 2
         assert body["next_before_id"] is None
 
-    def test_filters_by_domain(self, client: TestClient, store: WASMStore) -> None:
+    def test_filters_by_domain(self, client: TestClient, store: NoustStore) -> None:
         seed_deployment(store, DOMAIN)
         wanted = seed_deployment(store, OTHER_DOMAIN)
 
@@ -207,13 +207,13 @@ class TestListDeployments:
         assert body["total"] == 1
 
     def test_an_invalid_domain_filter_is_refused(
-        self, client: TestClient, store: WASMStore
+        self, client: TestClient, store: NoustStore
     ) -> None:
         response = client.get("/api/deployments?domain=not a domain")
         assert 400 <= response.status_code < 500
 
     def test_filters_by_status_and_trigger_together(
-        self, client: TestClient, store: WASMStore
+        self, client: TestClient, store: NoustStore
     ) -> None:
         wanted = seed_deployment(
             store,
@@ -241,7 +241,7 @@ class TestListDeployments:
         assert body["total"] == 1
 
     def test_keyset_pagination_never_repeats_or_skips_a_row(
-        self, client: TestClient, store: WASMStore
+        self, client: TestClient, store: NoustStore
     ) -> None:
         ids = [seed_deployment(store, DOMAIN) for _ in range(5)]
 
@@ -260,7 +260,7 @@ class TestListDeployments:
         assert collected == list(reversed(ids))
 
     def test_a_page_short_of_the_limit_offers_no_cursor(
-        self, client: TestClient, store: WASMStore
+        self, client: TestClient, store: NoustStore
     ) -> None:
         seed_deployment(store, DOMAIN)
         seed_deployment(store, DOMAIN)
@@ -269,7 +269,7 @@ class TestListDeployments:
 
         assert response.json()["next_before_id"] is None
 
-    def test_has_log_reflects_a_recorded_path(self, client: TestClient, store: WASMStore) -> None:
+    def test_has_log_reflects_a_recorded_path(self, client: TestClient, store: NoustStore) -> None:
         without_log = seed_deployment(store, DOMAIN)
         with_log = seed_deployment(store, DOMAIN, log_path="/var/lib/wasm/deploy-logs/x/1.log")
 
@@ -280,7 +280,7 @@ class TestListDeployments:
         assert by_id[with_log] is True
 
     def test_timestamps_carry_an_explicit_utc_offset(
-        self, client: TestClient, store: WASMStore
+        self, client: TestClient, store: NoustStore
     ) -> None:
         """
         The store writes ``started_at``/``finished_at`` as naive local
@@ -296,7 +296,7 @@ class TestListDeployments:
 
 
 class TestGetDeployment:
-    def test_returns_the_row(self, client: TestClient, store: WASMStore) -> None:
+    def test_returns_the_row(self, client: TestClient, store: NoustStore) -> None:
         deployment_id = seed_deployment(
             store,
             DOMAIN,
@@ -321,7 +321,7 @@ class TestGetDeployment:
         assert response.status_code == 404
 
     def test_carries_the_job_and_release_that_produced_it(
-        self, client: TestClient, store: WASMStore
+        self, client: TestClient, store: NoustStore
     ) -> None:
         """A deploy queued from the panel links back to its job and its release."""
         deployment_id = store.record_deployment_start(DOMAIN, "panel", job_id="ab12cd34")
@@ -338,7 +338,7 @@ class TestGetDeployment:
         assert body["release_id"] == "20260101-000000"
         assert body["commit_message"] == "Fix the thing"
 
-    def test_a_cli_deploy_carries_none_of_them(self, client: TestClient, store: WASMStore) -> None:
+    def test_a_cli_deploy_carries_none_of_them(self, client: TestClient, store: NoustStore) -> None:
         """A CLI deploy has no job and, in place, no release either."""
         deployment_id = seed_deployment(store, DOMAIN)
 
@@ -355,9 +355,9 @@ class TestGetDeployment:
 
 
 class TestReadDeploymentLog:
-    """Direct tests of the shared implementation, ``wasm.deployers.logs``."""
+    """Direct tests of the shared implementation, ``noust.deployers.logs``."""
 
-    def test_no_log_recorded(self, store: WASMStore) -> None:
+    def test_no_log_recorded(self, store: NoustStore) -> None:
         deployment_id = seed_deployment(store, DOMAIN)
         record = store.get_deployment(deployment_id)
         assert record is not None
@@ -369,7 +369,7 @@ class TestReadDeploymentLog:
         assert "No build log was captured" in (result.missing_reason or "")
 
     def test_a_path_outside_the_log_directory_is_refused(
-        self, store: WASMStore, tmp_path: Path
+        self, store: NoustStore, tmp_path: Path
     ) -> None:
         planted = tmp_path / "secret.txt"
         planted.write_text("TOP-SECRET")
@@ -382,7 +382,7 @@ class TestReadDeploymentLog:
         assert result.content == ""
         assert "will not read it" in (result.missing_reason or "")
 
-    def test_a_missing_file_is_reported_honestly(self, store: WASMStore) -> None:
+    def test_a_missing_file_is_reported_honestly(self, store: NoustStore) -> None:
         vanished = store.db_path.parent / "deploy-logs" / DOMAIN / "999.log"
         deployment_id = seed_deployment(store, DOMAIN, log_path=str(vanished))
         record = store.get_deployment(deployment_id)
@@ -392,7 +392,7 @@ class TestReadDeploymentLog:
 
         assert "no longer on disk" in (result.missing_reason or "")
 
-    def test_a_small_log_is_returned_whole(self, store: WASMStore) -> None:
+    def test_a_small_log_is_returned_whole(self, store: NoustStore) -> None:
         deployment_id = seed_deployment(store, DOMAIN)
         log_path = write_log(store, DOMAIN, deployment_id, "npm install\nnpm run build\n")
         store.annotate_deployment(deployment_id, log_path=str(log_path))
@@ -406,7 +406,7 @@ class TestReadDeploymentLog:
         assert result.missing_reason is None
 
     def test_a_tail_narrower_than_the_file_truncates_on_a_line_boundary(
-        self, store: WASMStore
+        self, store: NoustStore
     ) -> None:
         deployment_id = seed_deployment(store, DOMAIN)
         content = "".join(f"line {i}\n" for i in range(1000))
@@ -428,7 +428,7 @@ class TestReadDeploymentLog:
 
 
 class TestDeploymentLogEndpoint:
-    def test_serves_the_captured_log(self, client: TestClient, store: WASMStore) -> None:
+    def test_serves_the_captured_log(self, client: TestClient, store: NoustStore) -> None:
         deployment_id = seed_deployment(store, DOMAIN)
         log_path = write_log(store, DOMAIN, deployment_id, "hello world\n")
         store.annotate_deployment(deployment_id, log_path=str(log_path))
@@ -441,7 +441,7 @@ class TestDeploymentLogEndpoint:
         assert body["truncated"] is False
         assert body["missing_reason"] is None
 
-    def test_tail_narrows_the_response(self, client: TestClient, store: WASMStore) -> None:
+    def test_tail_narrows_the_response(self, client: TestClient, store: NoustStore) -> None:
         deployment_id = seed_deployment(store, DOMAIN)
         content = "".join(f"line {i}\n" for i in range(1000))
         log_path = write_log(store, DOMAIN, deployment_id, content)
@@ -455,7 +455,7 @@ class TestDeploymentLogEndpoint:
         assert len(body["content"]) <= 200
 
     def test_a_path_outside_the_log_directory_is_refused_not_read(
-        self, client: TestClient, store: WASMStore, tmp_path: Path
+        self, client: TestClient, store: NoustStore, tmp_path: Path
     ) -> None:
         planted = tmp_path / "secret.txt"
         planted.write_text("TOP-SECRET-CONTENT")
@@ -559,7 +559,7 @@ class TestRollbackPoints:
 
 class TestWebhookDeliveries:
     def test_lists_only_webhook_triggered_deployments_newest_first(
-        self, client: TestClient, store: WASMStore
+        self, client: TestClient, store: NoustStore
     ) -> None:
         seed_app(store)
         seed_deployment(store, DOMAIN, trigger=DeploymentTrigger.CLI.value)
@@ -592,7 +592,7 @@ class TestWebhookDeliveries:
         assert response.status_code == 404
 
     def test_started_at_carries_an_explicit_utc_offset(
-        self, client: TestClient, store: WASMStore
+        self, client: TestClient, store: NoustStore
     ) -> None:
         seed_app(store)
         seed_deployment(store, DOMAIN, trigger=DeploymentTrigger.WEBHOOK.value)
@@ -686,10 +686,10 @@ def _notifier_with(opener: CapturingOpener):
 
     Returns:
         A notifier over the current sandboxed configuration - the same
-        one-line construction :mod:`wasm.web.api.config` uses.
+        one-line construction :mod:`noust.web.api.config` uses.
     """
-    from wasm.core.config import Config
-    from wasm.core.notifier import Notifier
+    from noust.core.config import Config
+    from noust.core.notifier import Notifier
 
     fresh = Config()
     fresh.reload()

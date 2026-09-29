@@ -1,6 +1,6 @@
 # OBS (Open Build Service) Setup Guide
 
-This guide explains how to build and distribute WASM packages via the Open Build Service, allowing you to support multiple Linux distributions (Fedora, openSUSE, Debian, Ubuntu, Arch, etc.) from a single source.
+This guide explains how to build and distribute Noust packages via the Open Build Service, allowing you to support multiple Linux distributions (Fedora, openSUSE, Debian, Ubuntu, Arch, etc.) from a single source.
 
 ## Why OBS?
 
@@ -24,7 +24,10 @@ Go to **https://build.opensuse.org** and:
 In OBS web interface:
 1. Login → **"Home Project"** (auto-created as `home:your_username`)
 2. Click **"Create package"**
-3. Package name: `wasm`
+3. Package name: `noust`. A second package in the same project, `wasm`, builds the empty
+   transitional packages (`wasm` for Debian and Ubuntu, `wasm-cli` for Fedora and openSUSE)
+   that pull in `noust`, so a server that has either upgrades onto it. See
+   [RENAME.md](RENAME.md).
 4. (Optional) Add description
 
 ### 3. Install OSC (OBS Command Line)
@@ -87,11 +90,11 @@ Use the provided script:
 # Make executable
 chmod +x build-and-upload-obs.sh
 
-# Upload with defaults (home:Perkybeet/wasm)
+# Upload with defaults (home:Perkybeet/noust)
 ./build-and-upload-obs.sh
 
 # Or specify custom project/package
-./build-and-upload-obs.sh home:myuser wasm-cli
+./build-and-upload-obs.sh home:myuser noust
 ```
 
 The script will:
@@ -107,19 +110,19 @@ The script will:
 ```bash
 # 1. Create tarball
 VERSION=$(head -n 1 debian/changelog | sed 's/.*(\(.*\)).*/\1/' | cut -d'~' -f1)
-git archive --format=tar.gz --prefix=wasm-${VERSION}/ HEAD > wasm-${VERSION}.tar.gz
+git archive --format=tar.gz --prefix=noust-${VERSION}/ HEAD > noust-${VERSION}.tar.gz
 
 # 2. Checkout package
-osc checkout home:Perkybeet/wasm
-cd home:Perkybeet/wasm
+osc checkout home:Perkybeet/noust
+cd home:Perkybeet/noust
 
 # 3. Copy files
-cp /path/to/wasm-${VERSION}.tar.gz .
-cp /path/to/rpm/wasm.spec .
+cp /path/to/noust-${VERSION}.tar.gz .
+cp /path/to/rpm/noust.spec .
 cp /path/to/obs/_service .
 
 # 4. Add and commit
-osc add wasm-${VERSION}.tar.gz wasm.spec _service
+osc add noust-${VERSION}.tar.gz noust.spec _service
 osc commit -m "Update to version ${VERSION}"
 ```
 
@@ -144,23 +147,23 @@ make obs-status
 
 View build status at:
 ```
-https://build.opensuse.org/package/show/home:Perkybeet/wasm
+https://build.opensuse.org/package/show/home:Perkybeet/noust
 ```
 
 ### Command Line
 
 ```bash
 # Check build results
-osc results home:Perkybeet wasm
+osc results home:Perkybeet noust
 
 # Watch live (updates every 10 seconds)
-watch -n 10 "osc results home:Perkybeet wasm"
+watch -n 10 "osc results home:Perkybeet noust"
 
 # Get build logs for specific distribution
-osc buildlog home:Perkybeet wasm Fedora_40 x86_64
+osc buildlog home:Perkybeet noust Fedora_40 x86_64
 
 # Download built packages
-osc getbinaries home:Perkybeet wasm Fedora_40 x86_64
+osc getbinaries home:Perkybeet noust Fedora_40 x86_64
 ```
 
 ## Repository Setup for Users
@@ -175,7 +178,7 @@ sudo dnf config-manager --add-repo \
   https://download.opensuse.org/repositories/home:/Perkybeet/Fedora_40/home:Perkybeet.repo
 
 # Install
-sudo dnf install wasm-cli
+sudo dnf install noust
 ```
 
 ### openSUSE
@@ -187,7 +190,7 @@ sudo zypper ar -f \
   home_Perkybeet
 
 # Install
-sudo zypper install wasm-cli
+sudo zypper install noust
 ```
 
 ### Ubuntu/Debian
@@ -203,7 +206,7 @@ echo 'deb https://download.opensuse.org/repositories/home:/Perkybeet/xUbuntu_24.
 
 # Install
 sudo apt update
-sudo apt install wasm-cli
+sudo apt install noust
 ```
 
 ### Arch Linux (via AUR helper or manual)
@@ -219,7 +222,7 @@ The `obs/_service` file enables automatic source fetching:
 ```xml
 <services>
   <service name="obs_scm">
-    <param name="url">https://github.com/Perkybeet/wasm.git</param>
+    <param name="url">https://github.com/Perkybeet/noust.git</param>
     <param name="scm">git</param>
     <param name="revision">main</param>
   </service>
@@ -247,9 +250,9 @@ Now every push to `main` automatically triggers OBS builds!
 ## File Structure
 
 ```
-wasm/
+noust/
 ├── rpm/
-│   └── wasm.spec               # RPM package specification
+│   └── noust.spec              # RPM package specification
 ├── obs/
 │   ├── _service                # OBS service configuration (optional)
 │   ├── debian.changelog        # Debian changelog
@@ -258,11 +261,11 @@ wasm/
 │   ├── debian.postinst         # Post-install script
 │   ├── debian.postrm           # Post-remove script
 │   ├── debian.copyright        # License info
-│   ├── wasm.dsc                # Debian source control
-│   ├── wasm.1                  # Man page
-│   ├── wasm.default.yaml       # Default config
-│   ├── wasm.dirs               # Directories to create
-│   ├── wasm.manpages           # Man pages list
+│   ├── noust.dsc               # Debian source control
+│   ├── noust.1                 # Man page
+│   ├── noust.default.yaml      # Default config
+│   ├── noust.dirs              # Directories to create
+│   ├── noust.manpages          # Man pages list
 │   └── source/
 │       ├── format              # Source format
 │       └── options             # Build options
@@ -286,7 +289,7 @@ wasm/
 
 ```bash
 # View build log
-osc buildlog home:Perkybeet wasm Fedora_40 x86_64
+osc buildlog home:Perkybeet noust Fedora_40 x86_64
 
 # Common issues:
 # - Missing BuildRequires in .spec
@@ -327,24 +330,22 @@ For Python packages not in distribution repos, you may need to:
 
 ## Workflow Summary
 
-## Workflow Summary
-
 | Task | Command |
-|------|---------|  
+|------|---------|
 | Upload to OBS | `./build-and-upload-obs.sh` or `make obs-upload` |
-| Check status | `make obs-status` or `osc results home:Perkybeet wasm` |
+| Check status | `make obs-status` or `osc results home:Perkybeet noust` |
 | View logs | `make obs-logs DISTRO=Fedora_40 ARCH=x86_64` |
 | Watch builds | `make obs-status-watch` |
 
 ## Next Steps
 
-1. ✅ Register at build.opensuse.org
-2. ✅ Install and configure `osc`
-3. ✅ Create package in OBS web UI
-4. ✅ Add target distributions
-5. 🚀 Run `./build-and-upload-obs.sh`
-6. 📊 Monitor builds
-7. 📢 Update README with install instructions
+1. Register at build.opensuse.org
+2. Install and configure `osc`
+3. Create package in OBS web UI
+4. Add target distributions
+5. Run `./build-and-upload-obs.sh`
+6. Monitor builds
+7. Update README with install instructions
 
 ## Resources
 
@@ -357,6 +358,6 @@ For Python packages not in distribution repos, you may need to:
 ## Support
 
 For issues with OBS builds, check:
-- Build logs: `osc buildlog home:yago2003 wasm <distro> <arch>`
+- Build logs: `osc buildlog home:Perkybeet noust <distro> <arch>`
 - OBS forums: https://forums.opensuse.org/
 - Matrix: #opensuse-buildservice:opensuse.org

@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-``wasm github``: this server's GitHub App (2.2).
+``noust github``: this server's GitHub App (2.2).
 
-A front end over :mod:`wasm.integrations.github.service`, the same calls the
+A front end over :mod:`noust.integrations.github.service`, the same calls the
 console's Integrations page makes. Creating the App is not here: GitHub's
 manifest flow needs a browser signed in to GitHub, so it starts in the console
 (``setup --print-manifest`` prints the manifest for a look, or to post by
@@ -18,9 +18,9 @@ from dataclasses import asdict
 
 import click
 
-from wasm.cli.app import Context, WasmGroup, json_option, pass_context
-from wasm.integrations.github import manifest, service
-from wasm.integrations.hooks_site import public_hooks_url
+from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.integrations.github import manifest, service
+from noust.integrations.hooks_site import public_hooks_url
 
 #: Said wherever the App does not exist yet.
 CREATE_HINT = (
@@ -29,7 +29,7 @@ CREATE_HINT = (
 )
 
 
-@click.group("github", cls=WasmGroup)
+@click.group("github", cls=NoustGroup)
 def cli() -> None:
     """This server's GitHub App: private repositories, push and pull request events."""
 
@@ -59,7 +59,7 @@ def status_command(ctx: Context) -> None:
         logger.key_value("Webhook", f"{status.hooks_url} ({state})")
     else:
         logger.key_value("Webhook", "none: pushes and pull requests are not received")
-        logger.info("Give the hooks a public name: wasm web expose-hooks hooks.example.com")
+        logger.info("Give the hooks a public name: noust web expose-hooks hooks.example.com")
 
 
 @cli.command("installations")
@@ -185,5 +185,5 @@ def setup_command(ctx: Context, print_manifest: bool, origin: str) -> None:
     if not public_hooks_url():
         ctx.logger.info(
             "To receive pushes and pull requests, first give the hooks a public name: "
-            "wasm web expose-hooks hooks.example.com"
+            "noust web expose-hooks hooks.example.com"
         )

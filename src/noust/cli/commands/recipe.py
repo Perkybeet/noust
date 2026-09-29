@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-``wasm recipe``: the applications WASM knows how to deploy from a recipe.
+``noust recipe``: the applications Noust knows how to deploy from a recipe.
 
-Deploying one is ``wasm create --recipe NAME -d DOMAIN``; this group only
-lists and describes them. Both read :mod:`wasm.recipes`, as ``GET
+Deploying one is ``noust create --recipe NAME -d DOMAIN``; this group only
+lists and describes them. Both read :mod:`noust.recipes`, as ``GET
 /api/recipes`` does.
 """
 
@@ -15,9 +15,9 @@ import json
 
 import click
 
-from wasm.cli.app import Context, WasmGroup, json_option, pass_context
-from wasm.core.logger import Logger
-from wasm.recipes import Recipe, get_recipe, list_recipes
+from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.logger import Logger
+from noust.recipes import Recipe, get_recipe, list_recipes
 
 
 def print_recipe(logger: Logger, recipe: Recipe) -> None:
@@ -68,12 +68,12 @@ def print_recipe(logger: Logger, recipe: Recipe) -> None:
             suffix = " (generated)" if variable["generated"] else ""
             logger.info(f"  {variable['name']}{suffix}")
     logger.blank()
-    logger.info(f"Deploy it with: wasm create --recipe {recipe.name} -d <domain>")
+    logger.info(f"Deploy it with: noust create --recipe {recipe.name} -d <domain>")
 
 
-@click.group("recipe", cls=WasmGroup)
+@click.group("recipe", cls=NoustGroup)
 def cli() -> None:
-    """Applications WASM deploys from a recipe: WordPress, Uptime Kuma, Umami, n8n."""
+    """Applications Noust deploys from a recipe: WordPress, Uptime Kuma, Umami, n8n."""
 
 
 @cli.command("list")
@@ -96,7 +96,7 @@ def list_command(ctx: Context) -> None:
         else:
             logger.key_value(recipe.name, f"{recipe.title}: not available in this release")
     logger.blank()
-    logger.info("Details: wasm recipe show NAME. Deploy: wasm create --recipe NAME -d DOMAIN")
+    logger.info("Details: noust recipe show NAME. Deploy: noust create --recipe NAME -d DOMAIN")
 
 
 @cli.command("show")

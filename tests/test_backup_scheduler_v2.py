@@ -6,7 +6,7 @@ Tests for the 2.2 backup scheduler: the store row, adoption and run-schedule.
 
 Before 2.2 a schedule was systemd units only, and its retention was written
 into the timer's own service unit but never actually applied - the service
-ran a bare ``wasm backup create --tags scheduled,auto``. These tests cover
+ran a bare ``noust backup create --tags scheduled,auto``. These tests cover
 the model this module was rewritten to: the schedule lives in the store,
 ``run_schedule()`` is what a timer's service now calls, and a timer that
 predates schema v10 is adopted - given a store row and a rewritten service
@@ -20,15 +20,15 @@ from pathlib import Path
 
 import pytest
 
+from noust.core.config import Config
+from noust.core.exceptions import BackupError
+from noust.core.notifier import NotificationEvent
+from noust.core.runner import FakeRunner
+from noust.core.store import BackupScheduleRecord, NoustStore, get_store
+from noust.managers.backup_destinations import BackupDestinationManager
+from noust.managers.backup_manager import BackupManager, BackupMetadata
+from noust.managers.backup_scheduler import BackupSchedule, BackupScheduler, run_schedule
 from tests.test_notifier import config  # noqa: F401  (pytest resolves fixtures by name)
-from wasm.core.config import Config
-from wasm.core.exceptions import BackupError
-from wasm.core.notifier import NotificationEvent
-from wasm.core.runner import FakeRunner
-from wasm.core.store import BackupScheduleRecord, WASMStore, get_store
-from wasm.managers.backup_destinations import BackupDestinationManager
-from wasm.managers.backup_manager import BackupManager, BackupMetadata
-from wasm.managers.backup_scheduler import BackupSchedule, BackupScheduler, run_schedule
 
 # The notifier's config fixture is imported rather than replicated, so there
 # stays one definition of "a sandboxed configuration".
@@ -38,12 +38,12 @@ from wasm.managers.backup_scheduler import BackupSchedule, BackupScheduler, run_
 LIST_TIMERS_LINE = (
     "Sat 2026-08-15 02:00:00 UTC 5h left "
     "Fri 2026-08-14 02:00:00 UTC 19h ago "
-    "wasm-backup-example-com.timer wasm-backup-example-com.service\n"
+    "noust-backup-example-com.timer noust-backup-example-com.service\n"
 )
 
 #: What ``systemctl show`` answers about that timer.
 SHOW_TIMER_OUTPUT = (
-    "Description=WASM backup timer for example.com\n"
+    "Description=Noust backup timer for example.com\n"
     "TimersCalendar={ OnCalendar=*-*-* 02:00:00 ; next_elapse=Sat 2026-08-15 02:00:00 UTC }\n"
     "LastTriggerUSec=Fri 2026-08-14 02:00:00 UTC\n"
     "NextElapseUSecRealtime=Sat 2026-08-15 02:00:00 UTC\n"
@@ -53,9 +53,9 @@ SHOW_TIMER_OUTPUT = (
 @pytest.fixture(autouse=True)
 def _reset_store() -> Iterator[None]:
     """Force a fresh store singleton per test; see test_backup_destinations.py."""
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
     yield
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture
@@ -69,7 +69,7 @@ def systemd_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 def _scripted_legacy_timer(runner: FakeRunner) -> None:
     runner.script(("systemctl", "list-timers"), stdout=LIST_TIMERS_LINE)
-    runner.script(("systemctl", "show", "wasm-backup-example-com.timer"), stdout=SHOW_TIMER_OUTPUT)
+    runner.script(("systemctl", "show", "noust-backup-example-com.timer"), stdout=SHOW_TIMER_OUTPUT)
 
 
 class TestAdoption:
@@ -88,15 +88,15 @@ class TestAdoption:
         self, runner: FakeRunner, systemd_dir: Path
     ) -> None:
         _scripted_legacy_timer(runner)
-        service = systemd_dir / "wasm-backup-example-com.service"
+        service = systemd_dir / "noust-backup-example-com.service"
         service.write_text(
-            "[Service]\nExecStart=/usr/bin/wasm backup create example.com "
+            "[Service]\nExecStart=/usr/bin/noust backup create example.com "
             "--include-databases --tags scheduled,auto\n"
         )
 
         BackupScheduler(verbose=False, runner=runner).list_schedules()
 
-        assert "wasm backup run-schedule example.com" in service.read_text()
+        assert "backup run-schedule example.com" in service.read_text()
         assert "backup create" not in service.read_text()
 
     def test_a_schedule_the_store_already_knows_is_left_alone(
@@ -193,7 +193,7 @@ class TestCreateGetRemove:
             )
         )
         runner.script(
-            ("systemctl", "is-enabled", "wasm-backup-shop-example-com.timer"), stdout="enabled"
+            ("systemctl", "is-enabled", "noust-backup-shop-example-com.timer"), stdout="enabled"
         )
 
         fetched = scheduler.get_schedule("shop.example.com")
@@ -349,7 +349,7 @@ class TestRunSchedule:
 
         notified: list[NotificationEvent] = []
         monkeypatch.setattr(
-            "wasm.core.notifier.Notifier.notify", lambda self, event: notified.append(event)
+            "noust.core.notifier.Notifier.notify", lambda self, event: notified.append(event)
         )
 
         with pytest.raises(BackupError) as excinfo:
@@ -386,7 +386,7 @@ class TestRunSchedule:
 
         notified: list[NotificationEvent] = []
         monkeypatch.setattr(
-            "wasm.core.notifier.Notifier.notify", lambda self, event: notified.append(event)
+            "noust.core.notifier.Notifier.notify", lambda self, event: notified.append(event)
         )
 
         with pytest.raises(BackupError):
@@ -424,7 +424,7 @@ class TestRunSchedule:
 
         notified: list[NotificationEvent] = []
         monkeypatch.setattr(
-            "wasm.core.notifier.Notifier.notify", lambda self, event: notified.append(event)
+            "noust.core.notifier.Notifier.notify", lambda self, event: notified.append(event)
         )
 
         with pytest.raises(BackupError):
@@ -443,7 +443,7 @@ class TestRunSchedule:
         config.set("notifications.language", "es")
         notified: list[NotificationEvent] = []
         monkeypatch.setattr(
-            "wasm.core.notifier.Notifier.notify", lambda self, event: notified.append(event)
+            "noust.core.notifier.Notifier.notify", lambda self, event: notified.append(event)
         )
 
         with pytest.raises(BackupError):

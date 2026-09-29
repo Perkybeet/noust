@@ -26,12 +26,12 @@ import pytest
 import yaml
 from click.testing import CliRunner
 
-from wasm.cli import app as app_module
-from wasm.cli.app import cli as root_cli
-from wasm.cli.commands import config as config_cmd
-from wasm.core.config import Config
-from wasm.core.logger import Logger
-from wasm.core.runner import DryRunRunner, FakeRunner, get_runner
+from noust.cli import app as app_module
+from noust.cli.app import cli as root_cli
+from noust.cli.commands import config as config_cmd
+from noust.core.config import Config
+from noust.core.logger import Logger
+from noust.core.runner import DryRunRunner, FakeRunner, get_runner
 
 CONTRACT = json.loads(
     (Path(__file__).parent / "contracts/cli_surface.json").read_text(encoding="utf-8")
@@ -380,7 +380,7 @@ def test_show_redacts_a_secret(wasm: Wasm, fake_config: dict[str, Any]) -> None:
     'config show' must never print a credential in the clear.
 
     'config get' and 'config set' already redact through
-    :func:`~wasm.core.config.redact_secrets`; 'show' dumps the whole tree at
+    :func:`~noust.core.config.redact_secrets`; 'show' dumps the whole tree at
     once and used to skip that helper entirely.
     """
     fake_config["values"] = {
@@ -462,7 +462,7 @@ def test_path_notices_an_existing_file(
 @pytest.fixture
 def real_config_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     """
-    Point the real :class:`~wasm.core.config.Config` singleton at a sandbox.
+    Point the real :class:`~noust.core.config.Config` singleton at a sandbox.
 
     Args:
         tmp_path: Per-test temporary directory.
@@ -473,7 +473,7 @@ def real_config_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterato
         so every key starts out at its default.
     """
     path = tmp_path / "etc" / "wasm" / "config.yaml"
-    monkeypatch.setattr("wasm.core.config.DEFAULT_CONFIG_PATH", path)
+    monkeypatch.setattr("noust.core.config.DEFAULT_CONFIG_PATH", path)
     monkeypatch.setattr(config_cmd, "DEFAULT_CONFIG_PATH", path)
     Config.reset_instance()
     try:
@@ -537,7 +537,7 @@ def test_set_refuses_an_unsupported_webserver(wasm: Wasm, real_config_path: Path
     """
     The same rule the panel's own /config/webserver endpoint enforces.
 
-    wasm.web.api.config answers a webserver it cannot manage with a plain 400;
+    noust.web.api.config answers a webserver it cannot manage with a plain 400;
     the CLI answers the same refusal in the same words, because both go
     through Config.set.
     """
@@ -549,7 +549,7 @@ def test_set_refuses_an_unsupported_webserver(wasm: Wasm, real_config_path: Path
 
 
 def test_set_refuses_a_port_out_of_range(wasm: Wasm, real_config_path: Path) -> None:
-    """web.port carries the same 1-65535 range wasm.web.api.config.WebConfig applies."""
+    """web.port carries the same 1-65535 range noust.web.api.config.WebConfig applies."""
     result = wasm("config", "set", "web.port", "70000")
 
     assert result.exit_code == 1
@@ -570,7 +570,7 @@ def test_set_accepts_a_port_in_range_and_stores_it_as_a_number(
 def test_set_accepts_spanish_as_the_notification_language(
     wasm: Wasm, real_config_path: Path
 ) -> None:
-    """notifications.language picks the wasm.core.messages catalog a notification renders in."""
+    """notifications.language picks the noust.core.messages catalog a notification renders in."""
     result = wasm("config", "set", "notifications.language", "es")
 
     assert result.exit_code == 0, result.output
@@ -759,7 +759,7 @@ def test_the_deprecated_apps_directory_alias_writes_the_canonical_key(
 ) -> None:
     """
     'apps.directory' used to be a real, separate, dotted key: every deployer
-    read the flat 'apps_directory' while wasm.web.machine's disk meter read
+    read the flat 'apps_directory' while noust.web.machine's disk meter read
     'apps.directory', so the meter never reflected the directory deployments
     actually used. It is now a deprecated alias, normalised to
     'apps_directory' on write, so there is exactly one setting on disk.
@@ -1086,8 +1086,8 @@ def test_handle_config_without_an_action_prints_the_summary(
 
 def test_a_group_chat_id_without_its_minus_is_refused_at_the_config_chokepoint() -> None:
     """The same rule as the API's Telegram form, for `wasm config set` too."""
-    from wasm.core.config import Config
-    from wasm.core.exceptions import ConfigError
+    from noust.core.config import Config
+    from noust.core.exceptions import ConfigError
 
     with pytest.raises(ConfigError) as caught:
         Config().set("notifications.channels.telegram.chat_id", "1004482709713")

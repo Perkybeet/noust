@@ -4,7 +4,7 @@
 """
 Tests for ``/api/apps/{domain}/domains``.
 
-The router is a translation of :mod:`wasm.deployers.domains` to HTTP - the
+The router is a translation of :mod:`noust.deployers.domains` to HTTP - the
 rules are pinned in ``tests/test_domains.py`` and ``tests/test_store.py`` and
 not repeated here. What this module owns: which function each route calls and
 with what, the response shapes, the status of each refusal, that certbot is
@@ -20,12 +20,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.core.exceptions import DomainConflictError, DomainError, ValidationError
-from wasm.core.store import App, DomainRecord, WASMStore
-from wasm.deployers.domains import DnsCheck, DomainChange
-from wasm.web.api import domains as domains_api
-from wasm.web.api.deps import install_error_handlers
-from wasm.web.auth import require_auth
+from noust.core.exceptions import DomainConflictError, DomainError, ValidationError
+from noust.core.store import App, DomainRecord, NoustStore
+from noust.deployers.domains import DnsCheck, DomainChange
+from noust.web.api import domains as domains_api
+from noust.web.api.deps import install_error_handlers
+from noust.web.auth import require_auth
 
 PRIMARY = DomainRecord(id=1, app_id=1, domain="example.com", kind="primary", created_at="t0")
 ALIAS = DomainRecord(id=2, app_id=1, domain="shop.example.com", kind="alias", created_at="t1")
@@ -34,11 +34,11 @@ ALIAS = DomainRecord(id=2, app_id=1, domain="shop.example.com", kind="alias", cr
 @pytest.fixture
 def store(tmp_path: Any) -> Any:
     """A store with example.com deployed."""
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     instance.create_app(App(domain="example.com", app_path="/var/www/apps/example.com"))
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 def build(session: dict[str, Any]) -> TestClient:

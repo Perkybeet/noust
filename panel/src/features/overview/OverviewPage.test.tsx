@@ -95,7 +95,7 @@ describe("the overview", () => {
     const attention = screen.getByRole("region", { name: /Needs attention/ });
     await within(attention).findByText("Certificate expires in 12 days");
     // The failed unit of the fake machine is already named by admin.example.com's state.
-    expect(within(attention).queryByText(/failed WASM unit/)).not.toBeInTheDocument();
+    expect(within(attention).queryByText(/failed Noust unit/)).not.toBeInTheDocument();
     expect(within(attention).getByText("The service has failed")).toBeInTheDocument();
   });
 

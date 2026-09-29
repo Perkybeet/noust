@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-WASM - Web App System Management
+Noust - deploy and manage web applications on Linux servers.
 
-A robust CLI tool for deploying and managing web applications on Linux servers.
+Called WASM (Web App System Management) until 3.0.
 """
 
 from importlib.metadata import PackageNotFoundError
@@ -16,21 +16,38 @@ from importlib.metadata import version as _installed_version
 #: distribution packaging files in step with it.
 _FALLBACK_VERSION = "2.3.0"
 
-try:
-    __version__ = _installed_version("wasm-cli")
-except PackageNotFoundError:  # pragma: no cover - only hit in uninstalled trees
-    __version__ = _FALLBACK_VERSION
+#: The distribution names this package has been published under: ``noust``
+#: from 3.0, ``wasm-cli`` before (and as the transitional package after).
+_DISTRIBUTIONS = ("noust", "wasm-cli")
+
+
+def _read_version() -> str:
+    """
+    Read the installed version, whichever name the distribution has.
+
+    Returns:
+        The version of the first distribution found, else the fallback.
+    """
+    for distribution in _DISTRIBUTIONS:
+        try:
+            return _installed_version(distribution)
+        except PackageNotFoundError:
+            continue
+    return _FALLBACK_VERSION  # pragma: no cover - only hit in uninstalled trees
+
+
+__version__ = _read_version()
 
 __author__ = "Yago López Prado"
 __license__ = "AGPL-3.0-or-later"
 
-from wasm.core.config import Config
-from wasm.core.exceptions import WASMError
-from wasm.core.logger import Logger
+from noust.core.config import Config
+from noust.core.exceptions import NoustError
+from noust.core.logger import Logger
 
 __all__ = [
     "Config",
     "Logger",
-    "WASMError",
+    "NoustError",
     "__version__",
 ]

@@ -1,1 +1,1 @@
-"""Templates package for WASM."""
+"""Templates package for Noust."""

@@ -112,7 +112,7 @@ function DestinationActions({
   const [removeOpen, setRemoveOpen] = useState(false);
   const [keyOpen, setKeyOpen] = useState(false);
   const [removeKeyOpen, setRemoveKeyOpen] = useState(false);
-  // Removing deletes the only copy WASM has of an encrypted destination's key.
+  // Removing deletes the only copy Noust has of an encrypted destination's key.
   const keyed = destination.encrypted && destination.encryption_configured;
 
   return (
@@ -279,7 +279,7 @@ export function DestinationsSection() {
                 {t("backups.destinations.add")}
               </Button>
             }
-            command="wasm backup destination add <name> --type <backend>"
+            command="noust backup destination add <name> --type <backend>"
           />
         }
       >

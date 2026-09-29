@@ -8,7 +8,7 @@ Tests for the one deletion of an application.
 The job never took a Docker Compose stack down: it stopped the unit, and a
 unit that would not stop left its unit file behind, while the stack's
 containers kept running from a directory the job then deleted. Both now go
-through :func:`wasm.deployers.lifecycle.delete_app`, which takes the stack
+through :func:`noust.deployers.lifecycle.delete_app`, which takes the stack
 down (keeping its volumes unless told otherwise), attempts every step
 whatever the one before it did, and holds the application's lock.
 """
@@ -21,26 +21,26 @@ from typing import Any
 
 import pytest
 
+from noust.core.applock import AppBusyError
+from noust.core.exceptions import NoustError, ServiceError
+from noust.core.runner import FakeRunner
+from noust.core.store import App, NoustStore, Service, Site
+from noust.deployers import lifecycle
+from noust.managers.webserver import SiteDeletion
+from noust.web.jobs import Job, JobContext, JobType, delete_app_job
 from tests.test_applock import Holder
-from wasm.core.applock import AppBusyError
-from wasm.core.exceptions import ServiceError, WASMError
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, Service, Site, WASMStore
-from wasm.deployers import lifecycle
-from wasm.managers.webserver import SiteDeletion
-from wasm.web.jobs import Job, JobContext, JobType, delete_app_job
 
 DOMAIN = "shop.example.com"
 
 
 @pytest.fixture
-def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[WASMStore]:
+def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[NoustStore]:
     """A store in the test directory, where every module looks."""
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     monkeypatch.setattr(lifecycle, "get_store", lambda: instance)
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 class FakeUnits:
@@ -71,7 +71,7 @@ def machine(monkeypatch: pytest.MonkeyPatch, runner: FakeRunner) -> Any:
     return type("Machine", (), {"units": units, "sites": sites, "runner": runner})
 
 
-def compose_app(store: WASMStore, root: Path) -> App:
+def compose_app(store: NoustStore, root: Path) -> App:
     """A Docker Compose application with a bind-mounted data directory."""
     root.mkdir(parents=True)
     (root / "docker-compose.prod.yml").write_text("services:\n  db:\n    image: postgres\n")
@@ -98,7 +98,7 @@ def job_context() -> JobContext:
 
 
 def test_a_compose_stack_is_taken_down_and_its_volumes_kept(
-    tmp_path: Path, store: WASMStore, machine: Any
+    tmp_path: Path, store: NoustStore, machine: Any
 ) -> None:
     root = tmp_path / "apps" / "shop-example-com"
     compose_app(store, root)
@@ -116,7 +116,7 @@ def test_a_compose_stack_is_taken_down_and_its_volumes_kept(
     assert store.get_service("shop-example-com") is None
 
 
-def test_volumes_go_only_when_asked_for(tmp_path: Path, store: WASMStore, machine: Any) -> None:
+def test_volumes_go_only_when_asked_for(tmp_path: Path, store: NoustStore, machine: Any) -> None:
     compose_app(store, tmp_path / "apps" / "shop-example-com")
 
     outcome = lifecycle.delete_app(DOMAIN, remove_volumes=True)
@@ -127,7 +127,7 @@ def test_volumes_go_only_when_asked_for(tmp_path: Path, store: WASMStore, machin
 
 
 def test_the_console_job_takes_the_same_path(
-    tmp_path: Path, store: WASMStore, machine: Any
+    tmp_path: Path, store: NoustStore, machine: Any
 ) -> None:
     """The job never ran compose down: its containers kept running."""
     root = tmp_path / "apps" / "shop-example-com"
@@ -145,7 +145,7 @@ def test_the_console_job_takes_the_same_path(
 
 
 def test_a_unit_that_will_not_stop_does_not_stop_the_rest(
-    tmp_path: Path, store: WASMStore, machine: Any
+    tmp_path: Path, store: NoustStore, machine: Any
 ) -> None:
     root = tmp_path / "apps" / "shop-example-com"
     compose_app(store, root)
@@ -160,7 +160,7 @@ def test_a_unit_that_will_not_stop_does_not_stop_the_rest(
 
 
 def test_every_unit_of_the_application_is_removed(
-    tmp_path: Path, store: WASMStore, machine: Any
+    tmp_path: Path, store: NoustStore, machine: Any
 ) -> None:
     """A monorepo runs one unit per workspace; deleting only the first left the others."""
     root = tmp_path / "apps" / "shop-example-com"
@@ -177,7 +177,7 @@ def test_every_unit_of_the_application_is_removed(
 
 
 def test_a_deletion_is_refused_while_another_operation_runs(
-    tmp_path: Path, store: WASMStore, machine: Any
+    tmp_path: Path, store: NoustStore, machine: Any
 ) -> None:
     root = tmp_path / "apps" / "shop-example-com"
     compose_app(store, root)
@@ -190,13 +190,13 @@ def test_a_deletion_is_refused_while_another_operation_runs(
     assert store.get_app(DOMAIN) is not None
 
 
-def test_nothing_deployed_is_an_error(tmp_path: Path, store: WASMStore, machine: Any) -> None:
-    with pytest.raises(WASMError, match="Application not found"):
+def test_nothing_deployed_is_an_error(tmp_path: Path, store: NoustStore, machine: Any) -> None:
+    with pytest.raises(NoustError, match="Application not found"):
         lifecycle.delete_app("other.example.com")
 
 
 def test_the_images_an_update_kept_for_going_back_go_with_the_stack(
-    tmp_path: Path, store: WASMStore, machine: Any
+    tmp_path: Path, store: NoustStore, machine: Any
 ) -> None:
     """
     Each update tags what served as <project>-<service>:wasm-previous so that
@@ -220,7 +220,7 @@ def test_the_images_an_update_kept_for_going_back_go_with_the_stack(
 
 
 def test_a_kept_image_that_cannot_be_removed_is_a_warning(
-    tmp_path: Path, store: WASMStore, machine: Any
+    tmp_path: Path, store: NoustStore, machine: Any
 ) -> None:
     """The rest of the deletion goes on; the operator is told what is left."""
     compose_app(store, tmp_path / "apps" / "shop-example-com")

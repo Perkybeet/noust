@@ -21,20 +21,20 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.applock import AppBusyError, app_lock, is_held_here, lock_path
-from wasm.core.fs import DryRunFileSystem, set_fs
-from wasm.core.store import WASMStore
+from noust.core.applock import AppBusyError, app_lock, is_held_here, lock_path
+from noust.core.fs import DryRunFileSystem, set_fs
+from noust.core.store import NoustStore
 
 DOMAIN = "shop.example.com"
 
 
 @pytest.fixture(autouse=True)
-def store(tmp_path: Path) -> Iterator[WASMStore]:
+def store(tmp_path: Path) -> Iterator[NoustStore]:
     """A store in the test directory; the locks live beside it."""
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "state" / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "state" / "wasm.db")
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 class Holder:
@@ -63,7 +63,7 @@ class Holder:
 
 
 def test_the_lock_file_lives_beside_the_store_not_in_the_application(
-    store: WASMStore,
+    store: NoustStore,
 ) -> None:
     assert lock_path(DOMAIN) == store.db_path.parent / "locks" / f"{DOMAIN}.lock"
 
@@ -152,7 +152,7 @@ def test_another_process_holding_the_lock_is_refused_without_a_record() -> None:
     fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
     fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     try:
-        with pytest.raises(AppBusyError, match="another WASM operation is still running"):
+        with pytest.raises(AppBusyError, match="another Noust operation is still running"):
             with app_lock(DOMAIN, "update"):
                 pass
     finally:

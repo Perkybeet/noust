@@ -21,7 +21,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from wasm.core.logger import Logger
+from noust.core.logger import Logger
 
 
 @dataclass(frozen=True)

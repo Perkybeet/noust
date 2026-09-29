@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { ThemeSwitch } from "../app/ThemeSwitch";
 import type { ThemeChoice } from "../app/theme";
-import { Logo } from "../components/ui";
+import { Logo } from "../components/brand/Logo";
 import { Components } from "./Components";
 import { Foundations } from "./Foundations";
 import { PageKit } from "./PageKit";
@@ -76,7 +76,7 @@ export function DesignGallery() {
       <header className="sticky top-0 z-30 border-b border-border bg-bg/85 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-[1320px] items-center justify-between gap-4 px-6 max-sm:px-4">
           <div className="flex items-center gap-3">
-            <Logo size="sm" />
+            <Logo variant="wordmark" height={16} />
             <span aria-hidden="true" className="h-4 w-px bg-border" />
             <span className="text-13 font-medium text-fg-muted">Design system</span>
           </div>

@@ -7,7 +7,7 @@ Tests for how an operator's env secret marks reach the log scrubber.
 ``tests/test_redact.py`` pins the scrubber and the unmarked classification;
 this module is the companion for ``App.env_secret_marks`` specifically: a
 mark always wins, in both directions, over what a name or a value would
-otherwise say - see ``wasm.core.secret_detection.classify``, the one
+otherwise say - see ``noust.core.secret_detection.classify``, the one
 classifier both now share.
 """
 
@@ -18,8 +18,8 @@ from typing import Any
 
 import pytest
 
-from wasm.core.redact import app_secret_values, secret_env_values
-from wasm.core.store import App, WASMStore
+from noust.core.redact import app_secret_values, secret_env_values
+from noust.core.store import App, NoustStore
 
 DOMAIN = "app.example.com"
 
@@ -33,13 +33,13 @@ def store(tmp_path: Path) -> Any:
     Yields:
         An isolated store, installed as the process-wide singleton.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     try:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 # ---------------------------------------------------------------------------
@@ -93,7 +93,7 @@ def test_marks_is_optional_and_defaults_to_no_override() -> None:
 
 
 @pytest.fixture
-def deployed_app(tmp_path: Path, store: WASMStore) -> App:
+def deployed_app(tmp_path: Path, store: NoustStore) -> App:
     """
     Register an application whose ``.env`` holds one ordinary-looking value.
 
@@ -110,7 +110,7 @@ def deployed_app(tmp_path: Path, store: WASMStore) -> App:
     return store.create_app(App(domain=DOMAIN, app_path=str(app_path)))
 
 
-def test_app_secret_values_honours_a_secret_mark(deployed_app: App, store: WASMStore) -> None:
+def test_app_secret_values_honours_a_secret_mark(deployed_app: App, store: NoustStore) -> None:
     store.set_env_secret_marks(DOMAIN, {"CUSTOMER_NAME": True})
 
     values = app_secret_values(DOMAIN)
@@ -118,7 +118,7 @@ def test_app_secret_values_honours_a_secret_mark(deployed_app: App, store: WASMS
     assert "Jane Doe" in values
 
 
-def test_app_secret_values_honours_a_not_secret_mark(deployed_app: App, store: WASMStore) -> None:
+def test_app_secret_values_honours_a_not_secret_mark(deployed_app: App, store: NoustStore) -> None:
     store.set_env_secret_marks(DOMAIN, {"API_KEY": False})
 
     values = app_secret_values(DOMAIN)

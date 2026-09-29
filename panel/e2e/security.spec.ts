@@ -53,7 +53,7 @@ test("create a read token, see it once, use it, revoke it", async ({ page, conso
   const once = page.getByRole("dialog", { name: "Copy your new token" });
   await expect(once).toBeVisible();
   const token = (await once.getByTestId("new-token").textContent()) ?? "";
-  expect(token).toMatch(/^wasm_tok_\S+$/);
+  expect(token).toMatch(/^noust_tok_\S+$/);
   await expect(once.getByRole("alert")).toContainText("This is the only time the token is shown");
   await stillness(page);
   await expectNoA11yViolations(page, "the new token, shown once");
@@ -223,7 +223,7 @@ withoutTwoFactor("enrol two-factor end to end, sign in with it, turn it off", as
   await confirmItsYou(page, consoleServer);
 
   const dialog = page.getByRole("dialog", { name: "Set up two-factor authentication" });
-  const qr = dialog.getByRole("img", { name: /QR code to add WASM/ });
+  const qr = dialog.getByRole("img", { name: /QR code to add Noust/ });
   await expect(qr).toBeVisible();
   await expect(qr.locator("path")).toHaveAttribute("d", /^M\d/);
   const secret = ((await dialog.getByTestId("totp-secret").textContent()) ?? "").replace(/\s+/g, "");

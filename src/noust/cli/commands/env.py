@@ -7,16 +7,16 @@ Environment variables of a deployed application.
 The three actions share one rule: a ``.env`` holds credentials, so nothing here
 prints a value in clear unless the operator asked for it with ``--unmask``, and
 every file written goes through
-:meth:`~wasm.deployers.helpers.env_manager.EnvManager.write_env_file`,
+:meth:`~noust.deployers.helpers.env_manager.EnvManager.write_env_file`,
 which creates it 0600 rather than letting the process umask decide.
 
 Which file is the application's ``.env`` is not decided here: on the release
-layout it is ``shared/.env``, and :mod:`wasm.deployers.helpers.app_env` reads
+layout it is ``shared/.env``, and :mod:`noust.deployers.helpers.app_env` reads
 and writes it wherever it is, for this command and the panel alike.
 
 Both entry points, the Click commands below and the legacy :func:`handle_env`,
 run the same private functions, so the two paths cannot drift apart.
-``wasm.cli.parser`` is gone and nothing calls :func:`handle_env` in
+``noust.cli.parser`` is gone and nothing calls :func:`handle_env` in
 production anymore; it is kept, and tested directly, for the same reason.
 """
 
@@ -30,15 +30,15 @@ from typing import Any
 
 import click
 
-from wasm.cli.app import Context, WasmGroup, json_option, pass_context
-from wasm.core.config import REDACTED
-from wasm.core.exceptions import EnvConfigError, WASMError
-from wasm.core.logger import Logger
-from wasm.core.secret_detection import Secrecy, classify
-from wasm.core.store import App, get_store
-from wasm.deployers.helpers.app_env import find_app, read_app_env, write_app_env
-from wasm.deployers.helpers.env_manager import EnvConfig, EnvManager, redact_url_credentials
-from wasm.deployers.helpers.layout import code_path_for, env_file_for
+from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.config import REDACTED
+from noust.core.exceptions import EnvConfigError, NoustError
+from noust.core.logger import Logger
+from noust.core.secret_detection import Secrecy, classify
+from noust.core.store import App, get_store
+from noust.deployers.helpers.app_env import find_app, read_app_env, write_app_env
+from noust.deployers.helpers.env_manager import EnvConfig, EnvManager, redact_url_credentials
+from noust.deployers.helpers.layout import code_path_for, env_file_for
 
 #: Historical spellings of the subcommand names. They are in scripts and in the
 #: published documentation, so dropping one is a breaking change.
@@ -50,7 +50,7 @@ ENV_ALIASES: dict[str, str] = {
 }
 
 
-class AliasedGroup(WasmGroup):
+class AliasedGroup(NoustGroup):
     """
     A group that also answers to the previous names of its commands.
 
@@ -102,9 +102,9 @@ def _redact(values: Mapping[str, str], marks: Mapping[str, bool] | None = None) 
     """
     Replace every secret value with a placeholder.
 
-    Uses :func:`~wasm.core.secret_detection.classify`, the one classifier for
+    Uses :func:`~noust.core.secret_detection.classify`, the one classifier for
     the question, honouring this application's own marks (see
-    ``wasm env mark``): a value marked secret is redacted even if nothing
+    ``noust env mark``): a value marked secret is redacted even if nothing
     about its name or value would otherwise say so, and one marked not
     secret is shown even if it would. A value that is secret only because of
     a credential embedded in it - the user-less ``redis://:password@host``
@@ -148,14 +148,14 @@ def _app(domain: str) -> App:
     if not domain:
         raise EnvConfigError(
             "No domain given",
-            details="Name the application, for example: wasm env show example.com",
+            details="Name the application, for example: noust env show example.com",
         )
 
     app = find_app(domain)
     if app is None:
         raise EnvConfigError(
             f"Application not found: {domain}",
-            details="Nothing is deployed at that domain. Run 'wasm list' to see what is.",
+            details="Nothing is deployed at that domain. Run 'noust list' to see what is.",
         )
     return app
 
@@ -280,11 +280,11 @@ def _env_mark(domain: str, name: str, mark: str, verbose: bool) -> int:
     Set or clear an operator override for one variable's secrecy.
 
     Not audited: no command in this CLI tree writes to
-    :class:`~wasm.web.auth.AuditLogger` (that logger is installed by the web
+    :class:`~noust.web.auth.AuditLogger` (that logger is installed by the web
     server's own process and answers only its API; nothing here is a
-    parallel implementation of it). ``wasm`` runs as root at an operator's own
+    parallel implementation of it). ``noust`` runs as root at an operator's own
     terminal, which is its own record of who acted, the same as every other
-    CLI mutation - ``wasm app delete``, ``wasm config set``. Auditing CLI
+    CLI mutation - ``noust app delete``, ``noust config set``. Auditing CLI
     mutations at all is a decision for the CLI as a whole, not one command.
 
     Args:
@@ -441,7 +441,7 @@ def handle_env(args: Namespace) -> int:
     """
     Run an env action from the argparse namespace.
 
-    ``wasm.cli.parser`` is gone and nothing calls this in production; it is
+    ``noust.cli.parser`` is gone and nothing calls this in production; it is
     kept, and tested directly, sharing every private function with the Click
     commands above so the two cannot drift apart.
 
@@ -456,7 +456,7 @@ def handle_env(args: Namespace) -> int:
 
     action = getattr(args, "action", None)
     if not action:
-        logger.error("env requires an action", details="Use: wasm env --help")
+        logger.error("env requires an action", details="Use: noust env --help")
         return 1
 
     canonical = ENV_ALIASES.get(action, action)
@@ -469,9 +469,9 @@ def handle_env(args: Namespace) -> int:
             return _env_show(domain, getattr(args, "unmask", False), verbose)
         if canonical == "export":
             return _env_export(domain, getattr(args, "output", ".env"), verbose)
-    except WASMError as exc:
+    except NoustError as exc:
         logger.error(exc.message, details=exc.details)
         return 1
 
-    logger.error(f"Unknown env action: {action}", details="Use: wasm env --help")
+    logger.error(f"Unknown env action: {action}", details="Use: noust env --help")
     return 1

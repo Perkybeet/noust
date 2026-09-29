@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Tests for the ``wasm web`` Click group.
+Tests for the ``noust web`` Click group.
 
 Three things are being defended here:
 
@@ -29,9 +29,9 @@ import pytest
 import yaml
 from click.testing import CliRunner
 
-from wasm.cli.commands import web
-from wasm.core.exceptions import SecurityError
-from wasm.core.runner import FakeRunner
+from noust.cli.commands import web
+from noust.core.exceptions import SecurityError
+from noust.core.runner import FakeRunner
 
 CONTRACT = json.loads(
     (Path(__file__).parent / "contracts" / "cli_surface.json").read_text(encoding="utf-8")
@@ -91,7 +91,7 @@ def isolated_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator
 
     ``_build_security_config`` reads the ``web.*`` keys through the Config
     singleton, which would otherwise read the developer's real
-    ``/etc/wasm/config.yaml`` and make these tests depend on the machine they
+    ``/etc/noust/config.yaml`` and make these tests depend on the machine they
     run on.
 
     Args:
@@ -101,7 +101,7 @@ def isolated_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator
     Yields:
         The configuration file the test may write.
     """
-    from wasm.core import config as config_module
+    from noust.core import config as config_module
 
     path = tmp_path / "config.yaml"
     monkeypatch.setattr(config_module, "DEFAULT_CONFIG_PATH", path)
@@ -118,7 +118,7 @@ def _write_web_config(path: Path, **settings: Any) -> None:
         path: The isolated configuration file.
         **settings: Keys of the ``web`` section, as an operator would write them.
     """
-    from wasm.core.config import Config
+    from noust.core.config import Config
 
     path.write_text(yaml.safe_dump({"web": settings}), encoding="utf-8")
     Config.reset_instance()
@@ -127,16 +127,16 @@ def _write_web_config(path: Path, **settings: Any) -> None:
 @pytest.fixture(autouse=True)
 def no_console_service(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """
-    Point the directory ``wasm-web.service`` is looked up in at an empty one.
+    Point the directory ``noust-web.service`` is looked up in at an empty one.
 
     Every start asks whether the console already runs as that service; on a
-    developer machine that ran ``wasm web enable``, the real unit would answer.
+    developer machine that ran ``noust web enable``, the real unit would answer.
 
     Args:
         tmp_path: Per-test temporary directory.
         monkeypatch: Patching helper, scoped to the test.
     """
-    from wasm.managers.service_manager import ServiceManager
+    from noust.managers.service_manager import ServiceManager
 
     managed = tmp_path / "systemd-units"
     managed.mkdir()
@@ -256,7 +256,7 @@ def test_every_contract_command_exists_and_documents_itself(
 
 
 def test_the_group_itself_documents_itself(cli_runner: CliRunner) -> None:
-    """``wasm web --help`` lists every subcommand."""
+    """``noust web --help`` lists every subcommand."""
     result = cli_runner.invoke(web.cli, ["--help"])
 
     assert result.exit_code == 0
@@ -345,7 +345,7 @@ def test_a_taken_port_is_refused_before_a_token_is_printed(
 
     assert result.exit_code == 1, result.output
     assert "already listening on 127.0.0.1:8080" in result.output
-    assert "wasm web stop" in result.output
+    assert "noust web stop" in result.output
     assert "config" not in started, "the server must not be started"
     assert "Access Token" not in result.output
 
@@ -389,7 +389,7 @@ def test_the_suggested_port_is_one_that_is_actually_free(
     result = cli_runner.invoke(web.cli, ["start"])
 
     assert result.exit_code == 1, result.output
-    assert "wasm web start --port 8083" in result.output
+    assert "noust web start --port 8083" in result.output
     assert "--port 8081" not in result.output
 
 
@@ -406,7 +406,7 @@ def test_a_range_with_nothing_free_says_so_instead_of_suggesting_a_port(
     result = cli_runner.invoke(web.cli, ["start"])
 
     assert result.exit_code == 1, result.output
-    assert "wasm web start --port" not in result.output
+    assert "noust web start --port" not in result.output
     assert "is free" in result.output
 
 
@@ -421,8 +421,8 @@ def test_a_loopback_panel_started_as_a_daemon_explains_how_to_reach_it(
         monkeypatch: Patching helper, scoped to the test.
         capsys: Captures the banner.
     """
-    monkeypatch.setattr("wasm.core.net.server_address", lambda: "198.51.100.7")
-    monkeypatch.setattr("wasm.core.net._current_user", lambda: "root")
+    monkeypatch.setattr("noust.core.net.server_address", lambda: "198.51.100.7")
+    monkeypatch.setattr("noust.core.net._current_user", lambda: "root")
 
     lines: list[str] = []
     logger = web.Logger(verbose=False)
@@ -466,7 +466,7 @@ def _loopback_config(port: int) -> Any:
     Returns:
         The configuration.
     """
-    from wasm.web.auth import SecurityConfig
+    from noust.web.auth import SecurityConfig
 
     return SecurityConfig(host="127.0.0.1", port=port)
 
@@ -874,7 +874,7 @@ def minted(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, Path, Path]]:
         requests.append((hostname, cert_path, key_path))
         return True
 
-    monkeypatch.setattr("wasm.managers.cert_manager.CertManager.generate_self_signed", record)
+    monkeypatch.setattr("noust.managers.cert_manager.CertManager.generate_self_signed", record)
     return requests
 
 
@@ -1003,7 +1003,7 @@ def test_config_yaml_security_keys_apply_without_flags(
 ) -> None:
     """
     The finding this closes: every one of these keys was accepted by
-    config.yaml, shown by ``wasm config show``, and silently ignored.
+    config.yaml, shown by ``noust config show``, and silently ignored.
     """
     _write_web_config(
         isolated_config,
@@ -1054,7 +1054,7 @@ def test_shipped_defaults_apply_when_nothing_is_declared(
     started: dict[str, Any],
 ) -> None:
     """With no file and no flags, the panel runs with the shipped defaults."""
-    from wasm.web.auth import SecurityConfig
+    from noust.web.auth import SecurityConfig
 
     result = cli_runner.invoke(web.cli, ["start"])
 
@@ -1081,8 +1081,8 @@ def test_the_config_defaults_agree_with_the_enforcement_defaults() -> None:
     ``DEFAULT_CONFIG`` cannot import the web layer to share the constants, so
     this test is what pins the two sets of numbers together.
     """
-    from wasm.core.config import DEFAULT_CONFIG
-    from wasm.web.auth import SecurityConfig
+    from noust.core.config import DEFAULT_CONFIG
+    from noust.web.auth import SecurityConfig
 
     defaults = SecurityConfig()
     shipped = DEFAULT_CONFIG["web"]
@@ -1186,8 +1186,8 @@ def seams() -> Iterator[None]:
     Yields:
         None.
     """
-    from wasm.core.fs import set_fs
-    from wasm.core.runner import set_runner
+    from noust.core.fs import set_fs
+    from noust.core.runner import set_runner
 
     try:
         yield
@@ -1292,7 +1292,7 @@ def test_a_rehearsal_announces_itself_once(
     The announcement comes from the shared context's logger, which binds its
     stream when it is built, so that logger is redirected too.
     """
-    from wasm.cli import app as cli_app
+    from noust.cli import app as cli_app
 
     real_logger = cli_app.Logger
     monkeypatch.setattr(
@@ -1351,7 +1351,7 @@ def test_status_json_reports_a_stopped_panel(cli_runner: CliRunner, pid_file: Pa
     assert json.loads(result.output) == {
         "status": "not running",
         "mode": None,
-        "service": {"unit": "wasm-web.service", "installed": False},
+        "service": {"unit": "noust-web.service", "installed": False},
     }
 
 
@@ -1417,7 +1417,7 @@ def state_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     Returns:
         The state directory the panel will use.
     """
-    from wasm.web.auth import STATE_DIR_ENV
+    from noust.web.auth import STATE_DIR_ENV
 
     directory = tmp_path / "state"
     directory.mkdir()
@@ -1429,7 +1429,7 @@ def test_a_bare_token_command_does_not_touch_the_token_in_use(
     cli_runner: CliRunner, deps_present: None, state_dir: Path
 ) -> None:
     """
-    The reported defect: ``wasm web token`` silently revoked the root credential.
+    The reported defect: ``noust web token`` silently revoked the root credential.
 
     Operators run it to look the token up, so a bare invocation reports and
     changes nothing. Rotating is what needs to be typed out.
@@ -1441,8 +1441,8 @@ def test_a_bare_token_command_does_not_touch_the_token_in_use(
 
     assert result.exit_code == 0, result.output
     assert (state_dir / "web-token").read_text() == before
-    assert "Access Token: wasm_" not in result.output
-    assert "wasm web token --new" in result.output
+    assert "Access Token: noust_" not in result.output
+    assert "noust web token --new" in result.output
 
 
 def test_the_status_report_says_when_the_token_was_issued(
@@ -1482,7 +1482,7 @@ def test_issuing_a_token_prints_it(
     result = cli_runner.invoke(web.cli, ["token", flag])
 
     assert result.exit_code == 0, result.output
-    assert "Access Token: wasm_" in result.output
+    assert "Access Token: noust_" in result.output
     assert (state_dir / "web-token").exists()
 
 
@@ -1490,7 +1490,7 @@ def test_token_is_verified_by_the_manager_that_issued_it(
     cli_runner: CliRunner, deps_present: None, state_dir: Path
 ) -> None:
     """The printed token is the one the panel will accept at the login form."""
-    from wasm.web.auth import SecurityConfig, TokenManager
+    from noust.web.auth import SecurityConfig, TokenManager
 
     result = cli_runner.invoke(web.cli, ["token", "--new"])
     printed = next(
@@ -1529,7 +1529,7 @@ def test_a_daemon_start_prints_the_token_it_issued(
     state_dir: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """
-    The reported defect: ``wasm web start -d`` printed no token although its
+    The reported defect: ``noust web start -d`` printed no token although its
     help promised one, and the token it issued silently in the background
     retired the one the operator held. The parent issues and prints it, the
     same banner the foreground prints, before handing over to the child.
@@ -1539,7 +1539,7 @@ def test_a_daemon_start_prints_the_token_it_issued(
         monkeypatch: Patching helper, scoped to the test.
         capsys: Captures the banner.
     """
-    from wasm.web.auth import SecurityConfig, TokenManager
+    from noust.web.auth import SecurityConfig, TokenManager
 
     monkeypatch.setattr(web.os, "fork", lambda: 4321)
 
@@ -1567,11 +1567,11 @@ def test_the_daemon_child_serves_the_token_its_parent_printed(
         monkeypatch: Patching helper, scoped to the test.
         capsys: Captures anything printed.
     """
-    from wasm.web.auth import SecurityConfig, TokenManager
-    from wasm.web.server import run_server
+    from noust.web.auth import SecurityConfig, TokenManager
+    from noust.web.server import run_server
 
     issued = TokenManager(SecurityConfig()).generate_master_token()
-    monkeypatch.setattr("wasm.web.server._serve", lambda kwargs: None)
+    monkeypatch.setattr("noust.web.server._serve", lambda kwargs: None)
 
     run_server(host="127.0.0.1", port=8081, config=SecurityConfig(), show_token=False)
 
@@ -1608,8 +1608,8 @@ def test_regenerate_warns_that_api_tokens_and_backup_codes_stop_verifying(
     assert result.exit_code == 0, result.output
     assert "API token" in result.output
     assert "backup code" in result.output
-    assert "wasm token create" in result.output
-    assert "wasm 2fa backup-codes" in result.output
+    assert "noust token create" in result.output
+    assert "noust 2fa backup-codes" in result.output
 
 
 def test_replacing_a_token_in_use_asks_first(
@@ -1650,7 +1650,7 @@ def test_the_first_token_is_not_worth_a_prompt(
     result = cli_runner.invoke(web.cli, ["token", "--new"], input="")
 
     assert result.exit_code == 0, result.output
-    assert "Access Token: wasm_" in result.output
+    assert "Access Token: noust_" in result.output
 
 
 def test_token_reports_missing_dependencies_instead_of_crashing(
@@ -1665,7 +1665,7 @@ def test_token_reports_missing_dependencies_instead_of_crashing(
 
     assert result.exit_code == 1
     assert "python3-fastapi" in result.output
-    assert "wasm web install" in result.output
+    assert "noust web install" in result.output
 
 
 # ---------------------------------------------------------------------------
@@ -1789,7 +1789,7 @@ def test_install_instructions_logs_when_os_release_cannot_be_read(
 
     monkeypatch.setattr("builtins.open", boom)
 
-    with caplog.at_level(logging.DEBUG, logger="wasm.cli.commands.web"):
+    with caplog.at_level(logging.DEBUG, logger="noust.cli.commands.web"):
         instructions = web._get_install_instructions(["some-pkg"], ["some-pkg"])
 
     assert instructions == ["pip install some-pkg"]
@@ -1819,7 +1819,7 @@ def test_status_survives_psutil_reporting_the_process_already_gone(
 
     monkeypatch.setattr(psutil, "Process", ExplodingProcess)
 
-    with caplog.at_level(logging.DEBUG, logger="wasm.cli.commands.web"):
+    with caplog.at_level(logging.DEBUG, logger="noust.cli.commands.web"):
         result = cli_runner.invoke(web.cli, ["status"])
 
     assert result.exit_code == 0, result.output

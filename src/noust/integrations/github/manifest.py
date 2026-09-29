@@ -10,7 +10,7 @@ one-time ``code``, which the console hands here to exchange for the App's
 credentials. Every redirect is the browser's, so the flow works through an SSH
 tunnel: GitHub never has to reach this server.
 
-The ``state`` WASM generates for each manifest is remembered for ten minutes
+The ``state`` Noust generates for each manifest is remembered for ten minutes
 and consumed by the exchange, so a code that did not come back from a flow
 this server started is refused.
 """
@@ -26,17 +26,17 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlencode, urlsplit
 
-from wasm.core.exceptions import IntegrationError, ValidationError
-from wasm.core.secrets import SecretStore
-from wasm.core.store import GitHubAppRecord, get_store
-from wasm.integrations.github.app import (
+from noust.core.exceptions import IntegrationError, ValidationError
+from noust.core.secrets import SecretStore
+from noust.core.store import GitHubAppRecord, get_store
+from noust.integrations.github.app import (
     CLIENT_SECRET,
     PRIVATE_KEY_SECRET,
     WEBHOOK_SECRET,
     forget_tokens,
     write_meta,
 )
-from wasm.integrations.github.client import WEB_URL, get_client, json_object
+from noust.integrations.github.client import WEB_URL, get_client, json_object
 
 #: GitHub's limit on an App's name.
 MAX_APP_NAME = 34
@@ -196,7 +196,7 @@ def build_manifest(
     Args:
         origin: The console's origin.
         hooks_url: The public URL of ``/hooks/github``, or None when this
-            server has none yet (``wasm web expose-hooks``): the App is then
+            server has none yet (``noust web expose-hooks``): the App is then
             created without a webhook and without events, and both are added
             when it gets one.
         name: The App's name; :func:`app_name` by default.
@@ -208,7 +208,7 @@ def build_manifest(
     manifest: dict[str, Any] = {
         "name": name or app_name(),
         "url": origin,
-        "description": "WASM on this server: deploys, previews and deployment statuses.",
+        "description": "Noust on this server: deploys, previews and deployment statuses.",
         "redirect_url": callback,
         # GitHub sends the browser here after an installation, with
         # installation_id and setup_action; the same console page handles both.

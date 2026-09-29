@@ -4,7 +4,7 @@ Shared test fixtures.
 The important thing in this file is :func:`forbid_real_subprocess`. It is
 autouse, so every test in the suite runs with real process execution disabled.
 Any code path that shells out without going through an injected
-:class:`~wasm.core.runner.CommandRunner` fails loudly instead of silently
+:class:`~noust.core.runner.CommandRunner` fails loudly instead of silently
 touching the developer's machine.
 
 Tests that genuinely need to spawn a process, such as the runner's own tests,
@@ -20,8 +20,8 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.fs import set_fs
-from wasm.core.runner import FakeRunner, set_runner
+from noust.core.fs import set_fs
+from noust.core.runner import FakeRunner, set_runner
 
 
 class RealSubprocessAttempted(AssertionError):
@@ -123,7 +123,7 @@ def ports(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> Po
     """
     Stop the application state probe from opening real connections.
 
-    :func:`~wasm.core.app_state.resolve_state` asks the port whether anything
+    :func:`~noust.core.app_state.resolve_state` asks the port whether anything
     answers, because a systemd unit can be active while the application behind
     it is refusing every request. In a test that would reach the developer's
     own machine and give a different answer depending on what happens to be
@@ -140,8 +140,8 @@ def ports(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> Po
         return None
 
     probe = PortProbe()
-    monkeypatch.setattr("wasm.core.app_state.port_answers", probe)
-    monkeypatch.setattr("wasm.cli.commands.web._port_in_use", probe.in_use)
+    monkeypatch.setattr("noust.core.app_state.port_answers", probe)
+    monkeypatch.setattr("noust.cli.commands.web._port_in_use", probe.in_use)
     return probe
 
 
@@ -162,10 +162,18 @@ def isolated_store_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
         tmp_path: Per-test temporary directory.
         monkeypatch: Patching helper, scoped to the test.
     """
-    from wasm.core import store as store_module
+    from noust.core import store as store_module
 
-    monkeypatch.setattr(store_module, "USER_DB_PATH", tmp_path / "user-store" / "wasm.db")
-    monkeypatch.setattr(store_module, "DEFAULT_DB_PATH", tmp_path / "system-store" / "wasm.db")
+    monkeypatch.setattr(store_module, "USER_DB_PATH", tmp_path / "user-store" / "noust.db")
+    monkeypatch.setattr(store_module, "DEFAULT_DB_PATH", tmp_path / "system-store" / "noust.db")
+    # WASM's locations, read before the migration moves them, are redirected
+    # just as much: a test must never find the developer's real 2.x store.
+    monkeypatch.setattr(
+        store_module, "LEGACY_USER_DB_PATH", tmp_path / "legacy-user-store" / "wasm.db"
+    )
+    monkeypatch.setattr(
+        store_module, "LEGACY_DB_PATH", tmp_path / "legacy-system-store" / "wasm.db"
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -179,7 +187,7 @@ def quiet_deploy_events() -> Iterator[None]:
     Yields:
         Nothing; the listeners are forgotten on the way out.
     """
-    from wasm.deployers import deploy_events
+    from noust.deployers import deploy_events
 
     deploy_events.reset()
     deploy_events.suspend_defaults(True)
@@ -193,7 +201,7 @@ def default_filesystem() -> Iterator[None]:
     """
     Put the process-wide filesystem back to the real one after every test.
 
-    ``--dry-run`` swaps a :class:`~wasm.core.fs.DryRunFileSystem` in globally,
+    ``--dry-run`` swaps a :class:`~noust.core.fs.DryRunFileSystem` in globally,
     and a CLI test that exercised it left it installed for whatever ran next:
     a later test's store then refused to create its database file, and only
     when the two happened to run in that order.
@@ -210,7 +218,7 @@ def fresh_upstream_answers() -> Iterator[None]:
     """
     Forget what the remote said about any application, before and after every test.
 
-    :func:`~wasm.deployers.lifecycle.check_upstream` reuses an answer for a
+    :func:`~noust.deployers.lifecycle.check_upstream` reuses an answer for a
     few seconds; one test's remote must not answer the next test's question.
 
     Yields:
@@ -218,7 +226,7 @@ def fresh_upstream_answers() -> Iterator[None]:
     """
 
     def forget() -> None:
-        lifecycle = sys.modules.get("wasm.deployers.lifecycle")
+        lifecycle = sys.modules.get("noust.deployers.lifecycle")
         if lifecycle is not None:
             lifecycle._upstream_answers.clear()
 

@@ -13,14 +13,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from wasm.core.config import APACHE_SITES_AVAILABLE, NGINX_SITES_AVAILABLE, SYSTEMD_DIR
-from wasm.core.store import App, Service, Site, WASMStore
+from noust.core.config import APACHE_SITES_AVAILABLE, NGINX_SITES_AVAILABLE, SYSTEMD_DIR
+from noust.core.store import App, NoustStore, Service, Site
 
 
 class StoreRegistrar:
     """Persists the rows a deployment produces, keyed by their natural keys."""
 
-    def __init__(self, store: WASMStore):
+    def __init__(self, store: NoustStore):
         """
         Args:
             store: The store to write to.
@@ -92,12 +92,12 @@ class StoreRegistrar:
                 every later deploy of the same application.
             preview_parent: The application a new row is the preview of.
                 Ignored for an existing row, whose link only
-                :meth:`~wasm.core.store.WASMStore.set_preview_parent` writes.
+                :meth:`~noust.core.store.NoustStore.set_preview_parent` writes.
             env_secret_marks: The secret marks a new row starts with. Ignored
                 for an existing row, like ``preview_parent``.
             initial_health: ``(path, expect, timeout)`` a new row's health
                 check starts with, written through
-                :meth:`~wasm.core.store.WASMStore.set_app_health` (which
+                :meth:`~noust.core.store.NoustStore.set_app_health` (which
                 validates) before anything is probed. Ignored for an existing
                 row, like ``preview_parent``.
 

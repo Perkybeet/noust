@@ -1,4 +1,4 @@
-/** Strings of the console's services area: the systemd units WASM manages, and their unit files. */
+/** Strings of the console's services area: the systemd units Noust manages, and their unit files. */
 export const services = {
   fromTerminal: "From a terminal",
   cancel: "Cancel",
@@ -9,7 +9,7 @@ export const services = {
     restarting: "Restarting",
   },
   page: {
-    description: 'Every systemd unit WASM manages on this machine. Turn on "Show all units" to see what other packages created too, read-only.',
+    description: 'Every systemd unit Noust manages on this machine. Turn on "Show all units" to see what other packages created too, read-only.',
     newService: "New service",
     loadFailed: "Could not load services",
     emptyTitle: "Create your first service",
@@ -34,7 +34,7 @@ export const services = {
     boot: "Boot",
     since: "Since",
     memory: "Memory",
-    wasm: "WASM",
+    wasm: "Noust",
     foreign: "Foreign",
     enabled: "Enabled",
     disabled: "Disabled",
@@ -67,10 +67,10 @@ export const services = {
   },
   detail: {
     notFoundTitle: "No service by this name",
-    notFoundDescription: "It may have been deleted, or the name has a typo. Every unit WASM manages is in the services list.",
+    notFoundDescription: "It may have been deleted, or the name has a typo. Every unit Noust manages is in the services list.",
     allServices: "All services",
-    foreignTitle: "WASM did not create this unit",
-    foreignDescription: "It runs on this machine, but its unit file belongs to another package. WASM only manages what it created, so nothing here can edit, restart or delete it.",
+    foreignTitle: "Noust did not create this unit",
+    foreignDescription: "It runs on this machine, but its unit file belongs to another package. Noust only manages what it created, so nothing here can edit, restart or delete it.",
     loading: "Loading the service",
     loadFailed: "Could not load {name}",
     overview: "Overview",

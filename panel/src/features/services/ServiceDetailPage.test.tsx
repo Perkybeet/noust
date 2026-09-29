@@ -25,7 +25,7 @@ const SERVICE: Service = {
   result: "success",
 };
 
-const UNIT_FILE = "[Unit]\nDescription=WASM Service: wasm-worker\n\n[Service]\nExecStart=/usr/bin/node worker.js\n";
+const UNIT_FILE = "[Unit]\nDescription=Noust Service: wasm-worker\n\n[Service]\nExecStart=/usr/bin/node worker.js\n";
 
 async function serviceDetailAt(name = NAME, extra: Record<string, RouteHandler> = {}) {
   vi.stubGlobal("WebSocket", FakeWebSocket);
@@ -99,7 +99,7 @@ describe("the unit editor", () => {
   });
 });
 
-describe("a unit WASM did not create", () => {
+describe("a unit Noust did not create", () => {
   const FOREIGN_NAME = "postgresql";
   const ALL_SERVICES: ServiceList["services"] = [
     SERVICE,
@@ -124,7 +124,7 @@ describe("a unit WASM did not create", () => {
       ...signedInRoutes(),
       [`GET /api/services/${FOREIGN_NAME}`]: () => problem(404, "not_found", `Service not found: ${FOREIGN_NAME}`),
       "GET /api/services": (call) =>
-        call.search.get("wasm_only") === "false"
+        call.search.get("noust_only") === "false"
           ? json(200, { services: ALL_SERVICES, total: ALL_SERVICES.length })
           : json(200, { services: [SERVICE], total: 1 }),
     });
@@ -133,9 +133,9 @@ describe("a unit WASM did not create", () => {
     return { ...harness, backend };
   }
 
-  it("says WASM did not create it and offers nothing destructive", async () => {
+  it("says Noust did not create it and offers nothing destructive", async () => {
     await foreignAt();
-    expect(await screen.findByText("WASM did not create this unit")).toBeInTheDocument();
+    expect(await screen.findByText("Noust did not create this unit")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Delete/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Restart/ })).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/Unit file for/)).not.toBeInTheDocument();
@@ -143,7 +143,7 @@ describe("a unit WASM did not create", () => {
 
   it("has no accessibility violations", async () => {
     await foreignAt();
-    await screen.findByText("WASM did not create this unit");
+    await screen.findByText("Noust did not create this unit");
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 });
@@ -174,7 +174,7 @@ describe("the service detail page, in Spanish", () => {
     expect(screen.getByRole("button", { name: "Eliminar servicio" })).toBeInTheDocument();
   });
 
-  it("says a unit WASM did not create is foreign, in Spanish", async () => {
+  it("says a unit Noust did not create is foreign, in Spanish", async () => {
     await act(async () => {
       await setLocale("es");
     });
@@ -187,13 +187,13 @@ describe("the service detail page, in Spanish", () => {
       ...signedInRoutes(),
       [`GET /api/services/${FOREIGN_NAME}`]: () => problem(404, "not_found", `Service not found: ${FOREIGN_NAME}`),
       "GET /api/services": (call) =>
-        call.search.get("wasm_only") === "false"
+        call.search.get("noust_only") === "false"
           ? json(200, { services: ALL_SERVICES, total: ALL_SERVICES.length })
           : json(200, { services: [SERVICE], total: 1 }),
     });
     renderConsole(`/services/${FOREIGN_NAME}`);
     await screen.findByRole("heading", { level: 1, name: FOREIGN_NAME });
-    expect(await screen.findByText("WASM no creó esta unidad")).toBeInTheDocument();
+    expect(await screen.findByText("Noust no creó esta unidad")).toBeInTheDocument();
   });
 
   it("has no accessibility violations", async () => {

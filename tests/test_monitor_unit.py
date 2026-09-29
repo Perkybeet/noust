@@ -28,8 +28,8 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.runner import FakeRunner
-from wasm.monitor.process_monitor import ProcessMonitor
+from noust.core.runner import FakeRunner
+from noust.monitor.process_monitor import ProcessMonitor
 
 #: Paths systemd will not create on a unit's behalf. Naming one of these in a
 #: unit that also sets ProtectSystem=strict is the defect this file is about.
@@ -101,8 +101,8 @@ def test_the_unit_declares_no_path_systemd_will_not_create(unit: str) -> None:
 
 
 def test_the_unit_gets_its_state_directory_created_for_it(unit: str) -> None:
-    """The monitor writes /var/lib/wasm/observations.db and must be able to."""
-    assert directives(unit).get("StateDirectory") == ["wasm"]
+    """The monitor writes /var/lib/noust/observations.db and must be able to."""
+    assert directives(unit).get("StateDirectory") == ["noust"]
 
 
 def test_the_unit_gets_its_log_directory_created_for_it(unit: str) -> None:
@@ -110,7 +110,7 @@ def test_the_unit_gets_its_log_directory_created_for_it(unit: str) -> None:
     Args:
         unit: The rendered unit.
     """
-    assert directives(unit).get("LogsDirectory") == ["wasm"]
+    assert directives(unit).get("LogsDirectory") == ["noust"]
 
 
 def test_the_unit_is_still_confined(unit: str) -> None:
@@ -155,7 +155,7 @@ def test_the_unit_says_how_to_reinstall_it(unit: str) -> None:
     It is generated, and the operator meets it in /etc/systemd/system with no
     other clue about where it came from.
     """
-    assert "wasm monitor install" in unit
+    assert "noust monitor install" in unit
 
 
 def test_every_directive_sits_under_a_section(unit: str) -> None:

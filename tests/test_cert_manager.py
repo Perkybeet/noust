@@ -26,9 +26,9 @@ from typing import Any
 
 import pytest
 
-from wasm.core.exceptions import CertificateError
-from wasm.core.runner import FakeRunner
-from wasm.managers.cert_manager import CertManager
+from noust.core.exceptions import CertificateError
+from noust.core.runner import FakeRunner
+from noust.managers.cert_manager import CertManager
 
 CERTBOT_OUTPUT = (
     "Found the following certs:\n"
@@ -85,7 +85,7 @@ def certs(runner: FakeRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     Returns:
         The manager.
     """
-    monkeypatch.setattr("wasm.managers.cert_manager.get_store", lambda: _Store())
+    monkeypatch.setattr("noust.managers.cert_manager.get_store", lambda: _Store())
     manager = CertManager()
     manager.LETSENCRYPT_DIR = tmp_path / "letsencrypt"
     manager.LIVE_DIR = manager.LETSENCRYPT_DIR / "live"
@@ -501,7 +501,7 @@ def test_tls_is_recorded_only_once_the_certificate_files_exist(
             """
             recorded.append(kwargs)
 
-    monkeypatch.setattr("wasm.managers.cert_manager.get_store", lambda: _Recorder())
+    monkeypatch.setattr("noust.managers.cert_manager.get_store", lambda: _Recorder())
 
     assert certs.obtain("shop.tld", email="ops@shop.tld") is True
     assert recorded == []

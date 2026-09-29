@@ -11,17 +11,17 @@ export type VerifyUnitResult = ResponseOf<"/api/services/verify", "post">;
 
 export const serviceKeys = {
   all: ["services"] as const,
-  list: (wasmOnly: boolean) => ["services", "list", { wasmOnly }] as const,
+  list: (noustOnly: boolean) => ["services", "list", { noustOnly }] as const,
   detail: (name: string) => ["service", name] as const,
   logs: (name: string, lines: number) => ["service", name, "logs", { lines }] as const,
   config: (name: string) => ["service", name, "config"] as const,
 };
 
-/** Scoped to WASM's own units by default, the same default `GET /api/services` itself has. */
-export const servicesQuery = (wasmOnly = true) =>
+/** Scoped to Noust's own units by default, the same default `GET /api/services` itself has. */
+export const servicesQuery = (noustOnly = true) =>
   queryOptions({
-    queryKey: serviceKeys.list(wasmOnly),
-    queryFn: ({ signal }) => request("get", "/api/services", { query: { wasm_only: wasmOnly }, signal }),
+    queryKey: serviceKeys.list(noustOnly),
+    queryFn: ({ signal }) => request("get", "/api/services", { query: { noust_only: noustOnly }, signal }),
   });
 
 export const serviceQuery = (name: string) =>

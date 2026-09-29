@@ -12,7 +12,7 @@ const WORDPRESS: Recipe = {
   available: true,
   app_type: "php-fpm",
   database: "mysql",
-  requires: ["MariaDB or MySQL (wasm db install mysql)"],
+  requires: ["MariaDB or MySQL (noust db install mysql)"],
   layout: "releases",
   port: null,
   env: [

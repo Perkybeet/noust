@@ -2,7 +2,7 @@
  * The API's error contract, as the console receives it.
  *
  * Every route under /api answers a failure as `{error, detail, hint, fields, output}` (the
- * backend's `wasm.web.api.deps.ErrorResponse`). `error` is the machine-readable code the
+ * backend's `noust.web.api.deps.ErrorResponse`). `error` is the machine-readable code the
  * console branches on; `detail` is the system's own words and is shown verbatim; `hint` is
  * the fix, shown above it; `fields` maps a form field to its validation message; `output` is
  * a failing tool's own output verbatim (a rejected web server configuration, for example),

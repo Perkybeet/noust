@@ -8,7 +8,7 @@ It is stored as static, because no unit of its own runs it, and every place
 that asked ``is_static`` treated it as files nginx serves: healthy without a
 look, "no service to restart", 404 on the console's start/stop/restart,
 limits refused, diagnosis skipped. Each of those now asks its pool, through
-:func:`wasm.deployers.helpers.php_fpm.is_php_fpm`:
+:func:`noust.deployers.helpers.php_fpm.is_php_fpm`:
 
 - its state is FPM's, the pool file's and the gate's FastCGI probe's;
 - restart reloads FPM, stop moves the pool aside, start puts it back;
@@ -26,17 +26,17 @@ from typing import Any
 import pytest
 from click.testing import CliRunner
 
-from wasm.cli.app import cli as root_cli
-from wasm.core import app_state
-from wasm.core.exceptions import DeploymentError, ValidationError
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, WASMStore
-from wasm.deployers import lifecycle
-from wasm.deployers import php_fpm as php_module
-from wasm.deployers.php_fpm import control_pool
-from wasm.managers.diagnose import diagnose
-from wasm.managers.service_manager import ResourceLimits, ServiceManager
-from wasm.web import machine as machine_module
+from noust.cli.app import cli as root_cli
+from noust.core import app_state
+from noust.core.exceptions import DeploymentError, ValidationError
+from noust.core.runner import FakeRunner
+from noust.core.store import App, NoustStore
+from noust.deployers import lifecycle
+from noust.deployers import php_fpm as php_module
+from noust.deployers.php_fpm import control_pool
+from noust.managers.diagnose import diagnose
+from noust.managers.service_manager import ResourceLimits, ServiceManager
+from noust.web import machine as machine_module
 
 DOMAIN = "blog.example.com"
 APP = "blog-example-com"
@@ -44,22 +44,22 @@ SERVICE = "php8.2-fpm"
 
 
 @pytest.fixture
-def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[WASMStore]:
+def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[NoustStore]:
     """A store of this test's own, installed as the process-wide one."""
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
-    WASMStore._instance = instance
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
+    NoustStore._instance = instance
     monkeypatch.setattr(lifecycle, "get_store", lambda: instance)
     try:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 @pytest.fixture
 def php(
-    tmp_path: Path, store: WASMStore, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, store: NoustStore, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
 ) -> SimpleNamespace:
     """
     A PHP application deployed in place, its pool written, FPM running.
@@ -156,7 +156,7 @@ def test_a_stopped_pool_is_stopped_and_a_missing_one_failed(php: SimpleNamespace
     php.disabled.unlink()
     missing = state_of(php)
     assert missing.label == app_state.FAILED
-    assert "wasm update" in missing.detail
+    assert "noust update" in missing.detail
 
 
 def test_without_the_probe_the_socket_stands_for_it(php: SimpleNamespace) -> None:
@@ -227,7 +227,7 @@ def test_wasm_stop_and_start_control_the_pool(php: SimpleNamespace) -> None:
 
 def test_the_console_endpoints_control_the_pool(php: SimpleNamespace) -> None:
     """POST /api/apps/{domain}/stop|start|restart no longer 404s."""
-    from wasm.web.api import apps as apps_api
+    from noust.web.api import apps as apps_api
 
     stopped = apps_api._service_action(DOMAIN, "stop", "stopped")
     assert stopped.success and php.disabled.is_file()
@@ -306,7 +306,7 @@ def test_the_diagnosis_says_a_stopped_pool_is_stopped(php: SimpleNamespace) -> N
 
     result = diagnose(DOMAIN, http_get=lambda url, headers: (502, None))
 
-    assert result.probable_cause is not None and "wasm start" in result.probable_cause
+    assert result.probable_cause is not None and "noust start" in result.probable_cause
 
 
 def test_the_machine_tally_counts_php_by_its_pool(

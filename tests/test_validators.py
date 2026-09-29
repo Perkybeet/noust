@@ -2,8 +2,8 @@
 
 import pytest
 
-from wasm.core.exceptions import DomainError
-from wasm.validators.domain import (
+from noust.core.exceptions import DomainError
+from noust.validators.domain import (
     check_domain,
     get_domain_parts,
     is_subdomain,
@@ -192,6 +192,6 @@ class TestShouldIncludeWww:
 )
 def test_parse_git_url_strips_the_git_suffix_not_trailing_letters(url: str, repo: str) -> None:
     """rstrip(".git") stripped any trailing g, i, t or dot: "widget" became "widge"."""
-    from wasm.validators.source import parse_git_url
+    from noust.validators.source import parse_git_url
 
     assert parse_git_url(url)["repo"] == repo

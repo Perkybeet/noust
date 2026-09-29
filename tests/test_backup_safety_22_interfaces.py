@@ -22,15 +22,15 @@ from click.testing import CliRunner
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.cli.app import Context
-from wasm.cli.commands.backup import cli
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, BackupScheduleRecord, WASMStore, get_store
-from wasm.managers.backup_destinations import BackupDestinationManager
-from wasm.managers.backup_scheduler import BackupScheduler
-from wasm.web.auth import CSRF_HEADER_NAME, SecurityConfig
-from wasm.web.server import create_app as build_app
-from wasm.web.server import get_token_manager
+from noust.cli.app import Context
+from noust.cli.commands.backup import cli
+from noust.core.runner import FakeRunner
+from noust.core.store import App, BackupScheduleRecord, NoustStore, get_store
+from noust.managers.backup_destinations import BackupDestinationManager
+from noust.managers.backup_scheduler import BackupScheduler
+from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
+from noust.web.server import create_app as build_app
+from noust.web.server import get_token_manager
 
 SFTP_FIELDS = {"host": "nas.example.com", "user": "wasm", "pass": "s3cr3t-password-value"}
 KEY = {"password": "old-server-passphrase", "password2": "old-server-salt"}
@@ -57,9 +57,9 @@ def systemd_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 @pytest.fixture
 def cli_store() -> Iterator[None]:
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
     yield
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 def invoke(argv: list[str], **kwargs: Any) -> Any:
@@ -208,9 +208,9 @@ class TestCli:
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> Iterator[WASMStore]:
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+def store(tmp_path: Path) -> Iterator[NoustStore]:
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     instance.create_app(
         App(
             domain="shop.example.com",
@@ -225,11 +225,11 @@ def store(tmp_path: Path) -> Iterator[WASMStore]:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 @pytest.fixture
-def app(tmp_path: Path, store: WASMStore) -> FastAPI:
+def app(tmp_path: Path, store: NoustStore) -> FastAPI:
     return build_app(SecurityConfig(state_dir=tmp_path / "state", rate_limit_requests=5000))
 
 
@@ -320,11 +320,11 @@ class TestApi:
         )
         runner.script(
             ("systemctl", "list-timers"),
-            stdout="n/a n/a wasm-backup-shop-example-com.timer x.service\n",
+            stdout="n/a n/a noust-backup-shop-example-com.timer x.service\n",
         )
         runner.script(
             ("systemctl", "show"),
-            stdout="Description=WASM backup timer for shop.example.com\n",
+            stdout="Description=Noust backup timer for shop.example.com\n",
         )
 
         listing = client.get("/api/backup-schedules").json()

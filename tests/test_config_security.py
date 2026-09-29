@@ -6,7 +6,7 @@ Security tests for the global configuration and the SQLite store.
 
 Covers five classes of problem that were found in production code:
 
-* global state leaking between :class:`~wasm.core.config.Config` instances,
+* global state leaking between :class:`~noust.core.config.Config` instances,
   because the defaults were shallow-copied and therefore shared,
 * files holding secrets (``config.yaml``, ``wasm.db``, deployed ``.env``)
   created with world-readable permissions,
@@ -30,7 +30,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from wasm.core.config import (
+from noust.core.config import (
     DEFAULT_CONFIG,
     REDACTED,
     Config,
@@ -42,16 +42,16 @@ from wasm.core.config import (
     secure_directory,
     secure_write,
 )
-from wasm.core.exceptions import SecurityError
-from wasm.core.fs import (
+from noust.core.exceptions import SecurityError
+from noust.core.fs import (
     SECRET_DIR_MODE,
     SECRET_MODE,
     DryRunFileSystem,
     RecordingFileSystem,
     set_fs,
 )
-from wasm.core.store import WASMStore
-from wasm.deployers.helpers.env_manager import EnvConfig, EnvManager, EnvVariable
+from noust.core.store import NoustStore
+from noust.deployers.helpers.env_manager import EnvConfig, EnvManager, EnvVariable
 
 
 @pytest.fixture(autouse=True)
@@ -60,7 +60,7 @@ def _real_filesystem() -> None:
     Give every test the real filesystem back, whatever the last one installed.
 
     The seam is process-wide, exactly like the command runner. A test that
-    installs :class:`~wasm.core.fs.DryRunFileSystem` and forgets to undo it
+    installs :class:`~noust.core.fs.DryRunFileSystem` and forgets to undo it
     makes every later test in the session silently assert on files nobody
     wrote.
     """
@@ -84,7 +84,7 @@ def config_path(sandbox: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         Path the config module will read from and write to.
     """
     path = sandbox / "etc" / "wasm" / "config.yaml"
-    monkeypatch.setattr("wasm.core.config.DEFAULT_CONFIG_PATH", path)
+    monkeypatch.setattr("noust.core.config.DEFAULT_CONFIG_PATH", path)
     Config.reset_instance()
     try:
         yield path
@@ -182,15 +182,15 @@ class TestStorePermissions:
     def test_database_and_directory_are_private(self, sandbox: Path) -> None:
         """The SQLite file must be 0600 and its directory 0700."""
         db_path = sandbox / "var" / "lib" / "wasm" / "wasm.db"
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
         try:
-            store = WASMStore(db_path)
+            store = NoustStore(db_path)
             assert store.db_path == db_path
 
             assert db_path.stat().st_mode & 0o077 == 0
             assert db_path.parent.stat().st_mode & 0o077 == 0
         finally:
-            WASMStore.reset_instance()
+            NoustStore.reset_instance()
 
     def test_existing_lax_database_is_tightened(self, sandbox: Path) -> None:
         """A database left world-readable by an older version must be repaired."""
@@ -201,14 +201,14 @@ class TestStorePermissions:
         db_path.chmod(0o644)
         db_dir.chmod(0o755)
 
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
         try:
-            WASMStore(db_path)
+            NoustStore(db_path)
 
             assert db_path.stat().st_mode & 0o077 == 0
             assert db_dir.stat().st_mode & 0o077 == 0
         finally:
-            WASMStore.reset_instance()
+            NoustStore.reset_instance()
 
 
 class TestIsSecretKey:
@@ -409,7 +409,7 @@ class TestDeadConfigKeys:
     ``databases.backup_dir`` control nothing: the monitor never grew the AI
     analysis it was meant to gate, and the backup manager reads
     ``backup.directory``, a different key, for where dumps land. Unlike
-    :data:`~wasm.core.config.REMOVED_KEYS`, nothing here was ever a permissive
+    :data:`~noust.core.config.REMOVED_KEYS`, nothing here was ever a permissive
     safety switch, so there is nothing to pin - a stale file mentioning one of
     these keys is simply not read by anything, the same as any other key this
     version does not recognise.
@@ -441,7 +441,7 @@ class TestDeadConfigKeys:
             )
         )
 
-        with caplog.at_level(logging.WARNING, logger="wasm.core.config"):
+        with caplog.at_level(logging.WARNING, logger="noust.core.config"):
             config = Config()
 
         assert config.get("webserver") == "apache"
@@ -693,7 +693,7 @@ class TestReplaceEnforcesTheSameRulesAsSet:
     """
 
     def test_replace_refuses_an_unsupported_webserver(self, config_path: Path) -> None:
-        from wasm.core.exceptions import ConfigError
+        from noust.core.exceptions import ConfigError
 
         config = Config()
 
@@ -703,7 +703,7 @@ class TestReplaceEnforcesTheSameRulesAsSet:
         assert not config_path.exists()
 
     def test_replace_refuses_a_relative_apps_directory(self, config_path: Path) -> None:
-        from wasm.core.exceptions import ConfigError
+        from noust.core.exceptions import ConfigError
 
         config = Config()
 
@@ -985,7 +985,7 @@ class TestSetupCreatesAPrivateConfigDirectory:
         self, sandbox: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """setup must not widen the directory that holds the credentials."""
-        from wasm.cli.commands import setup as setup_cli
+        from noust.cli.commands import setup as setup_cli
 
         config_path = sandbox / "etc" / "wasm" / "config.yaml"
         monkeypatch.setattr(setup_cli, "DEFAULT_CONFIG_PATH", config_path)
@@ -1096,7 +1096,7 @@ class TestNoMutationEscapesTheSeam:
     The AST guard. Migrating once is easy; staying migrated is what this is for.
 
     Every write, delete, chmod and mkdir in these modules has to go through
-    :mod:`wasm.core.fs`, or ``--dry-run`` starts lying again the next time
+    :mod:`noust.core.fs`, or ``--dry-run`` starts lying again the next time
     somebody reaches for ``Path.write_text`` because it is one line shorter.
     """
 
@@ -1157,9 +1157,9 @@ class TestNoMutationEscapesTheSeam:
 
     #: The modules this guard covers.
     MODULES = (
-        "src/wasm/core/config.py",
-        "src/wasm/cli/commands/setup.py",
-        "src/wasm/cli/commands/env.py",
+        "src/noust/core/config.py",
+        "src/noust/cli/commands/setup.py",
+        "src/noust/cli/commands/env.py",
     )
 
     @staticmethod
@@ -1219,7 +1219,7 @@ class TestNoMutationEscapesTheSeam:
 
     @pytest.mark.parametrize("module", MODULES)
     def test_the_module_mutates_nothing_directly(self, module: str) -> None:
-        """No write, delete, chmod or mkdir outside wasm.core.fs."""
+        """No write, delete, chmod or mkdir outside noust.core.fs."""
         path = Path(__file__).resolve().parents[1] / module
 
         offences = self._violations(path.read_text(encoding="utf-8"), module)

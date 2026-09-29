@@ -5,7 +5,7 @@
 Repository inspection for the new-app wizard.
 
 D7 of the v2 design ("Asistente de alta") pastes a repository and shows the
-operator what WASM would do with it before anything is deployed: which
+operator what Noust would do with it before anything is deployed: which
 application type it matches, what commands would install, build and start
 it, which environment variables it declares, which commit it is at, and
 whether this server can deploy it at all. This module answers all of that
@@ -24,14 +24,14 @@ used to be, without ``--recursive``: submodules never decide a type.
 A local directory is read where it is; detection only reads.
 
 **Cancel is real.** :func:`inspect_source` runs every command inside a
-:func:`~wasm.core.runner.cancellable` scope: when the caller sets the event
+:func:`~noust.core.runner.cancellable` scope: when the caller sets the event
 (the console's request whose browser went away), the running git is killed
 with every process it started, and the scratch directory is removed before
 this returns. What a killed process cannot clean up, a killed console cannot
 either, so :func:`remove_stale_checkouts` runs when the console starts.
 
 The scratch directory is the one piece of this package that is not created
-through ``wasm.core.fs``, on purpose: it is a preview, not a deployment, so
+through ``noust.core.fs``, on purpose: it is a preview, not a deployment, so
 there is nothing for ``--dry-run`` to rehearse, and it must be cleaned up for
 real even when the process-wide filesystem is a dry run.
 ``tests/test_deployers.py`` lists it as a named exemption of its filesystem
@@ -61,22 +61,22 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-from wasm.core.exceptions import DeploymentError
-from wasm.core.runner import CommandCancelled, cancellable, get_runner
-from wasm.deployers.base import BaseDeployer
-from wasm.deployers.docker_compose import COMPOSE_FILE_PRIORITY
-from wasm.deployers.helpers.env_manager import (
+from noust.core.exceptions import DeploymentError
+from noust.core.runner import CommandCancelled, cancellable, get_runner
+from noust.deployers.base import BaseDeployer
+from noust.deployers.docker_compose import COMPOSE_FILE_PRIORITY
+from noust.deployers.helpers.env_manager import (
     URL_CREDENTIALS,
     EnvManager,
     EnvVariable,
     is_secret_env_name,
 )
-from wasm.deployers.helpers.package_manager import PackageManagerHelper
-from wasm.deployers.importers import PLATFORM_FILES, Proposal, propose
-from wasm.deployers.interface import AppDeployer
-from wasm.deployers.registry import DeployerRegistry, _import_deployers
-from wasm.managers.source_manager import SourceManager
-from wasm.validators.source import validate_source
+from noust.deployers.helpers.package_manager import PackageManagerHelper
+from noust.deployers.importers import PLATFORM_FILES, Proposal, propose
+from noust.deployers.interface import AppDeployer
+from noust.deployers.registry import DeployerRegistry, _import_deployers
+from noust.managers.source_manager import SourceManager
+from noust.validators.source import validate_source
 
 _logger = logging.getLogger(__name__)
 
@@ -127,7 +127,7 @@ _PLACEHOLDER_DOMAIN = "wasm-inspect.invalid"
 #: ``PRIVATE`` alone, not just their compounds.
 SECRET_NAME_MARKERS: tuple[str, ...] = ("SECRET", "KEY", "TOKEN", "PASSWORD", "PASS", "PRIVATE")
 
-#: Root files of stacks WASM has no deployer for, and what they are called.
+#: Root files of stacks Noust has no deployer for, and what they are called.
 _UNSUPPORTED_STACKS: tuple[tuple[str, str], ...] = (
     ("go.mod", "Go"),
     ("Cargo.toml", "Rust"),
@@ -247,11 +247,11 @@ class SourceInspection:
             is not a Git repository.
         compatible: Whether this server can deploy it as ``app_type`` as it
             is (see :class:`Verdict`).
-        verdict: What WASM found, in a sentence.
+        verdict: What Noust found, in a sentence.
         suggestion: What to do before deploying, or None.
         platform_proposal: What another platform's configuration in the
             repository (``vercel.json``, ``render.yaml``...) says, read by
-            :func:`wasm.deployers.importers.propose`, so the wizard can
+            :func:`noust.deployers.importers.propose`, so the wizard can
             prefill the build, the environment and the health check; None
             when the repository carries none.
     """
@@ -275,7 +275,7 @@ class SourceInspection:
 @dataclass(frozen=True)
 class Verdict:
     """
-    Whether WASM can deploy what an inspection found, and if not, what to do.
+    Whether Noust can deploy what an inspection found, and if not, what to do.
 
     Attributes:
         compatible: True when a deploy of the detected type can succeed on
@@ -295,7 +295,7 @@ def _matching_types(path: Path) -> list[type[AppDeployer]]:
 
     Mirrors :meth:`DeployerRegistry.detect`, which stops at the first match;
     the wizard wants every match, so the operator can see what else the
-    repository looked like and pick a different type than the one WASM
+    repository looked like and pick a different type than the one Noust
     would have guessed.
 
     Args:
@@ -323,7 +323,7 @@ def sparse_patterns() -> list[str]:
     ``DETECTION_FILES`` and ``FRAMEWORK_CONFIG_FILES``, the compose file
     names, plus the files detection reads beyond those
     (:data:`_ALSO_READ_AT_ROOT`), the other platforms' configuration files
-    (:data:`wasm.deployers.importers.PLATFORM_FILES`), each workspace app's ``package.json``
+    (:data:`noust.deployers.importers.PLATFORM_FILES`), each workspace app's ``package.json``
     (the monorepo detector counts them) and the example environment files
     :meth:`EnvManager.discover` reads under ``apps/``, ``packages/`` and
     ``services/``.
@@ -657,9 +657,9 @@ def _matched_verdict(matched: list[type[AppDeployer]]) -> Verdict:
                 f"This is a {winner.DISPLAY_NAME} project, but this server does not have "
                 f"{', '.join(missing)}."
             ),
-            suggestion="Install what it needs with `wasm setup init`, then deploy it.",
+            suggestion="Install what it needs with `noust setup init`, then deploy it.",
         )
-    summary = f"WASM can deploy this as {winner.DISPLAY_NAME}."
+    summary = f"Noust can deploy this as {winner.DISPLAY_NAME}."
     others = [deployer_class.DISPLAY_NAME for deployer_class in matched[1:]]
     if others:
         summary += (
@@ -699,7 +699,7 @@ def _unmatched_verdict(checkout: Path, listing: list[str]) -> Verdict:
             compatible=False,
             summary=f"The repository has a {dockerfile} but no Compose file.",
             suggestion=(
-                "WASM runs containers through Docker Compose. Commit a compose.yaml next "
+                "Noust runs containers through Docker Compose. Commit a compose.yaml next "
                 f"to the {dockerfile} that builds it:\n\n{_COMPOSE_EXAMPLE}\n\nwith the "
                 "port the image listens on, then deploy it as Docker Compose."
             ),
@@ -709,7 +709,7 @@ def _unmatched_verdict(checkout: Path, listing: list[str]) -> Verdict:
         if marker in root_files:
             return Verdict(
                 compatible=False,
-                summary=f"This is a {stack} project ({marker}); WASM has no {stack} deployer.",
+                summary=f"This is a {stack} project ({marker}); Noust has no {stack} deployer.",
                 suggestion=container_route,
             )
 
@@ -721,9 +721,9 @@ def _unmatched_verdict(checkout: Path, listing: list[str]) -> Verdict:
         found = ", ".join(f"{directory}/ ({marker})" for directory, marker in projects)
         return Verdict(
             compatible=False,
-            summary=f"Nothing WASM deploys at the root of the repository; found {found}.",
+            summary=f"Nothing Noust deploys at the root of the repository; found {found}.",
             suggestion=(
-                "WASM deploys a repository from its root. Deploy each project from a "
+                "Noust deploys a repository from its root. Deploy each project from a "
                 "repository of its own, or add a compose.yaml at the root that builds "
                 "them and deploy it as Docker Compose. A JavaScript workspace with "
                 "turbo.json, a workspace config and its apps under apps/ deploys as a "
@@ -741,9 +741,9 @@ def _unmatched_verdict(checkout: Path, listing: list[str]) -> Verdict:
     )
     return Verdict(
         compatible=False,
-        summary="Nothing in the repository matches an application type WASM deploys.",
+        summary="Nothing in the repository matches an application type Noust deploys.",
         suggestion=(
-            "WASM recognises a project by the files at the root of the repository ("
+            "Noust recognises a project by the files at the root of the repository ("
             f"{', '.join(examples)}, or a package.json with a start script). Check the "
             "branch, or choose a type explicitly instead of relying on auto-detection."
         ),
@@ -780,7 +780,7 @@ def _near_miss_monorepo(checkout: Path, listing: list[str]) -> Verdict:
         problems.append("no app under apps/ has a package.json")
     elif len(apps) < 2:
         problems.append(f"only apps/{apps[0]}/ has a package.json under apps/")
-    summary = "The repository uses Turborepo (turbo.json) but is not a monorepo WASM deploys"
+    summary = "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys"
     summary += f": {'; '.join(problems)}." if problems else "."
     return Verdict(
         compatible=False,
@@ -823,18 +823,18 @@ def _unrecognised_package_json(package_json: Path, container_route: str) -> Verd
         if dependency in dependencies:
             return Verdict(
                 compatible=False,
-                summary=f"This is a {framework} project; WASM has no {framework} deployer.",
+                summary=f"This is a {framework} project; Noust has no {framework} deployer.",
                 suggestion=container_route,
             )
     return Verdict(
         compatible=False,
         summary=(
-            "package.json has no start script, no main entry and no framework WASM "
+            "package.json has no start script, no main entry and no framework Noust "
             "recognises (Next.js, Vite)."
         ),
         suggestion=(
             'Add a start script to package.json ("scripts": {"start": "node server.js"}) '
-            'or a "main" entry, so WASM knows how to run it; or choose the type explicitly.'
+            'or a "main" entry, so Noust knows how to run it; or choose the type explicitly.'
         ),
     )
 

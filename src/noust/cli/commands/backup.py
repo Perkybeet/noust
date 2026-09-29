@@ -6,13 +6,13 @@ Backup and rollback commands.
 
 The work itself lives in the private ``_backup_*`` helpers. The Click commands
 and the argparse-shaped handlers below are both thin adapters over them, so the
-two entry points cannot drift. ``wasm.cli.parser`` is gone and nothing calls
+two entry points cannot drift. ``noust.cli.parser`` is gone and nothing calls
 these handlers in production anymore; they are kept, and tested directly, for
 the same reason.
 
 Two things the argparse tree got wrong and this module does not:
 
-- ``wasm backup new`` and ``wasm backup ls`` reached the handler with the alias
+- ``noust backup new`` and ``noust backup ls`` reached the handler with the alias
   as the action name, which fell through to "Unknown backup action". The alias
   table is now one constant, used by the Click group and by the handler.
 - ``--include-docker-volumes``, ``--schemas``, ``--redis-method``,
@@ -36,13 +36,13 @@ from typing import Any
 
 import click
 
-from wasm.cli.app import Context, WasmGroup, global_flags, json_option, pass_context
-from wasm.cli.panel_links import open_in_panel
-from wasm.core.exceptions import WASMError
-from wasm.core.logger import Logger
-from wasm.managers.backup_manager import BackupManager, BackupMetadata, RollbackManager
+from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
+from noust.cli.panel_links import open_in_panel
+from noust.core.exceptions import NoustError
+from noust.core.logger import Logger
+from noust.managers.backup_manager import BackupManager, BackupMetadata, RollbackManager
 
-#: Alternative spellings for the actions under ``wasm backup``. They are in
+#: Alternative spellings for the actions under ``noust backup``. They are in
 #: scripts and in muscle memory, so they resolve rather than fail.
 BACKUP_ALIASES: dict[str, str] = {
     "check": "verify",
@@ -53,7 +53,7 @@ BACKUP_ALIASES: dict[str, str] = {
     "show": "info",
 }
 
-#: Alternative spellings for the actions under ``wasm backup schedule``.
+#: Alternative spellings for the actions under ``noust backup schedule``.
 SCHEDULE_ALIASES: dict[str, str] = {
     "ls": "list",
     "remove": "delete",
@@ -155,7 +155,7 @@ def _describe_retention(count: int | None, days: int | None) -> str:
     return f"the schedule's own last {kept} backups{age}; other backups are never touched"
 
 
-class AliasedGroup(WasmGroup):
+class AliasedGroup(NoustGroup):
     """
     A group that answers to the alternative spellings of its subcommands.
 
@@ -304,7 +304,7 @@ def _refuse_secret_fields(backend: str, fields: dict[str, str]) -> None:
     Raises:
         click.UsageError: When one of them is a secret field.
     """
-    from wasm.managers.backup_destinations import backend_fields
+    from noust.managers.backup_destinations import backend_fields
 
     secret_keys = {spec.key for spec in backend_fields(backend) if spec.secret}
     given = sorted(secret_keys & set(fields))
@@ -320,7 +320,7 @@ def _read_secret_field(backend: str, *, from_stdin: bool, from_prompt: bool) -> 
     """
     Read a backend's one secret field, from stdin, a hidden prompt, or neither.
 
-    Every backend WASM supports declares at most one secret field (a
+    Every backend Noust supports declares at most one secret field (a
     password, an application key, an OAuth token), so ``--stdin`` and
     ``--prompt`` need not name which field they are for.
 
@@ -337,7 +337,7 @@ def _read_secret_field(backend: str, *, from_stdin: bool, from_prompt: bool) -> 
         click.UsageError: When both flags are given, or the backend has no
             secret field to fill.
     """
-    from wasm.managers.backup_destinations import backend_fields
+    from noust.managers.backup_destinations import backend_fields
 
     if from_stdin and from_prompt:
         raise click.UsageError("Use --stdin or --prompt, not both.")
@@ -425,7 +425,7 @@ def _add_destination(
         click.UsageError: When a secret is given as ``--field``, or both the
             secret field and the key are to be read from standard input.
     """
-    from wasm.managers.backup_destinations import BackupDestinationManager, parse_crypt_key
+    from noust.managers.backup_destinations import BackupDestinationManager, parse_crypt_key
 
     if key_stdin and from_stdin:
         raise click.UsageError(
@@ -441,7 +441,7 @@ def _add_destination(
         destination = BackupDestinationManager().add(
             name, backend, fields, encrypted=encrypted or key_stdin, crypt_key=crypt_key
         )
-    except WASMError as exc:
+    except NoustError as exc:
         logger.error(f"Could not create backup destination: {exc}")
         return 1
 
@@ -450,12 +450,12 @@ def _add_destination(
     if destination.encrypted and key_stdin:
         logger.info(
             "  Encrypted with the key you gave: backups already there encrypted with it can be "
-            f"listed and restored ('wasm backup remote-list {destination.name}')."
+            f"listed and restored ('noust backup remote-list {destination.name}')."
         )
     elif destination.encrypted:
         logger.warning(
             "Encryption keys were generated and stored on this server only. Run "
-            f"'wasm backup destination show-key {destination.name}' now and keep them "
+            f"'noust backup destination show-key {destination.name}' now and keep them "
             "somewhere safe: losing them makes every backup on this destination unrecoverable."
         )
     return 0
@@ -485,7 +485,7 @@ def _update_destination(
     Returns:
         0 on success, 1 if the destination could not be changed.
     """
-    from wasm.managers.backup_destinations import BackupDestinationManager
+    from noust.managers.backup_destinations import BackupDestinationManager
 
     manager = BackupDestinationManager()
     try:
@@ -499,7 +499,7 @@ def _update_destination(
             _read_secret_field(existing.backend, from_stdin=from_stdin, from_prompt=from_prompt)
         )
         destination = manager.update(name, fields, encrypted=encrypted)
-    except WASMError as exc:
+    except NoustError as exc:
         logger.error(f"Could not update backup destination: {exc}")
         return 1
 
@@ -518,12 +518,12 @@ def _list_destinations(*, logger: Logger, json_output: bool = False) -> int:
     Returns:
         0 on success, 1 if the destinations could not be read.
     """
-    from wasm.managers.backup_destinations import BackupDestinationManager
+    from noust.managers.backup_destinations import BackupDestinationManager
 
     try:
         manager = BackupDestinationManager()
         destinations = manager.list_destinations()
-    except WASMError as exc:
+    except NoustError as exc:
         logger.error(f"Error listing backup destinations: {exc}")
         return 1
 
@@ -568,11 +568,11 @@ def _test_destination(*, logger: Logger, name: str) -> int:
     Returns:
         0 if the destination was reached, 1 otherwise.
     """
-    from wasm.managers.backup_destinations import BackupDestinationManager
+    from noust.managers.backup_destinations import BackupDestinationManager
 
     try:
         result = BackupDestinationManager().test(name)
-    except WASMError as exc:
+    except NoustError as exc:
         logger.error(f"Could not reach {name}: {exc}")
         return 1
 
@@ -589,7 +589,7 @@ def _remove_destination(*, logger: Logger, name: str, force: bool = False) -> in
     An encrypted destination's key is printed once more, after the
     confirmation and before anything is removed: the backups already sent
     there stay behind, and removing the destination deletes the only copy
-    WASM has of what reads them.
+    Noust has of what reads them.
 
     Args:
         logger: Logger to report through.
@@ -600,7 +600,7 @@ def _remove_destination(*, logger: Logger, name: str, force: bool = False) -> in
     Returns:
         0 on success, 1 if the destination could not be removed.
     """
-    from wasm.managers.backup_destinations import BackupDestinationManager
+    from noust.managers.backup_destinations import BackupDestinationManager
 
     manager = BackupDestinationManager()
     try:
@@ -608,7 +608,7 @@ def _remove_destination(*, logger: Logger, name: str, force: bool = False) -> in
         keyed = (
             destination is not None and destination.encrypted and manager.has_encryption_key(name)
         )
-    except WASMError as exc:
+    except NoustError as exc:
         logger.error(f"Could not remove {name}: {exc}")
         return 1
 
@@ -616,7 +616,7 @@ def _remove_destination(*, logger: Logger, name: str, force: bool = False) -> in
     if keyed:
         question += (
             " They are encrypted: without the key printed next, they cannot be read by anyone,"
-            " WASM included."
+            " Noust included."
         )
     if not force and not click.confirm(question, default=False):
         logger.info("Cancelled")
@@ -628,12 +628,12 @@ def _remove_destination(*, logger: Logger, name: str, force: bool = False) -> in
             logger.warning(
                 f"The encryption key of {name}, shown one last time. Keep it: the backups on "
                 "this destination are unreadable without it, and it can be given back with "
-                f"'wasm backup destination add {name} --encrypt --key-stdin'."
+                f"'noust backup destination add {name} --encrypt --key-stdin'."
             )
             logger.info(f"  password:  {keys['password']}")
             logger.info(f"  password2: {keys['password2']}")
         manager.remove(name, force=force, key_saved=keyed)
-    except WASMError as exc:
+    except NoustError as exc:
         logger.error(f"Could not remove {name}: {exc}")
         return 1
 
@@ -653,11 +653,11 @@ def _show_destination_key(*, logger: Logger, name: str, json_output: bool = Fals
     Returns:
         0 on success, 1 if the destination is unknown or not encrypted.
     """
-    from wasm.managers.backup_destinations import BackupDestinationManager
+    from noust.managers.backup_destinations import BackupDestinationManager
 
     try:
         keys = BackupDestinationManager().show_key(name)
-    except WASMError as exc:
+    except NoustError as exc:
         logger.error(f"Could not show the key: {exc}")
         return 1
 
@@ -687,7 +687,7 @@ def _push_backup(*, logger: Logger, backup_id: str, destination: str) -> int:
         0 on success, 1 if the backup or destination is unknown, or the
         upload failed.
     """
-    from wasm.managers.backup_destinations import BackupDestinationManager
+    from noust.managers.backup_destinations import BackupDestinationManager
 
     try:
         manager = BackupManager(verbose=logger.verbose)
@@ -696,7 +696,7 @@ def _push_backup(*, logger: Logger, backup_id: str, destination: str) -> int:
             logger.error(f"Backup not found: {backup_id}")
             return 1
         summary = BackupDestinationManager().push(metadata, destination, backup_manager=manager)
-    except WASMError as exc:
+    except NoustError as exc:
         logger.error(f"Upload failed: {exc}")
         return 1
 
@@ -723,11 +723,11 @@ def _remote_list(
     Returns:
         0 on success, 1 if the destination could not be listed.
     """
-    from wasm.managers.backup_destinations import BackupDestinationManager
+    from noust.managers.backup_destinations import BackupDestinationManager
 
     try:
         result = BackupDestinationManager().remote_list(destination, app_name)
-    except WASMError as exc:
+    except NoustError as exc:
         logger.error(f"Could not list {destination}: {exc}")
         return 1
 
@@ -783,8 +783,8 @@ def _restore_from_destination(
         0 on success, 1 if the application cannot be determined, or the
         download or restore fails.
     """
-    from wasm.managers.backup_destinations import BackupDestinationManager
-    from wasm.managers.backup_manager import app_name_of_backup_id
+    from noust.managers.backup_destinations import BackupDestinationManager
+    from noust.managers.backup_manager import app_name_of_backup_id
 
     resolved_app = app_name or app_name_of_backup_id(backup_id)
     if not resolved_app:
@@ -812,7 +812,7 @@ def _restore_from_destination(
             restore_env=restore_env,
             backup_manager=BackupManager(verbose=logger.verbose),
         )
-    except WASMError as exc:
+    except NoustError as exc:
         logger.error(f"Restore failed: {exc}")
         return 1
 
@@ -836,20 +836,20 @@ def _run_schedule(*, logger: Logger, domain: str) -> int:
         local backup failed or at least one destination could not be sent
         the backup (which is kept locally either way).
     """
-    from wasm.managers.backup_scheduler import run_schedule
+    from noust.managers.backup_scheduler import run_schedule
 
     try:
         result = run_schedule(domain, verbose=logger.verbose)
-    except WASMError as exc:
+    except NoustError as exc:
         logger.error(f"Scheduled backup failed: {exc}")
         return 1
 
     logger.success(f"Backup created: {result['backup_id']}")
     if result.get("schedule_missing"):
         logger.warning(
-            f"WASM's store has no schedule for {domain}: the backup was taken as 2.1 took it "
+            f"Noust's store has no schedule for {domain}: the backup was taken as 2.1 took it "
             "(databases included, backup.max_per_app rotation, no destinations). Save the "
-            f"schedule again with 'wasm backup schedule update {domain}'."
+            f"schedule again with 'noust backup schedule update {domain}'."
         )
     failed = False
     for name, outcome in result.get("destinations", {}).items():
@@ -940,7 +940,7 @@ def _create_backup(
             retention_days=retention_days,
             tags=_parse_tags(tags),
         )
-    except WASMError as exc:
+    except NoustError as exc:
         logger.error(f"Backup failed: {exc}")
         return 1
 
@@ -971,7 +971,7 @@ def _list_backups(
     json_output: bool = False,
 ) -> int:
     """
-    List the backups WASM knows about.
+    List the backups Noust knows about.
 
     Args:
         logger: Logger to report through.
@@ -990,7 +990,7 @@ def _list_backups(
             tags=_parse_tags(tags) or None,
             limit=limit,
         )
-    except WASMError as exc:
+    except NoustError as exc:
         logger.error(f"Error listing backups: {exc}")
         return 1
 
@@ -1075,7 +1075,7 @@ def _restore_backup(
             restore_env=restore_env,
             verify_checksum=verify,
         )
-    except WASMError as exc:
+    except NoustError as exc:
         logger.error(f"Restore failed: {exc}")
         return 1
 
@@ -1114,7 +1114,7 @@ def _delete_backup(*, logger: Logger, backup_id: str, force: bool = False) -> in
             return 0
 
         manager.delete(backup_id)
-    except WASMError as exc:
+    except NoustError as exc:
         logger.error(f"Delete failed: {exc}")
         return 1
 
@@ -1138,7 +1138,7 @@ def _verify_backup(*, logger: Logger, backup_id: str) -> int:
 
         logger.info(f"Verifying backup: {backup_id}")
         result = manager.verify(backup_id)
-    except WASMError as exc:
+    except NoustError as exc:
         logger.error(f"Verification failed: {exc}")
         return 1
 
@@ -1174,7 +1174,7 @@ def _show_backup(*, logger: Logger, backup_id: str, json_output: bool = False) -
     try:
         manager = BackupManager(verbose=logger.verbose)
         metadata = manager.get_backup(backup_id)
-    except WASMError as exc:
+    except NoustError as exc:
         logger.error(f"Error: {exc}")
         return 1
 
@@ -1235,7 +1235,7 @@ def _show_storage(*, logger: Logger, json_output: bool = False) -> int:
         manager = BackupManager(verbose=logger.verbose)
         usage = manager.get_storage_usage()
         misplaced = manager.find_misplaced_backups()
-    except WASMError as exc:
+    except NoustError as exc:
         logger.error(f"Error: {exc}")
         return 1
 
@@ -1270,7 +1270,7 @@ def _show_storage(*, logger: Logger, json_output: bool = False) -> int:
 
 def _import_backups(*, logger: Logger, source: str) -> int:
     """
-    Move misplaced WASM backups into the configured backup directory.
+    Move misplaced Noust backups into the configured backup directory.
 
     Args:
         logger: Logger to report through.
@@ -1284,7 +1284,7 @@ def _import_backups(*, logger: Logger, source: str) -> int:
     try:
         manager = BackupManager(verbose=logger.verbose)
         report = manager.import_backups(Path(source))
-    except WASMError as exc:
+    except NoustError as exc:
         logger.error(f"Import failed: {exc}")
         return 1
 
@@ -1335,8 +1335,8 @@ def _create_schedule(
     Returns:
         0 on success, 1 if the schedule could not be installed.
     """
-    from wasm.core.utils import domain_to_app_name
-    from wasm.managers.backup_scheduler import BackupSchedule, BackupScheduler
+    from noust.core.utils import domain_to_app_name
+    from noust.managers.backup_scheduler import BackupSchedule, BackupScheduler
 
     try:
         parsed_destinations = [_parse_destination_spec(value) for value in destinations]
@@ -1350,7 +1350,7 @@ def _create_schedule(
             destinations=parsed_destinations,
         )
         scheduler.create_schedule(backup_schedule)
-    except WASMError as exc:
+    except NoustError as exc:
         logger.error(f"Failed to save schedule: {exc}")
         return 1
 
@@ -1372,12 +1372,12 @@ def _list_schedules(*, logger: Logger) -> int:
     Returns:
         0 on success, 1 if the schedules could not be read.
     """
-    from wasm.managers.backup_scheduler import BackupScheduler
+    from noust.managers.backup_scheduler import BackupScheduler
 
     try:
         scheduler = BackupScheduler(verbose=logger.verbose)
         schedules = scheduler.list_schedules()
-    except WASMError as exc:
+    except NoustError as exc:
         logger.error(f"Failed to list schedules: {exc}")
         return 1
 
@@ -1409,12 +1409,12 @@ def _delete_schedule(*, logger: Logger, domain: str) -> int:
     Returns:
         0 on success, 1 if the schedule could not be removed.
     """
-    from wasm.managers.backup_scheduler import BackupScheduler
+    from noust.managers.backup_scheduler import BackupScheduler
 
     try:
         scheduler = BackupScheduler(verbose=logger.verbose)
         scheduler.remove_schedule(domain)
-    except WASMError as exc:
+    except NoustError as exc:
         logger.error(f"Failed to remove schedule: {exc}")
         return 1
 
@@ -1462,7 +1462,7 @@ def _rollback_app(
 
         logger.step(1, 2, "Restoring from backup")
         rollback_manager.rollback(domain=domain, backup_id=backup_id, rebuild=rebuild)
-    except WASMError as exc:
+    except NoustError as exc:
         logger.error(f"Rollback failed: {exc}")
         return 1
 
@@ -1471,12 +1471,12 @@ def _rollback_app(
     return 0
 
 
-@click.group(cls=WasmGroup)
+@click.group(cls=NoustGroup)
 def cli() -> None:
     """
     Container for the commands this module defines.
 
-    ``wasm.cli.app`` picks ``backup`` or ``rollback`` out of it by name; the
+    ``noust.cli.app`` picks ``backup`` or ``rollback`` out of it by name; the
     group itself is never typed by anyone.
     """
 
@@ -1499,7 +1499,7 @@ def backup(ctx: click.Context) -> None:
     if ctx.invoked_subcommand is not None:
         return
 
-    # `wasm backup` has always listed the backups, and scripts rely on it.
+    # `noust backup` has always listed the backups, and scripts rely on it.
     state = ctx.ensure_object(Context)
     _finish(_list_backups(logger=state.logger, json_output=state.json_output))
 
@@ -1744,7 +1744,7 @@ def backup_storage(state: Context) -> None:
 @pass_context
 def backup_import(state: Context, directory: str) -> None:
     """
-    Move WASM backups found in DIRECTORY into the backup directory.
+    Move Noust backups found in DIRECTORY into the backup directory.
 
     For backups written to the wrong place, such as /root/<app>/ or /<app>/
     while backup.directory was empty. Only complete backups move (the
@@ -1765,7 +1765,7 @@ def backup_push(state: Context, backup_id: str, destination: str) -> None:
 
     Verifies the upload (size, and hash when the destination supports one)
     and applies no retention: retention is a schedule's own concern, applied
-    by 'wasm backup run-schedule'.
+    by 'noust backup run-schedule'.
     """
     _finish(_push_backup(logger=state.logger, backup_id=backup_id, destination=destination))
 
@@ -1799,12 +1799,12 @@ def backup_run_schedule(state: Context, domain: str) -> None:
     Run an application's backup schedule now (local backup, retention, destinations).
 
     This is what a scheduled timer's service unit runs. An operator wants
-    'wasm backup create' or 'wasm backup schedule create' instead.
+    'noust backup create' or 'noust backup schedule create' instead.
     """
     _finish(_run_schedule(logger=state.logger, domain=domain))
 
 
-@backup.group("destination", cls=WasmGroup)
+@backup.group("destination", cls=NoustGroup)
 def backup_destination() -> None:
     """
     Manage remote backup destinations (rclone).
@@ -2090,7 +2090,7 @@ def schedule_update(
     Retention is the exception: left out, it stays what the schedule has, so
     changing a schedule never changes which backups it deletes by accident.
     """
-    from wasm.core.store import get_store
+    from noust.core.store import get_store
 
     record = get_store().get_backup_schedule(domain)
     _finish(
@@ -2157,9 +2157,9 @@ def rollback(state: Context, domain: str, backup_id: str | None, no_rebuild: boo
 
 def handle_backup(args: Namespace) -> int:
     """
-    Handle ``wasm backup <action>`` on the argparse path.
+    Handle ``noust backup <action>`` on the argparse path.
 
-    ``wasm.cli.parser`` is gone and nothing calls this in production; it is
+    ``noust.cli.parser`` is gone and nothing calls this in production; it is
     kept, and tested directly, sharing every helper with the Click commands
     rather than repeating them.
 
@@ -2235,7 +2235,7 @@ def handle_backup(args: Namespace) -> int:
 
 def _handle_backup_schedule(args: Namespace, logger: Logger) -> int:
     """
-    Handle ``wasm backup schedule <action>`` on the argparse path.
+    Handle ``noust backup schedule <action>`` on the argparse path.
 
     Args:
         args: Parsed arguments.
@@ -2270,7 +2270,7 @@ def _handle_backup_schedule(args: Namespace, logger: Logger) -> int:
 
 def handle_rollback(args: Namespace) -> int:
     """
-    Handle ``wasm rollback`` on the argparse path.
+    Handle ``noust rollback`` on the argparse path.
 
     Args:
         args: Parsed arguments.

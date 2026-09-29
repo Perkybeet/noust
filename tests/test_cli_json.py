@@ -9,8 +9,8 @@ handlers that honoured the flag: everything else in fourteen other modules
 accepted it before the subcommand name (the root group declares it
 unconditionally) and then silently printed for a human anyway, which is a
 payload no script could rely on. Every leaf command now does one of two
-things, enforced once by :class:`~wasm.cli.app.WasmCommand` rather than
-per command: it builds a real payload through :func:`~wasm.cli.app.json_option`,
+things, enforced once by :class:`~noust.cli.app.NoustCommand` rather than
+per command: it builds a real payload through :func:`~noust.cli.app.json_option`,
 or it refuses with a usage error. :func:`test_every_leaf_command_handles_json`
 is the sweep that checks this holds for the entire tree, not only the
 commands exercised individually elsewhere in this file and in each module's
@@ -36,10 +36,10 @@ import click
 import pytest
 from click.testing import CliRunner
 
+from noust.cli.app import Context, NoustCommand
+from noust.cli.app import cli as root_cli
+from noust.cli.commands import webapp
 from tests.test_cli_webapp import ServiceSpy, StoreSpy, console, make_app, services, store
-from wasm.cli.app import Context, WasmCommand
-from wasm.cli.app import cli as root_cli
-from wasm.cli.commands import webapp
 
 # Re-exported so pytest discovers them as fixtures in this module too.
 __all__ = ["console", "services", "store"]
@@ -266,7 +266,7 @@ def _leaf_commands() -> list[tuple[str, click.Command]]:
     """
     Walk the real command tree and collect every leaf (non-group) command.
 
-    Every module is imported through :class:`~wasm.cli.app.LazyGroup`, exactly
+    Every module is imported through :class:`~noust.cli.app.LazyGroup`, exactly
     as a real invocation would, so this sees the tree as it is actually built,
     aliases resolved to one canonical entry each.
 
@@ -303,10 +303,10 @@ def _declares_json_option(command: click.Command) -> bool:
 
     Returns:
         True when the option is declared, whether or not the command is a
-        :class:`~wasm.cli.app.WasmCommand` (``diagnose`` and ``health`` are
+        :class:`~noust.cli.app.NoustCommand` (``diagnose`` and ``health`` are
         bare ``click.Command``\\ s that declare it directly).
     """
-    from wasm.cli.app import _adopt_json
+    from noust.cli.app import _adopt_json
 
     return any(
         isinstance(param, click.Option) and param.callback is _adopt_json
@@ -321,14 +321,14 @@ def test_every_leaf_command_handles_json(path: str) -> None:
     """
     Every leaf command either builds a JSON payload or refuses the flag.
 
-    A command that declares :func:`~wasm.cli.app.json_option` is trusted to
+    A command that declares :func:`~noust.cli.app.json_option` is trusted to
     build a real payload - that behaviour is pinned for each one individually
     above and in every module's own test file. Everything else has to refuse
     ``--json`` outright: constructing the command's context with the shared
     ``Context`` already carrying ``json_output=True`` (rather than parsing
     ``["--json"]``, which would fail on a command's other required arguments
     for a reason that has nothing to do with this) reaches
-    :meth:`~wasm.cli.app.WasmCommand.invoke`'s check before any argument
+    :meth:`~noust.cli.app.NoustCommand.invoke`'s check before any argument
     would ever be read, so this holds regardless of what else the command
     needs.
     """
@@ -345,7 +345,7 @@ def test_every_leaf_command_handles_json(path: str) -> None:
 def test_every_leaf_command_without_json_support_is_a_wasm_command() -> None:
     """
     The refusal in the test above only fires through
-    :class:`~wasm.cli.app.WasmCommand`. A plain ``click.Command`` that does
+    :class:`~noust.cli.app.NoustCommand`. A plain ``click.Command`` that does
     not declare ``json_option`` would accept ``--json`` before its name
     (the root group parses it unconditionally) and silently print for a
     human anyway - the defect this whole file exists to catch. ``diagnose``
@@ -355,7 +355,7 @@ def test_every_leaf_command_without_json_support_is_a_wasm_command() -> None:
     offenders = [
         path
         for path, command in LEAF_COMMANDS
-        if not _declares_json_option(command) and not isinstance(command, WasmCommand)
+        if not _declares_json_option(command) and not isinstance(command, NoustCommand)
     ]
 
     assert offenders == []

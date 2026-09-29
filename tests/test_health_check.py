@@ -21,20 +21,20 @@ from typing import Any
 
 import pytest
 
-from wasm.core.exceptions import DeploymentError, ValidationError, WASMError
-from wasm.core.logger import Logger
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, WASMStore
-from wasm.deployers import lifecycle
-from wasm.deployers.helpers import health as health_module
-from wasm.deployers.helpers.health_gate import (
+from noust.core.exceptions import DeploymentError, NoustError, ValidationError
+from noust.core.logger import Logger
+from noust.core.runner import FakeRunner
+from noust.core.store import App, NoustStore
+from noust.deployers import lifecycle
+from noust.deployers.helpers import health as health_module
+from noust.deployers.helpers.health_gate import (
     DEFAULT_HEALTH_TIMEOUT,
     HEALTH_GATE_ATTEMPTS,
     HEALTH_GATE_DELAY,
     HealthCheck,
     HealthGate,
 )
-from wasm.validators.health import (
+from noust.validators.health import (
     check_health_expect,
     check_health_path,
     check_health_timeout,
@@ -46,14 +46,14 @@ DOMAIN = "shop.example.com"
 @pytest.fixture
 def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
     """A store of the test's own, where the lifecycle looks for it."""
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     monkeypatch.setattr(lifecycle, "get_store", lambda: instance)
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
-def _register(store: WASMStore, **fields: Any) -> App:
+def _register(store: NoustStore, **fields: Any) -> App:
     """Register the test application."""
     values: dict[str, Any] = {
         "domain": DOMAIN,
@@ -154,7 +154,7 @@ def test_a_timeout_outside_5_to_600_seconds_is_refused(timeout: Any) -> None:
         check_health_timeout(timeout)
 
 
-def test_the_store_refuses_a_bad_setting_and_writes_nothing(store: WASMStore) -> None:
+def test_the_store_refuses_a_bad_setting_and_writes_nothing(store: NoustStore) -> None:
     """The store is the chokepoint: no caller can put an unusable value in the row."""
     _register(store)
 
@@ -170,7 +170,7 @@ def test_the_store_refuses_a_bad_setting_and_writes_nothing(store: WASMStore) ->
     assert (app.health_path, app.health_expect, app.health_timeout) == (None, None, None)
 
 
-def test_the_store_keeps_the_normalised_setting(store: WASMStore) -> None:
+def test_the_store_keeps_the_normalised_setting(store: NoustStore) -> None:
     _register(store)
 
     assert store.set_app_health(DOMAIN, path="/healthz", expect="200 , 204", timeout=60)
@@ -179,9 +179,9 @@ def test_the_store_keeps_the_normalised_setting(store: WASMStore) -> None:
     assert not store.set_app_health("other.example.com", path=None, expect=None, timeout=None)
 
 
-def test_a_redeploy_keeps_the_health_settings(store: WASMStore) -> None:
+def test_a_redeploy_keeps_the_health_settings(store: NoustStore) -> None:
     """A deploy rewrites the whole row; the operator's settings are not its to drop."""
-    from wasm.deployers.helpers.registration import StoreRegistrar
+    from noust.deployers.helpers.registration import StoreRegistrar
 
     _register(store)
     store.set_app_health(DOMAIN, path="/healthz", expect="200", timeout=45)
@@ -310,7 +310,7 @@ def test_an_expectation_can_refuse_a_200(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 def test_an_activation_gate_is_built_from_the_row(
-    store: WASMStore, monkeypatch: pytest.MonkeyPatch
+    store: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Rollbacks, migrations and limits restarts go through health_gate_for: same settings."""
     app = _register(store, health_path="/healthz", health_expect="200-299", health_timeout=10)
@@ -327,9 +327,9 @@ def test_an_activation_gate_is_built_from_the_row(
     assert kwargs["accept"](204) and not kwargs["accept"](302)
 
 
-def test_a_deploy_gate_is_built_from_the_row(store: WASMStore, runner: FakeRunner) -> None:
+def test_a_deploy_gate_is_built_from_the_row(store: NoustStore, runner: FakeRunner) -> None:
     """The deployer's own gate reads the same settings as an activation's."""
-    from wasm.deployers.nodejs import NodeJSDeployer
+    from noust.deployers.nodejs import NodeJSDeployer
 
     deployer = NodeJSDeployer()
     deployer.domain = DOMAIN
@@ -352,7 +352,7 @@ def test_a_deploy_gate_is_built_from_the_row(store: WASMStore, runner: FakeRunne
 # ---------------------------------------------------------------------------
 
 
-def test_set_health_check_records_the_settings(store: WASMStore) -> None:
+def test_set_health_check_records_the_settings(store: NoustStore) -> None:
     _register(store)
 
     app = lifecycle.set_health_check(DOMAIN, path="/healthz", expect="200-399", timeout=120)
@@ -362,8 +362,8 @@ def test_set_health_check_records_the_settings(store: WASMStore) -> None:
     assert (reset.health_path, reset.health_expect, reset.health_timeout) == (None, None, None)
 
 
-def test_set_health_check_refuses_an_unknown_app_and_a_static_site(store: WASMStore) -> None:
-    with pytest.raises(WASMError, match="not found"):
+def test_set_health_check_refuses_an_unknown_app_and_a_static_site(store: NoustStore) -> None:
+    with pytest.raises(NoustError, match="not found"):
         lifecycle.set_health_check(DOMAIN, path="/healthz", expect=None, timeout=None)
 
     _register(store, app_type="static", is_static=True, port=None)

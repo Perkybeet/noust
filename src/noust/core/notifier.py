@@ -17,7 +17,7 @@ Channels and the payload each one receives:
 - **slack** - Slack incoming webhook, ``{"text": "..."}``.
 - **discord** - Discord webhook, ``{"content": "..."}``.
 - **telegram** - Bot API ``sendMessage``, ``{"chat_id": ..., "text": ...}``.
-- **email** - delegates to :class:`wasm.monitor.email_notifier.EmailNotifier`,
+- **email** - delegates to :class:`noust.monitor.email_notifier.EmailNotifier`,
   so there is exactly one SMTP implementation.
 
 Four rules hold everywhere:
@@ -36,7 +36,7 @@ Four rules hold everywhere:
 
 A fourth rule is enforced by :func:`_require_public_destination` rather than
 by convention: a notification channel is *configured* by whoever can write to
-``/etc/wasm/config.yaml``, but *delivering* one means this process making an
+``/etc/noust/config.yaml``, but *delivering* one means this process making an
 outbound request with attacker-influenced content, from the same machine that
 runs systemd as root. A webhook URL of ``http://169.254.169.254/latest/...``
 or ``http://127.0.0.1:8080/api/...`` would turn "send a notification" into a
@@ -80,15 +80,15 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request
 
-from wasm import __version__
-from wasm.core.background import BackgroundQueue
-from wasm.core.config import Config
-from wasm.core.exceptions import WASMError
-from wasm.core.messages import Locale, message, normalize_locale
-from wasm.validators.telegram import validate_telegram_chat_id
+from noust import __version__
+from noust.core.background import BackgroundQueue
+from noust.core.config import Config
+from noust.core.exceptions import NoustError
+from noust.core.messages import Locale, message, normalize_locale
+from noust.validators.telegram import validate_telegram_chat_id
 
 if TYPE_CHECKING:
-    from wasm.monitor.email_notifier import EmailNotifier
+    from noust.monitor.email_notifier import EmailNotifier
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +97,7 @@ logger = logging.getLogger(__name__)
 #: side, and the caller's work must not wait on it.
 NOTIFY_TIMEOUT = 10
 
-#: Identifies WASM to the receiving endpoint.
+#: Identifies Noust to the receiving endpoint.
 USER_AGENT = f"wasm-notifier/{__version__}"
 
 #: Event kinds an operator can switch off under ``notifications.events``.
@@ -107,7 +107,7 @@ USER_AGENT = f"wasm-notifier/{__version__}"
 #: the same pattern that keeps the web security defaults honest.
 #:
 #: ``deploy_started`` and ``deploy_rolled_back`` are published by
-#: :mod:`wasm.core.deploy_notifications`, the default subscriber of every
+#: :mod:`noust.core.deploy_notifications`, the default subscriber of every
 #: deployment in every process - CLI, console jobs and the webhook alike -
 #: alongside ``deploy_success`` and ``deploy_failed``. ``deploy_started``
 #: ships off by default (DEFAULT_CONFIG): it fires once per deployment
@@ -187,9 +187,9 @@ _REDACTED = "***"
 #: What delivery can raise; the per-channel guard catches exactly this and
 #: nothing broader. OSError covers URLError, HTTPError and timeouts;
 #: ValueError is urllib refusing a malformed URL (quoting it in the message);
-#: HTTPException is the server breaking the protocol mid-response; WASMError
+#: HTTPException is the server breaking the protocol mid-response; NoustError
 #: is the email transport reporting a delivery problem.
-_DELIVERY_ERRORS = (OSError, ValueError, HTTPException, WASMError)
+_DELIVERY_ERRORS = (OSError, ValueError, HTTPException, NoustError)
 
 #: The setting the test-button error names when a channel is not configured.
 _SETTING_HINTS = {
@@ -205,7 +205,7 @@ _SETTING_HINTS = {
 #: real socket.
 Opener = Callable[..., Any]
 
-#: Address family alias, matching wasm.core.net's.
+#: Address family alias, matching noust.core.net's.
 _IPAddress = ipaddress.IPv4Address | ipaddress.IPv6Address
 
 #: Networks a notification destination must not resolve into, unless the host
@@ -971,8 +971,8 @@ class Notifier:
 
         Returns:
             ``notifications.language``, normalised by
-            :func:`wasm.core.messages.normalize_locale` -
-            :data:`~wasm.core.messages.DEFAULT_LOCALE` for anything unset or
+            :func:`noust.core.messages.normalize_locale` -
+            :data:`~noust.core.messages.DEFAULT_LOCALE` for anything unset or
             not one of the two catalogued locales.
         """
         return normalize_locale(self._settings().get("language"))
@@ -994,7 +994,7 @@ class Notifier:
             OSError: When the endpoint is unreachable or rejects the message.
             ValueError: When the configured URL or token is malformed, or the
                 destination resolves inside a forbidden network.
-            WASMError: When the email transport reports a problem.
+            NoustError: When the email transport reports a problem.
         """
         if name == "email":
             return self._send_email(event, channels.get("email") or {})
@@ -1059,7 +1059,7 @@ class Notifier:
             channel is off or SMTP is not configured.
 
         Raises:
-            WASMError: When the transport refuses the settings or delivery
+            NoustError: When the transport refuses the settings or delivery
                 fails.
         """
         if not channel.get("enabled", False):
@@ -1067,7 +1067,7 @@ class Notifier:
 
         # Deferred import: the monitor publishes events to this module, so a
         # module-level import in both directions would be a cycle.
-        from wasm.monitor.email_notifier import EmailContent, EmailNotifier
+        from noust.monitor.email_notifier import EmailContent, EmailNotifier
 
         notifier = self._email_notifier
         if notifier is None:
@@ -1087,7 +1087,7 @@ class Notifier:
         # exists to prevent.
         notifier._send(
             EmailContent(
-                subject=f"[WASM] {event.title}",
+                subject=f"[Noust] {event.title}",
                 text=_message_text(event),
                 html=html,
             )
@@ -1133,7 +1133,7 @@ def _channel_secrets(channels: dict[str, Any]) -> tuple[str, ...]:
 #: The one worker every notification of this process is delivered on, first
 #: in first out: a thread per event let a fast "failed" reach the channel
 #: before the "Deploying" published a moment earlier. It is drained, under a
-#: hard cap, when the process exits (wasm.core.background).
+#: hard cap, when the process exits (noust.core.background).
 NOTIFICATION_QUEUE = BackgroundQueue("wasm-notify")
 
 
@@ -1143,7 +1143,7 @@ def notify_in_background(event: NotificationEvent) -> None:
 
     The configuration is read afresh from disk for each notification, so a
     settings change applies to the next event without a restart - but into
-    a detached :meth:`~wasm.core.config.Config.snapshot`, never by reloading
+    a detached :meth:`~noust.core.config.Config.snapshot`, never by reloading
     the instance every other thread of the process is reading.
 
     Args:
@@ -1172,6 +1172,6 @@ def fresh_config() -> Config:
     """
     try:
         return Config.snapshot()
-    except (OSError, WASMError) as exc:
+    except (OSError, NoustError) as exc:
         logger.warning("Configuration could not be re-read for a notification: %s", exc)
         return Config()

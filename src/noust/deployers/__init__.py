@@ -1,9 +1,9 @@
-"""Deployers for WASM."""
+"""Deployers for Noust."""
 
-from wasm.deployers.base import BaseDeployer
-from wasm.deployers.docker_compose import DockerComposeDeployer
-from wasm.deployers.monorepo import MonorepoDeployer
-from wasm.deployers.registry import DeployerRegistry, detect_app_type, get_deployer
+from noust.deployers.base import BaseDeployer
+from noust.deployers.docker_compose import DockerComposeDeployer
+from noust.deployers.monorepo import MonorepoDeployer
+from noust.deployers.registry import DeployerRegistry, detect_app_type, get_deployer
 
 __all__ = [
     "BaseDeployer",

@@ -1,7 +1,7 @@
 /**
  * The sign-in protection the panel is configured with, read from the `web` block of the
  * configuration. These are the values in config.yaml (merged over the shipped defaults); the
- * panel reads them when it starts, so an edit applies after `wasm web restart`.
+ * panel reads them when it starts, so an edit applies after `noust web restart`.
  */
 
 import type { ConsoleConfig } from "../../api/queries/config";

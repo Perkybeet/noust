@@ -16,7 +16,7 @@ from urllib.parse import parse_qs, unquote, urlsplit
 
 import pytest
 
-from wasm.core import totp
+from noust.core import totp
 
 #: The RFC 6238 test secret, ASCII "12345678901234567890", as base32.
 RFC_SECRET = base64.b32encode(b"12345678901234567890").decode("ascii")
@@ -136,5 +136,5 @@ def test_provisioning_uri_defaults_name_the_product() -> None:
     """The defaults must produce a scannable URI without any arguments."""
     uri = totp.provisioning_uri(RFC_SECRET)
 
-    assert uri.startswith("otpauth://totp/WASM%3Aadmin?secret=")
-    assert "issuer=WASM" in uri
+    assert uri.startswith("otpauth://totp/Noust%3Aadmin?secret=")
+    assert "issuer=Noust" in uri

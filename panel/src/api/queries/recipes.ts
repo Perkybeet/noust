@@ -13,7 +13,7 @@ export const recipeKeys = {
   detail: (name: string) => ["recipes", "detail", name] as const,
 };
 
-/** The recipes this release ships, the deployable ones first. They change only with WASM. */
+/** The recipes this release ships, the deployable ones first. They change only with Noust. */
 export const recipesQuery = () =>
   queryOptions({
     queryKey: recipeKeys.list,

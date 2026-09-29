@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The seam through which WASM changes the filesystem.
+The seam through which Noust changes the filesystem.
 
-:mod:`wasm.core.runner` made ``--dry-run`` true for anything WASM *executes*.
-It was not true for anything WASM *writes*, and an adversarial review proved
-it: ``wasm --dry-run backup delete <id> --force`` printed "no changes will be
+:mod:`noust.core.runner` made ``--dry-run`` true for anything Noust *executes*.
+It was not true for anything Noust *writes*, and an adversarial review proved
+it: ``noust --dry-run backup delete <id> --force`` printed "no changes will be
 made to this machine" and then deleted the archive, because the deletion is a
 ``Path.unlink`` and never went near a subprocess.
 
@@ -107,6 +107,27 @@ class FileSystem(ABC):
         """
 
     @abstractmethod
+    def rename(self, source: Path, destination: Path) -> None:
+        """
+        Rename a file or directory in one step, on the same filesystem only.
+
+        Unlike :meth:`move`, which falls back to copying and deleting when the
+        two paths are on different filesystems, this fails instead: a copy
+        interrupted halfway leaves two partial trees, and the callers that
+        need a rename (the migration from WASM's paths) must be able to say
+        "this was not done" rather than "this was half done".
+
+        Args:
+            source: What to rename.
+            destination: Its new name, which must not exist as a non-empty
+                directory.
+
+        Raises:
+            OSError: ``EXDEV`` when the paths are on different filesystems,
+                or whatever rename(2) reports.
+        """
+
+    @abstractmethod
     def copy_tree(self, source: Path, destination: Path) -> None:
         """
         Copy a directory recursively.
@@ -203,6 +224,9 @@ class RealFileSystem(FileSystem):
     def move(self, source: Path, destination: Path) -> None:
         shutil.move(str(source), str(destination))
 
+    def rename(self, source: Path, destination: Path) -> None:
+        os.rename(source, destination)
+
     def copy_tree(self, source: Path, destination: Path) -> None:
         # symlinks=True: a link in the source tree is copied as a link rather
         # than followed, so a source containing a link to /etc/passwd does not
@@ -275,6 +299,9 @@ class DryRunFileSystem(FileSystem):
     def move(self, source: Path, destination: Path) -> None:
         self._skip(f"would move {source} to {destination}")
 
+    def rename(self, source: Path, destination: Path) -> None:
+        self._skip(f"would rename {source} to {destination}")
+
     def copy_tree(self, source: Path, destination: Path) -> None:
         self._skip(f"would copy {source} to {destination}")
 
@@ -317,6 +344,10 @@ class RecordingFileSystem(RealFileSystem):
     def move(self, source: Path, destination: Path) -> None:
         self.changes.append(("move", source))
         super().move(source, destination)
+
+    def rename(self, source: Path, destination: Path) -> None:
+        self.changes.append(("rename", source))
+        super().rename(source, destination)
 
     def copy_tree(self, source: Path, destination: Path) -> None:
         self.changes.append(("copy_tree", source))

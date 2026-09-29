@@ -4,7 +4,7 @@
 """
 Tests for changing how many releases an application keeps.
 
-:func:`wasm.deployers.lifecycle.set_release_retention` is what ``wasm
+:func:`noust.deployers.lifecycle.set_release_retention` is what ``wasm
 releases keep`` and ``PATCH /api/apps/{d}/releases/retention`` both call.
 Pinned here: the value is validated where it is stored, the releases beyond
 it are pruned at once rather than at the next deploy, and pruning never takes
@@ -18,9 +18,9 @@ from typing import Any
 
 import pytest
 
-from wasm.core.exceptions import DeploymentError, ValidationError
-from wasm.core.store import App, ReleaseRecord, WASMStore
-from wasm.deployers import lifecycle
+from noust.core.exceptions import DeploymentError, ValidationError
+from noust.core.store import App, NoustStore, ReleaseRecord
+from noust.deployers import lifecycle
 
 DOMAIN = "rel.example.com"
 #: Oldest first.
@@ -32,14 +32,14 @@ FAILED = "20260925-110000-bbbbbbb"
 @pytest.fixture
 def store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
     """A store of the test's own, where the lifecycle looks for it."""
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     monkeypatch.setattr(lifecycle, "get_store", lambda: instance)
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
-def releases_app(store: WASMStore, root: Path, *, active: str = IDS[-1]) -> App:
+def releases_app(store: NoustStore, root: Path, *, active: str = IDS[-1]) -> App:
     """
     Five releases on disk and in the store, one failed row, ``current`` at ``active``.
 
@@ -75,7 +75,7 @@ def on_disk(root: Path) -> set[str]:
     return {path.name for path in (root / "releases").iterdir()}
 
 
-def test_lowering_the_retention_prunes_at_once(store: WASMStore, tmp_path: Path) -> None:
+def test_lowering_the_retention_prunes_at_once(store: NoustStore, tmp_path: Path) -> None:
     """The newest two stay; the rest and their rows go, including the stale failure."""
     root = tmp_path / "rel"
     app = releases_app(store, root)
@@ -90,7 +90,7 @@ def test_lowering_the_retention_prunes_at_once(store: WASMStore, tmp_path: Path)
 
 
 def test_pruning_keeps_the_active_release_and_its_rollback_target(
-    store: WASMStore, tmp_path: Path
+    store: NoustStore, tmp_path: Path
 ) -> None:
     """After a rollback the active release is old; it and the one before it survive keep=1."""
     root = tmp_path / "rel"
@@ -102,7 +102,7 @@ def test_pruning_keeps_the_active_release_and_its_rollback_target(
     assert sorted(change.pruned) == sorted([IDS[2], IDS[3]])
 
 
-def test_raising_the_retention_removes_nothing(store: WASMStore, tmp_path: Path) -> None:
+def test_raising_the_retention_removes_nothing(store: NoustStore, tmp_path: Path) -> None:
     root = tmp_path / "rel"
     app = releases_app(store, root)
 
@@ -115,7 +115,7 @@ def test_raising_the_retention_removes_nothing(store: WASMStore, tmp_path: Path)
 
 @pytest.mark.parametrize("keep", [0, -3, 51, 1000])
 def test_a_retention_outside_1_to_50_is_refused_and_nothing_is_pruned(
-    store: WASMStore, tmp_path: Path, keep: int
+    store: NoustStore, tmp_path: Path, keep: int
 ) -> None:
     root = tmp_path / "rel"
     releases_app(store, root)
@@ -127,7 +127,7 @@ def test_a_retention_outside_1_to_50_is_refused_and_nothing_is_pruned(
     assert store.get_app(DOMAIN).keep_releases == 5
 
 
-def test_the_store_refuses_a_retention_outside_1_to_50(store: WASMStore, tmp_path: Path) -> None:
+def test_the_store_refuses_a_retention_outside_1_to_50(store: NoustStore, tmp_path: Path) -> None:
     """The chokepoint: the store itself will not hold a value pruning cannot honour."""
     store.create_app(App(domain=DOMAIN, app_type="nodejs", app_path=str(tmp_path)))
 
@@ -137,7 +137,7 @@ def test_the_store_refuses_a_retention_outside_1_to_50(store: WASMStore, tmp_pat
     assert store.get_app(DOMAIN).keep_releases == 50
 
 
-def test_an_in_place_application_has_no_releases_to_keep(store: WASMStore, tmp_path: Path) -> None:
+def test_an_in_place_application_has_no_releases_to_keep(store: NoustStore, tmp_path: Path) -> None:
     store.create_app(App(domain=DOMAIN, app_type="nodejs", app_path=str(tmp_path)))
 
     with pytest.raises(DeploymentError, match="in place"):

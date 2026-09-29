@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-A typed catalog of WASM's own words in every notification WASM sends.
+A typed catalog of Noust's own words in every notification Noust sends.
 
-2.3 adds ``notifications.language`` (see :data:`wasm.core.config.DEFAULT_CONFIG`):
+2.3 adds ``notifications.language`` (see :data:`noust.core.config.DEFAULT_CONFIG`):
 an operator can read a deploy failure or a disk warning in Spanish instead of
 English. This module is the one place that pairing lives - every title and
 body a notification carries is a key here, in both locales, never built by
@@ -12,11 +12,11 @@ concatenating translated fragments, because word order is not the same
 sentence in both languages.
 
 What this catalog is not for: the evidence inside a body - a health gate's
-probes, a journal line, rclone's or certbot's own stderr, a :class:`WASMError`
+probes, a journal line, rclone's or certbot's own stderr, a :class:`NoustError`
 message - is never a value in :data:`MESSAGES`. That text stays in English
 and reaches the operator verbatim, exactly as the console shows it, because
 paraphrasing another program's own words is how an operator stops trusting
-what WASM tells them. A caller passes it in as a ``str.format`` parameter of
+what Noust tells them. A caller passes it in as a ``str.format`` parameter of
 a key that translates only the sentence around it.
 
 The CLI and every other server-generated string are out of scope for 2.3 (see
@@ -35,12 +35,12 @@ Locale = Literal["en", "es"]
 #: What an unset or unrecognised ``notifications.language`` falls back to.
 DEFAULT_LOCALE: Locale = "en"
 
-#: Every notification text WASM builds, keyed by a short name and then by
+#: Every notification text Noust builds, keyed by a short name and then by
 #: locale. ``tests/test_messages.py`` enforces the invariant a Python dict
 #: cannot: both locales define exactly the same keys, with exactly the same
 #: ``str.format`` placeholders, and neither text is empty.
 MESSAGES: dict[str, dict[Locale, str]] = {
-    # -- Deploys (wasm.core.deploy_notifications, wasm.web.server) ----------
+    # -- Deploys (noust.core.deploy_notifications, noust.web.server) ----------
     "deploy_started_title": {
         "en": "Deploying {domain}",
         "es": "Desplegando {domain}",
@@ -53,7 +53,7 @@ MESSAGES: dict[str, dict[Locale, str]] = {
         "en": "{domain} failed to deploy",
         "es": "No se ha podido desplegar {domain}",
     },
-    # wasm.web.server.JobNotificationSubscriber's fallback for a deploy,
+    # noust.web.server.JobNotificationSubscriber's fallback for a deploy,
     # update or rollback job that failed before the recorder opened and
     # carries no domain in its metadata - the job's own English name (console
     # text, out of scope per the module docstring) is the placeholder rather
@@ -82,7 +82,7 @@ MESSAGES: dict[str, dict[Locale, str]] = {
         "en": "Preview of {parent}.",
         "es": "Vista previa de {parent}.",
     },
-    # -- Backup restores (wasm.web.server) -----------------------------------
+    # -- Backup restores (noust.web.server) -----------------------------------
     "restore_succeeded_title": {
         "en": "{domain} restored",
         "es": "Se ha restaurado {domain}",
@@ -107,7 +107,7 @@ MESSAGES: dict[str, dict[Locale, str]] = {
         "en": "Restore failed",
         "es": "No se ha podido completar la restauración",
     },
-    # -- A backup job's own failure (wasm.web.server) ------------------------
+    # -- A backup job's own failure (noust.web.server) ------------------------
     "backup_job_failed_title": {
         "en": "Backup of {domain} failed",
         "es": "La copia de seguridad de {domain} ha fallado",
@@ -116,26 +116,26 @@ MESSAGES: dict[str, dict[Locale, str]] = {
         "en": "Backup failed",
         "es": "La copia de seguridad ha fallado",
     },
-    # -- Scheduled backups (wasm.managers.backup_scheduler) ------------------
+    # -- Scheduled backups (noust.managers.backup_scheduler) ------------------
     "backup_schedule_missing_title": {
         "en": "Backup schedule settings missing: {domain}",
         "es": "Faltan los ajustes de la copia de seguridad programada: {domain}",
     },
     "backup_schedule_missing_body": {
         "en": (
-            "The timer for {domain} fired but WASM's store has no schedule for it, so the "
+            "The timer for {domain} fired but Noust's store has no schedule for it, so the "
             "backup was taken as 2.1 took it: databases included, backup.max_per_app "
-            "rotation, no remote destinations. Check which store WASM is using "
-            "(/var/lib/wasm), then save the schedule again with 'wasm backup schedule "
+            "rotation, no remote destinations. Check which store Noust is using "
+            "(/var/lib/noust), then save the schedule again with 'noust backup schedule "
             "update {domain}' or from the console."
         ),
         "es": (
-            "El temporizador de {domain} se ha activado, pero el almacén de WASM no "
+            "El temporizador de {domain} se ha activado, pero el almacén de Noust no "
             "tiene una programación para él, así que la copia de seguridad "
             "se ha hecho como en 2.1: con las bases de datos incluidas, rotación por "
             "backup.max_per_app y sin destinos remotos. Comprueba qué almacén "
-            "está usando WASM (/var/lib/wasm) y vuelve a guardar la programación "
-            "con 'wasm backup schedule update {domain}' o desde la consola."
+            "está usando Noust (/var/lib/noust) y vuelve a guardar la programación "
+            "con 'noust backup schedule update {domain}' o desde la consola."
         ),
     },
     "backup_scheduled_failed_title": {
@@ -146,7 +146,7 @@ MESSAGES: dict[str, dict[Locale, str]] = {
         "en": "Backup upload to {name} failed: {domain}",
         "es": "No se ha podido subir la copia de seguridad de {domain} a {name}",
     },
-    # -- The monitor daemon (wasm.monitor.process_monitor) -------------------
+    # -- The monitor daemon (noust.monitor.process_monitor) -------------------
     "disk_threshold_title": {
         "en": "Disk usage at {percent}% on {mountpoint}",
         "es": "Uso de disco al {percent}% en {mountpoint}",
@@ -167,8 +167,8 @@ MESSAGES: dict[str, dict[Locale, str]] = {
         "es": "El certificado de {name} caduca en {days} {unit}",
     },
     "cert_expiring_body": {
-        "en": "{covers} expires on {expiry}. Renew it with: wasm cert renew {name}",
-        "es": "{covers} caduca el {expiry}. Renuévalo con: wasm cert renew {name}",
+        "en": "{covers} expires on {expiry}. Renew it with: noust cert renew {name}",
+        "es": "{covers} caduca el {expiry}. Renuévalo con: noust cert renew {name}",
     },
     "unit_failed_title_failed": {
         "en": "Unit {unit} failed",
@@ -186,27 +186,27 @@ MESSAGES: dict[str, dict[Locale, str]] = {
         "en": "{detail}\nInspect it with: systemctl status {unit} and journalctl -u {unit} -n 50",
         "es": "{detail}\nRevísalo con: systemctl status {unit} y journalctl -u {unit} -n 50",
     },
-    # -- The settings page's "send a test" button (wasm.core.notifier) ------
+    # -- The settings page's "send a test" button (noust.core.notifier) ------
     "test_notification_title": {
-        "en": "WASM test notification",
-        "es": "Notificación de prueba de WASM",
+        "en": "Noust test notification",
+        "es": "Notificación de prueba de Noust",
     },
     "test_notification_body": {
         "en": "Receiving this means the {channel} channel is configured correctly.",
         "es": "Si recibes esto, el canal {channel} está bien configurado.",
     },
-    # -- The monitor's own SMTP report (wasm.monitor.email_notifier) --------
-    # This is a second delivery path from wasm.core.notifier's multi-channel
+    # -- The monitor's own SMTP report (noust.monitor.email_notifier) --------
+    # This is a second delivery path from noust.core.notifier's multi-channel
     # one above: EmailNotifier renders its own EmailContent directly, rather
     # than a NotificationEvent already built from this catalog, so it reads
     # notifications.language for itself.
     "email_observations_subject": {
-        "en": "[WASM] {count} process observation(s) on {hostname}",
-        "es": "[WASM] {count} observación(es) de proceso en {hostname}",
+        "en": "[Noust] {count} process observation(s) on {hostname}",
+        "es": "[Noust] {count} observación(es) de proceso en {hostname}",
     },
     "email_observations_heading": {
-        "en": "WASM monitor - process observations",
-        "es": "WASM monitor - observaciones de procesos",
+        "en": "Noust monitor - process observations",
+        "es": "Noust monitor - observaciones de procesos",
     },
     "email_server_line": {
         "en": "Server: {hostname}",
@@ -231,12 +231,12 @@ MESSAGES: dict[str, dict[Locale, str]] = {
         ),
     },
     "email_test_subject": {
-        "en": "[WASM] Test email - {hostname}",
-        "es": "[WASM] Correo de prueba - {hostname}",
+        "en": "[Noust] Test email - {hostname}",
+        "es": "[Noust] Correo de prueba - {hostname}",
     },
     "email_test_heading": {
-        "en": "WASM monitor - test email",
-        "es": "WASM monitor - correo de prueba",
+        "en": "Noust monitor - test email",
+        "es": "Noust monitor - correo de prueba",
     },
     "email_test_body": {
         "en": "Receiving this means monitor notifications are configured correctly.",
@@ -262,7 +262,7 @@ def normalize_locale(value: Any) -> Locale:
 
     Args:
         value: Whatever ``notifications.language`` holds - normally already
-            validated by :mod:`wasm.core.config`, but this is also the one
+            validated by :mod:`noust.core.config`, but this is also the one
             place a stale or hand-edited config file's value is made safe to
             index :data:`MESSAGES` with.
 
@@ -276,7 +276,7 @@ def normalize_locale(value: Any) -> Locale:
 
 def message(key: str, locale: Locale, **params: Any) -> str:
     """
-    Render one of WASM's own notification texts.
+    Render one of Noust's own notification texts.
 
     Args:
         key: A key of :data:`MESSAGES`.

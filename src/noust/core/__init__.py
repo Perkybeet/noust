@@ -1,10 +1,10 @@
-"""Core modules for WASM."""
+"""Core modules for Noust."""
 
-from wasm.core.config import Config
-from wasm.core.exceptions import WASMError
-from wasm.core.logger import Logger
-from wasm.core.notifier import NotificationEvent, Notifier
-from wasm.core.store import (
+from noust.core.config import Config
+from noust.core.exceptions import NoustError
+from noust.core.logger import Logger
+from noust.core.notifier import NotificationEvent, Notifier
+from noust.core.store import (
     App,
     AppStatus,
     AppType,
@@ -12,9 +12,9 @@ from wasm.core.store import (
     DatabaseEngine,
     DatabaseUser,
     MonorepoWorkspace,
+    NoustStore,
     Service,
     Site,
-    WASMStore,
     WebServer,
     get_store,
 )
@@ -31,10 +31,10 @@ __all__ = [
     "MonorepoWorkspace",
     "NotificationEvent",
     "Notifier",
+    "NoustError",
+    "NoustStore",
     "Service",
     "Site",
-    "WASMError",
-    "WASMStore",
     "WebServer",
     "get_store",
 ]

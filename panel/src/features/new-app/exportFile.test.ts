@@ -22,11 +22,11 @@ describe("reading an export file", () => {
 
   it("says clearly what is wrong with a file that is not one", () => {
     expect(readExport("not json")).toEqual({ problem: expect.stringMatching(/not JSON/) as string });
-    expect(readExport(JSON.stringify({ format: "something-else", version: 1 }))).toEqual({ problem: expect.stringMatching(/not a WASM application export/) as string });
-    expect(readExport(JSON.stringify([1, 2]))).toEqual({ problem: expect.stringMatching(/not a WASM application export/) as string });
+    expect(readExport(JSON.stringify({ format: "something-else", version: 1 }))).toEqual({ problem: expect.stringMatching(/not a Noust application export/) as string });
+    expect(readExport(JSON.stringify([1, 2]))).toEqual({ problem: expect.stringMatching(/not a Noust application export/) as string });
     expect(readExport(JSON.stringify({ ...EXPORT, version: "1" }))).toEqual({ problem: expect.stringMatching(/not a whole number/) as string });
     expect(readExport(JSON.stringify({ ...EXPORT, version: 2 }))).toEqual({
-      problem: "This export is version 2; this console reads version 1. Upgrade WASM on this server to import it.",
+      problem: "This export is version 2; this console reads version 1. Upgrade Noust on this server to import it.",
     });
     expect(readExport(JSON.stringify({ ...EXPORT, app: { domain: "x.example.com" } }))).toEqual({ problem: expect.stringMatching(/no application in it/) as string });
   });

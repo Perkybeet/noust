@@ -179,15 +179,28 @@ function Item({ t, item }: { t: T; item: AttentionItem }) {
 }
 
 /** Where the block's last rendered height is kept, so the next load reserves as much. */
-export const ATTENTION_HEIGHT_KEY = "wasm.overview.attention-height";
+export const ATTENTION_HEIGHT_KEY = "noust.overview.attention-height";
+/** The key WASM stored this under before the rename; read once, then migrated away. */
+const LEGACY_ATTENTION_HEIGHT_KEY = "wasm.overview.attention-height";
 /** One skeleton row with its divider. */
 const SKELETON_ROW = 63;
+
+function parseHeight(value: string | null): number | null {
+  const parsed = Number(value);
+  return value !== null && Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
 
 /** How tall the block was when the overview last showed it, in CSS pixels; null if unknown. */
 export function rememberedAttentionHeight(): number | null {
   try {
-    const value = Number(window.localStorage.getItem(ATTENTION_HEIGHT_KEY));
-    return Number.isFinite(value) && value > 0 ? value : null;
+    const stored = window.localStorage.getItem(ATTENTION_HEIGHT_KEY);
+    if (stored !== null) return parseHeight(stored);
+    // One-time migration: a height remembered before the rename still applies, moved to the new key.
+    const legacy = window.localStorage.getItem(LEGACY_ATTENTION_HEIGHT_KEY);
+    if (legacy === null) return null;
+    window.localStorage.setItem(ATTENTION_HEIGHT_KEY, legacy);
+    window.localStorage.removeItem(LEGACY_ATTENTION_HEIGHT_KEY);
+    return parseHeight(legacy);
   } catch {
     // Storage can be disabled (privacy modes): the skeleton falls back to its own two rows.
     return null;

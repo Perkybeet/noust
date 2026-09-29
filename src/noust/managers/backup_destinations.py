@@ -4,17 +4,17 @@
 """
 Remote backup destinations, uploaded to with rclone (2.2).
 
-A destination is a name (``wasm backup destination add NAME --type ...``) for
-an rclone remote WASM builds on the fly. rclone itself never sees a
+A destination is a name (``noust backup destination add NAME --type ...``) for
+an rclone remote Noust builds on the fly. rclone itself never sees a
 credentials file: every option a remote needs travels as an
 ``RCLONE_CONFIG_<REMOTE>_<KEY>`` environment variable, built fresh for each
-call from the non-secret :attr:`~wasm.core.store.BackupDestinationRecord.settings`
-column and the secret fields kept in :class:`~wasm.core.secrets.SecretStore`
+call from the non-secret :attr:`~noust.core.store.BackupDestinationRecord.settings`
+column and the secret fields kept in :class:`~noust.core.secrets.SecretStore`
 under ``backup-destinations/<name>``. Nothing is ever written to a
 ``rclone.conf`` on disk, and a password rclone expects obscured (an SFTP,
 SMB or WebDAV password, a crypt passphrase) is obscured through ``rclone
 obscure -`` on its stdin, never as an argument - the same rule
-:mod:`wasm.core.runner` enforces for every other secret.
+:mod:`noust.core.runner` enforces for every other secret.
 
 Optional per-destination encryption wraps the remote in an rclone ``crypt``
 backend, keyed by two passphrases generated with :func:`secrets.token_urlsafe`
@@ -25,10 +25,10 @@ through a sudo-mode API call or the CLI. The same key is accepted back by
 :meth:`BackupDestinationManager.add` (``crypt_key``), which is how a
 replacement server reads what the lost one encrypted; and removing an encrypted
 destination is refused until the caller confirms the key was saved, because
-the removal deletes the only copy WASM has.
+the removal deletes the only copy Noust has.
 
 **One folder per server.** Every backup's sidecar records which server took it
-(:func:`~wasm.managers.backup_manager.server_id`), and remote retention only
+(:func:`~noust.managers.backup_manager.server_id`), and remote retention only
 ever deletes this server's own backups. Two servers sharing a folder no longer
 prune each other, but they still share it: give each server its own folder.
 """
@@ -45,16 +45,16 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from wasm.core.dependencies import RCLONE_DEPENDENCY, dependency_install_hint
-from wasm.core.exceptions import BackupError, DependencyError, ValidationError
-from wasm.core.fs import SECRET_DIR_MODE, FileSystem, get_fs
-from wasm.core.logger import Logger
-from wasm.core.redact import Scrubber
-from wasm.core.runner import CommandRunner, get_runner
-from wasm.core.secrets import SecretStore
-from wasm.core.store import BackupDestinationRecord, WASMStore, get_store
-from wasm.core.utils import domain_to_app_name
-from wasm.managers.backup_manager import (
+from noust.core.dependencies import RCLONE_DEPENDENCY, dependency_install_hint
+from noust.core.exceptions import BackupError, DependencyError, ValidationError
+from noust.core.fs import SECRET_DIR_MODE, FileSystem, get_fs
+from noust.core.logger import Logger
+from noust.core.redact import Scrubber
+from noust.core.runner import CommandRunner, get_runner
+from noust.core.secrets import SecretStore
+from noust.core.store import BackupDestinationRecord, NoustStore, get_store
+from noust.core.utils import domain_to_app_name
+from noust.managers.backup_manager import (
     ARCHIVE_SUFFIX,
     BACKUP_ID_PATTERN,
     BackupManager,
@@ -62,7 +62,7 @@ from wasm.managers.backup_manager import (
     backup_id_of_archive,
     server_id,
 )
-from wasm.validators.names import validate_app_name
+from noust.validators.names import validate_app_name
 
 __all__ = [
     "BACKEND_FIELDS",
@@ -88,7 +88,7 @@ _RCLONE_LIST_TIMEOUT = 60
 #: slow link must not be judged by the same clock as a directory listing.
 _TRANSFER_TIMEOUT = 3600
 
-#: A destination's name is also the rclone remote name WASM builds for it, so
+#: A destination's name is also the rclone remote name Noust builds for it, so
 #: it is restricted to what safely survives being upper-cased into an
 #: environment variable prefix (see :func:`_env_prefix`).
 #: Always used with fullmatch: ``$`` also matches before a trailing newline.
@@ -103,7 +103,7 @@ STAGING_DIR_NAME = ".remote-staging"
 #: Space left free on top of the archive when downloading one.
 _STAGING_HEADROOM = 64 * 1024 * 1024
 
-#: One line of what ``wasm backup destination show-key`` prints:
+#: One line of what ``noust backup destination show-key`` prints:
 #: ``password:  <value>`` or ``password2: <value>``, after the logger's icon.
 _KEY_LINE_RE = re.compile(r"(?<![A-Za-z0-9_])(password2?)\s*:\s*(\S+)\s*$")
 
@@ -126,8 +126,8 @@ class BackendField:
         key: The rclone option name (``pass``, ``access_key_id``...), or
             ``path`` for the one field every backend shares.
         label: Human label for the console's form and the CLI's ``--help``.
-        secret: Stored in :class:`~wasm.core.secrets.SecretStore`, never in
-            :attr:`~wasm.core.store.BackupDestinationRecord.settings`.
+        secret: Stored in :class:`~noust.core.secrets.SecretStore`, never in
+            :attr:`~noust.core.store.BackupDestinationRecord.settings`.
         required: Must be given when the destination is created.
         obscure: Passed through ``rclone obscure -`` before it reaches an
             environment variable, because rclone's own config loader expects
@@ -160,7 +160,7 @@ _PATH_FIELD = BackendField(
 
 #: Fields per backend, in the order a form should ask for them. This is the
 #: one definition rclone's environment variables, the console's destination
-#: form and ``wasm backup destination add --help`` are all built from.
+#: form and ``noust backup destination add --help`` are all built from.
 BACKEND_FIELDS: dict[str, list[BackendField]] = {
     "sftp": [
         BackendField("host", "Host", required=True, help="SSH server address."),
@@ -178,7 +178,7 @@ BACKEND_FIELDS: dict[str, list[BackendField]] = {
             "key_file",
             "Private key path",
             required=False,
-            help="Path to an SSH private key readable by WASM, on this machine.",
+            help="Path to an SSH private key readable by Noust, on this machine.",
         ),
     ],
     "smb": [
@@ -279,7 +279,7 @@ def backend_fields(backend: str) -> list[BackendField]:
         The backend's own fields, then :data:`_PATH_FIELD`.
 
     Raises:
-        BackupError: When ``backend`` is not one WASM knows.
+        BackupError: When ``backend`` is not one Noust knows.
     """
     try:
         own = BACKEND_FIELDS[backend]
@@ -330,12 +330,12 @@ def _checked_crypt_key(password: object, password2: object) -> dict[str, str]:
     if not isinstance(password, str) or not password.strip():
         raise BackupError(
             "The encryption key has no password",
-            details="Both passphrases 'wasm backup destination show-key' printed are needed.",
+            details="Both passphrases 'noust backup destination show-key' printed are needed.",
         )
     if not isinstance(password2, str) or not password2.strip():
         raise BackupError(
             "The encryption key has no password2",
-            details="Both passphrases 'wasm backup destination show-key' printed are needed: "
+            details="Both passphrases 'noust backup destination show-key' printed are needed: "
             "password2 is the salt, and without it nothing decrypts.",
         )
     return {"password": password.strip(), "password2": password2.strip()}
@@ -381,7 +381,7 @@ def parse_crypt_key(text: str) -> dict[str, str]:
         return _checked_crypt_key(lines[0], lines[1])
     raise BackupError(
         "Could not read an encryption key",
-        details="Give what 'wasm backup destination show-key NAME' printed: its "
+        details="Give what 'noust backup destination show-key NAME' printed: its "
         "'password:' and 'password2:' lines, its --json output, or the two passphrases "
         "on two lines.",
     )
@@ -426,7 +426,7 @@ def _remote_path(value: str | None) -> str:
 
 def _secret_namespace(name: str) -> str:
     """
-    Return the :class:`~wasm.core.secrets.SecretStore` name for a destination.
+    Return the :class:`~noust.core.secrets.SecretStore` name for a destination.
 
     Args:
         name: Destination name.
@@ -535,7 +535,7 @@ def _require_rclone(runner: CommandRunner) -> None:
 
     Raises:
         DependencyError: When ``rclone`` is not on PATH, naming how to
-            install it on every distribution WASM supports.
+            install it on every distribution Noust supports.
     """
     if runner.exists("rclone"):
         return
@@ -559,7 +559,7 @@ class BackupDestinationManager:
         self,
         runner: CommandRunner | None = None,
         secrets: SecretStore | None = None,
-        store: WASMStore | None = None,
+        store: NoustStore | None = None,
     ) -> None:
         self._runner = runner
         self._secrets = secrets
@@ -576,7 +576,7 @@ class BackupDestinationManager:
         return self._secrets or SecretStore()
 
     @property
-    def store(self) -> WASMStore:
+    def store(self) -> NoustStore:
         """The application store a destination's record lives in."""
         return self._store or get_store()
 
@@ -666,8 +666,8 @@ class BackupDestinationManager:
         if destination is None:
             raise BackupError(
                 f"No such backup destination: {name}",
-                details="Run 'wasm backup destination list' to see the destinations "
-                "WASM knows about.",
+                details="Run 'noust backup destination list' to see the destinations "
+                "Noust knows about.",
             )
         return destination
 
@@ -895,7 +895,7 @@ class BackupDestinationManager:
 
         Backups already sent there are not deleted. For an encrypted
         destination that means they stay behind readable only with its key,
-        and this deletes the only copy WASM has of it - so the removal is
+        and this deletes the only copy Noust has of it - so the removal is
         refused until the caller says the key was saved (the CLI prints it and
         asks, the console shows it and asks).
 
@@ -916,7 +916,7 @@ class BackupDestinationManager:
             raise BackupError(
                 f"Backup destination {name!r} is encrypted: the backups already sent there "
                 "can only be read with its key",
-                details=f"Removing it deletes the only copy WASM has of that key. Run 'wasm "
+                details=f"Removing it deletes the only copy Noust has of that key. Run 'noust "
                 f"backup destination show-key {name}' and keep what it prints, then remove it "
                 "confirming the key was saved (key_saved=true in the API).",
             )
@@ -1362,7 +1362,7 @@ class BackupDestinationManager:
         Delete this server's own old backups of one application on a destination.
 
         Only backups whose sidecar records this server's
-        :func:`~wasm.managers.backup_manager.server_id` are counted or
+        :func:`~noust.managers.backup_manager.server_id` are counted or
         deleted. Another server writing to the same folder, a backup taken
         before 2.2 and a backup whose sidecar is missing are all left alone:
         retention exists to bound this server's own usage, not to decide what
@@ -1498,7 +1498,7 @@ class BackupDestinationManager:
 
         if verified_by == "size":
             Logger(verbose=False).warning(
-                f"{destination_name} reports no hash WASM can compare for {archive_path.name}"
+                f"{destination_name} reports no hash Noust can compare for {archive_path.name}"
                 " (an encrypted destination never does): the upload was verified by its size "
                 "only."
             )
@@ -1719,7 +1719,7 @@ class BackupDestinationManager:
             raise BackupError(
                 f"{archive_name} was not found on the destination",
                 details=f"Looked in {target_dir}. List what is there with "
-                "'wasm backup remote-list'.",
+                "'noust backup remote-list'.",
             )
         size = entry.get("Size")
         if not isinstance(size, int) or size < 0:

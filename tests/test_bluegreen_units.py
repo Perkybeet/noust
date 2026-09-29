@@ -18,7 +18,7 @@ disk:
 - Deleting an application removes its instances, template and upstream.
 - The diagnosis says which instance serves and catches an upstream that
   points elsewhere.
-- ``wasm app zero-downtime`` and ``/api/apps/{d}/zero-downtime`` are thin.
+- ``noust app zero-downtime`` and ``/api/apps/{d}/zero-downtime`` are thin.
 """
 
 from __future__ import annotations
@@ -36,12 +36,12 @@ from click.testing import CliRunner
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.core.runner import FakeRunner, set_runner
-from wasm.core.store import App, Service, WASMStore, get_store
-from wasm.core.utils import domain_to_app_name
-from wasm.managers.nginx_manager import NginxManager
-from wasm.managers.service_manager import WASM_UNIT_MARKER, ResourceLimits, ServiceManager
-from wasm.managers.webserver import NGINX_BACKEND
+from noust.core.runner import FakeRunner, set_runner
+from noust.core.store import App, NoustStore, Service, get_store
+from noust.core.utils import domain_to_app_name
+from noust.managers.nginx_manager import NginxManager
+from noust.managers.service_manager import UNIT_MARKER, ResourceLimits, ServiceManager
+from noust.managers.webserver import NGINX_BACKEND
 
 DOMAIN = "bg.example.com"
 BASE = domain_to_app_name(DOMAIN)
@@ -49,12 +49,12 @@ PORT = 3100
 
 
 @pytest.fixture
-def store() -> Iterator[WASMStore]:
+def store() -> Iterator[NoustStore]:
     """The process-wide store, at the location conftest redirects it to."""
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
     instance = get_store()
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture
@@ -75,12 +75,12 @@ def nginx(tmp_path: Path, runner: FakeRunner) -> NginxManager:
             NGINX_BACKEND,
             sites_available=tmp_path / "nginx/sites-available",
             sites_enabled=tmp_path / "nginx/sites-enabled",
-            upstreams_dir=tmp_path / "nginx/wasm-upstreams",
+            upstreams_dir=tmp_path / "nginx/noust-upstreams",
         )
     )
 
 
-def bg_app(store: WASMStore, root: Path, *, color: str | None = "green", on: bool = True) -> App:
+def bg_app(store: NoustStore, root: Path, *, color: str | None = "green", on: bool = True) -> App:
     """Record an application on releases, in zero-downtime mode unless asked."""
     row = store.create_app(
         App(
@@ -119,7 +119,7 @@ def install_template(root: Path) -> ServiceManager:
         colors_directory=str(root / "colors"),
         environment={"NODE_ENV": "production"},
         environment_file=str(root / "shared/.env"),
-        description=f"WASM: {DOMAIN} (python)",
+        description=f"Noust: {DOMAIN} (python)",
         limits=ResourceLimits(memory_max_mb=512),
     )
     return manager
@@ -131,14 +131,14 @@ def install_template(root: Path) -> ServiceManager:
 
 
 def test_the_template_runs_each_instance_from_its_own_link_and_port(
-    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: WASMStore
+    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: NoustStore
 ) -> None:
     """WorkingDirectory and the port file are per instance; the port file is read last."""
     root = tmp_path / "apps" / BASE
     install_template(root)
 
     body = (unit_dir / f"{BASE}@.service").read_text()
-    assert WASM_UNIT_MARKER in body
+    assert UNIT_MARKER in body
     assert f"WorkingDirectory={root}/colors/%i\n" in body
     shared = body.index(f"EnvironmentFile=-{root}/shared/.env")
     own = body.index(f"EnvironmentFile={root}/colors/%i.env")
@@ -151,7 +151,7 @@ def test_the_template_runs_each_instance_from_its_own_link_and_port(
 
 
 def test_both_instances_are_the_applications_units_the_serving_one_first(
-    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: WASMStore
+    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: NoustStore
 ) -> None:
     """app_units lists both; serving_units only the one whose state is the app's."""
     app = bg_app(store, tmp_path / "apps" / BASE, color="blue")
@@ -166,7 +166,7 @@ def test_both_instances_are_the_applications_units_the_serving_one_first(
 
 
 def test_the_listing_shows_both_instances_even_when_systemd_unloaded_the_idle_one(
-    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: WASMStore
+    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: NoustStore
 ) -> None:
     """The status bar, the Services page, logs and metrics see both."""
     root = tmp_path / "apps" / BASE
@@ -175,7 +175,7 @@ def test_the_listing_shows_both_instances_even_when_systemd_unloaded_the_idle_on
     runner.script(
         ["systemctl", "list-units"],
         stdout="UNIT LOAD ACTIVE SUB DESCRIPTION\n"
-        f"{BASE}@green.service loaded active running WASM\n",
+        f"{BASE}@green.service loaded active running Noust\n",
     )
 
     units = {unit.name: unit for unit in ServiceManager().managed_units()}
@@ -189,7 +189,7 @@ def test_the_listing_shows_both_instances_even_when_systemd_unloaded_the_idle_on
 
 
 def test_an_instance_is_wasms_through_its_template(
-    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: WASMStore
+    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: NoustStore
 ) -> None:
     """No file of its own: the template's marker is the signal, and it is managed."""
     install_template(tmp_path / "apps" / BASE)
@@ -201,22 +201,22 @@ def test_an_instance_is_wasms_through_its_template(
 
 
 def test_an_instance_of_a_template_the_system_ships_is_not_wasms(
-    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: WASMStore, monkeypatch: Any
+    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: NoustStore, monkeypatch: Any
 ) -> None:
-    """getty@tty1 lives in /usr/lib: a marked copy in /etc does not make it WASM's."""
+    """getty@tty1 lives in /usr/lib: a marked copy in /etc does not make it Noust's."""
     distro = tmp_path / "usr/lib/systemd/system"
     distro.mkdir(parents=True)
     (distro / "getty@.service").write_text("[Service]\n")
     monkeypatch.setattr(ServiceManager, "UNIT_SEARCH_DIRS", (unit_dir, distro))
-    (unit_dir / "getty@.service").write_text(f"# {WASM_UNIT_MARKER}\n[Service]\n")
+    (unit_dir / "getty@.service").write_text(f"# {UNIT_MARKER}\n[Service]\n")
 
     assert not ServiceManager().inspect_unit("getty@tty1").managed
 
 
 def test_the_applications_own_name_reaches_the_instance_that_serves(
-    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: WASMStore
+    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: NoustStore
 ) -> None:
-    """wasm restart, the Services page and the logs name the application; green answers."""
+    """noust restart, the Services page and the logs name the application; green answers."""
     root = tmp_path / "apps" / BASE
     bg_app(store, root, color="green")
     install_template(root)
@@ -227,7 +227,7 @@ def test_the_applications_own_name_reaches_the_instance_that_serves(
 
 
 def test_limits_on_an_instance_land_in_the_template_for_both(
-    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: WASMStore
+    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: NoustStore
 ) -> None:
     """One file, so one change; the previous body comes back to put back."""
     install_template(tmp_path / "apps" / BASE)
@@ -241,7 +241,7 @@ def test_limits_on_an_instance_land_in_the_template_for_both(
 
 
 def test_deleting_an_instance_leaves_the_template_of_its_sibling(
-    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: WASMStore
+    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: NoustStore
 ) -> None:
     """Stopped and disabled; the template goes only with remove_template."""
     install_template(tmp_path / "apps" / BASE)
@@ -257,19 +257,19 @@ def test_deleting_an_instance_leaves_the_template_of_its_sibling(
 
 
 def test_a_template_wasm_did_not_write_is_never_removed(
-    runner: FakeRunner, unit_dir: Path, store: WASMStore
+    runner: FakeRunner, unit_dir: Path, store: NoustStore
 ) -> None:
     """The marker is the licence to delete."""
-    from wasm.core.exceptions import ServiceError
+    from noust.core.exceptions import ServiceError
 
     (unit_dir / f"{BASE}@.service").write_text("[Service]\nExecStart=/bin/true\n")
 
-    with pytest.raises(ServiceError, match="not generated by WASM"):
+    with pytest.raises(ServiceError, match="not generated by Noust"):
         ServiceManager().remove_template(BASE)
 
 
 def test_creating_the_applications_own_unit_is_not_confused_with_its_instance(
-    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: WASMStore
+    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: NoustStore
 ) -> None:
     """Turning the mode off writes <name>.service while <name> still resolves to green."""
     root = tmp_path / "apps" / BASE
@@ -289,7 +289,7 @@ def test_creating_the_applications_own_unit_is_not_confused_with_its_instance(
 
 
 def test_the_site_of_an_app_in_the_mode_proxies_to_its_upstream(
-    tmp_path: Path, nginx: NginxManager, store: WASMStore
+    tmp_path: Path, nginx: NginxManager, store: NoustStore
 ) -> None:
     """The upstream file names one port; the site includes it and names the upstream."""
     bg_app(store, tmp_path / "apps" / BASE)
@@ -307,7 +307,7 @@ def test_the_site_of_an_app_in_the_mode_proxies_to_its_upstream(
 
 
 def test_the_site_of_any_other_app_renders_as_before(
-    tmp_path: Path, nginx: NginxManager, store: WASMStore
+    tmp_path: Path, nginx: NginxManager, store: NoustStore
 ) -> None:
     """Off, or on without an upstream file: the direct proxy_pass."""
     bg_app(store, tmp_path / "apps" / BASE, on=False)
@@ -321,7 +321,7 @@ def test_the_site_of_any_other_app_renders_as_before(
 
 
 def test_an_upstream_is_put_back_exactly_and_removed_with_its_site(
-    tmp_path: Path, nginx: NginxManager, store: WASMStore
+    tmp_path: Path, nginx: NginxManager, store: NoustStore
 ) -> None:
     """restore_upstream brings back the old file; delete_site takes the upstream too."""
     bg_app(store, tmp_path / "apps" / BASE)
@@ -338,10 +338,10 @@ def test_an_upstream_is_put_back_exactly_and_removed_with_its_site(
 
 
 def test_an_upstream_is_never_written_through_a_symlink(
-    tmp_path: Path, nginx: NginxManager, store: WASMStore
+    tmp_path: Path, nginx: NginxManager, store: NoustStore
 ) -> None:
     """A planted link would make root write anywhere."""
-    from wasm.core.exceptions import NginxError
+    from noust.core.exceptions import NginxError
 
     path = nginx.upstream_path(DOMAIN)
     path.parent.mkdir(parents=True)
@@ -361,11 +361,11 @@ def test_deleting_an_app_in_the_mode_removes_instances_template_links_and_upstre
     runner: FakeRunner,
     unit_dir: Path,
     nginx: NginxManager,
-    store: WASMStore,
+    store: NoustStore,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Nothing of the mode outlives the application."""
-    from wasm.deployers import lifecycle
+    from noust.deployers import lifecycle
 
     root = tmp_path / "apps" / BASE
     (root / "colors").mkdir(parents=True)
@@ -397,11 +397,11 @@ def test_the_diagnosis_names_the_serving_instance_and_an_upstream_that_points_el
     runner: FakeRunner,
     unit_dir: Path,
     nginx: NginxManager,
-    store: WASMStore,
+    store: NoustStore,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Green serves on 3101 but nginx proxies to 3100: that is the cause, first."""
-    from wasm.managers import diagnose as diagnose_module
+    from noust.managers import diagnose as diagnose_module
 
     root = tmp_path / "apps" / BASE
     bg_app(store, root, color="green")
@@ -453,10 +453,10 @@ def real_runner_after() -> Iterator[None]:
 
 
 def test_the_cli_shows_the_mode_as_json(
-    tmp_path: Path, store: WASMStore, real_runner_after: None, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, store: NoustStore, real_runner_after: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Off and eligible: the console and scripts read the same fields."""
-    from wasm.cli.app import cli as root_cli
+    from noust.cli.app import cli as root_cli
 
     root = tmp_path / "apps" / BASE
     bg_app(store, root, on=False)
@@ -471,11 +471,11 @@ def test_the_cli_shows_the_mode_as_json(
 
 
 def test_the_cli_rehearses_turning_it_on(
-    tmp_path: Path, store: WASMStore, real_runner_after: None, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, store: NoustStore, real_runner_after: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """--dry-run checks the application and changes nothing."""
-    from wasm.cli.app import cli as root_cli
-    from wasm.deployers import bluegreen
+    from noust.cli.app import cli as root_cli
+    from noust.deployers import bluegreen
 
     monkeypatch.setattr(bluegreen, "is_port_available", lambda port: True)
     bg_app(store, tmp_path / "apps" / BASE, on=False)
@@ -493,11 +493,11 @@ def test_the_cli_rehearses_turning_it_on(
 
 
 @pytest.fixture
-def api(store: WASMStore, monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, list[dict]]:
+def api(store: NoustStore, monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, list[dict]]:
     """The router with authentication stubbed, and the jobs it queues."""
-    from wasm.web.api import zero_downtime as api_module
-    from wasm.web.api.auth import get_current_session
-    from wasm.web.api.deps import install_error_handlers, require_elevated
+    from noust.web.api import zero_downtime as api_module
+    from noust.web.api.auth import get_current_session
+    from noust.web.api.deps import install_error_handlers, require_elevated
 
     queued: list[dict[str, Any]] = []
 
@@ -524,7 +524,7 @@ def api(store: WASMStore, monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, 
 
 
 def test_the_api_reads_the_mode_and_queues_the_switch(
-    tmp_path: Path, store: WASMStore, api: tuple[TestClient, list[dict]]
+    tmp_path: Path, store: NoustStore, api: tuple[TestClient, list[dict]]
 ) -> None:
     """GET answers at once; PUT is a job, like every long action."""
     client, queued = api
@@ -543,7 +543,7 @@ def test_the_api_reads_the_mode_and_queues_the_switch(
 
 
 def test_the_api_refuses_what_cannot_run_twice_before_queuing(
-    tmp_path: Path, store: WASMStore, api: tuple[TestClient, list[dict]]
+    tmp_path: Path, store: NoustStore, api: tuple[TestClient, list[dict]]
 ) -> None:
     """An in-place application is a 400 with the way forward, and no job."""
     client, queued = api

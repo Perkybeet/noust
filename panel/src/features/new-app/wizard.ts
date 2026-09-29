@@ -40,13 +40,13 @@ export type SourceKind = "github" | "git" | "archive" | "local" | "unknown";
 
 /**
  * `github:owner/repo`: a repository this server's GitHub App reaches, the spelling the
- * repository picker and `wasm create --source` share (wasm.validators.source).
+ * repository picker and `noust create --source` share (noust.validators.source).
  */
 const GITHUB_SHORTHAND = /^github:[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})\/[A-Za-z0-9._-]{1,100}$/;
 
 /**
  * What a source looks like, for the hint under the field. The server decides for real
- * (`validate_source`); this only tells the operator what WASM will do with it.
+ * (`validate_source`); this only tells the operator what Noust will do with it.
  */
 export function sourceKind(value: string): SourceKind {
   const source = value.trim();
@@ -141,7 +141,7 @@ export function manualInspection(source: SourceForm): Inspection {
 
 /**
  * The registry's display name (`DISPLAY_NAME`) for a type, from `GET /api/apps/types` - the
- * one source of truth for what WASM can deploy (`available_types`). Falls back to the raw
+ * one source of truth for what Noust can deploy (`available_types`). Falls back to the raw
  * identifier while the list has not loaded yet, or for a type the wizard has not seen.
  */
 export function typeName(types: readonly AppTypeOption[], type: string): string {
@@ -151,7 +151,7 @@ export function typeName(types: readonly AppTypeOption[], type: string): string 
 /**
  * Every type the operator can choose, the detected ones first in the order the registry
  * matched them, then the rest as the API ordered them (alphabetical, `auto` last). The first
- * is what WASM would deploy as.
+ * is what Noust would deploy as.
  */
 export function typeOptions(types: readonly AppTypeOption[], detected: readonly string[]): { value: string; label: string; hint?: string }[] {
   const rest = types.filter((entry) => !detected.includes(entry.type));
@@ -319,7 +319,7 @@ function proposalPort(proposal: PlatformProposal, taken: ReadonlyMap<number, str
  * Fills in, or takes back out, what another platform's configuration proposes: its type, its
  * port, its variables (the ones .env.example does not already declare; a variable the platform
  * generates gets a random value here), and its persistent paths. Commands and the health check
- * are not part of the form: WASM runs the type's own commands, and the health check is sent as
+ * are not part of the form: Noust runs the type's own commands, and the health check is sent as
  * the proposal says it (`createAppBody`). Taking it out keeps whatever the operator changed
  * since.
  */
@@ -419,7 +419,7 @@ export function limitField(name: keyof LimitsDraft): string {
 
 /**
  * A persistent path from the operator, or why the deployer would refuse it - the same check
- * `wasm.deployers.releases.persistent_path` runs when the deploy links `shared/`, run here
+ * `noust.deployers.releases.persistent_path` runs when the deploy links `shared/`, run here
  * first so a typo is caught before the build rather than after.
  */
 export function persistentPathProblem(raw: string): string | null {

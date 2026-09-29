@@ -1,7 +1,7 @@
 """
 Monitor command handlers.
 
-``wasm monitor`` drives observability, not enforcement: it reads resource
+``noust monitor`` drives observability, not enforcement: it reads resource
 metrics, the process table and systemd unit health, and writes down what
 stands out. Raw observations can be mailed; disk, certificate and unit events
 also go through whichever notification channels are configured (webhook,
@@ -10,13 +10,13 @@ deletes a file.
 
 These handlers used to build a ``MonitorConfig`` with ``auto_terminate``,
 ``use_ai`` and ``dry_run``, settings that stopped existing when the monitor
-stopped being an antivirus, so ``wasm monitor scan`` raised a TypeError on every
+stopped being an antivirus, so ``noust monitor scan`` raised a TypeError on every
 run. Nothing here reads a configuration key that the monitor does not have; the
 handler map is exported so a test can exercise every action.
 
 Each action is a plain function taking the values it needs. The Click group and
 the argparse-shaped :func:`handle_monitor` both dispatch through
-:data:`ACTIONS`, so neither can drift from the other. ``wasm.cli.parser`` is
+:data:`ACTIONS`, so neither can drift from the other. ``noust.cli.parser`` is
 gone and nothing calls :func:`handle_monitor` in production anymore; it is
 kept, and tested directly, for the same reason.
 """
@@ -30,13 +30,13 @@ from typing import Any
 
 import click
 
-from wasm.cli.app import Context, WasmGroup, json_option, pass_context
-from wasm.cli.panel_links import open_in_panel
-from wasm.core.config import Config
-from wasm.core.exceptions import EmailError, MonitorError, WASMError
-from wasm.core.logger import Logger
-from wasm.core.utils import check_root
-from wasm.monitor import (
+from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.cli.panel_links import open_in_panel
+from noust.core.config import Config
+from noust.core.exceptions import EmailError, MonitorError, NoustError
+from noust.core.logger import Logger
+from noust.core.utils import check_root
+from noust.monitor import (
     DEFAULT_CPU_SAMPLE_INTERVAL,
     DEFAULT_CPU_THRESHOLD,
     DEFAULT_MAX_OBSERVATIONS,
@@ -178,7 +178,7 @@ def _status_as_dict(monitor: ProcessMonitor) -> dict[str, Any]:
 
     try:
         stats = ObservationStore().stats()
-    except (WASMError, OSError):
+    except (NoustError, OSError):
         payload["store"] = None
     else:
         payload["store"] = {"database": str(default_db_path()), **stats}
@@ -206,7 +206,7 @@ def _show_status(verbose: bool = False, *, json_output: bool = False) -> int:
 
     status = monitor.get_service_status()
 
-    logger.header("WASM monitor")
+    logger.header("Noust monitor")
 
     if status["installed"]:
         logger.key_value("Installed", "Yes")
@@ -218,7 +218,7 @@ def _show_status(verbose: bool = False, *, json_output: bool = False) -> int:
             logger.key_value("Started", str(status["uptime"]))
     else:
         logger.key_value("Installed", "No")
-        logger.info("Run 'wasm monitor install' to install the service")
+        logger.info("Run 'noust monitor install' to install the service")
 
     config = monitor.config
     logger.section("Observing")
@@ -246,13 +246,13 @@ def _watched_units_label(extras: Any) -> str:
     Describe which units a scan checks.
 
     Args:
-        extras: ``monitor.watch_units``, checked on top of WASM's own.
+        extras: ``monitor.watch_units``, checked on top of Noust's own.
 
     Returns:
         A line for the report.
     """
     listed = ", ".join(str(unit) for unit in extras or ())
-    return f"every unit WASM manages, plus {listed}" if listed else "every unit WASM manages"
+    return f"every unit Noust manages, plus {listed}" if listed else "every unit Noust manages"
 
 
 def _print_store_counts(logger: Logger) -> None:
@@ -264,7 +264,7 @@ def _print_store_counts(logger: Logger) -> None:
     """
     try:
         stats = ObservationStore().stats()
-    except (WASMError, OSError) as exc:
+    except (NoustError, OSError) as exc:
         # An unreadable store is worth a line, not a failed status command.
         logger.debug(f"Observation store unavailable: {exc}")
         return
@@ -357,7 +357,7 @@ def _install(verbose: bool = False) -> int:
     logger = Logger(verbose=verbose)
 
     ProcessMonitor(verbose=verbose).install_service()
-    logger.info("Enable it with: wasm monitor enable")
+    logger.info("Enable it with: noust monitor enable")
     return 0
 
 
@@ -384,8 +384,7 @@ def _enable(verbose: bool = False) -> int:
         raise MonitorError(
             "psutil is required to run the monitor",
             details=(
-                "Install the distribution package (python3-psutil) or "
-                "pip install 'wasm-cli[monitor]'."
+                "Install the distribution package (python3-psutil) or pip install 'noust[monitor]'."
             ),
         ) from exc
     logger.success("psutil available")
@@ -401,7 +400,9 @@ def _enable(verbose: bool = False) -> int:
     logger.step(3, 3, "Enabling the service")
     monitor.enable_service()
 
-    logger.info(f"Scanning every {monitor.config.scan_interval}s. Logs: journalctl -u wasm-monitor")
+    logger.info(
+        f"Scanning every {monitor.config.scan_interval}s. Logs: journalctl -u noust-monitor"
+    )
     _print_scope(logger)
     return 0
 
@@ -430,7 +431,7 @@ def _disable(verbose: bool = False) -> int:
 
 def _uninstall(verbose: bool = False) -> int:
     """
-    Stop the service and remove the unit WASM wrote.
+    Stop the service and remove the unit Noust wrote.
 
     Args:
         verbose: Print the detail of each step.
@@ -466,7 +467,7 @@ def _test_email(verbose: bool = False) -> int:
     if not notifier.recipients:
         logger.error(
             "No email recipients configured",
-            "Set monitor.email_recipients in /etc/wasm/config.yaml",
+            "Set monitor.email_recipients in /etc/noust/config.yaml",
         )
         return 1
 
@@ -474,7 +475,7 @@ def _test_email(verbose: bool = False) -> int:
     try:
         notifier.send_test_email()
     except EmailError as exc:
-        # WASMError.__str__ already appends the details; passing them twice prints twice.
+        # NoustError.__str__ already appends the details; passing them twice prints twice.
         logger.error(str(exc))
         return 1
 
@@ -529,7 +530,7 @@ def _show_config(verbose: bool = False) -> int:
     return 0
 
 
-#: Every action ``wasm monitor`` accepts. Exported so the parser, the Click
+#: Every action ``noust monitor`` accepts. Exported so the parser, the Click
 #: group and the tests agree on one list instead of three that drift. Every
 #: entry takes ``verbose``; ``scan`` also takes ``ignored_flags``.
 ACTIONS: dict[str, Callable[..., int]] = {
@@ -546,12 +547,12 @@ ACTIONS: dict[str, Callable[..., int]] = {
 }
 
 
-class MonitorGroup(WasmGroup):
+class MonitorGroup(NoustGroup):
     """
     A group that answers to the alternative spellings of its own actions.
 
     The root group rewrites only the first word of the command line, so
-    ``wasm monitor info`` has to be resolved here or it stops working.
+    ``noust monitor info`` has to be resolved here or it stops working.
     """
 
     def get_command(self, ctx: click.Context, name: str) -> click.Command | None:
@@ -681,8 +682,8 @@ def uninstall(ctx: Context, yes: bool) -> int:
     Observations already recorded stay in the database.
     """
     if not yes and not click.confirm(
-        "Remove the wasm-monitor systemd unit? Nothing will watch this server "
-        "until you run 'wasm monitor enable' again"
+        "Remove the noust-monitor systemd unit? Nothing will watch this server "
+        "until you run 'noust monitor enable' again"
     ):
         click.echo("Cancelled")
         return 0
@@ -724,14 +725,14 @@ def _namespace_kwargs(args: Namespace) -> dict[str, Any]:
 
 def handle_monitor(args: Namespace) -> int:
     """
-    Route a ``wasm monitor`` invocation to its handler.
+    Route a ``noust monitor`` invocation to its handler.
 
-    ``wasm.cli.parser`` is gone and nothing calls this in production; it is
+    ``noust.cli.parser`` is gone and nothing calls this in production; it is
     kept, and tested directly, sharing :data:`ACTIONS` with the Click group
     rather than repeating it.
 
-    Only :class:`WASMError` is caught here. A TypeError or an AttributeError is
-    a defect in WASM, and the previous blanket ``except Exception`` is exactly
+    Only :class:`NoustError` is caught here. A TypeError or an AttributeError is
+    a defect in Noust, and the previous blanket ``except Exception`` is exactly
     what let this command ship broken: it turned a call to a constructor that no
     longer accepted its arguments into a one-line "unexpected error".
 
@@ -753,8 +754,8 @@ def handle_monitor(args: Namespace) -> int:
 
     try:
         return handler(**_namespace_kwargs(args))
-    except WASMError as exc:
-        # WASMError.__str__ already appends the details; passing them twice prints twice.
+    except NoustError as exc:
+        # NoustError.__str__ already appends the details; passing them twice prints twice.
         logger.error(str(exc))
         return 1
     except KeyboardInterrupt:

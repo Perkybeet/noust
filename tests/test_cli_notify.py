@@ -7,7 +7,7 @@ Tests for ``wasm notify test``: trying a notification channel from the CLI.
 Before this existed, checking a webhook URL was right meant turning
 notifications on and waiting for a real event, or clicking "Test" in the
 panel - unavailable on a deployment with no panel installed. This command is
-a thin front end over :class:`~wasm.core.notifier.Notifier`, the exact class
+a thin front end over :class:`~noust.core.notifier.Notifier`, the exact class
 the settings page's own "Test" button uses.
 """
 
@@ -19,9 +19,9 @@ from typing import Any
 import pytest
 from click.testing import CliRunner
 
-from wasm.cli.app import cli as root_cli
-from wasm.cli.commands import notify as notify_module
-from wasm.core.notifier import Notifier, TelegramChat
+from noust.cli.app import cli as root_cli
+from noust.cli.commands import notify as notify_module
+from noust.core.notifier import Notifier, TelegramChat
 
 
 @pytest.fixture

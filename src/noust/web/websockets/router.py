@@ -2,7 +2,7 @@
 WebSocket router for real-time features.
 
 Handshakes are authenticated and rate limited by
-:class:`~wasm.web.server.SecurityMiddleware` before a handler is ever reached,
+:class:`~noust.web.server.SecurityMiddleware` before a handler is ever reached,
 so a route added here cannot forget to check credentials. The middleware leaves
 the session payload in ``scope["state"]["session"]``; the handlers below read it
 back through :func:`authenticate_websocket`, which re-verifies from scratch if
@@ -25,8 +25,9 @@ from typing import TYPE_CHECKING, Any
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from starlette.concurrency import run_in_threadpool
 
-from wasm.core.exceptions import ValidationError
-from wasm.web.auth import (
+from noust.core import paths
+from noust.core.exceptions import ValidationError
+from noust.web.auth import (
     WS_CLOSE_FORBIDDEN,
     WS_CLOSE_UNAUTHORIZED,
     WS_SUBPROTOCOL,
@@ -40,7 +41,7 @@ from wasm.web.auth import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover - imported for types only
-    from wasm.managers.service_manager import UnitOwnership
+    from noust.managers.service_manager import UnitOwnership
 
 logger = logging.getLogger(__name__)
 
@@ -265,9 +266,9 @@ def _resolve_log_units(target: str) -> tuple[list[UnitOwnership], str | None]:
     Raises:
         ValidationError: When the target cannot name a unit.
     """
-    from wasm.core.store import get_store
-    from wasm.core.utils import domain_to_app_name
-    from wasm.managers.service_manager import ServiceManager
+    from noust.core.store import get_store
+    from noust.core.utils import domain_to_app_name
+    from noust.managers.service_manager import ServiceManager
 
     manager = ServiceManager(verbose=False)
     app = get_store().get_app(target)
@@ -288,7 +289,7 @@ def _resolve_log_units(target: str) -> tuple[list[UnitOwnership], str | None]:
     for unit in units:
         if not unit.exists or not unit.managed:
             reason = unit.reason or f"there is no unit named {unit.unit}"
-            return [], f"Refusing to stream a unit WASM does not manage: {unit.unit} ({reason})"
+            return [], f"Refusing to stream a unit Noust does not manage: {unit.unit} ({reason})"
     return units, None
 
 
@@ -297,7 +298,7 @@ def _journal_scope_refusal(units: list[UnitOwnership], session: dict[str, Any]) 
     Refuse the console's or the monitor's journal to a credential below admin.
 
     ``GET /api/services/{name}/logs`` asks the same, from the same list
-    (:data:`~wasm.web.api.services.OWN_JOURNAL_UNITS`): the console logs every
+    (:data:`~noust.web.api.services.OWN_JOURNAL_UNITS`): the console logs every
     SQL statement run from it and the verbatim output of failed git, certbot
     and notification calls, and a stream must not be the way around that.
 
@@ -308,7 +309,7 @@ def _journal_scope_refusal(units: list[UnitOwnership], session: dict[str, Any]) 
     Returns:
         The message that refuses the stream, or None when it may go ahead.
     """
-    from wasm.web.api.services import OWN_JOURNAL_UNITS
+    from noust.web.api.services import OWN_JOURNAL_UNITS
 
     own = next((unit.unit for unit in units if unit.unit in OWN_JOURNAL_UNITS), None)
     if own is None or scope_satisfies(str(session.get("scope") or "read"), "admin"):
@@ -367,13 +368,13 @@ async def websocket_logs(
     Connect with the session cookie, with ``Sec-WebSocket-Protocol:
     wasm.auth, wasm.token.<token>``, or with ``?ticket=<single-use ticket>``.
 
-    Only a unit WASM manages is streamed. What the path names is resolved by
+    Only a unit Noust manages is streamed. What the path names is resolved by
     :func:`_resolve_log_units`: an application's domain streams the unit(s)
     that application runs as, from the one mapping in
-    :meth:`~wasm.managers.service_manager.ServiceManager.app_units` (so a
+    :meth:`~noust.managers.service_manager.ServiceManager.app_units` (so a
     legacy ``wasm-`` unit, a Compose unit and a monorepo's workspaces are all
     found); anything else is taken as a unit name. Every unit is then judged by
-    :meth:`~wasm.managers.service_manager.ServiceManager.inspect_unit`, the
+    :meth:`~noust.managers.service_manager.ServiceManager.inspect_unit`, the
     ownership rule ``GET /api/services/{name}/logs`` and every other service
     operation already go through: this route used to follow whatever unit
     the path named - ``/ws/logs/ssh`` was sshd's journal, as root, for any
@@ -388,7 +389,7 @@ async def websocket_logs(
     Args:
         websocket: The client connection.
         domain: Domain whose service logs are streamed, or the name of a unit
-            WASM manages.
+            Noust manages.
         ticket: Optional single-use handshake ticket.
         lines: Backlog of log lines to send first.
     """
@@ -591,7 +592,10 @@ async def websocket_events(websocket: WebSocket, ticket: str | None = Query(defa
             "-o",
             "json",
             "-u",
-            "wasm-*",
+            f"{paths.UNIT_PREFIX}*",
+            # WASM's own units, until the migration renames them.
+            "-u",
+            f"{paths.LEGACY_UNIT_PREFIX}*",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -676,7 +680,7 @@ async def websocket_job(
         job_id: Identifier of the job to follow.
         ticket: Optional single-use handshake ticket.
     """
-    from wasm.web.jobs import get_job_manager
+    from noust.web.jobs import get_job_manager
 
     session = await authenticate_websocket(websocket, ticket)
     if session is None:
@@ -791,7 +795,7 @@ async def websocket_all_jobs(
         websocket: The client connection.
         ticket: Optional single-use handshake ticket.
     """
-    from wasm.web.jobs import get_job_manager
+    from noust.web.jobs import get_job_manager
 
     session = await authenticate_websocket(websocket, ticket)
     if session is None:

@@ -2,17 +2,17 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The ``wasm site`` command group.
+The ``noust site`` command group.
 
 Virtual hosts on nginx and apache: create, list, enable, disable, delete and
 show. The work lives in the private ``_site_*`` functions, so the Click
 commands and the legacy :func:`handle_site` argparse entry point run exactly
-the same code and only differ in how the parameters arrive. ``wasm.cli.parser``
-is gone; that entry point stays because :mod:`wasm.cli.interactive` still
+the same code and only differ in how the parameters arrive. ``noust.cli.parser``
+is gone; that entry point stays because :mod:`noust.cli.interactive` still
 builds a ``Namespace`` and calls it for the interactive menu.
 
 Every manager this module needs is imported here, at module level. Importing
-CertManager inside the create path meant ``wasm site delete`` raised NameError
+CertManager inside the create path meant ``noust site delete`` raised NameError
 on every run, and the broad handler around it turned that into a warning about
 a certificate that had in fact never been touched.
 """
@@ -25,15 +25,15 @@ from argparse import Namespace
 
 import click
 
-from wasm.cli.app import Context, WasmGroup, json_option, pass_context
-from wasm.core.exceptions import WASMError
-from wasm.core.logger import Logger
-from wasm.managers.apache_manager import ApacheManager
-from wasm.managers.cert_manager import CertManager
-from wasm.managers.nginx_manager import NginxManager
-from wasm.managers.webserver import create_secured_site, delete_site_completely
-from wasm.validators.domain import validate_domain
-from wasm.validators.port import MAX_PORT, MIN_PORT
+from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.exceptions import NoustError
+from noust.core.logger import Logger
+from noust.managers.apache_manager import ApacheManager
+from noust.managers.cert_manager import CertManager
+from noust.managers.nginx_manager import NginxManager
+from noust.managers.webserver import create_secured_site, delete_site_completely
+from noust.validators.domain import validate_domain
+from noust.validators.port import MAX_PORT, MIN_PORT
 
 #: Alternative spellings of the subcommands. They predate the group and live in
 #: scripts and in muscle memory, so dropping one is a breaking change.
@@ -48,10 +48,10 @@ DEFAULT_PORT = 3000
 DEFAULT_TEMPLATE = "proxy"
 WEBSERVERS = ("nginx", "apache")
 
-_NOT_FOUND_HINT = "Run 'wasm site list' to see the virtual hosts this server knows about."
+_NOT_FOUND_HINT = "Run 'noust site list' to see the virtual hosts this server knows about."
 
 
-class SiteGroup(WasmGroup):
+class SiteGroup(NoustGroup):
     """
     The ``site`` group, resolving the historical spellings of its subcommands.
 
@@ -153,7 +153,7 @@ def _site_create(
             logger.info("Install with: sudo apt install certbot")
         else:
             logger.warning(f"SSL certificate failed: {outcome.certificate_error}")
-            logger.info("Site created without SSL. You can add it later with: wasm cert create")
+            logger.info("Site created without SSL. You can add it later with: noust cert create")
 
     logger.success(f"Site created: {domain}")
 
@@ -232,7 +232,7 @@ def _site_enable(*, domain: str, logger: Logger, verbose: bool) -> None:
         verbose: Enable verbose logging in the managers.
 
     Raises:
-        WASMError: When neither web server has a configuration for the domain.
+        NoustError: When neither web server has a configuration for the domain.
         DomainError: When the domain is not a valid domain name.
     """
     domain = validate_domain(domain)
@@ -250,7 +250,7 @@ def _site_enable(*, domain: str, logger: Logger, verbose: bool) -> None:
         apache.reload()
         logger.success(f"Site enabled (apache): {domain}")
     else:
-        raise WASMError(f"Site not found: {domain}", details=_NOT_FOUND_HINT)
+        raise NoustError(f"Site not found: {domain}", details=_NOT_FOUND_HINT)
 
 
 def _site_disable(*, domain: str, logger: Logger, verbose: bool) -> None:
@@ -294,7 +294,7 @@ def _site_delete(*, domain: str, logger: Logger, verbose: bool) -> None:
         verbose: Enable verbose logging in the managers.
 
     Raises:
-        WASMError: When neither web server has a configuration for the domain.
+        NoustError: When neither web server has a configuration for the domain.
         DomainError: When the domain is not a valid domain name.
     """
     domain = validate_domain(domain)
@@ -307,7 +307,7 @@ def _site_delete(*, domain: str, logger: Logger, verbose: bool) -> None:
     )
 
     if not deletion.removed_anything:
-        raise WASMError(f"Site not found: {domain}", details=_NOT_FOUND_HINT)
+        raise NoustError(f"Site not found: {domain}", details=_NOT_FOUND_HINT)
 
     if deletion.nginx_removed:
         logger.success(f"Site deleted (nginx): {domain}")
@@ -326,7 +326,7 @@ def _site_show(*, domain: str, verbose: bool) -> None:
         verbose: Enable verbose logging in the managers.
 
     Raises:
-        WASMError: When neither web server has a configuration for the domain.
+        NoustError: When neither web server has a configuration for the domain.
         DomainError: When the domain is not a valid domain name.
     """
     domain = validate_domain(domain)
@@ -342,7 +342,7 @@ def _site_show(*, domain: str, verbose: bool) -> None:
         config = apache.get_site_config(domain)
 
     if not config:
-        raise WASMError(f"Site not found: {domain}", details=_NOT_FOUND_HINT)
+        raise NoustError(f"Site not found: {domain}", details=_NOT_FOUND_HINT)
 
     click.echo(config)
 
@@ -487,7 +487,7 @@ def handle_site(args: Namespace) -> int:
     """
     Handle site commands coming from an argparse-shaped ``Namespace``.
 
-    ``wasm.cli.parser`` is gone; :mod:`wasm.cli.interactive` is what still
+    ``noust.cli.parser`` is gone; :mod:`noust.cli.interactive` is what still
     builds one of these and calls this for its site menu. It calls the same
     private functions as the Click commands.
 
@@ -519,7 +519,7 @@ def handle_site(args: Namespace) -> int:
 
     try:
         return handler(args)
-    except WASMError as e:
+    except NoustError as e:
         logger = Logger(verbose=args.verbose)
         logger.error(str(e))
         return 1

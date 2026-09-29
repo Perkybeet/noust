@@ -4,15 +4,15 @@
 """
 Turns a deployment's own announcements into a notification, in every process.
 
-:mod:`wasm.deployers.deploy_events` is the one place every deployment passes
+:mod:`noust.deployers.deploy_events` is the one place every deployment passes
 through - the CLI, the console's jobs and the webhook alike - and publishes a
-:class:`~wasm.deployers.deploy_events.DeployEvent` for each of its four
+:class:`~noust.deployers.deploy_events.DeployEvent` for each of its four
 moments. This module is one of its default subscribers
 (``DEFAULT_SUBSCRIBERS``): imported lazily, by name, the first time a
-deployment publishes anything, so it can import the rest of WASM - config,
+deployment publishes anything, so it can import the rest of Noust - config,
 the notifier, the store - without deploy_events.py importing any of it back.
 
-Deploy notifications used to come from :mod:`wasm.web.server`, built out of a
+Deploy notifications used to come from :mod:`noust.web.server`, built out of a
 finished console job. That meant a deploy started from the CLI, and the very
 start of any deploy, never notified anyone; ``web.server`` no longer builds
 them for a deploy or an update, to avoid saying the same thing twice - see
@@ -21,13 +21,13 @@ comes from there, alongside a failed backup.
 
 Delivery never touches the deploying thread beyond queueing: every
 notification of the process goes on the notifier's one worker
-(:data:`~wasm.core.notifier.NOTIFICATION_QUEUE`), first in first out, so a
+(:data:`~noust.core.notifier.NOTIFICATION_QUEUE`), first in first out, so a
 deployment's "failed" never reaches a channel before its "Deploying", and a
 deployment must not wait on Slack the way it must not wait on npm. A CLI
 process can exit within milliseconds of the deployment finishing, so that
 worker is drained at process exit under a hard cap
-(:data:`wasm.core.background.DRAIN_TIMEOUT`): enough for one slow channel's
-own timeout to be felt, not enough to hang a `wasm` command that has already
+(:data:`noust.core.background.DRAIN_TIMEOUT`): enough for one slow channel's
+own timeout to be felt, not enough to hang a `noust` command that has already
 told the operator what happened.
 """
 
@@ -37,12 +37,12 @@ import logging
 import sqlite3
 from typing import Final
 
-from wasm.core.config import Config
-from wasm.core.exceptions import WASMError
-from wasm.core.messages import DEFAULT_LOCALE, Locale, message, normalize_locale
-from wasm.core.notifier import NOTIFICATION_QUEUE, NotificationEvent, Notifier, fresh_config
-from wasm.core.store import get_store
-from wasm.deployers.deploy_events import DeployEvent, DeployEventKind
+from noust.core.config import Config
+from noust.core.exceptions import NoustError
+from noust.core.messages import DEFAULT_LOCALE, Locale, message, normalize_locale
+from noust.core.notifier import NOTIFICATION_QUEUE, NotificationEvent, Notifier, fresh_config
+from noust.core.store import get_store
+from noust.deployers.deploy_events import DeployEvent, DeployEventKind
 
 logger = logging.getLogger(__name__)
 
@@ -59,10 +59,10 @@ _KIND_MAP: Final[dict[DeployEventKind, str]] = {
 }
 
 #: Errors a best-effort store lookup may raise; anything else is a bug and
-#: must be seen. Matches wasm.deployers.recorder's own tuple for the same
+#: must be seen. Matches noust.deployers.recorder's own tuple for the same
 #: reason: sqlite3.Error and OSError are how a locked or unreadable database
 #: surfaces here.
-_STORE_LOOKUP_ERRORS = (WASMError, OSError, sqlite3.Error)
+_STORE_LOOKUP_ERRORS = (NoustError, OSError, sqlite3.Error)
 
 
 def on_deploy_event(event: DeployEvent) -> None:
@@ -70,7 +70,7 @@ def on_deploy_event(event: DeployEvent) -> None:
     Announce one deployment moment to every configured channel.
 
     Registered as a default subscriber of
-    :mod:`wasm.deployers.deploy_events`; called once per event, in the
+    :mod:`noust.deployers.deploy_events`; called once per event, in the
     deploying thread. Building the notification and sending it both happen
     on the notification worker, in publication order, so this returns
     immediately.
@@ -93,7 +93,7 @@ def _title(event: DeployEvent, locale: Locale = DEFAULT_LOCALE) -> str:
 
     Args:
         event: What happened.
-        locale: Language to render WASM's own words in; the commit and
+        locale: Language to render Noust's own words in; the commit and
             branch that follow "deployed" are technical identifiers, not
             translated. Defaults to English so every existing call site -
             and its tests - is unaffected by 2.3's ``notifications.language``.
@@ -124,7 +124,7 @@ def _preview_context(domain: str, locale: Locale) -> str | None:
 
     Args:
         domain: The application's domain, as the deploy event carries it.
-        locale: Language to render WASM's own words in.
+        locale: Language to render Noust's own words in.
 
     Returns:
         ``"Preview of <parent> #<number>."`` when the pull request number is
@@ -182,7 +182,7 @@ def _body(event: DeployEvent, config: Config) -> str:
     Args:
         event: What happened.
         config: Configuration to read the console's public URL from, and,
-            since 2.3, ``notifications.language`` to render WASM's own
+            since 2.3, ``notifications.language`` to render Noust's own
             sentences in.
 
     Returns:
@@ -210,7 +210,7 @@ def _body(event: DeployEvent, config: Config) -> str:
     if event.error:
         # The health gate's own evidence, already scrubbed of secrets by the
         # deployment recorder - never paraphrased, the same rule a system
-        # error follows everywhere else in WASM.
+        # error follows everywhere else in Noust.
         parts.append(event.error)
 
     link = _console_link(event, config)

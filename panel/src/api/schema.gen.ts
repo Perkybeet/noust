@@ -17,7 +17,7 @@ export interface paths {
          *
          *     Every application's service record, webhook flag and last deployment
          *     come from one store query each, and every application's systemd status
-         *     is read concurrently through :func:`~wasm.core.app_state.resolve_states_with_status`
+         *     is read concurrently through :func:`~noust.core.app_state.resolve_states_with_status`
          *     - so this endpoint costs a handful of queries and one round of systemctl
          *     calls, not four times the number of applications deployed.
          *
@@ -54,7 +54,7 @@ export interface paths {
          *         ValidationError: A resource limit is out of range (400, with the
          *             range) - the same check ``PATCH .../limits`` runs, so a limit
          *             given at creation cannot be more permissive than one set later -
-         *             or ``package_manager`` names one WASM does not drive, or neither a
+         *             or ``package_manager`` names one Noust does not drive, or neither a
          *             source nor a recipe was given.
          *         RecipeError: The recipe does not exist or is not available, or a
          *             source or a type was given with it (400).
@@ -151,7 +151,7 @@ export interface paths {
          *         HTTPException: 403 when the source is a local path and the credential
          *             may not read one.
          *         SourceError: The source is invalid, or fetching it failed. Answered
-         *             as 400: the operator gave a source WASM cannot reach, not a
+         *             as 400: the operator gave a source Noust cannot reach, not a
          *             server fault.
          *         ValidationError: The checkout matches no registered application
          *             type. ``inspect_source`` raises ``DeploymentError`` for this -
@@ -177,11 +177,11 @@ export interface paths {
         };
         /**
          * List App Types
-         * @description List the application types WASM can deploy.
+         * @description List the application types Noust can deploy.
          *
-         *     :func:`~wasm.deployers.registry.available_types` is the one source of
+         *     :func:`~noust.deployers.registry.available_types` is the one source of
          *     truth - the CLI's ``--type`` choices come from it too - so a deployer
-         *     registered with :meth:`~wasm.deployers.registry.DeployerRegistry.register`
+         *     registered with :meth:`~noust.deployers.registry.DeployerRegistry.register`
          *     reaches the wizard the moment it exists, instead of needing a second,
          *     hand-kept copy of the list in the console.
          *
@@ -305,7 +305,7 @@ export interface paths {
          *     the same gate; in place without history its snapshot backup (taken by
          *     the update that followed it) is restored after a safety backup, rebuilt
          *     and gated, keeping the deployed ``.env``. See
-         *     :func:`~wasm.deployers.lifecycle.rollback_to_deployment`.
+         *     :func:`~noust.deployers.lifecycle.rollback_to_deployment`.
          *
          *     Args:
          *         domain: Domain of the application.
@@ -336,9 +336,9 @@ export interface paths {
         };
         /**
          * Diagnose App
-         * @description Correlate everything WASM can read about a domain into one diagnosis.
+         * @description Correlate everything Noust can read about a domain into one diagnosis.
          *
-         *     Runs the same probes as ``wasm diagnose <domain>``: the systemd unit, the
+         *     Runs the same probes as ``noust diagnose <domain>``: the systemd unit, the
          *     port, an HTTP probe direct to the app and through the web server, its last
          *     journal lines, the web server's own error log, its certificate, its last
          *     deployment, OOM kills and disk space - and reports the most likely cause
@@ -478,8 +478,8 @@ export interface paths {
          * Get App Env
          * @description Read an application's environment from its ``.env`` file.
          *
-         *     This reads the file :mod:`wasm.deployers.helpers.app_env` writes, the
-         *     same one ``wasm env show`` reads on the terminal - not the snapshot the
+         *     This reads the file :mod:`noust.deployers.helpers.app_env` writes, the
+         *     same one ``noust env show`` reads on the terminal - not the snapshot the
          *     store recorded at deploy time, which can drift the moment anyone edits
          *     the file by hand. On the release layout that is ``shared/.env``.
          *
@@ -503,10 +503,10 @@ export interface paths {
          * @description Replace an application's ``.env`` file wholesale.
          *
          *     Every name and value is validated against what can safely reach a
-         *     systemd unit (:mod:`wasm.validators.environment`) before anything is
+         *     systemd unit (:mod:`noust.validators.environment`) before anything is
          *     written, so a rejected variable leaves the file on disk untouched. The
-         *     write goes through :func:`~wasm.deployers.helpers.app_env.write_app_env`,
-         *     the same function ``wasm env configure`` uses, so the file lands 0600,
+         *     write goes through :func:`~noust.deployers.helpers.app_env.write_app_env`,
+         *     the same function ``noust env configure`` uses, so the file lands 0600,
          *     owned by the service account, in ``shared/`` on the release layout - and
          *     a mark on a name the write drops is pruned there too, not just here.
          *
@@ -527,7 +527,7 @@ export interface paths {
          *         HTTPException: 404 when the application is unknown, 422 when a name
          *             or a value is not safe to write into a systemd unit, or when the
          *             request tries to set PORT or NODE_ENV, which the unit sets inline
-         *             and are refused by :func:`~wasm.deployers.helpers.app_env.write_app_env`.
+         *             and are refused by :func:`~noust.deployers.helpers.app_env.write_app_env`.
          */
         put: operations["update_app_env_api_apps__domain__env_put"];
         post?: never;
@@ -785,7 +785,7 @@ export interface paths {
          *         persist: Paths to keep in ``shared/``; repeat the parameter for each.
          *
          *     Returns:
-         *         The plan, from :func:`wasm.deployers.migrate.plan_migration`.
+         *         The plan, from :func:`noust.deployers.migrate.plan_migration`.
          *
          *     Raises:
          *         HTTPException: 404 when the application is unknown, 409 when it is on
@@ -844,11 +844,11 @@ export interface paths {
          * Put Preview Settings
          * @description Turn previews on for an application, or change their settings.
          *
-         *     Installs ``wasm-previews.timer`` the first time any application turns
+         *     Installs ``noust-previews.timer`` the first time any application turns
          *     previews on. A preview is built as root, like every deployment, with a
          *     copy of the application's environment minus ``exclude_env``; only pull
          *     requests from people trusted with the repository get one (see
-         *     :func:`wasm.managers.previews.handle_pull_request`).
+         *     :func:`noust.managers.previews.handle_pull_request`).
          *
          *     Args:
          *         domain: The application.
@@ -938,8 +938,8 @@ export interface paths {
          *         session: The authenticated session.
          *
          *     Returns:
-         *         The releases, from :func:`wasm.deployers.lifecycle.list_releases`,
-         *         the same listing ``wasm releases list`` prints.
+         *         The releases, from :func:`noust.deployers.lifecycle.list_releases`,
+         *         the same listing ``noust releases list`` prints.
          *
          *     Raises:
          *         HTTPException: 404 when the application is unknown, 409 when it is
@@ -1069,9 +1069,9 @@ export interface paths {
          * @description List the backups an application can be rolled back to.
          *
          *     Deliberately not gated on the application still being deployed: a backup
-         *     for a domain WASM no longer serves is still a rollback point until it is
+         *     for a domain Noust no longer serves is still a rollback point until it is
          *     pruned, the same reasoning that keeps deployment history around after an
-         *     application is deleted (see :mod:`wasm.web.views.deployments`).
+         *     application is deleted (see :mod:`noust.web.views.deployments`).
          *
          *     Args:
          *         domain: Domain whose rollback points are asked for.
@@ -1079,8 +1079,8 @@ export interface paths {
          *
          *     Returns:
          *         The points, newest first, from
-         *         :meth:`~wasm.managers.backup_manager.RollbackManager.list_rollback_points`
-         *         - the one implementation, shared with ``wasm backup rollback --list``.
+         *         :meth:`~noust.managers.backup_manager.RollbackManager.list_rollback_points`
+         *         - the one implementation, shared with ``noust backup rollback --list``.
          */
         get: operations["list_rollback_points_api_apps__domain__rollback_points_get"];
         put?: never;
@@ -1369,7 +1369,7 @@ export interface paths {
          *
          *     Raises:
          *         HTTPException: 403 with ``error: "elevation_required"`` per
-         *             :func:`wasm.web.api.deps.require_elevated`.
+         *             :func:`noust.web.api.deps.require_elevated`.
          *         SecurityError: 400 when two-factor authentication is not enabled.
          */
         post: operations["regenerate_backup_codes_api_auth_2fa_backup_codes_post"];
@@ -1405,7 +1405,7 @@ export interface paths {
          *
          *     Raises:
          *         HTTPException: 403 with ``error: "elevation_required"`` per
-         *             :func:`wasm.web.api.deps.require_elevated`. 400 when the code
+         *             :func:`noust.web.api.deps.require_elevated`. 400 when the code
          *             does not verify. Not counted by the lockout: the pending secret
          *             is on the operator's own screen, so a wrong code here proves a
          *             typo, not a guess at a credential.
@@ -1480,7 +1480,7 @@ export interface paths {
          *
          *     Raises:
          *         HTTPException: 403 with ``error: "elevation_required"`` per
-         *             :func:`wasm.web.api.deps.require_elevated`.
+         *             :func:`noust.web.api.deps.require_elevated`.
          */
         post: operations["two_factor_enroll_api_auth_2fa_enroll_post"];
         delete?: never;
@@ -1506,7 +1506,7 @@ export interface paths {
          *     configuration or a unit file, running a write against a database console,
          *     revealing a ``.env`` in clear, issuing an API token and turning
          *     two-factor authentication off all require a cookie session to have
-         *     called this recently; see :func:`wasm.web.api.deps.require_elevated`.
+         *     called this recently; see :func:`noust.web.api.deps.require_elevated`.
          *     The factor asked for is the same a login would ask for - a TOTP or backup
          *     code when two-factor authentication is enabled, the master token
          *     otherwise - and a wrong one is counted by the same lockout a login
@@ -1612,7 +1612,7 @@ export interface paths {
          *     to call before it knows which of those two things it is. A caller that
          *     presents nothing is not guessing anything and is not counted. A caller
          *     that presents a credential is checked exactly as ``require_auth`` checks
-         *     one, through :func:`~wasm.web.auth.verify_credential`, and a wrong one is
+         *     one, through :func:`~noust.web.auth.verify_credential`, and a wrong one is
          *     counted towards the lockout: the answer here says whether the value was
          *     the master token, so without counting this was a guessing oracle with no
          *     limit. A session cookie this server signed but that has since expired is
@@ -1810,7 +1810,7 @@ export interface paths {
          *             audit record names the token; the token itself never reaches the
          *             audit log.
          *         HTTPException: 403 with ``error: "elevation_required"`` per
-         *             :func:`wasm.web.api.deps.require_elevated`.
+         *             :func:`noust.web.api.deps.require_elevated`.
          */
         post: operations["create_api_token_api_auth_tokens_post"];
         delete?: never;
@@ -1895,7 +1895,7 @@ export interface paths {
          *
          *     Any credential may ask: a session, the master token or an API token. The
          *     ticket redeems as that same credential, with its scope, and only while it
-         *     is still valid - see :meth:`wasm.web.auth.TokenManager.consume_ws_ticket`.
+         *     is still valid - see :meth:`noust.web.auth.TokenManager.consume_ws_ticket`.
          *
          *     Args:
          *         request: The incoming request.
@@ -1965,7 +1965,7 @@ export interface paths {
          *         session: The authenticated session.
          *
          *     Returns:
-         *         Every backend WASM can build a destination for, with its fields.
+         *         Every backend Noust can build a destination for, with its fields.
          */
         get: operations["list_backends_api_backup_destinations_backends_get"];
         put?: never;
@@ -2230,7 +2230,7 @@ export interface paths {
          *     Removing the units stops future backups from ever running, silently -
          *     D5's sudo mode list treats it the same as any other destructive delete,
          *     so a cookie session has to confirm itself first; an admin-scoped Bearer
-         *     credential is exempt, per :func:`wasm.web.api.deps.ensure_elevated`.
+         *     credential is exempt, per :func:`noust.web.api.deps.ensure_elevated`.
          *
          *     Args:
          *         domain: Domain whose schedule is removed.
@@ -2375,7 +2375,7 @@ export interface paths {
          * @description Queue an upload of a local backup to a remote destination.
          *
          *     Sudo mode: this sends application data, potentially including its
-         *     database dump, to a remote WASM does not control past the point of
+         *     database dump, to a remote Noust does not control past the point of
          *     upload.
          *
          *     Args:
@@ -2409,7 +2409,7 @@ export interface paths {
          *     Restoring overwrites whatever the target domain currently has running -
          *     D5's sudo mode list treats it the same as deleting an application, so a
          *     cookie session has to confirm itself first; an admin-scoped Bearer
-         *     credential is exempt, per :func:`wasm.web.api.deps.ensure_elevated`.
+         *     credential is exempt, per :func:`noust.web.api.deps.ensure_elevated`.
          *
          *     Args:
          *         backup_id: Backup identifier.
@@ -2557,7 +2557,7 @@ export interface paths {
          *     Deleting removes the certificate files for good, so a cookie session must
          *     have confirmed it's them recently (D5), the same rule
          *     ``POST /{domain}/revoke`` applies. See
-         *     :func:`~wasm.web.api.deps.require_elevated`.
+         *     :func:`~noust.web.api.deps.require_elevated`.
          *
          *     Args:
          *         domain: Certificate name.
@@ -2569,7 +2569,7 @@ export interface paths {
          *     Raises:
          *         CertificateError: When certbot refuses the deletion.
          *         HTTPException: 403 with ``error: "elevation_required"`` per
-         *             :func:`~wasm.web.api.deps.require_elevated`.
+         *             :func:`~noust.web.api.deps.require_elevated`.
          */
         delete: operations["delete_certificate_api_certs__domain__delete"];
         options?: never;
@@ -2624,7 +2624,7 @@ export interface paths {
          *     Revoking takes the certificate down at the CA and cannot be undone, so a
          *     cookie session must have confirmed it's them recently (D5); a Bearer
          *     credential is exempt, as issuing it already required that confirmation
-         *     once. See :func:`~wasm.web.api.deps.require_elevated`.
+         *     once. See :func:`~noust.web.api.deps.require_elevated`.
          *
          *     Args:
          *         domain: Certificate name.
@@ -2636,7 +2636,7 @@ export interface paths {
          *     Raises:
          *         CertificateError: When certbot refuses the revocation.
          *         HTTPException: 403 with ``error: "elevation_required"`` per
-         *             :func:`~wasm.web.api.deps.require_elevated`.
+         *             :func:`~noust.web.api.deps.require_elevated`.
          */
         post: operations["revoke_certificate_api_certs__domain__revoke_post"];
         delete?: never;
@@ -2669,7 +2669,7 @@ export interface paths {
          *
          *     Placeholders sent back for secrets keep the stored value, and settings the
          *     code no longer honours are dropped. ``Config.replace`` refuses a value that
-         *     ``wasm config set`` or the typed endpoints below would also refuse - an
+         *     ``noust config set`` or the typed endpoints below would also refuse - an
          *     unsupported web server, a relative apps directory - so a whole-config body
          *     is not a back door around either.
          *
@@ -2695,7 +2695,7 @@ export interface paths {
          *
          *     The stored value is echoed back redacted, so a secret does not travel twice.
          *
-         *     A string value is coerced against the key's schema exactly as ``wasm
+         *     A string value is coerced against the key's schema exactly as ``noust
          *     config set`` coerces argv: a key with a default is parsed as that
          *     default's type, and a key with none is parsed as a JSON scalar or list,
          *     falling back to a plain string. Without it, a caller that posts
@@ -2798,7 +2798,7 @@ export interface paths {
          *     Raises:
          *         ConfigError: When the directory is a relative path; an empty one is
          *             stored as the default. The rule is Config.set's, the same one
-         *             'wasm config set backup.directory' meets.
+         *             'noust config set backup.directory' meets.
          *         HTTPException: If the configuration cannot be written.
          */
         put: operations["update_backup_config_api_config_backup_put"];
@@ -2902,7 +2902,7 @@ export interface paths {
          *     Plain ``get_current_session``, not :func:`require_elevated`: this only
          *     reads what Telegram has queued for the bot, the same reasoning
          *     :func:`test_notification_channel` already applies to sending a message -
-         *     neither one changes anything WASM manages.
+         *     neither one changes anything Noust manages.
          *
          *     Args:
          *         session: Authenticated session, injected by the dependency.
@@ -2938,7 +2938,7 @@ export interface paths {
          *     Ignores the master switch and the per-event filters on purpose - the
          *     button exists to try a channel before notifications are turned on - and
          *     never echoes the remote server's response body back to the client:
-         *     :meth:`~wasm.core.notifier.Notifier.test_channel` already refuses a
+         *     :meth:`~noust.core.notifier.Notifier.test_channel` already refuses a
          *     private destination and scrubs configured secrets out of any failure it
          *     reports.
          *
@@ -3006,12 +3006,12 @@ export interface paths {
          * Update Smtp Config
          * @description Update the monitor's SMTP settings.
          *
-         *     Goes through :meth:`~wasm.core.config.Config.set`, so the same rule 'wasm
+         *     Goes through :meth:`~noust.core.config.Config.set`, so the same rule 'noust
          *     config set monitor.smtp.*' enforces - a hostname for ``host``, a port in
          *     range, ``use_ssl`` and ``use_tls`` not both on, a valid address for
          *     ``from_address`` and every recipient - rejects a value here too, in the
          *     same words. An empty ``password`` is translated to the
-         *     :data:`~wasm.core.config.REDACTED` placeholder before the write, which is
+         *     :data:`~noust.core.config.REDACTED` placeholder before the write, which is
          *     what actually keeps the stored password, and is refused when the
          *     password would go somewhere else: see :class:`SMTPConfig`.
          *
@@ -3174,7 +3174,7 @@ export interface paths {
         };
         /**
          * List Jobs
-         * @description List every WASM cron job with its next run and last result.
+         * @description List every Noust cron job with its next run and last result.
          *
          *     Args:
          *         session: The authenticated session.
@@ -3186,7 +3186,7 @@ export interface paths {
         put?: never;
         /**
          * Create Job
-         * @description Create a cron job as a systemd timer, or rewrite one WASM already owns.
+         * @description Create a cron job as a systemd timer, or rewrite one Noust already owns.
          *
          *     Sudo mode, creating or rewriting alike: either way the result is a
          *     command of the caller's choosing that runs as root on a timer.
@@ -3262,7 +3262,7 @@ export interface paths {
          *     Deleting the units is as destructive as deleting the application they
          *     were scheduled for - D5's sudo mode list treats it the same way, so a
          *     cookie session has to confirm itself first; an admin-scoped Bearer
-         *     credential is exempt, per :func:`wasm.web.api.deps.ensure_elevated`.
+         *     credential is exempt, per :func:`noust.web.api.deps.ensure_elevated`.
          *
          *     Args:
          *         name: Job name.
@@ -3274,7 +3274,7 @@ export interface paths {
          *     Raises:
          *         HTTPException: 404 when no owned job exists for the name, so deleting
          *             a job that was never created does not report success.
-         *         ServiceError: When the units are not WASM's.
+         *         ServiceError: When the units are not Noust's.
          */
         delete: operations["delete_job_api_cron__name__delete"];
         options?: never;
@@ -3467,7 +3467,7 @@ export interface paths {
          *     Restoring overwrites whatever the target database currently holds - D5's
          *     sudo mode list treats it the same as dropping a database, so a cookie
          *     session has to confirm itself first; an admin-scoped Bearer credential is
-         *     exempt, per :func:`wasm.web.api.deps.ensure_elevated`.
+         *     exempt, per :func:`noust.web.api.deps.ensure_elevated`.
          *
          *     Args:
          *         request: The restore request.
@@ -3611,7 +3611,7 @@ export interface paths {
         };
         /**
          * List Engines
-         * @description List every engine WASM can manage and its state on this host.
+         * @description List every engine Noust can manage and its state on this host.
          *
          *     Args:
          *         session: The authenticated session.
@@ -3699,8 +3699,8 @@ export interface paths {
          * Get Engine Privileges
          * @description List the privileges an engine's grant dialog may offer.
          *
-         *     The manager's own whitelist is the one definition of what WASM will
-         *     grant - see :data:`wasm.managers.database.base.BaseDatabaseManager.VALID_PRIVILEGES` -
+         *     The manager's own whitelist is the one definition of what Noust will
+         *     grant - see :data:`noust.managers.database.base.BaseDatabaseManager.VALID_PRIVILEGES` -
          *     so the console reads it from here instead of keeping its own copy that
          *     could drift.
          *
@@ -3844,7 +3844,7 @@ export interface paths {
          *     Removing an engine can take every database it hosts with it - D5's sudo
          *     mode list treats it the same as dropping a single database, so a cookie
          *     session has to confirm itself first; an admin-scoped Bearer credential is
-         *     exempt, per :func:`wasm.web.api.deps.ensure_elevated`.
+         *     exempt, per :func:`noust.web.api.deps.ensure_elevated`.
          *
          *     Args:
          *         engine: Engine name.
@@ -4128,7 +4128,7 @@ export interface paths {
          *         deployment_id: The row's id.
          *         session: The authenticated session.
          *         tail: Bytes to return, counted from the end of the file. Defaults to
-         *             :data:`wasm.deployers.logs.DEFAULT_TAIL_BYTES`.
+         *             :data:`noust.deployers.logs.DEFAULT_TAIL_BYTES`.
          *
          *     Returns:
          *         The log, or the reason there is nothing to show.
@@ -4157,7 +4157,7 @@ export interface paths {
          * @description Check whether a domain resolves to this server, before it is any application's.
          *
          *     The same check :func:`get_domain_dns` runs for a domain already added to
-         *     an application, through the same :func:`wasm.deployers.domains.check_dns`
+         *     an application, through the same :func:`noust.deployers.domains.check_dns`
          *     - the new-app wizard needs an answer before anything is created, and there
          *     is no application yet to hang the path off.
          *
@@ -4529,10 +4529,10 @@ export interface paths {
          * Create Delete Job
          * @description Queue a deletion.
          *
-         *     Runs the same :func:`~wasm.web.jobs.delete_app_job` that
+         *     Runs the same :func:`~noust.web.jobs.delete_app_job` that
          *     ``DELETE /api/apps/{domain}`` queues, so it is guarded the same way: a
          *     cookie session must have confirmed recently (see
-         *     :func:`~wasm.web.api.deps.require_elevated`), the same as any other
+         *     :func:`~noust.web.api.deps.require_elevated`), the same as any other
          *     irreversible action. A stale client still calling this route instead of
          *     the app-level one gets no less protection for it.
          *
@@ -4929,9 +4929,9 @@ export interface paths {
          *         The requested page and the store totals.
          *
          *     Raises:
-         *         WASMError: When the store cannot be read; caught by ``WASMErrorRoute``.
+         *         NoustError: When the store cannot be read; caught by ``NoustErrorRoute``.
          *         HTTPException: 500 for a filesystem error the store itself did not
-         *             wrap - OSError is not a WASMError, so it would otherwise crash.
+         *             wrap - OSError is not a NoustError, so it would otherwise crash.
          */
         get: operations["get_observations_api_monitor_observations_get"];
         put?: never;
@@ -4955,7 +4955,7 @@ export interface paths {
          * Acknowledge Observation
          * @description Mark an observation as seen.
          *
-         *     Acknowledging changes a flag in WASM's own database. It does nothing to the
+         *     Acknowledging changes a flag in Noust's own database. It does nothing to the
          *     process the observation is about.
          *
          *     Args:
@@ -4966,7 +4966,7 @@ export interface paths {
          *         A success payload.
          *
          *     Raises:
-         *         WASMError: When the store is unreadable; caught by ``WASMErrorRoute``.
+         *         NoustError: When the store is unreadable; caught by ``NoustErrorRoute``.
          *         HTTPException: 404 when the row does not exist, 500 for a filesystem
          *             error the store itself did not wrap.
          */
@@ -5093,8 +5093,8 @@ export interface paths {
          *         The unit state, plus the scope note the panel displays.
          *
          *     Raises:
-         *         WASMError: When systemd could not be queried; caught by
-         *             ``WASMErrorRoute`` and answered as a 500.
+         *         NoustError: When systemd could not be queried; caught by
+         *             ``NoustErrorRoute`` and answered as a 500.
          */
         get: operations["get_monitor_status_api_monitor_status_get"];
         put?: never;
@@ -5178,7 +5178,7 @@ export interface paths {
         put?: never;
         /**
          * Uninstall Monitor
-         * @description Remove the systemd unit WASM wrote.
+         * @description Remove the systemd unit Noust wrote.
          *
          *     Args:
          *         session: Authenticated session, injected.
@@ -5291,12 +5291,13 @@ export interface paths {
          * List Services
          * @description List services.
          *
-         *     ``wasm_only`` (the default) lists the units WASM manages - the one
-         *     definition in :meth:`~wasm.managers.service_manager.ServiceManager.managed_units`
+         *     ``noust_only`` (the default; ``wasm_only`` before 3.0, still read) lists
+         *     the units Noust manages - the one
+         *     definition in :meth:`~noust.managers.service_manager.ServiceManager.managed_units`
          *     the console's top bar counts too, so the two always agree. Set it to false
          *     for a full inventory of every unit on the host, each flagged ``managed``,
          *     which is how a diagnostics view tells a foreign unit's own crash loop from
-         *     one of WASM's own. A foreign unit carries only its state: it is listed
+         *     one of Noust's own. A foreign unit carries only its state: it is listed
          *     from systemd's own listing, never probed or acted on.
          */
         get: operations["list_services_api_services_get"];
@@ -5352,7 +5353,7 @@ export interface paths {
          * Get Service
          * @description Get details for a specific service.
          *
-         *     Answers for a unit WASM manages, whether or not the store's services
+         *     Answers for a unit Noust manages, whether or not the store's services
          *     table has a row for it (since 0.14.1 an application's unit is named after
          *     the application and may have none). Any other unit is a 404, which is how
          *     the console knows to describe it from the all-units listing instead;
@@ -5453,7 +5454,7 @@ export interface paths {
          *
          *     The console's and the monitor's journals need an admin credential, not
          *     the ``read`` a GET would otherwise ask for: the console logs every SQL
-         *     statement run from it (``wasm.audit``), the paths and client addresses of
+         *     statement run from it (``noust.audit``), the paths and client addresses of
          *     every request, and the verbatim output of failed git, certbot and
          *     notification calls; the monitor logs what it saw of other processes.
          *     An application's journal is its own output and stays ``read``.
@@ -5624,7 +5625,7 @@ export interface paths {
          *
          *     Registered before ``/{domain}`` so the literal path wins, the same reason
          *     ``/reload`` is declared here rather than after it: the templates
-         *     directory :meth:`~wasm.managers.webserver.WebServerManager.list_templates`
+         *     directory :meth:`~noust.managers.webserver.WebServerManager.list_templates`
          *     reads is the one source of truth this shares with ``POST /api/sites``,
          *     which refuses a template not on this list.
          *
@@ -5763,7 +5764,7 @@ export interface paths {
          * Test Site Config
          * @description Try a candidate configuration against the web server, without saving it.
          *
-         *     Reuses :meth:`~wasm.managers.webserver.WebServerManager.test_config_text`,
+         *     Reuses :meth:`~noust.managers.webserver.WebServerManager.test_config_text`,
          *     the exact staging and syntax check ``PUT /{domain}/config`` validates
          *     through before it writes anything - one implementation, so the answer
          *     this gives is the answer saving would get. The site named in the path
@@ -5939,9 +5940,9 @@ export interface paths {
         };
         /**
          * Get System Health
-         * @description Report the same health verdict and checks as ``wasm health``.
+         * @description Report the same health verdict and checks as ``noust health``.
          *
-         *     Calls :func:`wasm.managers.health.collect_health_report`, the function the
+         *     Calls :func:`noust.managers.health.collect_health_report`, the function the
          *     CLI command itself calls, so the server card in the console can never
          *     disagree with what an operator sees at the terminal.
          *
@@ -6396,11 +6397,11 @@ export interface components {
          *         domain: Domain of the application.
          *         variables: Name to value mapping. Unless ``unmasked`` is true, a
          *             secret-looking name and a URL credential embedded in a value are
-         *             both replaced by the fixed :data:`~wasm.core.config.REDACTED`
-         *             placeholder, exactly as ``wasm env show`` does on the terminal.
+         *             both replaced by the fixed :data:`~noust.core.config.REDACTED`
+         *             placeholder, exactly as ``noust env show`` does on the terminal.
          *         unmasked: Whether this response carries values in clear.
          *         secrets: Every variable's classification, from
-         *             :func:`~wasm.core.secret_detection.classify` - present whether or
+         *             :func:`~noust.core.secret_detection.classify` - present whether or
          *             not ``unmasked`` is true, so the console can label a variable
          *             (and let the operator override it) without asking to see its
          *             value. For a credential below admin scope, a value-based
@@ -6454,7 +6455,7 @@ export interface components {
         };
         /**
          * AppExportDocument
-         * @description An application's definition, as ``wasm app export`` writes it.
+         * @description An application's definition, as ``noust app export`` writes it.
          */
         AppExportDocument: {
             app: components["schemas"]["ExportApp"];
@@ -6502,7 +6503,7 @@ export interface components {
          *         name: Application name, which is its domain.
          *         domain: Domain the application is served on.
          *         status: What is true about it right now, resolved by
-         *             :func:`wasm.core.app_state.resolve_state` - the one place the CLI
+         *             :func:`noust.core.app_state.resolve_state` - the one place the CLI
          *             and the panel agree on this: ``running``, ``restarting`` (systemd
          *             is crash-looping the unit), ``no_answer`` (the unit is up but
          *             nothing accepts connections on its port), ``stopped``, ``failed``
@@ -6654,7 +6655,7 @@ export interface components {
         };
         /**
          * AppTypesResponse
-         * @description Every application type WASM can deploy.
+         * @description Every application type Noust can deploy.
          */
         AppTypesResponse: {
             /** Types */
@@ -6767,7 +6768,7 @@ export interface components {
         };
         /**
          * BackendInfo
-         * @description One backend WASM can build a destination for.
+         * @description One backend Noust can build a destination for.
          */
         BackendInfo: {
             /** Backend */
@@ -6803,7 +6804,7 @@ export interface components {
             /**
              * Directory
              * @description Backup storage directory: an absolute path, or empty for the default
-             * @default /var/backups/wasm
+             * @default /var/backups/noust
              */
             directory: string;
             /**
@@ -6979,10 +6980,10 @@ export interface components {
          *
          *     Attributes:
          *         domains: The applications holding backups in ``path``; directories
-         *             with no WASM backup in them are not listed.
+         *             with no Noust backup in them are not listed.
          *         misplaced: Backups found elsewhere - in the old default directory, or
          *             where an empty ``backup.directory`` sent them - each with the
-         *             ``wasm backup import`` command that moves them into ``path``.
+         *             ``noust backup import`` command that moves them into ``path``.
          *         filesystem_total: Size in bytes of the filesystem ``path`` is on, or
          *             None when it could not be read.
          *         filesystem_free: Bytes free on that filesystem, or None when it
@@ -7424,7 +7425,7 @@ export interface components {
          *         domains: Extra domains (SANs) to cover, beyond the primary domain in
          *             the path and the ``www`` alias ``include_www`` may add.
          *         method: How to prove control of the domain. One of "nginx", "apache",
-         *             "webroot" or "standalone". Omitted lets WASM pick.
+         *             "webroot" or "standalone". Omitted lets Noust pick.
          *         webroot: Webroot path, used when ``method`` is "webroot".
          *         include_www: Also cover the ``www`` subdomain.
          *         expand: Expand an existing certificate even when it already covers
@@ -7690,7 +7691,7 @@ export interface components {
          * CreateUserResponse
          * @description Response after creating a user.
          *
-         *     The password is returned exactly once, at creation: WASM stores only what
+         *     The password is returned exactly once, at creation: Noust stores only what
          *     the engine stores, which is a hash, so there is nowhere to read it from
          *     later. It is deliberately absent from every other response.
          */
@@ -7718,7 +7719,7 @@ export interface components {
          * @description One cron job as systemd reports it.
          *
          *     Attributes:
-         *         name: Job name the ``wasm-cron-{name}`` unit names are built from.
+         *         name: Job name the ``noust-cron-{name}`` unit names are built from.
          *         command: The command as the operator typed it (what the unit runs, before systemd escaping).
          *         user: Unix user the command runs as.
          *         working_directory: Directory the command runs in, empty when unset.
@@ -8049,13 +8050,13 @@ export interface components {
          * DiagnoseCheck
          * @description One diagnostic probe's result.
          *
-         *     Mirrors :class:`wasm.managers.diagnose.Check` field for field: this module
+         *     Mirrors :class:`noust.managers.diagnose.Check` field for field: this module
          *     only translates it to HTTP, it does not reinterpret it.
          *
          *     Attributes:
          *         name: Stable identifier for the probe, such as ``"unit"`` or ``"port"``.
          *         status: ``"ok"``, ``"warn"``, ``"fail"`` or ``"skip"``.
-         *         summary: One line, in WASM's own words.
+         *         summary: One line, in Noust's own words.
          *         evidence: Raw output the probe collected, verbatim.
          */
         DiagnoseCheck: {
@@ -8075,8 +8076,8 @@ export interface components {
          * DiagnoseResponse
          * @description The full answer to "why is this app down".
          *
-         *     Mirrors :class:`wasm.managers.diagnose.Diagnosis`, which is also what
-         *     ``wasm diagnose --json`` prints - the console and the CLI read the same
+         *     Mirrors :class:`noust.managers.diagnose.Diagnosis`, which is also what
+         *     ``noust diagnose --json`` prints - the console and the CLI read the same
          *     shape.
          *
          *     Attributes:
@@ -8285,11 +8286,11 @@ export interface components {
          *         reason: One of ``"marked secret"``, ``"marked not secret"``,
          *             ``"name"``, ``"value: <kind>"``, ``"value"``, ``"url
          *             credentials"`` or ``"plain"`` - see
-         *             :class:`~wasm.core.secret_detection.Secrecy`. ``"value: <kind>"``
+         *             :class:`~noust.core.secret_detection.Secrecy`. ``"value: <kind>"``
          *             names the vendor a value's shape matched (``"value: stripe"``),
          *             which is itself a fact about the value; a credential below admin
          *             scope gets the generic ``"value"`` instead (see
-         *             :func:`~wasm.web.api.apps._secrets_map`).
+         *             :func:`~noust.web.api.apps._secrets_map`).
          *         marked: Whether this came from an operator's own mark rather than
          *             from the variable's name or value.
          */
@@ -8867,7 +8868,7 @@ export interface components {
          *
          *     Attributes:
          *         id: Deployment id, the store's own primary key.
-         *         status: One of :class:`~wasm.core.store.DeploymentStatus`: ``queued``,
+         *         status: One of :class:`~noust.core.store.DeploymentStatus`: ``queued``,
          *             ``running``, ``success``, ``failed`` or ``rolled_back``.
          *         finished_at: When it finished, ISO 8601 with an explicit UTC offset;
          *             None while it is still running.
@@ -8997,7 +8998,7 @@ export interface components {
          * MachineOut
          * @description The machine snapshot the console's topbar reads, and the ``machine`` SSE
          *     event carries every five seconds. One implementation,
-         *     :func:`wasm.web.machine.read_machine`, composes it; this only describes
+         *     :func:`noust.web.machine.read_machine`, composes it; this only describes
          *     its shape for the OpenAPI contract, so a REST poll and the stream can
          *     never disagree about what a field means.
          */
@@ -9023,7 +9024,7 @@ export interface components {
         };
         /**
          * MachineUnits
-         * @description How many WASM-managed systemd units are in each state.
+         * @description How many Noust-managed systemd units are in each state.
          */
         MachineUnits: {
             /** Failed */
@@ -9237,7 +9238,7 @@ export interface components {
         };
         /**
          * MisplacedBackupsInfo
-         * @description WASM backups found outside the backup directory, and how to bring them in.
+         * @description Noust backups found outside the backup directory, and how to bring them in.
          */
         MisplacedBackupsInfo: {
             /** Command */
@@ -9402,7 +9403,7 @@ export interface components {
         };
         /**
          * PlatformProposalResponse
-         * @description What another platform's configuration says, in WASM's terms.
+         * @description What another platform's configuration says, in Noust's terms.
          */
         PlatformProposalResponse: {
             /**
@@ -9677,7 +9678,7 @@ export interface components {
         ProposedEnvResponse: {
             /**
              * Generated
-             * @description The platform generates it; WASM generates one in its place
+             * @description The platform generates it; Noust generates one in its place
              * @default false
              */
             generated: boolean;
@@ -9813,7 +9814,7 @@ export interface components {
          *
          *     Attributes:
          *         name: The variable.
-         *         generated: Whether WASM generates its value (a secret, a database
+         *         generated: Whether Noust generates its value (a secret, a database
          *             credential, the domain); either way ``env_vars`` overrides it.
          */
         RecipeEnvOut: {
@@ -10089,7 +10090,7 @@ export interface components {
          *     Attributes:
          *         removed: Whether there was an App to forget.
          *         settings_url: The App's page on GitHub, where it is uninstalled and
-         *             deleted; WASM cannot do that itself.
+         *             deleted; Noust cannot do that itself.
          */
         RemovalOut: {
             /** Removed */
@@ -10237,14 +10238,14 @@ export interface components {
          *     ``password`` is write-only: it is never sent back by ``GET /config/smtp``
          *     (see :class:`SMTPSettingsResponse`), so unlike a secret round-tripped
          *     through the generic ``PUT``/``PATCH /api/config`` there is no
-         *     :data:`~wasm.core.config.REDACTED` placeholder for the console to echo
+         *     :data:`~noust.core.config.REDACTED` placeholder for the console to echo
          *     back untouched. Instead an empty ``password`` keeps whatever is already
          *     stored - but only while it would still go where it went before: the same
          *     host, port, username and transport. Changing any of those with a blank
          *     password is refused (see :func:`_refuse_smtp_password_move`), so a
          *     credential that may write this section but never saw the password cannot
          *     point it at a server of its own and send itself a test email. There is no
-         *     way to explicitly blank the password through this endpoint; ``wasm config
+         *     way to explicitly blank the password through this endpoint; ``noust config
          *     set monitor.smtp.password ''`` still does that directly.
          */
         SMTPConfig: {
@@ -10462,8 +10463,8 @@ export interface components {
          * @description Service information.
          *
          *     Attributes:
-         *         managed: Whether WASM manages this unit. False only when listing with
-         *             ``wasm_only=false``, which walks every unit on the host; such a
+         *         managed: Whether Noust manages this unit. False only when listing with
+         *             ``noust_only=false``, which walks every unit on the host; such a
          *             row carries systemd's state fields and nothing else (``enabled``
          *             false, no PID, memory or uptime), read from the one listing.
          *         active_state: Systemd's own ``ActiveState`` (``active``, ``failed``,
@@ -10570,9 +10571,11 @@ export interface components {
          *         totp_enabled: Whether logins require a second factor.
          *         hostname: This machine's hostname, so an operator with several panels
          *             open can tell them apart.
-         *         version: The installed WASM version.
+         *         version: The installed Noust version.
          *         csrf_header: Header name a mutation must echo the CSRF cookie in.
          *         csrf_cookie: Name of the readable CSRF cookie.
+         *         renamed_from_wasm: Whether this server ran WASM before Noust, so the
+         *             console tells the operator once that the product was renamed.
          */
         SessionInfo: {
             /** Authenticated */
@@ -10593,6 +10596,11 @@ export interface components {
             expires_at?: string | null;
             /** Hostname */
             hostname: string;
+            /**
+             * Renamed From Wasm
+             * @default false
+             */
+            renamed_from_wasm: boolean;
             /** Scope */
             scope?: string | null;
             /** Totp Enabled */
@@ -10756,7 +10764,7 @@ export interface components {
          *             not a Git repository.
          *         compatible: Whether this server can deploy it as ``app_type`` as it
          *             is: false when a program the type needs is missing.
-         *         verdict: What WASM found, in a sentence.
+         *         verdict: What Noust found, in a sentence.
          *         suggestion: What to do before deploying, when there is something.
          */
         SourceInspectionResponse: {
@@ -10794,7 +10802,7 @@ export interface components {
             suggestion?: string | null;
             /**
              * Verdict
-             * @description What WASM found, in a sentence
+             * @description What Noust found, in a sentence
              */
             verdict?: string | null;
         };
@@ -10810,9 +10818,9 @@ export interface components {
         };
         /**
          * SystemHealthOut
-         * @description The same verdict and checks ``wasm health`` prints, as JSON.
+         * @description The same verdict and checks ``noust health`` prints, as JSON.
          *
-         *     :func:`wasm.managers.health.collect_health_report` is the one
+         *     :func:`noust.managers.health.collect_health_report` is the one
          *     implementation this and the CLI command both read; this model only
          *     describes its shape for the OpenAPI contract.
          */
@@ -10860,7 +10868,7 @@ export interface components {
         };
         /**
          * TelegramChatsResult
-         * @description Every chat :meth:`~wasm.core.notifier.Notifier.list_telegram_chats` found.
+         * @description Every chat :meth:`~noust.core.notifier.Notifier.list_telegram_chats` found.
          */
         TelegramChatsResult: {
             /** Chats */
@@ -11477,7 +11485,7 @@ export interface components {
          * BackupListResponse
          * @description Response for listing backups.
          */
-        wasm__web__api__backups__BackupListResponse: {
+        noust__web__api__backups__BackupListResponse: {
             /** Backups */
             backups: components["schemas"]["BackupInfo"][];
             /** Total */
@@ -11487,7 +11495,7 @@ export interface components {
          * CreateBackupRequest
          * @description Request to create a backup.
          */
-        wasm__web__api__backups__CreateBackupRequest: {
+        noust__web__api__backups__CreateBackupRequest: {
             /**
              * Description
              * @description Description for the backup
@@ -11550,7 +11558,7 @@ export interface components {
          * RestoreBackupRequest
          * @description Request to restore a backup.
          */
-        wasm__web__api__backups__RestoreBackupRequest: {
+        noust__web__api__backups__RestoreBackupRequest: {
             /**
              * Restore Env
              * @description Restore the .env files from the archive
@@ -11573,7 +11581,7 @@ export interface components {
          * BackupListResponse
          * @description Response for listing database backups.
          */
-        wasm__web__api__databases__BackupListResponse: {
+        noust__web__api__databases__BackupListResponse: {
             /** Backups */
             backups: components["schemas"]["BackupInfoResponse"][];
             /** Total */
@@ -11583,7 +11591,7 @@ export interface components {
          * CreateBackupRequest
          * @description Request to dump a database.
          */
-        wasm__web__api__databases__CreateBackupRequest: {
+        noust__web__api__databases__CreateBackupRequest: {
             /**
              * Compress
              * @description Compress the dump
@@ -11613,7 +11621,7 @@ export interface components {
          *             read any file on the host as the database superuser.
          *         drop_existing: Drop the database before restoring.
          */
-        wasm__web__api__databases__RestoreBackupRequest: {
+        noust__web__api__databases__RestoreBackupRequest: {
             /**
              * Backup Name
              * @description File name of the dump to restore
@@ -11644,7 +11652,7 @@ export interface components {
          *         total: Number of processes seen.
          *         processes: The page requested.
          */
-        wasm__web__api__monitor__ProcessListResponse: {
+        noust__web__api__monitor__ProcessListResponse: {
             /** Processes */
             processes: components["schemas"]["ProcessEntry"][];
             /** Total */
@@ -11654,7 +11662,7 @@ export interface components {
          * ProcessListResponse
          * @description Response for the process listing.
          */
-        wasm__web__api__system__ProcessListResponse: {
+        noust__web__api__system__ProcessListResponse: {
             /** Processes */
             processes: components["schemas"]["ProcessInfo"][];
             /** Total */
@@ -13815,7 +13823,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["wasm__web__api__backups__BackupListResponse"];
+                    "application/json": components["schemas"]["noust__web__api__backups__BackupListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -13838,7 +13846,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["wasm__web__api__backups__CreateBackupRequest"];
+                "application/json": components["schemas"]["noust__web__api__backups__CreateBackupRequest"];
             };
         };
         responses: {
@@ -13990,7 +13998,7 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": components["schemas"]["wasm__web__api__backups__RestoreBackupRequest"] | null;
+                "application/json": components["schemas"]["noust__web__api__backups__RestoreBackupRequest"] | null;
             };
         };
         responses: {
@@ -15074,7 +15082,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["wasm__web__api__databases__BackupListResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__BackupListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -15097,7 +15105,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["wasm__web__api__databases__CreateBackupRequest"];
+                "application/json": components["schemas"]["noust__web__api__databases__CreateBackupRequest"];
             };
         };
         responses: {
@@ -15130,7 +15138,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["wasm__web__api__databases__RestoreBackupRequest"];
+                "application/json": components["schemas"]["noust__web__api__databases__RestoreBackupRequest"];
             };
         };
         responses: {
@@ -16718,7 +16726,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["wasm__web__api__monitor__ProcessListResponse"];
+                    "application/json": components["schemas"]["noust__web__api__monitor__ProcessListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -16928,8 +16936,13 @@ export interface operations {
     list_services_api_services_get: {
         parameters: {
             query?: {
-                /** @description Only show WASM services */
-                wasm_only?: boolean;
+                /** @description Only show the units Noust manages (the default) */
+                noust_only?: boolean | null;
+                /**
+                 * @deprecated
+                 * @description The name noust_only had before 3.0; read when noust_only is absent
+                 */
+                wasm_only?: boolean | null;
             };
             header?: never;
             path?: never;
@@ -17815,7 +17828,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["wasm__web__api__system__ProcessListResponse"];
+                    "application/json": components["schemas"]["noust__web__api__system__ProcessListResponse"];
                 };
             };
             /** @description Validation Error */

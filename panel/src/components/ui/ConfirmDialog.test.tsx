@@ -64,7 +64,7 @@ describe("ConfirmDialog", () => {
   it("stays open and shows the failure verbatim, with the fix above it", async () => {
     const failure = Object.assign(new Error("request failed"), {
       hint: "The unit did not stop. Check its logs, then try again.",
-      detail: "Job for wasm-example.com.service canceled.",
+      detail: "Job for noust-example.com.service canceled.",
     });
     setup(() => Promise.reject(failure));
     await open();
@@ -72,7 +72,7 @@ describe("ConfirmDialog", () => {
     await userEvent.click(screen.getByRole("button", { name: "Delete application" }));
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("The unit did not stop. Check its logs, then try again.");
-    expect(alert).toHaveTextContent("Job for wasm-example.com.service canceled.");
+    expect(alert).toHaveTextContent("Job for noust-example.com.service canceled.");
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
   });
 

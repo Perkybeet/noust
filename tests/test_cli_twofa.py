@@ -6,7 +6,7 @@ Tests for ``wasm 2fa``: two-factor authentication from the command line.
 
 Enrolling, confirming, disabling and recovering used to be reachable only
 from the panel's settings screen. These tests pin the CLI as a client of the
-exact :class:`~wasm.web.auth.TokenManager` every ``/api/auth/2fa/*`` endpoint
+exact :class:`~noust.web.auth.TokenManager` every ``/api/auth/2fa/*`` endpoint
 calls, over the same on-disk state.
 """
 
@@ -18,9 +18,9 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from wasm.cli.app import cli as root_cli
-from wasm.core import totp
-from wasm.web.auth import STATE_DIR_ENV, SecurityConfig, TokenManager
+from noust.cli.app import cli as root_cli
+from noust.core import totp
+from noust.web.auth import STATE_DIR_ENV, SecurityConfig, TokenManager
 
 
 @pytest.fixture

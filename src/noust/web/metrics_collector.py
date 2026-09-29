@@ -6,7 +6,7 @@ The sampling thread behind the panel's charts and its live metrics feed.
 
 One daemon thread in the web process reads the machine through psutil and every
 application unit through its cgroup, every couple of seconds. Each tick is
-persisted to the RRD-style :class:`~wasm.monitor.timeseries.MetricsStore` for
+persisted to the RRD-style :class:`~noust.monitor.timeseries.MetricsStore` for
 the history the charts load, and kept as an in-memory snapshot for the ``/events``
 stream to push to open pages.
 
@@ -42,8 +42,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from wasm.core.exceptions import WASMError
-from wasm.monitor.timeseries import MetricsStore, default_metrics_db_path
+from noust.core.exceptions import NoustError
+from noust.monitor.timeseries import MetricsStore, default_metrics_db_path
 
 try:
     import psutil
@@ -61,9 +61,9 @@ _SAMPLING_ERRORS: tuple[type[Exception], ...] = (
 )
 
 #: What reading or writing the SQLite store can raise.
-_STORE_ERRORS: tuple[type[Exception], ...] = (sqlite3.Error, OSError, ValueError, WASMError)
+_STORE_ERRORS: tuple[type[Exception], ...] = (sqlite3.Error, OSError, ValueError, NoustError)
 
-#: Where systemd parents the cgroups of the units WASM writes.
+#: Where systemd parents the cgroups of the units Noust writes.
 CGROUP_ROOT = Path("/sys/fs/cgroup/system.slice")
 
 #: Seconds between samples. Matches the raw tier of the metrics store.
@@ -348,7 +348,7 @@ class MetricsCollector:
             return self._units
 
         try:
-            from wasm.core.store import get_store
+            from noust.core.store import get_store
 
             apps = [app for app in get_store().list_apps() if app.domain]
         except _STORE_ERRORS:
@@ -360,7 +360,7 @@ class MetricsCollector:
                     continue
                 try:
                     units[app.domain] = self._units_for(app)
-                except WASMError as exc:
+                except NoustError as exc:
                     log.debug("could not name the units of %s: %s", app.domain, exc)
             self._units = units
             # Deleted applications must not keep a CPU counter alive forever.
@@ -381,7 +381,7 @@ def _app_units(app: Any) -> list[str]:
     Returns:
         Its unit names, without the ``.service`` suffix.
     """
-    from wasm.managers.service_manager import ServiceManager
+    from noust.managers.service_manager import ServiceManager
 
     return ServiceManager(verbose=False).app_units(app)
 
@@ -471,7 +471,7 @@ def get_metrics_store() -> MetricsStore:
     Return the process-wide metrics store, creating it on first use.
 
     Returns:
-        The store, on :func:`~wasm.monitor.timeseries.default_metrics_db_path`.
+        The store, on :func:`~noust.monitor.timeseries.default_metrics_db_path`.
     """
     global _store
     with _lock:

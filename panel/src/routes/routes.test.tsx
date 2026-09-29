@@ -6,7 +6,7 @@ import { renderConsole } from "../test/console";
 import { fakeBackend, json, signedInRoutes } from "../test/fakes";
 
 /**
- * The route tree is the contract with the CLI's deep links (src/wasm/cli/panel_links.py):
+ * The route tree is the contract with the CLI's deep links (src/noust/cli/panel_links.py):
  * every path answers with its own page, headed by its title.
  */
 const PAGES: [path: string, heading: string, content: string][] = [
@@ -68,7 +68,7 @@ describe("the route tree", () => {
     fakeBackend(signedInRoutes());
     renderConsole("/apps/shop.example.com/logs");
     await screen.findByRole("region", { name: "Journal of shop.example.com" });
-    expect(document.title).toBe("Logs - shop.example.com - web-01 - WASM");
+    expect(document.title).toBe("Logs - shop.example.com - web-01 - Noust");
   });
 
   it("answers an unknown address with a page, not a blank screen", async () => {

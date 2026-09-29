@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Deployer registry for WASM.
+Deployer registry for Noust.
 
 Registration, lookup, and the detection order that makes ``--type auto`` mean
 something. ``_import_deployers`` used to have an empty body with two comments
@@ -16,7 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, ClassVar
 
-from wasm.deployers.interface import AppDeployer
+from noust.deployers.interface import AppDeployer
 
 
 class DeployerRegistry:
@@ -171,7 +171,7 @@ def available_types() -> list[dict[str, Any]]:
     Returns:
         One mapping per type, with ``type``, ``name`` and ``default_port``,
         ordered with the detectors first and ``auto`` last: picking a
-        specific type is the deliberate choice, and offering "let WASM
+        specific type is the deliberate choice, and offering "let Noust
         decide" at the top invites the operator to skip a decision they
         usually know the answer to.
     """
@@ -195,7 +195,7 @@ def _import_deployers() -> None:
     Import order is deliberately irrelevant: precedence comes from
     ``DETECTION_PRIORITY``, not from who registered first.
     """
-    from wasm.deployers import (  # noqa: F401
+    from noust.deployers import (  # noqa: F401
         auto,
         docker_compose,
         monorepo,

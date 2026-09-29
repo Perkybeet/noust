@@ -2,21 +2,21 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-``wasm app``: settings of one deployed application that are not a deploy.
+``noust app``: settings of one deployed application that are not a deploy.
 
 ``migrate`` moves an in-place application onto the release layout; it is
-:func:`wasm.deployers.migrate.plan_migration` and
-:func:`~wasm.deployers.migrate.migrate`, which ``POST /api/apps/{d}/migrate``
+:func:`noust.deployers.migrate.plan_migration` and
+:func:`~noust.deployers.migrate.migrate`, which ``POST /api/apps/{d}/migrate``
 calls too. ``limits`` sets the memory, CPU and task limits of its unit through
-:func:`wasm.deployers.lifecycle.set_resource_limits`, like ``PATCH
+:func:`noust.deployers.lifecycle.set_resource_limits`, like ``PATCH
 /api/apps/{d}/limits``. ``health`` sets what the health gate asks of it
-through :func:`wasm.deployers.lifecycle.set_health_check`, like ``PATCH
+through :func:`noust.deployers.lifecycle.set_health_check`, like ``PATCH
 /api/apps/{d}/health``. ``zero-downtime`` shows or switches blue/green
-activation through :mod:`wasm.deployers.bluegreen`, like ``GET`` and ``PUT
+activation through :mod:`noust.deployers.bluegreen`, like ``GET`` and ``PUT
 /api/apps/{d}/zero-downtime``. ``export`` and ``import`` write and read an
-application's definition through :mod:`wasm.deployers.app_export`, like ``GET
+application's definition through :mod:`noust.deployers.app_export`, like ``GET
 /api/apps/{d}/export`` and ``POST /api/apps/import``; an import deploys through
-``wasm create``'s own path. This module only parses, presents and asks.
+``noust create``'s own path. This module only parses, presents and asks.
 """
 
 from __future__ import annotations
@@ -30,13 +30,13 @@ from pathlib import Path
 
 import click
 
-from wasm.cli.app import Context, WasmGroup, global_flags, json_option, pass_context
-from wasm.cli.commands.webapp import _create_app, _read_env_file
-from wasm.core.exceptions import DeploymentError, ValidationError, WASMError
-from wasm.core.fs import SECRET_MODE, get_fs
-from wasm.core.logger import Logger
-from wasm.core.store import MAX_DRAIN_SECONDS, App, DeploymentTrigger, get_store
-from wasm.deployers.app_export import (
+from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
+from noust.cli.commands.webapp import _create_app, _read_env_file
+from noust.core.exceptions import DeploymentError, NoustError, ValidationError
+from noust.core.fs import SECRET_MODE, get_fs
+from noust.core.logger import Logger
+from noust.core.store import MAX_DRAIN_SECONDS, App, DeploymentTrigger, get_store
+from noust.deployers.app_export import (
     CreateSpec,
     ImportPlan,
     ImportReport,
@@ -48,17 +48,17 @@ from wasm.deployers.app_export import (
     plan_summary,
     report_summary,
 )
-from wasm.deployers.bluegreen import (
+from noust.deployers.bluegreen import (
     ModeChange,
     ZeroDowntimeStatus,
     set_zero_downtime,
     zero_downtime_status,
 )
-from wasm.deployers.helpers.health_gate import HealthCheck
-from wasm.deployers.lifecycle import set_health_check, set_resource_limits
-from wasm.deployers.migrate import MigrationPlan, migrate, plan_migration
-from wasm.deployers.recorder import CapturingLogger
-from wasm.managers.service_manager import ResourceLimits
+from noust.deployers.helpers.health_gate import HealthCheck
+from noust.deployers.lifecycle import set_health_check, set_resource_limits
+from noust.deployers.migrate import MigrationPlan, migrate, plan_migration
+from noust.deployers.recorder import CapturingLogger
+from noust.managers.service_manager import ResourceLimits
 
 #: What removes a limit instead of setting one.
 NO_LIMIT = frozenset({"none", "unlimited", "off"})
@@ -92,7 +92,7 @@ def print_plan(logger: Logger, plan: MigrationPlan) -> None:
         logger.warning(warning)
 
 
-@click.group("app", cls=WasmGroup)
+@click.group("app", cls=NoustGroup)
 def cli() -> None:
     """Change how a deployed application is laid out and what it may use."""
 
@@ -147,7 +147,7 @@ def migrate_command(ctx: Context, domain: str, persist: tuple[str, ...], yes: bo
     logger.success(f"{result.domain} runs from release {result.release_id}")
     logger.info(
         f"Kept {result.after.files} files ({result.after.bytes} bytes); "
-        f"see its releases with: wasm releases list {result.domain}"
+        f"see its releases with: noust releases list {result.domain}"
     )
 
 
@@ -252,8 +252,8 @@ def limits_command(
     """
     app = get_store().get_app(domain)
     if app is None:
-        raise WASMError(
-            f"Application not found: {domain}", details="Run 'wasm list' to see what is deployed."
+        raise NoustError(
+            f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
         )
     current = ResourceLimits.of(app)
     if memory is None and cpu is None and tasks is None and not restart:
@@ -286,7 +286,7 @@ def limits_command(
         ctx.logger.info(f"Restarted {', '.join(change.units)} under the new limits")
     else:
         ctx.logger.info(
-            f"The running process keeps its old limits until it restarts: wasm restart {domain}"
+            f"The running process keeps its old limits until it restarts: noust restart {domain}"
         )
 
 
@@ -346,8 +346,8 @@ def health_command(
     """
     app = get_store().get_app(domain)
     if app is None:
-        raise WASMError(
-            f"Application not found: {domain}", details="Run 'wasm list' to see what is deployed."
+        raise NoustError(
+            f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
         )
     named = path is not None or expect is not None or timeout is not None
     if reset and named:
@@ -380,7 +380,7 @@ def zero_downtime_payload(status: ZeroDowntimeStatus) -> dict[str, object]:
     Describe an application's zero-downtime mode as JSON.
 
     Args:
-        status: The mode, from :func:`wasm.deployers.bluegreen.zero_downtime_status`.
+        status: The mode, from :func:`noust.deployers.bluegreen.zero_downtime_status`.
 
     Returns:
         Its fields, the instances as a list.
@@ -401,7 +401,7 @@ def _print_zero_downtime(logger: Logger, status: ZeroDowntimeStatus) -> None:
     if not status.enabled:
         logger.key_value("Zero downtime", "off: an activation restarts the unit")
         if status.eligible:
-            logger.info(f"Turn it on with: wasm app zero-downtime {status.domain} on")
+            logger.info(f"Turn it on with: noust app zero-downtime {status.domain} on")
         else:
             logger.key_value("Available", f"no: {status.reason}")
             if status.hint:
@@ -467,7 +467,7 @@ def zero_downtime_command(ctx: Context, domain: str, mode: str | None, drain: in
         if not current.enabled:
             raise click.UsageError(
                 f"{current.domain} is not in zero-downtime mode; turn it on with the drain: "
-                f"wasm app zero-downtime {current.domain} on --drain {drain}"
+                f"noust app zero-downtime {current.domain} on --drain {drain}"
             )
         mode = "on"
 
@@ -514,7 +514,7 @@ def gather_env(env_file: Path | None, pairs: tuple[str, ...], logger: Logger) ->
     """
     Collect the variables an import is given: the file, then ``--env`` over it.
 
-    The file is read by ``wasm create``'s own reader, so it means the same
+    The file is read by ``noust create``'s own reader, so it means the same
     thing here as it does there.
 
     Args:
@@ -531,7 +531,7 @@ def gather_env(env_file: Path | None, pairs: tuple[str, ...], logger: Logger) ->
 
 def cli_deploy(logger: Logger) -> Callable[[CreateSpec], None]:
     """
-    Build the deploy an import runs from the terminal: ``wasm create``'s own.
+    Build the deploy an import runs from the terminal: ``noust create``'s own.
 
     Args:
         logger: Logger of the current command.
@@ -654,7 +654,7 @@ def run_import(ctx: Context, plan: ImportPlan, *, yes: bool = False) -> None:
     """
     Show a plan, then carry it out unless this is a rehearsal.
 
-    Shared by ``wasm app import`` and ``wasm import --deploy``. A plan that
+    Shared by ``noust app import`` and ``noust import --deploy``. A plan that
     creates cron jobs or previews runs only after :func:`confirm_import`.
 
     Args:
@@ -703,9 +703,9 @@ def export_command(ctx: Context, domain: str, with_secrets: bool, output: Path |
     Type, source, branch, layout, domains, variables, secret marks, health
     check, limits, retention, persistent paths, cron jobs, backup schedule,
     previews and zero-downtime. Secret values are left out unless
-    --with-secrets; WASM's own credentials (webhook secret, backup
+    --with-secrets; Noust's own credentials (webhook secret, backup
     destination keys, GitHub App) never go in. Recreate it anywhere with
-    'wasm app import'.
+    'noust app import'.
     """
     text = dumps(export_app(domain, with_secrets=with_secrets))
     if output is None:
@@ -725,7 +725,7 @@ def export_command(ctx: Context, domain: str, with_secrets: bool, output: Path |
         ctx.logger.success(f"Exported {domain} to {output}")
         if not with_secrets:
             ctx.logger.info(
-                "Secret values were left out; give them to 'wasm app import' with "
+                "Secret values were left out; give them to 'noust app import' with "
                 "--env-file or --env."
             )
 
@@ -766,7 +766,7 @@ def import_command(
     yes: bool,
 ) -> None:
     """
-    Create an application from a 'wasm app export' document.
+    Create an application from a 'noust app export' document.
 
     It is deployed through the normal path (built, health-gated, recorded),
     then its domains, health check, retention, secret marks, cron jobs,

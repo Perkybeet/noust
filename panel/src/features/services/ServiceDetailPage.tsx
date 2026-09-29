@@ -51,7 +51,7 @@ function NotFound({ name }: { name: string }) {
             {t("services.detail.allServices")}
           </Link>
         }
-        command="wasm service list"
+        command="noust service list"
         className="py-16"
       />
     </>
@@ -59,8 +59,8 @@ function NotFound({ name }: { name: string }) {
 }
 
 /**
- * A unit that exists on this machine but that WASM did not create: found only through the
- * show-all-units listing (`GET /api/services?wasm_only=false`), since the per-name read
+ * A unit that exists on this machine but that Noust did not create: found only through the
+ * show-all-units listing (`GET /api/services?noust_only=false`), since the per-name read
  * (`GET /api/services/{name}`) only ever answers what the store tracks and 404s for it.
  * Read-only - no editor, no actions, nothing destructive - the way a foreign row's own menu
  * is already withheld in the list (`ServiceRowActions`).
@@ -131,7 +131,7 @@ export function ServiceDetailPage({ name }: { name: string }) {
   const navigate = useNavigate();
 
   // `GET /api/services/{name}` only ever answers what the store tracks and 404s for a unit
-  // WASM did not create; the all-units listing is the only way to tell that unit apart from
+  // Noust did not create; the all-units listing is the only way to tell that unit apart from
   // one that never existed at all, so it is fetched only once the plain read has 404d.
   const notFound = service.isError && isApiError(service.error) && service.error.status === 404;
   const allServices = useQuery({ ...servicesQuery(false), enabled: notFound });
@@ -159,7 +159,7 @@ export function ServiceDetailPage({ name }: { name: string }) {
           copy: false,
         },
         { label: t("services.detail.startsAtBoot"), value: data.enabled ? t("services.detail.yes") : t("services.detail.no"), mono: false, copy: false },
-        { label: t("services.detail.managedBy"), value: "WASM", mono: false, copy: false },
+        { label: t("services.detail.managedBy"), value: "Noust", mono: false, copy: false },
       ]
     : [];
 
@@ -236,7 +236,7 @@ export function ServiceDetailPage({ name }: { name: string }) {
             <div className="rounded-card border border-border bg-surface px-4 py-1">
               <KeyValueList items={items} />
             </div>
-            <CommandHint command={`wasm service status ${name}`} label={t("services.fromTerminal")} />
+            <CommandHint command={`noust service status ${name}`} label={t("services.fromTerminal")} />
           </Section>
 
           <ServiceLogs name={name} />

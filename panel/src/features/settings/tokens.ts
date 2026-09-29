@@ -18,7 +18,7 @@ export interface ScopeOption {
 
 /**
  * The scopes, weakest first. Each includes everything the one before it can do; the policy
- * itself is the backend's (wasm.web.auth.required_scope), this only says it in words.
+ * itself is the backend's (noust.web.auth.required_scope), this only says it in words.
  */
 export function scopes(t: T): readonly ScopeOption[] {
   return [

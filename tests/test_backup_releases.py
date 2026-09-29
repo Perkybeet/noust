@@ -22,8 +22,8 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.runner import FakeRunner
-from wasm.managers.backup_manager import BackupManager
+from noust.core.runner import FakeRunner
+from noust.managers.backup_manager import BackupManager
 
 DOMAIN = "rel.example.com"
 OLD = "20260925-100000-aaaaaaa"
@@ -67,7 +67,7 @@ def manager(
     Yields:
         The manager.
     """
-    monkeypatch.setattr("wasm.managers.backup_manager.get_store", lambda: _NoStore())
+    monkeypatch.setattr("noust.managers.backup_manager.get_store", lambda: _NoStore())
     backup_manager = BackupManager(verbose=False, runner=runner)
     backup_manager.backup_dir = tmp_path / "backups"
     previous = backup_manager.config.get("apps_directory")
@@ -181,16 +181,16 @@ def test_a_rollback_by_backup_does_not_rebuild_a_release_app_in_place(
     manager: BackupManager, root: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """Building in the application directory is building where no release is."""
-    from wasm.core.store import WASMStore
-    from wasm.managers.backup_manager import RollbackManager
+    from noust.core.store import NoustStore
+    from noust.managers.backup_manager import RollbackManager
 
     metadata = manager.create(DOMAIN)
-    WASMStore.reset_instance()
-    store = WASMStore(tmp_path / "wasm.db")
-    monkeypatch.setattr("wasm.managers.backup_manager.get_store", lambda: store)
+    NoustStore.reset_instance()
+    store = NoustStore(tmp_path / "wasm.db")
+    monkeypatch.setattr("noust.managers.backup_manager.get_store", lambda: store)
     detected: list[Path] = []
     monkeypatch.setattr(
-        "wasm.deployers.detect_app_type", lambda path, verbose=False: detected.append(path)
+        "noust.deployers.detect_app_type", lambda path, verbose=False: detected.append(path)
     )
     rollback = RollbackManager(verbose=False, runner=manager.runner)
     rollback.backup_manager = manager
@@ -202,7 +202,7 @@ def test_a_rollback_by_backup_does_not_rebuild_a_release_app_in_place(
     try:
         assert rollback.rollback(DOMAIN, backup_id=metadata.id) is True
     finally:
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
     assert detected == [], "nothing is rebuilt in the application directory"
     assert os.readlink(root / "current") == f"releases/{ACTIVE}"

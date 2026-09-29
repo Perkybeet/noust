@@ -3,9 +3,9 @@
  * state language, the show-all-units toggle, and search filtering. Derived here once so the
  * list and the detail page agree.
  *
- * `GET /api/services?wasm_only=false` walks every unit on the host (`ServiceManager.
+ * `GET /api/services?noust_only=false` walks every unit on the host (`ServiceManager.
  * list_services(all_services=True)`), each flagged `managed`. A foreign unit's
- * `active_state`/`sub_state`/`result` come from systemd exactly like a WASM unit's do, so the
+ * `active_state`/`sub_state`/`result` come from systemd exactly like a Noust unit's do, so the
  * state derivation below applies to both; only the actions available to a row depend on
  * `managed`.
  */
@@ -65,7 +65,7 @@ export function serviceState(
 export interface ServicesSearch {
   /** Free text matched against the unit name. */
   q?: string;
-  /** List every unit on the host, not just the ones WASM created (`GET ?wasm_only=false`). */
+  /** List every unit on the host, not just the ones Noust created (`GET ?noust_only=false`). */
   all?: true;
 }
 

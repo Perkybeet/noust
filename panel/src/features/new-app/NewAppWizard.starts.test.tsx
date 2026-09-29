@@ -284,11 +284,11 @@ describe("another platform's configuration", () => {
       databases: [],
       domains: [],
       persistent_paths: ["data"],
-      warnings: ["Railway's cron schedule has no equivalent in WASM; add it with wasm cron add."],
+      warnings: ["Railway's cron schedule has no equivalent in Noust; add it with noust cron add."],
     },
   };
 
-  it("pre-fills what WASM supports, shows its commands for reference and its warnings verbatim, and can be turned off", { timeout: 20_000 }, async () => {
+  it("pre-fills what Noust supports, shows its commands for reference and its warnings verbatim, and can be turned off", { timeout: 20_000 }, async () => {
     const { backend, harness } = wizard("api.example.com", {}, { "POST /api/apps/inspect": () => json(200, INSPECTION) });
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
@@ -300,7 +300,7 @@ describe("another platform's configuration", () => {
     expect(within(panel).getByText("node server.js")).toBeInTheDocument();
     expect(within(panel).getByText(/For reference only/)).toBeInTheDocument();
     expect(within(panel).getByText("GET /healthz, waiting up to 60 s")).toBeInTheDocument();
-    expect(within(panel).getByText("Railway's cron schedule has no equivalent in WASM; add it with wasm cron add.")).toBeInTheDocument();
+    expect(within(panel).getByText("Railway's cron schedule has no equivalent in Noust; add it with noust cron add.")).toBeInTheDocument();
     expect(screen.getByLabelText("Port")).toHaveValue("8080");
     expect(screen.getByLabelText(/^SESSION_SECRET/)).toHaveAttribute("type", "password");
     expect(screen.getByLabelText<HTMLInputElement>(/^SESSION_SECRET/).value).toMatch(/^[A-Za-z0-9_-]{43}$/);

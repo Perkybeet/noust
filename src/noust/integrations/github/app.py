@@ -19,7 +19,7 @@ expire, per installation and thread-safely, so a deploy that runs git a dozen
 times asks GitHub once.
 
 The private key, the webhook secret and the client secret are secret files
-under ``github/`` (:class:`~wasm.core.secrets.SecretStore`); the App's public
+under ``github/`` (:class:`~noust.core.secrets.SecretStore`); the App's public
 description is the ``github_app`` row of the store.
 """
 
@@ -37,12 +37,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from wasm.core.exceptions import IntegrationError, WASMError
-from wasm.core.runner import CommandRunner, get_runner
-from wasm.core.secrets import SecretStore
-from wasm.core.store import GitHubAppRecord, get_store
-from wasm.integrations.github.client import GitHubClient, get_client
-from wasm.validators.source import GITHUB_HOST, github_repository
+from noust.core.exceptions import IntegrationError, NoustError
+from noust.core.runner import CommandRunner, get_runner
+from noust.core.secrets import SecretStore
+from noust.core.store import GitHubAppRecord, get_store
+from noust.integrations.github.client import GitHubClient, get_client
+from noust.validators.source import GITHUB_HOST, github_repository
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ SECRET_NAMESPACE = "github"  # noqa: S105 - a file name, not a credential
 PRIVATE_KEY_SECRET = "github/private-key.pem"  # noqa: S105 - a file name, not a credential
 WEBHOOK_SECRET = "github/webhook-secret"  # noqa: S105 - a file name, not a credential
 CLIENT_SECRET = "github/client-secret"  # noqa: S105 - a file name, not a credential
-#: What WASM knows about the App that is neither secret nor a store column:
+#: What Noust knows about the App that is neither secret nor a store column:
 #: the owner's account type and the webhook it configured.
 META_SECRET = "github/meta.json"  # noqa: S105 - a file name, not a credential
 
@@ -420,7 +420,7 @@ def load_app(
     """
     try:
         record = get_store().get_github_app()
-    except (WASMError, sqlite3.Error) as exc:
+    except (NoustError, sqlite3.Error) as exc:
         logger.debug("Could not read the GitHub App from the store: %s", exc)
         return None
     if record is None:
@@ -459,7 +459,7 @@ def installation_for(repository: str, installation_id: int | None = None) -> int
         for installation in store.list_github_installations():
             if installation.account.lower() == owner:
                 return installation.installation_id
-    except (WASMError, sqlite3.Error) as exc:
+    except (NoustError, sqlite3.Error) as exc:
         logger.debug("Could not read the GitHub installations: %s", exc)
     return None
 
@@ -534,28 +534,28 @@ def github_app_configured() -> bool:
     """
     try:
         return get_store().get_github_app() is not None
-    except (WASMError, sqlite3.Error) as exc:
+    except (NoustError, sqlite3.Error) as exc:
         logger.debug("Could not read the GitHub App from the store: %s", exc)
         return False
 
 
 def read_meta() -> dict[str, Any]:
     """
-    Read what WASM remembers about the App besides the store row.
+    Read what Noust remembers about the App besides the store row.
 
     Returns:
         ``owner_type`` and ``webhook_url`` / ``webhook_active`` when known.
     """
     try:
         return SecretStore().read_json(META_SECRET)
-    except WASMError as exc:
+    except NoustError as exc:
         logger.warning("Could not read %s: %s", META_SECRET, exc)
         return {}
 
 
 def write_meta(**values: Any) -> None:
     """
-    Update what WASM remembers about the App besides the store row.
+    Update what Noust remembers about the App besides the store row.
 
     Args:
         **values: Keys to set.

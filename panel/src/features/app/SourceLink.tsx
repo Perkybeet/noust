@@ -6,7 +6,7 @@ import { translate } from "../../i18n";
 import { isHttpUrl } from "../../lib/url";
 
 /**
- * A source the server redacted (`public_source` in `wasm.web.api.apps`): every credential in
+ * A source the server redacted (`public_source` in `noust.web.api.apps`): every credential in
  * a clone URL - `user:***@host`, or a bare token as `***@host` - becomes this literal marker.
  * The exact substring `redact_url_credentials` and its userinfo-only counterpart both leave
  * right before the host, in both forms.

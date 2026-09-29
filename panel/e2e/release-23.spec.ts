@@ -69,7 +69,7 @@ test("a recipe from the gallery is reviewed, deployed, and says what to do next"
 
   await recipes.getByRole("button", { name: "Use WordPress" }).click();
   await expect(page.getByRole("heading", { level: 2, name: "Review" })).toBeFocused();
-  await expect(page.getByText("WASM deploys WordPress as its recipe describes.", { exact: false })).toBeVisible();
+  await expect(page.getByText("Noust deploys WordPress as its recipe describes.", { exact: false })).toBeVisible();
   // The archive and where its checksum is published, straight from wordpress.yaml.
   await expect(page.getByText("https://wordpress.org/latest.tar.gz", { exact: true })).toBeVisible();
   await expect(page.getByText("A new mysql database and user, their credentials in the app's .env")).toBeVisible();
@@ -176,7 +176,7 @@ test("an export imports on another domain with the secret it left out, and says 
   problems.expect(/status of 403 .* \/api\/apps\/import$/);
   const domain = "copia.example.org";
   await signIn(page, consoleServer, "/apps/new");
-  // The seeded application's export, as `wasm app export` or its settings would write it.
+  // The seeded application's export, as `noust app export` or its settings would write it.
   const exported = await page.request.get(`/api/apps/${EXPORTED}/export`);
   expect(exported.ok(), await exported.text()).toBe(true);
   const file = testInfo.outputPath(`${EXPORTED}.wasm-app.json`);
@@ -253,7 +253,7 @@ test("the language chosen in Settings applies at once and survives a reload", as
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(spanish.settings.page.title);
   const switched = page.getByRole("main").getByRole("group", { name: spanish.language.label });
   await expect(switched.getByRole("button", { name: "Español" })).toHaveAttribute("aria-pressed", "true");
-  expect(await page.evaluate(() => window.localStorage.getItem("wasm.locale"))).toBe("es");
+  expect(await page.evaluate(() => window.localStorage.getItem("noust.locale"))).toBe("es");
 
   // Back to English, for the rest of this browser's tests.
   await switched.getByRole("button", { name: "English" }).click();
@@ -272,7 +272,7 @@ test("the language of notifications saves to the server's configuration", async 
   await expectNoA11yViolations(page, "the language of notifications");
 
   await picker.getByRole("radio", { name: "Español" }).click();
-  await expect(section.getByText("wasm config set notifications.language es")).toBeVisible();
+  await expect(section.getByText("noust config set notifications.language es")).toBeVisible();
   await stillness(page);
   await expectNoA11yViolations(page, "the language of notifications, changed");
   const saved = page.waitForResponse((response) => response.url().endsWith("/api/config") && response.request().method() === "PATCH" && response.ok());

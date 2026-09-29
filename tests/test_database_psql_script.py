@@ -18,11 +18,11 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.exceptions import DatabaseBackupError
-from wasm.core.runner import FakeRunner
-from wasm.core.store import WASMStore
-from wasm.managers.database.postgres import PostgresManager
-from wasm.managers.database.psql_script import check_plain_dump
+from noust.core.exceptions import DatabaseBackupError
+from noust.core.runner import FakeRunner
+from noust.core.store import NoustStore
+from noust.managers.database.postgres import PostgresManager
+from noust.managers.database.psql_script import check_plain_dump
 
 PSQL = ("runuser", "-u", "postgres", "--", "psql")
 
@@ -338,13 +338,13 @@ def postgres(runner: FakeRunner, tmp_path: Path) -> Iterator[PostgresManager]:
         The manager.
     """
     runner.script(list(PSQL), stdout="1\n")
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
     manager = PostgresManager()
     manager.BACKUP_DIR = tmp_path / "backups"
     try:
         yield manager
     finally:
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 class TestRestore:

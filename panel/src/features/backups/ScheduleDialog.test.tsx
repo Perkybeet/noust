@@ -15,7 +15,7 @@ function schedulesRoutes(schedules: Record<string, unknown>[], extra: Record<str
   return {
     ...signedInRoutes(),
     "GET /api/backups": () => json(200, { backups: [], total: 0 }),
-    "GET /api/backups/storage": () => json(200, { path: "/var/backups/wasm", total_size: 0, total_size_human: "0 B", backup_count: 0, domains: [] }),
+    "GET /api/backups/storage": () => json(200, { path: "/var/backups/noust", total_size: 0, total_size_human: "0 B", backup_count: 0, domains: [] }),
     "GET /api/backup-schedules": () => json(200, { schedules, total: schedules.length, default_retention_count: 10 }),
     "GET /api/backup-destinations": () => json(200, { destinations: [destination("offsite")], total: 1 }),
     "GET /api/backup-destinations/backends": () => json(200, { backends: [] }),
@@ -63,7 +63,7 @@ describe("ScheduleDialog", () => {
     const existing = {
       domain: "shop.example.com",
       app_name: "shop-example-com",
-      timer: "wasm-backup-shop-example-com",
+      timer: "noust-backup-shop-example-com",
       schedule: "daily",
       on_calendar: "*-*-* 02:00:00",
       next_run: "pending",
@@ -122,7 +122,7 @@ describe("ScheduleDialog", () => {
     const adopted = {
       domain: "shop.example.com",
       app_name: "shop-example-com",
-      timer: "wasm-backup-shop-example-com",
+      timer: "noust-backup-shop-example-com",
       schedule: "daily",
       on_calendar: "*-*-* 02:00:00",
       next_run: "pending",

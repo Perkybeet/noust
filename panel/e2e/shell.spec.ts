@@ -84,7 +84,7 @@ test("a wrong token is refused in the server's words and the field keeps focus",
   problems.expect(REFUSED_SIGN_IN);
   await page.goto("/login");
 
-  await page.getByLabel("Access token").fill("wasm_not_the_token");
+  await page.getByLabel("Access token").fill("noust_not_the_token");
   await page.getByRole("button", { name: "Sign in" }).click();
 
   const token = page.getByLabel("Access token");
@@ -198,7 +198,7 @@ test("a locked-out address is told how long to wait", async ({ page, problems })
     const token = page.getByLabel("Access token");
     const submit = page.getByRole("button", { name: "Sign in" });
     for (let attempt = 0; attempt < 6; attempt += 1) {
-      await token.fill(`wasm_wrong_${String(attempt)}`);
+      await token.fill(`noust_wrong_${String(attempt)}`);
       await submit.click();
       await expect(submit).toBeEnabled({ timeout: 5_000 }).catch(() => undefined);
       if (await page.getByText("Too many failed attempts", { exact: true }).isVisible()) break;

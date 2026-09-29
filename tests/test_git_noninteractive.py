@@ -5,7 +5,7 @@ The console's "Inspect source" on a private https repository once left
 ``git clone`` blocked for ten minutes: git-remote-https was asking for a
 username on the terminal that had started ``wasm web start``, and the only way
 out was the clone timeout. Deploys, updates, the release cache and webhooks all
-run git with nobody at the keyboard, so every git WASM runs carries an
+run git with nobody at the keyboard, so every git Noust runs carries an
 environment that makes a credential prompt fail at once, and the failure comes
 back as an error that says how to give the server access.
 """
@@ -18,10 +18,10 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.exceptions import SourceError
-from wasm.core.runner import FakeRunner, SubprocessRunner
-from wasm.deployers.helpers import preflight
-from wasm.managers.source_manager import (
+from noust.core.exceptions import SourceError
+from noust.core.runner import FakeRunner, SubprocessRunner
+from noust.deployers.helpers import preflight
+from noust.managers.source_manager import (
     GIT_AUTH_FAILURE_MESSAGE,
     SourceManager,
     git_environment,
@@ -171,9 +171,9 @@ class TestEveryGitCallIsNonInteractive:
         _assert_non_interactive(calls[0][1])
 
     def test_monorepo_ls_remote(self, runner: FakeRunner, monkeypatch):
-        from wasm.deployers.monorepo import MonorepoDeployer
+        from noust.deployers.monorepo import MonorepoDeployer
 
-        monkeypatch.setattr("wasm.deployers.monorepo.get_store", lambda: None)
+        monkeypatch.setattr("noust.deployers.monorepo.get_store", lambda: None)
         deployer = MonorepoDeployer(runner=runner)
         deployer.source = HTTPS_URL
         deployer._pre_flight_check()
@@ -228,7 +228,7 @@ class TestAuthenticationFailures:
         error = caught.value
         assert error.message == GIT_AUTH_FAILURE_MESSAGE
         assert "git@github.com:owner/private-repo.git" in error.details
-        assert "wasm setup ssh" in error.details
+        assert "noust setup ssh" in error.details
         assert "token" in error.details
         assert error.output == stderr, "git's own words are shown verbatim, never paraphrased"
 
@@ -236,7 +236,7 @@ class TestAuthenticationFailures:
         self, manager: SourceManager, runner: FakeRunner, monkeypatch
     ):
         monkeypatch.setattr(
-            "wasm.managers.source_manager.ensure_ssh_setup", lambda *a, **k: (True, "", None)
+            "noust.managers.source_manager.ensure_ssh_setup", lambda *a, **k: (True, "", None)
         )
         runner.script(["git"], stderr=AUTH_FAILURES[2], exit_code=128)
 
@@ -245,7 +245,7 @@ class TestAuthenticationFailures:
 
         assert caught.value.message == GIT_AUTH_FAILURE_MESSAGE
         assert "deploy key" in caught.value.details
-        assert "wasm setup ssh --show" in caught.value.details
+        assert "noust setup ssh --show" in caught.value.details
 
     def test_release_cache_fetch_raises_it_too(
         self, manager: SourceManager, runner: FakeRunner, tmp_path: Path

@@ -10,7 +10,7 @@ but Ubuntu 24.04 and Debian 12 package ``python3-pydantic`` 1.10, and the
 major version, so the rest of the web layer never notices - until a module
 imports a name only one major version has. That is how v1.5.0 shipped:
 ``from pydantic import field_validator`` imported cleanly under pip's
-pydantic 2, and ``wasm web start`` died with ImportError on every Ubuntu
+pydantic 2, and ``noust web start`` died with ImportError on every Ubuntu
 24.04 install.
 
 This module bridges exactly the names the web layer uses, nothing more. It
@@ -94,7 +94,7 @@ def iso_offset_validator(*fields: str) -> Any:
 
             _iso_timestamps = iso_offset_validator("started_at", "finished_at")
 
-    See :func:`wasm.core.timeutil.to_iso_offset` for what the conversion
+    See :func:`noust.core.timeutil.to_iso_offset` for what the conversion
     does. The import is local to this function, not module level: core must
     not depend on the web layer, and nothing here should tempt it to.
 
@@ -105,7 +105,7 @@ def iso_offset_validator(*fields: str) -> Any:
         The validator, ready for assignment to a class attribute exactly as
         a hand-written ``@field_validator`` would be.
     """
-    from wasm.core.timeutil import to_iso_offset
+    from noust.core.timeutil import to_iso_offset
 
     def _convert(cls: Any, value: Any) -> Any:
         return to_iso_offset(value)

@@ -103,7 +103,7 @@ function Journal({ domain, failed, t }: { domain: string; failed: boolean; t: T 
             </span>
           ) : null}
         </div>
-        <CommandHint command={`wasm logs ${domain} --follow`} label={t("appPages.fromTerminal")} />
+        <CommandHint command={`noust logs ${domain} --follow`} label={t("appPages.fromTerminal")} />
       </div>
 
       {stream.error !== null ? (
@@ -119,7 +119,7 @@ function Journal({ domain, failed, t }: { domain: string; failed: boolean; t: T 
         <p className="rounded-control border border-border bg-bg-sunken px-3 py-2 text-12 text-fg-muted">
           {t.rich("appPages.logs.truncatedNotice", {
             lines: formatCount(LOG_CAP, t.locale),
-            command: <code translate="no" className="text-fg">{`wasm logs ${domain} --lines 50000`}</code>,
+            command: <code translate="no" className="text-fg">{`noust logs ${domain} --lines 50000`}</code>,
           })}
         </p>
       ) : null}

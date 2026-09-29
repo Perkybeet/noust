@@ -26,12 +26,12 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from wasm.cli import app as app_module
-from wasm.cli.app import cli as root_cli
-from wasm.cli.commands import setup as setup_cmd
-from wasm.core.fs import DryRunFileSystem, get_fs, set_fs
-from wasm.core.logger import Logger
-from wasm.core.runner import DryRunRunner, FakeRunner, get_runner
+from noust.cli import app as app_module
+from noust.cli.app import cli as root_cli
+from noust.cli.commands import setup as setup_cmd
+from noust.core.fs import DryRunFileSystem, get_fs, set_fs
+from noust.core.logger import Logger
+from noust.core.runner import DryRunRunner, FakeRunner, get_runner
 
 CONTRACT = json.loads(
     (Path(__file__).parent / "contracts/cli_surface.json").read_text(encoding="utf-8")
@@ -130,7 +130,7 @@ def ssh_home(sandbox: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """
     Point the SSH helpers at an empty directory.
 
-    ``wasm.validators.ssh`` resolves ~/.ssh once, when it is imported, so
+    ``noust.validators.ssh`` resolves ~/.ssh once, when it is imported, so
     setting HOME is not enough to keep a test off the developer's own keys.
 
     Args:
@@ -140,7 +140,7 @@ def ssh_home(sandbox: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     Returns:
         The sandboxed .ssh directory, which does not exist yet.
     """
-    import wasm.validators.ssh as ssh_module
+    import noust.validators.ssh as ssh_module
 
     ssh_dir = sandbox / ".ssh"
     monkeypatch.setattr(ssh_module, "DEFAULT_SSH_DIR", ssh_dir)
@@ -177,7 +177,7 @@ def _empty_summary() -> dict[str, Any]:
     Build the summary a bare machine produces.
 
     Returns:
-        The same shape :class:`~wasm.core.dependencies.DependencyChecker`
+        The same shape :class:`~noust.core.dependencies.DependencyChecker`
         returns.
     """
     return _FakeSummary(
@@ -246,9 +246,9 @@ def prepared(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict[str, Any]:
     monkeypatch.setattr(setup_cmd, "DEFAULT_CONFIG_PATH", tmp_path / "etc/wasm/config.yaml")
     monkeypatch.setattr(setup_cmd, "MAN_PAGE_DIR", tmp_path / "usr/share/man/man1")
 
-    import wasm.core.config as core_config
-    import wasm.core.dependencies as dependencies
-    import wasm.core.utils as core_utils
+    import noust.core.config as core_config
+    import noust.core.dependencies as dependencies
+    import noust.core.utils as core_utils
 
     monkeypatch.setattr(dependencies, "DependencyChecker", _FakeChecker)
     monkeypatch.setattr(
@@ -456,9 +456,9 @@ def test_unsupported_key_type_is_rejected(wasm: Wasm, runner: FakeRunner) -> Non
     [
         # Click asks bash for its version before emitting the script, which is
         # a real process and the only reason for the opt-out.
-        pytest.param("bash", "_WASM_COMPLETE=bash_complete", marks=pytest.mark.allow_subprocess),
-        pytest.param("zsh", "#compdef wasm"),
-        pytest.param("fish", "_WASM_COMPLETE=fish_complete"),
+        pytest.param("bash", "_NOUST_COMPLETE=bash_complete", marks=pytest.mark.allow_subprocess),
+        pytest.param("zsh", "#compdef noust"),
+        pytest.param("fish", "_NOUST_COMPLETE=fish_complete"),
     ],
 )
 def test_completions_are_generated_from_the_tree(wasm: Wasm, shell: str, marker: str) -> None:
@@ -482,7 +482,7 @@ def test_completions_cover_a_subcommand_added_after_the_handwritten_scripts(
     result = wasm("setup", "completions", "--shell", "bash", "--stdout")
 
     assert "complete" in result.output
-    assert "wasm" in result.output
+    assert "noust" in result.output
 
 
 @pytest.mark.allow_subprocess
@@ -490,7 +490,7 @@ def test_completions_install_for_the_user(wasm: Wasm, sandbox: Path) -> None:
     """--user-only writes where the shell looks, and needs no root."""
     result = wasm("setup", "completions", "--shell", "bash", "--user-only")
 
-    target = sandbox / ".local/share/bash-completion/completions/wasm"
+    target = sandbox / ".local/share/bash-completion/completions/noust"
     assert result.exit_code == 0, result.output
     assert target.read_text(encoding="utf-8") == setup_cmd.completion_source("bash")
     assert "source" in result.output
@@ -501,7 +501,7 @@ def test_completions_zsh_install_explains_fpath(wasm: Wasm, sandbox: Path) -> No
     result = wasm("setup", "completions", "--shell", "zsh", "--user-only")
 
     assert result.exit_code == 0, result.output
-    assert (sandbox / ".zsh/completions/_wasm").exists()
+    assert (sandbox / ".zsh/completions/_noust").exists()
     assert "fpath" in result.output
     assert "compinit" in result.output
 
@@ -540,14 +540,14 @@ def test_init_requires_root(wasm: Wasm, monkeypatch: pytest.MonkeyPatch) -> None
     result = wasm("setup", "init")
 
     assert result.exit_code == 1
-    assert "sudo wasm setup init" in result.output
+    assert "sudo noust setup init" in result.output
 
 
 def test_init_says_so_when_no_package_manager_is_supported(
     wasm: Wasm, runner: FakeRunner, prepared: dict[str, Any]
 ) -> None:
     """
-    On a distribution WASM cannot install for, it says which ones it can.
+    On a distribution Noust cannot install for, it says which ones it can.
 
     The previous version assumed apt-get and reported progress while every
     install failed silently.
@@ -661,7 +661,7 @@ def test_the_web_server_name_is_the_one_the_deployers_compare_against(
     detected: str | None, expected: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """
-    The dependency checker reports a package name; config holds a WASM name.
+    The dependency checker reports a package name; config holds a Noust name.
 
     Writing "apache2" into config.yaml configured the machine for a web server
     the deployers, which compare against "apache", never recognise.
@@ -712,7 +712,7 @@ def test_ssh_without_a_key_says_how_to_make_one(wasm: Wasm, ssh_home: Path) -> N
     result = wasm("setup", "ssh")
 
     assert result.exit_code == 1
-    assert "wasm setup ssh --generate" in result.output
+    assert "noust setup ssh --generate" in result.output
 
 
 def test_ssh_generate_builds_the_expected_keygen_command(
@@ -790,7 +790,7 @@ def test_permissions_reports_missing_directories(
     result = wasm("setup", "permissions")
 
     assert result.exit_code == 0
-    assert "sudo wasm setup init" in result.output
+    assert "sudo noust setup init" in result.output
 
 
 # ---------------------------------------------------------------------------
@@ -997,11 +997,11 @@ def test_man_page_is_installed_through_the_seam(
     Without this, routing the copy through the seam could have quietly stopped
     installing anything at all and the dry-run test above would still pass.
     """
-    source = Path(setup_cmd.__file__).resolve().parents[4] / "man" / "wasm.1"
+    source = Path(setup_cmd.__file__).resolve().parents[4] / "man" / "noust.1"
     prepared["installed"].add("apt-get")
 
     wasm("setup", "init", "--yes")
 
-    installed = prepared["root"] / "usr/share/man/man1/wasm.1"
+    installed = prepared["root"] / "usr/share/man/man1/noust.1"
     assert installed.read_text(encoding="utf-8") == source.read_text(encoding="utf-8")
     assert ("mandb", "-q") in runner.calls

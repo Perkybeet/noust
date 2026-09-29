@@ -1,8 +1,8 @@
 """
-Allow running wasm as a module: python -m wasm
+Allow running noust as a module: python -m noust
 """
 
-from wasm.main import cli
+from noust.main import cli
 
 if __name__ == "__main__":
     cli()

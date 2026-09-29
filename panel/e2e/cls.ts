@@ -17,7 +17,7 @@ export interface ShiftRecord {
 
 declare global {
   interface Window {
-    __wasmShifts?: ShiftRecord[];
+    __noustShifts?: ShiftRecord[];
   }
 }
 
@@ -37,7 +37,7 @@ export function observeLayoutShifts(): void {
     return `<${node.tagName.toLowerCase()}${id}${cls ? `.${cls}` : ""}> "${text}"`;
   };
   const shifts: ShiftRecord[] = [];
-  window.__wasmShifts = shifts;
+  window.__noustShifts = shifts;
   new PerformanceObserver((list) => {
     for (const entry of list.getEntries() as LayoutShift[]) {
       if (entry.hadRecentInput) continue;

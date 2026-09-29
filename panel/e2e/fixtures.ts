@@ -43,9 +43,9 @@ export interface RunningServer extends ConsoleServer {
   stop: () => Promise<void>;
 }
 
-/** The Python that runs the backend: $WASM_PYTHON, the repository's venv, or python3. */
+/** The Python that runs the backend: $NOUST_PYTHON, the repository's venv, or python3. */
 function python(): string {
-  const configured = process.env.WASM_PYTHON;
+  const configured = process.env.NOUST_PYTHON;
   if (configured) return configured;
   const venv = path.join(REPO, ".venv", "bin", "python");
   return existsSync(venv) ? venv : "python3";
@@ -56,11 +56,11 @@ function python(): string {
  * connections.
  */
 export async function startConsoleServer(args: readonly string[] = []): Promise<RunningServer> {
-  // WASM_E2E_STATIC points the backend at a private build (see console_server.py
+  // NOUST_E2E_STATIC points the backend at a private build (see console_server.py
   // --static-dir), so parallel work on the console never serves another's chunks.
-  const staticDir = process.env.WASM_E2E_STATIC;
-  // WASM_E2E_HOSTNAME: screenshots for the docs show a neutral machine name.
-  const hostname = process.env.WASM_E2E_HOSTNAME;
+  const staticDir = process.env.NOUST_E2E_STATIC;
+  // NOUST_E2E_HOSTNAME: screenshots for the docs show a neutral machine name.
+  const hostname = process.env.NOUST_E2E_HOSTNAME;
   const extra = [...(staticDir ? ["--static-dir", staticDir] : []), ...(hostname ? ["--hostname", hostname] : [])];
   const child = spawn(python(), [SERVER_SCRIPT, ...extra, ...args], {
     cwd: REPO,
@@ -286,12 +286,12 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
 
       // Reported from the page through a binding, so a violation in a document the test
       // already navigated away from is not lost with that document.
-      await context.exposeBinding("__wasmReportViolation", (_source, report: string) => {
+      await context.exposeBinding("__noustReportViolation", (_source, report: string) => {
         problems.csp.push(report);
       });
       await context.addInitScript(() => {
         document.addEventListener("securitypolicyviolation", (event) => {
-          const report = (window as unknown as { __wasmReportViolation?: (text: string) => void }).__wasmReportViolation;
+          const report = (window as unknown as { __noustReportViolation?: (text: string) => void }).__noustReportViolation;
           report?.(
             `${event.effectiveDirective} blocked ${event.blockedURI || "inline"} at ${event.sourceFile || "?"}:${String(event.lineNumber)}` +
               (event.sample ? ` (${event.sample})` : ""),

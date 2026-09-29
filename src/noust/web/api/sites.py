@@ -1,22 +1,22 @@
 """
 Sites API endpoints.
 
-This module is a client of :class:`~wasm.managers.webserver.WebServerManager`,
+This module is a client of :class:`~noust.managers.webserver.WebServerManager`,
 through its nginx and apache bindings. It used to be a second implementation of
 them, and the two had already diverged in production in the worst possible way:
 the API wrote its virtual host to ``sites-available/example_com`` while every
 manager, the CLI and the store use ``sites-available/example.com``. A site
-created from the panel was therefore invisible to ``wasm site list``, could not
+created from the panel was therefore invisible to ``noust site list``, could not
 be enabled, disabled or deleted from the CLI, and was skipped by certificate
 issuance. The file name is now produced by exactly one piece of code -
-:meth:`~wasm.managers.webserver.WebServerManager.config_path` - and the panel
+:meth:`~noust.managers.webserver.WebServerManager.config_path` - and the panel
 never renders a server block itself.
 
 Two further rules, the same ones the services API follows:
 
 - **Every domain is validated before it becomes a path.** The manager's
   ``config_path`` is the single place a domain turns into a file name, and it
-  validates and contains it; :func:`wasm.web.api.deps.strict_domain` refuses at
+  validates and contains it; :func:`noust.web.api.deps.strict_domain` refuses at
   the edge anything that would only survive by being rewritten.
 - **Handlers are synchronous.** They call nginx, apache2ctl and systemctl,
   which block. Declared ``async def`` they would run on the event loop and
@@ -31,13 +31,13 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from wasm.core.exceptions import ValidationError
-from wasm.core.store import get_store
-from wasm.managers.apache_manager import ApacheManager
-from wasm.managers.nginx_manager import NginxManager
-from wasm.managers.webserver import WebServerManager, create_secured_site, delete_site_completely
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import WASMErrorRoute, require_elevated, strict_domain
+from noust.core.exceptions import ValidationError
+from noust.core.store import get_store
+from noust.managers.apache_manager import ApacheManager
+from noust.managers.nginx_manager import NginxManager
+from noust.managers.webserver import WebServerManager, create_secured_site, delete_site_completely
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
 
 #: Cache of managers already built by :func:`_manager_for`, keyed by resolved
 #: name. A site listing may hold rows for both backends, and building one
@@ -46,7 +46,7 @@ from wasm.web.api.deps import WASMErrorRoute, require_elevated, strict_domain
 #: deployment.
 _ManagerCache = dict[str, WebServerManager]
 
-router = APIRouter(route_class=WASMErrorRoute)
+router = APIRouter(route_class=NoustErrorRoute)
 
 #: Web server used when none is installed and none was requested.
 DEFAULT_WEBSERVER = "nginx"
@@ -208,7 +208,7 @@ def _manager_for(webserver: str | None) -> tuple[str, WebServerManager]:
         Tuple of the resolved name and its manager.
 
     Raises:
-        ValidationError: When the name is not a web server WASM supports.
+        ValidationError: When the name is not a web server Noust supports.
     """
     name = (webserver or detect_webserver()).lower()
     manager_class = MANAGERS.get(name)
@@ -301,7 +301,7 @@ def list_site_templates(
 
     Registered before ``/{domain}`` so the literal path wins, the same reason
     ``/reload`` is declared here rather than after it: the templates
-    directory :meth:`~wasm.managers.webserver.WebServerManager.list_templates`
+    directory :meth:`~noust.managers.webserver.WebServerManager.list_templates`
     reads is the one source of truth this shares with ``POST /api/sites``,
     which refuses a template not on this list.
 
@@ -502,7 +502,7 @@ def test_site_config(
     """
     Try a candidate configuration against the web server, without saving it.
 
-    Reuses :meth:`~wasm.managers.webserver.WebServerManager.test_config_text`,
+    Reuses :meth:`~noust.managers.webserver.WebServerManager.test_config_text`,
     the exact staging and syntax check ``PUT /{domain}/config`` validates
     through before it writes anything - one implementation, so the answer
     this gives is the answer saving would get. The site named in the path

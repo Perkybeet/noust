@@ -9,13 +9,13 @@ include pyproject.toml
 
 # Include source code (handled by setuptools, but explicit is better)
 recursive-include src *.py
-recursive-include src/wasm/templates *.j2
+recursive-include src/noust/templates *.j2
 # Recipes (2.3): the recipe files and the assets they render or copy.
-recursive-include src/wasm/recipes *.yaml
-recursive-include src/wasm/recipes/assets *
-recursive-include src/wasm/completions *
+recursive-include src/noust/recipes *.yaml
+recursive-include src/noust/recipes/assets *
+recursive-include src/noust/completions *
 # The console's committed build (source in panel/, which is not shipped).
-recursive-include src/wasm/web/static *
+recursive-include src/noust/web/static *
 
 # Include documentation
 recursive-include docs *.md *.png *.jpg *.svg

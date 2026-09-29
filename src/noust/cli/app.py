@@ -8,7 +8,7 @@ Click rather than argparse, for three reasons that were all real defects:
 
 - **Global flags were shadowed.** ``--dry-run`` was declared on the root parser
   and again on several subparsers with the same dest, so argparse's subparser
-  default overwrote the value the user asked for and ``wasm --dry-run monitor
+  default overwrote the value the user asked for and ``noust --dry-run monitor
   scan`` ran a real scan. Click keeps global state on the context, where a
   subcommand cannot silently overwrite it.
 - **Shell completion was written by hand.** 2,295 lines across bash, zsh and
@@ -18,12 +18,12 @@ Click rather than argparse, for three reasons that were all real defects:
   "X requires an action".
 
 Click and not Typer: the choice is packaging, not ergonomics. ``python3-click``
-exists on every distribution WASM builds for and has no runtime dependency on
+exists on every distribution Noust builds for and has no runtime dependency on
 Linux, while Typer's ``annotated-doc`` is absent from Ubuntu 24.04, Fedora 42
 and Debian trixie, which would make the .deb and .rpm unbuildable.
 
 Subcommand modules are imported only when their command is invoked, so
-``wasm --help`` and tab completion stay instant and one broken optional import
+``noust --help`` and tab completion stay instant and one broken optional import
 cannot take the whole CLI down with it.
 """
 
@@ -38,50 +38,51 @@ from typing import Any, TypeVar
 
 import click
 
-from wasm import __version__
-from wasm.core.exceptions import WASMError
-from wasm.core.fs import DryRunFileSystem, set_fs
-from wasm.core.logger import Colors, Logger, set_colors_disabled
-from wasm.core.runner import DryRunRunner, SubprocessRunner, set_runner
+from noust import __version__
+from noust.core.exceptions import NoustError
+from noust.core.fs import DryRunFileSystem, set_fs
+from noust.core.logger import Colors, Logger, set_colors_disabled
+from noust.core.runner import DryRunRunner, SubprocessRunner, set_runner
 
 log = logging.getLogger(__name__)
 
 #: Command group to the module that defines it. The value is the module path;
 #: the attribute is always ``cli``.
 COMMAND_MODULES: dict[str, str] = {
-    "2fa": "wasm.cli.commands.twofa",
-    "app": "wasm.cli.commands.app",
-    "backup": "wasm.cli.commands.backup",
-    "cert": "wasm.cli.commands.cert",
-    "config": "wasm.cli.commands.config",
-    "cron": "wasm.cli.commands.cron",
-    "db": "wasm.cli.commands.db",
-    "diagnose": "wasm.cli.commands.diagnose",
-    "domain": "wasm.cli.commands.domain",
-    "env": "wasm.cli.commands.env",
-    "github": "wasm.cli.commands.github",
-    "health": "wasm.cli.commands.health",
-    "import": "wasm.cli.commands.importer",
-    "monitor": "wasm.cli.commands.monitor",
-    "notify": "wasm.cli.commands.notify",
-    "preview": "wasm.cli.commands.preview",
-    "recipe": "wasm.cli.commands.recipe",
-    "releases": "wasm.cli.commands.releases",
-    "rollback": "wasm.cli.commands.backup",
-    "service": "wasm.cli.commands.service",
-    "sessions": "wasm.cli.commands.sessions",
-    "setup": "wasm.cli.commands.setup",
-    "site": "wasm.cli.commands.site",
-    "store": "wasm.cli.commands.store",
-    "token": "wasm.cli.commands.token",
-    "web": "wasm.cli.commands.web",
+    "2fa": "noust.cli.commands.twofa",
+    "app": "noust.cli.commands.app",
+    "backup": "noust.cli.commands.backup",
+    "cert": "noust.cli.commands.cert",
+    "config": "noust.cli.commands.config",
+    "cron": "noust.cli.commands.cron",
+    "db": "noust.cli.commands.db",
+    "diagnose": "noust.cli.commands.diagnose",
+    "domain": "noust.cli.commands.domain",
+    "env": "noust.cli.commands.env",
+    "github": "noust.cli.commands.github",
+    "health": "noust.cli.commands.health",
+    "import": "noust.cli.commands.importer",
+    "migrate-from-wasm": "noust.cli.commands.migrate_from_wasm",
+    "monitor": "noust.cli.commands.monitor",
+    "notify": "noust.cli.commands.notify",
+    "preview": "noust.cli.commands.preview",
+    "recipe": "noust.cli.commands.recipe",
+    "releases": "noust.cli.commands.releases",
+    "rollback": "noust.cli.commands.backup",
+    "service": "noust.cli.commands.service",
+    "sessions": "noust.cli.commands.sessions",
+    "setup": "noust.cli.commands.setup",
+    "site": "noust.cli.commands.site",
+    "store": "noust.cli.commands.store",
+    "token": "noust.cli.commands.token",
+    "web": "noust.cli.commands.web",
 }
 
 #: Commands that act on a deployed application. They are top level rather than
 #: under a ``webapp`` group because that is how they have always been typed.
 WEBAPP_COMMANDS: dict[str, str] = dict.fromkeys(
     ("create", "delete", "list", "logs", "restart", "start", "status", "stop", "update"),
-    "wasm.cli.commands.webapp",
+    "noust.cli.commands.webapp",
 )
 
 #: Alternative spellings, kept because they are in muscle memory, scripts and
@@ -187,7 +188,7 @@ def json_option(help_text: str = "Print machine-readable JSON.") -> Callable[[_F
     return decorate
 
 
-class WasmCommand(click.Command):
+class NoustCommand(click.Command):
     """
     A leaf command that refuses ``--json`` unless it explicitly supports it.
 
@@ -199,7 +200,7 @@ class WasmCommand(click.Command):
     printed its ordinary human output regardless, for every command in
     fourteen modules that never opted in.
 
-    Every module's group uses :class:`WasmGroup` as its ``command_class``,
+    Every module's group uses :class:`NoustGroup` as its ``command_class``,
     which makes this the class every leaf command in the tree is built from,
     so "does this command handle --json" is a property of the tree instead
     of something ninety call sites each have to remember to check. A command
@@ -234,11 +235,11 @@ class WasmCommand(click.Command):
         )
 
 
-class WasmGroup(click.Group):
+class NoustGroup(click.Group):
     """
     The one group class every command module's tree is built from.
 
-    Setting ``command_class`` here, instead of passing ``cls=WasmCommand`` at
+    Setting ``command_class`` here, instead of passing ``cls=NoustCommand`` at
     each of the roughly ninety ``@group.command(...)`` call sites across the
     tree, is what makes ``--json`` handling a property of how a group is
     declared rather than something each command has to opt into remembering
@@ -251,7 +252,7 @@ class WasmGroup(click.Group):
     ``backup schedule``, so the property holds however deep a command sits.
     """
 
-    command_class = WasmCommand
+    command_class = NoustCommand
     group_class = type
 
 
@@ -260,7 +261,7 @@ def enable_dry_run(state: Context) -> None:
     Turn the invocation into a rehearsal.
 
     Both seams are swapped, and both are needed. Swapping only the command
-    runner is what let ``wasm --dry-run backup delete <id> --force`` announce
+    runner is what let ``noust --dry-run backup delete <id> --force`` announce
     that nothing would change and then delete the archive, because a deletion
     is a ``Path.unlink`` and never reaches a subprocess.
 
@@ -386,7 +387,7 @@ class LazyGroup(click.Group):
 
     Importing all thirteen command modules to print ``--help`` costs startup
     time on every invocation and makes any one broken optional dependency fatal
-    for the entire CLI, including ``wasm --version``.
+    for the entire CLI, including ``noust --version``.
     """
 
     def __init__(self, *args: Any, lazy: dict[str, str] | None = None, **kwargs: Any):
@@ -417,10 +418,10 @@ class LazyGroup(click.Group):
         command = getattr(module, "cli", None)
         if command is None:
             raise click.ClickException(
-                f"{module_path} does not expose a 'cli' command. This is a bug in WASM."
+                f"{module_path} does not expose a 'cli' command. This is a bug in Noust."
             )
         # A group module can define several top-level commands; pick the one
-        # whose name matches so `wasm rollback` and `wasm backup` can share a
+        # whose name matches so `noust rollback` and `noust backup` can share a
         # module without one shadowing the other.
         if isinstance(command, click.Group) and resolved in command.commands:
             return command.commands[resolved]
@@ -445,7 +446,13 @@ class LazyGroup(click.Group):
     context_settings={"help_option_names": ["-h", "--help"], "max_content_width": 100},
     invoke_without_command=True,
 )
-@click.version_option(__version__, "-V", "--version", prog_name="WASM")
+@click.version_option(
+    __version__,
+    "-V",
+    "--version",
+    prog_name="Noust",
+    message="%(prog)s %(version)s (formerly WASM)",
+)
 @click.option("-v", "--verbose", is_flag=True, help="Show the detail of each step.")
 @click.option(
     "--dry-run",
@@ -470,7 +477,7 @@ def cli(
     Deploy and manage web applications on this server.
 
     Run a command with --help to see what it takes, for example
-    'wasm create --help'.
+    'noust create --help'.
     """
     state = ctx.ensure_object(Context)
     state.verbose = verbose or state.verbose
@@ -488,13 +495,13 @@ def cli(
         enable_dry_run(state)
 
     if changelog:
-        from wasm.cli.commands.version import show_changelog
+        from noust.cli.commands.version import show_changelog
 
         show_changelog()
         ctx.exit(0)
 
     if interactive:
-        from wasm.cli.interactive import InteractiveMode
+        from noust.cli.interactive import InteractiveMode
 
         ctx.exit(InteractiveMode(verbose=state.verbose).run())
 
@@ -503,9 +510,26 @@ def cli(
         ctx.exit(0)
 
 
+def _complete_var() -> str:
+    """
+    Name the variable shell completion is requested through.
+
+    Click derives it from the program's name, which is ``noust`` or ``wasm``
+    depending on which the operator typed; the completion script a shell has
+    loaded sets one or the other. Both are answered, whichever name ran.
+
+    Returns:
+        ``_WASM_COMPLETE`` when a WASM-era completion script set it, else
+        ``_NOUST_COMPLETE``.
+    """
+    import os
+
+    return "_WASM_COMPLETE" if "_WASM_COMPLETE" in os.environ else "_NOUST_COMPLETE"
+
+
 def main(argv: list[str] | None = None) -> int:
     """
-    Run the CLI and turn a WASM error into an exit code.
+    Run the CLI and turn a Noust error into an exit code.
 
     The boundary lives here so that no command has to wrap itself, which is
     what produced three hundred blind excepts across the tree.
@@ -517,21 +541,21 @@ def main(argv: list[str] | None = None) -> int:
         Process exit code.
     """
     try:
-        return cli.main(args=argv, standalone_mode=False) or 0
+        return cli.main(args=argv, standalone_mode=False, complete_var=_complete_var()) or 0
     except click.ClickException as exc:
         exc.show()
         return exc.exit_code
     except click.Abort:
         click.echo("Cancelled", err=True)
         return 130
-    except WASMError as exc:
+    except NoustError as exc:
         logger = Logger(verbose="-v" in (argv or sys.argv) or "--verbose" in (argv or sys.argv))
         logger.error(exc.message)
         if exc.details:
             logger.info(exc.details)
         # A system error is never paraphrased: nginx's, systemd's or psql's
         # own output is shown verbatim, exactly like the API's ErrorResponse
-        # carries it in its own "output" field (wasm.web.api.deps.error_response).
+        # carries it in its own "output" field (noust.web.api.deps.error_response).
         if exc.output:
             logger.blank()
             for line in exc.output.rstrip("\n").splitlines():
@@ -542,11 +566,41 @@ def main(argv: list[str] | None = None) -> int:
         return 130
 
 
+def _announce_migration(line: str) -> None:
+    """
+    Report one step of the automatic migration from WASM.
+
+    On standard error, so a program reading ``--json`` output is not
+    disturbed, and to the journal through syslog, so the step is on record
+    whoever ran the command.
+
+    Args:
+        line: What was done.
+    """
+    click.echo(f"noust: {line}", err=True)
+    try:
+        import syslog
+
+        syslog.openlog("noust-migrate", 0, syslog.LOG_DAEMON)
+        syslog.syslog(syslog.LOG_NOTICE, line)
+    except OSError as exc:
+        log.debug("Could not write to syslog: %s", exc)
+
+
 def entrypoint() -> None:
     """Console script entry point."""
+    from noust.cli.rename_notice import maybe_announce
+    from noust.core.migrate_from_wasm import run_automatically
+
+    args = sys.argv[1:]
+    maybe_announce(sys.argv[0], args)
+    # Before any command reads a path: a 2.x server is moved onto Noust's
+    # names the first time an operator runs a privileged command.
+    run_automatically(args, _announce_migration)
+
     checker = None
     try:
-        from wasm.core.update_checker import UpdateChecker
+        from noust.core.update_checker import UpdateChecker
     except ImportError as exc:
         log.debug("Update checker unavailable: %s", exc)
     else:

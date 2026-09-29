@@ -9,7 +9,7 @@ Five defects, each closed at its own chokepoint:
 - **The notifier is an SSRF vector.** A webhook URL is configuration; the
   request it produces is this process reaching out with attacker-influenced
   content from the machine that runs systemd as root. Resolution is
-  mocked through :func:`wasm.core.notifier._resolve_host`, never real DNS.
+  mocked through :func:`noust.core.notifier._resolve_host`, never real DNS.
 - **A plain-HTTP bind reachable from another machine.** ``run_server`` is
   where the socket is actually bound, so it refuses the exposure again even
   though the CLI already refused it once.
@@ -44,18 +44,18 @@ from urllib.request import Request
 import pytest
 from fastapi.testclient import TestClient
 
-import wasm.core.notifier as notifier_module
+import noust.core.notifier as notifier_module
+from noust.core.exceptions import SecurityError
+from noust.core.notifier import Notifier
+from noust.core.runner import FakeRunner
+from noust.core.store import App, NoustStore
+from noust.web.api import hooks as hooks_module
+from noust.web.api.hooks import mint_webhook_secret
+from noust.web.auth import SecurityConfig
+from noust.web.server import ASSETS_DIR, run_server
+from noust.web.server import create_app as build_app
 from tests.test_database_managers import mysql, postgres  # noqa: F401  (fixtures)
 from tests.test_notifier import CapturingOpener, config, make_event  # noqa: F401  (fixtures)
-from wasm.core.exceptions import SecurityError
-from wasm.core.notifier import Notifier
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, WASMStore
-from wasm.web.api import hooks as hooks_module
-from wasm.web.api.hooks import mint_webhook_secret
-from wasm.web.auth import SecurityConfig
-from wasm.web.server import ASSETS_DIR, run_server
-from wasm.web.server import create_app as build_app
 
 PSQL_PREFIX = ("runuser", "-u", "postgres", "--", "psql")
 
@@ -239,7 +239,7 @@ class TestRunServerRefusesUnprotectedExposure:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         calls: list[dict[str, Any]] = []
-        monkeypatch.setattr("wasm.web.server._serve", calls.append)
+        monkeypatch.setattr("noust.web.server._serve", calls.append)
 
         with pytest.raises(SecurityError, match="--insecure-http"):
             run_server(host=ALL_INTERFACES, port=8080)
@@ -250,7 +250,7 @@ class TestRunServerRefusesUnprotectedExposure:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         calls: list[dict[str, Any]] = []
-        monkeypatch.setattr("wasm.web.server._serve", calls.append)
+        monkeypatch.setattr("noust.web.server._serve", calls.append)
 
         run_server(
             host=ALL_INTERFACES,
@@ -266,7 +266,7 @@ class TestRunServerRefusesUnprotectedExposure:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         calls: list[dict[str, Any]] = []
-        monkeypatch.setattr("wasm.web.server._serve", calls.append)
+        monkeypatch.setattr("noust.web.server._serve", calls.append)
 
         run_server(
             host="127.0.0.1",
@@ -330,17 +330,17 @@ def fresh_delivery_cache() -> None:
 
 @pytest.fixture
 def store(tmp_path: Path) -> Any:
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     try:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 @pytest.fixture
-def seeded(store: WASMStore) -> App:
+def seeded(store: NoustStore) -> App:
     return store.create_app(
         App(
             domain=DOMAIN,
@@ -354,12 +354,12 @@ def seeded(store: WASMStore) -> App:
 
 
 @pytest.fixture
-def secret(store: WASMStore, seeded: App) -> str:
+def secret(store: NoustStore, seeded: App) -> str:
     return mint_webhook_secret(DOMAIN)
 
 
 @pytest.fixture
-def lockout_app(tmp_path: Path, store: WASMStore) -> Any:
+def lockout_app(tmp_path: Path, store: NoustStore) -> Any:
     return build_app(
         SecurityConfig(
             state_dir=tmp_path / "state", rate_limit_requests=5000, max_failed_attempts=3
@@ -431,7 +431,7 @@ class TestWebhookSignatureFailuresLockTheApplication:
 
 
 class TestPostgresReadOnlyRole:
-    """See wasm.managers.database.postgres.PostgresManager._ensure_read_only_role."""
+    """See noust.managers.database.postgres.PostgresManager._ensure_read_only_role."""
 
     def test_read_mode_signs_in_as_the_role(self, postgres: Any, runner: FakeRunner) -> None:
         runner.script(PSQL_PREFIX, stdout="1\n")
@@ -495,7 +495,7 @@ class TestPostgresReadOnlyRole:
 
 
 class TestMySQLReadOnlyAccount:
-    """See wasm.managers.database.mysql.MySQLManager._ensure_read_only_user."""
+    """See noust.managers.database.mysql.MySQLManager._ensure_read_only_user."""
 
     def test_read_mode_connects_with_a_dedicated_option_file(
         self, mysql: Any, runner: FakeRunner

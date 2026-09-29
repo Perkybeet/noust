@@ -109,7 +109,7 @@ function CertificateDrawer({
               { label: t("domains.certificatesTab.privateKeyLabel"), value: cert.key_path ?? null },
             ]}
           />
-          <CommandHint command={`wasm cert info ${cert.domain}`} label={t("domains.fromTerminal")} />
+          <CommandHint command={`noust cert info ${cert.domain}`} label={t("domains.fromTerminal")} />
         </div>
       ) : null}
     </Drawer>
@@ -242,7 +242,7 @@ export function CertificatesTab({ initialFilter = "" }: { initialFilter?: string
           title={t("domains.certificatesTab.noCertsYetTitle")}
           description={t("domains.certificatesTab.noCertsYetDescription")}
           action={issueButton}
-          command="wasm cert create -d example.com"
+          command="noust cert create -d example.com"
           className="py-16"
         />
       ) : (
@@ -306,7 +306,7 @@ export function CertificatesTab({ initialFilter = "" }: { initialFilter?: string
               );
             }}
           />
-          <CommandHint command="wasm cert list" label={t("domains.fromTerminal")} />
+          <CommandHint command="noust cert list" label={t("domains.fromTerminal")} />
         </>
       )}
 

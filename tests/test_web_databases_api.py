@@ -39,9 +39,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.managers.database.base import BackupInfo, BaseDatabaseManager, DatabaseInfo, UserInfo
-from wasm.web.auth import CSRF_HEADER_NAME, SecurityConfig
-from wasm.web.server import create_app, get_token_manager
+from noust.managers.database.base import BackupInfo, BaseDatabaseManager, DatabaseInfo, UserInfo
+from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
+from noust.web.server import create_app, get_token_manager
 
 #: The password the fake engine issues when the operator does not choose one.
 ISSUED_PASSWORD = "Once-0nly-Generated-9!"
@@ -224,7 +224,7 @@ def wire(monkeypatch: pytest.MonkeyPatch, engine_classes: list[type]) -> None:
         monkeypatch: Patching helper, scoped to the test.
         engine_classes: The fake manager classes to expose.
     """
-    import wasm.web.api.databases as db_api
+    import noust.web.api.databases as db_api
 
     by_name = {cls.ENGINE_NAME: cls for cls in engine_classes}
 
@@ -379,7 +379,7 @@ def test_installing_queues_a_job(
     client: TestClient, engines, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Install runs the distribution package manager, so it is a queued job."""
-    import wasm.web.api.databases as db_api
+    import noust.web.api.databases as db_api
 
     created: list[dict[str, Any]] = []
 
@@ -419,7 +419,7 @@ def _capture_queued_jobs(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]
         The keyword arguments of every job the endpoint tried to queue - empty
         when a request never got past the elevation gate.
     """
-    import wasm.web.api.databases as db_api
+    import noust.web.api.databases as db_api
 
     created: list[dict[str, Any]] = []
 
@@ -600,7 +600,7 @@ def test_a_structured_engine_returns_columns_and_rows(client: TestClient, db) ->
     """An engine that parses its own client output exposes it structured."""
 
     def execute_query_structured(self, database, query, *, read_only=False, max_rows=1000):
-        from wasm.managers.database.base import StructuredQueryResult
+        from noust.managers.database.base import StructuredQueryResult
 
         type(self).calls.append(("query_structured", database, query, read_only))
         return StructuredQueryResult(

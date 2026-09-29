@@ -56,7 +56,7 @@ export function splitErrors<K extends string>(error: unknown, names: readonly K[
  * `splitErrors`, plus the configuration's own refusals placed beside their field.
  *
  * A typed endpoint that writes through `Config.set` answers a value the configuration's rules
- * refuse as a 400 with no `fields`, in the words `wasm config set` uses, which always begin
+ * refuse as a 400 with no `fields`, in the words `noust config set` uses, which always begin
  * with the dotted key: "monitor.smtp.host is not a valid hostname: ...". That key names the
  * field as surely as `fields` would, so the message goes beside it, verbatim, instead of
  * above the form.

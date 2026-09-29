@@ -7,7 +7,7 @@ which let anyone with a panel session send SIGTERM or SIGKILL to **any** pid on
 the host as root - including sshd, the database and pid 1. Decision D5 of the
 v1 design takes "acting on processes" out of the product: the monitor is
 observability, not an antivirus, so the endpoint is gone rather than merely
-restricted. Stopping something WASM manages is done through its service, which
+restricted. Stopping something Noust manages is done through its service, which
 is what ``/api/services/{name}/stop`` is for.
 
 Handlers are synchronous: ``psutil.cpu_percent(interval=...)`` and
@@ -24,15 +24,15 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
-from wasm import __version__
-from wasm.core.exceptions import DependencyError
-from wasm.managers.health import collect_health_report
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import WASMErrorRoute
-from wasm.web.auth import sees_command_lines
-from wasm.web.machine import read_machine
+from noust import __version__
+from noust.core.exceptions import DependencyError
+from noust.managers.health import collect_health_report
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import NoustErrorRoute
+from noust.web.auth import sees_command_lines
+from noust.web.machine import read_machine
 
-router = APIRouter(route_class=WASMErrorRoute)
+router = APIRouter(route_class=NoustErrorRoute)
 
 #: Sort keys the process listing accepts.
 PROCESS_SORT_KEYS = frozenset({"cpu", "memory", "pid", "name"})
@@ -156,7 +156,7 @@ class UpdateInfo(BaseModel):
     #: shows that as the reason nothing about a new release is known, rather
     #: than a check that silently never happens - and "checking" when a
     #: concurrent call is already fetching and there is no cached result yet
-    #: to answer with instead (:class:`~wasm.core.update_checker.UpdateCheckInProgress`).
+    #: to answer with instead (:class:`~noust.core.update_checker.UpdateCheckInProgress`).
     status: str = "checked"
 
 
@@ -177,7 +177,7 @@ class MachineDisk(BaseModel):
 
 
 class MachineUnits(BaseModel):
-    """How many WASM-managed systemd units are in each state."""
+    """How many Noust-managed systemd units are in each state."""
 
     running: int
     failed: int
@@ -197,7 +197,7 @@ class MachineOut(BaseModel):
     """
     The machine snapshot the console's topbar reads, and the ``machine`` SSE
     event carries every five seconds. One implementation,
-    :func:`wasm.web.machine.read_machine`, composes it; this only describes
+    :func:`noust.web.machine.read_machine`, composes it; this only describes
     its shape for the OpenAPI contract, so a REST poll and the stream can
     never disagree about what a field means.
     """
@@ -223,9 +223,9 @@ class HealthCheckOut(BaseModel):
 
 class SystemHealthOut(BaseModel):
     """
-    The same verdict and checks ``wasm health`` prints, as JSON.
+    The same verdict and checks ``noust health`` prints, as JSON.
 
-    :func:`wasm.managers.health.collect_health_report` is the one
+    :func:`noust.managers.health.collect_health_report` is the one
     implementation this and the CLI command both read; this model only
     describes its shape for the OpenAPI contract.
     """
@@ -251,7 +251,7 @@ def _psutil() -> Any:
     except ImportError as exc:
         raise DependencyError(
             "psutil is not installed, so system metrics are unavailable",
-            details="Install the web extra: pip install 'wasm-cli[web]'.",
+            details="Install the web extra: pip install 'noust[web]'.",
         ) from exc
     return psutil
 
@@ -467,7 +467,7 @@ def _visible_command(cmdline: list[str], session: dict[str, Any]) -> str | None:
 
     Returns:
         The joined, truncated command line when
-        :func:`~wasm.web.auth.sees_command_lines` allows it; None otherwise,
+        :func:`~noust.web.auth.sees_command_lines` allows it; None otherwise,
         the field's existing "unknown" rather than a second representation.
     """
     if not sees_command_lines(session):
@@ -606,7 +606,7 @@ def check_version(session: Annotated[dict, Depends(get_current_session)]) -> Upd
         ``status="checking"`` when another call is already fetching and
         there is no cached result yet to answer with instead.
     """
-    from wasm.core.update_checker import UpdateChecker, UpdateCheckInProgress
+    from noust.core.update_checker import UpdateChecker, UpdateCheckInProgress
 
     if not UpdateChecker.enabled():
         return UpdateInfo(current_version=__version__, has_update=False, status="disabled")
@@ -634,9 +634,9 @@ def check_version(session: Annotated[dict, Depends(get_current_session)]) -> Upd
 @router.get("/health", response_model=SystemHealthOut)
 def get_system_health(session: Annotated[dict, Depends(get_current_session)]) -> SystemHealthOut:
     """
-    Report the same health verdict and checks as ``wasm health``.
+    Report the same health verdict and checks as ``noust health``.
 
-    Calls :func:`wasm.managers.health.collect_health_report`, the function the
+    Calls :func:`noust.managers.health.collect_health_report`, the function the
     CLI command itself calls, so the server card in the console can never
     disagree with what an operator sees at the terminal.
 

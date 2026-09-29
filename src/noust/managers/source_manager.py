@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Source code manager for WASM.
+Source code manager for Noust.
 
 This module is the door through which third-party code enters a machine where
-WASM runs as root, so it is written defensively:
+Noust runs as root, so it is written defensively:
 
 - **Archives are extracted member by member, never with ``extractall``.** A tar
   or zip entry can name ``../../etc/systemd/system/evil.service``, carry a
@@ -23,12 +23,12 @@ WASM runs as root, so it is written defensively:
   before git sees the URL and travels in git's environment instead (see
   :func:`split_url_credentials`), and every message is redacted.
 - **Processes go through the CommandRunner**, never through ``subprocess``.
-- **Filesystem changes go through :mod:`wasm.core.fs`**, so ``--dry-run`` is
+- **Filesystem changes go through :mod:`noust.core.fs`**, so ``--dry-run`` is
   true for what this module writes and deletes, not only for what it executes.
 
 The one deliberate exception is the body of an extraction. Every member is
 written with ``os.open(O_EXCL | O_NOFOLLOW)`` and streamed in chunks against a
-byte budget; routing that through :meth:`~wasm.core.fs.FileSystem.write_text`
+byte budget; routing that through :meth:`~noust.core.fs.FileSystem.write_text`
 would mean decoding binary members into ``str``, buffering a whole file in
 memory, and losing the two flags that stop a crafted archive from writing
 through a symlink or overwriting a member it already wrote. So the *decision*
@@ -65,16 +65,16 @@ from urllib.request import (
     ProxyHandler,
 )
 
-from wasm.core.config import REDACTED
-from wasm.core.exceptions import IntegrationError, SourceError
-from wasm.core.fs import FileSystem, RealFileSystem, get_fs
-from wasm.core.runner import CommandResult, CommandRunner
-from wasm.managers.base_manager import BaseManager
-from wasm.validators.source import (
+from noust.core.config import REDACTED
+from noust.core.exceptions import IntegrationError, SourceError
+from noust.core.fs import FileSystem, RealFileSystem, get_fs
+from noust.core.runner import CommandResult, CommandRunner
+from noust.managers.base_manager import BaseManager
+from noust.validators.source import (
     parse_git_url,
     validate_source,
 )
-from wasm.validators.ssh import (
+from noust.validators.ssh import (
     ensure_ssh_setup,
     is_ssh_url,
 )
@@ -143,7 +143,7 @@ _GIT_SAFE_CONFIG = ("-c", "protocol.ext.allow=never", "-c", "protocol.file.allow
 
 #: The ssh git runs. BatchMode makes ssh fail instead of asking for a
 #: passphrase, a password or a host key confirmation on the terminal.
-#: accept-new is the host key policy WASM already applies when it tests a
+#: accept-new is the host key policy Noust already applies when it tests a
 #: connection (validators/ssh.py): a first contact is recorded, a changed key
 #: is still refused.
 GIT_SSH_COMMAND = "ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30"
@@ -174,9 +174,9 @@ _HTTPS_REPOSITORY_RE = re.compile(r"^https?://(?P<host>[\w.-]+)/(?P<path>[\w./-]
 
 def git_environment() -> dict[str, str]:
     """
-    Build the environment every git WASM runs is given.
+    Build the environment every git Noust runs is given.
 
-    Nobody is at the keyboard when WASM runs git: the console, a webhook and a
+    Nobody is at the keyboard when Noust runs git: the console, a webhook and a
     deploy job all run it on the operator's behalf, and a credential prompt
     blocks until the clone timeout instead of failing. Each variable here
     closes one way git or ssh can ask a person for something:
@@ -229,9 +229,9 @@ def redact_git_text(text: str) -> str:
     """
     if not text or "@" not in text:
         return text
-    # Imported here: wasm.deployers imports this module, so a module-level
+    # Imported here: noust.deployers imports this module, so a module-level
     # import of one of its helpers would be circular.
-    from wasm.deployers.helpers.env_manager import redact_url_credentials
+    from noust.deployers.helpers.env_manager import redact_url_credentials
 
     redacted = redact_url_credentials(text)
     return _HTTP_USERINFO.sub(lambda match: f"{match.group('prefix')}{REDACTED}@", redacted)
@@ -242,7 +242,7 @@ def _inherited_config_count() -> int:
     Count the configuration entries the operator already passes to git by environment.
 
     Returns:
-        The value of ``GIT_CONFIG_COUNT`` in WASM's own environment, or 0.
+        The value of ``GIT_CONFIG_COUNT`` in Noust's own environment, or 0.
     """
     try:
         return max(int(os.environ.get("GIT_CONFIG_COUNT", "0") or 0), 0)
@@ -302,7 +302,7 @@ def _validate_source_keeping_credentials(source: str) -> tuple[str, str]:
     """
     Classify a source, judging a URL by what it is without its credential.
 
-    :func:`~wasm.validators.source.validate_source` cannot tell the host of
+    :func:`~noust.validators.source.validate_source` cannot tell the host of
     ``https://user:token@host/owner/repo.git``, so a source stored that way by
     an older release was refused before any git ran. The URL is judged
     without its userinfo, and handed on with it: every git call splits the
@@ -378,7 +378,7 @@ def git_auth_fix(url: str | None) -> str:
     if url and is_ssh_url(url):
         return (
             "Add this server's public key as a deploy key of the repository: "
-            "`wasm setup ssh --show` prints it (`wasm setup ssh --generate` creates it "
+            "`noust setup ssh --show` prints it (`noust setup ssh --generate` creates it "
             "if there is none), then retry. If the repository does not exist, check the URL."
         )
     ssh_url = _ssh_equivalent(url) or "git@<host>:<owner>/<repo>.git"
@@ -390,8 +390,8 @@ def git_auth_fix(url: str | None) -> str:
     )
     return (
         f"Deploy from the SSH URL instead ({ssh_url}) after adding this server's key "
-        "as a deploy key of the repository: `wasm setup ssh --show` prints it "
-        "(`wasm setup ssh --generate` creates it if there is none). Or keep the https URL "
+        "as a deploy key of the repository: `noust setup ssh --show` prints it "
+        "(`noust setup ssh --generate` creates it if there is none). Or keep the https URL "
         "and store an access token for the host with a git credential helper "
         "(`git config --global credential.helper store`, then a line "
         "https://<user>:<token>@<host> in /root/.git-credentials, mode 0600). "
@@ -1240,7 +1240,7 @@ def _sanitize_mode(mode: int, default: int, *, directory: bool = False) -> int:
 
     Drops setuid, setgid, the sticky bit and every write bit outside the owner,
     which is what makes a mode from an untrusted archive dangerous on a host
-    where WASM runs as root.
+    where Noust runs as root.
 
     Args:
         mode: Mode stored in the archive.
@@ -1644,7 +1644,7 @@ class SourceManager(BaseManager):
                 doubles work without every call site knowing about them.
             github_installation_id: The GitHub App installation that reaches
                 the repository (an application's ``github_installation_id``);
-                None lets :func:`~wasm.integrations.github.app.installation_for`
+                None lets :func:`~noust.integrations.github.app.installation_for`
                 choose one.
         """
         super().__init__(verbose=verbose, runner=runner)
@@ -1738,7 +1738,7 @@ class SourceManager(BaseManager):
         fetches, ``ls-remote`` (the upstream check) and the blobless
         checkout of an inspection all get it, and nothing else does. The
         token travels in git's environment only (see
-        :func:`~wasm.integrations.github.app.git_auth_environment`).
+        :func:`~noust.integrations.github.app.git_auth_environment`).
 
         Args:
             args: The git arguments after the safe configuration.
@@ -1756,8 +1756,8 @@ class SourceManager(BaseManager):
         if verb not in _NETWORK_VERBS:
             return {}
         # Imported here: the integration reads the store, which imports
-        # half of WASM, and this module is imported by the deployers.
-        from wasm.integrations.github.app import (
+        # half of Noust, and this module is imported by the deployers.
+        from noust.integrations.github.app import (
             git_auth_environment,
             github_app_configured,
             is_github_https,
@@ -2622,7 +2622,7 @@ class SourceManager(BaseManager):
             if followed is None:
                 raise SourceError(
                     f"{path} is on a single commit and names no branch to go back to",
-                    details="Name the branch to follow: wasm update <domain> --branch <name>",
+                    details="Name the branch to follow: noust update <domain> --branch <name>",
                 )
             safe_branch = validate_git_ref(followed)
 

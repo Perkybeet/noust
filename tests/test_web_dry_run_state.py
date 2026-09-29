@@ -2,7 +2,7 @@
 ``--dry-run`` and the console's own security state.
 
 The signing key, the master token hash and the session database are written
-by :mod:`wasm.web.auth`, which used to write them with ``os`` and ``sqlite3``
+by :mod:`noust.web.auth`, which used to write them with ``os`` and ``sqlite3``
 directly - past the filesystem seam ``--dry-run`` swaps out. So
 ``wasm --dry-run token create ci`` printed "nothing on this machine will be
 changed" and then created ``/etc/wasm``, a signing key, a session database and
@@ -19,9 +19,9 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from wasm.cli.app import cli as root_cli
-from wasm.core.fs import DryRunFileSystem, set_fs
-from wasm.web.auth import STATE_DIR_ENV, SecurityConfig, TokenManager
+from noust.cli.app import cli as root_cli
+from noust.core.fs import DryRunFileSystem, set_fs
+from noust.web.auth import STATE_DIR_ENV, SecurityConfig, TokenManager
 
 
 @pytest.fixture

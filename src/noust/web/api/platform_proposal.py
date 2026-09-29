@@ -4,7 +4,7 @@
 """
 The API shape of another platform's configuration, read from a repository.
 
-What :func:`wasm.deployers.importers.propose` answers, for the inspection the
+What :func:`noust.deployers.importers.propose` answers, for the inspection the
 new-app wizard runs (``POST /api/apps/inspect``, its ``platform_proposal``):
 a module of its own so the inspection's response can use it without importing
 the export endpoints, which import the applications router.
@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from wasm.deployers.importers import Proposal
+from noust.deployers.importers import Proposal
 
 
 class ProposedEnvResponse(BaseModel):
@@ -26,7 +26,7 @@ class ProposedEnvResponse(BaseModel):
     )
     secret: bool = False
     generated: bool = Field(
-        default=False, description="The platform generates it; WASM generates one in its place"
+        default=False, description="The platform generates it; Noust generates one in its place"
     )
     required: bool = Field(
         default=False, description="A value must be given: the configuration has none"
@@ -35,7 +35,7 @@ class ProposedEnvResponse(BaseModel):
 
 
 class PlatformProposalResponse(BaseModel):
-    """What another platform's configuration says, in WASM's terms."""
+    """What another platform's configuration says, in Noust's terms."""
 
     platform: str = Field(description="vercel, railway, render or heroku")
     files: list[str] = Field(default_factory=list, description="The files read")

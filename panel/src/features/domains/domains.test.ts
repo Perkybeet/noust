@@ -170,7 +170,7 @@ describe("issuing a certificate", () => {
     });
   });
 
-  it("leaves the method to WASM when automatic, and www out when it is listed already", () => {
+  it("leaves the method to Noust when automatic, and www out when it is listed already", () => {
     expect(issueRequest({ ...form, names: "www.example.com" })).toMatchObject({
       request: { method: null, webroot: null, email: null, domains: ["www.example.com"], include_www: false },
     });

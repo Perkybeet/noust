@@ -9,7 +9,7 @@ which makes both names untrusted input. Before these tests, a repository
 that set ``POSTGRES_USER`` to another application's user and
 ``POSTGRES_DB`` to a new name was handed that user's password (read from the
 secret store) and a grant on its new database; one that named ``postgres``
-or a database created outside WASM got ``ALL`` on it. These tests pin down
+or a database created outside Noust got ``ALL`` on it. These tests pin down
 that the helper only ever reuses a database or a user recorded as the
 requesting application's, and that a grant failing on a first deploy never
 leaves the monorepo writing a ``DATABASE_URL`` from made-up credentials.
@@ -21,12 +21,12 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.exceptions import DatabaseError
-from wasm.core.logger import Logger
-from wasm.core.secrets import SecretStore
-from wasm.core.store import App, Database, WASMStore
-from wasm.deployers.helpers import databases as db_helpers
-from wasm.deployers.helpers.databases import RESERVED_NAMES, provision_database
+from noust.core.exceptions import DatabaseError
+from noust.core.logger import Logger
+from noust.core.secrets import SecretStore
+from noust.core.store import App, Database, NoustStore
+from noust.deployers.helpers import databases as db_helpers
+from noust.deployers.helpers.databases import RESERVED_NAMES, provision_database
 
 
 class FakeManager:
@@ -85,10 +85,10 @@ class FakeRegistry:
 
 @pytest.fixture
 def store(tmp_path: Path):
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 @pytest.fixture
@@ -104,7 +104,7 @@ def manager(monkeypatch: pytest.MonkeyPatch) -> FakeManager:
 
 
 def _provision(
-    store: WASMStore, secret_store: SecretStore, *, name: str, user: str, domain: str | None
+    store: NoustStore, secret_store: SecretStore, *, name: str, user: str, domain: str | None
 ):
     return provision_database(
         "postgresql",
@@ -117,7 +117,7 @@ def _provision(
     )
 
 
-def _app(store: WASMStore, domain: str) -> App:
+def _app(store: NoustStore, domain: str) -> App:
     return store.create_app(App(domain=domain, app_path=f"/srv/{domain}"))
 
 
@@ -127,7 +127,7 @@ def _app(store: WASMStore, domain: str) -> App:
 
 
 def test_a_user_owned_by_another_app_is_refused(
-    store: WASMStore, secret_store: SecretStore, manager: FakeManager
+    store: NoustStore, secret_store: SecretStore, manager: FakeManager
 ) -> None:
     _app(store, "victim.example.com")
     victim = _provision(
@@ -150,7 +150,7 @@ def test_a_user_owned_by_another_app_is_refused(
 
 
 def test_a_user_owned_by_an_app_whose_rows_are_not_linked_yet_is_refused(
-    store: WASMStore, secret_store: SecretStore, manager: FakeManager
+    store: NoustStore, secret_store: SecretStore, manager: FakeManager
 ) -> None:
     # A recipe provisions before its application row exists, so the row is
     # unlinked; the owner recorded beside the password still names it.
@@ -167,7 +167,7 @@ def test_a_user_owned_by_an_app_whose_rows_are_not_linked_yet_is_refused(
 
 
 def test_an_unlinked_database_of_another_domain_is_refused(
-    store: WASMStore, secret_store: SecretStore, manager: FakeManager
+    store: NoustStore, secret_store: SecretStore, manager: FakeManager
 ) -> None:
     _provision(store, secret_store, name="shop_db", user="shop_user", domain="shop.example.com")
     _app(store, "evil.example.com")
@@ -180,12 +180,12 @@ def test_an_unlinked_database_of_another_domain_is_refused(
 
 
 # ---------------------------------------------------------------------------
-# Databases and users WASM did not create
+# Databases and users Noust did not create
 # ---------------------------------------------------------------------------
 
 
 def test_an_existing_database_with_no_store_row_is_refused(
-    store: WASMStore, secret_store: SecretStore, manager: FakeManager
+    store: NoustStore, secret_store: SecretStore, manager: FakeManager
 ) -> None:
     manager.databases.add("accounting")
     _app(store, "evil.example.com")
@@ -196,15 +196,15 @@ def test_an_existing_database_with_no_store_row_is_refused(
         )
 
     assert "accounting" in str(excinfo.value)
-    assert "WASM did not create" in str(excinfo.value)
+    assert "Noust did not create" in str(excinfo.value)
     assert manager.calls == []
     assert "evil_user" not in manager.users
 
 
 def test_a_database_created_outside_an_application_is_refused(
-    store: WASMStore, secret_store: SecretStore, manager: FakeManager
+    store: NoustStore, secret_store: SecretStore, manager: FakeManager
 ) -> None:
-    # What `wasm db create` records: a row with no application.
+    # What `noust db create` records: a row with no application.
     manager.databases.add("reports")
     store.create_database(Database(name="reports", engine="postgresql", username="reporter"))
     _app(store, "evil.example.com")
@@ -217,7 +217,7 @@ def test_a_database_created_outside_an_application_is_refused(
 
 
 def test_an_existing_user_wasm_did_not_create_is_refused_without_suggesting_its_deletion(
-    store: WASMStore, secret_store: SecretStore, manager: FakeManager
+    store: NoustStore, secret_store: SecretStore, manager: FakeManager
 ) -> None:
     manager.users["someone"] = "their-password"
     _app(store, "evil.example.com")
@@ -226,16 +226,16 @@ def test_an_existing_user_wasm_did_not_create_is_refused_without_suggesting_its_
         _provision(store, secret_store, name="evil_db", user="someone", domain="evil.example.com")
 
     message = f"{excinfo.value} {excinfo.value.details}"
-    assert "WASM did not create" in message
+    assert "Noust did not create" in message
     assert "user-delete" not in message
     assert manager.calls == []
 
 
 def test_an_own_user_from_before_the_secret_store_still_suggests_dropping_it(
-    store: WASMStore, secret_store: SecretStore, manager: FakeManager
+    store: NoustStore, secret_store: SecretStore, manager: FakeManager
 ) -> None:
     # 2.2.1 recorded the database and its user against the app, but kept no
-    # password: the user is WASM's own, so dropping it is the right advice.
+    # password: the user is Noust's own, so dropping it is the right advice.
     app = _app(store, "legacy.example.com")
     manager.databases.add("legacy_db")
     manager.users["legacy_user"] = "unknown"
@@ -249,12 +249,12 @@ def test_an_own_user_from_before_the_secret_store_still_suggests_dropping_it(
         )
 
     assert "does not know its password" in str(excinfo.value)
-    assert "wasm db user-delete legacy_user --engine postgresql" in excinfo.value.details
+    assert "noust db user-delete legacy_user --engine postgresql" in excinfo.value.details
 
 
 @pytest.mark.parametrize("name", sorted(RESERVED_NAMES))
 def test_reserved_database_names_are_refused(
-    store: WASMStore, secret_store: SecretStore, manager: FakeManager, name: str
+    store: NoustStore, secret_store: SecretStore, manager: FakeManager, name: str
 ) -> None:
     with pytest.raises(DatabaseError) as excinfo:
         _provision(store, secret_store, name=name, user="app_user", domain="app.example.com")
@@ -265,7 +265,7 @@ def test_reserved_database_names_are_refused(
 
 @pytest.mark.parametrize("name", ["postgres", "ROOT", "Template1", "mysql"])
 def test_reserved_user_names_are_refused_whatever_their_case(
-    store: WASMStore, secret_store: SecretStore, manager: FakeManager, name: str
+    store: NoustStore, secret_store: SecretStore, manager: FakeManager, name: str
 ) -> None:
     manager.users[name] = "superuser-password"
 
@@ -296,7 +296,7 @@ def test_reserved_names_include_every_system_database_and_account() -> None:
 
 
 def test_a_retry_after_a_failed_grant_reuses_the_user_and_its_password(
-    store: WASMStore, secret_store: SecretStore, manager: FakeManager
+    store: NoustStore, secret_store: SecretStore, manager: FakeManager
 ) -> None:
     _app(store, "app.example.com")
     manager.fail_grant = True
@@ -320,7 +320,7 @@ def test_a_retry_after_a_failed_grant_reuses_the_user_and_its_password(
 
 
 def test_a_retry_after_a_failed_new_deploy_whose_app_row_was_rolled_back(
-    store: WASMStore, secret_store: SecretStore, manager: FakeManager
+    store: NoustStore, secret_store: SecretStore, manager: FakeManager
 ) -> None:
     # A failed new monorepo deploy deletes its app row; the database row's
     # app_id becomes NULL. The next attempt, for the same domain, is the owner.
@@ -340,10 +340,10 @@ def test_a_retry_after_a_failed_new_deploy_whose_app_row_was_rolled_back(
 
 
 def test_a_stale_record_of_a_user_that_no_longer_exists_does_not_leak_its_password(
-    store: WASMStore, secret_store: SecretStore, manager: FakeManager
+    store: NoustStore, secret_store: SecretStore, manager: FakeManager
 ) -> None:
     old = _provision(store, secret_store, name="old_db", user="app_user", domain="old.example.com")
-    # The user was dropped by hand (`wasm db user-delete`), and so was the database.
+    # The user was dropped by hand (`noust db user-delete`), and so was the database.
     del manager.users["app_user"]
     manager.databases.discard("old_db")
     store.delete_database("old_db", "postgresql")

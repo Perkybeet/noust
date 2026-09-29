@@ -24,16 +24,16 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.core.store import App, WASMStore
-from wasm.web.auth import CSRF_HEADER_NAME, SecurityConfig
-from wasm.web.server import create_app, get_token_manager
+from noust.core.store import App, NoustStore
+from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
+from noust.web.server import create_app, get_token_manager
 
 #: A real-shaped Stripe secret key, to prove value-based detection reaches the API.
 STRIPE_SECRET = "sk_liv" + "e_4eC39HqLyjWDarjtT1zdp7dc"
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> Iterator[WASMStore]:
+def store(tmp_path: Path) -> Iterator[NoustStore]:
     """
     Args:
         tmp_path: Per-test temporary directory.
@@ -41,17 +41,17 @@ def store(tmp_path: Path) -> Iterator[WASMStore]:
     Yields:
         A store of this test's own.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     try:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 @pytest.fixture
-def app(tmp_path: Path, store: WASMStore, runner: object) -> FastAPI:
+def app(tmp_path: Path, store: NoustStore, runner: object) -> FastAPI:
     """
     Args:
         tmp_path: Per-test temporary directory.
@@ -95,7 +95,7 @@ def elevate(client: TestClient) -> None:
 
 
 def deployed_env(
-    store: WASMStore, tmp_path: Path, domain: str = "example.com", env_text: str = ""
+    store: NoustStore, tmp_path: Path, domain: str = "example.com", env_text: str = ""
 ) -> Path:
     """
     Deploy an application whose ``.env`` file lives inside the sandbox.
@@ -148,7 +148,7 @@ def read_audit(tmp_path: Path) -> list[dict[str, Any]]:
 
 
 def test_get_env_carries_a_classification_for_every_variable(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     deployed_env(
         store,
@@ -166,7 +166,7 @@ def test_get_env_carries_a_classification_for_every_variable(
 
 
 def test_get_env_secrets_present_whether_or_not_unmasked(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     deployed_env(store, tmp_path, env_text="API_KEY=short\n")
     elevate(client)
@@ -178,7 +178,7 @@ def test_get_env_secrets_present_whether_or_not_unmasked(
 
 
 def test_a_stripe_shaped_value_is_masked_even_behind_a_harmless_name(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     """The finding that motivated value-based detection, through the API."""
     deployed_env(store, tmp_path, env_text=f"STRIPE_SK={STRIPE_SECRET}\n")
@@ -196,7 +196,7 @@ def test_a_stripe_shaped_value_is_masked_even_behind_a_harmless_name(
 
 
 def test_marks_endpoint_needs_elevation(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     deployed_env(store, tmp_path, env_text="APP_NAME=storefront\n")
 
@@ -206,7 +206,7 @@ def test_marks_endpoint_needs_elevation(
 
 
 def test_marking_a_variable_secret_masks_it_even_though_nothing_else_would(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     deployed_env(store, tmp_path, env_text="APP_NAME=storefront\n")
     elevate(client)
@@ -224,7 +224,7 @@ def test_marking_a_variable_secret_masks_it_even_though_nothing_else_would(
 
 
 def test_marking_a_variable_not_secret_reveals_it_unmasked(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     deployed_env(store, tmp_path, env_text="APP_NAME=storefront\nAPI_KEY=short\n")
     elevate(client)
@@ -242,7 +242,7 @@ def test_marking_a_variable_not_secret_reveals_it_unmasked(
 
 
 def test_marks_merge_with_what_is_already_stored(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     deployed_env(store, tmp_path, env_text="ONE=a\nTWO=b\n")
     elevate(client)
@@ -259,7 +259,7 @@ def test_marks_merge_with_what_is_already_stored(
 
 
 def test_a_null_mark_removes_the_override(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     deployed_env(store, tmp_path, env_text="APP_NAME=storefront\n")
     elevate(client)
@@ -276,7 +276,7 @@ def test_a_null_mark_removes_the_override(
 
 
 def test_an_invalid_variable_name_is_rejected(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     deployed_env(store, tmp_path, env_text="APP_NAME=storefront\n")
     elevate(client)
@@ -287,7 +287,7 @@ def test_an_invalid_variable_name_is_rejected(
 
 
 def test_marks_endpoint_is_audited_without_the_value(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     deployed_env(store, tmp_path, env_text="APP_NAME=storefront\n")
     elevate(client)
@@ -302,7 +302,7 @@ def test_marks_endpoint_is_audited_without_the_value(
 
 
 def test_marks_audit_detail_records_the_direction_of_each_change(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     """Verified finding 4: the audit line must say which way each mark went."""
     deployed_env(store, tmp_path, env_text="APP_NAME=storefront\nAPI_KEY=short\n")
@@ -323,7 +323,7 @@ def test_marks_audit_detail_records_the_direction_of_each_change(
 
 
 def test_marks_audit_detail_records_a_cleared_mark_as_automatic(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     deployed_env(store, tmp_path, env_text="APP_NAME=storefront\n")
     elevate(client)
@@ -336,7 +336,7 @@ def test_marks_audit_detail_records_a_cleared_mark_as_automatic(
     assert "APP_NAME -> automatic" in entries[-1]["detail"]
 
 
-def test_an_unknown_application_is_404(client: TestClient, store: WASMStore) -> None:
+def test_an_unknown_application_is_404(client: TestClient, store: NoustStore) -> None:
     elevate(client)
 
     response = client.put(
@@ -352,7 +352,7 @@ def test_an_unknown_application_is_404(client: TestClient, store: WASMStore) -> 
 
 
 def test_a_mark_on_a_removed_variable_is_dropped_by_the_next_env_write(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     deployed_env(store, tmp_path, env_text="APP_NAME=storefront\nKEEP=1\n")
     elevate(client)
@@ -369,7 +369,7 @@ def test_a_mark_on_a_removed_variable_is_dropped_by_the_next_env_write(
 
 
 def test_a_mark_on_a_variable_that_survives_the_write_is_kept(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     deployed_env(store, tmp_path, env_text="APP_NAME=storefront\n")
     elevate(client)

@@ -17,11 +17,11 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from noust.core import totp
+from noust.web import auth as auth_module
+from noust.web.auth import CSRF_HEADER_NAME, SESSION_COOKIE_NAME, TokenManager
+from noust.web.server import get_brute_force, get_token_manager
 from tests.test_web_auth import build_client, enable_totp, login, make_config
-from wasm.core import totp
-from wasm.web import auth as auth_module
-from wasm.web.auth import CSRF_HEADER_NAME, SESSION_COOKIE_NAME, TokenManager
-from wasm.web.server import get_brute_force, get_token_manager
 
 # ------------------------------------------------------------ TOTP replay
 

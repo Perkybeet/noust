@@ -1,7 +1,7 @@
 """
 Tests for GET /api/audit: the append-only audit log, exposed to admins.
 
-The log itself is :class:`wasm.web.auth.AuditLogger`, JSON lines written by
+The log itself is :class:`noust.web.auth.AuditLogger`, JSON lines written by
 every privileged action the panel performs (see tests/test_web_auth.py for
 what gets audited). This module tests the read side: an admin-only endpoint
 that returns it newest first, filterable and keyset-paginated.
@@ -13,8 +13,8 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from wasm.web.auth import CSRF_HEADER_NAME, SecurityConfig, get_audit_logger
-from wasm.web.server import create_app, get_token_manager
+from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig, get_audit_logger
+from noust.web.server import create_app, get_token_manager
 
 
 def make_config(sandbox: Path, **overrides) -> SecurityConfig:

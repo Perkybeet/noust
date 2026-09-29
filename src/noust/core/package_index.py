@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The newest WASM version the source an installation upgrades from can install.
+The newest Noust version the source an installation upgrades from can install.
 
 A GitHub release exists the moment its tag is pushed, but the packages a
 server installs are built afterwards: PyPI takes a few minutes, the OBS
@@ -11,13 +11,13 @@ operator to upgrade on the strength of the GitHub release alone sent them to a
 package manager that had nothing new to install. So the version an update is
 announced for is read from the same place the upgrade command reads it:
 
-- apt: the ``Packages`` index of the repository serving ``wasm``, found in
+- apt: the ``Packages`` index of the repository serving ``noust``, found in
   ``/etc/apt/sources.list`` and ``sources.list.d`` (one-line and deb822),
   fetched fresh because the local lists are only as new as the last
   ``apt update``. ``apt-cache policy`` is the fallback. ``apt update`` itself
   is never run: it changes the machine.
 - dnf, yum, zypper: ``repodata/repomd.xml`` and the primary index it points
-  at, for the repository serving ``wasm-cli`` in ``/etc/yum.repos.d`` or
+  at, for the repository serving ``noust`` in ``/etc/yum.repos.d`` or
   ``/etc/zypp/repos.d``. The package manager's cache-only ``info`` is the
   fallback.
 - pip, pipx: the PyPI JSON API.
@@ -54,22 +54,32 @@ from xml.etree import ElementTree
 from xml.parsers import expat
 
 if TYPE_CHECKING:
-    from wasm.core.runner import CommandRunner
+    from noust.core.runner import CommandRunner
 
 logger = logging.getLogger(__name__)
 
-#: Package names on each channel. The Debian package is ``wasm``
-#: (obs/debian.control); the RPM and the PyPI distribution are ``wasm-cli``
-#: (rpm/wasm.spec, pyproject.toml).
-DEB_PACKAGE = "wasm"
-RPM_PACKAGE = "wasm-cli"
-PYPI_PACKAGE = "wasm-cli"
+#: Package names on each channel: ``noust`` everywhere from 3.0
+#: (obs/debian.control, rpm/noust.spec, pyproject.toml). What is published is
+#: looked up under these names.
+DEB_PACKAGE = "noust"
+RPM_PACKAGE = "noust"
+PYPI_PACKAGE = "noust"
+#: The names WASM was published under: ``wasm`` (Debian) and ``wasm-cli`` (RPM,
+#: PyPI). An installation under one of them is still recognised, so the
+#: upgrade command shown is the channel's own.
+LEGACY_DEB_PACKAGE = "wasm"
+LEGACY_RPM_PACKAGE = "wasm-cli"
+LEGACY_PYPI_PACKAGE = "wasm-cli"
+DEB_PACKAGES: tuple[str, ...] = (DEB_PACKAGE, LEGACY_DEB_PACKAGE)
+RPM_PACKAGES: tuple[str, ...] = (RPM_PACKAGE, LEGACY_RPM_PACKAGE)
+#: Every name the Python distribution may be installed under.
+PYPI_DISTRIBUTIONS: tuple[str, ...] = (PYPI_PACKAGE, LEGACY_PYPI_PACKAGE)
 
-GITHUB_LATEST = "https://api.github.com/repos/Perkybeet/wasm/releases/latest"
+GITHUB_LATEST = "https://api.github.com/repos/Perkybeet/noust/releases/latest"
 PYPI_JSON = f"https://pypi.org/pypi/{PYPI_PACKAGE}/json"
 
 #: The OBS project that builds the distribution packages. A repository whose
-#: URL names it serves WASM whatever else it is called.
+#: URL names it serves Noust whatever else it is called.
 OBS_PROJECT = "perkybeet"
 
 #: Seconds a request may take, wall clock, connect through the last byte of
@@ -197,7 +207,7 @@ def require_public_https(url: str) -> None:
         ValueError: When the scheme is not https, there is no host, it does
             not resolve, or any address it resolves to is private or internal.
     """
-    from wasm.core import notifier
+    from noust.core import notifier
 
     parsed = urlparse(url)
     if parsed.scheme != "https":
@@ -671,10 +681,10 @@ def parse_apt_policy(output: str) -> tuple[str | None, str]:
 
 def apt_latest(runner: CommandRunner, *, sources: Sequence[AptSource] | None = None) -> str | None:
     """
-    Read the newest ``wasm`` the configured apt repositories offer.
+    Read the newest ``noust`` the configured apt repositories offer.
 
     Args:
-        runner: The :class:`~wasm.core.runner.CommandRunner` for the local probes.
+        runner: The :class:`~noust.core.runner.CommandRunner` for the local probes.
         sources: The apt sources; read from ``/etc/apt`` when omitted.
 
     Returns:
@@ -715,7 +725,7 @@ def apt_latest(runner: CommandRunner, *, sources: Sequence[AptSource] | None = N
 
 def parse_rpm_repo_file(text: str) -> list[str]:
     """
-    Read the base URLs of the enabled repositories that serve WASM.
+    Read the base URLs of the enabled repositories that serve Noust.
 
     Args:
         text: A ``*.repo`` file, the same INI format for dnf, yum and zypper.
@@ -746,7 +756,7 @@ def parse_rpm_repo_file(text: str) -> list[str]:
 
 def rpm_repositories(directories: Sequence[Path] = RPM_REPO_DIRS) -> list[str]:
     """
-    Read the base URLs of every configured repository that serves WASM.
+    Read the base URLs of every configured repository that serves Noust.
 
     Args:
         directories: Where the ``*.repo`` files live.
@@ -810,7 +820,7 @@ def primary_version(data: bytes, package: str = RPM_PACKAGE) -> str | None:
 
 def rpm_index_latest(base_url: str) -> str | None:
     """
-    Read the newest ``wasm-cli`` in one rpm-md repository.
+    Read the newest ``noust`` in one rpm-md repository.
 
     Args:
         base_url: The repository base, where ``repodata/`` lives.
@@ -843,10 +853,10 @@ def rpm_latest(
     runner: CommandRunner, manager: str, *, repositories: Sequence[str] | None = None
 ) -> str | None:
     """
-    Read the newest ``wasm-cli`` the configured rpm repositories offer.
+    Read the newest ``noust`` the configured rpm repositories offer.
 
     Args:
-        runner: The :class:`~wasm.core.runner.CommandRunner` for the fallback.
+        runner: The :class:`~noust.core.runner.CommandRunner` for the fallback.
         manager: ``dnf``, ``yum`` or ``zypper``.
         repositories: Base URLs; read from the ``*.repo`` files when omitted.
 
@@ -882,8 +892,8 @@ def installable_version(method: str, runner: CommandRunner) -> str | None:
 
     Args:
         method: The installation method (see
-            :meth:`~wasm.core.update_checker.UpdateChecker._detect_installation_method`).
-        runner: The :class:`~wasm.core.runner.CommandRunner` for local probes.
+            :meth:`~noust.core.update_checker.UpdateChecker._detect_installation_method`).
+        runner: The :class:`~noust.core.runner.CommandRunner` for local probes.
 
     Returns:
         The version, or None when it cannot be determined.
@@ -895,5 +905,5 @@ def installable_version(method: str, runner: CommandRunner) -> str | None:
     if method == "source":
         return github_latest()
     # pip, pipx, and an installation nothing else claims: what the suggested
-    # `pip install --upgrade wasm-cli` would install.
+    # `pip install --upgrade noust` would install.
     return pypi_latest()

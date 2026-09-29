@@ -5,9 +5,9 @@ from unittest.mock import patch
 
 import pytest
 
-from wasm.core.runner import FakeRunner
-from wasm.validators import ssh as ssh_module
-from wasm.validators.ssh import (
+from noust.core.runner import FakeRunner
+from noust.validators import ssh as ssh_module
+from noust.validators.ssh import (
     generate_ssh_key,
     get_host_from_git_url,
     is_ssh_url,
@@ -60,7 +60,7 @@ class TestValidateSSHSetupForUrl:
         assert result["valid"] is True
         assert result["is_ssh"] is False
 
-    @patch("wasm.validators.ssh.ssh_key_exists")
+    @patch("noust.validators.ssh.ssh_key_exists")
     def test_ssh_url_without_key(self, mock_key_exists):
         """Test SSH URL without SSH key."""
         mock_key_exists.return_value = (False, None)
@@ -72,9 +72,9 @@ class TestValidateSSHSetupForUrl:
         assert result["has_ssh_key"] is False
         assert len(result["guidance"]) > 0
 
-    @patch("wasm.validators.ssh.ssh_key_exists")
-    @patch("wasm.validators.ssh.get_public_key")
-    @patch("wasm.validators.ssh.test_ssh_connection")
+    @patch("noust.validators.ssh.ssh_key_exists")
+    @patch("noust.validators.ssh.get_public_key")
+    @patch("noust.validators.ssh.test_ssh_connection")
     def test_ssh_url_with_working_key(self, mock_test, mock_pubkey, mock_key_exists):
         """Test SSH URL with working SSH key."""
         mock_key_exists.return_value = (True, Path("/home/user/.ssh/id_ed25519"))

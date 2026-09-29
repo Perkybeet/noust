@@ -1,7 +1,7 @@
 """
 Monitor API endpoints.
 
-A thin translation of HTTP to :mod:`wasm.monitor`. Two things were wrong here
+A thin translation of HTTP to :mod:`noust.monitor`. Two things were wrong here
 and both are fixed by that rule:
 
 - The handlers built a ``MonitorConfig`` with ``auto_terminate``, ``use_ai`` and
@@ -21,9 +21,9 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from wasm.core.config import Config
-from wasm.core.exceptions import EmailError, MonitorError
-from wasm.monitor import (
+from noust.core.config import Config
+from noust.core.exceptions import EmailError, MonitorError
+from noust.monitor import (
     DEFAULT_CPU_SAMPLE_INTERVAL,
     DEFAULT_CPU_THRESHOLD,
     DEFAULT_MAX_OBSERVATIONS,
@@ -38,15 +38,15 @@ from wasm.monitor import (
     collect_resource_metrics,
     list_processes,
 )
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import WASMErrorRoute
-from wasm.web.auth import sees_command_lines
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import NoustErrorRoute
+from noust.web.auth import sees_command_lines
 
-# The error boundary: this router had none, so an unmapped WASMError from
+# The error boundary: this router had none, so an unmapped NoustError from
 # ProcessMonitor/ObservationStore crashed the request instead of answering
 # with a status. The 502/503 catches below stay: they answer a status
-# WASMErrorRoute's default (500) does not.
-router = APIRouter(route_class=WASMErrorRoute)
+# NoustErrorRoute's default (500) does not.
+router = APIRouter(route_class=NoustErrorRoute)
 
 #: Upper bound on rows any list endpoint returns, so a caller cannot ask the
 #: panel to serialise the whole observation store.
@@ -281,7 +281,7 @@ def _visible_command(command: str, session: dict[str, Any]) -> str:
         session: The authenticated session.
 
     Returns:
-        ``command`` when :func:`~wasm.web.auth.sees_command_lines` allows
+        ``command`` when :func:`~noust.web.auth.sees_command_lines` allows
         it, otherwise the empty string - ``ProcessEntry.command`` has no
         ``None`` to fall back to.
     """
@@ -300,7 +300,7 @@ def _visible_observation_command(command: str | None, session: dict[str, Any]) -
         session: The authenticated session.
 
     Returns:
-        ``command`` when :func:`~wasm.web.auth.sees_command_lines` allows
+        ``command`` when :func:`~noust.web.auth.sees_command_lines` allows
         it, otherwise None.
     """
     return command if sees_command_lines(session) else None
@@ -346,8 +346,8 @@ def get_monitor_status(session: Session) -> MonitorStatus:
         The unit state, plus the scope note the panel displays.
 
     Raises:
-        WASMError: When systemd could not be queried; caught by
-            ``WASMErrorRoute`` and answered as a 500.
+        NoustError: When systemd could not be queried; caught by
+            ``NoustErrorRoute`` and answered as a 500.
     """
     status = ProcessMonitor(verbose=False).get_service_status()
 
@@ -551,9 +551,9 @@ def get_observations(
         The requested page and the store totals.
 
     Raises:
-        WASMError: When the store cannot be read; caught by ``WASMErrorRoute``.
+        NoustError: When the store cannot be read; caught by ``NoustErrorRoute``.
         HTTPException: 500 for a filesystem error the store itself did not
-            wrap - OSError is not a WASMError, so it would otherwise crash.
+            wrap - OSError is not a NoustError, so it would otherwise crash.
     """
     try:
         store = ObservationStore(verbose=False)
@@ -610,7 +610,7 @@ def acknowledge_observation(
     """
     Mark an observation as seen.
 
-    Acknowledging changes a flag in WASM's own database. It does nothing to the
+    Acknowledging changes a flag in Noust's own database. It does nothing to the
     process the observation is about.
 
     Args:
@@ -621,7 +621,7 @@ def acknowledge_observation(
         A success payload.
 
     Raises:
-        WASMError: When the store is unreadable; caught by ``WASMErrorRoute``.
+        NoustError: When the store is unreadable; caught by ``NoustErrorRoute``.
         HTTPException: 404 when the row does not exist, 500 for a filesystem
             error the store itself did not wrap.
     """
@@ -649,8 +649,8 @@ def _service_action(action: str) -> MonitorActionResponse:
         A success payload.
 
     Raises:
-        WASMError: When systemd or the filesystem refused; caught by
-            ``WASMErrorRoute`` and answered with the message and hint the
+        NoustError: When systemd or the filesystem refused; caught by
+            ``NoustErrorRoute`` and answered with the message and hint the
             manager raised, rather than the reformatted single string this
             used to build by hand.
     """
@@ -686,7 +686,7 @@ def install_monitor(session: Session) -> MonitorActionResponse:
 @router.post("/uninstall", response_model=MonitorActionResponse)
 def uninstall_monitor(session: Session) -> MonitorActionResponse:
     """
-    Remove the systemd unit WASM wrote.
+    Remove the systemd unit Noust wrote.
 
     Args:
         session: Authenticated session, injected.

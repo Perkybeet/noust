@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from wasm.core import store as store_module
+from noust.core import store as store_module
 
 
 def test_no_test_can_open_the_real_user_or_system_store(tmp_path: Path) -> None:

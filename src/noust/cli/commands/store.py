@@ -4,14 +4,14 @@
 """
 The inventory database.
 
-WASM keeps what it deployed in a small SQLite file so that a later command does
+Noust keeps what it deployed in a small SQLite file so that a later command does
 not have to re-derive it from nginx configs and unit files. These subcommands
-create that file, fill it from a server that was set up before WASM existed,
+create that file, fill it from a server that was set up before Noust existed,
 reconcile it with what systemd actually reports, and dump it.
 
 Both entry points, the Click commands below and the legacy
 :func:`handle_store`, run the same private functions, so the two paths cannot
-drift apart. ``wasm.cli.parser`` is gone and nothing calls :func:`handle_store`
+drift apart. ``noust.cli.parser`` is gone and nothing calls :func:`handle_store`
 in production anymore; it is kept, and tested directly, for the same reason.
 """
 
@@ -25,10 +25,10 @@ from pathlib import Path
 
 import click
 
-from wasm.cli.app import Context, WasmGroup, json_option, pass_context
-from wasm.core.config import Config, secure_write
-from wasm.core.exceptions import ConfigError, WASMError
-from wasm.core.logger import Logger
+from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.config import Config, secure_write
+from noust.core.exceptions import ConfigError, NoustError
+from noust.core.logger import Logger
 
 #: Where a proxying vhost declares the port the application listens on.
 _PROXY_PASS = re.compile(r"proxy_pass\s+http://(?:127\.0\.0\.1|localhost):(\d+)")
@@ -104,17 +104,17 @@ def _store_init(verbose: bool) -> int:
     """
     logger = Logger(verbose=verbose)
 
-    from wasm.core.store import WASMStore, get_store
+    from noust.core.store import NoustStore, get_store
 
-    logger.header("WASM Store Initialization")
+    logger.header("Noust Store Initialization")
 
     try:
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
         store = get_store()
     except (OSError, sqlite3.Error) as exc:
         raise ConfigError(
             f"Failed to initialize store: {exc}",
-            details="Check that WASM can write to /var/lib/wasm or ~/.local/share/wasm.",
+            details="Check that Noust can write to /var/lib/noust or ~/.local/share/noust.",
         ) from exc
 
     logger.success(f"Store initialized at: {store.db_path}")
@@ -138,7 +138,7 @@ def _store_stats(json_output: bool, verbose: bool) -> int:
     """
     logger = Logger(verbose=verbose)
 
-    from wasm.core.store import get_store
+    from noust.core.store import get_store
 
     try:
         store = get_store()
@@ -146,14 +146,14 @@ def _store_stats(json_output: bool, verbose: bool) -> int:
     except (OSError, sqlite3.Error, KeyError) as exc:
         raise ConfigError(
             f"Failed to get statistics: {exc}",
-            details="Run 'wasm store init' to create the database.",
+            details="Run 'noust store init' to create the database.",
         ) from exc
 
     if json_output:
         click.echo(json.dumps(stats, indent=2))
         return 0
 
-    logger.header("WASM Store Statistics")
+    logger.header("Noust Store Statistics")
     logger.blank()
 
     logger.key_value("Database Path", str(store.db_path))
@@ -197,14 +197,14 @@ def _store_import(verbose: bool) -> int:
     """
     logger = Logger(verbose=verbose)
 
-    from wasm.core.config import (
+    from noust.core.config import (
         APACHE_SITES_AVAILABLE,
         NGINX_SITES_AVAILABLE,
         NGINX_SITES_ENABLED,
         SYSTEMD_DIR,
     )
-    from wasm.core.store import App, AppStatus, Service, Site, get_store
-    from wasm.core.utils import domain_to_app_name
+    from noust.core.store import App, AppStatus, Service, Site, get_store
+    from noust.core.utils import domain_to_app_name
 
     store = get_store()
     config = Config()
@@ -422,7 +422,7 @@ def _store_export(output: str | None, verbose: bool) -> int:
     """
     logger = Logger(verbose=verbose)
 
-    from wasm.core.store import get_store
+    from noust.core.store import get_store
 
     try:
         store = get_store()
@@ -436,14 +436,14 @@ def _store_export(output: str | None, verbose: bool) -> int:
     except (OSError, sqlite3.Error, KeyError) as exc:
         raise ConfigError(
             f"Export failed: {exc}",
-            details="Run 'wasm store init' to create the database.",
+            details="Run 'noust store init' to create the database.",
         ) from exc
 
     payload = json.dumps(data, indent=2, default=str)
 
     if output:
         # secure_parent is off: the operator chose this directory and it is not
-        # WASM's to lock down.
+        # Noust's to lock down.
         secure_write(Path(output), payload, secure_parent=False)
         logger.success(f"Exported to: {output}")
         logger.info("The dump may contain service credentials; it is owner-readable only.")
@@ -465,8 +465,8 @@ def _store_sync(verbose: bool) -> int:
     """
     logger = Logger(verbose=verbose)
 
-    from wasm.core.store import AppStatus, get_store
-    from wasm.managers.service_manager import ServiceManager
+    from noust.core.store import AppStatus, get_store
+    from noust.managers.service_manager import ServiceManager
 
     store = get_store()
     service_manager = ServiceManager(verbose=verbose)
@@ -509,15 +509,15 @@ def _store_path() -> int:
     Returns:
         Exit code.
     """
-    from wasm.core.store import get_store
+    from noust.core.store import get_store
 
     click.echo(str(get_store().db_path))
     return 0
 
 
-@click.group(name="store", cls=WasmGroup)
+@click.group(name="store", cls=NoustGroup)
 def cli() -> None:
-    """Inspect and maintain the database WASM records deployments in."""
+    """Inspect and maintain the database Noust records deployments in."""
 
 
 @cli.command("init")
@@ -538,7 +538,7 @@ def stats(state: Context) -> None:
 @cli.command("import")
 @pass_context
 def import_(state: Context) -> None:
-    """Record applications this server was already running before WASM."""
+    """Record applications this server was already running before Noust."""
     _store_import(state.verbose)
 
 
@@ -573,7 +573,7 @@ def handle_store(args: Namespace) -> int:
     """
     Run a store action from the argparse namespace.
 
-    ``wasm.cli.parser`` is gone and nothing calls this in production; it is
+    ``noust.cli.parser`` is gone and nothing calls this in production; it is
     kept, and tested directly, sharing every private function with the Click
     commands above.
 
@@ -588,7 +588,7 @@ def handle_store(args: Namespace) -> int:
 
     action = getattr(args, "action", None)
     if not action:
-        logger.error("store requires an action", details="Use: wasm store --help")
+        logger.error("store requires an action", details="Use: noust store --help")
         return 1
 
     try:
@@ -604,9 +604,9 @@ def handle_store(args: Namespace) -> int:
             return _store_sync(verbose)
         if action == "path":
             return _store_path()
-    except WASMError as exc:
+    except NoustError as exc:
         logger.error(exc.message, details=exc.details)
         return 1
 
-    logger.error(f"Unknown store action: {action}", details="Use: wasm store --help")
+    logger.error(f"Unknown store action: {action}", details="Use: noust store --help")
     return 1

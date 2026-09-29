@@ -38,7 +38,7 @@ describe("splitErrors", () => {
   });
 
   it("leaves failures that are not about a value above the form", () => {
-    const denied = new ApiError(403, "forbidden", "Permission denied writing to /etc/wasm/config.yaml");
+    const denied = new ApiError(403, "forbidden", "Permission denied writing to /etc/noust/config.yaml");
     expect(splitErrors(denied, ["apps_directory"], "apps_directory")).toEqual({ fields: {}, form: denied });
     const down = new ApiError(0, "network", "Failed to fetch");
     expect(splitErrors(down, ["email"], "email").form).toBe(down);

@@ -22,10 +22,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.core.store import App, WASMStore
-from wasm.web import auth as auth_module
-from wasm.web.auth import CSRF_HEADER_NAME, SecurityConfig
-from wasm.web.server import create_app, get_brute_force, get_token_manager
+from noust.core.store import App, NoustStore
+from noust.web import auth as auth_module
+from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
+from noust.web.server import create_app, get_brute_force, get_token_manager
 
 
 @pytest.fixture
@@ -39,13 +39,13 @@ def store(tmp_path: Path) -> Any:
     Yields:
         The store the API reads and writes.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     try:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 @pytest.fixture
@@ -155,8 +155,8 @@ def queued(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
         return Queued()
 
     manager = type("FakeJobs", (), {"create_job": staticmethod(create_job)})()
-    monkeypatch.setattr("wasm.web.api.apps.get_job_manager", lambda: manager)
-    monkeypatch.setattr("wasm.web.api.jobs.get_job_manager", lambda: manager)
+    monkeypatch.setattr("noust.web.api.apps.get_job_manager", lambda: manager)
+    monkeypatch.setattr("noust.web.api.jobs.get_job_manager", lambda: manager)
     return captured
 
 
@@ -182,7 +182,7 @@ def clock(monkeypatch: pytest.MonkeyPatch) -> FakeClock:
     """
     Replace the elevation window's time source with a fake, controllable one.
 
-    Only ``wasm.web.auth._now`` is patched, so session expiry - computed from
+    Only ``noust.web.auth._now`` is patched, so session expiry - computed from
     the real wall clock elsewhere in the module - is untouched: advancing this
     clock past the ten minute elevation window must not also expire the
     session itself.
@@ -231,6 +231,25 @@ def test_session_info_answers_before_login(anon_client: TestClient) -> None:
     assert body["hostname"]
     assert body["version"]
     assert body["csrf_header"] == CSRF_HEADER_NAME
+
+
+@pytest.mark.parametrize("came_from_wasm", [True, False])
+def test_session_info_says_whether_the_server_ran_wasm(
+    client: TestClient,
+    anon_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    came_from_wasm: bool,
+) -> None:
+    """
+    The console tells a signed-in operator about the rename only where it
+    happened; an anonymous caller is not told what the server used to run.
+    """
+    from noust.core import paths
+
+    monkeypatch.setattr(paths, "came_from_wasm", lambda: came_from_wasm)
+
+    assert client.get("/api/auth/session").json()["renamed_from_wasm"] is came_from_wasm
+    assert anon_client.get("/api/auth/session").json()["renamed_from_wasm"] is False
 
 
 def test_session_info_reports_scope_and_elevation(client: TestClient, master_token: str) -> None:
@@ -448,7 +467,7 @@ def fake_cert_manager(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
             calls.append(("delete", domain))
             return True
 
-    monkeypatch.setattr("wasm.web.api.certs.CertManager", FakeCertManager)
+    monkeypatch.setattr("noust.web.api.certs.CertManager", FakeCertManager)
     return calls
 
 
@@ -596,7 +615,7 @@ def test_a_payload_without_a_credential_type_is_not_exempt() -> None:
     from fastapi import HTTPException
     from starlette.requests import Request
 
-    from wasm.web.api.deps import ensure_elevated
+    from noust.web.api.deps import ensure_elevated
 
     request = Request({"type": "http", "method": "DELETE", "path": "/x", "headers": []})
 
@@ -667,7 +686,7 @@ def recorded_units(monkeypatch: pytest.MonkeyPatch) -> list[str]:
         def enable(self, name: str) -> bool:
             return True
 
-    monkeypatch.setattr("wasm.web.api.services.ServiceManager", FakeServiceManager)
+    monkeypatch.setattr("noust.web.api.services.ServiceManager", FakeServiceManager)
     return created
 
 
@@ -716,7 +735,7 @@ def test_creating_or_rewriting_a_cron_job_needs_sudo_mode(
         def get_job(self, name: str) -> None:
             return None
 
-    monkeypatch.setattr("wasm.web.api.cron.CronManager", FakeCron)
+    monkeypatch.setattr("noust.web.api.cron.CronManager", FakeCron)
 
     response = client.post(
         "/api/cron", json={"name": "cleanup", "command": "/bin/true", "schedule": "daily"}
@@ -746,7 +765,7 @@ def test_scheduling_backups_needs_sudo_mode(
         def create_schedule(self, schedule: Any) -> None:
             reached.append(schedule.domain)
 
-    monkeypatch.setattr("wasm.web.api.backup_schedules.BackupScheduler", FakeScheduler)
+    monkeypatch.setattr("noust.web.api.backup_schedules.BackupScheduler", FakeScheduler)
 
     response = client.post(
         "/api/backup-schedules", json={"domain": "example.com", "schedule": "daily"}

@@ -27,8 +27,8 @@ export interface ServicesPageProps {
 }
 
 /**
- * Every systemd unit WASM created on this machine, searchable and acted on from its own row.
- * "Show all units" widens the request to `wasm_only=false`: a unit another package created
+ * Every systemd unit Noust created on this machine, searchable and acted on from its own row.
+ * "Show all units" widens the request to `noust_only=false`: a unit another package created
  * appears too, marked "Foreign" and read-only (see `ServiceRowActions`).
  */
 export function ServicesPage({ search, onSearchChange }: ServicesPageProps) {
@@ -84,7 +84,7 @@ export function ServicesPage({ search, onSearchChange }: ServicesPageProps) {
               {t("services.page.newService")}
             </Button>
           }
-          command="wasm service create --name worker --command '/usr/bin/node worker.js' --directory /var/www/worker"
+          command="noust service create --name worker --command '/usr/bin/node worker.js' --directory /var/www/worker"
           className="py-16"
         />
       ) : (
@@ -142,7 +142,7 @@ export function ServicesPage({ search, onSearchChange }: ServicesPageProps) {
           />
           {/* Drawn with the rows, not before: under a list of unknown length it would only be
               pushed down the page when they arrive. */}
-          {services.isPending ? null : <CommandHint command="wasm service list" label={t("services.fromTerminal")} />}
+          {services.isPending ? null : <CommandHint command="noust service list" label={t("services.fromTerminal")} />}
         </div>
       )}
 

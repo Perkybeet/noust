@@ -11,12 +11,12 @@ import type { RouteHandler } from "../../../test/fakes";
 const CREATED: GitHubStatus = {
   configured: true,
   app_id: 424242,
-  slug: "wasm-web-01",
-  name: "WASM web-01",
+  slug: "noust-web-01",
+  name: "Noust web-01",
   owner: "yago",
-  html_url: "https://github.com/apps/wasm-web-01",
-  settings_url: "https://github.com/settings/apps/wasm-web-01",
-  install_url: "https://github.com/apps/wasm-web-01/installations/new",
+  html_url: "https://github.com/apps/noust-web-01",
+  settings_url: "https://github.com/settings/apps/noust-web-01",
+  install_url: "https://github.com/apps/noust-web-01/installations/new",
   installations: [],
   hooks_url: "https://hooks.example.com/hooks/github",
   hooks_active: true,
@@ -67,7 +67,7 @@ describe("the GitHub callback", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Connecting GitHub" })).toBeInTheDocument();
     expect(screen.getByText("Finishing the App with GitHub's answer…")).toBeInTheDocument();
     await confirmItsMe(user);
-    await expectToast("Created the GitHub App WASM web-01");
+    await expectToast("Created the GitHub App Noust web-01");
     await waitFor(() => {
       expect(location().pathname).toBe("/settings/integrations");
     });

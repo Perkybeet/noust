@@ -190,7 +190,7 @@ describe("zero downtime", () => {
       FakeEventSource.latest().emit("job", { ...JOB, status: "failed", error: "shop-example-com-green did not answer on 127.0.0.1:3002" });
     });
     expect(await within(dialog).findByText("shop-example-com-green did not answer on 127.0.0.1:3002")).toBeInTheDocument();
-    expect(within(dialog).getByText(/WASM put back what served before/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Noust put back what served before/)).toBeInTheDocument();
   });
 
   it("says why an app cannot use it, with the fix, and offers no switch", async () => {

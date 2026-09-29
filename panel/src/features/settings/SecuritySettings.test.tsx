@@ -31,13 +31,13 @@ const CONFIG = {
       ip_whitelist: [],
     },
   },
-  path: "/etc/wasm/config.yaml",
+  path: "/etc/noust/config.yaml",
   writable: true,
 };
 
 const ENROLLMENT = {
   secret: "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP",
-  uri: "otpauth://totp/WASM%3Aweb-01?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=WASM&algorithm=SHA1&digits=6&period=30",
+  uri: "otpauth://totp/Noust%3Aweb-01?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=Noust&algorithm=SHA1&digits=6&period=30",
 };
 
 const CODES = ["1a2b-3c4d", "5e6f-7a8b", "9c0d-1e2f", "3a4b-5c6d", "7e8f-9a0b", "1c2d-3e4f", "5a6b-7c8d", "9e0f-1a2b"];
@@ -77,7 +77,7 @@ describe("Settings > Security", () => {
     await user.click(await screen.findByRole("button", { name: "Set up two-factor authentication" }));
 
     const dialog = await screen.findByRole("dialog", { name: "Set up two-factor authentication" });
-    const qr = within(dialog).getByRole("img", { name: /QR code to add WASM \(web-01\)/ });
+    const qr = within(dialog).getByRole("img", { name: /QR code to add Noust \(web-01\)/ });
     // Drawn by React as a path, never markup injected into the page.
     expect(qr.tagName.toLowerCase()).toBe("svg");
     expect(qr.querySelector("path")?.getAttribute("d")).toMatch(/^M\d/);
@@ -124,7 +124,7 @@ describe("Settings > Security", () => {
           return json(200, ENROLLMENT);
         },
         "POST /api/auth/elevate": (call) => {
-          if ((call.body as { token: string }).token !== "wasm_mastertoken") {
+          if ((call.body as { token: string }).token !== "noust_mastertoken") {
             return problem(401, "invalid_credential", "That token was not accepted.");
           }
           elevated = true;
@@ -139,7 +139,7 @@ describe("Settings > Security", () => {
     const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
     expect(confirm).toHaveAccessibleDescription(/access token/i);
     expect(screen.queryByRole("dialog", { name: "Set up two-factor authentication" })).not.toBeInTheDocument();
-    await user.type(within(confirm).getByLabelText("Access token"), "wasm_mastertoken");
+    await user.type(within(confirm).getByLabelText("Access token"), "noust_mastertoken");
     await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
 
     // Only once elevated does the enrolment dialog open, with the secret fetched after the retry.

@@ -1,5 +1,5 @@
 """
-Ownership and safety tests for :class:`wasm.managers.service_manager.ServiceManager`.
+Ownership and safety tests for :class:`noust.managers.service_manager.ServiceManager`.
 
 ServiceManager is the only door to systemd, and it runs as root. Every test here
 exists because a real bypass was found: ``wasm service delete ssh`` stopped and
@@ -30,11 +30,11 @@ from pathlib import Path
 
 import pytest
 
-from wasm.core.exceptions import SecurityError, ServiceError, ValidationError
-from wasm.core.fs import DryRunFileSystem, set_fs
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, Service
-from wasm.managers.service_manager import WASM_UNIT_MARKER, ServiceManager
+from noust.core.exceptions import SecurityError, ServiceError, ValidationError
+from noust.core.fs import DryRunFileSystem, set_fs
+from noust.core.runner import FakeRunner
+from noust.core.store import App, Service
+from noust.managers.service_manager import UNIT_MARKER, ServiceManager
 
 #: A unit file body that carries no WASM marker, like every distribution unit.
 FOREIGN_UNIT = (
@@ -103,7 +103,7 @@ def store(monkeypatch: pytest.MonkeyPatch) -> FakeStore:
         The in-memory store the manager will talk to.
     """
     fake = FakeStore()
-    monkeypatch.setattr("wasm.managers.service_manager.get_store", lambda: fake)
+    monkeypatch.setattr("noust.managers.service_manager.get_store", lambda: fake)
     return fake
 
 
@@ -213,7 +213,7 @@ def owned_unit(unit_dirs: dict[str, Path], name: str = "wasm-example") -> Path:
         Path of the created unit file.
     """
     path = unit_dirs["managed"] / f"{name}.service"
-    path.write_text(f"# {WASM_UNIT_MARKER}\n[Unit]\nDescription=x\n")
+    path.write_text(f"# {UNIT_MARKER}\n[Unit]\nDescription=x\n")
     return path
 
 
@@ -330,7 +330,7 @@ def test_a_unit_shadowing_a_distribution_unit_is_not_managed(
 ) -> None:
     """A file in our directory that eclipses a distro unit is not ours to touch."""
     (unit_dirs["distro"] / "nginx.service").write_text(FOREIGN_UNIT)
-    (unit_dirs["managed"] / "nginx.service").write_text(f"# {WASM_UNIT_MARKER}\n")
+    (unit_dirs["managed"] / "nginx.service").write_text(f"# {UNIT_MARKER}\n")
 
     assert manager.is_managed("nginx") is False
 
@@ -456,7 +456,7 @@ def test_create_writes_the_unit_and_registers_it(
 
     unit = unit_dirs["managed"] / "example.service"
     content = unit.read_text()
-    assert WASM_UNIT_MARKER in content
+    assert UNIT_MARKER in content
     assert "PORT=3000" in content
     assert oct(unit.stat().st_mode & 0o777) == "0o644"
     assert runner.ran("systemctl", "daemon-reload")
@@ -723,7 +723,7 @@ def test_update_config_can_be_reverted(manager: ServiceManager, unit_dirs: dict[
     original = unit.read_text()
 
     previous = manager.update_config(
-        "wasm-example", f"# {WASM_UNIT_MARKER}\n[Service]\nExecStart=/bin/true\n"
+        "wasm-example", f"# {UNIT_MARKER}\n[Service]\nExecStart=/bin/true\n"
     )
 
     assert previous == original
@@ -819,7 +819,7 @@ def test_create_from_unit_under_dry_run_installs_no_unit_file(
     rehearsal: ServiceManager, unit_dirs: dict[str, Path]
 ) -> None:
     """The hand-written-unit path writes through the same seam as the rest."""
-    rehearsal.create_from_unit("example", f"# {WASM_UNIT_MARKER}\n[Service]\nExecStart=/bin/true\n")
+    rehearsal.create_from_unit("example", f"# {UNIT_MARKER}\n[Service]\nExecStart=/bin/true\n")
 
     assert list(unit_dirs["managed"].iterdir()) == []
 
@@ -846,7 +846,7 @@ def test_update_config_under_dry_run_keeps_the_previous_body(
     before = unit.read_text()
 
     previous = rehearsal.update_config(
-        "wasm-example", f"# {WASM_UNIT_MARKER}\n[Service]\nExecStart=/bin/false\n"
+        "wasm-example", f"# {UNIT_MARKER}\n[Service]\nExecStart=/bin/false\n"
     )
 
     assert previous == before
@@ -944,12 +944,12 @@ def test_verify_unit_cleans_up_even_when_systemd_analyze_is_missing(
 #: Every manager in this area. These write systemd units and web server
 #: configuration into /etc, so they are the ones a lying rehearsal hurts most.
 MANAGER_SOURCES = (
-    "src/wasm/managers/base_manager.py",
-    "src/wasm/managers/service_manager.py",
-    "src/wasm/managers/webserver.py",
-    "src/wasm/managers/nginx_manager.py",
-    "src/wasm/managers/apache_manager.py",
-    "src/wasm/managers/cert_manager.py",
+    "src/noust/managers/base_manager.py",
+    "src/noust/managers/service_manager.py",
+    "src/noust/managers/webserver.py",
+    "src/noust/managers/nginx_manager.py",
+    "src/noust/managers/apache_manager.py",
+    "src/noust/managers/cert_manager.py",
 )
 
 #: Names that change the filesystem whatever they are called on. ``Path`` and
@@ -1090,7 +1090,7 @@ def test_managers_have_no_direct_filesystem_calls(relative: str) -> None:
     offenders = _direct_mutations(path.read_text(encoding="utf-8"))
 
     assert offenders == [], (
-        f"{relative} changes the filesystem without going through wasm.core.fs: "
+        f"{relative} changes the filesystem without going through noust.core.fs: "
         + "; ".join(offenders)
     )
 

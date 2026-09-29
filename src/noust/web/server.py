@@ -1,5 +1,5 @@
 """
-FastAPI server for the WASM web panel.
+FastAPI server for the Noust web panel.
 
 Everything security relevant that is not per-endpoint lives here: the
 connection middleware (client identification, IP whitelist, HTTPS enforcement,
@@ -45,14 +45,14 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import HTTPConnection
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from wasm import __version__
-from wasm.core.exceptions import SecurityError
-from wasm.core.messages import Locale, message, normalize_locale
-from wasm.core.net import host_addresses, is_loopback_host, local_address, loopback_access_lines
-from wasm.core.notifier import NotificationEvent, fresh_config, notify_in_background
-from wasm.deployers import deploy_events
-from wasm.deployers.deploy_events import DeployEvent
-from wasm.web.auth import (
+from noust import __version__
+from noust.core.exceptions import SecurityError
+from noust.core.messages import Locale, message, normalize_locale
+from noust.core.net import host_addresses, is_loopback_host, local_address, loopback_access_lines
+from noust.core.notifier import NotificationEvent, fresh_config, notify_in_background
+from noust.deployers import deploy_events
+from noust.deployers.deploy_events import DeployEvent
+from noust.web.auth import (
     SAFE_METHODS,
     SESSION_COOKIE_NAME,
     WS_CLOSE_FORBIDDEN,
@@ -83,7 +83,7 @@ from wasm.web.auth import (
     set_token_manager,
     settle_credential_failures,
 )
-from wasm.web.events import (
+from noust.web.events import (
     AppStatePublisher,
     announce_app_mutation,
     begin_shutdown,
@@ -282,13 +282,13 @@ def rate_bucket(connection: HTTPConnection, client_ip: str, path: str) -> RateBu
     counted by address without their credential being looked at, because
     looking would make the limiter a credential oracle or an amplifier:
 
-    - one outside :data:`~wasm.web.auth.CREDENTIAL_PATH_PREFIXES` (``/health``,
+    - one outside :data:`~noust.web.auth.CREDENTIAL_PATH_PREFIXES` (``/health``,
       the forge webhooks), where no endpoint checks a credential either;
     - one from an address the lockout has refused, which the lockout refuses
       right after.
 
     A forge delivery is counted in a budget of its own, keyed
-    :data:`HOOKS_RATE_KEY` plus the address. Behind ``wasm web
+    :data:`HOOKS_RATE_KEY` plus the address. Behind ``noust web
     expose-hooks`` every delivery arrives from nginx on 127.0.0.1, the
     address of the operator's SSH tunnel too, so anyone on the internet
     could otherwise spend the tunnel's budget by posting to ``/hooks/``.
@@ -297,7 +297,7 @@ def rate_bucket(connection: HTTPConnection, client_ip: str, path: str) -> RateBu
     a valid one must never be refused for what other clients behind the same
     address did. The check stays bounded, because a wrong credential it
     finds is noted for the lockout by
-    :func:`~wasm.web.auth.rate_limit_identity`, and a locked-out address is
+    :func:`~noust.web.auth.rate_limit_identity`, and a locked-out address is
     not checked at all.
 
     Args:
@@ -327,7 +327,7 @@ def rate_bucket(connection: HTTPConnection, client_ip: str, path: str) -> RateBu
 #: does; sudo mode and turning two-factor off ask for a factor again from
 #: inside a session. tests/test_web_auth.py holds every path here to a real
 #: route, and every handler that calls
-#: :func:`~wasm.web.auth.record_auth_failure` to a path here.
+#: :func:`~noust.web.auth.record_auth_failure` to a path here.
 #:
 #: The forge webhook is not here on purpose. Its wrong signatures are
 #: counted per application by :func:`get_webhook_failures`, not per address:
@@ -408,7 +408,7 @@ def get_brute_force() -> BruteForceProtection:
             max_attempts=config.max_failed_attempts, lockout_duration=config.lockout_duration
         )
         # The counter has to be the same object the credential checks in
-        # wasm.web.auth reach for, or failures would be split across channels.
+        # noust.web.auth reach for, or failures would be split across channels.
         set_brute_force_protection(_brute_force)
     return _brute_force
 
@@ -462,8 +462,8 @@ def get_audit() -> AuditLogger | None:
 #: Job types whose terminal state is announced from here, by kind reused from
 #: the notifier's deploy vocabulary. A deploy, an update and a rollback are
 #: no longer among them: every deployment, from the CLI, a console job or the
-#: webhook alike, is recorded by wasm.deployers.deploy_events's
-#: DeploymentRecorder and announced by wasm.core.deploy_notifications, a
+#: webhook alike, is recorded by noust.deployers.deploy_events's
+#: DeploymentRecorder and announced by noust.core.deploy_notifications, a
 #: default subscriber of that - reporting the same job's outcome again here
 #: would say it twice. A backup restore is not a deployment and is not
 #: recorded there, so it still reports through its own job's outcome, the
@@ -504,7 +504,7 @@ def _optional_domain_title(key: str, no_domain_key: str, locale: Locale, domain:
         key: Catalog key expecting a ``{domain}`` placeholder.
         no_domain_key: Catalog key with no placeholders, for when there is
             none.
-        locale: Language to render WASM's own words in.
+        locale: Language to render Noust's own words in.
         domain: The job's domain, already stringified, or None.
 
     Returns:
@@ -524,7 +524,7 @@ def deployment_notification(job: Any) -> NotificationEvent | None:
         The event for a finished backup restore, or a failed backup, which
         has a kind of its own - or None for everything else: non-terminal
         transitions, cancellations, a deploy or an update (announced by
-        wasm.core.deploy_notifications instead), and job types with their
+        noust.core.deploy_notifications instead), and job types with their
         own reporting surface.
     """
     status = str(getattr(job.status, "value", job.status))
@@ -541,7 +541,7 @@ def deployment_notification(job: Any) -> NotificationEvent | None:
 
     # The job's own name and description are console text, out of scope for
     # 2.3 (docs/superpowers/specs/2026-09-28-wasm-2.3-design.md S1): this
-    # title is built fresh from wasm.core.messages instead of reusing them,
+    # title is built fresh from noust.core.messages instead of reusing them,
     # so a Spanish operator reads a Spanish notification even though the
     # job list itself still reads in English.
     locale = normalize_locale(fresh_config().get("notifications.language"))
@@ -564,7 +564,7 @@ def deployment_notification(job: Any) -> NotificationEvent | None:
         )
         # v2.2.1 carried the backup id in the job's own description, reused
         # verbatim as the body; that text is out of scope for translation
-        # (see wasm.core.messages), so the id travels through the catalog
+        # (see noust.core.messages), so the id travels through the catalog
         # instead of being dropped.
         backup_id = job.metadata.get("backup_id")
         body = message("restore_succeeded_body", locale, backup_id=backup_id) if backup_id else ""
@@ -598,7 +598,7 @@ class DeploymentWitness:
     """
     Tells whether a console job's deployment was announced by the recorder.
 
-    Subscribed to :mod:`wasm.deployers.deploy_events` for the life of the
+    Subscribed to :mod:`noust.deployers.deploy_events` for the life of the
     server. The job manager runs one job at a time in this process, and a
     deployment publishes from the thread running it, so an event carrying the
     job's id - or, for a rollback, whose history row carries none, the job's
@@ -680,7 +680,7 @@ class JobNotificationSubscriber:
         """
         Args:
             deliver: Replacement for
-                :func:`~wasm.core.notifier.notify_in_background`, the one
+                :func:`~noust.core.notifier.notify_in_background`, the one
                 in-order notification worker deploy notifications use too.
                 Tests inject a capture so nothing runs a worker or reads config.
             witness: What tells a deployment job the recorder announced from
@@ -712,7 +712,7 @@ class JobNotificationSubscriber:
             return None
         domain = job.metadata.get("domain")
         domain_str = str(domain) if domain else None
-        # The same title wasm.core.deploy_notifications gives a recorded
+        # The same title noust.core.deploy_notifications gives a recorded
         # deploy failure - this is the same event, just from a run the
         # recorder never opened for. A domain is always set for these job
         # types in practice; the job's own English name is the fallback for
@@ -774,9 +774,9 @@ async def lifespan(app: FastAPI):
     Args:
         app: The application being started.
     """
-    from wasm.deployers.inspect import remove_stale_checkouts
-    from wasm.web.jobs import get_job_manager
-    from wasm.web.metrics_collector import start_metrics_collector, stop_metrics_collector
+    from noust.deployers.inspect import remove_stale_checkouts
+    from noust.web.jobs import get_job_manager
+    from noust.web.metrics_collector import start_metrics_collector, stop_metrics_collector
 
     manager = get_token_manager()
     manager.purge_expired_sessions()
@@ -863,8 +863,8 @@ def create_app(config: SecurityConfig | None = None) -> FastAPI:
     )
 
     app = FastAPI(
-        title="WASM Web Interface",
-        description="Web-based dashboard for WASM - Web App System Management",
+        title="Noust Web Interface",
+        description="Web-based dashboard for Noust - Web App System Management",
         # The schema an operator fetches from GET /api/openapi.json describes
         # the release that is running. scripts/export_openapi.py replaces it
         # with a placeholder in the committed file; see EXPORTED_VERSION there.
@@ -900,12 +900,12 @@ def create_app(config: SecurityConfig | None = None) -> FastAPI:
     # from inside the whitelist and the rate limiter, not in front of them.
     app.add_middleware(SecurityMiddleware, config=security_config)
 
-    from wasm.web.api import router as api_router
-    from wasm.web.api.deps import API_PATH_PREFIX, handle_http_exception, install_error_handlers
+    from noust.web.api import router as api_router
+    from noust.web.api.deps import API_PATH_PREFIX, handle_http_exception, install_error_handlers
 
     # Every /api response that fails answers in one contract - see
-    # wasm.web.api.deps for what it looks like and why a router alone cannot
-    # register it. Deferred like the router import above: wasm.web.api.auth
+    # noust.web.api.deps for what it looks like and why a router alone cannot
+    # register it. Deferred like the router import above: noust.web.api.auth
     # imports get_brute_force/get_token_manager from this module, so importing
     # the package at module scope here would be circular.
     install_error_handlers(app)
@@ -915,15 +915,15 @@ def create_app(config: SecurityConfig | None = None) -> FastAPI:
     # Git forges call the webhook surface server-to-server, so it is mounted
     # at the root rather than under /api: there is no session and no ambient
     # cookie, hence no CSRF, and the per-app HMAC secret inside the router is
-    # the authentication. It is mounted here and not in wasm.web.api.router so
+    # the authentication. It is mounted here and not in noust.web.api.router so
     # it cannot inherit the /api prefix. SecurityMiddleware still stands in
     # front of it - added last, outermost - so the IP whitelist, the HTTPS
     # requirement and the rate limiter hold for a forge exactly as they do for
     # a browser. The companion router manages the secrets and is an ordinary
     # authenticated admin surface under /api/apps.
-    from wasm.web.api.github_hooks import router as github_hooks_router
-    from wasm.web.api.hooks import admin_router as webhook_admin_router
-    from wasm.web.api.hooks import router as hooks_router
+    from noust.web.api.github_hooks import router as github_hooks_router
+    from noust.web.api.hooks import admin_router as webhook_admin_router
+    from noust.web.api.hooks import router as hooks_router
 
     app.include_router(hooks_router, prefix="/hooks", tags=["Webhooks"])
     # GitHub App deliveries: one endpoint for every application, verified
@@ -931,14 +931,14 @@ def create_app(config: SecurityConfig | None = None) -> FastAPI:
     app.include_router(github_hooks_router, prefix="/hooks", tags=["Webhooks"])
     app.include_router(webhook_admin_router, prefix="/api/apps", tags=["Webhooks"])
 
-    from wasm.web.websockets import router as ws_router
+    from noust.web.websockets import router as ws_router
 
     app.include_router(ws_router, prefix="/ws")
 
     # The live feed the console listens to, at the root rather than under
     # /api, because that is the address the client opens and an EventSource
     # is not an API call.
-    from wasm.web.events import router as events_router
+    from noust.web.events import router as events_router
 
     app.include_router(events_router)
 
@@ -950,7 +950,7 @@ def create_app(config: SecurityConfig | None = None) -> FastAPI:
         Returns:
             A static health payload with no environment details.
         """
-        return {"status": "healthy", "service": "wasm-web"}
+        return {"status": "healthy", "service": "noust-web"}
 
     mount_console(app)
 
@@ -962,7 +962,7 @@ def create_app(config: SecurityConfig | None = None) -> FastAPI:
         Starlette dispatches by status code before it dispatches by exception
         type, so every 404 - including one an ``/api`` handler raised on
         purpose, such as "Service not found: foo" - lands here rather than in
-        :func:`~wasm.web.api.deps.handle_http_exception`. An API path
+        :func:`~noust.web.api.deps.handle_http_exception`. An API path
         delegates to it explicitly so a 404 still answers in the one error
         contract.
 
@@ -1012,7 +1012,7 @@ def verify_tls_material(config: SecurityConfig) -> tuple[str, str]:
         "'certbot certonly --standalone -d panel.example.com' and use "
         "/etc/letsencrypt/live/panel.example.com/{fullchain.pem,privkey.pem}. "
         "For a private network: 'openssl req -x509 -newkey rsa:4096 -days 365 -nodes "
-        "-keyout /etc/wasm/web.key -out /etc/wasm/web.crt'. "
+        "-keyout /etc/noust/web.key -out /etc/noust/web.crt'. "
         "Set require_https=False only when the panel is bound to 127.0.0.1."
     )
 
@@ -1479,7 +1479,7 @@ class SecurityMiddleware:
         if renewed is None:
             return
 
-        from wasm.web.api.auth import set_session_cookies
+        from noust.web.api.auth import set_session_cookies
 
         carrier = Response()
         set_session_cookies(carrier, renewed, secure=is_secure_request(connection, self.config))
@@ -1553,7 +1553,7 @@ class SecurityMiddleware:
         Refuse a connection in the shape its protocol understands.
 
         This runs ahead of routing, so it answers in the API's error contract
-        directly rather than through :func:`wasm.web.api.deps.error_response`:
+        directly rather than through :func:`noust.web.api.deps.error_response`:
         there is no request here for a router to have matched.
 
         Args:
@@ -1565,7 +1565,7 @@ class SecurityMiddleware:
             ws_code: Close code for a ``websocket`` scope.
             detail: Message for the client.
             error: Machine-readable error code - see
-                ``wasm.web.api.deps.ErrorResponse``.
+                ``noust.web.api.deps.ErrorResponse``.
             headers: Extra response headers.
             hint: How to fix it, when there is something the client can do.
         """
@@ -1694,12 +1694,12 @@ def _missing_console_html() -> str:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WASM Console</title>
+    <title>Noust Console</title>
 </head>
 <body>
-    <h1>The WASM console is not installed</h1>
+    <h1>The Noust console is not installed</h1>
     <p>This package was built without the console in <code>wasm/web/static/</code>.
-    Reinstall WASM from a release package, or build it from a checkout with
+    Reinstall Noust from a release package, or build it from a checkout with
     <code>cd panel &amp;&amp; npm ci &amp;&amp; npm run build</code>.</p>
     <p>The API is available: authenticate by posting your access token to
     <code>/api/auth/login</code>.</p>
@@ -1733,7 +1733,7 @@ def startup_banner(token: str, host: str, port: int, scheme: str) -> tuple[str, 
     only readable copy of the access token, and the address it names is all
     there is to go on. On a server with no desktop that address is loopback, so
     a banner that prints it and stops hands somebody a root credential for a
-    page they have no way to open. See :func:`wasm.core.net.loopback_access_lines`.
+    page they have no way to open. See :func:`noust.core.net.loopback_access_lines`.
 
     Args:
         token: The freshly issued access token.
@@ -1748,7 +1748,7 @@ def startup_banner(token: str, host: str, port: int, scheme: str) -> tuple[str, 
     return (
         "",
         rule,
-        "WASM Web Interface",
+        "Noust Web Interface",
         rule,
         f"Access Token: {token}",
         f"Server: {scheme}://{host}:{port}",
@@ -1835,7 +1835,7 @@ def _serve(kwargs: dict[str, Any]) -> None:
 
     uvicorn takes SIGINT and SIGTERM for itself, so the one place to learn
     that the server is stopping is its own signal handler. The handler only
-    schedules :func:`~wasm.web.events.begin_shutdown` on the loop: a signal
+    schedules :func:`~noust.web.events.begin_shutdown` on the loop: a signal
     handler interrupts whatever the main thread was doing, and that may be
     holding a lock ``begin_shutdown`` takes.
 
@@ -1869,10 +1869,10 @@ def run_server(
     insecure_http: bool = False,
 ) -> None:
     """
-    Run the WASM web server.
+    Run the Noust web server.
 
-    ``wasm web start`` already refuses this combination before it gets here -
-    see ``_build_security_config`` in ``wasm.cli.commands.web`` - but that is
+    ``noust web start`` already refuses this combination before it gets here -
+    see ``_build_security_config`` in ``noust.cli.commands.web`` - but that is
     a rule enforced in one caller, and this function is the chokepoint that
     actually binds the socket. Checking again here is what keeps a second
     caller (a test, a future in-process restart, a script that imports this
@@ -1884,7 +1884,7 @@ def run_server(
         port: Port to bind to.
         config: Security configuration.
         show_token: Whether to issue a new access token and print it. False
-            keeps the token on record: ``wasm web start -d`` issues and prints
+            keeps the token on record: ``noust web start -d`` issues and prints
             one in the parent before forking, and issuing another that nobody
             sees would only retire the one the operator was just handed.
         insecure_http: Whether cleartext beyond loopback was accepted in so
@@ -1909,13 +1909,13 @@ def run_server(
 
     if not config.require_https and not insecure_http and not is_loopback_host(config.host):
         raise SecurityError(
-            f"Refusing to bind the WASM panel to {config.host} without TLS",
+            f"Refusing to bind the Noust panel to {config.host} without TLS",
             details=(
                 "The panel drives systemd, nginx and certbot as root, and over plain HTTP "
                 "its access token and session cookie cross the network readable by anyone "
                 "on the path.\n"
                 "Pick one:\n"
-                "  - keep it local: wasm web start --host 127.0.0.1\n"
+                "  - keep it local: noust web start --host 127.0.0.1\n"
                 "  - bring a certificate: --tls-cert CERT --tls-key KEY, or --self-signed\n"
                 "  - accept cleartext in so many words: --insecure-http"
             ),

@@ -1,5 +1,5 @@
 """
-Background job system for the WASM web interface.
+Background job system for the Noust web interface.
 
 Long operations - a deploy, a certbot round trip, an ``apt install``, a backup
 of a whole application - cannot run inside a request: the panel would hold the
@@ -13,7 +13,7 @@ made the web layer a third implementation of the product: it needed the CLI
 installed on ``PATH``, it lost every typed error, it reported progress by
 matching English words in log lines, and it ran as whatever user the panel ran
 as instead of through the shared command runner. The job functions below are
-thin compositions of :mod:`wasm.managers` and :mod:`wasm.deployers`, so the
+thin compositions of :mod:`noust.managers` and :mod:`noust.deployers`, so the
 panel and the CLI now perform the same operations through the same code.
 """
 
@@ -32,15 +32,15 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, TextIO
 
-from wasm.core.exceptions import (
+from noust.core.exceptions import (
     BackupError,
     DeploymentError,
+    NoustError,
     RollbackError,
-    WASMError,
 )
-from wasm.core.fs import SECRET_DIR_MODE, SECRET_MODE, get_fs
-from wasm.core.redact import Scrubber, app_secret_values, scrubber_for, secret_env_values
-from wasm.core.store import DeploymentTrigger, JobRecord, get_store
+from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, get_fs
+from noust.core.redact import Scrubber, app_secret_values, scrubber_for, secret_env_values
+from noust.core.store import DeploymentTrigger, JobRecord, get_store
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ MAX_CONCURRENT_JOBS = 3
 MAX_SERIALISED_LOGS = 100
 
 #: Directory job logs live in, a sibling of the ``deploy-logs`` directory
-#: :class:`wasm.deployers.recorder.DeploymentRecorder` uses, both next to the
+#: :class:`noust.deployers.recorder.DeploymentRecorder` uses, both next to the
 #: store's database file.
 JOB_LOG_DIR_NAME = "job-logs"
 
@@ -61,8 +61,8 @@ JOB_LOG_DIR_NAME = "job-logs"
 #: SQLite errors underneath it, and filesystem trouble around the log file.
 #: Persisting must never fail the job it records - the job is real work on the
 #: machine, and its history is only an account of it, the same boundary
-#: :class:`wasm.deployers.recorder.DeploymentRecorder` draws for deployments.
-_RECORDING_ERRORS: tuple[type[Exception], ...] = (WASMError, OSError, sqlite3.Error)
+#: :class:`noust.deployers.recorder.DeploymentRecorder` draws for deployments.
+_RECORDING_ERRORS: tuple[type[Exception], ...] = (NoustError, OSError, sqlite3.Error)
 
 #: The reason recorded on every job a panel restart orphaned. A job in
 #: ``pending`` or ``running`` when the process starts was not resumed - the
@@ -75,7 +75,7 @@ def _error_text(exc: BaseException) -> str:
     """
     Render a failure for a job's ``error``, keeping a tool's own output.
 
-    ``str()`` of a :class:`WASMError` carries its message and fix but not its
+    ``str()`` of a :class:`NoustError` carries its message and fix but not its
     ``output``: certbot's or nginx's own words, which the job page shows
     verbatim under the diagnosis and which a job otherwise lost.
 
@@ -85,7 +85,7 @@ def _error_text(exc: BaseException) -> str:
     Returns:
         The message, then the fix, then the tool's output, as present.
     """
-    if isinstance(exc, WASMError) and exc.output:
+    if isinstance(exc, NoustError) and exc.output:
         return f"{exc}\n\n{exc.output.rstrip()}"
     return str(exc)
 
@@ -497,18 +497,18 @@ class JobManager:
         """
         Record a failed job in the server log, at the weight the failure deserves.
 
-        A :class:`WASMError` is an outcome the product anticipated - a renewal
+        A :class:`NoustError` is an outcome the product anticipated - a renewal
         refused because DNS does not point here, a build that failed - and it
         already carries the explanation and the fix, so it is one line: a
         traceback would only bury it. The failing tool's own output goes at
-        debug. Anything else is a defect in WASM, and its traceback is what
+        debug. Anything else is a defect in Noust, and its traceback is what
         finding it needs.
 
         Args:
             job: The job that failed; its scrubber has every secret known so far.
             exc: What the job function raised.
         """
-        if isinstance(exc, WASMError):
+        if isinstance(exc, NoustError):
             summary = exc.message
             if exc.details:
                 summary = f"{summary} ({exc.details})"
@@ -775,7 +775,7 @@ class JobManager:
         Returns:
             Where job logs live: a ``job-logs`` directory next to the store's
             database file, the sibling of
-            :class:`wasm.deployers.recorder.DeploymentRecorder`'s
+            :class:`noust.deployers.recorder.DeploymentRecorder`'s
             ``deploy-logs``. Resolved fresh on every call rather than cached,
             because the store singleton it reads from can be swapped out from
             under a long-lived manager - in tests, and in principle across a
@@ -787,7 +787,7 @@ class JobManager:
         """
         Create the job's log file through the filesystem seam and open it.
 
-        Mirrors :class:`wasm.deployers.recorder.DeploymentRecorder`: the file
+        Mirrors :class:`noust.deployers.recorder.DeploymentRecorder`: the file
         is created empty via the seam so its mode is applied at creation and a
         rehearsal leaves nothing behind, then appended to with a plain handle.
 
@@ -1009,8 +1009,8 @@ def deploy_app_job(
         preview_parent: The application this one is the pull request preview
             of, recorded on its row before the deployment runs.
         env_secret_marks: The secret marks its row starts with.
-        recipe: Deploy this recipe (:mod:`wasm.recipes`): its plan, the same
-            one ``wasm create --recipe`` uses, provisions the database and
+        recipe: Deploy this recipe (:mod:`noust.recipes`): its plan, the same
+            one ``noust create --recipe`` uses, provisions the database and
             gives the source, type, variables (``env_vars`` over them),
             layout, persistent paths and settings; ``source``, ``app_type``,
             ``branch``, ``layout`` and ``persistent_paths`` are not used.
@@ -1024,8 +1024,8 @@ def deploy_app_job(
     Raises:
         DeploymentError: When the deployer reports failure.
     """
-    from wasm.deployers import get_deployer
-    from wasm.deployers.helpers.layout import CONFIGURED as CONFIGURED_LAYOUT
+    from noust.deployers import get_deployer
+    from noust.deployers.helpers.layout import CONFIGURED as CONFIGURED_LAYOUT
 
     context = _require_context(job_context)
     context.set_metadata("domain", domain)
@@ -1042,8 +1042,8 @@ def deploy_app_job(
         "initial_health": (health_path, health_expect, health_timeout),
     }
     if recipe is not None:
-        from wasm.core.logger import Logger
-        from wasm.recipes.deploy import plan_recipe
+        from noust.core.logger import Logger
+        from noust.recipes.deploy import plan_recipe
 
         context.update(f"Preparing the {recipe} recipe", 7)
         plan = plan_recipe(
@@ -1105,8 +1105,8 @@ def deploy_app_job(
         "deployment_id": getattr(deployer, "last_deployment_id", None),
     }
     if plan is not None:
-        from wasm.core.logger import Logger
-        from wasm.recipes.deploy import finish_recipe
+        from noust.core.logger import Logger
+        from noust.recipes.deploy import finish_recipe
 
         result["recipe"] = recipe
         result["notes"] = finish_recipe(plan, logger=Logger(verbose=False))
@@ -1134,7 +1134,7 @@ def update_app_job(
         Summary of the update.
 
     Raises:
-        WASMError: When the application is unknown or a step fails.
+        NoustError: When the application is unknown or a step fails.
     """
     return run_update(domain, trigger="panel", job_context=job_context, commit=commit)
 
@@ -1153,7 +1153,7 @@ def run_update(
     application directory and clones it again: the ``.env`` edited here, the
     files the application had written into its own tree and its generated
     secrets were replaced on every update. The sequence is now
-    :func:`wasm.deployers.lifecycle.update_app`, the same one the CLI runs.
+    :func:`noust.deployers.lifecycle.update_app`, the same one the CLI runs.
 
     Args:
         domain: Domain of the application to update.
@@ -1165,9 +1165,9 @@ def run_update(
         Summary of the update.
 
     Raises:
-        WASMError: When the application is unknown or a step fails.
+        NoustError: When the application is unknown or a step fails.
     """
-    from wasm.deployers.lifecycle import update_app
+    from noust.deployers.lifecycle import update_app
 
     context = _require_context(job_context)
     context.set_metadata("domain", domain)
@@ -1175,7 +1175,7 @@ def run_update(
     if get_store().get_app(domain) is None:
         raise DeploymentError(
             f"Application not found: {domain}",
-            details="Deploy it first, or check 'wasm list' for the exact domain.",
+            details="Deploy it first, or check 'noust list' for the exact domain.",
         )
 
     outcome = update_app(
@@ -1212,8 +1212,8 @@ def delete_app_job(
     """
     Remove an application, its service, its site and optionally its files.
 
-    The same removal ``wasm delete`` runs,
-    :func:`wasm.deployers.lifecycle.delete_app`. This job used to have its
+    The same removal ``noust delete`` runs,
+    :func:`noust.deployers.lifecycle.delete_app`. This job used to have its
     own: it never took a Docker Compose stack down, so the containers kept
     running from the directory it then deleted, and a unit that would not
     stop kept its unit file.
@@ -1233,7 +1233,7 @@ def delete_app_job(
         DeploymentError: When the application is unknown.
         AppBusyError: Another operation is running on the application.
     """
-    from wasm.deployers.lifecycle import delete_app
+    from noust.deployers.lifecycle import delete_app
 
     context = _require_context(job_context)
     context.set_metadata("domain", domain)
@@ -1241,7 +1241,7 @@ def delete_app_job(
     if get_store().get_app(domain) is None:
         raise DeploymentError(
             f"Application not found: {domain}",
-            details="Nothing to delete; check 'wasm list' for the exact domain.",
+            details="Nothing to delete; check 'noust list' for the exact domain.",
         )
 
     outcome = delete_app(
@@ -1294,7 +1294,7 @@ def migrate_app_job(
             what, if anything, could not be.
         AppBusyError: Another operation is running on the application.
     """
-    from wasm.deployers import migrate as migration
+    from noust.deployers import migrate as migration
 
     context = _require_context(job_context)
     context.set_metadata("domain", domain)
@@ -1351,7 +1351,7 @@ def backup_app_job(
             volumes.
         schemas: PostgreSQL schemas to dump instead of whole databases. Not
             supported inside a self-contained backup; see
-            :meth:`~wasm.managers.backup_manager.BackupManager.create`.
+            :meth:`~noust.managers.backup_manager.BackupManager.create`.
         redis_method: How to capture Redis, ``rdb`` or ``aof``.
         tags: Tags to store with the backup.
         job_context: Injected by the job manager.
@@ -1362,7 +1362,7 @@ def backup_app_job(
     Raises:
         BackupError: When the backup manager fails.
     """
-    from wasm.managers.backup_manager import BackupManager
+    from noust.managers.backup_manager import BackupManager
 
     context = _require_context(job_context)
     context.set_metadata("domain", domain)
@@ -1414,7 +1414,7 @@ def restore_backup_job(
     Raises:
         BackupError: When the backup is unknown or the restore fails.
     """
-    from wasm.managers.backup_manager import BackupManager
+    from noust.managers.backup_manager import BackupManager
 
     context = _require_context(job_context)
     context.set_metadata("backup_id", backup_id)
@@ -1424,7 +1424,7 @@ def restore_backup_job(
     if backup is None:
         raise BackupError(
             f"Backup not found: {backup_id}",
-            details="List the available backups with 'wasm backup list'.",
+            details="List the available backups with 'noust backup list'.",
         )
 
     domain = target_domain or backup.domain
@@ -1439,7 +1439,7 @@ def restore_backup_job(
     ):
         raise BackupError(
             f"Restore failed for backup {backup_id}",
-            details="Verify the archive with 'wasm backup verify' and retry.",
+            details="Verify the archive with 'noust backup verify' and retry.",
         )
 
     context.update("Restore complete", 100)
@@ -1467,8 +1467,8 @@ def push_backup_job(
             upload, its verification, or retention fails.
         DependencyError: When rclone is not installed.
     """
-    from wasm.managers.backup_destinations import BackupDestinationManager
-    from wasm.managers.backup_manager import BackupManager
+    from noust.managers.backup_destinations import BackupDestinationManager
+    from noust.managers.backup_manager import BackupManager
 
     context = _require_context(job_context)
     context.set_metadata("backup_id", backup_id)
@@ -1479,7 +1479,7 @@ def push_backup_job(
     if backup is None:
         raise BackupError(
             f"Backup not found: {backup_id}",
-            details="List the available backups with 'wasm backup list'.",
+            details="List the available backups with 'noust backup list'.",
         )
     context.set_metadata("domain", backup.domain)
     context.update(f"Uploading to {destination_name}", 20)
@@ -1518,7 +1518,7 @@ def restore_from_destination_job(
         BackupError: When the download, its checksum, or the restore fails.
         DependencyError: When rclone is not installed.
     """
-    from wasm.managers.backup_destinations import BackupDestinationManager
+    from noust.managers.backup_destinations import BackupDestinationManager
 
     context = _require_context(job_context)
     context.set_metadata("backup_id", backup_id)
@@ -1564,7 +1564,7 @@ def rollback_app_job(
     Raises:
         RollbackError: When the rollback fails.
     """
-    from wasm.managers.backup_manager import RollbackManager
+    from noust.managers.backup_manager import RollbackManager
 
     context = _require_context(job_context)
     context.set_metadata("domain", domain)
@@ -1576,7 +1576,7 @@ def rollback_app_job(
     ):
         raise RollbackError(
             f"Rollback failed for {domain}",
-            details="Check that a backup exists with 'wasm backup list'.",
+            details="Check that a backup exists with 'noust backup list'.",
         )
 
     context.update("Rollback complete", 100)
@@ -1600,9 +1600,9 @@ def rollback_deployment_job(
         Summary of the rollback.
 
     Raises:
-        WASMError: The deployment cannot be gone back to, or going back failed.
+        NoustError: The deployment cannot be gone back to, or going back failed.
     """
-    from wasm.deployers.lifecycle import rollback_to_deployment
+    from noust.deployers.lifecycle import rollback_to_deployment
 
     context = _require_context(job_context)
     context.set_metadata("domain", domain)
@@ -1647,8 +1647,8 @@ def database_engine_job(
         DatabaseEngineError: When the engine is unknown or the package manager
             fails.
     """
-    from wasm.core.exceptions import DatabaseEngineError
-    from wasm.managers.database import get_db_manager
+    from noust.core.exceptions import DatabaseEngineError
+    from noust.managers.database import get_db_manager
 
     context = _require_context(job_context)
     context.set_metadata("engine", engine)
@@ -1689,8 +1689,8 @@ def cert_create_job(
     """
     Obtain a certificate for a domain.
 
-    Reaches :meth:`~wasm.managers.cert_manager.CertManager.obtain` exactly the
-    way ``wasm cert create`` does: this used to call the narrower ``.create()``
+    Reaches :meth:`~noust.managers.cert_manager.CertManager.obtain` exactly the
+    way ``noust cert create`` does: this used to call the narrower ``.create()``
     convenience wrapper, which has no ``standalone`` option and always forced
     a webserver plugin, so a panel-issued certificate could not use the
     webroot or standalone methods the CLI has always offered.
@@ -1701,11 +1701,11 @@ def cert_create_job(
         domains: Extra domains (SANs) to cover, beyond ``domain`` and the
             ``www`` alias ``include_www`` may add.
         method: How to prove control of the domain: ``nginx``, ``apache``,
-            ``webroot`` or ``standalone``. None lets WASM pick the method
+            ``webroot`` or ``standalone``. None lets Noust pick the method
             that suits the web server it finds running, the CLI's own
             default when none of its method flags are given.
         webroot: Webroot path. Used when ``method`` is ``webroot``, or
-            defaulted to :data:`~wasm.managers.cert_manager.DEFAULT_WEBROOT`
+            defaulted to :data:`~noust.managers.cert_manager.DEFAULT_WEBROOT`
             when ``method`` is ``webroot`` and no path was given.
         include_www: Also cover the ``www`` subdomain.
         expand: Expand an existing certificate even when it already covers
@@ -1718,7 +1718,7 @@ def cert_create_job(
     Raises:
         CertificateError: When certbot fails.
     """
-    from wasm.managers.cert_manager import DEFAULT_WEBROOT, CertManager
+    from noust.managers.cert_manager import DEFAULT_WEBROOT, CertManager
 
     context = _require_context(job_context)
     context.set_metadata("domain", domain)
@@ -1769,7 +1769,7 @@ def cert_renew_job(
     Raises:
         CertificateError: When certbot fails.
     """
-    from wasm.managers.cert_manager import CertManager
+    from noust.managers.cert_manager import CertManager
 
     context = _require_context(job_context)
     context.set_metadata("domain", domain or "all")

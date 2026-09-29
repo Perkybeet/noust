@@ -8,13 +8,13 @@ These modules extract common functionality from BaseDeployer
 to improve maintainability and testability.
 """
 
-from wasm.deployers.helpers.env_manager import EnvManager
-from wasm.deployers.helpers.nginx_config import NginxConfigBuilder
-from wasm.deployers.helpers.package_manager import PackageManagerHelper
-from wasm.deployers.helpers.path_resolver import PathResolver
-from wasm.deployers.helpers.prisma import PrismaHelper
-from wasm.deployers.helpers.turbo import TurboHelper
-from wasm.deployers.helpers.workspace import WorkspaceHelper
+from noust.deployers.helpers.env_manager import EnvManager
+from noust.deployers.helpers.nginx_config import NginxConfigBuilder
+from noust.deployers.helpers.package_manager import PackageManagerHelper
+from noust.deployers.helpers.path_resolver import PathResolver
+from noust.deployers.helpers.prisma import PrismaHelper
+from noust.deployers.helpers.turbo import TurboHelper
+from noust.deployers.helpers.workspace import WorkspaceHelper
 
 __all__ = [
     "EnvManager",

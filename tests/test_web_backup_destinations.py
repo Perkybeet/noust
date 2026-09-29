@@ -20,19 +20,19 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, WASMStore
-from wasm.managers.backup_scheduler import BackupScheduler
-from wasm.web.auth import CSRF_HEADER_NAME, SecurityConfig
-from wasm.web.server import create_app as build_app
-from wasm.web.server import get_token_manager
+from noust.core.runner import FakeRunner
+from noust.core.store import App, NoustStore
+from noust.managers.backup_scheduler import BackupScheduler
+from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
+from noust.web.server import create_app as build_app
+from noust.web.server import get_token_manager
 
 
 @pytest.fixture
 def store(tmp_path: Path) -> Any:
     """A store of this test's own, with one deployed application."""
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     instance.create_app(
         App(
             domain="shop.example.com",
@@ -47,7 +47,7 @@ def store(tmp_path: Path) -> Any:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 @pytest.fixture
@@ -274,14 +274,14 @@ class TestShowKey:
 
 @pytest.fixture
 def queued_backups(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
-    """Capture jobs queued through wasm.web.api.backups without running them."""
-    return _capture_jobs(monkeypatch, "wasm.web.api.backups.get_job_manager")
+    """Capture jobs queued through noust.web.api.backups without running them."""
+    return _capture_jobs(monkeypatch, "noust.web.api.backups.get_job_manager")
 
 
 @pytest.fixture
 def queued_destinations(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
-    """Capture jobs queued through wasm.web.api.backup_destinations without running them."""
-    return _capture_jobs(monkeypatch, "wasm.web.api.backup_destinations.get_job_manager")
+    """Capture jobs queued through noust.web.api.backup_destinations without running them."""
+    return _capture_jobs(monkeypatch, "noust.web.api.backup_destinations.get_job_manager")
 
 
 def _capture_jobs(monkeypatch: pytest.MonkeyPatch, target: str) -> list[dict[str, Any]]:
@@ -329,7 +329,7 @@ def test_push_queues_a_job_naming_the_backup_and_destination(
         def get_backup(self, backup_id: str) -> FakeBackup:
             return FakeBackup()
 
-    monkeypatch.setattr("wasm.web.api.backups.BackupManager", FakeManager)
+    monkeypatch.setattr("noust.web.api.backups.BackupManager", FakeManager)
 
     response = client.post(
         "/api/backups/shop-example-com_20260101_000000/push", json={"destination": "nas"}

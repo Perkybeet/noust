@@ -34,7 +34,7 @@ ALL_INTERFACES = "0.0.0.0"  # noqa: S104
 #: Spellings of "every interface" that no resolver accepts, so they cannot be
 #: classified by looking them up. The empty string is the one that mattered: a
 #: version of this check kept a set of loopback *strings* with "" in it, and
-#: ``wasm web start --host ""`` walked past the refusal and bound the root
+#: ``noust web start --host ""`` walked past the refusal and bound the root
 #: panel to every interface in cleartext.
 WILDCARD_SPELLINGS = frozenset({"", "*"})
 

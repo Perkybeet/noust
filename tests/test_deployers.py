@@ -19,22 +19,22 @@ from typing import Any
 
 import pytest
 
-from wasm.core.exceptions import BuildError, DeploymentError
-from wasm.core.fs import SECRET_MODE, DryRunFileSystem, RecordingFileSystem
-from wasm.core.logger import Logger
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, AppStatus, MonorepoWorkspace, WASMStore
-from wasm.deployers.auto import AutoDeployer
-from wasm.deployers.docker_compose import DockerComposeDeployer, compose_project_name
-from wasm.deployers.helpers.permissions import hand_over_tree
-from wasm.deployers.interface import AppDeployer, UpdateResult
-from wasm.deployers.monorepo import MonorepoDeployer
-from wasm.deployers.nextjs import NextJSDeployer
-from wasm.deployers.nodejs import NodeJSDeployer
-from wasm.deployers.python import PythonDeployer
-from wasm.deployers.registry import DeployerRegistry, detect_app_type, get_deployer
-from wasm.deployers.static import StaticDeployer
-from wasm.deployers.vite import ViteDeployer
+from noust.core.exceptions import BuildError, DeploymentError
+from noust.core.fs import SECRET_MODE, DryRunFileSystem, RecordingFileSystem
+from noust.core.logger import Logger
+from noust.core.runner import FakeRunner
+from noust.core.store import App, AppStatus, MonorepoWorkspace, NoustStore
+from noust.deployers.auto import AutoDeployer
+from noust.deployers.docker_compose import DockerComposeDeployer, compose_project_name
+from noust.deployers.helpers.permissions import hand_over_tree
+from noust.deployers.interface import AppDeployer, UpdateResult
+from noust.deployers.monorepo import MonorepoDeployer
+from noust.deployers.nextjs import NextJSDeployer
+from noust.deployers.nodejs import NodeJSDeployer
+from noust.deployers.python import PythonDeployer
+from noust.deployers.registry import DeployerRegistry, detect_app_type, get_deployer
+from noust.deployers.static import StaticDeployer
+from noust.deployers.vite import ViteDeployer
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -52,10 +52,10 @@ def store(tmp_path: Path):
     Yields:
         The store the deployers under test will write to.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     yield instance
-    WASMStore.reset_instance()
+    NoustStore.reset_instance()
 
 
 class FakeWebServer:
@@ -388,7 +388,7 @@ def test_detection_order_is_independent_of_registration_order() -> None:
     ],
 )
 def test_auto_resolves_to_the_right_deployer(
-    tmp_path: Path, store: WASMStore, tree: str, expected: str
+    tmp_path: Path, store: NoustStore, tree: str, expected: str
 ) -> None:
     """``--type auto`` picks the deployer that matches the fetched source."""
     source = tmp_path / "src"
@@ -405,7 +405,7 @@ def test_auto_resolves_to_the_right_deployer(
     assert delegate.APP_TYPE == expected
 
 
-def test_auto_tells_the_delegate_not_to_refetch(tmp_path: Path, store: WASMStore) -> None:
+def test_auto_tells_the_delegate_not_to_refetch(tmp_path: Path, store: NoustStore) -> None:
     """Re-fetching would clean the directory and clone the repository twice."""
     source = tmp_path / "src"
     source.mkdir()
@@ -420,7 +420,7 @@ def test_auto_tells_the_delegate_not_to_refetch(tmp_path: Path, store: WASMStore
     assert delegate.source_already_fetched is True
 
 
-def test_auto_refuses_an_empty_source(tmp_path: Path, store: WASMStore) -> None:
+def test_auto_refuses_an_empty_source(tmp_path: Path, store: NoustStore) -> None:
     """An empty checkout is a mistake worth reporting, not a Node app."""
     auto = AutoDeployer()
     auto.configure("app.example.com", str(tmp_path / "src"), app_path=tmp_path / "app")
@@ -430,7 +430,7 @@ def test_auto_refuses_an_empty_source(tmp_path: Path, store: WASMStore) -> None:
         auto.resolve()
 
 
-def test_auto_falls_back_when_nothing_matches(tmp_path: Path, store: WASMStore) -> None:
+def test_auto_falls_back_when_nothing_matches(tmp_path: Path, store: NoustStore) -> None:
     """A tree with source but no signals still deploys, as generic Node."""
     source = tmp_path / "src"
     write_tree(source, {"README.md": "hello"})
@@ -654,7 +654,7 @@ def test_every_registered_deployer_implements_the_interface(deployer_class: type
 
 @pytest.mark.parametrize("app_type", ["monorepo", "docker-compose", "auto"])
 def test_odd_deployers_accept_the_common_configure_call(
-    tmp_path: Path, store: WASMStore, app_type: str
+    tmp_path: Path, store: NoustStore, app_type: str
 ) -> None:
     """POST /api/apps used to raise TypeError for exactly these three."""
     deployer = get_deployer(app_type)
@@ -740,7 +740,7 @@ def test_docker_compose_configure_refuses_resource_limits(
     A Docker Compose stack's containers are not in its systemd unit's cgroup
     (the unit only runs 'docker compose up -d' once and exits): a limit given
     at creation used to be silently dropped rather than enforced or refused.
-    This mirrors the refusal wasm.deployers.lifecycle.set_resource_limits
+    This mirrors the refusal noust.deployers.lifecycle.set_resource_limits
     already gives an existing Compose app's 'wasm app limits'.
     """
     deployer = DockerComposeDeployer()
@@ -772,7 +772,7 @@ def test_docker_compose_configure_accepts_no_limits(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_failed_first_deployment_leaves_nothing_behind(tmp_path: Path, store: WASMStore) -> None:
+def test_failed_first_deployment_leaves_nothing_behind(tmp_path: Path, store: NoustStore) -> None:
     """A build failure must undo the app row, the files and everything after."""
     deployer = build_deployer(NodeJSDeployer, tmp_path)
     app_dir = tmp_path / "app"
@@ -796,7 +796,7 @@ def test_failed_first_deployment_leaves_nothing_behind(tmp_path: Path, store: WA
 
 
 def test_failed_deployment_removes_the_site_it_had_created(
-    tmp_path: Path, store: WASMStore
+    tmp_path: Path, store: NoustStore
 ) -> None:
     """A failure after the site is written removes the site config too."""
     deployer = build_deployer(NodeJSDeployer, tmp_path)
@@ -815,7 +815,7 @@ def test_failed_deployment_removes_the_site_it_had_created(
 
 
 def test_failed_deployment_removes_the_service_it_had_created(
-    tmp_path: Path, store: WASMStore
+    tmp_path: Path, store: NoustStore
 ) -> None:
     """A failure while starting removes the unit that was just installed."""
     deployer = build_deployer(NodeJSDeployer, tmp_path)
@@ -833,7 +833,7 @@ def test_failed_deployment_removes_the_service_it_had_created(
     assert store.get_app("app.example.com") is None
 
 
-def test_failed_redeployment_keeps_the_existing_app_row(tmp_path: Path, store: WASMStore) -> None:
+def test_failed_redeployment_keeps_the_existing_app_row(tmp_path: Path, store: NoustStore) -> None:
     """A redeployment that fails must not delete the app it was updating."""
     store.create_app(
         App(
@@ -860,7 +860,7 @@ def test_failed_redeployment_keeps_the_existing_app_row(tmp_path: Path, store: W
 
 
 def test_successful_deployment_registers_app_site_and_service(
-    tmp_path: Path, store: WASMStore
+    tmp_path: Path, store: NoustStore
 ) -> None:
     """The happy path writes the three rows the rest of the CLI reads."""
     deployer = build_deployer(NodeJSDeployer, tmp_path)
@@ -881,7 +881,9 @@ def test_successful_deployment_registers_app_site_and_service(
     assert deployer.services.started == ["app-example-com"]
 
 
-def test_certificate_failure_does_not_fail_the_deployment(tmp_path: Path, store: WASMStore) -> None:
+def test_certificate_failure_does_not_fail_the_deployment(
+    tmp_path: Path, store: NoustStore
+) -> None:
     """No certificate still leaves a working HTTP deployment."""
     deployer = build_deployer(NodeJSDeployer, tmp_path, ssl=True)
     (tmp_path / "app").mkdir(parents=True)
@@ -900,7 +902,7 @@ def test_certificate_failure_does_not_fail_the_deployment(tmp_path: Path, store:
     assert not app.ssl_enabled
 
 
-def test_static_pipeline_has_no_install_or_build_steps(tmp_path: Path, store: WASMStore) -> None:
+def test_static_pipeline_has_no_install_or_build_steps(tmp_path: Path, store: NoustStore) -> None:
     """The static deployer describes a shorter pipeline, not a copied deploy()."""
     deployer = build_deployer(StaticDeployer, tmp_path)
 
@@ -911,7 +913,7 @@ def test_static_pipeline_has_no_install_or_build_steps(tmp_path: Path, store: WA
     assert titles[0] == "Fetching source code"
 
 
-def test_pipeline_sets_permissions_right_after_build(tmp_path: Path, store: WASMStore) -> None:
+def test_pipeline_sets_permissions_right_after_build(tmp_path: Path, store: NoustStore) -> None:
     """The build runs as root, so the tree must be handed over before start."""
     deployer = build_deployer(NextJSDeployer, tmp_path)
 
@@ -921,7 +923,7 @@ def test_pipeline_sets_permissions_right_after_build(tmp_path: Path, store: WASM
 
 
 def test_set_permissions_chowns_the_tree_to_the_service_user(
-    tmp_path: Path, store: WASMStore
+    tmp_path: Path, store: NoustStore
 ) -> None:
     """pnpm writes temp files into the cwd at start; a root-owned tree is EACCES."""
     runner = FakeRunner()
@@ -936,7 +938,7 @@ def test_set_permissions_chowns_the_tree_to_the_service_user(
     assert ("chown", "-R", f"{user}:{group}", str(tmp_path / "app")) in runner.calls
 
 
-def test_set_permissions_keeps_env_files_owner_only(tmp_path: Path, store: WASMStore) -> None:
+def test_set_permissions_keeps_env_files_owner_only(tmp_path: Path, store: NoustStore) -> None:
     """The recursive chmod opens o+r; the .env files must come back to 0600."""
     deployer = NextJSDeployer(runner=FakeRunner(), fs=RecordingFileSystem())
     deployer.configure("app.example.com", "src", app_path=tmp_path / "app")
@@ -951,7 +953,7 @@ def test_set_permissions_keeps_env_files_owner_only(tmp_path: Path, store: WASMS
     assert stat.S_IMODE(env_file.stat().st_mode) == SECRET_MODE
 
 
-def test_monorepo_set_permissions_chowns_like_the_base(tmp_path: Path, store: WASMStore) -> None:
+def test_monorepo_set_permissions_chowns_like_the_base(tmp_path: Path, store: NoustStore) -> None:
     """Both deployers hand the tree over through the same implementation."""
     runner = FakeRunner()
     deployer = MonorepoDeployer(runner=runner)
@@ -999,7 +1001,7 @@ def _first_call(runner: FakeRunner, *prefix: str) -> int:
 
 
 def test_update_hands_the_tree_over_after_the_build(
-    tmp_path: Path, store: WASMStore, runner: FakeRunner
+    tmp_path: Path, store: NoustStore, runner: FakeRunner
 ) -> None:
     """
     ``wasm update`` rebuilt as root and never gave the result back.
@@ -1022,7 +1024,7 @@ def test_update_hands_the_tree_over_after_the_build(
 
 
 def test_update_keeps_env_files_owner_only(
-    tmp_path: Path, store: WASMStore, runner: FakeRunner
+    tmp_path: Path, store: NoustStore, runner: FakeRunner
 ) -> None:
     """The hand-over's recursive chmod must not leave the secrets world-readable."""
     app_path = tmp_path / "app"
@@ -1039,7 +1041,7 @@ def test_update_keeps_env_files_owner_only(
 
 
 def test_monorepo_update_hands_the_tree_over_after_the_build(
-    tmp_path: Path, store: WASMStore, runner: FakeRunner
+    tmp_path: Path, store: NoustStore, runner: FakeRunner
 ) -> None:
     """Handing over before ``pnpm build`` left every workspace's build output to root."""
     app_path = tmp_path / "app"
@@ -1053,7 +1055,7 @@ def test_monorepo_update_hands_the_tree_over_after_the_build(
 
 
 def test_monorepo_deploy_hands_the_tree_over_after_the_build(
-    tmp_path: Path, store: WASMStore, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The first deploy had the same order, so a monorepo never had a writable ``.next``."""
     deployer = MonorepoDeployer(runner=FakeRunner())
@@ -1081,7 +1083,7 @@ def test_monorepo_deploy_hands_the_tree_over_after_the_build(
     assert order.index("_set_permissions") > order.index("_build_all")
 
 
-def test_deploy_without_configure_is_a_clear_error(tmp_path: Path, store: WASMStore) -> None:
+def test_deploy_without_configure_is_a_clear_error(tmp_path: Path, store: NoustStore) -> None:
     """An unconfigured deployer says so instead of deploying to ''."""
     deployer = NodeJSDeployer()
 
@@ -1112,7 +1114,7 @@ def _raise(error: Exception):
 
 
 def test_install_and_build_are_streamed_with_finite_timeouts(
-    tmp_path: Path, store: WASMStore
+    tmp_path: Path, store: NoustStore
 ) -> None:
     """A ten-minute npm install must show progress and still have a deadline."""
     streamed: list[tuple[tuple[str, ...], int]] = []
@@ -1147,8 +1149,8 @@ def test_install_and_build_are_streamed_with_finite_timeouts(
 
 def test_pipeline_undoes_only_the_steps_that_ran() -> None:
     """A step that never started must not have its undo executed."""
-    from wasm.core.logger import Logger
-    from wasm.deployers.pipeline import DeployStep, run_pipeline
+    from noust.core.logger import Logger
+    from noust.deployers.pipeline import DeployStep, run_pipeline
 
     undone: list[str] = []
 
@@ -1166,8 +1168,8 @@ def test_pipeline_undoes_only_the_steps_that_ran() -> None:
 
 def test_pipeline_skips_a_step_and_its_undo() -> None:
     """A skipped step leaves nothing, so it must not be undone either."""
-    from wasm.core.logger import Logger
-    from wasm.deployers.pipeline import DeployStep, run_pipeline
+    from noust.core.logger import Logger
+    from noust.deployers.pipeline import DeployStep, run_pipeline
 
     undone: list[str] = []
 
@@ -1190,8 +1192,8 @@ def test_pipeline_skips_a_step_and_its_undo() -> None:
 
 def test_pipeline_keeps_undoing_after_an_undo_fails() -> None:
     """One cleanup that cannot complete must not strand the others."""
-    from wasm.core.logger import Logger
-    from wasm.deployers.pipeline import DeployStep, run_pipeline
+    from noust.core.logger import Logger
+    from noust.deployers.pipeline import DeployStep, run_pipeline
 
     undone: list[str] = []
 
@@ -1209,8 +1211,8 @@ def test_pipeline_keeps_undoing_after_an_undo_fails() -> None:
 
 def test_failure_output_combines_both_streams() -> None:
     """npm diagnoses on stdout, pip on stderr; the error must show either."""
-    from wasm.core.runner import CommandResult
-    from wasm.deployers.helpers.health import failure_output
+    from noust.core.runner import CommandResult
+    from noust.deployers.helpers.health import failure_output
 
     combined = failure_output(
         CommandResult(argv=("npm", "ci"), exit_code=1, stdout="ERESOLVE\n", stderr="npm ERR!\n")
@@ -1242,7 +1244,7 @@ def dry() -> DryRunFileSystem:
 
 
 def test_remove_source_keeps_the_application_in_a_rehearsal(
-    tmp_path: Path, store: WASMStore, dry: DryRunFileSystem
+    tmp_path: Path, store: NoustStore, dry: DryRunFileSystem
 ) -> None:
     """The undo of a failed fetch is an rm -rf of a deployed application."""
     deployer = NodeJSDeployer(fs=dry)
@@ -1257,7 +1259,7 @@ def test_remove_source_keeps_the_application_in_a_rehearsal(
 
 
 def test_a_rehearsed_failed_deployment_deletes_nothing(
-    tmp_path: Path, store: WASMStore, dry: DryRunFileSystem
+    tmp_path: Path, store: NoustStore, dry: DryRunFileSystem
 ) -> None:
     """The rollback of a redeployment must not take the running tree with it."""
     deployer = build_deployer(NodeJSDeployer, tmp_path)
@@ -1280,7 +1282,7 @@ def test_a_rehearsed_failed_deployment_deletes_nothing(
 
 
 def test_nextjs_standalone_copies_no_assets_in_a_rehearsal(
-    tmp_path: Path, store: WASMStore, dry: DryRunFileSystem
+    tmp_path: Path, store: NoustStore, dry: DryRunFileSystem
 ) -> None:
     """post_build copies the static and public trees into .next/standalone."""
     deployer = NextJSDeployer(fs=dry)
@@ -1298,7 +1300,9 @@ def test_nextjs_standalone_copies_no_assets_in_a_rehearsal(
     assert len(dry.skipped) == 2
 
 
-def test_nextjs_standalone_copies_assets_through_the_seam(tmp_path: Path, store: WASMStore) -> None:
+def test_nextjs_standalone_copies_assets_through_the_seam(
+    tmp_path: Path, store: NoustStore
+) -> None:
     """The rehearsal must not have disarmed the real copy."""
     filesystem = RecordingFileSystem()
     deployer = NextJSDeployer(fs=filesystem)
@@ -1315,7 +1319,7 @@ def test_nextjs_standalone_copies_assets_through_the_seam(tmp_path: Path, store:
 
 
 def test_monorepo_env_file_is_not_written_in_a_rehearsal(
-    tmp_path: Path, store: WASMStore, dry: DryRunFileSystem
+    tmp_path: Path, store: NoustStore, dry: DryRunFileSystem
 ) -> None:
     """A .env holding a generated database password is a change like any other."""
     deployer = MonorepoDeployer(fs=dry)
@@ -1327,7 +1331,7 @@ def test_monorepo_env_file_is_not_written_in_a_rehearsal(
     assert any("would write" in change for change in dry.skipped)
 
 
-def test_monorepo_env_file_is_written_owner_only(tmp_path: Path, store: WASMStore) -> None:
+def test_monorepo_env_file_is_written_owner_only(tmp_path: Path, store: NoustStore) -> None:
     """It holds a database password, so nothing else on the box may read it."""
     deployer = MonorepoDeployer(fs=RecordingFileSystem())
     target = tmp_path / ".env.production"
@@ -1339,7 +1343,7 @@ def test_monorepo_env_file_is_written_owner_only(tmp_path: Path, store: WASMStor
 
 
 def test_monorepo_writes_no_nginx_configuration_in_a_rehearsal(
-    tmp_path: Path, store: WASMStore, dry: DryRunFileSystem
+    tmp_path: Path, store: NoustStore, dry: DryRunFileSystem
 ) -> None:
     """This one wrote straight into /etc/nginx and linked it into sites-enabled."""
     deployer = MonorepoDeployer(fs=dry)
@@ -1359,7 +1363,7 @@ def test_monorepo_writes_no_nginx_configuration_in_a_rehearsal(
 
 
 def test_monorepo_rollback_keeps_the_files_in_a_rehearsal(
-    tmp_path: Path, store: WASMStore, dry: DryRunFileSystem
+    tmp_path: Path, store: NoustStore, dry: DryRunFileSystem
 ) -> None:
     """A rehearsed monorepo deployment that fails must delete nothing."""
     deployer = MonorepoDeployer(fs=dry)
@@ -1376,13 +1380,13 @@ def test_monorepo_rollback_keeps_the_files_in_a_rehearsal(
 
 def test_docker_compose_rollback_keeps_the_files_in_a_rehearsal(
     tmp_path: Path,
-    store: WASMStore,
+    store: NoustStore,
     dry: DryRunFileSystem,
     runner: FakeRunner,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The compose rollback removed the application directory outright."""
-    from wasm.deployers import docker_compose as compose_module
+    from noust.deployers import docker_compose as compose_module
 
     monkeypatch.setattr(compose_module, "ServiceManager", lambda **kw: FakeServiceManager())
     monkeypatch.setattr(compose_module, "NginxManager", lambda **kw: FakeWebServer())
@@ -1424,7 +1428,7 @@ def test_update_has_the_signature_the_interface_declares(deployer_class: type) -
 
 
 def test_monorepo_update_runs_the_same_steps_the_cli_used_to_drive(
-    tmp_path: Path, store: WASMStore, runner: FakeRunner
+    tmp_path: Path, store: NoustStore, runner: FakeRunner
 ) -> None:
     """The CLI poked four private methods in order; that sequence lives here now."""
     app_path = tmp_path / "app"
@@ -1444,14 +1448,14 @@ def test_monorepo_update_runs_the_same_steps_the_cli_used_to_drive(
     assert runner.ran("pnpm", "build")
 
 
-def test_monorepo_update_without_configure_is_a_clear_error(store: WASMStore) -> None:
+def test_monorepo_update_without_configure_is_a_clear_error(store: NoustStore) -> None:
     """An unconfigured deployer says so instead of building in the cwd."""
     with pytest.raises(DeploymentError, match="not configured"):
         MonorepoDeployer().update()
 
 
 def test_docker_compose_update_rebuilds_and_recreates(
-    tmp_path: Path, store: WASMStore, runner: FakeRunner
+    tmp_path: Path, store: NoustStore, runner: FakeRunner
 ) -> None:
     """It no longer pulls the source itself: whoever owns that step already did."""
     app_path = tmp_path / "app"
@@ -1488,7 +1492,7 @@ def test_docker_compose_update_rebuilds_and_recreates(
 # The guard that keeps them there
 # ---------------------------------------------------------------------------
 
-#: Calls that change the filesystem without going through wasm.core.fs.
+#: Calls that change the filesystem without going through noust.core.fs.
 DIRECT_MUTATORS = frozenset(
     {
         "shutil.rmtree",
@@ -1633,9 +1637,9 @@ def test_no_deployer_mutates_the_filesystem_outside_the_seam() -> None:
     lie again. There are no exemptions here on purpose: unlike archive
     extraction, everything a deployer writes is a whole file at a time.
     """
-    import wasm.deployers
+    import noust.deployers
 
-    root = Path(wasm.deployers.__file__).parent
+    root = Path(noust.deployers.__file__).parent
     offenders = []
 
     for module in sorted(root.rglob("*.py")):
@@ -1646,11 +1650,11 @@ def test_no_deployer_mutates_the_filesystem_outside_the_seam() -> None:
                 continue
             offenders.append(f"{module.relative_to(root)}:{line} {function}() calls {call}")
 
-    assert offenders == [], "Filesystem mutations outside wasm.core.fs:\n" + "\n".join(offenders)
+    assert offenders == [], "Filesystem mutations outside noust.core.fs:\n" + "\n".join(offenders)
 
 
 def test_monorepo_permissions_pass_keeps_the_env_files_owner_only(
-    tmp_path: Path, store: WASMStore, runner: FakeRunner
+    tmp_path: Path, store: NoustStore, runner: FakeRunner
 ) -> None:
     """`chmod -R o+rX` over the tree also opened up the file with the password."""
     deployer = MonorepoDeployer(runner=runner, fs=RecordingFileSystem())
@@ -1669,7 +1673,7 @@ def test_monorepo_permissions_pass_keeps_the_env_files_owner_only(
 
 
 def test_monorepo_permissions_pass_changes_nothing_in_a_rehearsal(
-    tmp_path: Path, store: WASMStore, runner: FakeRunner, dry: DryRunFileSystem
+    tmp_path: Path, store: NoustStore, runner: FakeRunner, dry: DryRunFileSystem
 ) -> None:
     """Including the chmod, which is a change to this machine like any other."""
     deployer = MonorepoDeployer(runner=runner, fs=dry)
@@ -1695,7 +1699,7 @@ class TestPackageManagerAvailability:
     """
 
     def test_a_project_that_needs_pnpm_says_so_when_pnpm_is_missing(
-        self, tmp_path: Path, store: WASMStore, runner: FakeRunner
+        self, tmp_path: Path, store: NoustStore, runner: FakeRunner
     ) -> None:
         runner.only_knows("npm")
         app_path = tmp_path / "app"
@@ -1713,7 +1717,7 @@ class TestPackageManagerAvailability:
         )
 
     def test_a_workspace_offers_no_substitute_because_there_is_none(
-        self, tmp_path: Path, store: WASMStore, runner: FakeRunner
+        self, tmp_path: Path, store: NoustStore, runner: FakeRunner
     ) -> None:
         """
         A message must not promise an escape hatch that does not exist.
@@ -1736,7 +1740,7 @@ class TestPackageManagerAvailability:
         assert "npm install -g pnpm" in (exc.value.details or "")
 
     def test_availability_never_reads_the_real_path(
-        self, tmp_path: Path, store: WASMStore, runner: FakeRunner, monkeypatch
+        self, tmp_path: Path, store: NoustStore, runner: FakeRunner, monkeypatch
     ) -> None:
         """The guard: shutil.which must not be consulted at all."""
         import shutil
@@ -1758,11 +1762,11 @@ class TestJobIdDefaultsToNone:
     """
     Every deployer answers ``job_id`` and ``last_deployment_id`` even unconfigured.
 
-    ``wasm.deployers.lifecycle._rebuild_monorepo`` and ``_rebuild_compose``
+    ``noust.deployers.lifecycle._rebuild_monorepo`` and ``_rebuild_compose``
     build a deployer and set its attributes by hand instead of calling
-    ``configure()``, and :func:`~wasm.deployers.recorder.recorder_for` reads
+    ``configure()``, and :func:`~noust.deployers.recorder.recorder_for` reads
     ``deployer.job_id`` unconditionally. Without a class-level default on
-    :class:`~wasm.deployers.interface.AppDeployer`, that rebuild path would
+    :class:`~noust.deployers.interface.AppDeployer`, that rebuild path would
     raise ``AttributeError`` the first time it recorded history.
     """
 

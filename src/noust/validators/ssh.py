@@ -1,5 +1,5 @@
 """
-SSH configuration validation and setup helpers for WASM.
+SSH configuration validation and setup helpers for Noust.
 
 Validates SSH keys, connectivity, and provides setup guidance.
 """
@@ -9,8 +9,8 @@ import os
 import re
 from pathlib import Path
 
-from wasm.core.exceptions import SSHError
-from wasm.core.utils import run_command
+from noust.core.exceptions import SSHError
+from noust.core.utils import run_command
 
 logger = logging.getLogger(__name__)
 
@@ -294,7 +294,7 @@ def validate_ssh_setup_for_url(url: str) -> dict:
             "You need to set up SSH authentication to use this repository.",
             "",
             "Option 1: Generate a new SSH key",
-            "  Run: wasm setup ssh",
+            "  Run: noust setup ssh",
             "  Or manually: ssh-keygen -t ed25519",
             "",
             "Option 2: Use HTTPS URL instead",
@@ -398,7 +398,7 @@ def ensure_ssh_setup(
     Raises:
         SSHError: If SSH setup is incomplete and cannot be resolved.
     """
-    from wasm.core.logger import Logger
+    from noust.core.logger import Logger
 
     logger = Logger(verbose=verbose)
 
@@ -415,7 +415,7 @@ def ensure_ssh_setup(
         hostname = os.uname().nodename
         success, key_path, _msg = generate_ssh_key(
             key_type="ed25519",
-            comment=f"wasm@{hostname}",
+            comment=f"noust@{hostname}",
         )
 
         if success and key_path:

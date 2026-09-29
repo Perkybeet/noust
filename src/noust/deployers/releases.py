@@ -30,8 +30,8 @@ rules below hold for every caller:
   restored from a backup somewhere else and still work.
 - Nothing is written through a symlink found inside a release or under
   ``shared/``: a repository is untrusted input, and a tracked link to ``/etc``
-  must not become a place WASM writes to as root.
-- Every change goes through the :mod:`wasm.core.fs` seam, so ``--dry-run``
+  must not become a place Noust writes to as root.
+- Every change goes through the :mod:`noust.core.fs` seam, so ``--dry-run``
   rehearses all of it and changes nothing.
 """
 
@@ -46,10 +46,10 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
-from wasm.core.exceptions import DeploymentError
-from wasm.core.fs import FileSystem, get_fs
-from wasm.core.logger import Logger
-from wasm.core.runner import CommandRunner, get_runner
+from noust.core.exceptions import DeploymentError
+from noust.core.fs import FileSystem, get_fs
+from noust.core.logger import Logger
+from noust.core.runner import CommandRunner, get_runner
 
 #: Directory, inside the application directory, that holds one build per entry.
 RELEASES_DIR = "releases"
@@ -475,7 +475,7 @@ class ReleaseManager:
             if blocked is not None:
                 raise DeploymentError(
                     f"Refusing to create {shared}: {blocked} is not a plain directory",
-                    details=f"A symlink or file at {blocked} would make WASM create "
+                    details=f"A symlink or file at {blocked} would make Noust create "
                     f"{path} somewhere outside {self.shared_dir}. Replace it with a "
                     "directory, or create the shared path yourself.",
                 )
@@ -611,7 +611,7 @@ class ReleaseManager:
         if not link.is_symlink():
             return None
         target = PurePosixPath(os.readlink(link))
-        # WASM only ever writes ../releases/<id>.
+        # Noust only ever writes ../releases/<id>.
         if (
             len(target.parts) != 3
             or target.parts[:2] != ("..", RELEASES_DIR)
@@ -627,7 +627,7 @@ class ReleaseManager:
 
         The link is swapped with a rename, like ``current``; the environment
         file is replaced whole. Neither is written through a symlink: the
-        directory is WASM's, and one planted there is refused.
+        directory is Noust's, and one planted there is refused.
 
         Args:
             color: ``blue`` or ``green``.
@@ -652,7 +652,7 @@ class ReleaseManager:
             if env_file.is_symlink():
                 raise DeploymentError(
                     f"Refusing to write {env_file}: it is a symlink",
-                    details="Remove the link; WASM writes the port of each instance itself.",
+                    details="Remove the link; Noust writes the port of each instance itself.",
                 )
             self.fs.write_text(env_file, f"PORT={int(port)}\n", mode=0o644)
         except OSError as error:
@@ -679,7 +679,7 @@ class ReleaseManager:
 
     def _require_colors_dir(self) -> None:
         """
-        Refuse a ``colors/`` that is anything but WASM's own directory.
+        Refuse a ``colors/`` that is anything but Noust's own directory.
 
         Raises:
             DeploymentError: It is a symlink or a file.
@@ -689,8 +689,8 @@ class ReleaseManager:
         ):
             raise DeploymentError(
                 f"{self.colors_dir} is not a plain directory",
-                details="A symlink or file there would make WASM write somewhere else. "
-                "Remove it; WASM recreates the directory.",
+                details="A symlink or file there would make Noust write somewhere else. "
+                "Remove it; Noust recreates the directory.",
             )
 
     def rollback(self, to: str | None = None) -> Release:
@@ -866,7 +866,7 @@ class ReleaseManager:
         if not self.current_link.is_symlink():
             return None
         target = PurePosixPath(os.readlink(self.current_link))
-        # WASM only ever writes releases/<id>. Anything else was put there by
+        # Noust only ever writes releases/<id>. Anything else was put there by
         # hand, and guessing what it means is how a rollback lands somewhere
         # unexpected.
         if target.is_absolute() or len(target.parts) != 2 or target.parts[0] != RELEASES_DIR:

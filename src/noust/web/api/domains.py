@@ -4,8 +4,8 @@
 """
 The domains an application answers on, over the API.
 
-A thin translation of :mod:`wasm.deployers.domains` to HTTP - the rules, the
-re-rendering and the certificate all live there, where ``wasm domain`` reads
+A thin translation of :mod:`noust.deployers.domains` to HTTP - the rules, the
+re-rendering and the certificate all live there, where ``noust domain`` reads
 them too. Two things are decided here because they are about HTTP:
 
 - **Certbot never runs on the request path.** Adding a domain records it and
@@ -14,7 +14,7 @@ them too. Two things are decided here because they are about HTTP:
   ``POST /api/certs/{domain}`` queues issuance.
 - **Removing a domain needs sudo mode**, like every other destructive action.
 
-Mounted under ``/apps`` beside :mod:`wasm.web.api.apps`, which owns no path
+Mounted under ``/apps`` beside :mod:`noust.web.api.apps`, which owns no path
 under ``/{domain}/domains``. :data:`dns_router` is the exception: a DNS check
 against a domain that is not (yet) any application's, for the new-app wizard
 to run before it creates one, so it is mounted separately under ``/domains``.
@@ -27,8 +27,8 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from wasm.core.store import DomainKind, DomainRecord, get_store
-from wasm.deployers.domains import (
+from noust.core.store import DomainKind, DomainRecord, get_store
+from noust.deployers.domains import (
     DomainChange,
     add_domain,
     check_dns,
@@ -36,21 +36,21 @@ from wasm.deployers.domains import (
     list_domains,
     remove_domain,
 )
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import WASMErrorRoute, require_elevated, strict_domain
-from wasm.web.auth import actor_label
-from wasm.web.jobs import JobContext, JobType, get_job_manager
-from wasm.web.pydantic_compat import iso_offset_validator
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
+from noust.web.auth import actor_label
+from noust.web.jobs import JobContext, JobType, get_job_manager
+from noust.web.pydantic_compat import iso_offset_validator
 
-router = APIRouter(route_class=WASMErrorRoute)
+router = APIRouter(route_class=NoustErrorRoute)
 
 #: DNS checks that do not need an application: mounted at ``/domains`` rather
 #: than ``/apps/{domain}/domains``, so a bare domain can be checked before it
 #: belongs to anything. Kept in this module, not a new one, because it shares
-#: :class:`DnsCheckResponse` and :func:`wasm.deployers.domains.check_dns` with
+#: :class:`DnsCheckResponse` and :func:`noust.deployers.domains.check_dns` with
 #: the app-scoped check below - one implementation of "resolve a domain and
 #: compare it with this server", asked two ways.
-dns_router = APIRouter(route_class=WASMErrorRoute)
+dns_router = APIRouter(route_class=NoustErrorRoute)
 
 
 class AppDomain(BaseModel):
@@ -332,7 +332,7 @@ def get_bare_dns(
     Check whether a domain resolves to this server, before it is any application's.
 
     The same check :func:`get_domain_dns` runs for a domain already added to
-    an application, through the same :func:`wasm.deployers.domains.check_dns`
+    an application, through the same :func:`noust.deployers.domains.check_dns`
     - the new-app wizard needs an answer before anything is created, and there
     is no application yet to hang the path off.
 

@@ -1,94 +1,106 @@
-# WASM - Web App System Management
+> **WASM is now Noust.** From 3.0.0 the product is called Noust. What changed: the name, the
+> command (`noust`), the configuration and data paths (`/etc/noust`, `/var/lib/noust`,
+> `/var/backups/noust`) and Noust's own systemd units (`noust-web`, `noust-monitor`,
+> `noust-cron-*`, `noust-backup-*`, `noust-previews`). What did not: your applications, their
+> units, directories, domains and certificates, the console, the API and your tokens. The
+> package upgrade (or, with pip, the first `noust` command run as root) moves everything to
+> the new names and leaves symbolic links at the old paths, and `wasm` keeps working as an
+> alias for the whole 3.x series.
+> Read [docs/UPGRADING-3.0.md](docs/UPGRADING-3.0.md) before upgrading a 2.x server.
+
+<h1 align="center">
+  <img src="docs/brand/noust-wordmark.svg" alt="Noust" width="360">
+</h1>
 
 <p align="center">
-  <img src="docs/assets/logo_bg.png" alt="WASM Logo" width="400">
-</p>
-
-<p align="center">
-  <a href="https://build.opensuse.org/package/show/home:Perkybeet/wasm">
-    <img src="https://build.opensuse.org/projects/home:Perkybeet/packages/wasm/badge.svg?type=default" alt="OBS Build Status">
+  <a href="https://build.opensuse.org/package/show/home:Perkybeet/noust">
+    <img src="https://build.opensuse.org/projects/home:Perkybeet/packages/noust/badge.svg?type=default" alt="OBS Build Status">
   </a>
-  <a href="https://pypi.org/project/wasm-cli/">
-    <img src="https://img.shields.io/pypi/v/wasm-cli?color=blue&logo=pypi&logoColor=white" alt="PyPI Version">
+  <a href="https://pypi.org/project/noust/">
+    <img src="https://img.shields.io/pypi/v/noust?color=blue&logo=pypi&logoColor=white" alt="PyPI Version">
   </a>
-  <a href="https://pypi.org/project/wasm-cli/">
-    <img src="https://img.shields.io/pypi/pyversions/wasm-cli?logo=python&logoColor=white" alt="Python Version">
+  <a href="https://pypi.org/project/noust/">
+    <img src="https://img.shields.io/pypi/pyversions/noust?logo=python&logoColor=white" alt="Python Version">
   </a>
-  <a href="https://github.com/Perkybeet/wasm/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/Perkybeet/wasm?color=blue" alt="License">
+  <a href="https://github.com/Perkybeet/noust/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/Perkybeet/noust?color=blue" alt="License">
   </a>
-  <a href="https://github.com/Perkybeet/wasm/stargazers">
-    <img src="https://img.shields.io/github/stars/Perkybeet/wasm?style=social" alt="GitHub Stars">
-  </a>
-  <a href="https://pypi.org/project/wasm-cli/">
-    <img src="https://img.shields.io/pypi/dm/wasm-cli?color=blue&logo=pypi" alt="PyPI Downloads">
+  <a href="https://github.com/Perkybeet/noust/stargazers">
+    <img src="https://img.shields.io/github/stars/Perkybeet/noust?style=social" alt="GitHub Stars">
   </a>
 </p>
 
 **Your server, Vercel-grade. No Docker required.**
 
-WASM deploys web applications onto a Linux server you own and keeps them running. Point it
+In Orkney and Shetland, a *noust* is the hollow on the shore where a boat is drawn up and
+sheltered between voyages. Your server is the noust, and your applications are the boats.
+
+Noust deploys web applications onto a Linux server you own and keeps them running. Point it
 at a repository and a domain: it builds the application, runs it as a systemd unit behind
 nginx or Apache, obtains its certificate, and from then on every deploy is a new release
 that only goes live if it answers, and can be undone in seconds. The same engine is driven
 from the CLI, a browser console and a JSON API.
 
-![The WASM console](docs/assets/console/overview.png)
-
-> Upgrading from 1.x? Read [docs/UPGRADING-2.0.md](docs/UPGRADING-2.0.md) first. Existing
-> applications keep running exactly as they are until you migrate them, one at a time.
+![The Noust console](docs/assets/console/overview.png)
 
 ---
 
-## What WASM is, and is not
+## What Noust is, and is not
 
 **It is**
 
-- **One server.** A VPS or a bare-metal machine running Ubuntu, Debian, Fedora or openSUSE.
+- **Your server.** A VPS or a bare-metal machine running Ubuntu, Debian, Fedora or openSUSE.
 - **systemd-native.** Every application is a unit you can inspect with `systemctl` and
   `journalctl`; every site is a file in `/etc/nginx` or `/etc/apache2`. Nothing sits between
   you and your processes, and there is no daemon with a privileged socket.
 - **A distribution package.** Installed with `apt`, `dnf` or `zypper`, or from PyPI.
 - **Atomic deploys with instant rollback.** Each deploy builds in its own directory, is
   activated behind a health check, rolls back by itself when it does not answer, and any
-  release still on disk can be reactivated in seconds. (Monorepo and Docker Compose projects
-  still deploy in place.)
+  release still on disk can be reactivated in seconds. Blue/green activation, opt-in per
+  application, keeps the old version serving until the new one answers.
 - **Per-application resource limits** with cgroups: memory, CPU and tasks.
 - **A console and an API** over exactly what the CLI does, with scoped tokens, two-factor
   authentication, sudo mode and an audit log.
 
 **It is not**
 
-- **A cluster or an orchestrator.** One machine, managed from itself.
+- **A cluster or an orchestrator.** Each server runs its own applications and manages
+  itself. 3.0 brings a central that manages several Noust servers from one console (see
+  [The fleet](#the-fleet)); it does not schedule work across them.
 - **A container platform.** Applications run as ordinary processes. Docker is only needed if
-  you deploy a Docker Compose project, which WASM then runs as a unit.
+  you deploy a Docker Compose project, which Noust then runs as a unit.
 - **An isolation boundary between applications.** They run as the same service account by
   default. Deploy only code you trust, as you would on any server you administer.
-- **Zero-downtime.** Activating a release restarts the unit. Per-branch preview deployments,
-  one-click templates, a web terminal and blue/green activation are not in 2.0.
+- **Zero-downtime by default.** Activating a release restarts the unit, unless blue/green is
+  turned on for the application. There is no web terminal.
 
 ---
 
 ## Install
 
-WASM needs root: it writes to `/etc`, `/var` and systemd. Run the commands below as root, or
-prefix them with `sudo`.
+Noust needs root: it writes to `/etc`, `/var` and systemd. Run the commands below as root, or
+prefix them with `sudo`. The packages come from the `home:Perkybeet` repository on the
+openSUSE Build Service.
 
 ### Ubuntu and Debian (recommended)
 
 ```bash
 # Add GPG key
 curl -fsSL https://download.opensuse.org/repositories/home:/Perkybeet/xUbuntu_26.04/Release.key | \
-  gpg --dearmor | sudo tee /usr/share/keyrings/wasm.gpg > /dev/null
+  gpg --dearmor | sudo tee /usr/share/keyrings/noust.gpg > /dev/null
 
 # Add repository
-echo 'deb [signed-by=/usr/share/keyrings/wasm.gpg] https://download.opensuse.org/repositories/home:/Perkybeet/xUbuntu_26.04/ /' | \
-  sudo tee /etc/apt/sources.list.d/wasm.list
+echo 'deb [signed-by=/usr/share/keyrings/noust.gpg] https://download.opensuse.org/repositories/home:/Perkybeet/xUbuntu_26.04/ /' | \
+  sudo tee /etc/apt/sources.list.d/noust.list
 
 # Install
 sudo apt update
-sudo apt install wasm
+sudo apt install noust
 ```
+
+Replace `xUbuntu_26.04` with your release: `xUbuntu_24.04`, `xUbuntu_22.04`, `Debian_12` or
+`Debian_13`. A server that already has the WASM repository configured needs no new
+repository: it is the same one.
 
 **Supported versions:**
 - Ubuntu 26.04 LTS (Resolute Raccoon, Python 3.14)
@@ -101,7 +113,7 @@ sudo apt install wasm
 ```bash
 sudo dnf config-manager --add-repo \
   https://download.opensuse.org/repositories/home:/Perkybeet/Fedora_42/home:Perkybeet.repo
-sudo dnf install wasm-cli
+sudo dnf install noust
 ```
 
 ### openSUSE
@@ -111,47 +123,58 @@ sudo dnf install wasm-cli
 sudo zypper ar -f \
   https://download.opensuse.org/repositories/home:/Perkybeet/openSUSE_Tumbleweed/ \
   home_Perkybeet
-sudo zypper install wasm-cli
+sudo zypper install noust
 
 # Leap 15.6
 sudo zypper ar -f \
   https://download.opensuse.org/repositories/home:/Perkybeet/openSUSE_Leap_15.6/ \
   home_Perkybeet
-sudo zypper install wasm-cli
+sudo zypper install noust
 ```
 
 ### PyPI
 
 ```bash
-pip install wasm-cli            # the CLI
-pip install 'wasm-cli[web]'     # with the console and the API
-pip install 'wasm-cli[all]'     # with the console, the API and the monitor
+pip install noust            # the CLI
+pip install 'noust[web]'     # with the console and the API
+pip install 'noust[all]'     # with the console, the API and the monitor
 ```
+
+The packages WASM was published as, `wasm` (Debian, Ubuntu) and `wasm-cli` (Fedora,
+openSUSE, PyPI), are transitional in 3.x: upgrading one installs `noust`. See
+[docs/RENAME.md](docs/RENAME.md).
+
+### A container, for a central
+
+The image `ghcr.io/perkybeet/noust` runs a central: the console and the connections to your
+servers, and nothing else. It deploys no applications. See [The fleet](#the-fleet).
+
+<!-- FLEET: complete after the fleet wave -->
 
 ### From source
 
 ```bash
-git clone https://github.com/Perkybeet/wasm.git
-cd wasm
+git clone https://github.com/Perkybeet/noust.git
+cd noust
 pip install -e ".[all]"
 ```
 
 The console's Python packages (FastAPI, Uvicorn, psutil) are recommended by the Debian
-package and suggested by the RPM one. If they are missing, `wasm web install` installs them.
+package and suggested by the RPM one. If they are missing, `noust web install` installs them.
 
 ---
 
 ## First deploy
 
 ```bash
-wasm setup init                                                   # web server, certbot, git, Node.js, directories
-wasm create -d shop.example.com -s https://github.com/you/shop.git   # detect, build, run, serve, certificate
-wasm status shop.example.com                                      # how it is configured, whether it runs
-wasm update shop.example.com                                      # after a push: a new release behind the health check
-wasm releases rollback shop.example.com                           # back to the previous release, in seconds
+noust setup init                                                   # web server, certbot, git, Node.js, directories
+noust create -d shop.example.com -s https://github.com/you/shop.git   # detect, build, run, serve, certificate
+noust status shop.example.com                                      # how it is configured, whether it runs
+noust update shop.example.com                                      # after a push: a new release behind the health check
+noust releases rollback shop.example.com                           # back to the previous release, in seconds
 ```
 
-`wasm create` detects the application type, installs and builds it in a new release under
+`noust create` detects the application type, installs and builds it in a new release under
 `/var/www/apps/shop-example-com/`, writes a systemd unit and an nginx site pointing at
 `current`, obtains a Let's Encrypt certificate, and keeps the release only if the
 application answers. When the repository has an `.env.example`, a `.env` is generated from
@@ -161,18 +184,19 @@ written into the application's `.env`, `0600` and loaded by the unit with
 `EnvironmentFile=`; only `PORT` and `NODE_ENV` stay inline in the unit, which local users can
 read). To change the port later, redeploy with `--port` rather than editing the `.env` - the
 unit's own `PORT` would otherwise win over one written there. For a private repository,
-create a deploy key with `wasm setup ssh --generate --show` and use the SSH URL.
+create a deploy key with `noust setup ssh --generate --show` and use the SSH URL, or connect
+the GitHub App.
 
-Run `wasm` with a command and `--help` for its options, or `wasm -i` for an interactive menu.
-`--dry-run` before any command rehearses it without changing anything, and `--json` gives
-machine-readable output where supported.
+Run `noust` with a command and `--help` for its options, or `noust -i` for an interactive
+menu. `--dry-run` before any command rehearses it without changing anything, and `--json`
+gives machine-readable output where supported.
 
 ---
 
 ## The console
 
 ```bash
-wasm web enable           # a systemd service on 127.0.0.1:8080; prints an access token
+noust web enable          # a systemd service on 127.0.0.1:8080; prints an access token
 ```
 
 The console listens on loopback unless you give it TLS, so opening the server's address in a
@@ -183,28 +207,31 @@ prints the exact line:
 ssh -L 8080:127.0.0.1:8080 root@server.example.com    # then open http://localhost:8080
 ```
 
-`wasm web enable` keeps it running: it writes `wasm-web.service`, which starts at boot and
-restarts on failure, and `wasm web disable` removes it. To try it first, `wasm web start`
-runs it in the foreground until Ctrl+C, and `wasm web start -d` in the background until
-`wasm web stop` or the next reboot. All three take the same options and print the access
+`noust web enable` keeps it running: it writes `noust-web.service`, which starts at boot and
+restarts on failure, and `noust web disable` removes it. To try it first, `noust web start`
+runs it in the foreground until Ctrl+C, and `noust web start -d` in the background until
+`noust web stop` or the next reboot. All three take the same options and print the access
 token the same way.
 
 To expose it, serve TLS (`--host 0.0.0.0 --tls-cert ... --tls-key ...`, or `--self-signed`),
 or put it behind a reverse proxy that terminates TLS and declare it with `--trusted-proxy`.
 Binding beyond loopback without TLS is refused unless you pass `--insecure-http`. A running
-console reads the token from disk on every request, so `wasm web token --new` retires the
+console reads the token from disk on every request, so `noust web token --new` retires the
 old one at once, with no restart needed.
 
 Sign in with the access token, plus a code when two-factor authentication is on
-(`wasm 2fa enroll`). Destructive actions ask you to confirm it is you (sudo mode) and stay
+(`noust 2fa enroll`). Destructive actions ask you to confirm it is you (sudo mode) and stay
 confirmed for 10 minutes.
 
 It covers everything the CLI does: applications with their deployments, releases, live logs,
 metrics, environment, domains, diagnosis and settings; databases with a read-only SQL runner;
-backups and schedules; certificates and sites; services; cron; an activity timeline; the
-machine; and settings, notifications and API tokens. Keyboard: `Ctrl K` for the command
-palette, `g a` for applications, `/` to search, `?` for every shortcut. Light, dark and
-system themes. Built to WCAG 2.2 AA and tested with axe on every page.
+backups, schedules and remote destinations; certificates and sites; services; cron; an
+activity timeline; the machine; and settings, notifications, integrations and API tokens.
+The new-application wizard deploys from a repository, a recipe or an exported application.
+It speaks English and Spanish, following the browser, switched in Settings > General; what
+nginx, systemd or certbot print is shown verbatim, as they wrote it. Keyboard: `Ctrl K` for
+the command palette, `g a` for applications, `/` to search, `?` for every shortcut. Light,
+dark and system themes. Built to WCAG 2.2 AA and tested with axe on every page.
 
 ![An application's deployments](docs/assets/console/app-deployments.png)
 
@@ -228,44 +255,124 @@ See [docs/console.md](docs/console.md).
   application sees nothing until activation. Dependencies are copied from the active release
   instead of reinstalled when the lockfiles have not changed.
 - **Health-gated activation.** `current` is swapped atomically and the unit restarted; the
-  release stays only if the application answers on its port (any status below 500) within
-  about 30 seconds.
+  release stays only if the application answers its health check (by default, any status
+  below 500 on its port) within about 30 seconds. The path, accepted statuses and timeout
+  are set per application with `noust app health`.
 - **Automatic rollback.** If it does not answer, the previous release is put back and the
   deploy fails with the probe results and the unit's journal, verbatim.
-- **Instant rollback.** `wasm releases rollback DOMAIN [RELEASE]`, the console, or
+- **Instant rollback.** `noust releases rollback DOMAIN [RELEASE]`, the console, or
   `POST /api/apps/{domain}/releases/{id}/activate`: re-point, restart, same health gate.
-- **Retention.** The newest five releases, plus the active one, are kept.
+  `noust update DOMAIN --commit SHA` rebuilds an exact commit.
+- **Retention.** The newest five releases, plus the active one, are kept by default;
+  `noust releases keep DOMAIN N` changes it.
 
-Applications deployed by 1.x stay in place until you run `wasm app migrate DOMAIN`
-(rehearse it first with `wasm --dry-run app migrate DOMAIN`): the live tree becomes the first
-release, the `.env` and what the application wrote for itself move to `shared/`, and if it
-does not come up everything is put back. Monorepo and Docker Compose projects keep deploying
-in place. See [docs/releases.md](docs/releases.md).
+Applications deployed in place (by WASM 1.x, or with `--layout inplace`) stay in place until
+you run `noust app migrate DOMAIN` (rehearse it first with `noust --dry-run app migrate
+DOMAIN`): the live tree becomes the first release, the `.env` and what the application wrote
+for itself move to `shared/`, and if it does not come up everything is put back. Monorepo and
+Docker Compose projects keep deploying in place. See [docs/releases.md](docs/releases.md).
+
+### Blue/green
+
+```bash
+noust app zero-downtime shop.example.com on
+```
+
+Opt-in per application. The application runs as two instances of one systemd template unit,
+each on its own port and release, behind an nginx upstream. An activation starts the idle
+instance on the new release, passes the health gate on its port, moves the upstream with
+`nginx -t` and a reload, and stops the old instance after a drain (10 seconds by default). A
+failed gate stops the new instance; the old one never stopped. Only for applications on
+releases, with a process, behind nginx; the application must tolerate two copies running
+for a few seconds.
+
+---
+
+## Pull request previews
+
+```bash
+noust preview enable shop.example.com --domain previews.example.com
+noust preview list shop.example.com
+```
+
+Every pull request gets `pr-<n>-<app>.previews.example.com`, deployed on releases with 256 MB
+and half a CPU, rebuilt on each push, and removed when the request closes or after seven
+days without a push, up to a quota per application. Events come from the application's own
+webhook (GitHub, GitLab, Gitea) or from the GitHub App. Pull requests from forks are refused,
+and on GitHub so are those of authors who are not the repository's owners, members or
+collaborators. A preview gets the application's environment variables, production secrets
+included, except those listed with `--exclude-env`; its build runs as root like every deploy.
+
+---
+
+## GitHub
+
+A GitHub App per server, created from the console (Settings > Integrations) with GitHub's
+manifest flow: it lives in your account, its private key stays on the server (`0600`), and
+you choose the repositories when you install it. Private repositories clone with one-hour
+installation tokens passed through git's environment only, never in a URL, `.git/config`, a
+command line or a log; `github:owner/repo` works as a source everywhere. Pushes and pull
+requests arrive at `/hooks/github`, and each deployment shows on GitHub as in progress,
+success or failure. `noust web expose-hooks DOMAIN` publishes only `/hooks/` of the console
+on a domain of its own, so GitHub can reach a console that listens on loopback.
+`noust github status` shows what is connected.
+
+---
+
+## Recipes
+
+```bash
+noust recipe list
+noust recipe show wordpress                         # what it needs, what it creates
+noust create --recipe wordpress -d blog.example.com
+```
+
+WordPress (PHP-FPM and MariaDB), Uptime Kuma, Umami (PostgreSQL) and n8n, each with its
+source pinned or checked against a published checksum, generated secrets, its database,
+persistent paths, a health check and the next steps. Also "From a recipe" in the console's
+new-application wizard. Noust installs nothing on its own: `noust recipe show` lists the
+packages a recipe needs.
+
+---
+
+## Moving applications
+
+```bash
+noust app export shop.example.com -o shop.json        # secrets only with --with-secrets
+noust app import shop.json --domain shop.example.org
+noust import --from vercel ./shop                     # also: railway, render, heroku
+```
+
+An export is everything that defines an application, as versioned JSON; an import deploys it
+through the normal path and applies the rest (domains, health check, retention, secret marks,
+cron jobs, backup schedule, previews, blue/green), listing what it could not. `noust import
+--from` reads another platform's configuration in a repository and proposes Noust's, with a
+warning for each thing that has no equivalent.
 
 ---
 
 ## Domains, aliases and redirects
 
 ```bash
-wasm domain add shop.example.com shop.example.org                    # alias: serves the app too
-wasm domain add shop.example.com old-shop.example.com --kind redirect # 301 to the primary
-wasm domain list shop.example.com
-wasm domain remove shop.example.com shop.example.org
+noust domain add shop.example.com shop.example.org                    # alias: serves the app too
+noust domain add shop.example.com old-shop.example.com --kind redirect # 301 to the primary
+noust domain list shop.example.com
+noust domain remove shop.example.com shop.example.org
 ```
 
 Every name is rendered into the site, tested by the web server before it is reloaded, and,
-when the application serves TLS, added to its certificate. `wasm create --www` records
-`www.<domain>` as a redirect. The console checks where each name resolves before you add it. See
-[docs/domains.md](docs/domains.md).
+when the application serves TLS, added to its certificate. `noust create --www` records
+`www.<domain>` as a redirect. The console checks where each name resolves before you add it.
+See [docs/domains.md](docs/domains.md).
 
 ---
 
 ## Resource limits
 
 ```bash
-wasm app limits shop.example.com --memory 512M --cpu 50% --tasks 256 --restart
-wasm app limits shop.example.com --memory none         # remove one limit
-wasm app limits shop.example.com                       # show them
+noust app limits shop.example.com --memory 512M --cpu 50% --tasks 256 --restart
+noust app limits shop.example.com --memory none         # remove one limit
+noust app limits shop.example.com                       # show them
 ```
 
 The limits become `MemoryMax=`, `CPUQuota=` and `TasksMax=` in the unit (200% is two CPUs).
@@ -277,18 +384,18 @@ ones are put back. Docker Compose projects set their limits in the compose file.
 ## Diagnose
 
 ```bash
-wasm diagnose shop.example.com
+noust diagnose shop.example.com
 ```
 
 Explains why an application is down. It checks the unit's state and exit status, whether the
 recorded port is listening (and which port the process listens on instead), an HTTP probe
 straight to the application and one through nginx, the last journal lines, nginx's error log
 for the domain, the certificate, the last deployment, OOM kills in the last week and disk
-space, and puts the most likely cause first: "Listening on 3001, WASM routes to 3000", "Killed
-by the kernel for running out of memory". Every probe only reads. `--json` for scripts; the
-exit code is 1 when the application is down.
+space, and puts the most likely cause first: "Listening on 3001, Noust routes to 3000",
+"Killed by the kernel for running out of memory". Every probe only reads. `--json` for
+scripts; the exit code is 1 when the application is down.
 
-`wasm health` checks the whole server: free disk, the web server, every application,
+`noust health` checks the whole server: free disk, the web server, every application,
 certificates close to expiry and memory pressure.
 
 ![Diagnose](docs/assets/console/app-diagnose.png)
@@ -298,34 +405,52 @@ certificates close to expiry and memory pressure.
 ## Backups
 
 ```bash
-wasm backup create shop.example.com -m "Before the migration" --include-databases
-wasm backup list shop.example.com
-wasm backup verify BACKUP_ID
-wasm backup restore BACKUP_ID
-wasm backup schedule create shop.example.com --schedule daily --retention-count 7
-wasm rollback shop.example.com            # restore the latest backup, after a safety backup
+noust backup create shop.example.com -m "Before the migration" --include-databases
+noust backup list shop.example.com
+noust backup verify BACKUP_ID
+noust backup restore BACKUP_ID
+noust backup schedule create shop.example.com --schedule daily --retention-count 7
+noust rollback shop.example.com            # restore the latest backup, after a safety backup
 ```
 
-A backup is one `.tar.gz` under `/var/backups/wasm/<app>/`, mode `0600`, with a SHA-256
+A backup is one `.tar.gz` under `/var/backups/noust/<app>/`, mode `0600`, with a SHA-256
 checksum: the application (for one on releases, the active release and `shared/`), its `.env`
 unless `--no-env`, and on request its database dumps (`--include-databases`) and Docker
 volumes, so it restores on a server that knows nothing about this one. Schedules are systemd
-timers named `wasm-backup-<app>`.
+timers named `noust-backup-<app>`, and their retention applies only to the backups they
+made: manual and safety backups are never removed by a schedule.
+
+**Off the server.** Remote destinations go through rclone: SFTP, SMB, WebDAV, S3 and
+compatibles, B2, Google Drive, OneDrive, Dropbox, pCloud and mounted paths, with optional
+encryption per destination.
+
+```bash
+noust backup destination add offsite ...        # --help lists the kinds and their options
+noust backup destination test offsite
+noust backup push BACKUP_ID offsite
+noust backup remote-list offsite
+noust backup restore --from offsite BACKUP_ID
+```
+
+Each scheduled backup is copied to the schedule's destinations, verified and pruned per
+destination; each server keeps its own folder, so servers sharing a bucket never remove each
+other's backups. Keep the key an encrypted destination shows: it is the only way to read its
+backups on a replacement server.
 
 ---
 
 ## Databases
 
 ```bash
-wasm db install postgresql                 # also: mysql (MariaDB), redis, mongodb
-wasm db create shop --engine postgresql
-wasm db user-create shop --engine postgresql --database shop
-wasm db connection-string shop shop --engine postgresql
-wasm db query shop "SELECT count(*) FROM orders" --engine postgresql
-wasm db backup shop --engine postgresql
+noust db install postgresql                 # also: mysql (MariaDB), redis, mongodb
+noust db create shop --engine postgresql
+noust db user-create shop --engine postgresql --database shop
+noust db connection-string shop shop --engine postgresql
+noust db query shop "SELECT count(*) FROM orders" --engine postgresql
+noust db backup shop --engine postgresql
 ```
 
-`wasm db query` is read-only unless `--write`, and the database server enforces it: a
+`noust db query` is read-only unless `--write`, and the database server enforces it: a
 read-only transaction under a dedicated role or account with `SELECT` and nothing else, so
 functions like `pg_read_file` or `LOAD_FILE()` are out of reach. MongoDB and Redis have no
 read-only mode. Passwords never appear in a command line.
@@ -335,14 +460,14 @@ read-only mode. Passwords never appear in a command line.
 ## Cron
 
 ```bash
-wasm cron create nightly-report "/usr/bin/node scripts/report.js" --schedule daily \
+noust cron create nightly-report "/usr/bin/node scripts/report.js" --schedule daily \
   --app shop.example.com --working-directory /var/www/apps/shop-example-com/current
-wasm cron list
-wasm cron run nightly-report
-wasm cron runs nightly-report
+noust cron list
+noust cron run nightly-report
+noust cron runs nightly-report
 ```
 
-Jobs are systemd timers (`wasm-cron-<name>`). A schedule is `hourly`, `daily`, `weekly`,
+Jobs are systemd timers (`noust-cron-<name>`). A schedule is `hourly`, `daily`, `weekly`,
 `monthly` or any `OnCalendar=` expression. The command runs without a shell: write
 `/bin/sh -c "..."` when you need pipes or `&&`. `--app` associates the job with an
 application and makes its directory the default working directory; for an application on
@@ -353,24 +478,27 @@ read back from the journal.
 
 ## Notifications and webhooks
 
-Notifications go to a webhook, Slack, Discord, Telegram or email on `deploy_success`,
-`deploy_failed`, `backup_failed`, `cert_expiring`, `unit_failed` and `disk_threshold`.
-Configure them in the console (Settings > Notifications) or with
-`wasm config set notifications.<key> <value>`, and test a channel with
-`wasm notify test slack`. Private and loopback destinations are refused unless listed in
+Notifications go to a webhook, Slack, Discord, Telegram or email on `deploy_started` (off by
+default), `deploy_success`, `deploy_failed`, `deploy_rolled_back`, `backup_failed`,
+`cert_expiring`, `unit_failed` and `disk_threshold`, from every deployment: the CLI's, the
+console's, webhooks' and previews'. A failure carries the health gate's evidence. Configure
+them in the console (Settings > Notifications) or with
+`noust config set notifications.<key> <value>`, and test a channel with
+`noust notify test slack`. They are written in English or Spanish
+(`notifications.language`). Private and loopback destinations are refused unless listed in
 `notifications.allow_private_hosts`.
 
 Deploy on push: in the console (application > Settings > Webhook) or with
 `POST /api/apps/{domain}/webhook-secret`, create a secret, and point a GitHub, Gitea or
 GitLab webhook at `https://<console>/hooks/deploy/<domain>`, which the forge must be able to
-reach. Signatures are verified; pushes to other branches are ignored.
+reach. Signatures are verified; only pushes to the followed branch update the application.
 
 ---
 
 ## API
 
 ```bash
-wasm token create ci --scope deploy
+noust token create ci --scope deploy
 curl -H "Authorization: Bearer $TOKEN" https://panel.example.com/api/apps
 curl -H "Authorization: Bearer $TOKEN" https://panel.example.com/api/openapi.json
 ```
@@ -384,9 +512,20 @@ output. The contract is served as OpenAPI at `/api/openapi.json`. See
 
 ---
 
+## The fleet
+
+3.0 brings the fleet: one Noust, the central, shows and drives several Noust servers from a
+single console and CLI. The central can be one more VPS, or a container on a machine at home
+such as a NAS, reaching each server over SSH from the inside out, so no port has to be opened
+anywhere.
+
+<!-- FLEET: complete after the fleet wave -->
+
+---
+
 ## Security model
 
-- **Root, on purpose.** WASM administers the machine, so it runs as root and anyone holding
+- **Root, on purpose.** Noust administers the machine, so it runs as root and anyone holding
   its master token or an admin token is root-equivalent. Treat them that way.
 - **Processes are started with an argument list, never a shell**, always with a timeout, and
   secrets travel through the environment or standard input, never the command line. Only one
@@ -400,8 +539,9 @@ output. The contract is served as OpenAPI at `/api/openapi.json`. See
 - **Sudo mode**: deleting, restoring, revealing secrets, editing units and sites, writing SQL
   or configuration, and issuing tokens need a confirmation from the last 10 minutes.
 - **Audit log**: every state-changing request, sign-in and credential change is appended to
-  `/etc/wasm/web-audit.log`.
-- **Secrets at rest** are `0600`: configuration, `.env` files, the store, backups.
+  `/etc/noust/web-audit.log`.
+- **Secrets at rest** are `0600`: configuration, `.env` files, the store, the credentials
+  Noust keeps for itself, backups.
 
 See [docs/security.md](docs/security.md), which also says how to report a vulnerability.
 
@@ -412,44 +552,49 @@ See [docs/security.md](docs/security.md), which also says how to report a vulner
 | Command | Does |
 |---|---|
 | **Applications** | |
-| `wasm create` | Deploy an application and put it online (also `deploy`, `new`) |
-| `wasm list` | List deployed applications (`--json`) |
-| `wasm status` | Show how an application is configured and whether it runs (`--json`) |
-| `wasm start`, `stop`, `restart` | Control an application |
-| `wasm update` | Pull, rebuild and redeploy an application |
-| `wasm delete` | Delete an application and everything deployed with it |
-| `wasm logs` | Show or follow an application's log (`-f`, `--json`) |
-| `wasm env` | Show, configure or export an application's environment |
-| `wasm releases` | List releases and roll back to one instantly |
-| `wasm app` | Migrate an application to releases; set its resource limits |
-| `wasm domain` | Add, list and remove aliases and redirects |
-| `wasm diagnose` | Explain why an application is down |
-| `wasm rollback` | Restore an application's latest backup |
+| `noust create` | Deploy an application and put it online (also `deploy`, `new`; `--recipe`) |
+| `noust list` | List deployed applications (`--json`) |
+| `noust status` | Show how an application is configured and whether it runs (`--json`) |
+| `noust start`, `stop`, `restart` | Control an application |
+| `noust update` | Pull, rebuild and redeploy an application |
+| `noust delete` | Delete an application and everything deployed with it |
+| `noust logs` | Show or follow an application's log (`-f`, `--json`) |
+| `noust env` | Show, configure, mark or export an application's environment |
+| `noust releases` | List releases, set their retention and roll back to one instantly |
+| `noust app` | Migrate to releases; limits, health check, blue/green; export and import |
+| `noust domain` | Add, list and remove aliases and redirects |
+| `noust preview` | Pull request previews |
+| `noust recipe` | List and show the ready-made applications |
+| `noust import` | Read another platform's configuration and propose Noust's |
+| `noust diagnose` | Explain why an application is down |
+| `noust rollback` | Restore an application's latest backup |
 | **Web server and certificates** | |
-| `wasm site` | Create, enable, disable, show and delete nginx or Apache sites |
-| `wasm cert` | Obtain, list, inspect, renew, revoke and delete certificates |
+| `noust site` | Create, enable, disable, show and delete nginx or Apache sites |
+| `noust cert` | Obtain, list, inspect, renew, revoke and delete certificates |
 | **Services and schedules** | |
-| `wasm service` | Create and control the systemd services WASM owns |
-| `wasm cron` | Run commands on a schedule, as systemd timers |
+| `noust service` | Create and control the systemd services Noust owns |
+| `noust cron` | Run commands on a schedule, as systemd timers |
 | **Data** | |
-| `wasm backup` | Create, verify, restore and schedule application backups |
-| `wasm db` | Install engines; manage databases, users, backups and queries |
+| `noust backup` | Create, verify, restore, schedule and send backups off the server |
+| `noust db` | Install engines; manage databases, users, backups and queries |
 | **The machine** | |
-| `wasm setup` | Prepare the server (`init`), check it (`doctor`), SSH keys, completions |
-| `wasm health` | Check the server and report what needs attention |
-| `wasm monitor` | Watch processes, resources, units and certificates, and report |
-| `wasm config` | Read and set WASM's configuration |
-| `wasm store` | Inspect, export and maintain WASM's database |
+| `noust setup` | Prepare the server (`init`), check it (`doctor`), SSH keys, completions |
+| `noust health` | Check the server and report what needs attention |
+| `noust monitor` | Watch processes, resources, units and certificates, and report |
+| `noust config` | Read and set Noust's configuration |
+| `noust store` | Inspect, export and maintain Noust's database |
+| `noust migrate-from-wasm` | Move a server WASM ran onto Noust's names (`--dry-run` shows the plan) |
 | **Console and access** | |
-| `wasm web` | Start, stop and inspect the console, or run it as a service; issue its access token |
-| `wasm token` | Create, list and revoke scoped API tokens |
-| `wasm sessions` | List and revoke console sessions |
-| `wasm 2fa` | Enrol, confirm, disable or recover two-factor authentication |
-| `wasm notify` | Send a test notification through a channel |
+| `noust web` | Start, stop and inspect the console, or run it as a service; issue its access token |
+| `noust github` | The GitHub App: status, installations, repositories |
+| `noust token` | Create, list and revoke scoped API tokens |
+| `noust sessions` | List and revoke console sessions |
+| `noust 2fa` | Enrol, confirm, disable or recover two-factor authentication |
+| `noust notify` | Send a test notification through a channel |
 
 Global options go before the command: `-v` (verbose), `--dry-run`, `--json`, `--no-color`,
-`-i` (interactive menu), `--changelog`, `-V` (version). Tab completion: `wasm setup
-completions`.
+`-i` (interactive menu), `--changelog`, `-V` (version). Tab completion: `noust setup
+completions`. `wasm` runs the same program throughout 3.x.
 
 ---
 
@@ -461,12 +606,13 @@ completions`.
 | `vite` | `vite.config.{js,ts,mjs}`, or `vite` in `package.json` | Install, `build`, served as static files; `preview` when it uses SSR | Yes |
 | `nodejs` | `package.json` with Express, Fastify or Koa, a `main` or a `start` script | Install, `build` if present, then `start:prod`, `start:production` or `start` | Yes |
 | `python` | `requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile` | A virtual environment (Poetry or Pipenv when locked); Gunicorn, with Uvicorn workers for FastAPI and Starlette; Django's `collectstatic` | Yes |
+| `php-fpm` | `composer.json` with a front controller, or a root `index.php` | A PHP-FPM pool per application on its own socket, `composer` when there is a `composer.json`, a fastcgi site (nginx only); `public/` detected | Yes |
 | `static` | `index.html`, and no project manifest | Served by the web server from `public`, `dist`, `build`, `www`, `html` or the root | Yes |
 | `monorepo` | `turbo.json`, pnpm workspaces and at least two apps under `apps/` | pnpm; one unit and one subdomain per workspace | In place |
 | `docker-compose` | A compose file (`docker-compose.prod.yml` first) | `docker compose` v2 under a systemd unit, nginx in front of published ports | In place |
 
-Detection tries the most specific type first: monorepo, Docker Compose, Next.js, Vite,
-Python, Node.js, static. When nothing matches, WASM falls back to Node.js and says so; pass
+Detection tries the most specific type first: monorepo, Docker Compose, Next.js, PHP, Vite,
+Python, Node.js, static. When nothing matches, Noust falls back to Node.js and says so; pass
 `--type` to choose. Node package managers (npm, pnpm, Yarn, Bun) are detected from the
 lockfile; `--pm npm|pnpm|bun` forces one.
 
@@ -474,95 +620,104 @@ lockfile; `--pm npm|pnpm|bun` forces one.
 
 ## Configuration
 
-`/etc/wasm/config.yaml`, mode `0600`. Read and change it with the CLI rather than by hand:
+`/etc/noust/config.yaml`, mode `0600`. Read and change it with the CLI rather than by hand:
 
 ```bash
-wasm config show                              # everything in effect, secrets in clear
-wasm config get deploy.layout                 # one key; secrets print as ***
-wasm config set ssl.email ops@example.com
-wasm config upgrade                           # add the options a newer WASM expects
+noust config show                              # everything in effect, secrets in clear
+noust config get deploy.layout                 # one key; secrets print as ***
+noust config set ssl.email ops@example.com
+noust config upgrade                           # add the options a newer Noust expects
 ```
 
 Common keys: `apps_directory` (`/var/www/apps`), `webserver` (`nginx`), `service_user`
 (`www-data`), `ssl.email`, `deploy.layout` (`releases` for new applications, or `inplace`),
-`backup.directory` (`/var/backups/wasm`), `notifications.*`, `monitor.*`. `WASM_APPS_DIR`,
-`WASM_WEBSERVER`, `WASM_SERVICE_USER` and `WASM_SSL_EMAIL` override the matching keys.
+`backup.directory` (`/var/backups/noust`), `notifications.*`, `monitor.*`. `NOUST_APPS_DIR`,
+`NOUST_WEBSERVER`, `NOUST_SERVICE_USER` and `NOUST_SSL_EMAIL` override the matching keys (the
+`WASM_` spellings are still read). The reference configuration is
+`/usr/share/noust/config.example.yaml`.
 
 ## Files
 
 ```
 /var/www/apps/<app>/          applications (see Releases above)
-/etc/wasm/config.yaml         configuration, 0600 in a 0700 directory
-/etc/wasm/web-*               console state: signing key, token hash, sessions, 2FA, audit log
-/var/lib/wasm/wasm.db         the store: applications, deployments, jobs, releases, domains
-/var/lib/wasm/deploy-logs/    build logs
-/var/backups/wasm/            backup archives
-/etc/systemd/system/          units: <app>.service, wasm-cron-*, wasm-backup-*, wasm-monitor
+/etc/noust/config.yaml        configuration, 0600 in a 0700 directory
+/etc/noust/web-*              console state: signing key, token hash, sessions, 2FA, audit log
+/var/lib/noust/noust.db       the store: applications, deployments, jobs, releases, domains
+/var/lib/noust/               also build logs, and secrets/ for the credentials Noust keeps
+/var/backups/noust/           backup archives
+/var/log/noust/               Noust's own log files
+/etc/systemd/system/          units: <app>.service, noust-web, noust-monitor, noust-cron-*,
+                              noust-backup-*, noust-previews
 ```
 
-When `/var/lib/wasm` is not writable the store lives in `~/.local/share/wasm/`;
-`wasm store path` prints where it is.
+On a server upgraded from WASM, `/etc/wasm`, `/var/lib/wasm`, `/var/backups/wasm` and
+`/etc/nginx/wasm-upstreams` are symbolic links to their new names. When `/var/lib/noust` is
+not writable the store lives in `~/.local/share/noust/`; `noust store path` prints where it
+is.
 
 ## Requirements
 
 - **Operating system**: Ubuntu 22.04+, Debian 12+, Fedora 40+, openSUSE Leap 15.6+
 - **Python**: 3.10 to 3.14
 - **Privileges**: root
-- **Installed by `wasm setup init` when missing**: nginx or Apache, certbot, git, Node.js
-- **Per application type**: `python3-venv` for Python, Docker with the Compose plugin for
-  Compose projects, the engine for databases (`wasm db install`)
+- **Installed by `noust setup init` when missing**: nginx or Apache, certbot, git, Node.js
+- **Per application type**: `python3-venv` for Python, PHP-FPM and its extensions for PHP,
+  Docker with the Compose plugin for Compose projects, the engine for databases
+  (`noust db install`), rclone for remote backup destinations
 
 ---
 
 ## Documentation
 
+- [docs/CHANGELOG-3.0.md](docs/CHANGELOG-3.0.md): what changed in 3.0
+- [docs/UPGRADING-3.0.md](docs/UPGRADING-3.0.md): upgrading a WASM 2.x server to Noust 3.0
 - [docs/console.md](docs/console.md): the console, page by page
 - [docs/releases.md](docs/releases.md): the release layout, health gate, rollback, migration
 - [docs/domains.md](docs/domains.md): aliases, redirects, certificates, DNS checks
 - [docs/api.md](docs/api.md): authentication, errors, events, WebSockets, endpoints
 - [docs/security.md](docs/security.md): threat model, controls, reporting vulnerabilities
 - [docs/MONITOR.md](docs/MONITOR.md): the resource monitor
-- [docs/UPGRADING-2.0.md](docs/UPGRADING-2.0.md): upgrading from 1.6
-- [docs/CHANGELOG-2.3.md](docs/CHANGELOG-2.3.md): what changed in 2.3
-- [docs/CHANGELOG-2.2.md](docs/CHANGELOG-2.2.md): what changed in 2.2
-- [docs/CHANGELOG-2.1.md](docs/CHANGELOG-2.1.md): what changed in 2.1
-- [docs/CHANGELOG-2.0.md](docs/CHANGELOG-2.0.md): what changed in 2.0
-- `man wasm`, and `wasm <command> --help`
+- [docs/UPGRADING-2.0.md](docs/UPGRADING-2.0.md): upgrading WASM from 1.6, and between 2.x
+  releases
+- Earlier releases, as WASM: [2.3](docs/CHANGELOG-2.3.md), [2.2](docs/CHANGELOG-2.2.md),
+  [2.1](docs/CHANGELOG-2.1.md), [2.0](docs/CHANGELOG-2.0.md)
+- `man noust`, and `noust <command> --help`
 
 ---
 
 ## Development
 
 ```bash
-git clone https://github.com/Perkybeet/wasm.git
-cd wasm
+git clone https://github.com/Perkybeet/noust.git
+cd noust
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[all,dev]"
 
 pytest                          # tests
-ruff check src/wasm tests       # lint
-ruff format src/wasm tests      # format
+ruff check src/noust tests      # lint
+ruff format src/noust tests     # format
 mypy                            # types
 ```
 
 The console's source is in `panel/` (React, TypeScript, Vite; Node 22). Its build is
-committed to `src/wasm/web/static/`, so packaging never runs Node. See
+committed to `src/noust/web/static/`, so packaging never runs Node. See
 [CLAUDE.md](CLAUDE.md) for the project's rules and the console workflow.
 
 ---
 
 ## License
 
-From 2.1.0, WASM is free software under the **GNU Affero General Public License, version 3
-or later** ([LICENSE](LICENSE)). You may use it for anything, commercially included, study
-it, change it and share it. If you change WASM and let others use your changed version over a
-network (a hosted service, say), you must offer them its source under the same licence.
+From 2.1.0, Noust (then WASM) is free software under the **GNU Affero General Public License,
+version 3 or later** ([LICENSE](LICENSE)). You may use it for anything, commercially
+included, study it, change it and share it. If you change Noust and let others use your
+changed version over a network (a hosted service, say), you must offer them its source under
+the same licence.
 
-Releases up to 2.0.x were published under the WASM Non-Commercial Source-Available License
-1.0, and stay under it.
+Releases up to 2.0.x were published as WASM under the WASM Non-Commercial Source-Available
+License 1.0, and stay under it.
 
 Copyright (c) 2024-2026 Yago López Prado. For a licence on other terms (for example to
-embed WASM in a closed product), write to yago.lopez.adeje@gmail.com.
+embed Noust in a closed product), write to yago.lopez.adeje@gmail.com.
 
 ## Acknowledgments
 
@@ -573,7 +728,7 @@ embed WASM in a closed product), write to yago.lopez.adeje@gmail.com.
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/Perkybeet/wasm/issues)
+- **Issues**: [GitHub Issues](https://github.com/Perkybeet/noust/issues)
 - **Email**: yago.lopez.adeje@gmail.com
 
 ---

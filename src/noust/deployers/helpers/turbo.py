@@ -11,7 +11,7 @@ pipeline information for monorepo deployments.
 import json
 from pathlib import Path
 
-from wasm.core.logger import Logger
+from noust.core.logger import Logger
 
 
 class TurboHelper:

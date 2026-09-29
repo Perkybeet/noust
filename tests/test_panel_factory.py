@@ -19,12 +19,12 @@ from pathlib import Path
 
 import pytest
 
+from noust.core.store import NoustStore
 from tests.panel_factory import DEFAULT_DOMAINS, seed_console_state, seed_panel_state
-from wasm.core.store import WASMStore
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> Iterator[WASMStore]:
+def store(tmp_path: Path) -> Iterator[NoustStore]:
     """
     Args:
         tmp_path: Per-test temporary directory.
@@ -32,16 +32,16 @@ def store(tmp_path: Path) -> Iterator[WASMStore]:
     Yields:
         A store of its own.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     try:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
-def test_the_defaults_seed_exactly_what_they_say(store: WASMStore) -> None:
+def test_the_defaults_seed_exactly_what_they_say(store: NoustStore) -> None:
     """The factory's own defaults are a claim; this is what checks it."""
     state = seed_panel_state(store)
 
@@ -59,7 +59,7 @@ def test_the_defaults_seed_exactly_what_they_say(store: WASMStore) -> None:
     assert store.list_sites()
 
 
-def test_failed_apps_are_the_last_ones_created(store: WASMStore) -> None:
+def test_failed_apps_are_the_last_ones_created(store: NoustStore) -> None:
     """Failure lands at the tail so the normal running/stopped pattern is untouched."""
     state = seed_panel_state(store, apps=4, services=0, sites=0, certs=0, backups=0, failed=2)
 
@@ -70,7 +70,7 @@ def test_failed_apps_are_the_last_ones_created(store: WASMStore) -> None:
     assert all(status == "failed" for status in failing_apps.values())
 
 
-def test_certs_only_land_on_seeded_sites(store: WASMStore) -> None:
+def test_certs_only_land_on_seeded_sites(store: NoustStore) -> None:
     """A certificate path is a detail of a site; it cannot outrun how many sites exist."""
     state = seed_panel_state(store, apps=4, services=0, sites=2, certs=3, backups=0, failed=0)
 
@@ -82,7 +82,7 @@ def test_certs_only_land_on_seeded_sites(store: WASMStore) -> None:
         assert sites[domain].ssl_key is not None
 
 
-def test_seeding_the_original_eight_reproduces_the_browser_check(store: WASMStore) -> None:
+def test_seeding_the_original_eight_reproduces_the_browser_check(store: NoustStore) -> None:
     """
     Regression guard for the extraction.
 
@@ -123,7 +123,7 @@ def test_seeding_the_original_eight_reproduces_the_browser_check(store: WASMStor
         assert site.ssl_certificate is None
 
 
-def test_asking_for_more_than_the_applications_created_is_rejected(store: WASMStore) -> None:
+def test_asking_for_more_than_the_applications_created_is_rejected(store: NoustStore) -> None:
     """Every count is a subset of the applications; a caller that gets this backwards should fail loudly."""
     with pytest.raises(ValueError, match="failed=2"):
         seed_panel_state(store, apps=1, services=0, sites=0, certs=0, backups=0, failed=2)
@@ -134,7 +134,7 @@ def test_asking_for_more_than_the_applications_created_is_rejected(store: WASMSt
 # ---------------------------------------------------------------------------
 
 
-def test_the_console_seed_covers_every_application_state(store: WASMStore) -> None:
+def test_the_console_seed_covers_every_application_state(store: NoustStore) -> None:
     """
     The E2E suite runs axe over every page; a state that is never seeded is a
     state whose pill, colour and label are never checked.
@@ -156,7 +156,7 @@ def test_the_console_seed_covers_every_application_state(store: WASMStore) -> No
         assert store.get_service_by_app_id(app.id) is None, "a static site has no unit"
 
 
-def test_every_seeded_deployment_has_its_build_log(store: WASMStore) -> None:
+def test_every_seeded_deployment_has_its_build_log(store: NoustStore) -> None:
     """
     The deployment page shows the captured log; a history with none of them
     leaves the log viewer untested against real output.
@@ -178,7 +178,7 @@ def test_every_seeded_deployment_has_its_build_log(store: WASMStore) -> None:
                 )
 
 
-def test_the_console_seed_has_databases_and_a_job_history(store: WASMStore) -> None:
+def test_the_console_seed_has_databases_and_a_job_history(store: NoustStore) -> None:
     """
     Args:
         store: A store of its own.

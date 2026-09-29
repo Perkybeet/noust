@@ -8,7 +8,7 @@ Tests for the application endpoints the deploy engine v2 adds or changes.
   layout, not a stray ``<app>/.env`` the application never sees.
 - Releases are listed and one is activated through the same lifecycle
   function the CLI calls, behind the same health gate as a deploy.
-- A migration is planned and run through :mod:`wasm.deployers.migrate`.
+- A migration is planned and run through :mod:`noust.deployers.migrate`.
 - Resource limits are validated here and applied by the service manager.
 
 Each endpoint is a thin translation of HTTP to a manager call, so these tests
@@ -29,12 +29,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, WASMStore
-from wasm.deployers.helpers import app_env as app_env_module
-from wasm.web.api import apps as apps_api
-from wasm.web.api.auth import get_current_session
-from wasm.web.api.deps import require_elevated
+from noust.core.runner import FakeRunner
+from noust.core.store import App, NoustStore
+from noust.deployers.helpers import app_env as app_env_module
+from noust.web.api import apps as apps_api
+from noust.web.api.auth import get_current_session
+from noust.web.api.deps import require_elevated
 
 DOMAIN = "rel.example.com"
 RELEASE_A = "20260925-120000-aaaaaaa"
@@ -42,7 +42,7 @@ RELEASE_B = "20260925-130000-bbbbbbb"
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> Iterator[WASMStore]:
+def store(tmp_path: Path) -> Iterator[NoustStore]:
     """
     Give the API a store of its own.
 
@@ -52,17 +52,17 @@ def store(tmp_path: Path) -> Iterator[WASMStore]:
     Yields:
         The store the endpoints read.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     try:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 @pytest.fixture
-def client(store: WASMStore, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+def client(store: NoustStore, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     """
     Build a client for the applications router, already signed in and elevated.
 
@@ -88,7 +88,7 @@ def client(store: WASMStore, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
 
 
 def release_app(
-    store: WASMStore, root: Path, *, releases: tuple[str, ...] = (RELEASE_A,), **fields: Any
+    store: NoustStore, root: Path, *, releases: tuple[str, ...] = (RELEASE_A,), **fields: Any
 ) -> App:
     """
     Put an application on the release layout, on disk and in the store.
@@ -124,7 +124,7 @@ def release_app(
 
 
 def test_get_env_reads_shared_on_the_release_layout(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     """<app>/.env is not the release layout's .env; reading it returned nothing."""
     root = tmp_path / "rel"
@@ -138,7 +138,7 @@ def test_get_env_reads_shared_on_the_release_layout(
 
 
 def test_put_env_writes_shared_hands_it_over_and_links_it(
-    client: TestClient, store: WASMStore, tmp_path: Path, runner: FakeRunner
+    client: TestClient, store: NoustStore, tmp_path: Path, runner: FakeRunner
 ) -> None:
     """The write lands where every release reads it, owned by the service account."""
     root = tmp_path / "rel"
@@ -156,7 +156,7 @@ def test_put_env_writes_shared_hands_it_over_and_links_it(
 
 
 def test_put_env_in_place_still_writes_the_app_directory(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     """The in-place layout keeps its .env where it always was."""
     root = tmp_path / "inplace"
@@ -176,7 +176,7 @@ def test_put_env_in_place_still_writes_the_app_directory(
 
 
 def test_releases_are_listed_newest_first(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     """The listing is lifecycle.list_releases, translated."""
     release_app(store, tmp_path / "rel", releases=(RELEASE_A, RELEASE_B))
@@ -193,7 +193,7 @@ def test_releases_are_listed_newest_first(
 
 
 def test_an_in_place_app_has_no_releases_to_list(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     """409 with the way forward, not an empty list that reads like a bug."""
     store.create_app(App(domain=DOMAIN, app_type="nodejs", app_path=str(tmp_path)))
@@ -205,7 +205,7 @@ def test_an_in_place_app_has_no_releases_to_list(
 
 
 def test_activating_a_release_goes_through_the_lifecycle_as_the_panel(
-    client: TestClient, store: WASMStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    client: TestClient, store: NoustStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The endpoint is a translation: the health gate and the history are the lifecycle's."""
     root = tmp_path / "rel"
@@ -214,8 +214,8 @@ def test_activating_a_release_goes_through_the_lifecycle_as_the_panel(
 
     def activate(domain: str, release_id: str | None = None, *, trigger: str) -> Any:
         calls.append((domain, release_id, trigger))
-        from wasm.deployers.lifecycle import ReleaseActivation
-        from wasm.deployers.releases import ReleaseManager
+        from noust.deployers.lifecycle import ReleaseActivation
+        from noust.deployers.releases import ReleaseManager
 
         listed = {r.id: r for r in ReleaseManager(root).list()}
         return ReleaseActivation(
@@ -249,7 +249,7 @@ def test_activating_a_release_goes_through_the_lifecycle_as_the_panel(
 )
 def test_activating_something_that_is_not_a_release_on_disk_is_refused(
     client: TestClient,
-    store: WASMStore,
+    store: NoustStore,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     release_id: str,
@@ -268,7 +268,7 @@ def test_activating_something_that_is_not_a_release_on_disk_is_refused(
 
 def test_a_deploy_scope_is_enough_to_activate_a_release_and_nothing_near_it() -> None:
     """The pattern names exactly the activation, anchored at both ends."""
-    from wasm.web.auth import required_scope
+    from noust.web.auth import required_scope
 
     path = f"/api/apps/{DOMAIN}/releases/{RELEASE_A}/activate"
     assert required_scope("POST", path) == "deploy"
@@ -287,7 +287,7 @@ def test_a_deploy_scope_is_enough_to_activate_a_release_and_nothing_near_it() ->
 
 def _plan(**overrides: Any) -> Any:
     """A migration plan as plan_migration returns one."""
-    from wasm.deployers.migrate import MigrationPlan, TreeCount
+    from noust.deployers.migrate import MigrationPlan, TreeCount
 
     fields: dict[str, Any] = {
         "domain": DOMAIN,
@@ -309,7 +309,7 @@ def _plan(**overrides: Any) -> Any:
 
 
 def test_the_migration_plan_is_plan_migration_translated(
-    client: TestClient, store: WASMStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    client: TestClient, store: NoustStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Repeated persist parameters reach the planner as a list."""
     store.create_app(App(domain=DOMAIN, app_type="nodejs", app_path=str(tmp_path)))
@@ -329,7 +329,7 @@ def test_the_migration_plan_is_plan_migration_translated(
 
 
 def test_migrating_is_queued_as_a_job(
-    client: TestClient, store: WASMStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    client: TestClient, store: NoustStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """
     A migration moves the whole tree and waits for a health check: a job, not a request.
@@ -337,7 +337,7 @@ def test_migrating_is_queued_as_a_job(
     Checked here, before queueing: that the application can be migrated and
     that the named paths are valid, so a bad request fails at once.
     """
-    from wasm.web.jobs import JobType, migrate_app_job
+    from noust.web.jobs import JobType, migrate_app_job
 
     store.create_app(App(domain=DOMAIN, app_type="nodejs", app_path=str(tmp_path)))
     planned: list[Any] = []
@@ -375,9 +375,9 @@ def test_the_migration_job_plans_again_and_migrates_as_the_panel(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """What runs is planned from the disk when the job runs, never earlier."""
-    from wasm.deployers import migrate as migrate_module
-    from wasm.deployers.migrate import MigrationResult, TreeCount
-    from wasm.web.jobs import Job, JobContext, migrate_app_job
+    from noust.deployers import migrate as migrate_module
+    from noust.deployers.migrate import MigrationResult, TreeCount
+    from noust.web.jobs import Job, JobContext, migrate_app_job
 
     plan = _plan()
     calls: list[Any] = []
@@ -418,7 +418,7 @@ def test_the_migration_job_plans_again_and_migrates_as_the_panel(
 
 
 def test_migrating_needs_sudo_mode_and_an_in_place_app(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     """The route declares elevation; an app on releases already is a conflict."""
     from fastapi.routing import APIRoute
@@ -441,11 +441,11 @@ def test_migrating_needs_sudo_mode_and_an_in_place_app(
 
 
 def test_limits_are_set_as_a_whole_through_the_lifecycle(
-    client: TestClient, store: WASMStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    client: TestClient, store: NoustStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A field left out removes that limit; restart is only what was asked."""
-    from wasm.deployers.lifecycle import LimitsChange
-    from wasm.managers.service_manager import ResourceLimits
+    from noust.deployers.lifecycle import LimitsChange
+    from noust.managers.service_manager import ResourceLimits
 
     store.create_app(App(domain=DOMAIN, app_type="nodejs", app_path=str(tmp_path)))
     calls: list[Any] = []
@@ -476,10 +476,10 @@ def test_limits_are_set_as_a_whole_through_the_lifecycle(
 
 
 def test_a_limit_out_of_range_is_a_400_with_the_range(
-    client: TestClient, store: WASMStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    client: TestClient, store: NoustStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The service manager's refusal, through the error contract, nothing written."""
-    from wasm.deployers import lifecycle
+    from noust.deployers import lifecycle
 
     store.create_app(App(domain=DOMAIN, app_type="nodejs", app_path=str(tmp_path)))
     monkeypatch.setattr(lifecycle, "ServiceManager", lambda **kw: pytest.fail("a unit was touched"))
@@ -504,7 +504,7 @@ def test_setting_limits_needs_sudo_mode() -> None:
 
 
 def test_the_application_shows_its_layout_and_limits(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     """What the console needs to show the release tab and the limit fields."""
     release_app(store, tmp_path / "rel", memory_max_mb=256, tasks_max=64)
@@ -530,10 +530,10 @@ def test_the_application_shows_its_layout_and_limits(
 
 
 def test_the_health_settings_are_set_as_a_whole(
-    client: TestClient, store: WASMStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    client: TestClient, store: NoustStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A field left out or null goes back to its default, like the limits."""
-    from wasm.deployers import lifecycle
+    from noust.deployers import lifecycle
 
     monkeypatch.setattr(lifecycle, "get_store", lambda: store)
     store.create_app(App(domain=DOMAIN, app_type="nodejs", port=3100, app_path=str(tmp_path)))
@@ -563,12 +563,12 @@ def test_the_health_settings_are_set_as_a_whole(
 )
 def test_a_bad_health_setting_is_a_400_and_nothing_is_written(
     client: TestClient,
-    store: WASMStore,
+    store: NoustStore,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     body: dict[str, Any],
 ) -> None:
-    from wasm.deployers import lifecycle
+    from noust.deployers import lifecycle
 
     monkeypatch.setattr(lifecycle, "get_store", lambda: store)
     store.create_app(App(domain=DOMAIN, app_type="nodejs", port=3100, app_path=str(tmp_path)))
@@ -584,7 +584,7 @@ def test_a_bad_health_setting_is_a_400_and_nothing_is_written(
 
 
 def test_the_application_shows_its_health_settings(
-    client: TestClient, store: WASMStore, tmp_path: Path
+    client: TestClient, store: NoustStore, tmp_path: Path
 ) -> None:
     release_app(store, tmp_path / "rel")
     store.set_app_health(DOMAIN, path="/healthz", expect="204", timeout=120)
@@ -604,9 +604,9 @@ def test_the_application_shows_its_health_settings(
 
 
 def test_the_retention_is_set_through_the_lifecycle(
-    client: TestClient, store: WASMStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    client: TestClient, store: NoustStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from wasm.deployers.lifecycle import RetentionChange
+    from noust.deployers.lifecycle import RetentionChange
 
     release_app(store, tmp_path / "rel")
     calls: list[Any] = []
@@ -627,12 +627,12 @@ def test_the_retention_is_set_through_the_lifecycle(
 @pytest.mark.parametrize("keep", [0, 51])
 def test_a_retention_out_of_range_is_a_400(
     client: TestClient,
-    store: WASMStore,
+    store: NoustStore,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     keep: int,
 ) -> None:
-    from wasm.deployers import lifecycle
+    from noust.deployers import lifecycle
 
     monkeypatch.setattr(lifecycle, "get_store", lambda: store)
     release_app(store, tmp_path / "rel", releases=(RELEASE_A, RELEASE_B))
@@ -649,7 +649,7 @@ def test_changing_health_or_retention_needs_sudo_mode_and_admin(path: str) -> No
     """Retention deletes releases; the health gate decides what may serve."""
     from fastapi.routing import APIRoute
 
-    from wasm.web.auth import required_scope
+    from noust.web.auth import required_scope
 
     route = next(r for r in apps_api.router.routes if isinstance(r, APIRoute) and r.path == path)
     assert route.methods == {"PATCH"}

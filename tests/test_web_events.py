@@ -28,7 +28,7 @@ What is defended here:
   use, in the wire format an EventSource parses, and a failure to read the
   machine snapshot costs a frame, not the feed.
 - **Every event on the stream is JSON**, ``machine`` included: there is one
-  implementation of the machine snapshot, :mod:`wasm.web.machine`, and both
+  implementation of the machine snapshot, :mod:`noust.web.machine`, and both
   the REST endpoint and this stream hand out exactly what it returns.
 - **The ``job`` event is the job endpoint's shape** and the ``app`` event is
   the app endpoint's, so the console writes both straight into its cache.
@@ -49,11 +49,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.core.exceptions import WASMError
-from wasm.web import events as events_module
-from wasm.web import metrics_collector
-from wasm.web.auth import SecurityConfig
-from wasm.web.events import (
+from noust.core.exceptions import NoustError
+from noust.web import events as events_module
+from noust.web import metrics_collector
+from noust.web.auth import SecurityConfig
+from noust.web.events import (
     HEARTBEAT_SECONDS,
     JOB_STATES,
     _stream,
@@ -63,9 +63,9 @@ from wasm.web.events import (
     machine_frame,
     metrics_frame,
 )
-from wasm.web.jobs import Job, JobLogEntry, JobManager, JobStatus, JobType
-from wasm.web.machine import AppTally, DiskSnapshot, MachineState, MemorySnapshot, UnitTally
-from wasm.web.server import create_app, get_token_manager
+from noust.web.jobs import Job, JobLogEntry, JobManager, JobStatus, JobType
+from noust.web.machine import AppTally, DiskSnapshot, MachineState, MemorySnapshot, UnitTally
+from noust.web.server import create_app, get_token_manager
 
 
 def log_line(message: str, level: str = "info") -> JobLogEntry:
@@ -255,7 +255,7 @@ def test_the_feed_opens_with_a_comment_and_withdraws_when_it_is_closed() -> None
     Without withdrawal every open-and-close leaves a callback holding a queue
     nothing will read again.
     """
-    from wasm.web.jobs import get_job_manager
+    from noust.web.jobs import get_job_manager
 
     manager = get_job_manager()
     before = len(manager._global_subscribers)
@@ -286,7 +286,7 @@ def test_a_job_transition_reaches_an_open_stream() -> None:
     if they are wired to each other incorrectly. It is also the only test that
     would have failed on the shipped panel, where the route did not exist.
     """
-    from wasm.web.jobs import get_job_manager
+    from noust.web.jobs import get_job_manager
 
     async def exercise() -> list[str]:
         """
@@ -434,7 +434,7 @@ def test_the_job_event_is_the_shape_the_job_endpoint_answers() -> None:
     A narrower payload would replace a full job with a fragment, and every
     field the event left out would read as missing on the job's page.
     """
-    from wasm.web.api.jobs import JobResponse
+    from noust.web.api.jobs import JobResponse
 
     job = make_job(logs=[log_line("first"), log_line("second")])
 
@@ -495,7 +495,7 @@ def test_every_job_status_maps_to_the_shared_state_vocabulary(status: str) -> No
 
 def test_the_status_map_covers_what_the_job_manager_reports() -> None:
     """A status with no mapping renders as idle, which reads as "nothing happened"."""
-    from wasm.web.jobs import JobStatus
+    from noust.web.jobs import JobStatus
 
     assert {status.value for status in JobStatus} <= set(JOB_STATES)
 
@@ -673,7 +673,7 @@ def test_job_events_still_flow_between_the_periodic_ones(
     Multiplexing must not cost the stream its original job: the state events
     the rows pulse on arrive alongside the metrics.
     """
-    from wasm.web.jobs import get_job_manager
+    from noust.web.jobs import get_job_manager
 
     monkeypatch.setattr(metrics_collector, "_collector", FakeCollector({"cpu.percent": 1.0}))
 
@@ -707,10 +707,10 @@ def test_a_snapshot_that_cannot_be_read_costs_a_frame_not_the_feed(
     The read samples systemd and psutil; a transient failure there must not
     take down the connection carrying the job events.
     """
-    from wasm.web.jobs import get_job_manager
+    from noust.web.jobs import get_job_manager
 
     def refuse() -> MachineState:
-        raise WASMError("systemd is restarting")
+        raise NoustError("systemd is restarting")
 
     monkeypatch.setattr(events_module, "MACHINE_INTERVAL_SECONDS", 0.01)
     monkeypatch.setattr(events_module, "read_machine", refuse)
@@ -742,7 +742,7 @@ def test_a_snapshot_that_cannot_be_read_costs_a_frame_not_the_feed(
 def test_the_pushed_snapshot_is_the_one_true_implementation(runner: Any) -> None:
     """
     One implementation: the ``machine`` event is exactly
-    :func:`wasm.web.machine.read_machine`'s answer, JSON-encoded, so the
+    :func:`noust.web.machine.read_machine`'s answer, JSON-encoded, so the
     pushed snapshot and ``GET /api/system/machine`` can never disagree.
 
     Args:
@@ -1002,7 +1002,7 @@ def test_a_service_restart_of_a_units_app_publishes_it(
         listening: A listener on the hub, so publishing is not skipped.
         monkeypatch: Runs the publication inline and fakes the snapshot.
     """
-    from wasm.core.store import App, Service
+    from noust.core.store import App, Service
 
     app = store.create_app(
         App(domain="shop.example.com", app_type="nodejs", app_path="/var/www/apps/shop")
@@ -1058,7 +1058,7 @@ def test_a_service_action_outside_start_stop_restart_publishes_nothing(
         listening: A listener on the hub.
         monkeypatch: Records any attempt to publish.
     """
-    from wasm.core.store import App, Service
+    from noust.core.store import App, Service
 
     app = store.create_app(
         App(domain="shop.example.com", app_type="nodejs", app_path="/var/www/apps/shop")
@@ -1140,7 +1140,7 @@ def test_a_state_that_cannot_be_read_costs_the_event_not_the_caller(
     """
 
     def refuse(domain: str) -> dict[str, Any]:
-        raise WASMError("Failed to connect to bus")
+        raise NoustError("Failed to connect to bus")
 
     monkeypatch.setattr(events_module, "app_snapshot", refuse)
 
@@ -1160,15 +1160,15 @@ def store(tmp_path: Path) -> Iterator[Any]:
     Yields:
         The store the endpoints read.
     """
-    from wasm.core.store import WASMStore
+    from noust.core.store import NoustStore
 
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     try:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 def test_the_app_event_is_what_the_app_endpoint_answers(
@@ -1182,9 +1182,9 @@ def test_the_app_event_is_what_the_app_endpoint_answers(
         store: The sandboxed store.
         listening: A listener on the hub.
     """
-    from wasm.core.store import App
-    from wasm.web.api.apps import get_app
-    from wasm.web.pydantic_compat import dump_model
+    from noust.core.store import App
+    from noust.web.api.apps import get_app
+    from noust.web.pydantic_compat import dump_model
 
     store.create_app(
         App(

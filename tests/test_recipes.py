@@ -23,14 +23,14 @@ from click.testing import CliRunner
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.cli.app import cli as root_cli
-from wasm.core.exceptions import DeploymentError, ValidationError
-from wasm.core.logger import Logger
-from wasm.core.runner import FakeRunner
-from wasm.core.store import App, Database, WASMStore
-from wasm.deployers.helpers.databases import DatabaseCredentials
-from wasm.managers.source_manager import SourceManager, split_archive_checksum
-from wasm.recipes import (
+from noust.cli.app import cli as root_cli
+from noust.core.exceptions import DeploymentError, ValidationError
+from noust.core.logger import Logger
+from noust.core.runner import FakeRunner
+from noust.core.store import App, Database, NoustStore
+from noust.deployers.helpers.databases import DatabaseCredentials
+from noust.managers.source_manager import SourceManager, split_archive_checksum
+from noust.recipes import (
     RecipeError,
     RecipeNotFoundError,
     get_recipe,
@@ -38,12 +38,12 @@ from wasm.recipes import (
     parse_recipe,
     read_asset,
 )
-from wasm.recipes import deploy as deploy_module
-from wasm.recipes.deploy import finish_recipe, plan_recipe, recipe_source_dir, refuse_conflicts
-from wasm.recipes.render import render_value, secret
-from wasm.validators.source import validate_source
-from wasm.web.auth import CSRF_HEADER_NAME, SecurityConfig
-from wasm.web.server import create_app, get_token_manager
+from noust.recipes import deploy as deploy_module
+from noust.recipes.deploy import finish_recipe, plan_recipe, recipe_source_dir, refuse_conflicts
+from noust.recipes.render import render_value, secret
+from noust.validators.source import validate_source
+from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
+from noust.web.server import create_app, get_token_manager
 
 DOMAIN = "site.example.com"
 PASSWORD = "Pass" + "word123abc"
@@ -52,16 +52,16 @@ SHIPPED = {"wordpress", "uptime-kuma", "umami", "n8n", "ghost", "plausible"}
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> Iterator[WASMStore]:
+def store(tmp_path: Path) -> Iterator[NoustStore]:
     """A store of this test's own, installed as the process-wide one."""
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
-    WASMStore._instance = instance
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
+    NoustStore._instance = instance
     try:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 @pytest.fixture
@@ -245,7 +245,7 @@ def test_the_loader_refuses_what_it_does_not_understand(
     with pytest.raises(RecipeError, match=re.escape(message)) as failure:
         parse_recipe("demo", valid(**overrides))
 
-    assert "src/wasm/recipes/demo.yaml" in failure.value.details
+    assert "src/noust/recipes/demo.yaml" in failure.value.details
 
 
 def test_an_unknown_recipe_lists_the_known_ones() -> None:
@@ -254,7 +254,7 @@ def test_an_unknown_recipe_lists_the_known_ones() -> None:
         get_recipe("drupal")
 
     assert "wordpress" in failure.value.details
-    assert "wasm recipe list" in failure.value.details
+    assert "noust recipe list" in failure.value.details
 
 
 def test_names_that_are_not_file_names_are_not_looked_up() -> None:
@@ -296,7 +296,7 @@ def test_the_sandbox_refuses_python_internals() -> None:
 
 
 def test_wordpress_plans_a_database_salts_and_php_settings(
-    store: WASMStore, provisioned: list[dict[str, Any]]
+    store: NoustStore, provisioned: list[dict[str, Any]]
 ) -> None:
     """Everything the deployer is configured with."""
     plan = plan_recipe(
@@ -328,7 +328,7 @@ def test_wordpress_plans_a_database_salts_and_php_settings(
 
 
 def test_an_override_wins_over_a_generated_value(
-    store: WASMStore, provisioned: list[dict[str, Any]]
+    store: NoustStore, provisioned: list[dict[str, Any]]
 ) -> None:
     """The operator's value, literally: it is not a template."""
     plan = plan_recipe(
@@ -348,7 +348,7 @@ def test_an_override_wins_over_a_generated_value(
 
 
 def test_n8n_renders_its_package_json_beside_the_store(
-    store: WASMStore, provisioned: list[dict[str, Any]]
+    store: NoustStore, provisioned: list[dict[str, Any]]
 ) -> None:
     """A local source every later update copies from, and its variables from the domain."""
     plan = plan_recipe("n8n", DOMAIN, port=5680, ssl=False, logger=Logger(verbose=False))
@@ -366,7 +366,7 @@ def test_n8n_renders_its_package_json_beside_the_store(
 
 
 def test_a_recipe_does_not_redeploy_an_existing_application(
-    store: WASMStore, provisioned: list[dict[str, Any]]
+    store: NoustStore, provisioned: list[dict[str, Any]]
 ) -> None:
     """Nothing is provisioned for a domain that is already taken."""
     store.create_app(App(domain=DOMAIN, app_type="nodejs"))
@@ -377,7 +377,7 @@ def test_a_recipe_does_not_redeploy_an_existing_application(
     assert provisioned == []
 
 
-def test_an_unavailable_recipe_is_refused_with_its_reason(store: WASMStore) -> None:
+def test_an_unavailable_recipe_is_refused_with_its_reason(store: NoustStore) -> None:
     """Before anything happens."""
     with pytest.raises(RecipeError, match="not available") as failure:
         plan_recipe("ghost", DOMAIN, port=None, ssl=True, logger=Logger(verbose=False))
@@ -385,7 +385,7 @@ def test_an_unavailable_recipe_is_refused_with_its_reason(store: WASMStore) -> N
     assert "MySQL 8" in failure.value.details
 
 
-def test_finishing_links_the_database(store: WASMStore, provisioned: list[dict[str, Any]]) -> None:
+def test_finishing_links_the_database(store: NoustStore, provisioned: list[dict[str, Any]]) -> None:
     """The row learns its database; its health check came with the deployment."""
     plan = plan_recipe("umami", DOMAIN, port=3000, ssl=True, logger=Logger(verbose=False))
     store.create_database(Database(name="site_example_com_db", engine="postgresql"))
@@ -454,7 +454,7 @@ def test_a_ref_that_is_neither_branch_nor_tag_reports_the_branch_failure(tmp_pat
 
 
 # ---------------------------------------------------------------------------
-# wasm recipe and wasm create --recipe
+# noust recipe and noust create --recipe
 # ---------------------------------------------------------------------------
 
 
@@ -475,13 +475,13 @@ def test_recipe_show_describes_one() -> None:
     as_json = CliRunner().invoke(root_cli, ["recipe", "show", "uptime-kuma", "--json"])
 
     assert human.exit_code == 0, human.output
-    assert "wasm create --recipe uptime-kuma" in human.output
+    assert "noust create --recipe uptime-kuma" in human.output
     described = json.loads(as_json.output)
     assert described["source"]["ref"].startswith("1.23.")
     assert described["persistent_paths"] == ["data"]
 
 
-def test_create_with_a_recipe_and_a_source_is_refused(store: WASMStore) -> None:
+def test_create_with_a_recipe_and_a_source_is_refused(store: NoustStore) -> None:
     """Before anything is checked or provisioned."""
     result = CliRunner().invoke(
         root_cli,
@@ -502,7 +502,7 @@ def test_create_without_source_or_recipe_is_a_usage_error() -> None:
 
 
 def test_create_with_a_recipe_deploys_the_plan_and_prints_the_notes(
-    store: WASMStore,
+    store: NoustStore,
     provisioned: list[dict[str, Any]],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -518,9 +518,9 @@ def test_create_with_a_recipe_deploys_the_plan_and_prints_the_notes(
         def deploy(self) -> bool:
             return True
 
-    monkeypatch.setattr("wasm.cli.commands.webapp.get_deployer", lambda *a, **k: FakeDeployer())
+    monkeypatch.setattr("noust.cli.commands.webapp.get_deployer", lambda *a, **k: FakeDeployer())
     monkeypatch.setattr(
-        "wasm.cli.commands.webapp.check_deployment_ready", lambda **_k: (True, [], [])
+        "noust.cli.commands.webapp.check_deployment_ready", lambda **_k: (True, [], [])
     )
 
     result = CliRunner().invoke(
@@ -544,7 +544,7 @@ def test_create_with_a_recipe_deploys_the_plan_and_prints_the_notes(
 
 
 @pytest.fixture
-def app(tmp_path: Path, store: WASMStore, runner: object) -> FastAPI:
+def app(tmp_path: Path, store: NoustStore, runner: object) -> FastAPI:
     """The application, over this test's store."""
     return create_app(SecurityConfig(state_dir=tmp_path / "state", rate_limit_requests=5000))
 
@@ -579,7 +579,7 @@ def queued(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
         return Queued()
 
     manager = type("FakeJobs", (), {"create_job": staticmethod(create_job)})()
-    monkeypatch.setattr("wasm.web.api.apps.get_job_manager", lambda: manager)
+    monkeypatch.setattr("noust.web.api.apps.get_job_manager", lambda: manager)
     return captured
 
 
@@ -633,12 +633,12 @@ def test_post_apps_refuses_recipe_conflicts(
 
 
 def test_the_job_deploys_the_plan_and_returns_the_notes(
-    store: WASMStore,
+    store: NoustStore,
     provisioned: list[dict[str, Any]],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The same plan as the CLI; the notes are in the job's result."""
-    from wasm.web.jobs import Job, JobContext, JobType, deploy_app_job
+    from noust.web.jobs import Job, JobContext, JobType, deploy_app_job
 
     configured: dict[str, Any] = {}
 
@@ -654,7 +654,7 @@ def test_the_job_deploys_the_plan_and_returns_the_notes(
             store.create_app(App(domain=DOMAIN, app_type="php-fpm"))
             return True
 
-    monkeypatch.setattr("wasm.deployers.get_deployer", lambda *a, **k: FakeDeployer())
+    monkeypatch.setattr("noust.deployers.get_deployer", lambda *a, **k: FakeDeployer())
     job = Job(id="job-r", type=JobType.DEPLOY, name="deploy", description="")
 
     result = deploy_app_job(
@@ -678,6 +678,6 @@ def test_the_job_deploys_the_plan_and_returns_the_notes(
 
 def test_every_shipped_recipe_file_is_plain_yaml() -> None:
     """No tags, no anchors that could smuggle in Python objects."""
-    directory = Path(__file__).resolve().parents[1] / "src" / "wasm" / "recipes"
+    directory = Path(__file__).resolve().parents[1] / "src" / "noust" / "recipes"
     for path in directory.glob("*.yaml"):
         assert isinstance(yaml.safe_load(path.read_text()), dict), path.name

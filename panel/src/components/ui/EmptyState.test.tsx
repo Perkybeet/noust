@@ -7,7 +7,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { Button } from "./Button";
 import { EmptyState } from "./EmptyState";
 
-const COMMAND = "wasm create -d example.com -s git@github.com:you/app.git";
+const COMMAND = "noust create -d example.com -s git@github.com:you/app.git";
 
 describe("EmptyState", () => {
   it("says what the place is for and offers the action and the command", () => {
@@ -15,7 +15,7 @@ describe("EmptyState", () => {
       <EmptyState
         icon={<Boxes />}
         title="No applications yet"
-        description="Deploy a repository and WASM builds and runs it."
+        description="Deploy a repository and Noust builds and runs it."
         action={<Button variant="primary">New application</Button>}
         command={COMMAND}
       />,

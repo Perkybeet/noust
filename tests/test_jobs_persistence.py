@@ -40,10 +40,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.core.fs import SECRET_DIR_MODE, SECRET_MODE, set_fs
-from wasm.core.store import JobRecord, WASMStore
-from wasm.web.auth import CSRF_HEADER_NAME, SecurityConfig
-from wasm.web.jobs import (
+from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, set_fs
+from noust.core.store import JobRecord, NoustStore
+from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
+from noust.web.jobs import (
     INTERRUPTED_REASON,
     Job,
     JobContext,
@@ -52,8 +52,8 @@ from wasm.web.jobs import (
     JobType,
     get_job_manager,
 )
-from wasm.web.server import create_app as build_app
-from wasm.web.server import get_token_manager
+from noust.web.server import create_app as build_app
+from noust.web.server import get_token_manager
 
 
 @pytest.fixture(autouse=True)
@@ -84,13 +84,13 @@ def store(tmp_path: Path) -> Any:
     Yields:
         The store the job manager under test persists to.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     try:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 @pytest.fixture(autouse=True)
@@ -379,8 +379,8 @@ def test_a_job_with_no_deployment_id_in_its_result_answers_none(
 
 def test_a_live_deploy_jobs_result_also_exposes_its_deployment_id() -> None:
     """The same lift happens for a job still in the in-memory queue, not just a persisted one."""
-    from wasm.web.api.jobs import _to_response
-    from wasm.web.jobs import Job, JobType
+    from noust.web.api.jobs import _to_response
+    from noust.web.jobs import Job, JobType
 
     job = Job(
         id="live1",
@@ -620,7 +620,7 @@ def test_a_job_queued_through_the_api_records_its_actor(client: TestClient, stor
 
     The client fixture signs in through ``POST /api/auth/login``, which
     issues a cookie session with its own opaque id - see
-    :func:`wasm.web.auth.actor_label` for why a job records a 12 character
+    :func:`noust.web.auth.actor_label` for why a job records a 12 character
     prefix of it rather than the id in full.
     """
     response = client.post("/api/jobs/update", json={"domain": "nope.example.com"})
@@ -705,7 +705,7 @@ def test_queueing_and_starting_a_job_at_once_loses_no_write(
             manager._notify_subscribers(job)
 
         threads = [threading.Thread(target=queue_it), threading.Thread(target=start_it)]
-        with caplog.at_level("WARNING", logger="wasm.web.jobs"):
+        with caplog.at_level("WARNING", logger="noust.web.jobs"):
             for thread in threads:
                 thread.start()
             for thread in threads:
@@ -734,7 +734,7 @@ def _dns_refused_renewal(job_context: JobContext | None = None) -> None:
     Raises:
         CertificateError: Always, with certbot's output attached.
     """
-    from wasm.core.exceptions import CertificateError
+    from noust.core.exceptions import CertificateError
 
     raise CertificateError(
         "Could not renew the certificate for shop.example.com",
@@ -747,12 +747,12 @@ def test_an_expected_failure_is_logged_as_one_line_without_a_traceback(
     store: Any, runner: object, caplog: pytest.LogCaptureFixture
 ) -> None:
     """
-    A WASMError already says what happened and how to fix it; a traceback
+    A NoustError already says what happened and how to fix it; a traceback
     through the job worker only buries that.
     """
     manager = get_job_manager()
 
-    with caplog.at_level("DEBUG", logger="wasm.web.jobs"):
+    with caplog.at_level("DEBUG", logger="noust.web.jobs"):
         job = _run_job_synchronously(manager, JobType.CERT_RENEW, "Renew", "", _dns_refused_renewal)
 
     assert job.status == JobStatus.FAILED
@@ -774,10 +774,10 @@ def test_an_expected_failure_is_logged_as_one_line_without_a_traceback(
 def test_an_unexpected_failure_keeps_its_traceback(
     store: Any, runner: object, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """Anything that is not a WASMError is a defect, and finding it needs the trace."""
+    """Anything that is not a NoustError is a defect, and finding it needs the trace."""
     manager = get_job_manager()
 
-    with caplog.at_level("ERROR", logger="wasm.web.jobs"):
+    with caplog.at_level("ERROR", logger="noust.web.jobs"):
         job = _run_job_synchronously(manager, JobType.CUSTOM, "Boom", "", _failing_job)
 
     assert job.status == JobStatus.FAILED
@@ -789,8 +789,8 @@ def test_an_unexpected_failure_keeps_its_traceback(
 
 def test_a_failed_job_keeps_the_tools_own_output_in_its_error() -> None:
     """certbot's words used to be dropped from a job's error once the diagnosis took the message."""
-    from wasm.core.exceptions import CertificateError
-    from wasm.web.jobs import _error_text
+    from noust.core.exceptions import CertificateError
+    from noust.web.jobs import _error_text
 
     exc = CertificateError(
         "new.example.com has no DNS record pointing at this machine",

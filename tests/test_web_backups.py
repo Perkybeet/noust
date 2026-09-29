@@ -27,10 +27,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from wasm.core.store import App, WASMStore
-from wasm.web.auth import CSRF_HEADER_NAME, SecurityConfig
-from wasm.web.server import create_app as build_app
-from wasm.web.server import get_token_manager
+from noust.core.store import App, NoustStore
+from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
+from noust.web.server import create_app as build_app
+from noust.web.server import get_token_manager
 
 
 @pytest.fixture
@@ -42,8 +42,8 @@ def store(tmp_path: Path) -> Any:
     Yields:
         A store of this test's own.
     """
-    WASMStore.reset_instance()
-    instance = WASMStore(tmp_path / "wasm.db")
+    NoustStore.reset_instance()
+    instance = NoustStore(tmp_path / "wasm.db")
     instance.create_app(
         App(
             domain="example.com",
@@ -58,7 +58,7 @@ def store(tmp_path: Path) -> Any:
         yield instance
     finally:
         instance.close()
-        WASMStore.reset_instance()
+        NoustStore.reset_instance()
 
 
 @pytest.fixture
@@ -150,7 +150,7 @@ def queued(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
         )()
 
     monkeypatch.setattr(
-        "wasm.web.api.backups.get_job_manager",
+        "noust.web.api.backups.get_job_manager",
         lambda: type("M", (), {"create_job": staticmethod(create_job)})(),
     )
     return captured
@@ -160,7 +160,7 @@ def verification(monkeypatch: pytest.MonkeyPatch, **result: Any) -> None:
     """
     Make the backup checker report a fixed verdict for any identifier asked.
 
-    Replaces :class:`~wasm.web.api.backups.BackupManager` itself rather than
+    Replaces :class:`~noust.web.api.backups.BackupManager` itself rather than
     the endpoint function: the endpoint is reached through a real request
     here, and FastAPI already holds its own reference to the original
     function by the time a test runs, so patching the module attribute the
@@ -191,7 +191,7 @@ def verification(monkeypatch: pytest.MonkeyPatch, **result: Any) -> None:
         def verify(self, backup_id: str) -> dict[str, Any]:
             return verdict
 
-    monkeypatch.setattr("wasm.web.api.backups.BackupManager", FakeManager)
+    monkeypatch.setattr("noust.web.api.backups.BackupManager", FakeManager)
 
 
 # ---------------------------------------------------------------------------
@@ -306,7 +306,7 @@ def backup_manager_stub(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, ...]
         def delete(self, backup_id: str) -> None:
             calls.append(("delete", backup_id))
 
-    monkeypatch.setattr("wasm.web.api.backups.BackupManager", FakeManager)
+    monkeypatch.setattr("noust.web.api.backups.BackupManager", FakeManager)
     return calls
 
 
@@ -420,12 +420,12 @@ def test_storage_lists_only_backup_directories_and_points_at_misplaced_ones(
     The console listed /root's .ssh, .docker and .claude as applications.
 
     ``backup.directory: ''`` sent every backup to the working directory, so the
-    storage page walked /root. It now counts only directories holding WASM
+    storage page walked /root. It now counts only directories holding Noust
     backups, and names where misplaced ones are so they can be imported.
     """
+    from noust.core.config import Config
+    from noust.managers.backup_manager import BackupManager
     from tests.test_backup_placement import plant_backup, plant_home_clutter
-    from wasm.core.config import Config
-    from wasm.managers.backup_manager import BackupManager
 
     configured = tmp_path / "backups"
     plant_backup(configured, "example.com")
@@ -435,7 +435,7 @@ def test_storage_lists_only_backup_directories_and_points_at_misplaced_ones(
     config_file = tmp_path / "etc" / "config.yaml"
     config_file.parent.mkdir()
     config_file.write_text(f"backup:\n  directory: {configured}\n")
-    monkeypatch.setattr("wasm.core.config.DEFAULT_CONFIG_PATH", config_file)
+    monkeypatch.setattr("noust.core.config.DEFAULT_CONFIG_PATH", config_file)
     monkeypatch.setattr(BackupManager, "MISPLACED_BACKUP_ROOTS", (home,))
     Config.reset_instance()
     try:
@@ -448,7 +448,7 @@ def test_storage_lists_only_backup_directories_and_points_at_misplaced_ones(
     assert body["path"] == str(configured)
     assert body["domains"] == ["example-com", "orphan-example-com"]
     assert body["misplaced"] == [
-        {"directory": str(home), "count": 1, "command": f"wasm backup import {home}"}
+        {"directory": str(home), "count": 1, "command": f"noust backup import {home}"}
     ]
 
 
@@ -467,13 +467,13 @@ def _storage_with_directory(
     Returns:
         The decoded answer.
     """
-    from wasm.core.config import Config
-    from wasm.managers.backup_manager import BackupManager
+    from noust.core.config import Config
+    from noust.managers.backup_manager import BackupManager
 
     config_file = tmp_path / "etc" / "config.yaml"
     config_file.parent.mkdir(exist_ok=True)
     config_file.write_text(f"backup:\n  directory: {directory}\n")
-    monkeypatch.setattr("wasm.core.config.DEFAULT_CONFIG_PATH", config_file)
+    monkeypatch.setattr("noust.core.config.DEFAULT_CONFIG_PATH", config_file)
     monkeypatch.setattr(BackupManager, "MISPLACED_BACKUP_ROOTS", ())
     Config.reset_instance()
     try:
@@ -492,7 +492,7 @@ def test_storage_reports_the_filesystem_the_backup_directory_is_on(
     The bar read "X of <disk total>" against the root disk, whichever disk the
     backups were on. The size and free space are now the backup directory's own.
     """
-    import wasm.web.api.backups as backups_api
+    import noust.web.api.backups as backups_api
 
     configured = tmp_path / "backups"
     configured.mkdir()
@@ -514,7 +514,7 @@ def test_storage_measures_a_missing_backup_directory_at_its_nearest_parent(
     client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Before the first backup the directory does not exist; its parent is where it will land."""
-    import wasm.web.api.backups as backups_api
+    import noust.web.api.backups as backups_api
 
     missing = tmp_path / "not-yet" / "backups"
     measured: list[Path] = []
@@ -534,7 +534,7 @@ def test_storage_answers_null_when_the_filesystem_cannot_be_read(
     client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """An unreadable filesystem is reported as unknown, not as an empty disk."""
-    import wasm.web.api.backups as backups_api
+    import noust.web.api.backups as backups_api
 
     configured = tmp_path / "backups"
     configured.mkdir()

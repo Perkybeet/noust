@@ -6,7 +6,7 @@ GitHub App webhook deliveries: ``POST /hooks/github`` (2.2).
 
 One endpoint for every application, authenticated by the App's own webhook
 secret (HMAC-SHA256 of the raw body, compared in constant time), with the
-same defences the per-application hook has (:mod:`wasm.web.api.hooks`): a
+same defences the per-application hook has (:mod:`noust.web.api.hooks`): a
 delivery - by its id and by its signed body - is honoured once, wrong
 signatures are refused for a while without locking out the forge's address
 or ever refusing a right one, and every outcome is audited without the
@@ -33,22 +33,22 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
-from wasm.core.exceptions import WASMError
-from wasm.core.forge_events import PushEvent, parse_pull_request
-from wasm.core.secrets import SecretStore
-from wasm.core.store import DeploymentTrigger, get_store
-from wasm.integrations.github import webhooks
-from wasm.integrations.github.app import WEBHOOK_SECRET, read_meta, write_meta
-from wasm.integrations.github.service import github_hooks_url
-from wasm.web.api.deps import WASMErrorRoute
-from wasm.web.api.hooks import DeliveryCache, webhook_update_job
-from wasm.web.auth import get_audit_logger, get_client_ip
-from wasm.web.jobs import JobType, get_job_manager
-from wasm.web.server import get_webhook_failures
+from noust.core.exceptions import NoustError
+from noust.core.forge_events import PushEvent, parse_pull_request
+from noust.core.secrets import SecretStore
+from noust.core.store import DeploymentTrigger, get_store
+from noust.integrations.github import webhooks
+from noust.integrations.github.app import WEBHOOK_SECRET, read_meta, write_meta
+from noust.integrations.github.service import github_hooks_url
+from noust.web.api.deps import NoustErrorRoute
+from noust.web.api.hooks import DeliveryCache, webhook_update_job
+from noust.web.auth import get_audit_logger, get_client_ip
+from noust.web.jobs import JobType, get_job_manager
+from noust.web.server import get_webhook_failures
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(route_class=WASMErrorRoute)
+router = APIRouter(route_class=NoustErrorRoute)
 
 #: The key wrong signatures are counted under: the App is one "application"
 #: as far as the lockout is concerned.
@@ -243,7 +243,7 @@ async def deliver(request: Request) -> JSONResponse:
             return JSONResponse(status_code=200, content={"status": "ignored", "reason": "action"})
         # Imported here: the previews manager imports the deployers, which
         # this router has no other reason to load at start-up.
-        from wasm.managers.previews import handle_pull_request
+        from noust.managers.previews import handle_pull_request
 
         job_ids = await run_in_threadpool(handle_pull_request, pull)
         _record(
@@ -260,7 +260,7 @@ async def deliver(request: Request) -> JSONResponse:
     if event in ("installation", "installation_repositories"):
         try:
             done = await run_in_threadpool(webhooks.apply_installation_event, event, payload)
-        except WASMError as exc:
+        except NoustError as exc:
             _record(request, "ignored", f"{event}: {exc.message}")
             return JSONResponse(status_code=200, content={"status": "ignored", "reason": "payload"})
         _record(request, "accepted", f"{event} {payload.get('action')}: {done}")

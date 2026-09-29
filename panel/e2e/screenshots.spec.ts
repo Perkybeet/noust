@@ -2,7 +2,7 @@
  * Screenshots of every page for a person (or a model) to review: both themes (the light and
  * dark projects), a 1440px desktop, a 1920px wide screen and a 390px phone. Tagged @screens
  * and left out of the default run; `npm run e2e:screens` writes them to e2e/__screens__/<theme>/, or to
- * $WASM_SCREENS_DIR/<theme>/ when set (a review pass keeps its captures out of the tree).
+ * $NOUST_SCREENS_DIR/<theme>/ when set (a review pass keeps its captures out of the tree).
  *
  * The pages still pass the CSP and console gates of every test, so a screenshot is never of
  * a page that is quietly broken.
@@ -14,7 +14,7 @@ import path from "node:path";
 import { expect, settle, signIn, test } from "./fixtures";
 import { ROUTES, routePath } from "./routes";
 
-const OUT = process.env.WASM_SCREENS_DIR ?? path.join(import.meta.dirname, "__screens__");
+const OUT = process.env.NOUST_SCREENS_DIR ?? path.join(import.meta.dirname, "__screens__");
 
 const DESKTOP = { width: 1440, height: 900 };
 /** A 1080p monitor: where a cap too narrow wastes the screen and one too wide stretches forms. */

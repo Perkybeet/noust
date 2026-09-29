@@ -20,7 +20,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from wasm.core.exceptions import (
+from noust.core.exceptions import (
     DatabaseBackupError,
     DatabaseEngineError,
     DatabaseError,
@@ -29,7 +29,7 @@ from wasm.core.exceptions import (
     DatabaseQueryError,
     DatabaseUserError,
 )
-from wasm.managers.database.base import (
+from noust.managers.database.base import (
     PACKAGE_TIMEOUT,
     QUERY_TIMEOUT,
     TRANSFER_TIMEOUT,
@@ -39,7 +39,7 @@ from wasm.managers.database.base import (
     UserInfo,
     format_size,
 )
-from wasm.managers.database.registry import DatabaseRegistry
+from noust.managers.database.registry import DatabaseRegistry
 
 #: Roles MongoDB ships. A deployment may define its own, which are accepted as
 #: long as the name is a plain identifier.
@@ -65,7 +65,7 @@ BUILT_IN_ROLES = frozenset(
     }
 )
 
-#: Custom role names WASM is willing to pass on. ``str.isalnum`` would also
+#: Custom role names Noust is willing to pass on. ``str.isalnum`` would also
 #: accept letters from any script, and a role name that is only distinguishable
 #: from another by its Unicode block is not a role name anyone typed on purpose.
 CUSTOM_ROLE_PATTERN = re.compile(r"\A[A-Za-z0-9_]+\Z")
@@ -324,7 +324,7 @@ class MongoDBManager(BaseDatabaseManager):
                 return
             raise DatabaseNotFoundError(
                 f"Database '{name}' does not exist",
-                details="Run 'wasm db list --engine mongodb' to see the databases.",
+                details="Run 'noust db list --engine mongodb' to see the databases.",
             )
 
         success, output = self._execute_mongo(f"db.getSiblingDB({self._js(name)}).dropDatabase()")
@@ -491,7 +491,7 @@ class MongoDBManager(BaseDatabaseManager):
         if not self.user_exists(username):
             raise DatabaseUserError(
                 f"User '{username}' does not exist",
-                details="Run 'wasm db users --engine mongodb' to see the users.",
+                details="Run 'noust db users --engine mongodb' to see the users.",
             )
 
         success, output = self._execute_mongo(f"db.dropUser({self._js(username)})")
@@ -702,7 +702,7 @@ class MongoDBManager(BaseDatabaseManager):
         if not backup_path.exists():
             raise DatabaseBackupError(
                 f"Backup file not found: {backup_path}",
-                details="Run 'wasm db backups' to list the backups WASM knows about.",
+                details="Run 'noust db backups' to list the backups Noust knows about.",
             )
 
         if drop_existing and self.database_exists(database):
