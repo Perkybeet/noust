@@ -358,6 +358,19 @@ class NodeError(NoustError):
     pass
 
 
+class FleetUnavailableError(NodeError):
+    """
+    Raised when this installation lacks what the fleet needs: the httpx library.
+
+    httpx is part of the web stack, not of the core: a server that never talks
+    to a node must still start its console without it, so it is imported when
+    a node is first contacted and its absence is said in a sentence, with the
+    package that fixes it.
+    """
+
+    pass
+
+
 class NodeUnreachableError(NodeError):
     """
     Raised when a node cannot be reached: the SSH tunnel did not open, or died.

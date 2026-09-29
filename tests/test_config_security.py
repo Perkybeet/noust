@@ -1314,3 +1314,49 @@ def _opens_for_writing(node: ast.Call) -> bool:
     if not isinstance(mode, ast.Constant) or not isinstance(mode.value, str):
         return True
     return any(flag in mode.value for flag in "wax+")
+
+
+class TestUpgradeKeepsTheOperatorsFile:
+    """`noust config upgrade` runs from every package upgrade: it must not rewrite the file."""
+
+    def test_comments_order_and_values_survive_and_new_sections_are_appended(
+        self, config_path: Path
+    ) -> None:
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        original = "# my notes about this server\nwebserver: apache  # we moved off nginx\n"
+        config_path.write_text(original, encoding="utf-8")
+
+        result = Config().upgrade()
+
+        text = config_path.read_text(encoding="utf-8")
+        assert text.startswith(original)
+        assert result["upgraded"] is True
+        assert "webserver" not in result["added_keys"]
+        appended = yaml.safe_load(text)
+        assert appended["webserver"] == "apache"
+        assert set(result["added_keys"]) <= set(appended)
+
+    def test_a_key_missing_inside_an_existing_section_is_left_to_the_defaults(
+        self, config_path: Path
+    ) -> None:
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        full = dict(DEFAULT_CONFIG)
+        full["monitor"] = {"enabled": False}
+        config_path.write_text(yaml.safe_dump(full), encoding="utf-8")
+        before = config_path.read_text(encoding="utf-8")
+
+        result = Config().upgrade()
+
+        assert result == {"added_keys": [], "upgraded": False}
+        assert config_path.read_text(encoding="utf-8") == before
+        assert Config().get("monitor.smtp.port") == DEFAULT_CONFIG["monitor"]["smtp"]["port"]
+
+    def test_a_file_that_does_not_parse_is_left_alone(self, config_path: Path) -> None:
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        broken = "webserver: [nginx\n"
+        config_path.write_text(broken, encoding="utf-8")
+
+        result = Config().upgrade()
+
+        assert result["upgraded"] is False and result["error"]
+        assert config_path.read_text(encoding="utf-8") == broken

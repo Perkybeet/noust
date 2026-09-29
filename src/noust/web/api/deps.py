@@ -55,6 +55,7 @@ from noust.core.exceptions import (
     DatabaseNotFoundError,
     DomainConflictError,
     DomainError,
+    FleetUnavailableError,
     IntegrationError,
     NodeError,
     NodeRefusedError,
@@ -132,6 +133,7 @@ _STATUS_BY_ERROR: tuple[tuple[type[NoustError], int], ...] = (
     (IntegrationError, 502),
     # A node's tunnel did not open, or the node refused the central's token:
     # the fault is between this server and the node, never in the request.
+    (FleetUnavailableError, 503),
     (NodeUnreachableError, 502),
     (NodeRefusedError, 502),
     # Every other fleet error is a registration the policy refused - a bad

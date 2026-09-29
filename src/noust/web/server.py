@@ -46,7 +46,7 @@ from starlette.requests import HTTPConnection
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from noust import __version__
-from noust.core.exceptions import SecurityError
+from noust.core.exceptions import FleetUnavailableError, SecurityError
 from noust.core.messages import Locale, message, normalize_locale
 from noust.core.net import host_addresses, is_loopback_host, local_address, loopback_access_lines
 from noust.core.notifier import NotificationEvent, fresh_config, notify_in_background
@@ -826,10 +826,14 @@ def close_fleet_tunnels() -> None:
     from noust.core.sealing import remove_plaintext_copies
     from noust.core.secrets import secrets_dir
     from noust.fleet.tunnels import get_tunnels
-    from noust.web.api.node_proxy import node_schemas
 
     get_tunnels().close_all()
-    node_schemas.forget()
+    try:
+        from noust.web.api.node_proxy import node_schemas
+    except FleetUnavailableError:
+        pass  # no httpx, so no proxy ever ran and there is nothing to forget
+    else:
+        node_schemas.forget()
     remove_plaintext_copies(secrets_dir())
 
 
@@ -958,11 +962,16 @@ def create_app(config: SecurityConfig | None = None) -> FastAPI:
     app.include_router(github_hooks_router, prefix="/hooks", tags=["Webhooks"])
     app.include_router(webhook_admin_router, prefix="/api/apps", tags=["Webhooks"])
 
-    from noust.web.api.node_proxy import ws_router as node_ws_router
     from noust.web.websockets import router as ws_router
 
-    # A node's /ws/{path}, through its tunnel, for a central's console.
-    app.include_router(node_ws_router, prefix="/ws/nodes")
+    # A node's /ws/{path}, through its tunnel, for a central's console. Without
+    # httpx there is no proxy; the HTTP stand-in in api/router.py says why.
+    try:
+        from noust.web.api.node_proxy import ws_router as node_ws_router
+    except FleetUnavailableError:
+        logger.info("The fleet proxy is off: httpx is not installed")
+    else:
+        app.include_router(node_ws_router, prefix="/ws/nodes")
     app.include_router(ws_router, prefix="/ws")
 
     # The live feed the console listens to, at the root rather than under

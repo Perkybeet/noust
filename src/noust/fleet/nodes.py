@@ -28,9 +28,7 @@ import getpass
 import shlex
 import time
 from collections.abc import Callable
-from typing import Any
-
-import httpx
+from typing import TYPE_CHECKING, Any
 
 from noust.core.exceptions import NodeError, NodeRefusedError
 from noust.core.runner import CommandRunner
@@ -38,6 +36,9 @@ from noust.core.secrets import SecretStore
 from noust.core.store import NodeRecord, NoustStore, get_store
 from noust.fleet.client import NodeClient, actor_label
 from noust.fleet.joincode import JoinCode
+
+if TYPE_CHECKING:
+    import httpx
 from noust.fleet.keys import KNOWN_HOSTS, TOKEN, NodeKeys, known_hosts_line, secret_name
 from noust.fleet.models import central_name, parse_ssh_target, validate_node_name
 from noust.fleet.policy import node_registration_blockers

@@ -41,10 +41,9 @@ import re
 import time
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
-from typing import Annotated, Any, Protocol, cast
+from typing import TYPE_CHECKING, Annotated, Any, Protocol, cast
 from urllib.parse import parse_qsl, quote, urlencode
 
-import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket
 from fastapi.responses import Response, StreamingResponse
 from starlette.background import BackgroundTask
@@ -54,6 +53,7 @@ from starlette.websockets import WebSocketDisconnect
 from noust.core.exceptions import NodeError, NodeRefusedError
 from noust.core.sealing import SealError
 from noust.core.store import NodeRecord
+from noust.fleet.client import load_httpx
 from noust.web.api import nodes as nodes_api
 from noust.web.api.deps import ELEVATION_EXEMPT_TYPES, NoustErrorRoute, ensure_elevated
 from noust.web.api.openapi import ELEVATION_EXTENSION
@@ -72,6 +72,13 @@ from noust.web.auth import (
     require_auth,
 )
 from noust.web.events import CREDENTIAL_RECHECK_SECONDS, HEARTBEAT_SECONDS, shutting_down
+
+if TYPE_CHECKING:
+    import httpx
+else:
+    # FleetUnavailableError when httpx is missing: api/router.py then mounts
+    # a stand-in that says so, and the rest of the console still starts.
+    httpx = load_httpx()
 
 logger = logging.getLogger(__name__)
 

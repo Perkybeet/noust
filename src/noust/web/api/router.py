@@ -13,6 +13,7 @@ route, such as in a dependency.
 
 from fastapi import APIRouter
 
+from noust.core.exceptions import FleetUnavailableError
 from noust.web.api.app_export import router as app_export_router
 from noust.web.api.apps import router as apps_router
 from noust.web.api.audit import router as audit_router
@@ -27,7 +28,7 @@ from noust.web.api.cron import router as cron_router
 from noust.web.api.databases import router as databases_router
 from noust.web.api.deployments import app_router as deployment_actions_router
 from noust.web.api.deployments import router as deployments_router
-from noust.web.api.deps import install_error_handlers
+from noust.web.api.deps import NoustErrorRoute, install_error_handlers
 from noust.web.api.diagnose import router as diagnose_router
 from noust.web.api.domains import dns_router
 from noust.web.api.domains import router as domains_router
@@ -35,7 +36,6 @@ from noust.web.api.integrations import router as integrations_router
 from noust.web.api.jobs import router as jobs_router
 from noust.web.api.metrics import router as metrics_router
 from noust.web.api.monitor import router as monitor_router
-from noust.web.api.node_proxy import router as node_proxy_router
 from noust.web.api.nodes import router as nodes_router
 from noust.web.api.openapi import router as openapi_router
 from noust.web.api.previews import router as previews_router
@@ -46,6 +46,36 @@ from noust.web.api.system import router as system_router
 from noust.web.api.zero_downtime import router as zero_downtime_router
 
 __all__ = ["install_error_handlers", "router"]
+
+
+def node_proxy_router() -> APIRouter:
+    """
+    The proxy to every node, or a stand-in that says why there is none.
+
+    The proxy needs httpx, which only a central uses: a server without it
+    still serves its own console, and a call to a node answers 503 with the
+    package to install instead of the whole API failing to import.
+
+    Returns:
+        The router to mount under ``/nodes``.
+    """
+    try:
+        from noust.web.api.node_proxy import router as proxy
+    except FleetUnavailableError as exc:
+        missing = exc
+        stand_in = APIRouter(route_class=NoustErrorRoute)
+
+        @stand_in.api_route(
+            "/{node}/api/{path:path}",
+            methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"],
+            include_in_schema=False,
+        )
+        async def fleet_unavailable(node: str, path: str) -> None:
+            raise missing
+
+        return stand_in
+    return proxy
+
 
 router = APIRouter()
 
@@ -98,7 +128,7 @@ router.include_router(recipes_router, prefix="/recipes", tags=["Recipes"])
 # every other route here reachable on a node as /nodes/{node}/api/...
 router.include_router(central_router, prefix="/central", tags=["Central"])
 router.include_router(nodes_router, prefix="/nodes", tags=["Nodes"])
-router.include_router(node_proxy_router, prefix="/nodes", tags=["Nodes"])
+router.include_router(node_proxy_router(), prefix="/nodes", tags=["Nodes"])
 # No prefix: the route is declared as "/openapi.json" and this router mounts
 # directly under "/api", giving GET /api/openapi.json.
 router.include_router(openapi_router, tags=["OpenAPI"])

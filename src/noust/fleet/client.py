@@ -24,15 +24,49 @@ only fill the node's audit log.
 from __future__ import annotations
 
 import re
-from typing import Any
+from types import ModuleType
+from typing import TYPE_CHECKING, Any
 
-import httpx
-
-from noust.core.exceptions import NodeError, NodeRefusedError, NodeUnreachableError
+from noust.core.exceptions import (
+    FleetUnavailableError,
+    NodeError,
+    NodeRefusedError,
+    NodeUnreachableError,
+)
 from noust.core.secrets import SecretStore
 from noust.core.store import NoustStore, get_store
 from noust.fleet.keys import TOKEN, secret_name
 from noust.fleet.tunnels import TunnelManager, get_tunnels
+
+if TYPE_CHECKING:
+    import httpx
+
+
+def load_httpx() -> ModuleType:
+    """
+    Import httpx, the one library the fleet needs beyond the core.
+
+    Imported here rather than at the top of every fleet module so a server that
+    never talks to a node starts its console, and runs its CLI, without it.
+
+    Returns:
+        The httpx module.
+
+    Raises:
+        FleetUnavailableError: httpx is not installed.
+    """
+    try:
+        import httpx
+    except ModuleNotFoundError as exc:
+        raise FleetUnavailableError(
+            "The fleet needs the httpx library, which is not installed here",
+            details=(
+                "Install python3-httpx (python3xx-httpx on openSUSE) or "
+                "pip install 'noust[web]', then restart noust-web."
+            ),
+        ) from exc
+    return httpx
+
 
 #: Who on the central is behind a request. The node honours it only on a
 #: fleet token and records it in its audit log. Must match
@@ -83,9 +117,10 @@ def _quoted(response: httpx.Response) -> str:
     Returns:
         Its body as text, cut at :data:`MAX_QUOTED_BODY` characters.
     """
+    http = load_httpx()
     try:
         text = response.text
-    except (UnicodeDecodeError, httpx.ResponseNotRead):
+    except (UnicodeDecodeError, http.ResponseNotRead):
         return ""
     return text[:MAX_QUOTED_BODY]
 
@@ -283,17 +318,20 @@ class NodeClient:
             raise NodeError(f"Not a path on the node: {path!r}")
         headers = self.auth_headers(actor, actor_scope=actor_scope, elevated=elevated)
         url = self.base_url() + path
+        http = load_httpx()
         try:
             # trust_env=False: an HTTP(S)_PROXY in the central's environment
             # must never see a request, or a token, meant for a tunnel.
-            with httpx.Client(
+            with http.Client(
                 transport=self._transport,
                 timeout=self.timeout,
                 trust_env=False,
                 follow_redirects=False,
             ) as client:
-                response = client.request(method, url, json=json, params=params, headers=headers)
-        except httpx.TransportError as exc:
+                response: httpx.Response = client.request(
+                    method, url, json=json, params=params, headers=headers
+                )
+        except http.TransportError as exc:
             tunnel = self.tunnels.status(self.node).get("last_error") or ""
             raise NodeUnreachableError(
                 f"{self.node} did not answer through its tunnel ({type(exc).__name__})",

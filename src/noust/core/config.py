@@ -1875,85 +1875,64 @@ class Config:
 
     def upgrade(self, path: Path | None = None) -> dict[str, Any]:
         """
-        Upgrade configuration file with new defaults.
+        Add the sections a new version introduced to the configuration file.
 
-        Merges DEFAULT_CONFIG with user's existing config, preserving
-        user values while adding new keys from defaults.
+        The operator's file is kept byte for byte: its comments, its order and
+        its formatting are theirs, and a reload-and-dump (what this did until
+        3.0) wiped every comment on every upgrade that added a key. Only the
+        top-level sections the file lacks are appended, with their defaults. A
+        key missing inside a section the file already has is not written: the
+        defaults are merged under the file on every load, so it already has
+        its default value, and writing it would mean rewriting that section.
 
         Args:
             path: Optional path to config file. Defaults to global config path.
 
         Returns:
             Dictionary with upgrade results:
-            - added_keys: List of new keys added
-            - removed_keys: List of keys no longer in defaults (kept in file)
-            - upgraded: Boolean indicating if file was modified
+            - added_keys: The sections appended, in dot notation.
+            - upgraded: Whether the file was changed.
+            - error: Why nothing was written, when something went wrong.
         """
         config_path = path or DEFAULT_CONFIG_PATH
 
-        # Load user's current config (raw, without merging defaults)
+        text = ""
         user_config: dict[str, Any] = {}
         if config_path.exists():
             try:
-                with open(config_path) as f:
-                    loaded = yaml.safe_load(f) or {}
-            except (OSError, yaml.YAMLError) as exc:
-                logger.warning("Ignoring invalid config file %s: %s", config_path, exc)
-            else:
-                if isinstance(loaded, dict):
-                    user_config = _strip_removed_keys(loaded)
+                text = config_path.read_text(encoding="utf-8")
+                loaded = yaml.safe_load(text) or {}
+            except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
+                # Never append to a file that cannot be read back: the result
+                # would be an operator's broken file made worse.
+                logger.error("Not upgrading %s, it cannot be read: %s", config_path, exc)
+                return {"added_keys": [], "upgraded": False, "error": str(exc)}
+            if not isinstance(loaded, dict):
+                message = f"{config_path} is not a mapping of settings"
+                logger.error("Not upgrading: %s", message)
+                return {"added_keys": [], "upgraded": False, "error": message}
+            user_config = _strip_removed_keys(loaded)
 
-        # Find keys that need to be added
-        added_keys = self._find_missing_keys(DEFAULT_CONFIG, user_config)
+        missing = {key: value for key, value in DEFAULT_CONFIG.items() if key not in user_config}
+        if not missing:
+            return {"added_keys": [], "upgraded": False}
 
-        # Merge: defaults first, then user config (user wins)
-        merged_config = self._deep_merge(DEFAULT_CONFIG, user_config)
+        from noust import __version__
 
-        # Only save if there are new keys
-        if added_keys:
-            try:
-                secure_write(
-                    config_path,
-                    yaml.dump(merged_config, default_flow_style=False, sort_keys=False),
-                    fs=self.fs,
-                )
+        addition = yaml.dump(copy.deepcopy(missing), default_flow_style=False, sort_keys=False)
+        if text.strip():
+            separator = "" if text.endswith("\n") else "\n"
+            content = (
+                f"{text}{separator}\n# Added by 'noust config upgrade' ({__version__}): "
+                f"new settings, at their defaults.\n{addition}"
+            )
+        else:
+            content = addition
+        try:
+            secure_write(config_path, content, fs=self.fs)
+        except OSError as exc:
+            logger.error("Could not upgrade configuration at %s: %s", config_path, exc)
+            return {"added_keys": [], "upgraded": False, "error": str(exc)}
 
-                # Reload to use new config
-                self._config = merged_config
-            except (OSError, yaml.YAMLError) as e:
-                logger.error("Could not upgrade configuration at %s: %s", config_path, e)
-                return {
-                    "added_keys": [],
-                    "upgraded": False,
-                    "error": str(e),
-                }
-
-        return {
-            "added_keys": added_keys,
-            "upgraded": len(added_keys) > 0,
-        }
-
-    def _find_missing_keys(self, defaults: dict, user: dict, prefix: str = "") -> list:
-        """
-        Find keys in defaults that are missing from user config.
-
-        Args:
-            defaults: Default configuration dictionary.
-            user: User's configuration dictionary.
-            prefix: Current key prefix for nested keys.
-
-        Returns:
-            List of missing key paths (dot notation).
-        """
-        missing = []
-
-        for key, value in defaults.items():
-            full_key = f"{prefix}.{key}" if prefix else key
-
-            if key not in user:
-                missing.append(full_key)
-            elif isinstance(value, dict) and isinstance(user.get(key), dict):
-                # Recurse into nested dicts
-                missing.extend(self._find_missing_keys(value, user[key], full_key))
-
-        return missing
+        self._config = self._deep_merge(DEFAULT_CONFIG, user_config)
+        return {"added_keys": list(missing), "upgraded": True}
