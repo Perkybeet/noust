@@ -135,3 +135,7 @@ panel/test-results/
 panel/playwright-report/
 panel/e2e/__screens__/
 panel/.tanstack/
+
+# tests/integration/run.py and fleet_run.py: the wheel and transitional wheel
+# they build from the working tree before installing into a container.
+tests/integration/.build/
