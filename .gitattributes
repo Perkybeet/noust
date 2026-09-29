@@ -11,6 +11,8 @@ Makefile export-ignore
 pytest.ini export-ignore
 tests/ export-ignore
 Dockerfile* export-ignore
+# The central's image recipe ships: it is a product artefact, not a test fixture.
+packaging/container/Dockerfile -export-ignore
 docker/ export-ignore
 docker-compose*.yml export-ignore
 

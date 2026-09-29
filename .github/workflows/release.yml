@@ -24,9 +24,11 @@ on:
         required: true
         type: string
 
+# Read-only by default: only the jobs that attach assets to the GitHub release
+# or push the image are given write, each in its own block, so the jobs that run
+# pip, apt, dnf and osc hold a token that can change nothing.
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 jobs:
   # Nothing is published until this passes.
@@ -529,6 +531,8 @@ jobs:
       - upgrade-from-2x
       - container-image
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
       version: ${{ steps.get_version.outputs.version }}
@@ -610,6 +614,8 @@ jobs:
   build-sdist:
     name: Build Source Distribution
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     needs: release
     steps:
       - name: Checkout code
@@ -641,6 +647,8 @@ jobs:
   build-deb:
     name: Build Debian Packages
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     needs: release
     steps:
       - name: Checkout code
