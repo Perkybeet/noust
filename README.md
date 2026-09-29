@@ -9,7 +9,10 @@
 > Read [docs/UPGRADING-3.0.md](docs/UPGRADING-3.0.md) before upgrading a 2.x server.
 
 <h1 align="center">
-  <img src="docs/brand/noust-wordmark.svg" alt="Noust" width="360">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Perkybeet/noust/main/docs/brand/noust-wordmark-dark.svg">
+    <img src="https://raw.githubusercontent.com/Perkybeet/noust/main/panel/src/assets/brand/noust-wordmark.svg" alt="Noust" width="360">
+  </picture>
 </h1>
 
 <p align="center">
@@ -41,7 +44,7 @@ nginx or Apache, obtains its certificate, and from then on every deploy is a new
 that only goes live if it answers, and can be undone in seconds. The same engine is driven
 from the CLI, a browser console and a JSON API.
 
-![The Noust console](docs/assets/console/overview.png)
+![The Noust console](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/assets/console/overview.png)
 
 ---
 
@@ -245,7 +248,7 @@ nginx, systemd or certbot print is shown verbatim, as they wrote it. Keyboard: `
 the command palette, `g a` for applications, `/` to search, `?` for every shortcut. Light,
 dark and system themes. Built to WCAG 2.2 AA and tested with axe on every page.
 
-![An application's deployments](docs/assets/console/app-deployments.png)
+![An application's deployments](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/assets/console/app-deployments.png)
 
 See [docs/console.md](docs/console.md).
 
@@ -410,7 +413,7 @@ scripts; the exit code is 1 when the application is down.
 `noust health` checks the whole server: free disk, the web server, every application,
 certificates close to expiry and memory pressure.
 
-![Diagnose](docs/assets/console/app-diagnose.png)
+![Diagnose](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/assets/console/app-diagnose.png)
 
 ---
 

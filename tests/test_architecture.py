@@ -1423,3 +1423,13 @@ class TestTestSeams:
             and "set_loopback_for_testing" in path.read_text(encoding="utf-8")
         ]
         assert set(callers) <= {"scripts/console_server.py"}, callers
+
+
+class TestBrandCopies:
+    """The README's logo for dark themes is the console's wordmark with only its ink changed."""
+
+    def test_the_dark_wordmark_is_the_wordmark_in_light_ink(self):
+        light = (REPO / "panel/src/assets/brand/noust-wordmark.svg").read_text(encoding="utf-8")
+        dark = (REPO / "docs/brand/noust-wordmark-dark.svg").read_text(encoding="utf-8")
+        assert dark == light.replace('color="#18181b"', 'color="#fafafa"', 1)
+        assert dark != light
