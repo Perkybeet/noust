@@ -55,6 +55,9 @@ from noust.core.exceptions import (
     DomainConflictError,
     DomainError,
     IntegrationError,
+    NodeError,
+    NodeRefusedError,
+    NodeUnreachableError,
     NoustError,
     SecurityError,
     SourceError,
@@ -71,6 +74,7 @@ from noust.web.auth import (
     get_audit_logger,
     get_client_ip,
     is_elevated,
+    is_fleet,
     require_auth,
 )
 from noust.web.pydantic_compat import dump_model
@@ -115,6 +119,14 @@ _STATUS_BY_ERROR: tuple[tuple[type[NoustError], int], ...] = (
     (NoustPermissionError, 403),
     # GitHub refused or could not be reached: the fault is upstream.
     (IntegrationError, 502),
+    # A node's tunnel did not open, or the node refused the central's token:
+    # the fault is between this server and the node, never in the request.
+    (NodeUnreachableError, 502),
+    (NodeRefusedError, 502),
+    # Every other fleet error is a registration the policy refused - a bad
+    # join code, a name taken, two-factor authentication still off - and its
+    # sentences are what the operator has to change.
+    (NodeError, 400),
 )
 
 
@@ -126,6 +138,25 @@ _STATUS_BY_ERROR: tuple[tuple[type[NoustError], int], ...] = (
 #: can link to the job.
 _CONTRACT_BY_ERROR: tuple[tuple[type[NoustError], str, str], ...] = (
     (AppBusyError, "app_busy", "Wait for it to finish, or follow it in Jobs"),
+)
+
+#: Fleet errors whose ``error`` code is a promise to the console, like
+#: :data:`_CONTRACT_BY_ERROR`, but whose ``details`` is the tool's own output
+#: - ssh's stderr, the node's answer - and travels verbatim in ``output``,
+#: with a fixed hint above it.
+_OUTPUT_CONTRACT_BY_ERROR: tuple[tuple[type[NoustError], str, str], ...] = (
+    (
+        NodeUnreachableError,
+        "node_unreachable",
+        "Check that the node is up and that its SSH address and host key are the "
+        "ones the central recorded; the output below is ssh's own.",
+    ),
+    (
+        NodeRefusedError,
+        "node_refused",
+        "The node no longer accepts this central's fleet token. Run `noust fleet "
+        "authorize` on the node again, and paste the new join code here.",
+    ),
 )
 
 
@@ -223,9 +254,14 @@ def error_response(exc: NoustError) -> JSONResponse:
     # vocabulary in _ERROR_BY_STATUS.
     error = type(exc).__name__.lower()
     hint: str | None = getattr(exc, "details", None) or None
+    output: str | None = getattr(exc, "output", None)
     for error_type, code, contract_hint in _CONTRACT_BY_ERROR:
         if isinstance(exc, error_type):
             error, hint = code, contract_hint
+            break
+    for error_type, code, contract_hint in _OUTPUT_CONTRACT_BY_ERROR:
+        if isinstance(exc, error_type):
+            error, hint, output = code, contract_hint, output or exc.details or None
             break
     return JSONResponse(
         status_code=status_for(exc),
@@ -234,7 +270,7 @@ def error_response(exc: NoustError) -> JSONResponse:
                 detail=exc.message,
                 hint=hint,
                 error=error,
-                output=getattr(exc, "output", None),
+                output=output,
                 fields=_fields_of(exc),
             )
         ),
@@ -525,6 +561,46 @@ _ELEVATION_REQUIRED_DETAIL: dict[str, Any] = {
 ELEVATION_EXEMPT_TYPES = frozenset({"master", "api_token"})
 
 
+#: A fleet request whose central did not vouch for its operator's sudo mode:
+#: the same code, so the console's "Confirm it's you" works unchanged - on the
+#: central, where the operator's session lives.
+_FLEET_ELEVATION_REQUIRED_DETAIL: dict[str, Any] = {
+    "error": "elevation_required",
+    "detail": "Confirm it's you on the central to continue",
+    "hint": "POST /api/auth/elevate on the central, then retry through it.",
+    "fields": None,
+}
+
+
+def _refuse_elevation(request: Request, session: dict[str, Any], detail: dict[str, Any]) -> None:
+    """
+    Audit and raise a refused elevated action.
+
+    Args:
+        request: The incoming request, for the audit record.
+        session: The authenticated session payload.
+        detail: The error body.
+
+    Raises:
+        HTTPException: Always, a 403 carrying ``detail``.
+    """
+    audit = get_audit_logger()
+    if audit:
+        audit.record(
+            action="auth.elevation",
+            result="denied",
+            client_ip=get_client_ip(request),
+            actor=actor_label(session),
+            resource=request.url.path,
+            detail=(
+                "the central did not confirm sudo mode"
+                if is_fleet(session)
+                else "session is not elevated"
+            ),
+        )
+    raise HTTPException(status_code=403, detail=dict(detail))
+
+
 def ensure_elevated(request: Request, session: dict[str, Any]) -> None:
     """
     Refuse a destructive action from a session that has not confirmed recently.
@@ -544,28 +620,32 @@ def ensure_elevated(request: Request, session: dict[str, Any]) -> None:
     write-mode database query, an unmasked env read), directly from inside
     the handler.
 
+    A central's fleet token is an API token, but it is not exempt the way
+    one is: it carries every operator of the central, and only the central
+    saw which of them confirmed. It passes when the central vouched for the
+    operator's sudo mode (``X-Noust-Elevated``, honoured by
+    :func:`noust.web.auth.admit_fleet` on a fleet token only). That is what
+    covers the actions only a body makes elevated, which no OpenAPI extension
+    can describe.
+
     Args:
         request: The incoming request, for the audit record.
         session: The authenticated session payload.
 
     Raises:
         HTTPException: 403 with ``error: "elevation_required"`` when a session
-            has not elevated, or its window has expired.
+            has not elevated, or its window has expired, or a central did not
+            vouch for its operator.
     """
+    if is_fleet(session):
+        if session.get("elevation_attested") is True:
+            return
+        _refuse_elevation(request, session, _FLEET_ELEVATION_REQUIRED_DETAIL)
+
     if session.get("type") in ELEVATION_EXEMPT_TYPES or is_elevated(session):
         return
 
-    audit = get_audit_logger()
-    if audit:
-        audit.record(
-            action="auth.elevation",
-            result="denied",
-            client_ip=get_client_ip(request),
-            actor=actor_label(session),
-            resource=request.url.path,
-            detail="session is not elevated",
-        )
-    raise HTTPException(status_code=403, detail=dict(_ELEVATION_REQUIRED_DETAIL))
+    _refuse_elevation(request, session, _ELEVATION_REQUIRED_DETAIL)
 
 
 async def require_elevated(

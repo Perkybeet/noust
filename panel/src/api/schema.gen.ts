@@ -1532,6 +1532,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/fleet/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke Own Fleet Token
+         * @description Let a central's fleet token revoke itself, when the central removes the node.
+         *
+         *     The only credential endpoint a fleet token may reach (see
+         *     :func:`noust.web.auth.fleet_refusal`), and it can only ever end the token
+         *     that calls it: removing a node from a central should not leave a working
+         *     root-equivalent credential behind on the node.
+         *
+         *     Args:
+         *         request: The incoming request.
+         *         session: The authenticated payload; it must be a fleet token.
+         *
+         *     Returns:
+         *         A confirmation payload naming the revoked token.
+         *
+         *     Raises:
+         *         HTTPException: 403 for any credential that is not a fleet token.
+         */
+        post: operations["revoke_own_fleet_token_api_auth_fleet_revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/login": {
         parameters: {
             query?: never;
@@ -5187,6 +5222,148 @@ export interface paths {
          *         A success payload.
          */
         post: operations["uninstall_monitor_api_monitor_uninstall_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/nodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Nodes
+         * @description List every node with its status and its tunnel's.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The nodes.
+         */
+        get: operations["list_nodes_api_nodes_get"];
+        put?: never;
+        /**
+         * Add Node
+         * @description Register a node with the join code it printed.
+         *
+         *     Args:
+         *         body: The name, the SSH address and the join code.
+         *         request: The incoming request, for the audit record.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The registered node.
+         *
+         *     Raises:
+         *         NodeError: 400 with the policy's sentences when the registration is
+         *             refused; 502 ``node_unreachable`` with ssh's stderr when the node
+         *             cannot be reached; 502 ``node_refused`` when it refused the token.
+         */
+        post: operations["add_node_api_nodes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/nodes/{node}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Node
+         * @description Show one node.
+         *
+         *     Args:
+         *         node: The node's name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The node.
+         */
+        get: operations["get_node_api_nodes__node__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove Node
+         * @description Remove a node from this central, closing its tunnel.
+         *
+         *     Args:
+         *         node: The node's name.
+         *         request: The incoming request, for the audit record.
+         *         session: The authenticated, elevated session.
+         *         revoke: Whether to revoke the fleet token on the node first.
+         *
+         *     Returns:
+         *         What the removal did.
+         */
+        delete: operations["remove_node_api_nodes__node__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/nodes/{node}/key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Node Key
+         * @description Show the key a node has to authorize, and the command that does it.
+         *
+         *     Works for a name that is not registered yet: this is the first step of
+         *     adding a node, before it has a join code to register with.
+         *
+         *     Args:
+         *         node: The node's name.
+         *         request: The incoming request, for the audit record.
+         *         session: The authenticated session, of ``admin`` scope.
+         *
+         *     Returns:
+         *         The public key and the command.
+         */
+        get: operations["get_node_key_api_nodes__node__key_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/nodes/{node}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Node
+         * @description Open the node's tunnel and ask its API who it is.
+         *
+         *     Args:
+         *         node: The node's name.
+         *         request: The incoming request, for the audit record.
+         *         session: The authenticated session; a POST, so ``admin`` scope.
+         *
+         *     Returns:
+         *         What the test found, as the node manager reports it.
+         */
+        post: operations["test_node_api_nodes__node__test_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9326,6 +9503,118 @@ export interface components {
             interfaces: components["schemas"]["InterfaceInfo"][];
         };
         /**
+         * NodeAddRequest
+         * @description Body of ``POST /api/nodes``.
+         *
+         *     Attributes:
+         *         name: The name the node gets on this central.
+         *         ssh_target: Where the node's SSH answers: ``host``, ``user@host`` or
+         *             ``user@host:port``.
+         *         join_code: The one-line code ``noust fleet authorize`` printed on the
+         *             node.
+         */
+        NodeAddRequest: {
+            /** Join Code */
+            join_code: string;
+            /** Name */
+            name: string;
+            /** Ssh Target */
+            ssh_target: string;
+        };
+        /**
+         * NodeKeyResponse
+         * @description Response for ``GET /api/nodes/{node}/key``.
+         *
+         *     Attributes:
+         *         name: The node the key is for.
+         *         public_key: The central's public key for that node.
+         *         authorize_command: The command to run on the node, as root, which
+         *             installs the key restricted to the tunnel and prints the join code.
+         */
+        NodeKeyResponse: {
+            /** Authorize Command */
+            authorize_command: string;
+            /** Name */
+            name: string;
+            /** Public Key */
+            public_key: string;
+        };
+        /**
+         * NodeListResponse
+         * @description Response for ``GET /api/nodes``.
+         *
+         *     Attributes:
+         *         items: Every node, as :class:`NodeResponse`.
+         */
+        NodeListResponse: {
+            /** Items */
+            items: components["schemas"]["NodeResponse"][];
+        };
+        /**
+         * NodeRemovedResponse
+         * @description Response for ``DELETE /api/nodes/{node}``.
+         *
+         *     Attributes:
+         *         name: The node that was removed.
+         *         messages: What the removal did, and what it could not do - a token
+         *             that could not be revoked because the node was unreachable.
+         */
+        NodeRemovedResponse: {
+            /** Messages */
+            messages: string[];
+            /** Name */
+            name: string;
+        };
+        /**
+         * NodeResponse
+         * @description One node, as the central knows it.
+         *
+         *     Attributes:
+         *         name: The node's name on this central.
+         *         ssh_host: Host the central's tunnel connects to.
+         *         ssh_port: SSH port on that host.
+         *         ssh_user: Account whose ``authorized_keys`` holds the central's key.
+         *         host_key: The pinned ``known_hosts`` line.
+         *         console_port: Loopback port of the node's console.
+         *         version: Noust version the node last reported.
+         *         status: ``unknown``, ``reachable``, ``unreachable`` or ``refused``.
+         *         last_seen: When the node last answered, ISO 8601 UTC.
+         *         allow_shell: Whether the node allows commands over SSH.
+         *         created_at: When the node was registered.
+         *         tunnel: The tunnel's current state, as the tunnel manager reports it.
+         */
+        NodeResponse: {
+            /**
+             * Allow Shell
+             * @default false
+             */
+            allow_shell: boolean;
+            /** Console Port */
+            console_port: number;
+            /** Created At */
+            created_at?: string | null;
+            /** Host Key */
+            host_key: string;
+            /** Last Seen */
+            last_seen?: string | null;
+            /** Name */
+            name: string;
+            /** Ssh Host */
+            ssh_host: string;
+            /** Ssh Port */
+            ssh_port: number;
+            /** Ssh User */
+            ssh_user: string;
+            /** Status */
+            status: string;
+            /** Tunnel */
+            tunnel?: {
+                [key: string]: unknown;
+            };
+            /** Version */
+            version?: string | null;
+        };
+        /**
          * NotificationTestResult
          * @description Outcome of sending a test message through one notification channel.
          */
@@ -13121,6 +13410,26 @@ export interface operations {
             };
         };
     };
+    revoke_own_fleet_token_api_auth_fleet_revoke_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevokedResponse"];
+                };
+            };
+        };
+    };
     login_api_auth_login_post: {
         parameters: {
             query?: never;
@@ -16856,6 +17165,188 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MonitorActionResponse"];
+                };
+            };
+        };
+    };
+    list_nodes_api_nodes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NodeListResponse"];
+                };
+            };
+        };
+    };
+    add_node_api_nodes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NodeAddRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NodeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_node_api_nodes__node__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NodeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_node_api_nodes__node__delete: {
+        parameters: {
+            query?: {
+                /** @description Revoke the fleet token on the node first, when it answers */
+                revoke?: boolean;
+            };
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NodeRemovedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_node_key_api_nodes__node__key_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NodeKeyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_node_api_nodes__node__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -27,6 +27,7 @@ An operation can also be cancelled while its commands run: see
 
 from __future__ import annotations
 
+import atexit
 import contextlib
 import contextvars
 import os
@@ -37,6 +38,7 @@ import subprocess
 import threading
 import time
 from abc import ABC, abstractmethod
+from collections import deque
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -216,6 +218,273 @@ class CommandResult:
             f"Command failed with exit code {self.exit_code}: {self.command}",
             details=(self.stderr or self.stdout).strip(),
         )
+
+
+#: Lines of a long-lived process's standard error kept for diagnosis. An ssh
+#: tunnel that dies says why in its last few lines; a process that logs
+#: forever must not grow this process's memory with it.
+STDERR_TAIL_LINES = 50
+
+#: How long :meth:`ProcessHandle.terminate` waits after SIGTERM before SIGKILL.
+TERMINATE_TIMEOUT = 5.0
+
+
+class ProcessHandle(ABC):
+    """
+    A long-lived process started by :meth:`CommandRunner.start`.
+
+    A tunnel, unlike every other command Noust runs, is meant to keep running:
+    it has no deadline, only an owner that stops it. The handle is how the
+    owner watches it and stops it, together with everything it started.
+
+    Attributes:
+        argv: The redacted argument vector, for logs and messages.
+        started_at: ``time.time()`` when the process was started.
+    """
+
+    argv: tuple[str, ...]
+    started_at: float
+
+    @property
+    @abstractmethod
+    def pid(self) -> int:
+        """The process id, which is also its process group id; 0 when it never started."""
+
+    @property
+    @abstractmethod
+    def exit_code(self) -> int | None:
+        """The exit status once the process ended, None while it runs."""
+
+    @abstractmethod
+    def is_alive(self) -> bool:
+        """
+        Report whether the process is still running.
+
+        Returns:
+            True until it exits or is terminated.
+        """
+
+    @abstractmethod
+    def stderr_tail(self) -> str:
+        """
+        Return the last lines the process wrote to standard error.
+
+        Returns:
+            Up to :data:`STDERR_TAIL_LINES` lines, verbatim, newline-joined.
+        """
+
+    @abstractmethod
+    def terminate(self, timeout: float = TERMINATE_TIMEOUT) -> int | None:
+        """
+        Stop the process and every process in its group.
+
+        SIGTERM first, SIGKILL when it has not exited after ``timeout``.
+        Stopping a process that already ended is a no-op.
+
+        Args:
+            timeout: Seconds to wait between the two signals.
+
+        Returns:
+            The exit status, or None when it could not be reaped.
+        """
+
+
+#: Every real long-lived process still running, so interpreter shutdown can
+#: stop them. A tunnel left behind by a console that exited would keep a port
+#: forwarded, and an SSH session open, for nobody.
+_live_processes: set[_SubprocessHandle] = set()
+_live_lock = threading.Lock()
+
+
+def terminate_all_processes() -> None:
+    """
+    Stop every long-lived process this interpreter started and still owns.
+
+    Registered with :mod:`atexit`; also safe to call from a server's shutdown
+    hook, and more than once.
+    """
+    with _live_lock:
+        handles = list(_live_processes)
+    for handle in handles:
+        handle.terminate()
+
+
+atexit.register(terminate_all_processes)
+
+
+class _SubprocessHandle(ProcessHandle):
+    """A real long-lived process, in its own session."""
+
+    def __init__(self, process: subprocess.Popen[str], argv: tuple[str, ...]) -> None:
+        """
+        Args:
+            process: The started process, with standard error piped.
+            argv: The redacted argument vector.
+        """
+        self._process = process
+        self.argv = argv
+        self.started_at = time.time()
+        self._tail: deque[str] = deque(maxlen=STDERR_TAIL_LINES)
+        self._tail_lock = threading.Lock()
+        self._reader = threading.Thread(
+            target=self._pump, name=f"stderr-{process.pid}", daemon=True
+        )
+        self._reader.start()
+        with _live_lock:
+            _live_processes.add(self)
+
+    def _pump(self) -> None:
+        """Read standard error to its end, keeping only the tail."""
+        stream = self._process.stderr
+        if stream is None:
+            return
+        for raw in stream:
+            with self._tail_lock:
+                self._tail.append(raw.rstrip("\n"))
+
+    @property
+    def pid(self) -> int:
+        return self._process.pid
+
+    @property
+    def exit_code(self) -> int | None:
+        return self._process.poll()
+
+    def is_alive(self) -> bool:
+        alive = self._process.poll() is None
+        if not alive:
+            with _live_lock:
+                _live_processes.discard(self)
+        return alive
+
+    def stderr_tail(self) -> str:
+        if self._process.poll() is not None:
+            # The pipe reaches its end when the process dies; give the reader
+            # a moment to take the last words, which are the ones that matter.
+            self._reader.join(timeout=1)
+        with self._tail_lock:
+            return "\n".join(self._tail)
+
+    def terminate(self, timeout: float = TERMINATE_TIMEOUT) -> int | None:
+        try:
+            if self._process.poll() is None:
+                with contextlib.suppress(ProcessLookupError):
+                    os.killpg(self._process.pid, signal.SIGTERM)
+                try:
+                    self._process.wait(timeout=timeout)
+                except subprocess.TimeoutExpired:
+                    with contextlib.suppress(ProcessLookupError):
+                        os.killpg(self._process.pid, signal.SIGKILL)
+                    try:
+                        self._process.wait(timeout=timeout)
+                    except subprocess.TimeoutExpired:
+                        return None
+            else:
+                # The leader is gone; anything it left in its group is not.
+                with contextlib.suppress(ProcessLookupError, PermissionError):
+                    os.killpg(self._process.pid, signal.SIGKILL)
+            self._reader.join(timeout=1)
+            return self._process.returncode
+        finally:
+            with _live_lock:
+                _live_processes.discard(self)
+
+
+class _EndedProcess(ProcessHandle):
+    """A process that never ran: not found, or not started by a rehearsal."""
+
+    def __init__(self, argv: tuple[str, ...], exit_code: int, stderr: str) -> None:
+        """
+        Args:
+            argv: The redacted argument vector.
+            exit_code: The status to report.
+            stderr: Why it never ran.
+        """
+        self.argv = argv
+        self.started_at = time.time()
+        self._exit_code = exit_code
+        self._stderr = stderr
+
+    @property
+    def pid(self) -> int:
+        return 0
+
+    @property
+    def exit_code(self) -> int | None:
+        return self._exit_code
+
+    def is_alive(self) -> bool:
+        return False
+
+    def stderr_tail(self) -> str:
+        return self._stderr
+
+    def terminate(self, timeout: float = TERMINATE_TIMEOUT) -> int | None:
+        return self._exit_code
+
+
+class FakeProcess(ProcessHandle):
+    """
+    A long-lived process for tests, started by :meth:`FakeRunner.start`.
+
+    It runs until the test calls :meth:`die` or the code under test calls
+    :meth:`terminate`.
+    """
+
+    _next_pid = 40000
+
+    def __init__(
+        self, argv: tuple[str, ...], *, alive: bool, exit_code: int | None, stderr: str
+    ) -> None:
+        """
+        Args:
+            argv: The argument vector the code under test built.
+            alive: Whether it starts running.
+            exit_code: Its status when it starts dead.
+            stderr: What it wrote to standard error.
+        """
+        FakeProcess._next_pid += 1
+        self._pid = FakeProcess._next_pid
+        self.argv = argv
+        self.started_at = time.time()
+        self._alive = alive
+        self._exit_code = None if alive else exit_code
+        self._stderr = stderr
+        self.terminated = False
+
+    @property
+    def pid(self) -> int:
+        return self._pid
+
+    @property
+    def exit_code(self) -> int | None:
+        return self._exit_code
+
+    def is_alive(self) -> bool:
+        return self._alive
+
+    def stderr_tail(self) -> str:
+        return self._stderr
+
+    def die(self, exit_code: int = 255, stderr: str = "") -> None:
+        """
+        Make the process exit, as a dropped connection would.
+
+        Args:
+            exit_code: Its exit status.
+            stderr: What it wrote on the way out.
+        """
+        self._alive = False
+        self._exit_code = exit_code
+        if stderr:
+            self._stderr = stderr
+
+    def terminate(self, timeout: float = TERMINATE_TIMEOUT) -> int | None:
+        if self._alive:
+            self._alive = False
+            self._exit_code = -signal.SIGTERM
+            self.terminated = True
+        return self._exit_code
 
 
 def _redact(argv: Sequence[str], secrets: Iterable[str]) -> tuple[str, ...]:
@@ -398,6 +667,44 @@ class CommandRunner(ABC):
         Returns:
             The command outcome. ``stdout`` is empty; the bytes went to disk.
         """
+
+    def start(
+        self,
+        argv: Sequence[str],
+        *,
+        cwd: Path | None = None,
+        env: Mapping[str, str] | None = None,
+        user: str | None = None,
+        secrets: Sequence[str] = (),
+    ) -> ProcessHandle:
+        """
+        Start a long-lived process and return without waiting for it.
+
+        The one exception to "timeouts are mandatory": a tunnel has no natural
+        end. What replaces the deadline is ownership: the process runs in its
+        own session, so the handle's ``terminate`` stops it and everything it
+        started, and every process still running is stopped when the
+        interpreter exits. Its stdin and stdout are ``/dev/null``; the last
+        lines of its stderr are kept for the caller to show verbatim.
+
+        Args:
+            argv: Program and arguments. Never a shell string.
+            cwd: Working directory.
+            env: Extra environment variables, merged over the current one.
+            user: Run as this account instead of the current one.
+            secrets: Literal values to redact from the recorded command line.
+
+        Returns:
+            The handle. A program that cannot be found yields a handle that
+            has already ended with :data:`EXIT_NOT_FOUND`, like :meth:`run`.
+
+        Raises:
+            CommandError: When this runner cannot start long-lived processes.
+        """
+        raise CommandError(
+            f"{type(self).__name__} cannot start long-lived processes",
+            details="Use SubprocessRunner, DryRunRunner or FakeRunner.",
+        )
 
     def exists(self, program: str) -> bool:
         """
@@ -784,6 +1091,38 @@ class SubprocessRunner(CommandRunner):
             duration=time.monotonic() - started,
         )
 
+    def start(
+        self,
+        argv: Sequence[str],
+        *,
+        cwd: Path | None = None,
+        env: Mapping[str, str] | None = None,
+        user: str | None = None,
+        secrets: Sequence[str] = (),
+    ) -> ProcessHandle:
+        args, run_env, redacted = self._prepare(argv, env, user, secrets)
+        _cancel_scope(redacted)
+        try:
+            process = subprocess.Popen(
+                args,
+                cwd=str(cwd) if cwd else None,
+                env=run_env,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                text=True,
+                errors="replace",
+                # Its own session: terminate() kills the whole group, and a
+                # Ctrl+C meant for the CLI in front of it does not reach it
+                # half-way through a request the owner is still making.
+                start_new_session=True,
+            )
+        except FileNotFoundError:
+            return _EndedProcess(redacted, EXIT_NOT_FOUND, f"Command not found: {args[0]}")
+        except PermissionError as exc:
+            return _EndedProcess(redacted, EXIT_NOT_FOUND, str(exc))
+        return _SubprocessHandle(process, redacted)
+
 
 #: Programs that only ever report state. A dry run may execute these, because
 #: seeing what the machine currently looks like is the whole point of a
@@ -833,6 +1172,9 @@ READ_ONLY_SUBCOMMANDS: dict[str, frozenset[str]] = {
     "dnf": frozenset({"info"}),
     "yum": frozenset({"info"}),
     "zypper": frozenset({"info"}),
+    # Prints the effective configuration and exits; how 'noust fleet
+    # authorize' learns the port and whether forwarding is allowed.
+    "sshd": frozenset({"-T"}),
 }
 
 
@@ -970,6 +1312,23 @@ class DryRunRunner(CommandRunner):
         # not a rehearsal.
         return self._skip(argv, secrets)
 
+    def start(
+        self,
+        argv: Sequence[str],
+        *,
+        cwd: Path | None = None,
+        env: Mapping[str, str] | None = None,
+        user: str | None = None,
+        secrets: Sequence[str] = (),
+    ) -> ProcessHandle:
+        if is_read_only(argv):
+            return self._inner.start(argv, cwd=cwd, env=env, user=user, secrets=secrets)
+        skipped = self._skip(argv, secrets)
+        # Reported as a process that ended at once, with the reason as its
+        # last words, so an owner waiting for it explains the rehearsal
+        # instead of inventing a failure.
+        return _EndedProcess(skipped.argv, 0, "Not started: this is a dry run")
+
 
 @dataclass
 class FakeCommand:
@@ -999,6 +1358,8 @@ class FakeRunner(CommandRunner):
         self.inputs: list[str | None] = []
         self.stdin_paths: list[Path] = []
         self.written: dict[Path, tuple[str, ...]] = {}
+        #: Every long-lived process :meth:`start` returned, in order.
+        self.processes: list[FakeProcess] = []
         self._scripted: list[FakeCommand] = []
         self._default_exit_code = default_exit_code
         self._known_programs: set[str] | None = None
@@ -1145,6 +1506,44 @@ class FakeRunner(CommandRunner):
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_text(result.stdout)
         return result
+
+    def start(
+        self,
+        argv: Sequence[str],
+        *,
+        cwd: Path | None = None,
+        env: Mapping[str, str] | None = None,
+        user: str | None = None,
+        secrets: Sequence[str] = (),
+    ) -> ProcessHandle:
+        """
+        Start a scripted long-lived process.
+
+        A command scripted with exit code 0 starts running and keeps running
+        until the test calls :meth:`FakeProcess.die` or the code under test
+        terminates it; any other exit code starts it already dead, with the
+        scripted stderr as its last words. Every process is kept in
+        :attr:`processes`, in order.
+
+        Args:
+            argv: Program and arguments.
+            cwd: Ignored.
+            env: Recorded in :attr:`envs`.
+            user: Folded into the recorded argv, as for :meth:`run`.
+            secrets: Ignored.
+
+        Returns:
+            The fake process.
+        """
+        result = self._lookup(argv, user, env)
+        process = FakeProcess(
+            result.argv,
+            alive=result.exit_code == 0,
+            exit_code=result.exit_code,
+            stderr=result.stderr,
+        )
+        self.processes.append(process)
+        return process
 
     # Assertions -----------------------------------------------------------
 

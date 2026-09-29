@@ -344,3 +344,40 @@ class IntegrationError(NoustError):
     """Raised when a code host (GitHub) refuses a request or cannot be reached."""
 
     pass
+
+
+class NodeError(NoustError):
+    """
+    Raised when a fleet operation on a node fails: unknown node, bad join code,
+    a refused registration.
+
+    The base of every fleet error, so a caller that only needs "the node
+    operation failed" catches one class.
+    """
+
+    pass
+
+
+class NodeUnreachableError(NodeError):
+    """
+    Raised when a node cannot be reached: the SSH tunnel did not open, or died.
+
+    The message says why in a sentence (host key changed, key refused,
+    connection timed out); ``details`` carries ssh's own stderr verbatim.
+    """
+
+    pass
+
+
+class NodeRefusedError(NodeError):
+    """
+    Raised when a node answered 401 or 403 to the fleet token.
+
+    Usually the token was revoked on the node (``noust fleet deauthorize`` or
+    ``noust token revoke``); the node's own answer is carried verbatim.
+
+    Attributes:
+        status_code: The HTTP status the node answered, 401 or 403.
+    """
+
+    status_code: int | None = None

@@ -32,6 +32,37 @@ from noust.cli.web_state import token_manager
 #: Scopes ``POST /api/auth/tokens`` accepts, in the order shown by --help.
 SCOPES: tuple[str, ...] = ("read", "deploy", "admin")
 
+#: The scope of a central's token for this server, which only ``noust fleet
+#: authorize`` issues. Spelled here rather than imported: the console's module
+#: is only imported when a command runs.
+FLEET_SCOPE = "fleet"
+
+
+class _ScopeChoice(click.Choice):
+    """The token scopes, refusing ``fleet`` with where fleet tokens come from."""
+
+    def convert(self, value: Any, param: click.Parameter | None, ctx: click.Context | None) -> Any:
+        """
+        Refuse ``fleet`` with a pointer, then validate like any choice.
+
+        Args:
+            value: What was typed.
+            param: The option.
+            ctx: The Click context.
+
+        Returns:
+            The scope.
+        """
+        if value == FLEET_SCOPE:
+            self.fail(
+                "fleet tokens are issued on the node by 'noust fleet authorize "
+                "--central-key <key> --name <central>', which also installs the "
+                "central's restricted SSH key and prints the join code for it.",
+                param,
+                ctx,
+            )
+        return super().convert(value, param, ctx)
+
 
 def _fmt(timestamp: float | None) -> str:
     """
@@ -95,7 +126,7 @@ def list_command(ctx: Context) -> None:
 @click.argument("name")
 @click.option(
     "--scope",
-    type=click.Choice(SCOPES),
+    type=_ScopeChoice(SCOPES),
     default="read",
     show_default=True,
     help="What the token may do.",

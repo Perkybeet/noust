@@ -19,6 +19,14 @@ reach outside the directory, whatever it was handed.
 Reading one never follows a symlink: a secret file an attacker replaced with
 a link to ``/etc/shadow`` would otherwise be read, and possibly sent to a
 remote API, as root.
+
+A central may seal its secrets (:mod:`noust.core.sealing`): every file is then
+encrypted under a passphrase. Callers do not change: :meth:`SecretStore.read`
+and :meth:`SecretStore.write` decrypt and encrypt transparently while the
+process holds the key, and raise
+:class:`~noust.core.sealing.SecretsLockedError` while it does not. A caller
+that hands a secret's *path* to another program (``ssh -i``) must read it
+instead: on a sealed store the file holds ciphertext.
 """
 
 from __future__ import annotations
@@ -29,8 +37,10 @@ import re
 from pathlib import Path
 from typing import Any
 
+from noust.core import sealing
 from noust.core.exceptions import ConfigError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
+from noust.core.runner import CommandRunner
 
 # One segment: letters, digits, dot, dash, underscore; not starting with a
 # dot, so neither ``..`` nor a hidden file can be named. Always used with
@@ -82,11 +92,19 @@ class SecretStore:
     Args:
         root: Directory to keep them in; defaults to :func:`secrets_dir`.
         fs: Filesystem seam; defaults to the process-wide one.
+        runner: Runs openssl for a sealed store; defaults to the process-wide
+            one.
     """
 
-    def __init__(self, root: Path | None = None, fs: FileSystem | None = None) -> None:
+    def __init__(
+        self,
+        root: Path | None = None,
+        fs: FileSystem | None = None,
+        runner: CommandRunner | None = None,
+    ) -> None:
         self._root = root
         self._fs = fs
+        self._runner = runner
 
     @property
     def root(self) -> Path:
@@ -123,10 +141,13 @@ class SecretStore:
 
         Raises:
             ConfigError: The name is not a valid secret name.
+            SecretsLockedError: The store is sealed and this process is locked.
+            SealError: Sealing the value failed.
         """
         path = self.path(name)
+        content = sealing.encode_for_store(self.root, name, value, self._runner)
         self.fs.make_dir(path.parent, mode=SECRET_DIR_MODE, parents=True)
-        self.fs.write_text(path, value, mode=SECRET_MODE)
+        self.fs.write_text(path, content, mode=SECRET_MODE)
 
     def read(self, name: str) -> str | None:
         """
@@ -141,6 +162,8 @@ class SecretStore:
         Raises:
             ConfigError: The name is invalid, or the entry is not a regular
                 file (a symlink, say), which is refused rather than followed.
+            SecretsLockedError: The secret is sealed and this process is locked.
+            SealError: The sealed secret failed its integrity check.
         """
         path = self.path(name)
         try:
@@ -153,7 +176,44 @@ class SecretStore:
                 details=f"{path} is not a regular file Noust wrote ({exc.strerror}).",
             ) from exc
         with os.fdopen(descriptor, encoding="utf-8") as handle:
-            return handle.read()
+            text = handle.read()
+        return sealing.decode_from_store(self.root, name, text, self._runner)
+
+    def usable_path(self, name: str) -> Path:
+        """
+        Return a path another program can read the secret from.
+
+        ``ssh -i`` and ``UserKnownHostsFile`` take a path. On a store that is
+        not sealed that is the secret's own file. On a sealed one that file
+        holds ciphertext, so the secret is decrypted into a private,
+        memory-backed copy (:func:`~noust.core.sealing.plaintext_copy_dir`),
+        rewritten on every call and removed when the store is locked.
+
+        Args:
+            name: The secret's name.
+
+        Returns:
+            The path to hand the other program.
+
+        Raises:
+            ConfigError: The name is not a valid secret name.
+            SecretsLockedError: The store is sealed and this process is locked.
+            SealError: The copy's directory is not private, or the secret
+                failed its integrity check.
+        """
+        path = self.path(name)
+        if not sealing.is_sealed(self.root):
+            return path
+        value = self.read(name)
+        if value is None:
+            # Absent: the program is handed the real path and reports it.
+            return path
+        copies = sealing.plaintext_copy_dir(self.root)
+        target = copies.joinpath(*_checked_name(name))
+        sealing.ensure_private_dir(copies, self.fs)
+        self.fs.make_dir(target.parent, mode=SECRET_DIR_MODE, parents=True)
+        self.fs.write_text(target, value, mode=SECRET_MODE)
+        return target
 
     def delete(self, name: str) -> None:
         """

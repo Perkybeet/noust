@@ -30,6 +30,7 @@ from noust.web.auth import (
     bearer_token,
     get_audit_logger,
     get_client_ip,
+    is_fleet,
     is_secure_request,
     record_auth_failure,
     require_auth,
@@ -417,6 +418,7 @@ async def get_session_info(request: Request) -> SessionInfo:
             client_ip,
             resource="/api/auth/session",
             source="bearer" if bearer else "cookie",
+            connection=request,
         )
         if credential
         else None
@@ -1213,3 +1215,46 @@ def revoke_api_token(
         )
 
     return RevokedResponse(success=True, revoked=name)
+
+
+@router.post("/fleet/revoke", response_model=RevokedResponse)
+def revoke_own_fleet_token(
+    request: Request, session: dict[str, Any] = Depends(require_auth)
+) -> RevokedResponse:
+    """
+    Let a central's fleet token revoke itself, when the central removes the node.
+
+    The only credential endpoint a fleet token may reach (see
+    :func:`noust.web.auth.fleet_refusal`), and it can only ever end the token
+    that calls it: removing a node from a central should not leave a working
+    root-equivalent credential behind on the node.
+
+    Args:
+        request: The incoming request.
+        session: The authenticated payload; it must be a fleet token.
+
+    Returns:
+        A confirmation payload naming the revoked token.
+
+    Raises:
+        HTTPException: 403 for any credential that is not a fleet token.
+    """
+    if not is_fleet(session) or session.get("token_id") is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Only a central's fleet token revokes itself here; revoke others in Settings.",
+        )
+    name = get_token_manager().revoke_api_token(int(session["token_id"]))
+
+    audit = get_audit_logger()
+    if audit:
+        audit.record(
+            action="auth.token.revoke",
+            result="success",
+            client_ip=get_client_ip(request),
+            actor=actor_label(session),
+            resource="/api/auth/fleet/revoke",
+            detail=f"fleet token '{name or session.get('token_name')}' revoked itself",
+        )
+
+    return RevokedResponse(success=True, revoked=str(name or session.get("token_name") or ""))

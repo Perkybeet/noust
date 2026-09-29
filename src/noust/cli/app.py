@@ -52,6 +52,7 @@ COMMAND_MODULES: dict[str, str] = {
     "2fa": "noust.cli.commands.twofa",
     "app": "noust.cli.commands.app",
     "backup": "noust.cli.commands.backup",
+    "central": "noust.cli.commands.central",
     "cert": "noust.cli.commands.cert",
     "config": "noust.cli.commands.config",
     "cron": "noust.cli.commands.cron",
@@ -59,11 +60,13 @@ COMMAND_MODULES: dict[str, str] = {
     "diagnose": "noust.cli.commands.diagnose",
     "domain": "noust.cli.commands.domain",
     "env": "noust.cli.commands.env",
+    "fleet": "noust.cli.commands.fleet",
     "github": "noust.cli.commands.github",
     "health": "noust.cli.commands.health",
     "import": "noust.cli.commands.importer",
     "migrate-from-wasm": "noust.cli.commands.migrate_from_wasm",
     "monitor": "noust.cli.commands.monitor",
+    "node": "noust.cli.commands.node",
     "notify": "noust.cli.commands.notify",
     "preview": "noust.cli.commands.preview",
     "recipe": "noust.cli.commands.recipe",
@@ -437,6 +440,12 @@ class LazyGroup(click.Group):
         # Report the name the user typed, not the one it resolves to, so an
         # error message quotes what they actually wrote.
         _, command, remaining = super().resolve_command(ctx, args)
+        if command is not None and command.name:
+            # One check for every command a hub central does not have, here
+            # where they are all resolved, rather than one per command.
+            from noust.central import refuse_command_on_hub
+
+            refuse_command_on_hub(command.name, ctx)
         return (command.name if command else None), command, remaining
 
 

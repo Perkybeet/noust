@@ -1,6 +1,7 @@
-# The Noust central as a container: the console and, from the fleet release
-# on, the SSH tunnels to every node. It deploys nothing where it runs: no
-# nginx, no systemd, no certbot. Meant for a NAS (UGOS Pro and any Docker).
+# The Noust central as a container: the console and the SSH tunnels to every
+# server it manages. It deploys nothing where it runs: no nginx, no systemd,
+# no certbot (it is a hub: central.role = hub). Meant for a NAS (UGREEN UGOS
+# Pro, Synology, TrueNAS) and any Docker host. docs/CENTRAL.md is the guide.
 #
 # Build context: this directory, with the noust wheel of the same version
 # under dist/. The Release workflow builds the wheel from the tag and then
@@ -23,13 +24,14 @@ LABEL org.opencontainers.image.title="Noust central" \
       org.opencontainers.image.version="${NOUST_VERSION}" \
       org.opencontainers.image.source="https://github.com/Perkybeet/noust" \
       org.opencontainers.image.url="https://github.com/Perkybeet/noust" \
+      org.opencontainers.image.documentation="https://github.com/Perkybeet/noust/blob/main/docs/CENTRAL.md" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later" \
       org.opencontainers.image.vendor="Perkybeet"
 
-# tini reaps the SSH tunnels the central keeps open and forwards signals, so
-# `docker stop` is a clean shutdown. openssh-client opens the tunnels; openssl
-# mints the console's self-signed certificate; git is what noust's source
-# handling calls.
+# tini is PID 1: it reaps the SSH tunnels the central keeps open and forwards
+# SIGTERM, so `docker stop` is a clean shutdown. openssh-client opens the
+# tunnels; openssl mints the console's self-signed certificate and seals the
+# secrets; git is what noust's source handling calls.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends tini openssh-client openssl git ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -44,16 +46,20 @@ RUN groupadd --system --gid 10001 noust \
     && useradd --system --uid 10001 --gid noust --home-dir /data --shell /usr/sbin/nologin noust \
     && install -d -o noust -g noust -m 0700 /data
 
-COPY --chmod=0755 entrypoint.sh /usr/local/bin/noust-central
-
-# Everything the central keeps lives under /data: the store, the console's
-# signing key and tokens, its TLS pair, the SSH keys and known_hosts. HOME is
-# /data so that noust's per-user paths (~/.local/share, ~/.ssh) land there too.
+# Everything the central keeps lives under /data (NOUST_DATA_DIR):
+#   config/   config.yaml, the console's signing key, token hash, sessions,
+#             two-factor state, audit log and its TLS pair (panel-tls/)
+#   state/    the store (servers, audit), secrets/ (node keys and tokens,
+#             sealed if you chose to), known_hosts
+#   backups/  log/
+# HOME is /data too, so anything that reads ~ lands on the volume. The image
+# is a hub: it refuses local deployments with a message instead of failing
+# on a missing nginx.
 ENV HOME=/data \
     NOUST_DATA_DIR=/data \
-    NOUST_WEB_STATE_DIR=/data/console \
-    WASM_WEB_STATE_DIR=/data/console \
-    PYTHONUNBUFFERED=1
+    NOUST_CENTRAL_ROLE=hub \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
 
 USER noust
 WORKDIR /data
@@ -66,4 +72,7 @@ EXPOSE 8443
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD ["python3", "-c", "import ssl, urllib.request; urllib.request.urlopen('https://127.0.0.1:8443/health', context=ssl._create_unverified_context(), timeout=4)"]
 
-ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/noust-central"]
+# `docker run IMAGE` runs the central; `docker exec -it noust noust ...`
+# runs any other command against the same /data (token, 2fa, central unlock).
+ENTRYPOINT ["/usr/bin/tini", "--", "noust"]
+CMD ["central", "run"]

@@ -61,6 +61,7 @@ from noust.web.auth import (
     AuditLogger,
     BruteForceProtection,
     ConnectionLimiter,
+    FleetCredentialRefused,
     RateLimiter,
     SecurityConfig,
     TokenManager,
@@ -69,6 +70,7 @@ from noust.web.auth import (
     bearer_token,
     carries_credentials,
     credential_key,
+    ensure_fleet_handshake_allowed,
     get_audit_logger,
     get_client_ip,
     get_security_config,
@@ -806,7 +808,24 @@ async def lifespan(app: FastAPI):
         jobs.unsubscribe_all(app_states)
         jobs.unsubscribe_all(notify_jobs)
         stop_witnessing()
+        close_fleet_tunnels()
         manager.purge_expired_sessions()
+
+
+def close_fleet_tunnels() -> None:
+    """
+    Close every tunnel to a node when the console stops.
+
+    The tunnels are ssh processes the console started; leaving them behind
+    would keep ports forwarded to every node after the process that used
+    them is gone. The nodes' elevation maps go with them: a console started
+    again asks each node afresh.
+    """
+    from noust.fleet.tunnels import get_tunnels
+    from noust.web.api.node_proxy import node_schemas
+
+    get_tunnels().close_all()
+    node_schemas.forget()
 
 
 def create_app(config: SecurityConfig | None = None) -> FastAPI:
@@ -902,6 +921,7 @@ def create_app(config: SecurityConfig | None = None) -> FastAPI:
 
     from noust.web.api import router as api_router
     from noust.web.api.deps import API_PATH_PREFIX, handle_http_exception, install_error_handlers
+    from noust.web.api.openapi import install_openapi
 
     # Every /api response that fails answers in one contract - see
     # noust.web.api.deps for what it looks like and why a router alone cannot
@@ -911,6 +931,8 @@ def create_app(config: SecurityConfig | None = None) -> FastAPI:
     install_error_handlers(app)
 
     app.include_router(api_router, prefix="/api")
+    # Every operation behind sudo mode says so in the schema, for a central.
+    install_openapi(app)
 
     # Git forges call the webhook surface server-to-server, so it is mounted
     # at the root rather than under /api: there is no session and no ambient
@@ -931,8 +953,11 @@ def create_app(config: SecurityConfig | None = None) -> FastAPI:
     app.include_router(github_hooks_router, prefix="/hooks", tags=["Webhooks"])
     app.include_router(webhook_admin_router, prefix="/api/apps", tags=["Webhooks"])
 
+    from noust.web.api.node_proxy import ws_router as node_ws_router
     from noust.web.websockets import router as ws_router
 
+    # A node's /ws/{path}, through its tunnel, for a central's console.
+    app.include_router(node_ws_router, prefix="/ws/nodes")
     app.include_router(ws_router, prefix="/ws")
 
     # The live feed the console listens to, at the root rather than under
@@ -1273,6 +1298,20 @@ class SecurityMiddleware:
                     ws_code=WS_CLOSE_UNAUTHORIZED,
                     detail="Authentication required",
                     error="unauthorized",
+                )
+                return
+            try:
+                ensure_fleet_handshake_allowed(connection, session)
+            except FleetCredentialRefused as exc:
+                await self._deny(
+                    scope,
+                    receive,
+                    send,
+                    connection,
+                    status_code=403,
+                    ws_code=WS_CLOSE_FORBIDDEN,
+                    detail=exc.reason,
+                    error="forbidden",
                 )
                 return
             # One budget per credential, taken here at the one place every

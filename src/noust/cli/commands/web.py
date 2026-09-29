@@ -884,6 +884,57 @@ def _ensure_self_signed(host: str, logger: Logger, verbose: bool) -> None:
     )
 
 
+def console_security_config(options: StartOptions) -> SecurityConfig:
+    """
+    Build the console's security configuration for another front door.
+
+    ``noust central run`` serves the same console as ``noust web start``, so
+    it goes through the same checks: the refusal to expose it without TLS,
+    the TLS pair, the allowlist.
+
+    Args:
+        options: How the console is to be exposed.
+
+    Returns:
+        The configuration to serve with.
+
+    Raises:
+        SecurityError: When the combination would expose it unprotected.
+    """
+    return _build_security_config(options)
+
+
+def ensure_console_certificate(host: str, logger: Logger, verbose: bool) -> Path:
+    """
+    Put a self-signed pair at the console's TLS paths, minting it if needed.
+
+    Args:
+        host: The normalised bind address, which names the certificate subject.
+        logger: Logger for the report.
+        verbose: Whether the certificate manager should log verbosely.
+
+    Returns:
+        The certificate's path.
+
+    Raises:
+        NoustError: When the pair cannot be created.
+    """
+    _ensure_self_signed(host, logger, verbose)
+    return PANEL_TLS_CERT
+
+
+def print_console_banner(config: SecurityConfig, token: str, notes: Sequence[str]) -> None:
+    """
+    Print the banner that hands the operator a console and its token.
+
+    Args:
+        config: The configuration the console runs with.
+        token: The access token issued for it.
+        notes: Lines closing the banner.
+    """
+    _print_banner(config, token, notes)
+
+
 def _set_apart(lines: list[str], block: Sequence[str]) -> list[str]:
     """
     Put a blank line on each side of a run of lines, where it occurs.

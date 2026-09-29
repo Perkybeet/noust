@@ -869,6 +869,68 @@ class GitHubInstallationRecord:
         return cls(**dict(row))
 
 
+#: What a central last learnt about a node (schema v11): never asked yet, its
+#: API answered through the tunnel, the tunnel or the API could not be reached,
+#: or the node answered 401/403 to the fleet token.
+NODE_STATUSES = ("unknown", "reachable", "unreachable", "refused")
+
+
+@dataclass
+class NodeRecord:
+    """
+    A server this central manages (schema v11).
+
+    Its fleet token, its SSH key pair and its ``known_hosts`` file are secret
+    files under ``fleet/nodes/<name>/``, never columns.
+
+    Attributes:
+        name: The node's name on this central, unique.
+        ssh_host: Host name or address the central connects to.
+        ssh_port: SSH port on that host.
+        ssh_user: Account whose ``authorized_keys`` holds the central's key.
+        host_key: The pinned ``known_hosts`` line, exactly as written to the
+            node's own known_hosts file: taken from the join code, never
+            learnt on first use.
+        console_port: Loopback port the node's console listens on.
+        version: Noust version the node last reported.
+        status: One of :data:`NODE_STATUSES`.
+        last_seen: When the node last answered, ISO 8601 UTC.
+        allow_shell: Whether the node allows commands over SSH (always off
+            for now: the central never has a shell on a node).
+        created_at: When the node was registered.
+        updated_at: When the row last changed.
+    """
+
+    name: str
+    ssh_host: str
+    ssh_port: int
+    ssh_user: str
+    host_key: str
+    console_port: int
+    version: str | None = None
+    status: str = "unknown"
+    last_seen: str | None = None
+    allow_shell: bool = False
+    created_at: str | None = None
+    updated_at: str | None = None
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> "NodeRecord":
+        """Create from database row."""
+        data = dict(row)
+        data["allow_shell"] = bool(data.get("allow_shell"))
+        return cls(**data)
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Describe the node for JSON output. Nothing secret is in a node row.
+
+        Returns:
+            Every field, by name.
+        """
+        return asdict(self)
+
+
 _Record = TypeVar("_Record")
 
 
@@ -911,7 +973,7 @@ def _decode_object(raw: Any) -> dict[str, Any]:
 
 
 # Schema version for migrations
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 
 _DEPLOYMENT_STATUSES_SQL = ", ".join(f"'{status.value}'" for status in DeploymentStatus)
 _DEPLOYMENT_TRIGGERS_SQL = ", ".join(f"'{trigger.value}'" for trigger in DeploymentTrigger)
@@ -1175,6 +1237,30 @@ CREATE TABLE IF NOT EXISTS github_installations (
 """
 
 
+_NODE_STATUSES_SQL = ", ".join(f"'{status}'" for status in NODE_STATUSES)
+
+# Schema v11: the fleet. A central's nodes; each node's token, key pair and
+# known_hosts file are secret files, never columns, so a copy of the store
+# alone opens nothing.
+V11_SCHEMA_SQL = f"""
+-- Servers this central manages through an SSH tunnel to their console
+CREATE TABLE IF NOT EXISTS nodes (
+    name TEXT PRIMARY KEY,
+    ssh_host TEXT NOT NULL,
+    ssh_port INTEGER NOT NULL DEFAULT 22,
+    ssh_user TEXT NOT NULL DEFAULT 'root',
+    host_key TEXT NOT NULL,
+    console_port INTEGER NOT NULL,
+    version TEXT,
+    status TEXT NOT NULL DEFAULT 'unknown' CHECK (status IN ({_NODE_STATUSES_SQL})),
+    last_seen TEXT,
+    allow_shell INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+"""
+
+
 def _run_script(cursor: sqlite3.Cursor, script: str) -> None:
     """
     Run a static, multi-statement SQL script one statement at a time.
@@ -1327,6 +1413,7 @@ CREATE INDEX IF NOT EXISTS idx_databases_app_id ON databases(app_id);
     + RELEASES_SCHEMA_SQL
     + DOMAINS_SCHEMA_SQL
     + V10_SCHEMA_SQL
+    + V11_SCHEMA_SQL
 )
 
 
@@ -1732,6 +1819,7 @@ class NoustStore:
             8: self._migrate_v7_to_v8,
             9: self._migrate_v8_to_v9,
             10: self._migrate_v9_to_v10,
+            11: self._migrate_v10_to_v11,
         }
 
         for version in range(from_version + 1, SCHEMA_VERSION + 1):
@@ -1895,6 +1983,19 @@ class NoustStore:
             if name not in apps:
                 cursor.execute(f"ALTER TABLE apps ADD COLUMN {name} {definition}")
         _run_script(cursor, V10_SCHEMA_SQL)
+
+    def _migrate_v10_to_v11(self, cursor: sqlite3.Cursor) -> None:
+        """
+        Add the fleet's node registry (schema v11).
+
+        A server that is not a central simply has an empty table: nothing
+        about 2.x behaviour depends on it.
+
+        Args:
+            cursor: Cursor the migration runs on.
+        """
+        # CREATE TABLE IF NOT EXISTS: idempotent, like every step since v8.
+        _run_script(cursor, V11_SCHEMA_SQL)
 
     # =========================================================================
     # Application CRUD
@@ -4372,6 +4473,135 @@ class NoustStore:
             )
             cursor.execute(
                 "DELETE FROM github_installations WHERE installation_id = ?", (installation_id,)
+            )
+            return cursor.rowcount > 0
+
+    # =========================================================================
+    # Fleet nodes (schema v11)
+    # =========================================================================
+
+    def save_node(self, node: NodeRecord) -> NodeRecord:
+        """
+        Record a node, or replace what is recorded about it.
+
+        ``created_at`` is kept from the first save; ``updated_at`` is now.
+
+        Args:
+            node: The node.
+
+        Returns:
+            The node as stored.
+
+        Raises:
+            ValidationError: The status is not one of :data:`NODE_STATUSES`.
+        """
+        if node.status not in NODE_STATUSES:
+            raise ValidationError(
+                f"Unknown node status: {node.status!r}",
+                details=f"Use one of: {', '.join(NODE_STATUSES)}.",
+            )
+        now = _utc_now()
+        with self._transaction() as cursor:
+            cursor.execute(
+                "INSERT INTO nodes (name, ssh_host, ssh_port, ssh_user, host_key, console_port, "
+                "version, status, last_seen, allow_shell, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(name) DO UPDATE SET ssh_host = excluded.ssh_host, "
+                "ssh_port = excluded.ssh_port, ssh_user = excluded.ssh_user, "
+                "host_key = excluded.host_key, console_port = excluded.console_port, "
+                "version = excluded.version, status = excluded.status, "
+                "last_seen = excluded.last_seen, allow_shell = excluded.allow_shell, "
+                "updated_at = excluded.updated_at",
+                (
+                    node.name,
+                    node.ssh_host,
+                    node.ssh_port,
+                    node.ssh_user,
+                    node.host_key,
+                    node.console_port,
+                    node.version,
+                    node.status,
+                    node.last_seen,
+                    1 if node.allow_shell else 0,
+                    node.created_at or now,
+                    now,
+                ),
+            )
+            row = cursor.execute("SELECT * FROM nodes WHERE name = ?", (node.name,)).fetchone()
+        return _written(NodeRecord.from_row(row) if row else None)
+
+    def get_node(self, name: str) -> NodeRecord | None:
+        """
+        Read one node.
+
+        Args:
+            name: The node's name.
+
+        Returns:
+            The node, or None when there is none by that name.
+        """
+        row = (
+            self._get_connection().execute("SELECT * FROM nodes WHERE name = ?", (name,)).fetchone()
+        )
+        return NodeRecord.from_row(row) if row else None
+
+    def list_nodes(self) -> list[NodeRecord]:
+        """
+        List every node, by name.
+
+        Returns:
+            The nodes.
+        """
+        rows = self._get_connection().execute("SELECT * FROM nodes ORDER BY name").fetchall()
+        return [NodeRecord.from_row(row) for row in rows]
+
+    def delete_node(self, name: str) -> bool:
+        """
+        Forget a node. Its secret files are the caller's to remove.
+
+        Args:
+            name: The node's name.
+
+        Returns:
+            True if it existed.
+        """
+        with self._transaction() as cursor:
+            cursor.execute("DELETE FROM nodes WHERE name = ?", (name,))
+            return cursor.rowcount > 0
+
+    def set_node_status(self, name: str, status: str, *, version: str | None = None) -> bool:
+        """
+        Record what the central last learnt about a node.
+
+        ``reachable`` also stamps ``last_seen``; a version, when given, is
+        recorded with it. Any other status keeps the last known version and
+        the last time the node answered, which is what an operator looking at
+        an unreachable node wants to know.
+
+        Args:
+            name: The node's name.
+            status: One of :data:`NODE_STATUSES`.
+            version: The version the node reported, if it just reported one.
+
+        Returns:
+            True if the node exists.
+
+        Raises:
+            ValidationError: The status is not one of :data:`NODE_STATUSES`.
+        """
+        if status not in NODE_STATUSES:
+            raise ValidationError(
+                f"Unknown node status: {status!r}",
+                details=f"Use one of: {', '.join(NODE_STATUSES)}.",
+            )
+        now = _utc_now()
+        with self._transaction() as cursor:
+            cursor.execute(
+                "UPDATE nodes SET status = ?, updated_at = ?, "
+                "version = COALESCE(?, version), "
+                "last_seen = CASE WHEN ? = 'reachable' THEN ? ELSE last_seen END "
+                "WHERE name = ?",
+                (status, now, version, status, now, name),
             )
             return cursor.rowcount > 0
 

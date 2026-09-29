@@ -1,16 +1,44 @@
 # The Noust central on a NAS (UGREEN UGOS Pro, Synology, TrueNAS) or any
-# Docker host. On UGOS Pro: Docker > Project > Create, paste this file.
+# Docker host. The full guide: docs/CENTRAL.md
+# (https://github.com/Perkybeet/noust/blob/main/docs/CENTRAL.md).
 #
-#   docker compose up -d
-#   docker compose logs noust      # the console's address and first sign-in
+# On UGOS Pro: Docker > Project > Create, name it "noust", paste this file,
+# Deploy. Anywhere else: `docker compose up -d` next to this file.
 #
-# Then open https://<the NAS address>:8443. The certificate is self-signed
-# until you mount your own (see NOUST_TLS_CERT below), so the browser asks
-# once.
+# FIRST START
+#   The first start prints the console's sign-in token, once, and never
+#   again (only its hash is kept):
+#     docker logs noust            (UGOS Pro: Container > noust > Log)
+#   Open https://<the NAS address>:8443. The certificate is self-signed until
+#   you mount your own (NOUST_TLS_CERT below), so the browser asks once;
+#   `docker logs noust` shows its SHA-256 fingerprint to compare with.
+#   Lost the token? docker exec -it noust noust web token --new
+#
+# TWO-FACTOR
+#   Turn it on in the console's settings (or: docker exec -it noust noust 2fa
+#   enroll). A central refuses to add its first server without it.
+#
+# ADDING A SERVER
+#   In the console: Settings > Servers > Add. The central prints a command to
+#   run ON THE SERVER (where you are already root); the server answers with a
+#   join code you paste back. The central's key can only open a tunnel to the
+#   server's console: it never gets a shell there.
+#
+# SEALING (recommended on a NAS)
+#   docker exec -it noust noust central seal
+#   encrypts every key and token under a passphrase. After each restart the
+#   central is locked until you unlock it in the console or with
+#   docker exec -it noust noust central unlock
+#   Nobody can recover a lost passphrase.
+#
+# BACKUPS
+#   Back up the whole volume (/data). Stop the container first, or copy
+#   while it runs and accept that the last minute may be missing.
 #
 # The central only dials out (SSH to each server it manages); nothing needs
 # opening on your router. Keep it that way: do not forward 8443 to the
-# internet.
+# internet. The console only answers loopback and the private networks
+# unless NOUST_ALLOW_IP says otherwise.
 
 services:
   noust:
@@ -24,25 +52,31 @@ services:
     volumes:
       # A named volume Docker creates with the right owner (uid 10001).
       - noust-data:/data
-      # Or a folder on the NAS. It must belong to uid 10001 first:
+      # Or a folder on the NAS, which must belong to uid 10001 first:
       #   sudo mkdir -p /volume1/docker/noust && sudo chown 10001:10001 /volume1/docker/noust
       # - /volume1/docker/noust:/data
     environment:
-      # Who may open the console: the private ranges by default.
+      # Who may open the console, space-separated addresses or networks.
+      # Default: loopback, 10/8, 172.16/12, 192.168/16 and fc00::/7.
       # NOUST_ALLOW_IP: "192.168.1.0/24"
-      # Your own certificate instead of the self-signed one:
+      # Your own certificate instead of the self-signed one (put both files
+      # on the volume):
       # NOUST_TLS_CERT: /data/tls/mine.crt
       # NOUST_TLS_KEY: /data/tls/mine.key
       # Your time zone, for the timestamps in the console and the logs.
       TZ: UTC
-    # Nothing in the container needs more than this.
+    # Nothing in the container needs more than this: an unprivileged user, no
+    # capabilities, no privilege escalation, and nothing writable outside
+    # /data and a small /tmp.
+    user: "10001:10001"
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
     read_only: true
     tmpfs:
-      - /tmp
+      - /tmp:size=16m,mode=1777
+    stop_grace_period: 20s
 
 volumes:
   noust-data:

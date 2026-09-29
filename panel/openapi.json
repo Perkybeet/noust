@@ -5988,6 +5988,184 @@
         "title": "NetworkResponse",
         "type": "object"
       },
+      "NodeAddRequest": {
+        "description": "Body of ``POST /api/nodes``.\n\nAttributes:\n    name: The name the node gets on this central.\n    ssh_target: Where the node's SSH answers: ``host``, ``user@host`` or\n        ``user@host:port``.\n    join_code: The one-line code ``noust fleet authorize`` printed on the\n        node.",
+        "properties": {
+          "join_code": {
+            "maxLength": 8192,
+            "minLength": 1,
+            "title": "Join Code",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "ssh_target": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Ssh Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "ssh_target",
+          "join_code"
+        ],
+        "title": "NodeAddRequest",
+        "type": "object"
+      },
+      "NodeKeyResponse": {
+        "description": "Response for ``GET /api/nodes/{node}/key``.\n\nAttributes:\n    name: The node the key is for.\n    public_key: The central's public key for that node.\n    authorize_command: The command to run on the node, as root, which\n        installs the key restricted to the tunnel and prints the join code.",
+        "properties": {
+          "authorize_command": {
+            "title": "Authorize Command",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "public_key": {
+            "title": "Public Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "public_key",
+          "authorize_command"
+        ],
+        "title": "NodeKeyResponse",
+        "type": "object"
+      },
+      "NodeListResponse": {
+        "description": "Response for ``GET /api/nodes``.\n\nAttributes:\n    items: Every node, as :class:`NodeResponse`.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NodeResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "NodeListResponse",
+        "type": "object"
+      },
+      "NodeRemovedResponse": {
+        "description": "Response for ``DELETE /api/nodes/{node}``.\n\nAttributes:\n    name: The node that was removed.\n    messages: What the removal did, and what it could not do - a token\n        that could not be revoked because the node was unreachable.",
+        "properties": {
+          "messages": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "messages"
+        ],
+        "title": "NodeRemovedResponse",
+        "type": "object"
+      },
+      "NodeResponse": {
+        "description": "One node, as the central knows it.\n\nAttributes:\n    name: The node's name on this central.\n    ssh_host: Host the central's tunnel connects to.\n    ssh_port: SSH port on that host.\n    ssh_user: Account whose ``authorized_keys`` holds the central's key.\n    host_key: The pinned ``known_hosts`` line.\n    console_port: Loopback port of the node's console.\n    version: Noust version the node last reported.\n    status: ``unknown``, ``reachable``, ``unreachable`` or ``refused``.\n    last_seen: When the node last answered, ISO 8601 UTC.\n    allow_shell: Whether the node allows commands over SSH.\n    created_at: When the node was registered.\n    tunnel: The tunnel's current state, as the tunnel manager reports it.",
+        "properties": {
+          "allow_shell": {
+            "default": false,
+            "title": "Allow Shell",
+            "type": "boolean"
+          },
+          "console_port": {
+            "title": "Console Port",
+            "type": "integer"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "host_key": {
+            "title": "Host Key",
+            "type": "string"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "ssh_host": {
+            "title": "Ssh Host",
+            "type": "string"
+          },
+          "ssh_port": {
+            "title": "Ssh Port",
+            "type": "integer"
+          },
+          "ssh_user": {
+            "title": "Ssh User",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tunnel": {
+            "additionalProperties": true,
+            "title": "Tunnel",
+            "type": "object"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "name",
+          "ssh_host",
+          "ssh_port",
+          "ssh_user",
+          "host_key",
+          "console_port",
+          "status"
+        ],
+        "title": "NodeResponse",
+        "type": "object"
+      },
       "NotificationTestResult": {
         "description": "Outcome of sending a test message through one notification channel.",
         "properties": {
@@ -10270,7 +10448,8 @@
         "summary": "Import App",
         "tags": [
           "Applications"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/apps/inspect": {
@@ -10397,7 +10576,8 @@
         "summary": "Delete App",
         "tags": [
           "Applications"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       },
       "get": {
         "description": "Describe one application.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The application description.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
@@ -10731,7 +10911,8 @@
         "summary": "Delete Domain",
         "tags": [
           "Domains"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/apps/{domain}/domains/{name}/dns": {
@@ -10887,7 +11068,8 @@
         "summary": "Update App Env",
         "tags": [
           "Applications"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/apps/{domain}/env/marks": {
@@ -10940,7 +11122,8 @@
         "summary": "Update App Env Marks",
         "tags": [
           "Applications"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/apps/{domain}/export": {
@@ -11046,7 +11229,8 @@
         "summary": "Update App Health",
         "tags": [
           "Applications"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/apps/{domain}/limits": {
@@ -11099,7 +11283,8 @@
         "summary": "Update App Limits",
         "tags": [
           "Applications"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/apps/{domain}/logs": {
@@ -11207,7 +11392,8 @@
         "summary": "Migrate App",
         "tags": [
           "Applications"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/apps/{domain}/migrate/plan": {
@@ -11355,7 +11541,8 @@
         "summary": "Delete Preview Settings",
         "tags": [
           "Previews"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       },
       "put": {
         "description": "Turn previews on for an application, or change their settings.\n\nInstalls ``noust-previews.timer`` the first time any application turns\npreviews on. A preview is built as root, like every deployment, with a\ncopy of the application's environment minus ``exclude_env``; only pull\nrequests from people trusted with the repository get one (see\n:func:`noust.managers.previews.handle_pull_request`).\n\nArgs:\n    domain: The application.\n    body: The settings.\n    request: The request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The settings as stored.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: A value is refused (400, with the reason).\n    ServiceError: The sweep timer could not be installed.",
@@ -11406,7 +11593,8 @@
         "summary": "Put Preview Settings",
         "tags": [
           "Previews"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/apps/{domain}/previews/{number}": {
@@ -11458,7 +11646,8 @@
         "summary": "Delete Preview",
         "tags": [
           "Previews"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/apps/{domain}/releases": {
@@ -11554,7 +11743,8 @@
         "summary": "Update Release Retention",
         "tags": [
           "Applications"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/apps/{domain}/releases/{release_id}/activate": {
@@ -11821,7 +12011,8 @@
         "summary": "Delete Webhook Secret",
         "tags": [
           "Webhooks"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       },
       "post": {
         "description": "Mint (or replace) the webhook secret of an application.\n\nThe secret appears in this response and nowhere else, ever again: the\nstore keeps it for signature verification, but no listing or detail\nendpoint returns it. Calling this again rotates the secret, revoking the\nold one in the same motion.\n\nArgs:\n    domain: Domain of the application.\n    request: The incoming request, for the audit record and the hook URL.\n    session: An elevated session: the secret is shown in clear, and it\n        can open previews as well as deploy.\n\nReturns:\n    The secret, shown once, and the URL to configure at the forge.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
@@ -11862,7 +12053,8 @@
         "summary": "Create Webhook Secret",
         "tags": [
           "Webhooks"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/apps/{domain}/webhook/deliveries": {
@@ -11999,7 +12191,8 @@
         "summary": "Put Zero Downtime",
         "tags": [
           "Applications"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/audit": {
@@ -12161,7 +12354,8 @@
         "summary": "Regenerate Backup Codes",
         "tags": [
           "Authentication"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/auth/2fa/confirm": {
@@ -12203,7 +12397,8 @@
         "summary": "Two Factor Confirm",
         "tags": [
           "Authentication"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/auth/2fa/disable": {
@@ -12245,7 +12440,8 @@
         "summary": "Two Factor Disable",
         "tags": [
           "Authentication"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/auth/2fa/enroll": {
@@ -12267,7 +12463,8 @@
         "summary": "Two Factor Enroll",
         "tags": [
           "Authentication"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/auth/elevate": {
@@ -12307,6 +12504,28 @@
           }
         },
         "summary": "Elevate",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/fleet/revoke": {
+      "post": {
+        "description": "Let a central's fleet token revoke itself, when the central removes the node.\n\nThe only credential endpoint a fleet token may reach (see\n:func:`noust.web.auth.fleet_refusal`), and it can only ever end the token\nthat calls it: removing a node from a central should not leave a working\nroot-equivalent credential behind on the node.\n\nArgs:\n    request: The incoming request.\n    session: The authenticated payload; it must be a fleet token.\n\nReturns:\n    A confirmation payload naming the revoked token.\n\nRaises:\n    HTTPException: 403 for any credential that is not a fleet token.",
+        "operationId": "revoke_own_fleet_token_api_auth_fleet_revoke_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevokedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Revoke Own Fleet Token",
         "tags": [
           "Authentication"
         ]
@@ -12566,7 +12785,8 @@
         "summary": "Create Api Token",
         "tags": [
           "Authentication"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/auth/tokens/{token_id}": {
@@ -12715,7 +12935,8 @@
         "summary": "Create Destination",
         "tags": [
           "Backup Destinations"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/backup-destinations/backends": {
@@ -12804,7 +13025,8 @@
         "summary": "Delete Destination",
         "tags": [
           "Backup Destinations"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       },
       "put": {
         "description": "Change a backup destination's fields.\n\nArgs:\n    name: Destination name.\n    data: Fields to change; a blank secret field keeps its stored value.\n    session: The authenticated, elevated session.\n\nReturns:\n    The action outcome, carrying the destination as it now stands.",
@@ -12855,7 +13077,8 @@
         "summary": "Update Destination",
         "tags": [
           "Backup Destinations"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/backup-destinations/{name}/backups": {
@@ -12985,7 +13208,8 @@
         "summary": "Restore From Destination",
         "tags": [
           "Backup Destinations"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/backup-destinations/{name}/show-key": {
@@ -13028,7 +13252,8 @@
         "summary": "Show Key",
         "tags": [
           "Backup Destinations"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/backup-destinations/{name}/test": {
@@ -13133,7 +13358,8 @@
         "summary": "Create Schedule",
         "tags": [
           "Backup Schedules"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/backup-schedules/{domain}": {
@@ -13176,7 +13402,8 @@
         "summary": "Delete Schedule",
         "tags": [
           "Backup Schedules"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       },
       "put": {
         "description": "Change an application's backup schedule.\n\nArgs:\n    domain: Domain whose schedule is changed; must match ``data.domain``.\n    data: The new schedule.\n    session: The authenticated session, elevated.\n\nReturns:\n    The action outcome, carrying the schedule as it now stands.\n\nRaises:\n    HTTPException: 400 when ``domain`` and ``data.domain`` disagree.\n    BackupError: When a unit cannot be written or the timer cannot be\n        enabled.",
@@ -13227,7 +13454,8 @@
         "summary": "Update Schedule",
         "tags": [
           "Backup Schedules"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/backups": {
@@ -13396,7 +13624,8 @@
         "summary": "Delete Backup",
         "tags": [
           "Backups"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       },
       "get": {
         "description": "Describe one backup.\n\nArgs:\n    backup_id: Backup identifier.\n    session: The authenticated session.\n\nReturns:\n    The backup description.",
@@ -13490,7 +13719,8 @@
         "summary": "Push Backup",
         "tags": [
           "Backups"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/backups/{backup_id}/restore": {
@@ -13550,7 +13780,8 @@
         "summary": "Restore Backup",
         "tags": [
           "Backups"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/backups/{backup_id}/verify": {
@@ -13707,7 +13938,8 @@
         "summary": "Delete Certificate",
         "tags": [
           "Certificates"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       },
       "get": {
         "description": "Describe one certificate.\n\nArgs:\n    domain: Certificate name.\n    session: The authenticated session.\n\nReturns:\n    The certificate description.\n\nRaises:\n    HTTPException: 404 when no certificate covers the domain.",
@@ -13909,7 +14141,8 @@
         "summary": "Revoke Certificate",
         "tags": [
           "Certificates"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/config": {
@@ -13971,7 +14204,8 @@
         "summary": "Patch Config",
         "tags": [
           "Configuration"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       },
       "put": {
         "description": "Replace the full configuration.\n\nPlaceholders sent back for secrets keep the stored value, and settings the\ncode no longer honours are dropped. ``Config.replace`` refuses a value that\n``noust config set`` or the typed endpoints below would also refuse - an\nunsupported web server, a relative apps directory - so a whole-config body\nis not a back door around either.\n\nArgs:\n    body: Body carrying the new configuration.\n    request: The incoming request, for the audit record.\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    Confirmation message and the path that was written.\n\nRaises:\n    HTTPException: If the configuration cannot be written.",
@@ -14011,7 +14245,8 @@
         "summary": "Update Config",
         "tags": [
           "Configuration"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/config/apps-directory": {
@@ -14073,7 +14308,8 @@
         "summary": "Update Apps Directory",
         "tags": [
           "Configuration"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/config/backup": {
@@ -14135,7 +14371,8 @@
         "summary": "Update Backup Config",
         "tags": [
           "Configuration"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/config/defaults": {
@@ -14221,7 +14458,8 @@
         "summary": "Update Telegram Config",
         "tags": [
           "Configuration"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/config/notifications/telegram/chats": {
@@ -14370,7 +14608,8 @@
         "summary": "Update Smtp Config",
         "tags": [
           "Configuration"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/config/ssl": {
@@ -14432,7 +14671,8 @@
         "summary": "Update Ssl Config",
         "tags": [
           "Configuration"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/config/web": {
@@ -14494,7 +14734,8 @@
         "summary": "Update Web Config",
         "tags": [
           "Configuration"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/config/webserver": {
@@ -14556,7 +14797,8 @@
         "summary": "Update Webserver",
         "tags": [
           "Configuration"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/cron": {
@@ -14618,7 +14860,8 @@
         "summary": "Create Job",
         "tags": [
           "Cron Jobs"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/cron/preview": {
@@ -14703,7 +14946,8 @@
         "summary": "Delete Job",
         "tags": [
           "Cron Jobs"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/cron/{name}/disable": {
@@ -15039,7 +15283,8 @@
         "summary": "Restore Backup",
         "tags": [
           "Databases"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/databases/connection-string": {
@@ -15237,7 +15482,8 @@
         "summary": "Drop Database",
         "tags": [
           "Databases"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       },
       "get": {
         "description": "Describe one database.\n\nArgs:\n    engine: Engine name.\n    name: Database name.\n    session: The authenticated session.\n\nReturns:\n    The database description.\n\nRaises:\n    DatabaseNotFoundError: When no such database exists.",
@@ -15677,7 +15923,8 @@
         "summary": "Uninstall Engine",
         "tags": [
           "Databases"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/databases/query": {
@@ -15950,7 +16197,8 @@
         "summary": "Delete User",
         "tags": [
           "Databases"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/deployments": {
@@ -16240,7 +16488,8 @@
         "summary": "Github Remove",
         "tags": [
           "Integrations"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       },
       "get": {
         "description": "Describe this server's GitHub App, its installations and its webhook.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The status; ``configured`` false when there is no App yet.",
@@ -16302,7 +16551,8 @@
         "summary": "Github Add Installation",
         "tags": [
           "Integrations"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/integrations/github/installations/sync": {
@@ -16366,7 +16616,8 @@
         "summary": "Github Manifest",
         "tags": [
           "Integrations"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/integrations/github/manifest/conversions": {
@@ -16408,7 +16659,8 @@
         "summary": "Github Manifest Conversion",
         "tags": [
           "Integrations"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/integrations/github/repositories": {
@@ -16764,7 +17016,8 @@
         "tags": [
           "Jobs",
           "jobs"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/jobs/rollback": {
@@ -17495,6 +17748,254 @@
         ]
       }
     },
+    "/api/nodes": {
+      "get": {
+        "description": "List every node with its status and its tunnel's.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The nodes.",
+        "operationId": "list_nodes_api_nodes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodeListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Nodes",
+        "tags": [
+          "Nodes"
+        ]
+      },
+      "post": {
+        "description": "Register a node with the join code it printed.\n\nArgs:\n    body: The name, the SSH address and the join code.\n    request: The incoming request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The registered node.\n\nRaises:\n    NodeError: 400 with the policy's sentences when the registration is\n        refused; 502 ``node_unreachable`` with ssh's stderr when the node\n        cannot be reached; 502 ``node_refused`` when it refused the token.",
+        "operationId": "add_node_api_nodes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NodeAddRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Node",
+        "tags": [
+          "Nodes"
+        ],
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/nodes/{node}": {
+      "delete": {
+        "description": "Remove a node from this central, closing its tunnel.\n\nArgs:\n    node: The node's name.\n    request: The incoming request, for the audit record.\n    session: The authenticated, elevated session.\n    revoke: Whether to revoke the fleet token on the node first.\n\nReturns:\n    What the removal did.",
+        "operationId": "remove_node_api_nodes__node__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "title": "Node",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Revoke the fleet token on the node first, when it answers",
+            "in": "query",
+            "name": "revoke",
+            "required": false,
+            "schema": {
+              "default": true,
+              "description": "Revoke the fleet token on the node first, when it answers",
+              "title": "Revoke",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodeRemovedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Node",
+        "tags": [
+          "Nodes"
+        ],
+        "x-noust-requires-elevation": true
+      },
+      "get": {
+        "description": "Show one node.\n\nArgs:\n    node: The node's name.\n    session: The authenticated session.\n\nReturns:\n    The node.",
+        "operationId": "get_node_api_nodes__node__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "title": "Node",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Node",
+        "tags": [
+          "Nodes"
+        ]
+      }
+    },
+    "/api/nodes/{node}/key": {
+      "get": {
+        "description": "Show the key a node has to authorize, and the command that does it.\n\nWorks for a name that is not registered yet: this is the first step of\nadding a node, before it has a join code to register with.\n\nArgs:\n    node: The node's name.\n    request: The incoming request, for the audit record.\n    session: The authenticated session, of ``admin`` scope.\n\nReturns:\n    The public key and the command.",
+        "operationId": "get_node_key_api_nodes__node__key_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "title": "Node",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodeKeyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Node Key",
+        "tags": [
+          "Nodes"
+        ]
+      }
+    },
+    "/api/nodes/{node}/test": {
+      "post": {
+        "description": "Open the node's tunnel and ask its API who it is.\n\nArgs:\n    node: The node's name.\n    request: The incoming request, for the audit record.\n    session: The authenticated session; a POST, so ``admin`` scope.\n\nReturns:\n    What the test found, as the node manager reports it.",
+        "operationId": "test_node_api_nodes__node__test_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "title": "Node",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Test Node Api Nodes  Node  Test Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Test Node",
+        "tags": [
+          "Nodes"
+        ]
+      }
+    },
     "/api/openapi.json": {
       "get": {
         "description": "Serve the application's own OpenAPI document.\n\nArgs:\n    request: The incoming request, used to reach the application that\n        owns the route table ``app.openapi()`` walks.\n    session: Authenticated session, injected. Any credential that clears\n        ``require_auth`` may read this; the schema names endpoints and\n        shapes, not secrets.\n\nReturns:\n    The OpenAPI document, the same one ``scripts/export_openapi.py``\n    writes to ``panel/openapi.json``.",
@@ -17693,7 +18194,8 @@
         "summary": "Create Service",
         "tags": [
           "Services"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/services/verify": {
@@ -17778,7 +18280,8 @@
         "summary": "Delete Service",
         "tags": [
           "Services"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       },
       "get": {
         "description": "Get details for a specific service.\n\nAnswers for a unit Noust manages, whether or not the store's services\ntable has a row for it (since 0.14.1 an application's unit is named after\nthe application and may have none). Any other unit is a 404, which is how\nthe console knows to describe it from the all-units listing instead;\nsystemd's own escaped names (``systemd-fsck@dev-disk-by\\x2dlabel-BOOT``)\narrive URL-encoded and get that 404, not a 400.",
@@ -17913,7 +18416,8 @@
         "summary": "Update Service Config",
         "tags": [
           "Services"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/services/{name}/disable": {
@@ -18332,7 +18836,8 @@
         "summary": "Delete Site",
         "tags": [
           "Sites"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       },
       "get": {
         "description": "Describe one site.\n\nArgs:\n    domain: Domain of the site.\n    session: The authenticated session.\n\nReturns:\n    The site description.\n\nRaises:\n    HTTPException: 404 when no such site exists.\n    DomainError: When the domain is not acceptable.",
@@ -18467,7 +18972,8 @@
         "summary": "Update Site Config",
         "tags": [
           "Sites"
-        ]
+        ],
+        "x-noust-requires-elevation": true
       }
     },
     "/api/sites/{domain}/config/test": {

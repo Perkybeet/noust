@@ -213,6 +213,66 @@ DEPLOY_SCOPE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"^/api/apps/[^/]+/deployments/[0-9]+/(rebuild|rollback)$"),
 )
 
+# ---------------------------------------------------------------- the fleet
+#
+# A central reaches this server through an SSH tunnel that ends on
+# 127.0.0.1, carrying the token ``noust fleet authorize`` minted for it. That
+# token is the only credential allowed to speak for somebody else, so every
+# rule about it is stated here, next to the credential checks it modifies,
+# and enforced where a credential becomes a payload.
+
+#: Scope of the token a central holds for this server. It acts with ``admin``
+#: authority, narrowed to the scope of the operator it acts for, minus
+#: :func:`fleet_refusal`'s set, and only from :func:`fleet_origin_refusal`'s
+#: loopback.
+FLEET_SCOPE = "fleet"
+
+#: Who, on the central, is behind a fleet request. Honoured only on a fleet
+#: token; on any other credential it is ignored, so it cannot relabel a
+#: session's own audit trail.
+FLEET_ACTOR_HEADER = "X-Noust-Actor"
+#: The scope that operator holds on the central. The fleet token is narrowed
+#: to it, so a read-only token on the central reads a node exactly as a
+#: read-only token on the node would: admin-only GETs and process command
+#: lines included.
+FLEET_ACTOR_SCOPE_HEADER = "X-Noust-Actor-Scope"
+#: ``1`` when that operator's own credential on the central is inside sudo
+#: mode, or is one sudo mode does not ask (the master token, an API token).
+#: The node's sudo window cannot be opened by a token, so this is how an
+#: elevated action - including the ones only a request body makes elevated,
+#: such as a write query - is confirmed by the one party that saw the operator.
+FLEET_ELEVATED_HEADER = "X-Noust-Elevated"
+
+#: A central's actor label: ``master``, ``token:<name>`` or a session id
+#: prefix. Anything that could forge a second audit field, or a line, is out.
+FLEET_ACTOR_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:@+-]{0,63}")
+
+#: Headers a reverse proxy adds. The tunnel adds none; a request that carries
+#: one came through something listening on this machine for the outside world,
+#: and a fleet token is not accepted through it even though its TCP peer is
+#: loopback.
+FORWARDING_HEADERS = ("forwarded", "x-forwarded-for", "x-real-ip")
+
+#: The only authentication endpoints a fleet token may reach: the ones that
+#: say who it is, and the one that revokes itself when the central removes the
+#: node. Minting and revoking tokens, two-factor authentication,
+#: sessions, sudo mode and WebSocket tickets are the node's own operator's.
+FLEET_AUTH_PATHS = frozenset({"/api/auth/session", "/api/auth/verify", "/api/auth/fleet/revoke"})
+
+#: Path prefixes a fleet token never reaches, whatever the method: the node's
+#: own credentials, and fleet enrollment - a central must not be able to use a
+#: node as a hop to the node's own nodes, nor enroll it anywhere else.
+FLEET_REFUSED_PREFIXES = ("/api/auth", "/api/nodes", "/api/fleet", "/api/central", "/ws/nodes")
+
+#: Exact writes a fleet token is refused: replacing the whole configuration
+#: (which carries the ``web`` block) and the console's own bind settings.
+FLEET_REFUSED_WRITES = frozenset({("PUT", "/api/config"), ("PUT", "/api/config/web")})
+
+#: Configuration sections that are this server's security settings: who may
+#: reach its console and from where, and its fleet role. ``PATCH /api/config``
+#: addresses one key by a dotted path in its body; one under these is refused.
+FLEET_PROTECTED_CONFIG_SECTIONS = frozenset({"web", "fleet", "central"})
+
 #: Recorded in the payload the auth dependency hands to endpoints. Kept as
 #: names rather than a JWT: see SessionStore._encode for why the JWT went.
 SESSION_ISSUER = "noust-web"
@@ -908,6 +968,25 @@ class BruteForceProtection:
                 del self._failed_attempts[ip]
 
 
+#: The API token table, named by ``{table}`` so the rebuild that widens an old
+#: CHECK (:meth:`SessionStore._allow_fleet_scope`) declares exactly what a
+#: fresh database does. The token itself is never stored: only its salted
+#: hash, exactly like the master token. Names stay unique across revocations
+#: so an audit line naming a token always names one thing.
+API_TOKENS_TABLE_SQL = """
+    CREATE TABLE IF NOT EXISTS {table} (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        token_hash TEXT NOT NULL UNIQUE,
+        scope TEXT NOT NULL CHECK (scope IN ('read', 'deploy', 'admin', 'fleet')),
+        created_at REAL NOT NULL,
+        expires_at REAL,
+        last_used_at REAL,
+        revoked_at REAL
+    )
+"""
+
+
 class SessionStore:
     """
     Durable session and WebSocket ticket storage.
@@ -1030,20 +1109,36 @@ class SessionStore:
             # The token itself is never stored: only its salted hash, exactly
             # like the master token. Names stay unique across revocations so
             # an audit line naming a token always names one thing.
-            self._conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS api_tokens (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL UNIQUE,
-                    token_hash TEXT NOT NULL UNIQUE,
-                    scope TEXT NOT NULL CHECK (scope IN ('read', 'deploy', 'admin')),
-                    created_at REAL NOT NULL,
-                    expires_at REAL,
-                    last_used_at REAL,
-                    revoked_at REAL
-                )
-                """
-            )
+            self._conn.execute(API_TOKENS_TABLE_SQL.format(table="api_tokens"))
+            self._allow_fleet_scope()
+
+    def _allow_fleet_scope(self) -> None:
+        """
+        Rebuild an ``api_tokens`` table whose CHECK predates the ``fleet`` scope.
+
+        SQLite cannot alter a CHECK constraint, so the table is copied into
+        one declared the current way, ids and all, inside one transaction:
+        a crash leaves either the old table or the new one, never neither.
+        The caller holds the lock and the connection's context.
+        """
+        row = self._conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'api_tokens'"
+        ).fetchone()
+        if row is None or f"'{FLEET_SCOPE}'" in str(row["sql"]):
+            return
+        if not self._conn.in_transaction:
+            self._conn.execute("BEGIN")
+        self._conn.execute("DROP TABLE IF EXISTS api_tokens_fleet")
+        self._conn.execute(API_TOKENS_TABLE_SQL.format(table="api_tokens_fleet"))
+        self._conn.execute(
+            "INSERT INTO api_tokens_fleet (id, name, token_hash, scope, created_at, expires_at, "
+            "last_used_at, revoked_at) SELECT id, name, token_hash, scope, created_at, "
+            "expires_at, last_used_at, revoked_at FROM api_tokens"
+        )
+        self._conn.execute("DROP TABLE api_tokens")
+        # RENAME carries the AUTOINCREMENT counter with it, so an id a
+        # revoked token held is never handed out again.
+        self._conn.execute("ALTER TABLE api_tokens_fleet RENAME TO api_tokens")
 
     def create(
         self,
@@ -2323,18 +2418,70 @@ class TokenManager:
 
         Raises:
             SecurityError: When the name is empty or taken, the scope is not
-                a scope, or the expiry is not positive.
+                a scope, is ``fleet`` (see :meth:`create_fleet_token`), or the
+                expiry is not positive.
+        """
+        if scope == FLEET_SCOPE:
+            # The chokepoint for the one scope that may speak for somebody
+            # else: POST /api/auth/tokens and 'noust token create' both land
+            # here, and neither may mint it.
+            raise SecurityError(
+                "A fleet token cannot be issued here",
+                details=(
+                    "Fleet tokens are created on this server by 'noust fleet authorize "
+                    "--central-key ... --name <central>', which also installs the "
+                    "central's restricted SSH key and prints the join code for it."
+                ),
+            )
+        if scope not in API_TOKEN_SCOPES:
+            raise SecurityError(
+                f"Unknown API token scope: {scope!r}",
+                details=f"Use one of: {', '.join(API_TOKEN_SCOPES)}.",
+            )
+        return self._issue_api_token(name, scope, expires_hours)
+
+    def create_fleet_token(self, name: str) -> dict[str, Any]:
+        """
+        Issue the token a central holds for this server, with the ``fleet`` scope.
+
+        Called only by ``noust fleet authorize``, which runs on this server as
+        root; nothing reachable over HTTP issues one. It never expires: the
+        node's operator ends it by revoking it.
+
+        Args:
+            name: ``fleet-<central>``, unique across all tokens ever issued.
+
+        Returns:
+            The record, as :meth:`create_api_token` returns it.
+
+        Raises:
+            SecurityError: When the name is empty, too long or taken.
+        """
+        return self._issue_api_token(name, FLEET_SCOPE, None)
+
+    def _issue_api_token(
+        self, name: str, scope: str, expires_hours: float | None
+    ) -> dict[str, Any]:
+        """
+        Mint and store an API token whose scope the caller already vetted.
+
+        Args:
+            name: Human-chosen name, unique across all tokens ever issued.
+            scope: The scope, already checked by the public caller.
+            expires_hours: Lifetime in hours, or None.
+
+        Returns:
+            The record, including the one and only clear copy of the token.
+
+        Raises:
+            SecurityError: When the name is empty or taken, or the expiry is
+                not positive.
         """
         cleaned = name.strip()
         if not cleaned or len(cleaned) > 64:
             raise SecurityError(
                 "API token names are 1 to 64 characters",
                 details="Name the token after what will hold it, such as 'ci-deploy'.",
-            )
-        if scope not in API_TOKEN_SCOPES:
-            raise SecurityError(
-                f"Unknown API token scope: {scope!r}",
-                details=f"Use one of: {', '.join(API_TOKEN_SCOPES)}.",
             )
         if expires_hours is not None and expires_hours <= 0:
             raise SecurityError(
@@ -3277,10 +3424,12 @@ def scope_satisfies(granted: str, required: str) -> bool:
 
     Returns:
         True when the grant is at or above the requirement. An unknown scope
-        on either side fails closed.
+        on either side fails closed, and so does a raw ``fleet`` scope: an
+        admitted fleet payload carries the scope :func:`admit_fleet` gave it,
+        so one still saying ``fleet`` skipped admission and is worth nothing.
     """
     wanted = SCOPE_RANK.get(required)
-    if wanted is None:
+    if wanted is None or granted == FLEET_SCOPE:
         return False
     return SCOPE_RANK.get(granted, -1) >= wanted
 
@@ -3327,13 +3476,316 @@ def actor_label(session: Mapping[str, Any]) -> str:
             builds it.
 
     Returns:
-        ``"master"``, ``"token:<name>"``, or the first 12 characters of a
-        cookie session's id.
+        ``"master"``, ``"token:<name>"``, the first 12 characters of a
+        cookie session's id, or ``"<fleet token name> on behalf of <actor>"``
+        for a central acting for one of its operators.
     """
+    on_behalf_of = session.get("on_behalf_of")
+    if session.get("fleet") and on_behalf_of:
+        return f"{session.get('token_name') or 'fleet'} on behalf of {on_behalf_of}"
     sid = str(session.get("sid") or "unknown")
     if sid in (MASTER_SID, "unknown") or sid.startswith(API_TOKEN_SID_PREFIX):
         return sid
     return sid[:12]
+
+
+class FleetCredentialRefused(HTTPException):
+    """
+    A fleet token presented where, or how, it is not accepted.
+
+    Raised where the credential is resolved, so no endpoint can accept one
+    that failed admission. It is an ``HTTPException`` because the API's
+    error boundary already answers those in the one contract, and a dict
+    ``detail`` carries its own ``error`` code there.
+    """
+
+    def __init__(self, status_code: int, error: str, detail: str, hint: str) -> None:
+        """
+        Args:
+            status_code: 401 for a token from the wrong place, 400 for a
+                malformed fleet header, 403 for a refused operation.
+            error: Machine-readable code for the error contract.
+            detail: What was refused.
+            hint: What to do instead.
+        """
+        super().__init__(
+            status_code=status_code,
+            detail={"error": error, "detail": detail, "hint": hint, "fields": None},
+            headers={"WWW-Authenticate": "Bearer"} if status_code == 401 else None,
+        )
+        self.reason = detail
+
+
+def is_fleet(payload: Mapping[str, Any]) -> bool:
+    """
+    Report whether a payload was authenticated by a central's fleet token.
+
+    Args:
+        payload: A verified payload.
+
+    Returns:
+        True for an admitted fleet payload, or a raw one that still says so.
+    """
+    return bool(payload.get("fleet")) or payload.get("scope") == FLEET_SCOPE
+
+
+def fleet_origin_refusal(connection: HTTPConnection | None) -> str | None:
+    """
+    Say why a connection may not carry a fleet token, if it may not.
+
+    The peer is the TCP peer, not :func:`get_client_ip`'s answer: a trusted
+    proxy's ``X-Forwarded-For`` names somebody else by design. And loopback
+    is not enough on its own, because a reverse proxy on this machine is
+    loopback too; the headers such a proxy adds are what tell it apart from
+    the SSH tunnel, which adds none.
+
+    Args:
+        connection: The request or handshake, or None when the caller has
+            none to offer - which fails closed.
+
+    Returns:
+        None when the token may be used, otherwise the sentence to refuse with.
+    """
+    if connection is None:
+        return "A fleet token is only accepted on a request this server can see the peer of."
+    peer = connection.client.host if connection.client else ""
+    try:
+        loopback = ipaddress.ip_address(peer).is_loopback
+    except ValueError:
+        loopback = False
+    if not loopback:
+        return (
+            "A fleet token is only accepted from this server's own loopback, "
+            "where the central's SSH tunnel arrives."
+        )
+    forwarded = [name for name in FORWARDING_HEADERS if name in connection.headers]
+    if forwarded:
+        return (
+            "A fleet token is not accepted through a reverse proxy "
+            f"(the request carries {', '.join(forwarded)}); the central reaches this "
+            "server through its SSH tunnel only."
+        )
+    return None
+
+
+def admit_fleet(payload: dict[str, Any], connection: HTTPConnection | None) -> dict[str, Any]:
+    """
+    Turn a fleet token's raw payload into what the request may do.
+
+    The one place a fleet payload is admitted: the peer must be the tunnel,
+    ``X-Noust-Actor`` names the operator on the central, the token is
+    narrowed to ``X-Noust-Actor-Scope``, and ``X-Noust-Elevated`` records
+    whether the central confirmed that operator's sudo mode. The raw
+    ``fleet`` scope is replaced, so a payload that skipped this satisfies no
+    scope at all (see :func:`scope_satisfies`).
+
+    Args:
+        payload: The raw payload of a fleet token. Modified in place.
+        connection: The request or handshake that presented it.
+
+    Returns:
+        The same payload, admitted.
+
+    Raises:
+        FleetCredentialRefused: 401 when the peer is not the tunnel, 400 when
+            a fleet header is malformed.
+    """
+    refusal = fleet_origin_refusal(connection)
+    if refusal is not None or connection is None:
+        raise FleetCredentialRefused(
+            401,
+            "fleet_origin",
+            refusal or "A fleet token needs a connection.",
+            "Reach this server through the central, or use a token of your own.",
+        )
+
+    actor = connection.headers.get(FLEET_ACTOR_HEADER)
+    if actor is not None and not FLEET_ACTOR_PATTERN.fullmatch(actor):
+        raise FleetCredentialRefused(
+            400,
+            "validation_error",
+            f"{FLEET_ACTOR_HEADER} must be 1 to 64 letters, digits or ._:@+-, "
+            "starting with a letter or digit.",
+            "The central sends its operator's label; check the central's version.",
+        )
+
+    granted = "admin"
+    actor_scope = connection.headers.get(FLEET_ACTOR_SCOPE_HEADER)
+    if actor_scope is not None:
+        if actor_scope not in SCOPE_RANK:
+            raise FleetCredentialRefused(
+                400,
+                "validation_error",
+                f"{FLEET_ACTOR_SCOPE_HEADER} must be one of: {', '.join(API_TOKEN_SCOPES)}.",
+                "The central sends its operator's scope; check the central's version.",
+            )
+        # Never above admin, whatever the central says: min() over ranks.
+        if SCOPE_RANK[actor_scope] < SCOPE_RANK[granted]:
+            granted = actor_scope
+
+    payload["fleet"] = True
+    payload["scope"] = granted
+    payload["on_behalf_of"] = actor
+    payload["elevation_attested"] = connection.headers.get(FLEET_ELEVATED_HEADER) == "1"
+    return payload
+
+
+def _under(path: str, prefix: str) -> bool:
+    """
+    Report whether a path is a prefix or below it, segment-wise.
+
+    Args:
+        path: The request path.
+        prefix: A path prefix without a trailing slash.
+
+    Returns:
+        True for ``prefix`` itself and anything under ``prefix/``.
+    """
+    return path == prefix or path.startswith(prefix + "/")
+
+
+def fleet_refusal(method: str, path: str, config_key: str | None = None) -> str | None:
+    """
+    The operations a fleet token may never perform, stated once.
+
+    A central manages a node's applications, services, databases and
+    backups with its operator's authority. It does not manage the node's
+    own credentials - tokens, two-factor authentication, sessions, sudo mode,
+    WebSocket tickets - nor who may reach the node's console, nor fleet
+    enrollment: those stay with whoever holds root on the node, so a
+    compromised central cannot lock that operator out, widen the node's
+    exposure, or mint itself a credential that outlives revocation.
+
+    Args:
+        method: The HTTP method; ``GET`` for a WebSocket handshake.
+        path: The request path.
+        config_key: The dotted key a ``PATCH /api/config`` body addresses, when
+            the request is one; ignored otherwise.
+
+    Returns:
+        None when the operation is allowed, otherwise the sentence to refuse with.
+    """
+    verb = method.upper()
+    if path in FLEET_AUTH_PATHS:
+        return None
+    for prefix in FLEET_REFUSED_PREFIXES:
+        if _under(path, prefix):
+            return (
+                f"A central cannot reach {path} on a node: credentials and fleet "
+                "enrollment belong to the node's own operator."
+            )
+    if (verb, path) in FLEET_REFUSED_WRITES:
+        return (
+            f"A central cannot {verb} {path} on a node: it carries the node's console "
+            "security settings."
+        )
+    if verb == "PATCH" and path == "/api/config" and config_key is not None:
+        section = config_key.strip().split(".", 1)[0]
+        if section in FLEET_PROTECTED_CONFIG_SECTIONS:
+            return (
+                f"A central cannot change '{config_key}' on a node: the '{section}' "
+                "settings belong to the node's own operator."
+            )
+    return None
+
+
+def _refuse_fleet_operation(
+    connection: HTTPConnection, payload: Mapping[str, Any], reason: str
+) -> None:
+    """
+    Audit and raise a refused fleet operation.
+
+    Args:
+        connection: The request or handshake.
+        payload: The admitted fleet payload.
+        reason: The sentence from :func:`fleet_refusal`.
+
+    Raises:
+        FleetCredentialRefused: Always, as a 403.
+    """
+    audit = get_audit_logger()
+    if audit is not None:
+        audit.record(
+            action="auth.fleet",
+            result="denied",
+            client_ip=get_client_ip(connection),
+            actor=actor_label(payload),
+            resource=str(connection.scope.get("path", "")),
+            detail=reason,
+        )
+    raise FleetCredentialRefused(
+        403,
+        "forbidden",
+        reason,
+        "Run it on the node itself, as its operator.",
+    )
+
+
+async def _patched_config_key(request: Request) -> str | None:
+    """
+    Read the dotted key a ``PATCH /api/config`` body addresses.
+
+    The body is at most :data:`MAX_BODY_BYTES` - the middleware read it
+    already - and Starlette caches it on the request, so the endpoint parses
+    the same bytes afterwards.
+
+    Args:
+        request: The incoming request.
+
+    Returns:
+        The key, or ``""`` when the body does not name one as a string - which
+        the endpoint refuses on its own - so a malformed body is never
+        mistaken for an allowed key.
+    """
+    try:
+        body = json.loads(await request.body() or b"null")
+    except (ValueError, UnicodeDecodeError):
+        return ""
+    key = body.get("path") if isinstance(body, dict) else None
+    return key if isinstance(key, str) else ""
+
+
+async def ensure_fleet_allowed(request: Request, payload: Mapping[str, Any]) -> None:
+    """
+    Refuse a fleet request :func:`fleet_refusal` names, at ``require_auth``.
+
+    Args:
+        request: The incoming request.
+        payload: The verified payload.
+
+    Raises:
+        FleetCredentialRefused: 403 when the operation is one a fleet token
+            may not perform.
+    """
+    if not is_fleet(payload):
+        return
+    method = request.method.upper()
+    path = request.url.path
+    config_key = (
+        await _patched_config_key(request) if (method, path) == ("PATCH", "/api/config") else None
+    )
+    reason = fleet_refusal(method, path, config_key)
+    if reason is not None:
+        _refuse_fleet_operation(request, payload, reason)
+
+
+def ensure_fleet_handshake_allowed(connection: HTTPConnection, payload: Mapping[str, Any]) -> None:
+    """
+    Refuse a fleet WebSocket handshake :func:`fleet_refusal` names.
+
+    Args:
+        connection: The pending handshake.
+        payload: The verified payload.
+
+    Raises:
+        FleetCredentialRefused: 403 when the stream is one a fleet token may
+            not open.
+    """
+    if not is_fleet(payload):
+        return
+    reason = fleet_refusal("GET", str(connection.scope.get("path", "")))
+    if reason is not None:
+        _refuse_fleet_operation(connection, payload, reason)
 
 
 def required_scope(method: str, path: str) -> str:
@@ -3456,10 +3908,14 @@ def credential_key(payload: Mapping[str, Any]) -> str:
     Returns:
         ``master``, ``token:<name>``, or ``session:<family>`` - the sign-in,
         not the sid, so the connections a session opened before and after a
-        renewal count against one budget.
+        renewal count against one budget. A fleet token is keyed per actor
+        too: one token carries every operator of a central, and eight log
+        streams shared by all of them would be one busy operator's worth.
     """
     if payload.get("type") == "session":
         return f"session:{payload.get('family') or payload.get('sid')}"
+    if payload.get("fleet") and payload.get("on_behalf_of"):
+        return f"{payload.get('sid') or 'unknown'}#{payload['on_behalf_of']}"
     return str(payload.get("sid") or "unknown")
 
 
@@ -3632,7 +4088,12 @@ def rate_limit_identity(connection: HTTPConnection, client_ip: str) -> str | Non
     for source, credential in candidates:
         if not credential:
             continue
-        payload = check_credential(credential, client_ip)
+        try:
+            payload = check_credential(credential, client_ip, connection)
+        except FleetCredentialRefused:
+            # A real token from the wrong place is not a guess; the endpoint
+            # refuses and audits it, and the request is counted by address.
+            return None
         if payload is not None:
             return credential_key(payload)
         if _is_guess(credential):
@@ -3640,16 +4101,25 @@ def rate_limit_identity(connection: HTTPConnection, client_ip: str) -> str | Non
     return None
 
 
-def check_credential(credential: str, client_ip: str) -> dict[str, Any] | None:
+def check_credential(
+    credential: str, client_ip: str, connection: HTTPConnection | None = None
+) -> dict[str, Any] | None:
     """
     Verify one credential without recording anything.
 
     Args:
         credential: A session token, an API token or the master token.
         client_ip: Address presenting it.
+        connection: The request or handshake that carries it. A fleet token
+            is admitted against it (:func:`admit_fleet`); without one a fleet
+            token is refused.
 
     Returns:
         The session payload, or None when the credential is not valid.
+
+    Raises:
+        FleetCredentialRefused: When the credential is a fleet token that the
+            connection may not carry.
     """
     manager = get_global_token_manager()
     if manager is None or not credential:
@@ -3658,7 +4128,10 @@ def check_credential(credential: str, client_ip: str) -> dict[str, Any] | None:
     # The prefix routes to the token table and nowhere else, so an expired or
     # revoked API token cannot fall through to a slower master-token check.
     if credential.startswith(API_TOKEN_PREFIXES):
-        return manager.verify_api_token(credential, client_ip)
+        token_payload = manager.verify_api_token(credential, client_ip)
+        if token_payload is not None and is_fleet(token_payload):
+            return admit_fleet(token_payload, connection)
+        return token_payload
 
     payload = manager.verify_session_token(credential, client_ip)
     if payload is not None:
@@ -3671,8 +4144,33 @@ def check_credential(credential: str, client_ip: str) -> dict[str, Any] | None:
     return None
 
 
+def _audit_fleet_refusal(client_ip: str, resource: str, reason: str) -> None:
+    """
+    Record a fleet token presented where it is not accepted.
+
+    Args:
+        client_ip: Address it came from.
+        resource: Path being reached.
+        reason: Why it was refused.
+    """
+    audit = get_audit_logger()
+    if audit is not None:
+        audit.record(
+            action="auth.fleet",
+            result="denied",
+            client_ip=client_ip,
+            resource=resource,
+            detail=reason,
+        )
+
+
 def verify_credential(
-    credential: str, client_ip: str, *, resource: str, source: str
+    credential: str,
+    client_ip: str,
+    *,
+    resource: str,
+    source: str,
+    connection: HTTPConnection | None = None,
 ) -> dict[str, Any] | None:
     """
     Verify one credential, counting the failure when it does not match.
@@ -3682,6 +4180,8 @@ def verify_credential(
         client_ip: Address presenting it.
         resource: Path being reached, for the audit record.
         source: Channel the credential arrived on: ``"cookie"`` or ``"bearer"``.
+        connection: The request carrying it, which a fleet token is admitted
+            against; a fleet token verified without one is refused.
 
     Returns:
         The session payload, tagged with the channel it arrived on under
@@ -3689,8 +4189,18 @@ def verify_credential(
         No policy reads the channel: CSRF and sudo mode follow the
         credential's ``"type"``, so a session cannot shed either by moving
         from the cookie to the header.
+
+    Raises:
+        FleetCredentialRefused: When a fleet token is presented from anywhere
+            but the tunnel, or with a malformed fleet header. Audited, and not
+            counted as a guess: the token is real.
     """
-    payload = check_credential(credential, client_ip)
+    try:
+        payload = check_credential(credential, client_ip, connection)
+    except FleetCredentialRefused as exc:
+        _audit_fleet_refusal(client_ip, resource, exc.reason)
+        _mark_counted(credential)
+        raise
     if payload is None:
         if _is_guess(credential):
             record_auth_failure(client_ip, resource, source)
@@ -3732,17 +4242,24 @@ def authenticate_connection(
         subprotocol_token(connection),
         bearer_token(connection),
     )
-    for credential in candidates:
-        if not credential:
-            continue
-        payload = check_credential(credential, client_ip)
-        if payload is not None:
-            return payload
+    try:
+        for credential in candidates:
+            if not credential:
+                continue
+            payload = check_credential(credential, client_ip, connection)
+            if payload is not None:
+                return payload
 
-    if ticket:
-        payload = manager.consume_ws_ticket(ticket, client_ip)
-        if payload is not None:
-            return payload
+        if ticket:
+            payload = manager.consume_ws_ticket(ticket, client_ip)
+            if payload is not None and is_fleet(payload):
+                return admit_fleet(payload, connection)
+            if payload is not None:
+                return payload
+    except FleetCredentialRefused as exc:
+        _audit_fleet_refusal(client_ip, resource, exc.reason)
+        _mark_counted(*candidates)
+        return None
 
     record_auth_failure(client_ip, resource, "websocket")
     # One failure per handshake, whichever channels the rate limiter noted.
@@ -3829,7 +4346,9 @@ async def require_auth(request: Request) -> dict[str, Any]:
 
     bearer = bearer_token(request)
     if bearer:
-        payload = verify_credential(bearer, client_ip, resource=resource, source="bearer")
+        payload = verify_credential(
+            bearer, client_ip, resource=resource, source="bearer", connection=request
+        )
         if payload is None:
             raise _unauthorized("Invalid or expired authentication token")
         if payload.get("type") == "session":
@@ -3841,16 +4360,20 @@ async def require_auth(request: Request) -> dict[str, Any]:
             _check_csrf(request, payload, client_ip)
         request.state.session = payload
         ensure_scope(request, payload, required_scope(request.method, resource))
+        await ensure_fleet_allowed(request, payload)
         return payload
 
     cookie = request.cookies.get(SESSION_COOKIE_NAME)
     if cookie:
-        payload = verify_credential(cookie, client_ip, resource=resource, source="cookie")
+        payload = verify_credential(
+            cookie, client_ip, resource=resource, source="cookie", connection=request
+        )
         if payload is None:
             raise _unauthorized("Session expired or revoked. Please log in again.")
         _check_csrf(request, payload, client_ip)
         request.state.session = payload
         ensure_scope(request, payload, required_scope(request.method, resource))
+        await ensure_fleet_allowed(request, payload)
         renewed = manager.renew_session(payload)
         if renewed is not None:
             request.state.renewed_session = renewed

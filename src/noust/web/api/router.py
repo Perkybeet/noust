@@ -34,6 +34,8 @@ from noust.web.api.integrations import router as integrations_router
 from noust.web.api.jobs import router as jobs_router
 from noust.web.api.metrics import router as metrics_router
 from noust.web.api.monitor import router as monitor_router
+from noust.web.api.node_proxy import router as node_proxy_router
+from noust.web.api.nodes import router as nodes_router
 from noust.web.api.openapi import router as openapi_router
 from noust.web.api.previews import router as previews_router
 from noust.web.api.recipes import router as recipes_router
@@ -91,6 +93,10 @@ router.include_router(integrations_router, prefix="/integrations", tags=["Integr
 router.include_router(zero_downtime_router, prefix="/apps", tags=["Applications"])
 router.include_router(previews_router, prefix="/apps", tags=["Previews"])
 router.include_router(recipes_router, prefix="/recipes", tags=["Recipes"])
+# The fleet, on a central: the registry of nodes, and the proxy that makes
+# every other route here reachable on a node as /nodes/{node}/api/...
+router.include_router(nodes_router, prefix="/nodes", tags=["Nodes"])
+router.include_router(node_proxy_router, prefix="/nodes", tags=["Nodes"])
 # No prefix: the route is declared as "/openapi.json" and this router mounts
 # directly under "/api", giving GET /api/openapi.json.
 router.include_router(openapi_router, tags=["OpenAPI"])

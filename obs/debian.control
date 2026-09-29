@@ -62,6 +62,8 @@ Recommends: python3-fastapi,
             python3-pydantic,
             python3-uvicorn,
             python3-psutil,
+            python3-httpx,
+            python3-websockets,
             ${noust:Recommends}
 Suggests: git,
           nodejs,

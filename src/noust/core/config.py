@@ -214,6 +214,16 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "token_expiration_hours": 12,
         "ip_whitelist": [],
     },
+    "central": {
+        # What this Noust is for. "server" is the Noust every release has
+        # been: it deploys and serves applications, and it may also manage
+        # other servers. "hub" is a central with no local deployments - a
+        # container on a NAS, say - where applications, sites, certificates
+        # and the web server are refused with a message instead of failing
+        # on a missing nginx. See noust.central.role. NOUST_CENTRAL_ROLE
+        # overrides it, which is how the container image is a hub.
+        "role": "server",
+    },
     "databases": {
         "default_encoding": {
             "mysql": "utf8mb4",
@@ -695,8 +705,39 @@ def _validate_hooks_url(value: Any) -> str:
     return text.rstrip("/")
 
 
+#: What ``central.role`` may be. Mirrored by noust.central.ROLES, which this
+#: module cannot import (the central package reads its settings from here).
+CENTRAL_ROLES = ("server", "hub")
+
+
+def _validate_central_role(value: Any) -> str:
+    """
+    Accept one of the roles a Noust can have.
+
+    Args:
+        value: Candidate role.
+
+    Returns:
+        The role, lower-cased.
+
+    Raises:
+        ConfigError: When it is not one of :data:`CENTRAL_ROLES`.
+    """
+    role = str(value or "").strip().lower()
+    if role not in CENTRAL_ROLES:
+        raise ConfigError(
+            f"central.role must be one of {', '.join(CENTRAL_ROLES)}, not {value!r}",
+            details=(
+                "'server' deploys applications here; 'hub' only manages other "
+                "servers (a central on a NAS or in a container)."
+            ),
+        )
+    return role
+
+
 _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "webserver": _validate_webserver,
+    "central.role": _validate_central_role,
     "backup.max_per_app": _int_range_validator("backup.max_per_app", 1, 100),
     "web.port": _int_range_validator("web.port", 1, 65535),
     "web.session_timeout": _int_range_validator("web.session_timeout", 300, 86400),
@@ -1416,6 +1457,7 @@ def _apply_env_overrides(config: dict[str, Any]) -> None:
         "WEBSERVER": "webserver",
         "SERVICE_USER": "service_user",
         "SSL_EMAIL": ("ssl", "email"),
+        "CENTRAL_ROLE": ("central", "role"),
     }
 
     for env_var, config_key in env_mappings.items():

@@ -17,11 +17,30 @@ this module. The rule that matters is in :func:`resolve_dir`: a location that
 exists wins over one that would be created. Creating ``/var/lib/wasm`` once
 moved a populated store to an empty one and a server with seventeen sites
 answered "No applications deployed"; a rename must never reopen that trap.
+
+A central in a container has one volume, and everything that must survive a
+restart has to be on it. ``NOUST_DATA_DIR`` names that directory, and the
+precedence is:
+
+1. ``NOUST_DATA_DIR`` set: configuration, state (store and secrets), backups
+   and logs all live under it (see :func:`data_layout`). The operator named
+   where Noust lives, so no legacy WASM location is preferred over it. (The
+   store still looks at every place a populated inventory may be before it
+   creates an empty one, which is its own rule, in :mod:`noust.core.store`.)
+2. Otherwise the system locations, each resolved by :func:`resolve_dir`: a
+   real WASM directory wins until the migration moves it.
+
+The constants below are computed when this module is imported, from the
+environment the process started with, because the store and the
+configuration read them at import time too: every module agrees on one
+answer for the life of the process.
 """
 
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 
 #: The product's name in paths, units and commands.
@@ -29,18 +48,106 @@ NAME = "noust"
 #: The name it had until 3.0.
 LEGACY_NAME = "wasm"
 
+#: The variable naming a single directory for everything Noust keeps. It is
+#: new in 3.0, so it has no ``WASM_*`` spelling.
+DATA_DIR_ENV = "NOUST_DATA_DIR"
+
+
+@dataclass(frozen=True)
+class DataLayout:
+    """
+    Where each kind of data lives under a data directory.
+
+    Attributes:
+        root: The data directory itself.
+        config: config.yaml and the console's state (signing key, token hash,
+            sessions, two-factor state, audit log, the minted TLS pair).
+        state: The store, the secrets, metrics and locks.
+        backups: Backups made by the central itself.
+        logs: Noust's own log files.
+    """
+
+    root: Path
+    config: Path
+    state: Path
+    backups: Path
+    logs: Path
+
+    def all(self) -> tuple[Path, ...]:
+        """
+        Every directory of the layout, root excluded.
+
+        Returns:
+            The directories, in the order they are created.
+        """
+        return (self.config, self.state, self.backups, self.logs)
+
+
+def data_layout(root: Path) -> DataLayout:
+    """
+    Describe the directories under a data directory.
+
+    Args:
+        root: The data directory.
+
+    Returns:
+        Its layout.
+    """
+    return DataLayout(
+        root=root,
+        config=root / "config",
+        state=root / "state",
+        backups=root / "backups",
+        logs=root / "log",
+    )
+
+
+def data_dir(environ: Mapping[str, str] | None = None) -> Path | None:
+    """
+    Read the data directory the environment names, if any.
+
+    Args:
+        environ: The environment; the process's own by default.
+
+    Returns:
+        The directory, or None when ``NOUST_DATA_DIR`` is unset or blank.
+
+    Raises:
+        ConfigError: When the value is a relative path, which would mean a
+            different directory for every working directory a command is
+            started from.
+    """
+    env = os.environ if environ is None else environ
+    value = (env.get(DATA_DIR_ENV) or "").strip()
+    if not value:
+        return None
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        from noust.core.exceptions import ConfigError
+
+        raise ConfigError(
+            f"{DATA_DIR_ENV} must be an absolute path, not {value!r}",
+            details="Set it to the directory Noust keeps its data in, such as /data.",
+        )
+    return path
+
+
+#: The data directory this process runs with, or None for the system layout.
+DATA_DIR = data_dir()
+_LAYOUT = data_layout(DATA_DIR) if DATA_DIR is not None else None
+
 # -- system directories -------------------------------------------------------
 
-CONFIG_DIR = Path("/etc/noust")
+CONFIG_DIR = _LAYOUT.config if _LAYOUT else Path("/etc/noust")
 LEGACY_CONFIG_DIR = Path("/etc/wasm")
 
-STATE_DIR = Path("/var/lib/noust")
+STATE_DIR = _LAYOUT.state if _LAYOUT else Path("/var/lib/noust")
 LEGACY_STATE_DIR = Path("/var/lib/wasm")
 
-BACKUP_DIR = Path("/var/backups/noust")
+BACKUP_DIR = _LAYOUT.backups if _LAYOUT else Path("/var/backups/noust")
 LEGACY_BACKUP_DIR = Path("/var/backups/wasm")
 
-LOG_DIR = Path("/var/log/noust")
+LOG_DIR = _LAYOUT.logs if _LAYOUT else Path("/var/log/noust")
 LEGACY_LOG_DIR = Path("/var/log/wasm")
 
 #: The store's file name inside the state directory.
@@ -166,8 +273,12 @@ def resolve_dir(new: Path, legacy: Path) -> Path:
         legacy: The WASM location.
 
     Returns:
-        ``legacy`` while it is a real directory, else ``new``.
+        ``new`` when a data directory was named (it is the operator's
+        explicit choice), else ``legacy`` while it is a real directory, else
+        ``new``.
     """
+    if DATA_DIR is not None:
+        return new
     if legacy.is_dir() and not legacy.is_symlink():
         return legacy
     return new

@@ -90,9 +90,9 @@ def spy_on_credential_checks(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     checked: list[str] = []
     real = auth.check_credential
 
-    def spy(credential: str, client_ip: str) -> dict[str, object] | None:
+    def spy(credential: str, client_ip: str, connection: Any = None) -> dict[str, object] | None:
         checked.append(credential)
-        return real(credential, client_ip)
+        return real(credential, client_ip, connection)
 
     monkeypatch.setattr(auth, "check_credential", spy)
     return checked
