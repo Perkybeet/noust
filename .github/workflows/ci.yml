@@ -235,12 +235,15 @@ jobs:
         run: npm run build
 
       # `git diff` alone misses a chunk the build created and nobody
-      # committed; `git status` sees both that and a deleted one.
+      # committed; `git status` sees both that and a deleted one. The whole
+      # tree, not only src/noust/web/static: after the rename the build still
+      # went to src/wasm/web/static, this check looked where nothing had
+      # changed and passed, and the package shipped the console from before.
       - name: Check the committed build matches the source
         working-directory: .
         run: |
-          git diff --exit-code --stat -- src/noust/web/static
-          untracked=$(git status --porcelain -- src/noust/web/static)
+          git diff --exit-code --stat
+          untracked=$(git status --porcelain)
           if [ -n "$untracked" ]; then
             echo "The committed console build differs from what panel/ produces:"
             echo "$untracked"
@@ -373,11 +376,13 @@ jobs:
 
       - uses: actions/checkout@v7
 
+      # --snapshot: a branch between the rename and its release is staged as a
+      # pre-release of it; these packages are built and installed, never published.
       - name: Stage the OBS packages
         run: |
           git config --global --add safe.directory "$PWD"
-          packaging/obs/stage.sh noust /tmp/obs/noust
-          packaging/obs/stage.sh wasm /tmp/obs/wasm
+          packaging/obs/stage.sh --snapshot noust /tmp/obs/noust
+          packaging/obs/stage.sh --snapshot wasm /tmp/obs/wasm
 
       - name: Build
         run: |

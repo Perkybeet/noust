@@ -25,7 +25,8 @@ BuildArch:      noarch
 # that stopped and disabled wasm-web and wasm-monitor and stopped the console.
 # A conflict makes the solver upgrade wasm-cli to the transitional package
 # instead, where the old %%preun sees $1 = 1 and leaves the services alone.
-Conflicts:      wasm-cli < 3.0.0
+# The ~ takes in every 2.x and no pre-release of 3.0.0 (stage.sh --snapshot).
+Conflicts:      wasm-cli < 3.0.0~
 
 # On Leap 15.x, python3 is 3.6. It cannot parse this code, so building against
 # it produced a package that installed and then failed with SyntaxError on the

@@ -8,7 +8,7 @@
 # noust in as an ordinary upgrade of wasm-cli. It is built in the OBS package
 # home:Perkybeet/wasm, from packaging/transitional/wasm in the noust repository.
 #
-# noust.spec declares Conflicts: wasm-cli < 3.0.0 rather than Obsoletes, which
+# noust.spec declares Conflicts: wasm-cli < 3.0.0~ rather than Obsoletes, which
 # is what makes the solver pick this upgrade: see the comment there. What rpm
 # does to /etc/wasm/config.yaml while it removes wasm-cli 2.x is handled by
 # noust's %%pre and %%posttrans, which run on either path.

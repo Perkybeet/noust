@@ -210,7 +210,7 @@ When adding support for a new application type:
 ### 1. Create the Deployer Class
 
 ```python
-# src/wasm/deployers/myapp.py
+# src/noust/deployers/myapp.py
 
 from wasm.deployers.base import BaseDeployer
 from wasm.core.config import Config
@@ -254,7 +254,7 @@ class MyAppDeployer(BaseDeployer):
 ### 2. Register the Deployer
 
 ```python
-# src/wasm/deployers/__init__.py
+# src/noust/deployers/__init__.py
 
 from wasm.deployers.myapp import MyAppDeployer
 
@@ -266,7 +266,7 @@ DEPLOYERS = {
 
 ### 3. Create Templates
 
-Create the necessary templates in `src/wasm/templates/`:
+Create the necessary templates in `src/noust/templates/`:
 
 - `nginx/myapp.conf.j2`
 - `apache/myapp.conf.j2` (if applicable)
@@ -311,7 +311,7 @@ wasm <resource> <action> [options]
 ### Example Command Handler
 
 ```python
-# src/wasm/cli/commands/webapp.py
+# src/noust/cli/commands/webapp.py
 
 from wasm.core.logger import Logger
 from wasm.deployers import get_deployer

@@ -14,7 +14,20 @@ and the console hides them. Everything else (the console, tokens, two-factor, th
 works as on any Noust.
 
 What the central cannot do matters as much: its key on each server can only forward that
-server's console port (`restrict,port-forwarding,permitopen=...,command="/usr/bin/false"`).
+server's console port. The line `noust fleet authorize` installs is
+
+```
+restrict,port-forwarding,permitopen="127.0.0.1:<console port>",permitlisten="127.0.0.1:1",command="/usr/bin/false" ssh-ed25519 AAAA... noust-central:<central>
+```
+
+`restrict` turns every kind of forwarding, the terminal and the agent off; `port-forwarding`
+turns TCP forwarding back on in both directions, so `permitopen` limits `ssh -L` to the
+console and `permitlisten` limits `ssh -R` to loopback port 1, which nothing on the server
+uses (OpenSSH has no "none" value for it, and sshd refuses a port below 1024 to any account
+but root). The forced command makes anything else exit. It needs OpenSSH 7.8 or later on the
+server (Debian 12, Ubuntu 22.04 and later, Fedora and openSUSE Leap 15 all ship newer); an
+older sshd ignores the whole line, so the key fails closed. A server authorized by an earlier
+3.0 build gets the tighter line by running `noust fleet authorize` again.
 It never gets a shell on a server, and each server can revoke it on its own.
 
 ## Install on a UGREEN NAS (UGOS Pro)
@@ -152,6 +165,17 @@ docker exec -it noust noust central unlock
 printf '%s\n' "$PASSPHRASE" | docker exec -i noust noust central unlock   # from a script
 ```
 
+The console's form (`POST /api/central/unlock`) asks for a signed-in admin in sudo mode
+("Confirm it's you") as well as the passphrase, so an unattended browser tab is not enough.
+A wrong passphrase counts towards the same lockout as a wrong token (five in a row lock
+that address out for fifteen minutes), and every attempt is in the audit log, without the
+passphrase. While locked, anything that needs a node answers `423 central_locked`.
+
+Once unlocked, ssh is handed a decrypted copy of a node's key and pinned host key in a
+private, memory-backed directory (`$XDG_RUNTIME_DIR`, else the temporary directory) and the
+copy is deleted as soon as the tunnel is up; any left over go when the central stops or is
+locked. New node keys on a sealed central are generated there and sealed at once.
+
 `noust central unseal` stores them in clear again; unseal and seal to change the passphrase.
 
 **Nobody can recover a lost passphrase**, Noust included. Without it the sealed secrets are
@@ -202,5 +226,10 @@ start of a new version prints no token (one was already issued). Pin a version i
   some systems presents clients with the bridge's address (`172.17.0.1`), which the defaults
   already allow.
 - **"The secrets are sealed and locked"**: unlock them (above).
+- **A server shows as refused**: it no longer accepts this central's token (revoked or
+  deauthorized there). The central stops presenting it, so the server's audit log does not
+  fill up and its loopback address is never locked out. Authorize the central on the server
+  again, then `noust node test <name>` (or Test in the console) to resume, or remove and add
+  it with the new join code.
 - **A command says it is "not available on this central, which is a hub"**: it deploys on the
   machine it runs on; run it on the server instead.

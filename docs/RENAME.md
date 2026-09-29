@@ -78,7 +78,7 @@ wanted first, or dnf removes it along with `wasm-cli`:
 sudo dnf mark user noust && sudo dnf remove wasm-cli
 ```
 
-`noust` declares `Conflicts: wasm-cli < 3.0.0` and deliberately not
+`noust` declares `Conflicts: wasm-cli < 3.0.0~` and deliberately not
 `Obsoletes`. With `Obsoletes`, dnf replaced `wasm-cli` 2.x with `noust` outright,
 so no `wasm-cli` was left after the transaction and rpm ran the old package's
 removal scriptlet in its "last copy removed" branch, which stopped and disabled
@@ -165,7 +165,7 @@ fixing it, open the "Publish to PyPI" job of that run and use "Re-run this job":
 | `rpm/noust.spec`, `obs/noust.dsc`, `obs/debian.*` | The `noust` packages |
 | `packaging/transitional/wasm/` | The transitional `wasm` deb and `wasm-cli` rpm (OBS package `wasm`) |
 | `packaging/transitional/wasm-cli/` | The transitional PyPI project |
-| `packaging/obs/stage.sh` | Exactly the files each OBS package receives; the CI builds use the same set |
+| `packaging/obs/stage.sh` | Exactly the files each OBS package receives; the CI builds use the same set (`--snapshot`: a tree not yet released, as `X.Y.Z~dev`, never published) |
 | `packaging/obs/build.sh` | Builds a staged package as OBS does (`debian/` from `debian.*` files only) |
 | `packaging/obs/publish.sh` | Replaces an OBS package's sources with a staged set |
 | `packaging/obs/upgrade-test.sh` | Upgrades a 2.x server from the OBS repository and checks what it keeps |

@@ -26,9 +26,12 @@ Architecture: all
 # man page and the completions before then was 'wasm'; it is now a transitional
 # package that depends on this one (packaging/transitional/wasm), so an ordinary
 # 'apt upgrade' brings noust in. Breaks+Replaces is the Debian way to take over
-# another package's files across a rename.
-Breaks: wasm (<< 3.0.0)
-Replaces: wasm (<< 3.0.0)
+# another package's files across a rename. The ~ takes in every 2.x and nothing
+# of 3.0.0, pre-releases included: a snapshot of the tree before its release
+# (packaging/obs/stage.sh --snapshot) is 3.0.0~dev, with a transitional wasm
+# of the same version that must be installable alongside it.
+Breaks: wasm (<< 3.0.0~)
+Replaces: wasm (<< 3.0.0~)
 Provides: wasm
 Depends: ${python3:Depends},
          ${misc:Depends},

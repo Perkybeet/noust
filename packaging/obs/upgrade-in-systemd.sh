@@ -67,8 +67,8 @@ esac
 docker exec "$name" sh -euc "
     cp -a /src /work && cd /work
     git config --global --add safe.directory /work
-    packaging/obs/stage.sh noust /tmp/obs/noust
-    packaging/obs/stage.sh wasm /tmp/obs/wasm
+    packaging/obs/stage.sh --snapshot noust /tmp/obs/noust
+    packaging/obs/stage.sh --snapshot wasm /tmp/obs/wasm
     $build
     packaging/obs/build.sh $kind /tmp/obs/noust /tmp/new
     packaging/obs/build.sh $kind /tmp/obs/wasm /tmp/new

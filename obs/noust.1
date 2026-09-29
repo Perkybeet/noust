@@ -524,6 +524,33 @@ Check that a backup archive is intact and restorable.
 .br
 \fIbackup_id\fR
 
+.SS noust central
+Run and look after a central: the Noust that manages your servers.
+
+.SS noust central run
+Serve the central's console in the foreground (what the container runs).
+.TP
+.B \-\-host
+Address to listen on. The console is served over TLS whatever it is. Default: 0.0.0.0.
+.TP
+.B \-\-port
+Port to listen on. Default: 8443.
+
+.SS noust central seal
+Encrypt every secret (node keys and tokens, integration keys) under a passphrase. After this, the central starts locked until it is given the passphrase. The passphrase cannot be recovered: keep it somewhere else.
+
+.SS noust central status
+Report the central's role, data, certificate, seal, servers and 2FA.
+.TP
+.B \-\-json
+Print the status as JSON.
+
+.SS noust central unlock
+Give the running central the passphrase of its sealed secrets.
+
+.SS noust central unseal
+Decrypt every secret and remove the seal.
+
 .SS noust cert
 Obtain, inspect and retire the SSL certificates of this server.
 
@@ -1259,6 +1286,45 @@ Print secret values in clear instead of hiding them.
 .B \-\-json
 Print the variables as JSON.
 
+.SS noust fleet
+Enroll this server in a fleet, or see the fleet from its central.
+
+.SS noust fleet authorize
+Let a central manage this server, and print the join code for it.
+.TP
+.B \-\-central\-key
+The central's public key line for this server, as 'noust node key' printed it.
+.TP
+.B \-\-name
+The central's name.
+.TP
+.B \-\-ssh\-user
+Account the central's tunnel logs in as. Default: root.
+.TP
+.B \-y, \-\-yes
+Replace an older token without asking.
+.TP
+.B \-\-json
+Print the result, join code included, as JSON.
+
+.SS noust fleet deauthorize
+Stop trusting a central: remove its SSH key line and revoke its tokens.
+.TP
+.B \-\-name
+The central's name.
+.TP
+.B \-\-ssh\-user
+Account the central's key was installed for. Default: root.
+.TP
+.B \-\-json
+Print what was removed as JSON.
+
+.SS noust fleet status
+Show every node this central manages: reachability, version, apps, units, certificates.
+.TP
+.B \-\-json
+Print every node's summary as JSON.
+
 .SS noust github
 This server's GitHub App: private repositories, push and pull request events.
 
@@ -1449,6 +1515,77 @@ Remove the monitor's systemd unit from this server.
 .TP
 .B \-y, \-\-yes
 Do not ask for confirmation.
+
+.SS noust node
+Manage the servers this central manages, through their API over SSH tunnels.
+
+.SS noust node add
+Register NAME from the join code it printed, and check the tunnel and the token.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-ssh
+USER@HOST[:PORT] the node is reached at.
+.TP
+.B \-\-join\-code
+The code 'noust fleet authorize' printed; '\-' reads it from stdin. Omitted, it is asked for without echo.
+.TP
+.B \-\-json
+Print the registered node as JSON.
+
+.SS noust node key
+Print this central's key for NAME and the command that authorizes it on NAME.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-json
+Print the key and the authorize command as JSON.
+
+.SS noust node list
+List the nodes this central manages, with what it last learnt about each.
+.TP
+.B \-\-json
+Print the nodes as JSON.
+
+.SS noust node remove
+Stop managing NAME: revoke its token there, close its tunnel, delete its key and token here.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-no\-revoke
+Do not ask the node to revoke this central's token.
+.TP
+.B \-f, \-\-force
+Do not ask for confirmation.
+.TP
+.B \-\-json
+Print the warnings as JSON.
+
+.SS noust node show
+Show one node: its address, pinned host key, tunnel and last status.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-json
+Print the node and its tunnel as JSON.
+
+.SS noust node test
+Check NAME end to end: the tunnel, the token and the API. Exits 1 when it fails.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-json
+Print the result as JSON.
 
 .SS noust notify
 Send test notifications through a configured channel.
