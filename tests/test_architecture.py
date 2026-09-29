@@ -1406,3 +1406,20 @@ class TestImportable:
         assert not failures, "Modules that fail to import:\n" + "\n".join(
             f"  {line}" for line in failures
         )
+
+
+class TestTestSeams:
+    """Test seams in product code are reachable from the test tooling only."""
+
+    def test_the_tunnel_seam_is_called_only_by_the_console_server(self):
+        """
+        ``set_loopback_for_testing`` skips ssh for a node: from product code it would be a
+        tunnel that never checks the node's pinned host key.
+        """
+        callers = [
+            path.relative_to(REPO).as_posix()
+            for path in [*SRC.rglob("*.py"), *(REPO / "scripts").rglob("*.py")]
+            if path.name != "tunnels.py"
+            and "set_loopback_for_testing" in path.read_text(encoding="utf-8")
+        ]
+        assert set(callers) <= {"scripts/console_server.py"}, callers
