@@ -46,6 +46,7 @@ from typing import TYPE_CHECKING, Any
 
 from jinja2 import Environment, PackageLoader, TemplateError
 
+from noust.central import require_server_role
 from noust.core import paths
 from noust.core.config import SYSTEMD_DIR as _SYSTEMD_DIR
 from noust.core.exceptions import (
@@ -560,6 +561,7 @@ def enable_previews(
         ServiceError: The sweep timer could not be installed; the settings
             are put back as they were.
     """
+    require_server_role("Preview environments")
     parent = _require_previewable(app_domain)
     store = get_store()
     before = store.get_preview_settings(parent.domain)

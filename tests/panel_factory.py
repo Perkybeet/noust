@@ -590,11 +590,11 @@ def seed_previews_records(
 #: This server's GitHub App, as GitHub's manifest conversion describes it.
 GITHUB_APP: dict[str, object] = {
     "app_id": 1043871,
-    "slug": "wasm-acme",
-    "name": "wasm-acme",
+    "slug": "noust-acme",
+    "name": "noust-acme",
     "owner": "acme",
     "owner_type": "Organization",
-    "html_url": "https://github.com/apps/wasm-acme",
+    "html_url": "https://github.com/apps/noust-acme",
     "client_id": "Iv23liC0nsoleSandbox",
 }
 

@@ -12,6 +12,13 @@ every caller handles.
 
 The token travels in the ``Authorization`` header and nowhere else: never in
 a URL (which ends up in access logs), never in argv, never in a message.
+
+A node that answers 401 to the token is recorded as ``refused`` and is not
+presented the token again - by the console's polling, the proxy or ``noust
+fleet status`` - until the operator asks for it explicitly with ``noust node
+test`` (or re-adds the node). Every refused presentation is an audited
+failure on the node, and a central that kept retrying a revoked token would
+only fill the node's audit log.
 """
 
 from __future__ import annotations
@@ -23,6 +30,7 @@ import httpx
 
 from noust.core.exceptions import NodeError, NodeRefusedError, NodeUnreachableError
 from noust.core.secrets import SecretStore
+from noust.core.store import NoustStore, get_store
 from noust.fleet.keys import TOKEN, secret_name
 from noust.fleet.tunnels import TunnelManager, get_tunnels
 
@@ -93,6 +101,10 @@ class NodeClient:
         secrets: Where the node's token is; the process-wide store by default.
         transport: An httpx transport to use instead of the network (tests,
             and the development server's direct URL).
+        store: Where the node's status is read and a refusal recorded; the
+            process-wide store by default.
+        retry_refused: Present the token even to a node recorded as
+            ``refused``: what ``noust node test`` and registration do.
     """
 
     def __init__(
@@ -103,12 +115,16 @@ class NodeClient:
         timeout: float = 30.0,
         secrets: SecretStore | None = None,
         transport: httpx.BaseTransport | None = None,
+        store: NoustStore | None = None,
+        retry_refused: bool = False,
     ) -> None:
         self.node = node
         self._tunnels = tunnels
         self.timeout = timeout
         self._secrets = secrets or SecretStore()
         self._transport = transport
+        self._store = store
+        self.retry_refused = retry_refused
 
     def __repr__(self) -> str:
         """Name the client without anything secret."""
@@ -118,6 +134,40 @@ class NodeClient:
     def tunnels(self) -> TunnelManager:
         """The tunnel manager."""
         return self._tunnels or get_tunnels()
+
+    @property
+    def store(self) -> NoustStore:
+        """The store the node's status is kept in."""
+        return self._store or get_store()
+
+    def _refuse_if_refused(self) -> None:
+        """
+        Stop before presenting a token the node already refused.
+
+        Raises:
+            NodeRefusedError: When the node is recorded as ``refused`` and this
+                client was not asked to retry; ``status_code`` is 401, what
+                the node answered.
+        """
+        if self.retry_refused:
+            return
+        record = self.store.get_node(self.node)
+        if record is None or record.status != "refused":
+            return
+        refused = NodeRefusedError(
+            f"{self.node} refused this central's fleet token; the central stopped asking it",
+            details=(
+                "Once the node accepts this central again (noust fleet authorize there, "
+                f"or a new join code), run 'noust node test {self.node}' to resume, or "
+                f"re-add it: noust node remove {self.node}, then noust node add."
+            ),
+        )
+        refused.status_code = 401
+        raise refused
+
+    def mark_refused(self) -> None:
+        """Record that the node refused the token, so it is not asked again."""
+        self.store.set_node_status(self.node, "refused")
 
     def base_url(self) -> str:
         """
@@ -172,7 +222,10 @@ class NodeClient:
 
         Raises:
             NodeError: When no token is stored, or the actor or scope is malformed.
+            NodeRefusedError: When the node already refused the token
+                (:meth:`mark_refused`) and this client does not retry.
         """
+        self._refuse_if_refused()
         headers = {"Authorization": f"Bearer {self._token()}"}
         if actor is not None:
             if not ACTOR_PATTERN.fullmatch(actor):
@@ -218,7 +271,9 @@ class NodeClient:
         Raises:
             NodeError: When the path is not a path on the node.
             NodeUnreachableError: When the tunnel or the connection fails.
-            NodeRefusedError: When the node answers 401 or 403 to the token.
+            NodeRefusedError: When the node answers 401 or 403 to the token (a
+                401 is recorded, and the node is not asked again until
+                ``noust node test``), or already refused it.
         """
         if not path.startswith("/") or path.startswith("//") or any(c in path for c in "\r\n"):
             raise NodeError(f"Not a path on the node: {path!r}")
@@ -241,6 +296,9 @@ class NodeClient:
                 details="\n".join(part for part in (str(exc), tunnel) if part),
             ) from exc
         if response.status_code in (401, 403):
+            if response.status_code == 401:
+                # 401 is about the token itself; a 403 is about one request.
+                self.mark_refused()
             refused = NodeRefusedError(
                 f"{self.node} refused the fleet token (HTTP {response.status_code})",
                 details=(

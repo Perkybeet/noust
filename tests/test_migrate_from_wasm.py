@@ -698,6 +698,9 @@ class TestAutomaticRun:
     ) -> None:
         monkeypatch.setattr(migration, "should_run_automatically", lambda argv: True)
         monkeypatch.setattr(migration, "needs_migration", lambda: True)
+        # The plan is fixed here: left to read the real machine, it finds
+        # nothing to do on a clean CI runner and the run never starts.
+        monkeypatch.setattr(Migrator, "plan", lambda self: pending_plan())
 
         def explode(self: Migrator) -> None:
             raise migration.MigrationError("lock held")
@@ -707,3 +710,35 @@ class TestAutomaticRun:
 
         assert migration.run_automatically(["list"], lines.append) is None
         assert any("noust migrate-from-wasm" in line for line in lines)
+
+    def test_a_plan_of_only_refused_steps_stays_quiet(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(migration, "should_run_automatically", lambda argv: True)
+        monkeypatch.setattr(migration, "needs_migration", lambda: True)
+        refused = migration.MigrationReport(dry_run=True)
+        refused.steps.append(
+            migration.Step("store", "move the store", status="refused", detail="in use")
+        )
+        monkeypatch.setattr(Migrator, "plan", lambda self: refused)
+
+        def never(self: Migrator) -> None:
+            raise AssertionError("the migration must not run")
+
+        monkeypatch.setattr(Migrator, "run", never)
+        lines: list[str] = []
+
+        assert migration.run_automatically(["list"], lines.append) is None
+        assert lines == []
+
+
+def pending_plan() -> migration.MigrationReport:
+    """
+    A plan with one step left to do.
+
+    Returns:
+        The report.
+    """
+    report = migration.MigrationReport(dry_run=True)
+    report.steps.append(migration.Step("directory", "move /etc/wasm to /etc/noust"))
+    return report

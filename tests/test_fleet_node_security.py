@@ -432,3 +432,92 @@ class TestSelfRevocation:
         )
 
         assert response.status_code == 403
+
+
+class TestARetiredFleetTokenLocksNobodyOut:
+    """
+    A central still presenting a revoked or expired fleet token arrives from
+    loopback, the same address as the operator's own SSH-tunnelled console.
+    Counted against 127.0.0.1 it would lock the operator out for fifteen
+    minutes; it is counted under the token instead, and audited.
+    """
+
+    @staticmethod
+    def _retire(app: Any, fleet_token: str) -> None:
+        response = client_from(app).post(
+            "/api/auth/fleet/revoke", headers=fleet_headers(fleet_token)
+        )
+        assert response.status_code == 200, response.text
+
+    def test_a_revoked_one_does_not_lock_out_loopback(
+        self, app: Any, fleet_token: str, sandbox: Path
+    ) -> None:
+        from noust.web.server import get_brute_force
+
+        self._retire(app, fleet_token)
+        client = client_from(app)
+        for _ in range(8):
+            response = client.get("/api/auth/verify", headers=fleet_headers(fleet_token))
+            assert response.status_code == 401
+
+        protection = get_brute_force()
+        assert not protection.is_locked(TUNNEL[0])
+        assert protection.is_locked("fleet:fleet-nas")
+        master = get_token_manager().generate_master_token()
+        assert client.get("/api/auth/verify", headers=fleet_headers(master)).status_code == 200
+        denied = [e for e in audit_of(sandbox, "auth.credential") if e["result"] == "denied"]
+        assert denied and "fleet token fleet-nas" in denied[-1]["detail"]
+
+    def test_nor_through_a_handshake_or_an_unauthenticated_path(
+        self, app: Any, fleet_token: str
+    ) -> None:
+        from noust.web.server import get_brute_force
+
+        self._retire(app, fleet_token)
+        client = client_from(app)
+        for _ in range(4):
+            with pytest.raises(WebSocketDisconnect):
+                with client.websocket_connect("/ws/jobs/x", headers=fleet_headers(fleet_token)):
+                    pass
+            client.get("/api/does-not-exist", headers=fleet_headers(fleet_token))
+            client.get("/api/auth/session", headers=fleet_headers(fleet_token))
+
+        assert not get_brute_force().is_locked(TUNNEL[0])
+
+    def test_an_expired_one_neither(self, app: Any, fleet_token: str) -> None:
+        from noust.web.server import get_brute_force
+
+        manager = get_token_manager()
+        with manager.sessions._lock, manager.sessions._conn:
+            manager.sessions._conn.execute(
+                "UPDATE api_tokens SET expires_at = 1 WHERE name = 'fleet-nas'"
+            )
+        client = client_from(app)
+        for _ in range(8):
+            client.get("/api/auth/verify", headers=fleet_headers(fleet_token))
+
+        assert not get_brute_force().is_locked(TUNNEL[0])
+
+    def test_a_guess_from_loopback_still_counts_there(self, app: Any) -> None:
+        from noust.web.server import get_brute_force
+
+        client = client_from(app)
+        guess = "noust_" + "tok_" + "G" * 43
+        for _ in range(8):
+            client.get("/api/auth/verify", headers=fleet_headers(guess))
+
+        assert get_brute_force().is_locked(TUNNEL[0])
+
+    def test_a_retired_token_of_another_scope_still_counts(self, app: Any) -> None:
+        # Only a central's token is exempt from the address: an operator's own
+        # revoked token is an ordinary failure where it comes from.
+        from noust.web.server import get_brute_force
+
+        manager = get_token_manager()
+        issued = manager.create_api_token("ci", "admin")
+        manager.revoke_api_token(int(issued["id"]))
+        client = client_from(app)
+        for _ in range(8):
+            client.get("/api/auth/verify", headers=fleet_headers(str(issued["token"])))
+
+        assert get_brute_force().is_locked(TUNNEL[0])

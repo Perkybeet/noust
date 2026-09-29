@@ -30,6 +30,7 @@ from typing import Any, ClassVar
 
 import yaml
 
+from noust.central import require_server_role
 from noust.core.applock import app_lock
 from noust.core.config import Config
 from noust.core.exceptions import (
@@ -786,6 +787,7 @@ class DockerComposeDeployer(AppDeployer):
                 asked for.
             AppBusyError: Another operation is running on the application.
         """
+        require_server_role("Applications")
         # Held for the whole deploy, and the directory claimed before the
         # fetch, which empties it: a stack's bind-mounted data lives there.
         with app_lock(self.domain, "deploy"):

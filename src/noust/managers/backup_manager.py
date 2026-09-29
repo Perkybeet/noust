@@ -70,6 +70,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any, ClassVar, Protocol, runtime_checkable
 
+from noust.central import require_server_role
 from noust.core.applock import app_lock
 from noust.core.config import DEFAULT_BACKUP_DIR as _DEFAULT_BACKUP_DIR
 from noust.core.config import Config, resolve_backup_directory
@@ -1011,6 +1012,7 @@ class BackupManager:
             ValidationError: If the domain does not yield a usable app name.
             AppBusyError: Another operation holds the application's lock.
         """
+        require_server_role("Application backups")
         # Validated before the lock, whose file is named after the domain.
         validate_app_name(domain_to_app_name(domain))
         with app_lock(domain, "backup"):
@@ -1509,6 +1511,7 @@ class BackupManager:
             BackupError: If the backup is missing, corrupted, unsafe to extract,
                 or if a database it carries cannot be put back.
         """
+        require_server_role("Application backups")
         metadata = self.get_backup(backup_id)
         if not metadata:
             raise BackupError(
@@ -1582,6 +1585,7 @@ class BackupManager:
             AppBusyError: Another deploy, update, rollback, migration or
                 restore is already running on the target application.
         """
+        require_server_role("Application backups")
         archive = Path(archive)
         if not archive.is_file():
             raise BackupError(
@@ -3303,6 +3307,7 @@ class BackupManager:
             BackupError: When ``source`` is not a directory or is the backup
                 directory itself.
         """
+        require_server_role("Application backups")
         source = Path(source).absolute()
         if not source.is_dir():
             raise BackupError(
@@ -3511,6 +3516,7 @@ class RollbackManager:
         Returns:
             The backup metadata, or None when there is nothing deployed yet.
         """
+        require_server_role("Rollbacks")
         app_name = domain_to_app_name(domain)
         app_path = self.config.apps_directory / app_name
 
@@ -3634,6 +3640,7 @@ class RollbackManager:
             AppBusyError: Another deploy, update, rollback, migration or
                 restore is already running on the application.
         """
+        require_server_role("Rollbacks")
         self.last_deployment_id = None
         with app_lock(domain, "rollback"):
             if backup_id:

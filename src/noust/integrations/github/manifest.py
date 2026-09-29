@@ -73,12 +73,12 @@ def app_name(hostname: str | None = None) -> str:
         hostname: The host name; this machine's when None.
 
     Returns:
-        ``wasm-<hostname>``, lower case, anything but letters, digits and
+        ``noust-<hostname>``, lower case, anything but letters, digits and
         hyphens made a hyphen, cut to GitHub's 34 characters.
     """
     host = (hostname or socket.gethostname() or "server").split(".")[0].lower()
     host = re.sub(r"[^a-z0-9-]+", "-", host).strip("-") or "server"
-    return f"wasm-{host}"[:MAX_APP_NAME].rstrip("-")
+    return f"noust-{host}"[:MAX_APP_NAME].rstrip("-")
 
 
 def console_origin(value: str) -> str:

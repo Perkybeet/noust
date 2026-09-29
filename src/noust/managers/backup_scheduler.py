@@ -30,6 +30,7 @@ from typing import Any
 
 from jinja2 import Environment, PackageLoader, TemplateError
 
+from noust.central import require_server_role
 from noust.core import paths
 from noust.core.applock import AppBusyError
 from noust.core.config import SYSTEMD_DIR as _SYSTEMD_DIR
@@ -342,6 +343,7 @@ class BackupScheduler:
             BackupError: If a value is unusable, a unit cannot be written or
                 the timer cannot be enabled.
         """
+        require_server_role("Application backups")
         domain, app_name, calendar = self._validate(schedule)
         checked = BackupSchedule(
             domain=domain,

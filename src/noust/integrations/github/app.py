@@ -208,15 +208,24 @@ class GitHubApp:
 
         Raises:
             IntegrationError: The private key is missing or cannot sign.
+            SecretsLockedError: The secrets are sealed and this process is locked.
         """
-        key_path = self.secrets.path(PRIVATE_KEY_SECRET)
         if self.secrets.read(PRIVATE_KEY_SECRET) is None:
             raise IntegrationError(
                 "The GitHub App's private key is missing",
-                details=f"Expected it at {key_path}. Remove the integration and create it again.",
+                details=(
+                    f"Expected it at {self.secrets.path(PRIVATE_KEY_SECRET)}. Remove the "
+                    "integration and create it again."
+                ),
             )
         signing_input = jwt_signing_input(self.app_id, self.clock())
-        return f"{signing_input}.{sign_rs256(signing_input, key_path, self.runner)}"
+        # openssl takes a path; on a sealed store the file is ciphertext, so
+        # it gets a private decrypted copy that does not outlive the signature.
+        key_path = self.secrets.usable_path(PRIVATE_KEY_SECRET)
+        try:
+            return f"{signing_input}.{sign_rs256(signing_input, key_path, self.runner)}"
+        finally:
+            self.secrets.discard_usable_copy(PRIVATE_KEY_SECRET)
 
     def app_request(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
         """

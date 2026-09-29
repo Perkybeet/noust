@@ -219,11 +219,23 @@ class FakeTunnels:
         self.port = port
         self.error: NodeUnreachableError | None = None
         self.closed_all = False
+        self.leases = 0
+        self.leased = 0
 
     def endpoint(self, node: str) -> tuple[str, int]:
         if self.error is not None:
             raise self.error
         return "127.0.0.1", self.port
+
+    def hold(self, node: str) -> tuple[tuple[str, int], Any]:
+        endpoint = self.endpoint(node)
+        self.leases += 1
+        self.leased += 1
+
+        def release() -> None:
+            self.leases -= 1
+
+        return endpoint, release
 
     def status(self, node: str) -> dict[str, Any]:
         return {
@@ -277,7 +289,22 @@ class FakeManager:
         return list(self.records.values())
 
     def client(self, name: str, *, timeout: float = 30.0) -> NodeClient:
-        return NodeClient(name, tunnels=self.tunnels, secrets=FakeSecrets())  # type: ignore[arg-type]
+        return NodeClient(
+            name,
+            tunnels=self.tunnels,  # type: ignore[arg-type]
+            secrets=FakeSecrets(),  # type: ignore[arg-type]
+            store=self,  # type: ignore[arg-type]
+        )
+
+    # The store's side NodeClient reads and records a node's status on.
+    def get_node(self, name: str) -> NodeRecord | None:
+        return self.records.get(name)
+
+    def set_node_status(self, name: str, status: str, *, version: str | None = None) -> bool:
+        if name not in self.records:
+            return False
+        self.records[name] = replace(self.records[name], status=status)
+        return True
 
     def add(self, name: str, *, ssh_target: str, join_code: str) -> NodeRecord:
         if join_code == "blocked":
@@ -586,6 +613,24 @@ class TestForwarding:
         assert response.json()["error"] == "node_refused"
         assert "Invalid or expired" in response.json()["output"]
 
+    def test_a_node_401_is_recorded_and_the_node_left_alone(
+        self, central: TestClient, master: dict[str, str], node: FakeNode, manager: FakeManager
+    ) -> None:
+        proxied(central, "GET", "revoked", headers=master)
+        assert manager.records["web-2"].status == "refused"
+        seen = len(node.seen)
+
+        # Every later call stops here: a revoked token presented again would
+        # only be another failure in the node's audit log.
+        response = proxied(central, "GET", "echo/x", headers=master)
+        events = central.get("/api/nodes/web-2/events", headers=master)
+
+        assert response.status_code == 502
+        assert response.json()["error"] == "node_refused"
+        assert "noust node test web-2" in response.json()["output"]
+        assert events.status_code == 502
+        assert len(node.seen) == seen
+
     def test_a_redirect_stays_behind_the_proxy(
         self, central: TestClient, master: dict[str, str]
     ) -> None:
@@ -743,11 +788,32 @@ class TestEvents:
 
         assert response.status_code == 502
 
+    def test_the_stream_leases_the_tunnel_while_it_runs(
+        self, central: TestClient, master: dict[str, str], manager: FakeManager
+    ) -> None:
+        before = manager.tunnels.leased
+        # The test client runs the stream to its end before handing it over,
+        # so what is observable is that a lease was taken and returned.
+        with central.stream("GET", "/api/nodes/web-2/events", headers=master) as response:
+            assert response.status_code == 200
+            "".join(response.iter_text())
+
+        assert manager.tunnels.leased == before + 1
+        assert manager.tunnels.leases == 0
+
+    def test_a_plain_call_takes_no_lease(
+        self, central: TestClient, master: dict[str, str], manager: FakeManager
+    ) -> None:
+        before = manager.tunnels.leased
+        proxied(central, "GET", "echo/x", headers=master)
+        assert manager.tunnels.leased == before
+
 
 class TestWebSockets:
     def test_a_round_trip(
-        self, central: TestClient, master: dict[str, str], node: FakeNode
+        self, central: TestClient, master: dict[str, str], node: FakeNode, manager: FakeManager
     ) -> None:
+        leased = manager.tunnels.leased
         with central.websocket_connect(
             "/ws/nodes/web-2/echo?ticket=central-only&lines=5", headers=master
         ) as ws:
@@ -758,6 +824,9 @@ class TestWebSockets:
         assert first == {"query": "lines=5"}
         (handshake,) = node.handshakes
         assert handshake["authorization"] == f"Bearer {FLEET_TOKEN}"
+        # The socket held the tunnel for its whole life, and gave it back.
+        assert manager.tunnels.leased == leased + 1
+        assert manager.tunnels.leases == 0
         assert handshake["x-noust-actor"] == "master"
         assert "cookie" not in handshake
 
@@ -850,9 +919,12 @@ class TestWebSockets:
 
 
 def test_stopping_the_server_closes_every_tunnel(monkeypatch: pytest.MonkeyPatch) -> None:
+    from noust.core import sealing
     from tests.test_web_shutdown import _quiet_lifespan
 
     _quiet_lifespan(monkeypatch)
+    removed: list[Path] = []
+    monkeypatch.setattr(sealing, "remove_plaintext_copies", removed.append)
     fake = FakeTunnels(1)
     tunnels_module.set_tunnels(fake)  # type: ignore[arg-type]
     try:
@@ -866,3 +938,5 @@ def test_stopping_the_server_closes_every_tunnel(monkeypatch: pytest.MonkeyPatch
         tunnels_module.set_tunnels(None)
 
     assert fake.closed_all is True
+    # The decrypted copies a sealed store handed ssh go with the process.
+    assert len(removed) == 1

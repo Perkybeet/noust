@@ -38,6 +38,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal, overload
 
+from noust.central import require_server_role
 from noust.core.exceptions import CertificateError, NoustError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem
 from noust.core.runner import DEFAULT_TIMEOUT, CommandResult, CommandRunner
@@ -820,6 +821,7 @@ class CertManager(BaseManager):
         Raises:
             CertificateError: When no domain was given or issuance fails.
         """
+        require_server_role("Certificates")
         if not domains:
             raise CertificateError(
                 "No domains given for certificate issuance",
@@ -873,6 +875,7 @@ class CertManager(BaseManager):
             CertificateError: When a domain is invalid, when the state of the
                 existing certificate cannot be read, or when issuance fails.
         """
+        require_server_role("Certificates")
         requested = self.certificate_domains(domain, additional_domains, include_www)
         primary = requested[0]
 
@@ -1210,6 +1213,7 @@ class CertManager(BaseManager):
         Raises:
             CertificateError: When the domain is invalid or renewal fails.
         """
+        require_server_role("Certificates")
         cmd = ["certbot", "renew", "--non-interactive"]
 
         validated = self._validated(domain) if domain else None

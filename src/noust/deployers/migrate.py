@@ -56,6 +56,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
+from noust.central import require_server_role
 from noust.core.applock import app_lock
 from noust.core.config import Config
 from noust.core.exceptions import DeploymentError, NoustError, ValidationError
@@ -1013,6 +1014,7 @@ def migrate(
         ServiceError: The unit could not be stopped; nothing was moved.
         AppBusyError: Another operation is running on the application.
     """
+    require_server_role("Applications")
     log = logger if logger is not None else CapturingLogger()
     domain = validate_domain(domain)
     # Nothing else may run on the application while its tree moves: an

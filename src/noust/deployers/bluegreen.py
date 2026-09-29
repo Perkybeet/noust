@@ -41,6 +41,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from noust.central import require_server_role
 from noust.core.applock import app_lock
 from noust.core.exceptions import (
     DeploymentError,
@@ -1608,6 +1609,7 @@ def set_zero_downtime(
         DeploymentError: A step failed; the application serves as it did.
         AppBusyError: Another operation is running on the application.
     """
+    require_server_role("Applications")
     log = logger if logger is not None else Logger()
     store = get_store()
     domain = validate_domain(domain)

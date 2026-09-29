@@ -216,20 +216,26 @@ class Fleet:
         self.manager.add(name, ssh_target="root@web2.example.com", join_code=join_code(key, **code))
 
 
-def build_fleet(tmp_path: Path, *, blockers: Callable[[], list[str]] = list) -> Fleet:
+def build_fleet(
+    tmp_path: Path,
+    *,
+    blockers: Callable[[], list[str]] = list,
+    secrets: SecretStore | None = None,
+) -> Fleet:
     """
     Wire a NodeManager to a fresh store, a secret store, fake ssh and a fake node.
 
     Args:
         tmp_path: The test's directory.
         blockers: The registration policy (none by default).
+        secrets: The secret store; one under ``tmp_path/secrets`` by default.
 
     Returns:
         The wiring.
     """
     NoustStore.reset_instance()
     store = NoustStore(tmp_path / "noust.db")
-    secrets = SecretStore(root=tmp_path / "secrets")
+    secrets = secrets or SecretStore(root=tmp_path / "secrets")
     runner = KeygenRunner()
     keys = NodeKeys(secrets, runner)
     clock = Clock()

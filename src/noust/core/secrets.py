@@ -215,6 +215,25 @@ class SecretStore:
         self.fs.write_text(target, value, mode=SECRET_MODE)
         return target
 
+    def discard_usable_copy(self, name: str) -> None:
+        """
+        Remove the decrypted copy :meth:`usable_path` made of a secret, if any.
+
+        The secret itself is never touched: on a store that is not sealed
+        there is no copy, and nothing is removed. A caller whose program has
+        read the file (ssh reads its key and ``known_hosts`` once, when it
+        connects) discards the copy at once, so plaintext lives on disk only
+        for as long as it is being read.
+
+        Args:
+            name: The secret's name.
+
+        Raises:
+            ConfigError: The name is not a valid secret name.
+        """
+        copy = sealing.plaintext_copy_dir(self.root).joinpath(*_checked_name(name))
+        self.fs.remove(copy, missing_ok=True)
+
     def delete(self, name: str) -> None:
         """
         Remove a secret; one that is not there is not an error.

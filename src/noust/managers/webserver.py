@@ -48,6 +48,7 @@ from typing import Any
 from jinja2 import Environment, PackageLoader, TemplateNotFound
 from jinja2 import TemplateError as JinjaTemplateError
 
+from noust.central import require_server_role
 from noust.core import paths
 from noust.core.config import (
     APACHE_SITES_AVAILABLE,
@@ -821,6 +822,7 @@ class WebServerManager(BaseManager):
                 alias or redirect.
             TemplateError: When the template is missing or fails to render.
         """
+        require_server_role("Sites")
         if self.site_exists(domain):
             raise self.backend.error(
                 f"Site already exists: {domain}",
@@ -872,6 +874,7 @@ class WebServerManager(BaseManager):
             DomainError: When the domain is not a valid domain name.
             TemplateError: When the template is missing or fails to render.
         """
+        require_server_role("Sites")
         if not self.site_exists(domain):
             raise self.backend.error(
                 f"Site does not exist: {domain}",
@@ -1118,6 +1121,7 @@ class WebServerManager(BaseManager):
             SiteError: The file could not be written, or a symlink stands
                 where it goes (a write through it would land anywhere).
         """
+        require_server_role("Sites")
         path = self.upstream_path(domain)
         if path.is_symlink() or (path.parent.exists() and path.parent.is_symlink()):
             raise self.backend.error(
@@ -1249,6 +1253,7 @@ class WebServerManager(BaseManager):
             ApacheError: When the apache site does not exist or cannot be
                 enabled.
         """
+        require_server_role("Sites")
         if not self.site_exists(domain):
             raise self.backend.error(
                 f"Site does not exist: {domain}",
@@ -1540,6 +1545,7 @@ class WebServerManager(BaseManager):
                 file on disk is left exactly as it was.
             DomainError: When the domain is not a valid domain name.
         """
+        require_server_role("Sites")
         if not self.site_exists(domain):
             raise self.backend.error(
                 f"Site does not exist: {domain}",

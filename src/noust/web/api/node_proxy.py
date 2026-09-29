@@ -38,8 +38,8 @@ import inspect
 import logging
 import re
 import time
-from collections.abc import AsyncIterator
-from dataclasses import dataclass
+from collections.abc import AsyncIterator, Callable
+from dataclasses import dataclass, field
 from typing import Annotated, Any, Protocol, cast
 from urllib.parse import parse_qsl, quote, urlencode
 
@@ -51,6 +51,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.websockets import WebSocketDisconnect
 
 from noust.core.exceptions import NodeError, NodeRefusedError
+from noust.core.sealing import SealError
 from noust.core.store import NodeRecord
 from noust.web.api import nodes as nodes_api
 from noust.web.api.deps import ELEVATION_EXEMPT_TYPES, NoustErrorRoute, ensure_elevated
@@ -131,10 +132,12 @@ WS_MAX_MESSAGE_BYTES = 1024 * 1024
 WS_MAX_QUEUE = 16
 WS_OPEN_TIMEOUT = 15.0
 
-#: Close code for a node that could not be reached, mirroring HTTP 502, and
-#: for a node that is not registered here, mirroring 404.
+#: Close code for a node that could not be reached, mirroring HTTP 502, for
+#: a node that is not registered here, mirroring 404, and for a central whose
+#: sealed secrets are locked, mirroring 423.
 WS_CLOSE_NODE_UNREACHABLE = 4502
 WS_CLOSE_NODE_NOT_FOUND = 4404
+WS_CLOSE_CENTRAL_LOCKED = 4423
 
 #: How long a node's schema is trusted without asking again: its elevation
 #: map is refreshed at once when the node's version changes, and after this
@@ -161,10 +164,13 @@ class Upstream:
         base_url: The node's console through its tunnel, ``http://127.0.0.1:<port>``.
         headers: The fleet token, the actor, the actor's scope and, when the
             central confirmed it, the elevation.
+        release: Returns the lease a stream holds on the tunnel (see
+            :func:`open_upstream`); does nothing for a plain call.
     """
 
     base_url: str
     headers: dict[str, str]
+    release: Callable[[], None] = field(default=lambda: None, compare=False, repr=False)
 
 
 def central_elevated(session: dict[str, Any]) -> bool:
@@ -184,19 +190,26 @@ def central_elevated(session: dict[str, Any]) -> bool:
     return session.get("type") in ELEVATION_EXEMPT_TYPES or is_elevated(session)
 
 
-def open_upstream(node: NodeRecord, session: dict[str, Any]) -> Upstream:
+def open_upstream(node: NodeRecord, session: dict[str, Any], *, hold: bool = False) -> Upstream:
     """
     Open (or reuse) the node's tunnel and say who is asking. Blocking.
 
     Args:
         node: The node.
         session: The central's authenticated payload.
+        hold: Take a lease on the tunnel, for a stream: the idle reaper never
+            closes a tunnel a live stream is using, however long it runs
+            without another call. The caller returns it with
+            ``upstream.release()`` when the stream ends.
 
     Returns:
         The node's address and the headers for it.
 
     Raises:
         NodeUnreachableError: When the tunnel cannot be opened.
+        NodeRefusedError: When the node already refused the fleet token; it is
+            not presented again until ``noust node test``.
+        SecretsLockedError: When this central is sealed and locked.
     """
     from noust.fleet.client import actor_label as fleet_actor
 
@@ -207,7 +220,29 @@ def open_upstream(node: NodeRecord, session: dict[str, Any]) -> Upstream:
         actor_scope=scope if scope in SCOPE_RANK else "read",
         elevated=central_elevated(session),
     )
-    return Upstream(base_url=client.base_url().rstrip("/"), headers=dict(headers))
+    if not hold:
+        return Upstream(base_url=client.base_url().rstrip("/"), headers=dict(headers))
+    (host, port), release = client.tunnels.hold(node.name)
+    return Upstream(base_url=f"http://{host}:{port}", headers=dict(headers), release=release)
+
+
+async def refused_by(node: NodeRecord, body: str) -> HTTPException:
+    """
+    Record that a node refused the fleet token, and build the error for it.
+
+    The node is not presented the token again - by this proxy, the console's
+    polling or ``noust fleet status`` - until ``noust node test``: each
+    refusal is an audited failure on the node.
+
+    Args:
+        node: The node.
+        body: The node's answer, verbatim.
+
+    Returns:
+        The 502 ``node_refused`` to raise.
+    """
+    await run_in_threadpool(lambda: nodes_api.node_client(node).mark_refused())
+    return node_refused(node, body)
 
 
 def _new_client(upstream: Upstream, timeout: httpx.Timeout = HTTP_TIMEOUT) -> httpx.AsyncClient:
@@ -414,7 +449,7 @@ class NodeSchemas:
             return schema
         response = await client.get("/api/openapi.json", headers=upstream.headers)
         if response.status_code == 401:
-            raise node_refused(node, response.text[:_MAX_ERROR_BODY])
+            raise await refused_by(node, response.text[:_MAX_ERROR_BODY])
         if response.status_code != 200:
             raise _error(
                 502,
@@ -603,19 +638,22 @@ async def _close(response: httpx.Response, client: httpx.AsyncClient) -> None:
     await client.aclose()
 
 
-async def _prepare(node: str, session: dict[str, Any]) -> tuple[NodeRecord, Upstream]:
+async def _prepare(
+    node: str, session: dict[str, Any], *, hold: bool = False
+) -> tuple[NodeRecord, Upstream]:
     """
     Find the node and open its tunnel, off the event loop.
 
     Args:
         node: The node's name.
         session: The central's authenticated payload.
+        hold: Lease the tunnel for a stream (:func:`open_upstream`).
 
     Returns:
         The node and its upstream.
     """
     record = await run_in_threadpool(nodes_api.find_node, node)
-    upstream = await run_in_threadpool(open_upstream, record, session)
+    upstream = await run_in_threadpool(lambda: open_upstream(record, session, hold=hold))
     return record, upstream
 
 
@@ -677,7 +715,7 @@ async def proxy_api(
     if response.status_code == 401:
         body = (await response.aread()).decode("utf-8", "replace")[:_MAX_ERROR_BODY]
         await _close(response, client)
-        raise node_refused(record, body)
+        raise await refused_by(record, body)
 
     return StreamingResponse(
         _relay(response, record),
@@ -691,7 +729,11 @@ async def proxy_api(
 
 
 async def _relay_events(
-    response: httpx.Response, client: httpx.AsyncClient, node: NodeRecord, session: dict[str, Any]
+    response: httpx.Response,
+    client: httpx.AsyncClient,
+    node: NodeRecord,
+    session: dict[str, Any],
+    release: Callable[[], None],
 ) -> AsyncIterator[bytes]:
     """
     Relay a node's event stream while the central's credential is good.
@@ -701,6 +743,7 @@ async def _relay_events(
         client: The stream's client.
         node: The node, for the log.
         session: The central's payload, re-checked as a local stream does.
+        release: Returns the stream's lease on the tunnel, when it ends.
 
     Yields:
         The node's frames, unchanged.
@@ -722,6 +765,7 @@ async def _relay_events(
         logger.info("Event stream from node %s ended: %s", node.name, exc)
     finally:
         await _close(response, client)
+        release()
 
 
 @router.get("/{node}/events", include_in_schema=False)
@@ -744,7 +788,7 @@ async def proxy_events(
     Raises:
         HTTPException: 404 for an unknown node, 502 when it cannot be used.
     """
-    record, upstream = await _prepare(node, session)
+    record, upstream = await _prepare(node, session, hold=True)
     client = _new_client(
         upstream, httpx.Timeout(connect=10.0, read=EVENTS_READ_TIMEOUT, write=10.0, pool=10.0)
     )
@@ -756,13 +800,15 @@ async def proxy_events(
         )
     except httpx.TransportError as exc:
         await client.aclose()
+        upstream.release()
         raise node_unreachable(record, exc) from exc
 
     if response.status_code != 200:
         body = (await response.aread()).decode("utf-8", "replace")[:_MAX_ERROR_BODY]
         await _close(response, client)
+        upstream.release()
         if response.status_code == 401:
-            raise node_refused(record, body)
+            raise await refused_by(record, body)
         return Response(
             content=body,
             status_code=response.status_code,
@@ -770,7 +816,7 @@ async def proxy_events(
         )
 
     return StreamingResponse(
-        _relay_events(response, client, record, session),
+        _relay_events(response, client, record, session, upstream.release),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
@@ -1061,7 +1107,7 @@ async def proxy_websocket(websocket: WebSocket, node: str, path: str) -> None:
         return
 
     try:
-        record, upstream = await _prepare(node, session)
+        record, upstream = await _prepare(node, session, hold=True)
     except HTTPException as exc:
         await _close_browser(websocket, WS_CLOSE_NODE_NOT_FOUND, f"Node not found: {node}")
         logger.debug("WebSocket proxy refused: %s", exc.detail)
@@ -1072,7 +1118,35 @@ async def proxy_websocket(websocket: WebSocket, node: str, path: str) -> None:
         )
         await _close_browser(websocket, code, exc.message)
         return
+    except SealError as exc:
+        # Locked (or a damaged seal): no node key can be read here.
+        await _close_browser(websocket, WS_CLOSE_CENTRAL_LOCKED, exc.message)
+        return
+    try:
+        await _relay_websocket(websocket, session, resource, record, upstream, target)
+    finally:
+        upstream.release()
 
+
+async def _relay_websocket(
+    websocket: WebSocket,
+    session: dict[str, Any],
+    resource: str,
+    record: NodeRecord,
+    upstream: Upstream,
+    target: str,
+) -> None:
+    """
+    Connect to the node's WebSocket and relay it, once the tunnel is leased.
+
+    Args:
+        websocket: The browser's connection, not yet accepted.
+        session: The central's payload.
+        resource: The central path, for the audit record.
+        record: The node.
+        upstream: Where the node answers, and its headers.
+        target: The node's WebSocket path.
+    """
     try:
         from websockets.exceptions import InvalidHandshake, InvalidURI
     except ImportError:
@@ -1095,6 +1169,8 @@ async def proxy_websocket(websocket: WebSocket, node: str, path: str) -> None:
             )
             return
         _audit_stream(websocket, session, resource, f"error:{status}")
+        if status == 401:
+            await refused_by(record, "")
         reason = f"Node {record.name} refused the stream (HTTP {status})"
         await _close_browser(websocket, _close_code_for_status(status), reason)
         return

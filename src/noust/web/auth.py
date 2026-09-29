@@ -1473,6 +1473,25 @@ class SessionStore:
             ).fetchone()
         return dict(row) if row else None
 
+    def find_api_token(self, token_hash: str) -> dict[str, Any] | None:
+        """
+        Fetch an API token by its hash whatever its state, revoked included.
+
+        Only for telling a retired credential apart from a guess after it
+        failed; never for authenticating one.
+
+        Args:
+            token_hash: Salted hash of the presented token.
+
+        Returns:
+            The token row as a dict, or None when no token ever had that hash.
+        """
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM api_tokens WHERE token_hash = ?", (token_hash,)
+            ).fetchone()
+        return dict(row) if row else None
+
     def get_api_token_by_name(self, name: str) -> dict[str, Any] | None:
         """
         Fetch an unrevoked API token by its name.
@@ -2564,6 +2583,33 @@ class TokenManager:
 
         return self._api_token_payload(record, client_ip)
 
+    def retired_fleet_token_name(self, token: str) -> str | None:
+        """
+        Name the fleet token a failed credential was, if it was one.
+
+        A central goes on presenting its token until it learns the node
+        revoked it, and it arrives from loopback - the address the operator's
+        own SSH-tunnelled console arrives from too. Knowing the value of a
+        real token, even a retired one, is not guessing; the caller counts
+        such a failure under the token instead of the address.
+
+        Args:
+            token: A credential that did not verify.
+
+        Returns:
+            The token's name when it is a ``fleet`` token that was issued
+            here and is now revoked or expired, otherwise None.
+        """
+        if not token.startswith(API_TOKEN_PREFIXES):
+            return None
+        presented = self._hash_token(token)
+        record = self.sessions.find_api_token(presented)
+        if record is None or record["scope"] != FLEET_SCOPE:
+            return None
+        if not hmac.compare_digest(str(record["token_hash"]), presented):
+            return None
+        return str(record["name"])
+
     def _api_token_payload(
         self, record: Mapping[str, Any], client_ip: str | None
     ) -> dict[str, Any] | None:
@@ -3365,7 +3411,39 @@ def subprotocol_token(connection: HTTPConnection) -> str | None:
     return None
 
 
-def record_auth_failure(client_ip: str, resource: str, source: str) -> None:
+#: Prefix of the lockout key a retired fleet token's failures are counted
+#: under, instead of the address it arrived from (see :func:`failure_key`).
+FLEET_LOCKOUT_PREFIX = "fleet:"
+
+
+def failure_key(credential: str | None, client_ip: str) -> str:
+    """
+    Choose what a failed credential is counted against in the lockout.
+
+    The address, always, except for a revoked or expired fleet token: the
+    central that still holds one arrives from loopback, where the operator's
+    SSH-tunnelled console arrives too, and counting it there would lock the
+    operator out for the lockout's length. Its failures are counted under
+    ``fleet:<token name>`` instead, which locks nothing anybody uses.
+
+    Args:
+        credential: The credential that failed, if one was presented.
+        client_ip: The address it came from.
+
+    Returns:
+        The lockout key.
+    """
+    manager = get_global_token_manager()
+    if credential and manager is not None:
+        name = manager.retired_fleet_token_name(credential)
+        if name is not None:
+            return f"{FLEET_LOCKOUT_PREFIX}{name}"
+    return client_ip
+
+
+def record_auth_failure(
+    client_ip: str, resource: str, source: str, *, lockout_key: str | None = None
+) -> None:
     """
     Count and audit one rejected credential, whatever channel it arrived on.
 
@@ -3378,11 +3456,20 @@ def record_auth_failure(client_ip: str, resource: str, source: str) -> None:
         client_ip: Address the credential came from.
         resource: Path that was being reached.
         source: Channel the credential arrived on, for the audit record.
+        lockout_key: What to count the failure against, when it is not the
+            address (:func:`failure_key`).
     """
+    key = lockout_key or client_ip
     protection = get_brute_force_protection()
     if protection is not None:
-        protection.record_failure(client_ip)
+        protection.record_failure(key)
 
+    detail = f"invalid credential presented via {source}"
+    if key.startswith(FLEET_LOCKOUT_PREFIX):
+        detail = (
+            f"revoked or expired fleet token {key.removeprefix(FLEET_LOCKOUT_PREFIX)} "
+            f"presented via {source}; counted under the token, not the address"
+        )
     audit = get_audit_logger()
     if audit is not None:
         audit.record(
@@ -3390,7 +3477,7 @@ def record_auth_failure(client_ip: str, resource: str, source: str) -> None:
             result="denied",
             client_ip=client_ip,
             resource=resource,
-            detail=f"invalid credential presented via {source}",
+            detail=detail,
         )
 
 
@@ -3961,12 +4048,12 @@ class CredentialLedger:
         client_ip: The address the request came from.
         resource: The path it reached, for the audit record.
         pending: Fingerprint of each wrong credential not yet counted, mapped
-            to the channel it arrived on.
+            to the channel it arrived on and the lockout key it counts under.
     """
 
     client_ip: str
     resource: str
-    pending: dict[str, str] = field(default_factory=dict)
+    pending: dict[str, tuple[str, str]] = field(default_factory=dict)
 
 
 _credential_ledger: ContextVar[CredentialLedger | None] = ContextVar(
@@ -4012,8 +4099,8 @@ def settle_credential_failures(token: Token[CredentialLedger | None]) -> None:
     _credential_ledger.reset(token)
     if ledger is None:
         return
-    for source in ledger.pending.values():
-        record_auth_failure(ledger.client_ip, ledger.resource, source)
+    for source, key in ledger.pending.values():
+        record_auth_failure(ledger.client_ip, ledger.resource, source, lockout_key=key)
 
 
 def _note_wrong_credential(credential: str, source: str) -> None:
@@ -4026,7 +4113,9 @@ def _note_wrong_credential(credential: str, source: str) -> None:
     """
     ledger = _credential_ledger.get()
     if ledger is not None:
-        ledger.pending.setdefault(_fingerprint(credential), source)
+        fingerprint = _fingerprint(credential)
+        if fingerprint not in ledger.pending:
+            ledger.pending[fingerprint] = (source, failure_key(credential, ledger.client_ip))
 
 
 def _mark_counted(*credentials: str | None) -> None:
@@ -4203,7 +4292,9 @@ def verify_credential(
         raise
     if payload is None:
         if _is_guess(credential):
-            record_auth_failure(client_ip, resource, source)
+            record_auth_failure(
+                client_ip, resource, source, lockout_key=failure_key(credential, client_ip)
+            )
             # The rate limiter may have noted the same guess; it is paid for.
             _mark_counted(credential)
         return None
@@ -4261,7 +4352,12 @@ def authenticate_connection(
         _mark_counted(*candidates)
         return None
 
-    record_auth_failure(client_ip, resource, "websocket")
+    # A handshake that presented only retired fleet tokens is a central that
+    # has not heard yet, not a guess from the address (see failure_key).
+    presented = [credential for credential in candidates if credential]
+    keys = {failure_key(credential, client_ip) for credential in presented}
+    key = keys.pop() if len(keys) == 1 and not ticket else client_ip
+    record_auth_failure(client_ip, resource, "websocket", lockout_key=key)
     # One failure per handshake, whichever channels the rate limiter noted.
     _mark_counted(*candidates)
     return None

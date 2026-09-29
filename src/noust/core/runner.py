@@ -1175,7 +1175,18 @@ READ_ONLY_SUBCOMMANDS: dict[str, frozenset[str]] = {
     # Prints the effective configuration and exits; how 'noust fleet
     # authorize' learns the port and whether forwarding is allowed.
     "sshd": frozenset({"-T"}),
+    # Encrypting or decrypting between stdin and stdout, which is how
+    # noust.core.sealing reads a sealed secret; a rehearsal has to read the
+    # secrets it reports on. Narrower than the others: see
+    # _FIRST_ARGUMENT_SUBCOMMANDS.
+    "openssl": frozenset({"enc"}),
 }
+
+#: Programs whose subcommand is only ever their first argument, and whose
+#: subcommands write a file when given ``-out``. For these, a read-only
+#: subcommand anywhere else in argv is an operand (``-out enc``), not the
+#: subcommand, and ``-out`` makes any of them a write.
+_FIRST_ARGUMENT_SUBCOMMANDS = frozenset({"openssl"})
 
 
 def is_read_only(argv: Sequence[str]) -> bool:
@@ -1202,6 +1213,9 @@ def is_read_only(argv: Sequence[str]) -> bool:
     allowed = READ_ONLY_SUBCOMMANDS.get(program)
     if allowed is None:
         return False
+    if program in _FIRST_ARGUMENT_SUBCOMMANDS:
+        writes = any(arg == "-out" or arg.startswith("-out=") for arg in argv[2:])
+        return len(argv) > 1 and argv[1] in allowed and not writes
     return any(arg in allowed for arg in argv[1:])
 
 

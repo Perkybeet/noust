@@ -37,6 +37,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, ClassVar, Literal
 
+from noust.central import require_server_role
 from noust.core.applock import app_lock
 from noust.core.config import Config
 from noust.core.exceptions import (
@@ -2484,6 +2485,7 @@ class BaseDeployer(AppDeployer):
         Raises:
             NoustError: When a step fails.
         """
+        require_server_role("Applications")
         report = on_step or (lambda _message: None)
         releases = self.resolve_layout() == RELEASES
 
@@ -2628,6 +2630,7 @@ class BaseDeployer(AppDeployer):
             NoustError: Whatever the failing step raised, after the rollback.
             AppBusyError: Another operation is running on the application.
         """
+        require_server_role("Applications")
         if not self.domain:
             raise DeploymentError(
                 "Deployer was not configured",

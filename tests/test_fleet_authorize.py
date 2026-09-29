@@ -20,6 +20,7 @@ from noust.core.exceptions import NodeError, SecurityError
 from noust.core.runner import FakeRunner
 from noust.fleet.authorize import (
     FORCED_COMMAND,
+    NO_LISTEN,
     SshdSettings,
     authorize,
     authorized_key_line,
@@ -116,7 +117,7 @@ def _expected_line(key: str = CENTRAL_KEY, port: int = 8080) -> str:
     bare = " ".join(key.split()[:2])
     return (
         f'restrict,port-forwarding,permitopen="127.0.0.1:{port}",'
-        f'command="/usr/bin/false" {bare} noust-central:nas'
+        f'permitlisten="127.0.0.1:1",command="/usr/bin/false" {bare} noust-central:nas'
     )
 
 
@@ -189,6 +190,39 @@ class TestAuthorizedKeys:
     def test_the_line_s_shape(self):
         key = parse_public_key(CENTRAL_KEY)
         assert authorized_key_line("nas", key, 9000) == _expected_line(port=9000)
+
+    def test_remote_forwarding_is_pinned_to_a_port_nothing_uses(self):
+        # port-forwarding turns -R back on too; permitlisten is what keeps the
+        # central's key from listening on the node. OpenSSH has no "none" for
+        # it (the key line would be rejected whole), and port 0 is refused, so
+        # the tightest value is loopback port 1: sshd refuses a privileged
+        # listen to any account but root, and nothing on the node dials it.
+        key = parse_public_key(CENTRAL_KEY)
+        options = authorized_key_line("nas", key, 9000).split(" ", 1)[0]
+        assert options.count("permitlisten=") == 1
+        assert f'permitlisten="{NO_LISTEN}"' in options
+        host, _, port = NO_LISTEN.partition(":")
+        assert host == "127.0.0.1"
+        assert 0 < int(port) < 1024
+        assert options.count("permitopen=") == 1
+        assert options.startswith("restrict,")
+
+    def test_a_line_from_before_permitlisten_is_upgraded(self, node):
+        path = node.keys_file()
+        path.parent.mkdir(mode=0o700)
+        bare = " ".join(CENTRAL_KEY.split()[:2])
+        old = (
+            'restrict,port-forwarding,permitopen="127.0.0.1:8080",'
+            f'command="/usr/bin/false" {bare} noust-central:nas'
+        )
+        path.write_text("ssh-ed25519 AAAAexisting me@laptop\n" + old + "\n")
+
+        result = node.authorize()
+
+        assert result.key_changed
+        assert path.read_text() == (
+            "ssh-ed25519 AAAAexisting me@laptop\n" + _expected_line() + "\n"
+        )
 
     def test_authorized_keys_file_expansion(self):
         account = pwd.struct_passwd(("deploy", "x", 1001, 1001, "", "/home/deploy", "/bin/sh"))

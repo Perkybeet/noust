@@ -20,6 +20,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from noust.central import require_server_role
 from noust.core.applock import app_lock
 from noust.core.config import Config
 from noust.core.exceptions import DeploymentError
@@ -336,6 +337,7 @@ class AutoDeployer(AppDeployer):
             NoustError: Whatever the chosen deployer raised.
             AppBusyError: Another operation is running on the application.
         """
+        require_server_role("Applications")
         if not self.domain:
             raise DeploymentError(
                 "Deployer was not configured",

@@ -532,11 +532,26 @@ class TestSelfContained:
         foreign = [ref for ref in refs if not ref.startswith("/") or ref.startswith("//")]
         assert not foreign, f"index.html references other origins: {foreign}"
 
-        code = re.findall(r"""<(?:script|link)\b[^>]*\b(?:src|href)=["']([^"']+)["']""", html)
-        outside_assets = [
-            ref for ref in code if not ref.startswith("/assets/") and not ref.endswith(".svg")
+        tags = re.findall(r"""<(?:script|link)\b[^>]*>""", html)
+        icons = [tag for tag in tags if re.search(r"""\brel=["'][^"']*icon""", tag)]
+        code = [
+            ref
+            for tag in tags
+            if tag not in icons
+            for ref in re.findall(r"""\b(?:src|href)=["']([^"']+)["']""", tag)
         ]
+        outside_assets = [ref for ref in code if not ref.startswith("/assets/")]
         assert not outside_assets, f"code outside /assets/: {outside_assets}"
+
+        # Icons are the files Vite copies from panel/public, served at the root
+        # by name (server.py, root_files): one missing from the build would be
+        # answered with the console's index.html instead.
+        icon_refs = [
+            ref for tag in icons for ref in re.findall(r"""\bhref=["']([^"']+)["']""", tag)
+        ]
+        assert icon_refs, "the built index.html declares no icon"
+        unserved = [ref for ref in icon_refs if not (self.STATIC / ref.lstrip("/")).is_file()]
+        assert not unserved, f"icons the build does not contain: {unserved}"
 
     def test_every_asset_the_console_names_is_committed(self):
         """

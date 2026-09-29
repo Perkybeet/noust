@@ -254,8 +254,8 @@ def test_no_credential_without_an_app(store: NoustStore) -> None:
 
 
 def test_the_app_name_is_sanitised_and_short() -> None:
-    """wasm-<host>, lower case, 34 characters at most."""
-    assert manifest.app_name("Web_01.example.com") == "wasm-web-01"
+    """noust-<host>, lower case, 34 characters at most."""
+    assert manifest.app_name("Web_01.example.com") == "noust-web-01"
     assert len(manifest.app_name("x" * 80)) == 34
 
 
@@ -465,3 +465,35 @@ def test_configure_webhook_sets_url_and_secret(
         "secret": "hook-secret",
         "insecure_ssl": "0",
     }
+
+
+@pytest.mark.allow_subprocess
+def test_a_sealed_key_is_signed_with_from_a_private_copy_removed_after(
+    github_configured: NoustStore, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """On a sealed store the key file is ciphertext; openssl gets a decrypted copy, briefly."""
+    from noust.core import sealing
+
+    if shutil.which("openssl") is None:
+        pytest.skip("openssl is not installed")
+    runtime = tmp_path / "run"
+    runtime.mkdir(mode=0o700)
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(runtime))
+    sealed = SecretStore(runner=SubprocessRunner())
+    sealing.seal_store(sealed.root, "correct horse battery staple", runner=SubprocessRunner())
+    signer = FakeRunner().script(
+        ["openssl", "dgst"], stdout=f"SHA2-256(stdin)= {FAKE_SIGNATURE_HEX}\n"
+    )
+    try:
+        record = github_configured.get_github_app()
+        assert record is not None
+        app = github_app.GitHubApp(record, secrets=sealed, runner=signer)
+
+        assert app.jwt().count(".") == 2
+
+        (call,) = signer.calls
+        key = Path(call[call.index("-sign") + 1])
+        assert key.is_relative_to(runtime)
+        assert not key.exists()
+    finally:
+        sealing.lock(sealed.root)

@@ -92,15 +92,15 @@ class TestTheProductPackages:
         """
         spec = read("rpm/noust.spec")
 
-        assert re.search(r"^Conflicts:\s+wasm-cli < 3\.0\.0$", spec, re.MULTILINE)
+        assert re.search(r"^Conflicts:\s+wasm-cli < 3\.0\.0~$", spec, re.MULTILINE)
         assert not re.search(r"^Obsoletes:.*wasm-cli", spec, re.MULTILINE)
 
     def test_the_deb_breaks_and_replaces_wasm_2(self):
         """The Debian way to take over another package's files across a rename."""
         control = read("obs/debian.control")
 
-        assert control_field(control, "Breaks") == "wasm (<< 3.0.0)"
-        assert control_field(control, "Replaces") == "wasm (<< 3.0.0)"
+        assert control_field(control, "Breaks") == "wasm (<< 3.0.0~)"
+        assert control_field(control, "Replaces") == "wasm (<< 3.0.0~)"
 
     def test_nothing_is_installed_under_etc(self):
         """

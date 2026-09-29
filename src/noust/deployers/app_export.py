@@ -43,6 +43,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from noust import __version__
+from noust.central import require_server_role
 from noust.core.config import REDACTED, Config
 from noust.core.exceptions import DomainConflictError, NoustError, ValidationError
 from noust.core.logger import Logger
@@ -1144,6 +1145,7 @@ def apply_import(
     Raises:
         NoustError: The deploy failed.
     """
+    require_server_role("Importing applications")
     log = logger or Logger()
     doc = plan.document
     app = doc["app"]

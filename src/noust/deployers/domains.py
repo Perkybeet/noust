@@ -41,6 +41,7 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from noust.central import require_server_role
 from noust.core.applock import app_lock
 from noust.core.exceptions import (
     CertificateError,
@@ -177,6 +178,7 @@ def add_domain(
             the row and the file are put back.
         AppBusyError: Another operation is running on the application.
     """
+    require_server_role("Domains")
     with app_lock(validate_domain(app_domain), "domain change"):
         return _add_domain(
             app_domain, domain, kind, issue_cert=issue_cert, logger=logger, verbose=verbose
@@ -262,6 +264,7 @@ def remove_domain(
             configuration; the row and the file are put back.
         AppBusyError: Another operation is running on the application.
     """
+    require_server_role("Domains")
     with app_lock(validate_domain(app_domain), "domain change"):
         return _remove_domain(app_domain, domain, logger=logger, verbose=verbose)
 
@@ -317,6 +320,7 @@ def issue_certificate(
         CertificateError: When certbot fails, carrying its output verbatim.
         AppBusyError: Another operation is running on the application.
     """
+    require_server_role("Certificates")
     log = logger or Logger(verbose=verbose)
     with app_lock(validate_domain(app_domain), "certificate order"):
         app = _application(app_domain)

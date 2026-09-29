@@ -103,7 +103,12 @@ class TestKeys:
 class TestSSHArgv:
     def test_every_option(self, fleet):
         record = _register(fleet)
-        argv = ssh_argv(record, fleet.keys, 50123)
+        argv = ssh_argv(
+            record,
+            50123,
+            identity=fleet.keys.private_key_path("web-2"),
+            known_hosts=fleet.keys.known_hosts_path("web-2"),
+        )
 
         assert argv[:14] == [
             "ssh",

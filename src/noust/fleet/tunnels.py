@@ -15,6 +15,12 @@ line and ``-F /dev/null``, so neither the operator's ``~/.ssh/config`` nor the
 system's can redirect a node, add an agent, or relax host key checking. The
 host key is checked against the node's own pinned ``known_hosts`` under a
 fixed alias, strictly: a changed key stops the tunnel and says so, verbatim.
+
+On a central whose secrets are sealed, a locked process dials nothing: every
+node key is ciphertext until the operator unlocks it. Once unlocked, ssh is
+handed decrypted private copies of the key and the pinned host key, removed
+as soon as the tunnel is up (ssh reads both once, when it connects) or has
+failed.
 """
 
 from __future__ import annotations
@@ -27,8 +33,10 @@ import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
+from noust.core import sealing
 from noust.core.exceptions import NodeError, NodeUnreachableError
 from noust.core.runner import CommandRunner, ProcessHandle, get_runner
 from noust.core.store import NodeRecord, NoustStore, get_store
@@ -97,7 +105,9 @@ def port_accepts(port: int) -> bool:
         return False
 
 
-def ssh_argv(record: NodeRecord, keys: NodeKeys, local_port: int) -> list[str]:
+def ssh_argv(
+    record: NodeRecord, local_port: int, *, identity: Path, known_hosts: Path
+) -> list[str]:
     """
     Build the tunnel's ssh command line.
 
@@ -106,8 +116,10 @@ def ssh_argv(record: NodeRecord, keys: NodeKeys, local_port: int) -> list[str]:
 
     Args:
         record: The node.
-        keys: Where the node's key and ``known_hosts`` are.
         local_port: The loopback port the tunnel listens on.
+        identity: The node's private key file, as ssh can read it
+            (:meth:`NodeKeys.usable_private_key`).
+        known_hosts: The node's pinned ``known_hosts``, likewise.
 
     Returns:
         The argv.
@@ -115,7 +127,7 @@ def ssh_argv(record: NodeRecord, keys: NodeKeys, local_port: int) -> list[str]:
     options = {
         "BatchMode": "yes",
         "StrictHostKeyChecking": "yes",
-        "UserKnownHostsFile": str(keys.known_hosts_path(record.name)),
+        "UserKnownHostsFile": str(known_hosts),
         "GlobalKnownHostsFile": "/dev/null",
         "HostKeyAlias": host_key_alias(record.name),
         "CheckHostIP": "no",
@@ -140,7 +152,7 @@ def ssh_argv(record: NodeRecord, keys: NodeKeys, local_port: int) -> list[str]:
         "-F",
         "/dev/null",
         "-i",
-        str(keys.private_key_path(record.name)),
+        str(identity),
         "-p",
         str(record.ssh_port),
         "-l",
@@ -319,8 +331,11 @@ class TunnelManager:
             NodeUnreachableError: When the tunnel cannot be opened, or failed
                 recently and is waiting out its backoff. The message says why;
                 the details carry ssh's stderr verbatim.
+            SecretsLockedError: When this central's secrets are sealed and it
+                has not been unlocked; nothing is dialled.
         """
         self.reap_idle()
+        self._require_unlocked()
         tunnel = self._entry(node)
         with tunnel.lock:
             if tunnel.handle is not None and tunnel.handle.is_alive():
@@ -342,6 +357,44 @@ class TunnelManager:
                     details=tunnel.last_error or "",
                 )
             return self._open(node, tunnel)
+
+    def _require_unlocked(self) -> None:
+        """
+        Refuse to hand out a tunnel while this central is locked.
+
+        Checked before anything else, so a locked central neither starts ssh
+        nor counts a failure against the node: there is no backoff to wait
+        out once it is unlocked. A tunnel that was already up is refused too;
+        a locked central uses nothing its keys opened.
+
+        Raises:
+            SecretsLockedError: When the secrets are sealed and locked.
+        """
+        root = self.keys.secrets.root
+        if sealing.is_sealed(root) and not sealing.is_unlocked(root):
+            raise sealing.SecretsLockedError(
+                "This central is locked: its secrets are sealed, so no node can be reached",
+                details=(
+                    "Unlock it in the console, or with 'noust central unlock' on the "
+                    "central (docker exec -it noust noust central unlock in a container)."
+                ),
+            )
+
+    def on_unlocked(self) -> None:
+        """
+        Forget every tunnel's backoff: the central was just unlocked.
+
+        Registered with :func:`noust.core.sealing.add_unlock_listener`. Tunnels
+        open lazily, on the next request that needs one; what the unlock
+        changes is that a node which failed while the central could not read
+        its keys is dialled again at once instead of after its backoff.
+        """
+        with self._lock:
+            entries = list(self._tunnels.values())
+        for tunnel in entries:
+            with tunnel.lock:
+                tunnel.failures = 0
+                tunnel.retry_at = 0.0
 
     def _open(self, node: str, tunnel: _Tunnel) -> tuple[str, int]:
         """
@@ -369,8 +422,39 @@ class TunnelManager:
         # Rewritten on every open, from the store: the pin is whatever the
         # record says, never something a previous connection left behind.
         self.keys.pin_host_key(node, record.host_key)
+        try:
+            return self._start(node, tunnel, record)
+        finally:
+            # ssh has read its key and known_hosts by the time it listens, or
+            # it has given up; the decrypted copies are not needed any more.
+            self.keys.discard_usable(node)
+
+    def _start(self, node: str, tunnel: _Tunnel, record: NodeRecord) -> tuple[str, int]:
+        """
+        Start ssh and wait until its forward listens.
+
+        Called with the node's lock held, by :meth:`_open`.
+
+        Args:
+            node: The node's name.
+            tunnel: Its entry.
+            record: The node.
+
+        Returns:
+            The local endpoint.
+
+        Raises:
+            NodeUnreachableError: When ssh exits or does not come up in time.
+        """
         local_port = self._free_port()
-        handle = self.runner.start(ssh_argv(record, self.keys, local_port))
+        handle = self.runner.start(
+            ssh_argv(
+                record,
+                local_port,
+                identity=self.keys.usable_private_key(node),
+                known_hosts=self.keys.usable_known_hosts(node),
+            )
+        )
         deadline = self._clock() + self.ready_timeout
         while True:
             if not handle.is_alive():
@@ -430,16 +514,46 @@ class TunnelManager:
         Raises:
             NodeError: As :meth:`endpoint`.
         """
+        endpoint, release = self.hold(node)
+        try:
+            yield endpoint
+        finally:
+            release()
+
+    def hold(self, node: str) -> tuple[tuple[str, int], Callable[[], None]]:
+        """
+        Take a lease on a node's tunnel, for a caller that cannot use a ``with`` block.
+
+        An async stream opens its upstream in one place and ends it in a
+        background task or a ``finally`` far away; this is :meth:`lease`
+        split in two for it.
+
+        Args:
+            node: The node's name.
+
+        Returns:
+            The local endpoint, and the function that returns the lease. It
+            may be called more than once; only the first call counts.
+
+        Raises:
+            NodeError: As :meth:`endpoint`.
+        """
         endpoint = self.endpoint(node)
         tunnel = self._entry(node)
         with tunnel.lock:
             tunnel.leases += 1
-        try:
-            yield endpoint
-        finally:
+        once = threading.Lock()
+
+        def release() -> None:
+            if not once.acquire(blocking=False):
+                return
+            # The entry, not the name: a tunnel closed and reopened meanwhile
+            # is another entry, whose leases are not this one's to return.
             with tunnel.lock:
-                tunnel.leases -= 1
+                tunnel.leases = max(0, tunnel.leases - 1)
                 tunnel.last_used = self._clock()
+
+        return endpoint, release
 
     def close(self, node: str) -> None:
         """
@@ -560,6 +674,7 @@ def get_tunnels() -> TunnelManager:
             _tunnels = TunnelManager()
             _tunnels.start_reaper()
             atexit.register(_tunnels.close_all)
+            sealing.add_unlock_listener(_tell_tunnels_unlocked)
         return _tunnels
 
 
@@ -573,3 +688,12 @@ def set_tunnels(manager: TunnelManager | None) -> None:
     global _tunnels
     with _tunnels_lock:
         _tunnels = manager
+    sealing.add_unlock_listener(_tell_tunnels_unlocked)
+
+
+def _tell_tunnels_unlocked() -> None:
+    """Tell the process-wide tunnel manager, whichever it is now, of an unlock."""
+    with _tunnels_lock:
+        manager = _tunnels
+    if manager is not None:
+        manager.on_unlocked()

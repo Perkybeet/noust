@@ -47,6 +47,7 @@ from fastapi.routing import APIRoute
 from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from noust.central import RoleError
 from noust.core.applock import AppBusyError
 from noust.core.exceptions import (
     ConfigError,
@@ -66,6 +67,7 @@ from noust.core.exceptions import (
 from noust.core.exceptions import (
     PermissionError as NoustPermissionError,
 )
+from noust.core.sealing import SealError, SecretsLockedError, WrongPassphraseError
 from noust.validators.domain import validate_domain
 from noust.web.auth import (
     SCOPE_RANK,
@@ -117,6 +119,15 @@ _STATUS_BY_ERROR: tuple[tuple[type[NoustError], int], ...] = (
     (ConfigError, 400),
     (SourceError, 400),
     (NoustPermissionError, 403),
+    # The central's sealed secrets: a wrong passphrase is a refused
+    # credential, a locked central is locked (423) until the operator unlocks
+    # it, and any other seal error (not sealed, a damaged header) is a
+    # conflict with the store's state.
+    (WrongPassphraseError, 403),
+    (SecretsLockedError, 423),
+    (SealError, 409),
+    # A hub was asked for something only a server does.
+    (RoleError, 409),
     # GitHub refused or could not be reached: the fault is upstream.
     (IntegrationError, 502),
     # A node's tunnel did not open, or the node refused the central's token:
@@ -138,6 +149,15 @@ _STATUS_BY_ERROR: tuple[tuple[type[NoustError], int], ...] = (
 #: can link to the job.
 _CONTRACT_BY_ERROR: tuple[tuple[type[NoustError], str, str], ...] = (
     (AppBusyError, "app_busy", "Wait for it to finish, or follow it in Jobs"),
+)
+
+#: Errors whose ``error`` code is a promise to the console but whose hint is
+#: still their own ``details``: the console branches on the code (the unlock
+#: form, a hidden page on a hub) and shows the sentence as it is.
+_CODE_BY_ERROR: tuple[tuple[type[NoustError], str], ...] = (
+    (WrongPassphraseError, "wrong_passphrase"),
+    (SecretsLockedError, "central_locked"),
+    (RoleError, "hub_role"),
 )
 
 #: Fleet errors whose ``error`` code is a promise to the console, like
@@ -258,6 +278,10 @@ def error_response(exc: NoustError) -> JSONResponse:
     for error_type, code, contract_hint in _CONTRACT_BY_ERROR:
         if isinstance(exc, error_type):
             error, hint = code, contract_hint
+            break
+    for error_type, code in _CODE_BY_ERROR:
+        if isinstance(exc, error_type):
+            error = code
             break
     for error_type, code, contract_hint in _OUTPUT_CONTRACT_BY_ERROR:
         if isinstance(exc, error_type):

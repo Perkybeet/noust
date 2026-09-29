@@ -9,13 +9,16 @@ operator - the central never gets a shell here. It:
 
 1. installs the central's key in the SSH user's ``authorized_keys``, as::
 
-       restrict,port-forwarding,permitopen="127.0.0.1:<console port>",command="/usr/bin/false" ssh-ed25519 AAAA... noust-central:<central>
+       restrict,port-forwarding,permitopen="127.0.0.1:<console port>",permitlisten="127.0.0.1:1",command="/usr/bin/false" ssh-ed25519 AAAA... noust-central:<central>
 
-   ``restrict`` turns off everything (pty, agent and X11 forwarding, user rc);
-   ``port-forwarding`` turns back on local forwarding only, and
-   ``permitopen`` narrows it to the console on loopback; the forced command
-   makes any attempt to run something exit 1. The key can forward one port
-   and do nothing else;
+   ``restrict`` turns off everything (port, agent and X11 forwarding, pty,
+   user rc); ``port-forwarding`` turns TCP forwarding back on, in both
+   directions; ``permitopen`` narrows ``ssh -L`` to the console on loopback
+   and ``permitlisten`` narrows ``ssh -R`` to a port nothing uses (see
+   :data:`NO_LISTEN`); the forced command makes any attempt to run something
+   exit 1. The key can forward one port and do nothing else. OpenSSH 7.8 or
+   later reads ``permitlisten`` (every supported distribution ships 8.4 or
+   later); an older sshd rejects the whole line, so the key fails closed;
 2. makes sure the console runs as a service, bound to loopback only;
 3. creates a ``fleet`` token, ``fleet-<central>``;
 4. prints the join code the central needs: this server's host key, the SSH
@@ -62,6 +65,19 @@ KEY_COMMENT_PREFIX = "noust-central:"
 
 #: What any command sent with the central's key runs instead.
 FORCED_COMMAND = "/usr/bin/false"
+
+#: The only remote forward (``ssh -R``) the central's key may ask for.
+#: ``port-forwarding`` re-enables remote forwarding along with local, and a
+#: remote forward on the node's loopback could impersonate its console (bind
+#: the console's port while it restarts) and collect what the operator's own
+#: SSH-tunnel sessions send it. OpenSSH has no ``permitlisten="none"`` - the
+#: value must be ``[host:]port`` with a port above 0, and anything else makes
+#: sshd reject the whole key - so the tightest value is a port nothing can
+#: use: sshd refuses a listen below 1024 to every account but root, and
+#: nothing on a node connects to loopback port 1 (tcpmux) even when the key
+#: is root's. The host is explicit because ssh sends ``localhost`` when none
+#: is given, which does not match it, so a plain ``-R 1:...`` is refused too.
+NO_LISTEN = "127.0.0.1:1"
 
 #: How long ``sshd -T`` and ``chown`` may take.
 SSHD_TIMEOUT = 15
@@ -250,7 +266,7 @@ def authorized_key_line(central: str, key: PublicKey, console_port: int) -> str:
     """
     options = (
         f'restrict,port-forwarding,permitopen="127.0.0.1:{int(console_port)}",'
-        f'command="{FORCED_COMMAND}"'
+        f'permitlisten="{NO_LISTEN}",command="{FORCED_COMMAND}"'
     )
     return f"{options} {key.bare} {key_comment(central)}"
 

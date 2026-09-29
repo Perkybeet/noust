@@ -111,13 +111,17 @@ class NodeManager:
         """The tunnel manager."""
         return self._tunnels or get_tunnels()
 
-    def client(self, name: str, *, timeout: float = 30.0) -> NodeClient:
+    def client(
+        self, name: str, *, timeout: float = 30.0, retry_refused: bool = False
+    ) -> NodeClient:
         """
         Build a client for one node's API.
 
         Args:
             name: The node's name.
             timeout: Seconds per request.
+            retry_refused: Present the token even if the node refused it last
+                time; only an explicit test or a registration does.
 
         Returns:
             The client.
@@ -128,6 +132,8 @@ class NodeManager:
             timeout=timeout,
             secrets=self._secrets,
             transport=self._transport,
+            store=self.store,
+            retry_refused=retry_refused,
         )
 
     # builtins.list below: inside this class, 'list' is this method.
@@ -275,7 +281,9 @@ class NodeManager:
             self._keys.pin_host_key(name, record.host_key)
             self._secrets.write(secret_name(name, TOKEN), code.token)
             self.store.save_node(record)
-            info = self.client(name).get_json(VERSION_PATH, actor=actor or cli_actor())
+            info = self.client(name, retry_refused=True).get_json(
+                VERSION_PATH, actor=actor or cli_actor()
+            )
             version = info.get("current_version") if isinstance(info, dict) else None
             self.store.set_node_status(
                 name, "reachable", version=version if isinstance(version, str) else None
@@ -371,6 +379,10 @@ class NodeManager:
         """
         Check a node end to end: tunnel, token, API. Records the outcome.
 
+        Unlike every other call, this presents the token to a node recorded
+        as ``refused``: it is how the operator tells the central to resume
+        after authorizing it again on the node.
+
         Args:
             name: The node's name.
             actor: Who asks, for the node's audit log; :func:`cli_actor` when None.
@@ -386,7 +398,10 @@ class NodeManager:
         record = self.get(name)
         started = time.monotonic()
         try:
-            info = self.client(name).get_json(VERSION_PATH, actor=actor or cli_actor())
+            # The one call that asks a refused node again: the operator asked.
+            info = self.client(name, retry_refused=True).get_json(
+                VERSION_PATH, actor=actor or cli_actor()
+            )
         except NodeRefusedError as exc:
             self.store.set_node_status(name, "refused")
             return self._outcome(False, record.version, None, "refused", exc)

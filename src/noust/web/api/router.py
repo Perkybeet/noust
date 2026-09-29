@@ -20,6 +20,7 @@ from noust.web.api.auth import router as auth_router
 from noust.web.api.backup_destinations import router as backup_destinations_router
 from noust.web.api.backup_schedules import router as backup_schedules_router
 from noust.web.api.backups import router as backups_router
+from noust.web.api.central import router as central_router
 from noust.web.api.certs import router as certs_router
 from noust.web.api.config import router as config_router
 from noust.web.api.cron import router as cron_router
@@ -95,6 +96,7 @@ router.include_router(previews_router, prefix="/apps", tags=["Previews"])
 router.include_router(recipes_router, prefix="/recipes", tags=["Recipes"])
 # The fleet, on a central: the registry of nodes, and the proxy that makes
 # every other route here reachable on a node as /nodes/{node}/api/...
+router.include_router(central_router, prefix="/central", tags=["Central"])
 router.include_router(nodes_router, prefix="/nodes", tags=["Nodes"])
 router.include_router(node_proxy_router, prefix="/nodes", tags=["Nodes"])
 # No prefix: the route is declared as "/openapi.json" and this router mounts

@@ -55,6 +55,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from noust.central import require_server_role
 from noust.core.applock import app_lock
 from noust.core.config import Config
 from noust.core.exceptions import (
@@ -223,6 +224,7 @@ def update_app(
             branch, which it makes meaningless.
         AppBusyError: Another operation is running on the application.
     """
+    require_server_role("Applications")
     domain = validate_domain(domain)
     if commit is not None:
         commit = validate_commit_id(commit)
@@ -1024,6 +1026,7 @@ def activate_release(
             again by then).
         AppBusyError: Another operation is running on the application.
     """
+    require_server_role("Releases")
     log = logger if logger is not None else CapturingLogger(verbose=verbose)
     app = _release_app(validate_domain(domain))
     # An update pruning releases, or a second activation, must not run while
@@ -1791,6 +1794,7 @@ def rollback_to_deployment(
         BackupError: The restore failed.
         AppBusyError: Another operation is running on the application.
     """
+    require_server_role("Rollbacks")
     domain = validate_domain(domain)
     store = get_store()
     record = store.get_deployment(deployment_id)
@@ -2000,6 +2004,7 @@ def set_resource_limits(
             rewritten are put back.
         AppBusyError: Another operation is running on the application.
     """
+    require_server_role("Applications")
     log = logger if logger is not None else Logger()
     domain = validate_domain(domain)
     store = get_store()
@@ -2250,6 +2255,7 @@ def set_health_check(
         ValidationError: A value is not one the gate can use.
         AppBusyError: Another operation is running on the application.
     """
+    require_server_role("Applications")
     store = get_store()
     app = _known_app(store, validate_domain(domain))
     if app.is_static and app.app_type != PHP_FPM:
@@ -2332,6 +2338,7 @@ def set_release_retention(
         ValidationError: ``keep`` is out of range; nothing is pruned.
         AppBusyError: Another operation is running on the application.
     """
+    require_server_role("Releases")
     log = logger if logger is not None else Logger()
     app = _release_app(validate_domain(domain))
     store = get_store()

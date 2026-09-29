@@ -266,6 +266,19 @@ def lock(root: Path) -> None:
     """
     with _keyring_lock:
         _keyring.pop(_ring_key(root), None)
+    remove_plaintext_copies(root)
+
+
+def remove_plaintext_copies(root: Path) -> None:
+    """
+    Remove every decrypted copy of a secrets directory's files.
+
+    Called when the store is locked and when the server that made them shuts
+    down: a copy outlives neither the keys nor the process that needed it.
+
+    Args:
+        root: The secrets directory.
+    """
     copies = plaintext_copy_dir(root)
     if copies.is_dir() and not copies.is_symlink():
         get_fs().remove_tree(copies)

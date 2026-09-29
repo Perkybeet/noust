@@ -819,13 +819,18 @@ def close_fleet_tunnels() -> None:
     The tunnels are ssh processes the console started; leaving them behind
     would keep ports forwarded to every node after the process that used
     them is gone. The nodes' elevation maps go with them: a console started
-    again asks each node afresh.
+    again asks each node afresh. So do the decrypted copies of a sealed
+    store's files (normally removed as soon as ssh has read them): nothing
+    readable outlives the process that held the keys.
     """
+    from noust.core.sealing import remove_plaintext_copies
+    from noust.core.secrets import secrets_dir
     from noust.fleet.tunnels import get_tunnels
     from noust.web.api.node_proxy import node_schemas
 
     get_tunnels().close_all()
     node_schemas.forget()
+    remove_plaintext_copies(secrets_dir())
 
 
 def create_app(config: SecurityConfig | None = None) -> FastAPI:

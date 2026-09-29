@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 from noust import __version__
 from noust.core import paths
 from noust.core.totp import provisioning_uri
+from noust.web.api.central import CentralInfo, session_central
 from noust.web.api.deps import NoustErrorRoute, require_elevated, require_scope
 from noust.web.auth import (
     CSRF_COOKIE_NAME,
@@ -185,6 +186,9 @@ class SessionInfo(BaseModel):
         csrf_cookie: Name of the readable CSRF cookie.
         renamed_from_wasm: Whether this server ran WASM before Noust, so the
             console tells the operator once that the product was renamed.
+        central: This server's role and whether its sealed secrets are
+            locked, so the console hides what a hub does not do and offers
+            the unlock form; None for an anonymous caller.
     """
 
     authenticated: bool
@@ -197,6 +201,7 @@ class SessionInfo(BaseModel):
     csrf_header: str = CSRF_HEADER_NAME
     csrf_cookie: str = CSRF_COOKIE_NAME
     renamed_from_wasm: bool = False
+    central: CentralInfo | None = None
 
 
 class ElevateRequest(BaseModel):
@@ -441,6 +446,7 @@ async def get_session_info(request: Request) -> SessionInfo:
         hostname=socket.gethostname(),
         version=__version__,
         renamed_from_wasm=paths.came_from_wasm(),
+        central=session_central(),
     )
 
 

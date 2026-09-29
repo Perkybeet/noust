@@ -17,12 +17,21 @@ Everything lives in the secret store, under ``fleet/nodes/<name>/``:
 ssh needs file paths, so these are files: 0600 in 0700 directories, written
 through the filesystem seam. The key has no passphrase because the process
 that uses it runs unattended; the sealing layer protects the files at rest.
+
+On a sealed store those files hold ciphertext, so ssh is never pointed at
+them: :meth:`NodeKeys.usable_private_key` and
+:meth:`NodeKeys.usable_known_hosts` hand it private decrypted copies, which
+:meth:`NodeKeys.discard_usable` removes as soon as ssh has read them. A key
+pair for a sealed store is generated into that same private directory and
+sealed into the store at once.
 """
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
+from noust.core import sealing
 from noust.core.exceptions import NodeError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE
 from noust.core.runner import CommandError, CommandRunner, get_runner
@@ -133,6 +142,48 @@ class NodeKeys:
         """
         return self._secrets.path(secret_name(node, KNOWN_HOSTS))
 
+    def usable_private_key(self, node: str) -> Path:
+        """
+        Where ssh can read the node's private key from, for ``-i``.
+
+        Args:
+            node: The node's name.
+
+        Returns:
+            The key's own file, or a private decrypted copy on a sealed store.
+
+        Raises:
+            SecretsLockedError: When the store is sealed and this process is locked.
+            SealError: When the copy cannot be made privately.
+        """
+        return self._secrets.usable_path(secret_name(node, PRIVATE_KEY))
+
+    def usable_known_hosts(self, node: str) -> Path:
+        """
+        Where ssh can read the node's pinned host key from, for ``UserKnownHostsFile``.
+
+        Args:
+            node: The node's name.
+
+        Returns:
+            The file itself, or a private decrypted copy on a sealed store.
+
+        Raises:
+            SecretsLockedError: When the store is sealed and this process is locked.
+            SealError: When the copy cannot be made privately.
+        """
+        return self._secrets.usable_path(secret_name(node, KNOWN_HOSTS))
+
+    def discard_usable(self, node: str) -> None:
+        """
+        Remove the decrypted copies made for ssh; nothing on a store not sealed.
+
+        Args:
+            node: The node's name.
+        """
+        for leaf in (PRIVATE_KEY, KNOWN_HOSTS):
+            self._secrets.discard_usable_copy(secret_name(node, leaf))
+
     def public_key(self, node: str) -> PublicKey | None:
         """
         Read the public half of the node's key pair.
@@ -168,13 +219,79 @@ class NodeKeys:
         existing = self.public_key(node)
         if existing is not None:
             return existing
-        private = self.private_key_path(node)
+        root = self._secrets.root
+        if sealing.is_sealed(root):
+            self._generate_sealed(node, central)
+        else:
+            self._generate(node, central, self.private_key_path(node))
+        generated = self.public_key(node)
+        if generated is None:
+            raise NodeError(
+                f"No key pair was generated for node {node}",
+                details="ssh-keygen did not run; this is expected in a dry run.",
+            )
+        return generated
+
+    def _generate_sealed(self, node: str, central: str) -> None:
+        """
+        Generate a key pair for a sealed store, and seal it in.
+
+        ssh-keygen writes files in clear, which a sealed store refuses to
+        read back; it writes them in the private runtime directory instead,
+        and both halves go into the store through the seal before the clear
+        copies are removed.
+
+        Args:
+            node: The node's name.
+            central: This central's name, for the key's comment.
+
+        Raises:
+            SecretsLockedError: When this process is locked: nothing could be
+                sealed, so nothing is generated.
+            NodeError: When ssh-keygen fails.
+        """
+        root = self._secrets.root
+        if not sealing.is_unlocked(root):
+            raise sealing.SecretsLockedError(
+                f"This central is locked; no key can be generated for {node}",
+                details=(
+                    "Its secrets are sealed. Unlock it in the console, or with 'noust "
+                    "central unlock' on the central, and try again."
+                ),
+            )
+        fs = self._secrets.fs
+        copies = sealing.plaintext_copy_dir(root)
+        sealing.ensure_private_dir(copies, fs)
+        private = copies / "keygen" / validate_node_name(node) / PRIVATE_KEY
+        public = Path(f"{private}.pub")
+        try:
+            self._generate(node, central, private)
+            if not private.is_file():
+                return
+            self._secrets.write(secret_name(node, PRIVATE_KEY), _read_private(private))
+            self._secrets.write(secret_name(node, PUBLIC_KEY), _read_private(public))
+        finally:
+            fs.remove(private, missing_ok=True)
+            fs.remove(public, missing_ok=True)
+
+    def _generate(self, node: str, central: str, private: Path) -> None:
+        """
+        Run ssh-keygen for a node's pair, writing it at ``private`` and ``.pub``.
+
+        Args:
+            node: The node's name.
+            central: This central's name, for the key's comment.
+            private: Where the private key goes.
+
+        Raises:
+            NodeError: When ssh-keygen fails.
+        """
         fs = self._secrets.fs
         fs.make_dir(private.parent, mode=SECRET_DIR_MODE, parents=True)
         # A half pair (one file without the other) is regenerated whole:
         # ssh-keygen asks before overwriting, and its stdin is /dev/null.
         fs.remove(private, missing_ok=True)
-        fs.remove(self._secrets.path(secret_name(node, PUBLIC_KEY)), missing_ok=True)
+        fs.remove(Path(f"{private}.pub"), missing_ok=True)
         try:
             self.runner.run(
                 [
@@ -201,13 +318,6 @@ class NodeKeys:
             # ssh-keygen honours the umask for the .pub; the private key is
             # 0600 already, and saying so here makes it independent of it.
             fs.chmod(private, SECRET_MODE)
-        generated = self.public_key(node)
-        if generated is None:
-            raise NodeError(
-                f"No key pair was generated for node {node}",
-                details="ssh-keygen did not run; this is expected in a dry run.",
-            )
-        return generated
 
     def pin_host_key(self, node: str, line: str) -> None:
         """
@@ -227,3 +337,27 @@ class NodeKeys:
             node: The node's name.
         """
         self._secrets.delete_namespace(f"{NODES_NAMESPACE}/{validate_node_name(node)}")
+
+
+def _read_private(path: Path) -> str:
+    """
+    Read a file ssh-keygen just wrote in the private runtime directory.
+
+    Args:
+        path: The file.
+
+    Returns:
+        Its content.
+
+    Raises:
+        NodeError: When it is missing or is not a regular file (never followed).
+    """
+    try:
+        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    except OSError as exc:
+        raise NodeError(
+            f"Could not read the key ssh-keygen generated at {path}",
+            details=exc.strerror or str(exc),
+        ) from exc
+    with os.fdopen(descriptor, encoding="utf-8") as handle:
+        return handle.read()

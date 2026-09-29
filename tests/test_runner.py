@@ -471,6 +471,10 @@ class TestReadOnlyClassification:
             ["dnf", "--cacheonly", "info", "--available", "wasm-cli"],
             ["yum", "--cacheonly", "info", "available", "wasm-cli"],
             ["zypper", "--no-refresh", "--non-interactive", "info", "wasm-cli"],
+            # noust.core.sealing: decrypting a sealed secret, stdin to stdout,
+            # so a rehearsal can read the secrets it reports on.
+            ["openssl", "enc", "-d", "-aes-256-cbc", "-pbkdf2", "-pass", "env:K", "-a"],
+            ["openssl", "enc", "-e", "-aes-256-cbc", "-S", "00", "-pass", "env:K"],
         ],
     )
     def test_recognised_as_read_only(self, argv):
@@ -492,6 +496,14 @@ class TestReadOnlyClassification:
             ["dnf", "install", "-y", "wasm-cli"],
             ["yum", "update", "wasm-cli"],
             ["zypper", "install", "wasm-cli"],
+            # openssl enc only counts when it is the subcommand and writes
+            # nowhere but stdout: -out writes a file, and "enc" elsewhere in
+            # argv is an operand of another subcommand.
+            ["openssl", "enc", "-d", "-in", "a", "-out", "/etc/noust/b"],
+            ["openssl", "enc", "-d", "-out=/etc/noust/b"],
+            ["openssl", "req", "-x509", "-newkey", "rsa:2048", "-out", "enc"],
+            ["openssl", "genpkey", "enc"],
+            ["openssl"],
             [],
         ],
     )

@@ -45,6 +45,7 @@ from typing import Any
 
 from jinja2 import Environment, PackageLoader, TemplateError
 
+from noust.central import require_server_role
 from noust.core import paths
 from noust.core.config import SYSTEMD_DIR as _SYSTEMD_DIR
 from noust.core.config import Config
@@ -665,6 +666,7 @@ class CronManager:
             ServiceError: If a value is unusable, a unit belongs to someone
                 else, a unit cannot be written or the timer cannot be enabled.
         """
+        require_server_role("Scheduled jobs")
         checked = self._validate(job)
 
         timer_path = self._unit_path(f"{checked.unit_name}.timer")
@@ -743,6 +745,7 @@ class CronManager:
             ServiceError: When no such job exists, the units are not Noust's,
                 or systemd refuses the start.
         """
+        require_server_role("Scheduled jobs")
         checked, _, _ = self._require_owned(name, operation="run")
         unit = f"{UNIT_PREFIX}{checked}.service"
 
@@ -768,6 +771,7 @@ class CronManager:
             ServiceError: When no such job exists, the units are not Noust's,
                 or systemd refuses.
         """
+        require_server_role("Scheduled jobs")
         return self._timer_verb(name, "enable", "--now")
 
     def disable_job(self, name: str) -> str:

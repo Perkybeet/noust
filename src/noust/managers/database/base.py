@@ -38,6 +38,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from noust.central import require_server_role
 from noust.core import paths
 from noust.core.exceptions import (
     DatabaseBackupError,
@@ -476,7 +477,18 @@ class BaseDatabaseManager(BaseManager):
 
     @property
     def runner(self) -> CommandRunner:
-        """The process runner. Resolved per call so tests can swap it in."""
+        """
+        The process runner. Resolved per call so tests can swap it in.
+
+        Every command an engine manager runs - a query, a dump, a restore, the
+        package manager, even the check for the client binary - asks for the
+        runner here, so this is where a hub refuses local databases: a
+        central on a NAS has none, and a subclass cannot add a path around it.
+
+        Raises:
+            RoleError: When this Noust is a hub.
+        """
+        require_server_role("Databases")
         return get_runner()
 
     def _exec(
