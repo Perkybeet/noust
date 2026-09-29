@@ -93,11 +93,9 @@ docker pull ghcr.io/perkybeet/noust:<version>
 `packaging/container/compose.yaml` is a ready example for UGOS Pro and any
 Docker host. The image runs the console as the unprivileged user `noust`
 (uid 10001) over TLS on port 8443, keeps everything under the `/data` volume and
-answers `/health` without a token. Today its entrypoint runs
-`noust web start --host 0.0.0.0 --port 8443` with a self-signed certificate
-minted under `/data/tls` and only the private address ranges allowed; when the
-fleet release adds `noust central run`, the entrypoint becomes that command and
-nothing else about the image changes.
+answers `/health` without a token. Its command is `noust central run`: the
+console as a hub, with a self-signed certificate minted under `/data/tls` and
+only the private address ranges allowed (see [CENTRAL.md](CENTRAL.md)).
 
 ## The configuration during the upgrade
 

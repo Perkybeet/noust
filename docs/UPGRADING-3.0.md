@@ -277,7 +277,22 @@ appears with its state. If you use notifications, send a test: `noust notify tes
 
 ## The central
 
-<!-- FLEET -->
+The fleet is new in 3.0 and changes nothing on an upgraded server by itself: a Noust never
+joins a fleet, reports to a central or opens a tunnel unless you run `noust fleet authorize`
+on it. Upgrading in place, as this guide does, only makes that command available; it does
+nothing until you use it.
+
+To have a central manage this server afterwards, authorize it here and finish enrollment on
+the central with the join code this prints:
+
+```bash
+noust fleet authorize --central-key 'ssh-ed25519 AAAA...' --name nas
+```
+
+The central's key can only forward this server's console port - it opens no shell and runs
+nothing else - and the token it uses is accepted only through that tunnel. See
+[docs/CENTRAL.md](CENTRAL.md) for running a central (on a NAS, in a container, or on a VPS)
+and adding a server to it.
 
 ## Rolling back the upgrade
 

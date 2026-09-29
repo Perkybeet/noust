@@ -149,7 +149,19 @@ openSUSE, PyPI), are transitional in 3.x: upgrading one installs `noust`. See
 The image `ghcr.io/perkybeet/noust` runs a central: the console and the connections to your
 servers, and nothing else. It deploys no applications. See [The fleet](#the-fleet).
 
-<!-- FLEET: complete after the fleet wave -->
+```bash
+docker run -d --name noust --restart unless-stopped \
+  -p 8443:8443 -v noust-data:/data \
+  --read-only --tmpfs /tmp:size=16m --cap-drop ALL \
+  --security-opt no-new-privileges:true \
+  ghcr.io/perkybeet/noust:latest
+docker logs noust    # the console's sign-in token, once, and the certificate's fingerprint
+```
+
+It serves the console over TLS on `8443` (a self-signed certificate until you mount your own),
+answers only the loopback and private address ranges by default, and keeps everything under
+`/data`. [`packaging/container/compose.yaml`](packaging/container/compose.yaml) is a ready
+example, including for a NAS running UGOS Pro. See [docs/CENTRAL.md](docs/CENTRAL.md).
 
 ### From source
 
@@ -516,10 +528,37 @@ output. The contract is served as OpenAPI at `/api/openapi.json`. See
 
 3.0 brings the fleet: one Noust, the central, shows and drives several Noust servers from a
 single console and CLI. The central can be one more VPS, or a container on a machine at home
-such as a NAS, reaching each server over SSH from the inside out, so no port has to be opened
-anywhere.
+such as a NAS, reaching each server over an SSH tunnel it opens outward, so no port has to be
+opened anywhere. A central that only manages the fleet (`central.role = hub`) deploys nothing
+itself.
 
-<!-- FLEET: complete after the fleet wave -->
+```bash
+noust node key vps1                                                    # on the central
+noust fleet authorize --central-key 'ssh-ed25519 AAAA...' --name nas   # on vps1, as root
+noust node add vps1 --ssh root@vps1.example.com --join-code -          # on the central
+noust fleet status                                                     # every node it manages
+```
+
+Enrollment is inverted: the central never logs in to a server with your credentials. You
+authorize it **on the server**, where you are already root: `noust fleet authorize` installs
+the central's key restricted to forwarding that server's console port only - it opens no shell
+and runs nothing else - and prints a join code, which you paste into the central
+(`noust node add`) to finish. The central pins the server's SSH host key from that code; a
+change closes the tunnel rather than being accepted.
+
+The central's calls to a node carry a `fleet` token accepted only from the tunnel's loopback
+end, and `X-Noust-Actor`, so the node's audit log names the operator behind the central rather
+than the central itself. Anything a node marks as needing confirmation asks for it on the
+central, the same sudo mode as any other destructive action, and the node refuses the call
+anyway if the central did not vouch for it.
+
+The console gets a server selector (every page also exists at `/n/<server>/...`, so a link
+survives a refresh), a Fleet page, and Settings > Servers to add, test and remove one. A
+central with its secrets sealed shows a lock screen until you unlock it, before it opens a
+single tunnel.
+
+See [docs/CENTRAL.md](docs/CENTRAL.md) for running a central on a NAS or a VPS, sealing its
+secrets, backups and troubleshooting.
 
 ---
 
@@ -584,6 +623,12 @@ See [docs/security.md](docs/security.md), which also says how to report a vulner
 | `noust config` | Read and set Noust's configuration |
 | `noust store` | Inspect, export and maintain Noust's database |
 | `noust migrate-from-wasm` | Move a server WASM ran onto Noust's names (`--dry-run` shows the plan) |
+| **Fleet** | |
+| `noust fleet authorize` | Run on a server: let a central manage it, and print the join code |
+| `noust fleet deauthorize` | Run on a server: stop trusting a central, revoke its key and tokens |
+| `noust fleet status` | Run on a central: every node it manages, reachability, version, apps |
+| `noust node` | Run on a central: register, list, show, test and remove nodes |
+| `noust central` | Run and look after a central: serve it (`run`), seal, unseal, unlock, status |
 | **Console and access** | |
 | `noust web` | Start, stop and inspect the console, or run it as a service; issue its access token |
 | `noust github` | The GitHub App: status, installations, repositories |
@@ -671,6 +716,7 @@ is.
 
 - [docs/CHANGELOG-3.0.md](docs/CHANGELOG-3.0.md): what changed in 3.0
 - [docs/UPGRADING-3.0.md](docs/UPGRADING-3.0.md): upgrading a WASM 2.x server to Noust 3.0
+- [docs/CENTRAL.md](docs/CENTRAL.md): running a central, adding a server, sealing its secrets
 - [docs/console.md](docs/console.md): the console, page by page
 - [docs/releases.md](docs/releases.md): the release layout, health gate, rollback, migration
 - [docs/domains.md](docs/domains.md): aliases, redirects, certificates, DNS checks

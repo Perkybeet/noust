@@ -76,6 +76,8 @@ src/noust/
     store.py        SQLite persistence (WAL) with versioned migrations
     config.py       layered config; secrets written 0600, redacted on the way out
     exceptions.py   NoustError hierarchy, used for real
+    sealing.py      a central's secrets at rest: scrypt, then AES-256-CBC and HMAC-SHA256
+                    through openssl, never a new dependency
   validators/       names, environments, sources, ports, domains
   managers/         adapters: web server, systemd, certs, backups, databases, source, cron
     diagnose.py     why an app is down: read-only probes, most likely cause first
@@ -86,13 +88,22 @@ src/noust/
     migrate.py      in-place to releases, explicit only, undone exactly on failure
     domains.py      the one "names an app answers on": store, site, certificate, DNS check
     helpers/        layout.py (which layout, where .env lives), health_gate.py, release_build.py
+  fleet/            node enrollment: authorize.py installs the restricted key and prints the
+                    join code; keys.py the per-node keypair; tunnels.py the SSH tunnels
+                    (through CommandRunner); client.py a node's API over its own tunnel;
+                    nodes.py the store-backed registry a central keeps of them
+  central/          what a central is: role() (hub or server), setup.py (data directory, TLS,
+                    the allow-list), unlock.py the socket a sealed central takes a passphrase on
   web/
-    api/            thin layer over the managers; one error contract for every router
+    api/            thin layer over the managers; one error contract for every router;
+                    node_proxy.py forwards every node call, event and WebSocket over its
+                    tunnel (rule 3: a central re-implements nothing a node does)
     server.py       security middleware, CSP, serves the console
     events.py       the /events SSE stream the console listens to
     jobs.py         background jobs, persisted with their logs
     static/         the console's committed Vite build (generated from panel/, never edited)
-  cli/              Click tree (app.py, commands/); handlers hold no business logic
+  cli/              Click tree (app.py, commands/, including fleet.py, node.py, central.py);
+                    handlers hold no business logic
 panel/              Noust console source: React 19, TypeScript, Vite, TanStack Router/Query,
                     Base UI, Tailwind v4; src/api/schema.gen.ts is generated from openapi.json
   e2e/              Playwright + axe + CSP gate against the real backend
@@ -150,6 +161,38 @@ Rules:
   all call it.
 - **Nothing is written through a symlink found in a release or in `shared/`.** A repository
   is untrusted input.
+
+---
+
+## Fleet
+
+A central is a Noust whose job is several other Noust servers (`central.role`: `hub` never
+deploys anything itself, `server` also runs its own applications). It reaches each one over an
+SSH tunnel it opens outward and drives it through its own API: rule 3 again, so a central
+re-implements nothing a node does. `web/api/node_proxy.py` forwards every call, the event
+stream and the log and job WebSockets over that tunnel; nothing runs twice.
+
+- **The central never gets a shell.** `noust fleet authorize` runs on the node, as root, and
+  installs the central's key restricted to forwarding that node's console port only
+  (`restrict,port-forwarding,permitopen="127.0.0.1:<port>",permitlisten="127.0.0.1:1",
+  command="/usr/bin/false"`, built in `fleet/authorize.py`): no terminal, no agent, no command
+  but the forced one. `port-forwarding` reopens both directions of forwarding that `restrict`
+  turned off, which is why `permitlisten` narrows `ssh -R` to a loopback port nothing uses -
+  otherwise a reverse tunnel is the one thing left for the key to abuse.
+- **Fleet tokens are accepted only from loopback.** They travel through the tunnel, never
+  across the network, and only a request presenting one may carry `X-Noust-Actor`, so a node's
+  audit log names the operator behind the central rather than just the central's name.
+- **Elevation is the node's call, not the central's.** A node marks what needs sudo mode with
+  the `x-noust-requires-elevation` OpenAPI extension; the central asks its own operator to
+  confirm before forwarding such a call and vouches for it with `X-Noust-Elevated`, and the
+  node refuses the call anyway if the central did not vouch - one source of truth, checked on
+  both sides, so a compromised or outdated central cannot forward its way past a node's sudo
+  mode.
+- **A host-key change is never accepted silently.** Each node's key is pinned to the central's
+  own `known_hosts` the first time it is added; a change closes the tunnel and says why instead
+  of trusting whatever key answers next.
+
+See `docs/CENTRAL.md` for running a central, sealing its secrets and adding a server.
 
 ---
 

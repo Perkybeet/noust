@@ -47,16 +47,63 @@ noust, your applications the boats.
 
 ## The fleet
 
-<!-- FLEET -->
+3.0 brings the fleet: one Noust, the central, shows and drives several other Noust servers
+from a single console and CLI, over SSH tunnels it opens outward, so nothing has to be opened
+on theirs.
+
+- **Enrollment is inverted.** `noust fleet authorize --central-key ... --name ...` runs on the
+  server, as root, and prints a join code; `noust node add NAME --ssh ... --join-code -` on the
+  central pastes it back. The central never logs in to a server with your credentials.
+- **Every server's own API, proxied, not reimplemented.** `/api/nodes/{node}/api/...`,
+  `/api/nodes/{node}/events` and `/ws/nodes/{node}/...` forward to the node's own endpoints,
+  event stream and WebSockets over its tunnel, so a node's error, its journal output and its
+  events reach the console exactly as they are.
+- **The console** gets a server selector (every page also exists at `/n/<server>/...`, so a
+  link survives a refresh), a Fleet page listing every node with its reachability, version and
+  counts of applications, failed units and certificates due, and Settings > Servers to add,
+  test and remove one.
+- **Version differences.** A node's own OpenAPI document tells the console what it can do, so
+  a server on an older Noust degrades gracefully instead of a page failing outright.
+- **`noust fleet status`**, `noust node list|show|test|remove`.
 
 ## The central
 
-<!-- FLEET -->
+- **Role.** `central.role` is `server` (the default: manages the fleet and deploys its own
+  applications too) or `hub` (manages the fleet only; applications, sites, certificates and
+  databases are refused there with a message, and the console hides them).
+- **A container, for a NAS or any Docker host.** `ghcr.io/perkybeet/noust` runs `noust central
+  run`: the console and the tunnels, nothing else, as an unprivileged user with a read-only
+  root filesystem and no capabilities. It serves TLS on `8443` (self-signed at the first start,
+  unless you mount your own certificate) and keeps everything under `/data`. Reachable only
+  from loopback and the private address ranges by default (`NOUST_ALLOW_IP`).
+  `packaging/container/compose.yaml` is a ready example, including for UGOS Pro.
+- **A VPS** runs a central the same way as any other Noust: `noust config set central.role hub`
+  turns off local deployment, and `noust web enable` serves its console as always.
+- **`noust central run|status|seal|unseal|unlock`.**
+
+See [docs/CENTRAL.md](CENTRAL.md).
 
 ## Security
 
-<!-- FLEET -->
+- **The central's key on a server can only forward that server's console port.** No shell, no
+  agent, no command but a forced one that always fails; `permitlisten` closes the one direction
+  `port-forwarding` reopens, a reverse tunnel an attacker could otherwise bind to loopback.
+- **Fleet tokens are accepted only from loopback** (the tunnel), and only a request presenting
+  one may carry `X-Noust-Actor`, so a node's audit log names the operator behind the central,
+  not just the central's name.
+- **Elevation is the node's call.** A node marks what needs sudo mode with its OpenAPI's
+  `x-noust-requires-elevation`; the central asks its own operator to confirm before forwarding
+  such a call, and the node refuses it anyway if the central did not vouch for it.
+- **Host keys are pinned**, not trusted on first use every time: a server's key changing closes
+  the tunnel and says why.
+- **A central's secrets can be sealed at rest** (`noust central seal`): node keys and tokens
+  encrypted under a passphrase that is never written anywhere, so a sealed central starts
+  locked and opens no tunnel until it is given the passphrase.
+- **A central refuses to add its first server without two-factor authentication turned on.**
 
 ## Also
 
-<!-- FLEET -->
+- **`noust config set central.role hub|server`.**
+- **The GHCR image is new in 3.0.0**: nothing in WASM published a container.
+- [docs/CENTRAL.md](CENTRAL.md): running a central, adding a server, sealing its secrets,
+  backups and troubleshooting.
