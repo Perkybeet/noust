@@ -1,4 +1,4 @@
-// Fixture server for the WASM real-machine integration harness.
+// Fixture server for the Noust real-machine integration harness.
 //
 // Deliberately dependency-free (node:http only) so `npm install` never has to
 // fetch anything, since some of the scenarios that exercise this app run
@@ -6,7 +6,7 @@
 //
 // GET  /        -> "ok <version>", where <version> is read from ./VERSION.
 // POST /upload   -> writes the request body to ./uploads/<name> and returns
-//                    the file name. Used to prove that `wasm update` does not
+//                    the file name. Used to prove that `noust update` does not
 //                    delete files an application wrote into its own tree.
 
 const http = require("node:http");
@@ -62,5 +62,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`wasm-it-node-app listening on ${PORT}, version ${readVersion()}`);
+  console.log(`noust-it-node-app listening on ${PORT}, version ${readVersion()}`);
 });

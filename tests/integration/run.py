@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-Real-machine integration harness for WASM.
+Real-machine integration harness for Noust.
 
 Builds the wheel from the working tree, builds a systemd-under-Docker image,
-starts a privileged container, installs WASM into it from the wheel exactly
-as an operator would, and runs a set of scenarios over the real CLI against
-real nginx, real systemd and a real SQLite store.
+starts a privileged container, installs Noust into it from the wheel exactly
+as an operator would (``noust``, with ``wasm`` symlinked alongside it as the
+3.x alias), and runs a set of scenarios over the real CLI against real nginx,
+real systemd and a real SQLite store.
 
 This file is intentionally excluded from pytest's default collection: it
 does not match ``test_*.py`` (see ``[tool.pytest.ini_options]`` in
@@ -43,7 +44,7 @@ INTEGRATION_DIR = Path(__file__).resolve().parent
 FIXTURES_DIR = INTEGRATION_DIR / "fixtures"
 VENV_PYTHON = REPO_ROOT / ".venv" / "bin" / "python"
 DOCKERFILE = INTEGRATION_DIR / "Dockerfile.systemd"
-IMAGE_TAG = "wasm-integration:latest"
+IMAGE_TAG = "noust-integration:latest"
 
 #: How long the whole container gets to reach "running" or "degraded".
 SYSTEMD_READY_TIMEOUT = 90
@@ -63,15 +64,19 @@ RELEASE_URL = "git://127.0.0.1/node-rel"
 RELEASE_DOMAIN = "rel.test"
 RELEASE_ROOT = "/var/www/apps/rel-test"
 
-#: The store, wherever this install put it: the system location when
-#: /var/lib/wasm exists, root's own otherwise.
-WASM_DB = "$(ls /var/lib/wasm/wasm.db /root/.local/share/wasm/wasm.db 2>/dev/null | head -1)"
+#: The store, wherever this install put it. `core/store.py:_resolve_db_path`
+#: only prefers the system directory (/var/lib/noust) when it already exists
+#: and is writable; nothing in a plain `pip install` creates it, so a fresh
+#: container with no legacy WASM directory still gets the per-user path.
+NOUST_DB = "$(ls /var/lib/noust/noust.db /root/.local/share/noust/noust.db 2>/dev/null | head -1)"
 
-#: The released version the upgrade rehearsal (--upgrade) starts from. This is
-#: the most important pre-release scenario for 2.0: a real 1.x server, with
-#: real applications, upgraded in place with nothing but `pip install` over
-#: the same venv, exactly as docs/UPGRADING-2.0.md describes.
-UPGRADE_FROM_VERSION = "1.6.5"
+#: The released version the upgrade rehearsal (--upgrade) starts from: the
+#: last release published under the WASM name, before the 3.0.0 rename. This
+#: is the most important pre-release scenario for 3.0: a real WASM 2.x
+#: server, with real applications, a webhook token and a scheduled backup,
+#: upgraded to Noust with nothing but `pip install` over the same venv,
+#: exactly as docs/UPGRADING-3.0.md and docs/RENAME.md describe.
+UPGRADE_FROM_VERSION = "2.3.0"
 
 UPGRADE_NODE_DOMAIN = "upg-node.test"
 UPGRADE_NODE_APP = "upg-node-test"
@@ -81,9 +86,14 @@ UPGRADE_STATIC_DOMAIN = "upg-static.test"
 UPGRADE_STATIC_APP = "upg-static-test"
 UPGRADE_STATIC_ROOT = f"/var/www/apps/{UPGRADE_STATIC_APP}"
 
-UPGRADE_COMPOSE_DOMAIN = "upg-compose.test"
-UPGRADE_COMPOSE_APP = "upg-compose-test"
-UPGRADE_COMPOSE_ROOT = f"/var/www/apps/{UPGRADE_COMPOSE_APP}"
+#: The cron job and backup schedule the upgrade rehearsal creates on WASM 2.3,
+#: and expects renamed (not recreated) after the upgrade.
+UPGRADE_CRON_NAME = "upg-nightly"
+UPGRADE_TOKEN_NAME = "upg-admin-token"
+
+#: The store before the migration: a fresh WASM 2.3 install with nothing of
+#: Noust's ever having run, so this is the one and only location.
+UPGRADE_OLD_DB = "/var/lib/wasm/wasm.db"
 
 #: The query behind :func:`_store_apps_snapshot`: columns that exist in both
 #: The schema the working tree's store migrates to, read from its source rather than imported:
@@ -96,12 +106,11 @@ SCHEMA_VERSION = int(
     ).group(1)  # type: ignore[union-attr]
 )
 
-#: the 1.6.5 (schema v3) and 2.0 (schema v8) apps table, in a stable order, so
-#: the row for each application can be compared byte-for-byte across the
-#: upgrade. `layout` and the other v5+ columns are checked separately, since
-#: 1.6.5 does not have them. A plain literal - not built with an f-string -
-#: like every other query in this file, so ruff's hardcoded-sql check (S608,
-#: which cannot tell a literal from an injection) has nothing to flag.
+#: the WASM 2.3 and Noust 3.0 apps table, in a stable order, so the row for
+#: each application can be compared byte-for-byte across the upgrade. A plain
+#: literal - not built with an f-string - like every other query in this
+#: file, so ruff's hardcoded-sql check (S608, which cannot tell a literal
+#: from an injection) has nothing to flag.
 APPS_SNAPSHOT_QUERY = (
     "SELECT domain, app_type, source, branch, port, webserver, ssl_enabled, status, "
     "is_static, created_at, deployed_at FROM apps ORDER BY domain"
@@ -173,9 +182,13 @@ def build_wheel(workdir: Path) -> Path:
         [str(python), "-m", "build", "--wheel", "--outdir", str(outdir), str(REPO_ROOT)],
         timeout=180,
     )
-    wheels = sorted(outdir.glob("*.whl"))
+    # Named for the current distribution only: `outdir` accumulates wheels
+    # across runs (and, for anyone who worked on this tree before 3.0,
+    # WASM-era `wasm_cli-*.whl` files too), and "wasm_cli" sorts after
+    # "noust" - a bare `*.whl` glob picked up a stale pre-rename wheel here.
+    wheels = sorted(outdir.glob("noust-*.whl"))
     if not wheels:
-        raise HarnessError(f"`python -m build` produced no wheel in {outdir}")
+        raise HarnessError(f"`python -m build` produced no noust-*.whl wheel in {outdir}")
     wheel = wheels[-1]
     print(f"[setup] built {wheel.name}")
     return wheel
@@ -233,23 +246,35 @@ def wait_for_systemd(name: str, timeout: int = SYSTEMD_READY_TIMEOUT) -> str:
     )
 
 
-def install_wasm(name: str, wheel: Path) -> None:
-    """Install WASM into a dedicated venv, exactly as documented for operators."""
+def install_noust(name: str, wheel: Path) -> None:
+    """Install Noust into a dedicated venv, exactly as documented for operators.
+
+    Symlinks both ``noust`` and its 3.x alias ``wasm`` onto ``/usr/local/bin``
+    from the same venv, so scenarios can exercise either name.
+
+    Args:
+        name: Container name.
+        wheel: Path to the wheel built from the working tree, on the host.
+    """
     print(f"[setup] copying {wheel.name} into the container")
     sh(["docker", "cp", str(wheel), f"{name}:/tmp/{wheel.name}"], timeout=60)
 
-    print("[setup] creating /opt/wasm venv and installing the wheel")
-    docker_exec(name, "python3 -m venv /opt/wasm", timeout=60)
-    docker_exec(name, "/opt/wasm/bin/pip install --quiet --upgrade pip", timeout=120)
+    print("[setup] creating /opt/noust venv and installing the wheel")
+    docker_exec(name, "python3 -m venv /opt/noust", timeout=60)
+    docker_exec(name, "/opt/noust/bin/pip install --quiet --upgrade pip", timeout=120)
     docker_exec(
         name,
-        f"/opt/wasm/bin/pip install --quiet '/tmp/{wheel.name}[all]'",
+        f"/opt/noust/bin/pip install --quiet '/tmp/{wheel.name}[all]'",
         timeout=PIP_INSTALL_TIMEOUT,
     )
-    docker_exec(name, "ln -sf /opt/wasm/bin/wasm /usr/local/bin/wasm", timeout=15)
-    result = docker_exec(name, "wasm --help", timeout=30)
-    print("[setup] wasm --help:")
+    docker_exec(name, "ln -sf /opt/noust/bin/noust /usr/local/bin/noust", timeout=15)
+    docker_exec(name, "ln -sf /opt/noust/bin/wasm /usr/local/bin/wasm", timeout=15)
+    result = docker_exec(name, "noust --help", timeout=30)
+    print("[setup] noust --help:")
     print(result.stdout)
+    alias = docker_exec(name, "wasm --help", timeout=30)
+    print("[setup] wasm --help (the 3.x alias):")
+    print(alias.stdout)
 
 
 def install_fixtures(name: str) -> None:
@@ -259,7 +284,7 @@ def install_fixtures(name: str) -> None:
 
     # `docker cp` preserves the numeric uid of the files on the host, which
     # is almost never root's. git then refuses to touch the tree ("detected
-    # dubious ownership") and so would WASM's own fetch step were these ever
+    # dubious ownership") and so would Noust's own fetch step were these ever
     # used as a source through anything but a straight directory copy.
     docker_exec(name, "chown -R root:root /root/fixtures", timeout=15)
     docker_exec(name, "git config --global --add safe.directory '*'", timeout=15)
@@ -278,8 +303,8 @@ def install_fixtures(name: str) -> None:
         script = (
             f"cd /root/fixtures/{app} && "
             "git init -q && "
-            "git config user.email wasm-it@example.com && "
-            "git config user.name 'WASM Integration' && "
+            "git config user.email noust-it@example.com && "
+            "git config user.name 'Noust Integration' && "
             "git add -A && "
             "git commit -q -m 'initial fixture'"
         )
@@ -289,7 +314,7 @@ def install_fixtures(name: str) -> None:
     # The release scenarios deploy from a git remote, so the repository cache,
     # the fetch and the export run for real. A copy of the node fixture keeps
     # their commits out of the in-place scenarios' repository, and git daemon
-    # serves it over git:// on loopback: WASM refuses file:// on purpose.
+    # serves it over git:// on loopback: Noust refuses file:// on purpose.
     docker_exec(name, f"cp -a /root/fixtures/node-app {RELEASE_REPO}", timeout=30)
     # A dependency, so there is a node_modules for an update to reuse. A local
     # one: npm links it from the tree and never touches the network.
@@ -313,17 +338,56 @@ def install_fixtures(name: str) -> None:
     print(f"[setup] {RELEASE_REPO} is served at {RELEASE_URL}")
 
 
-def install_wasm_from_pypi(name: str, version: str) -> None:
-    """Install a released version of WASM from PyPI: the upgrade rehearsal's starting point.
+def build_transitional_wheel(workdir: Path) -> Path:
+    """Build the transitional ``wasm-cli`` wheel from ``packaging/transitional/wasm-cli``.
 
-    Mirrors :func:`install_wasm`, but pulls the package straight from the
-    index instead of copying in a locally built wheel, because the point of
-    ``--upgrade`` is to start from what an operator actually has installed
+    This is the empty PyPI package a real 3.x release publishes so that an
+    operator's ``pip install -U wasm-cli`` keeps working and brings in
+    ``noust`` (see ``docs/RENAME.md``). Building it locally, the same way
+    :func:`build_wheel` builds the real package, is what lets the upgrade
+    rehearsal exercise that exact command against a pre-release tree, without
+    a network round trip to a project that has not published 3.0.0 yet.
+
+    Args:
+        workdir: Where the harness keeps its build output.
+
+    Returns:
+        Path to the built wheel, on the host.
+    """
+    python = VENV_PYTHON if VENV_PYTHON.exists() else Path(sys.executable)
+    outdir = workdir / "dist-transitional"
+    outdir.mkdir(parents=True, exist_ok=True)
+    sh(
+        [
+            str(python),
+            "-m",
+            "build",
+            "--wheel",
+            "--outdir",
+            str(outdir),
+            str(REPO_ROOT / "packaging" / "transitional" / "wasm-cli"),
+        ],
+        timeout=120,
+    )
+    wheels = sorted(outdir.glob("wasm_cli-*.whl"))
+    if not wheels:
+        raise HarnessError(f"`python -m build` produced no wasm_cli-*.whl wheel in {outdir}")
+    wheel = wheels[-1]
+    print(f"[setup] built the transitional {wheel.name}")
+    return wheel
+
+
+def install_wasm_cli(name: str, version: str) -> None:
+    """Install the real, released WASM from PyPI: the upgrade rehearsal's starting point.
+
+    Mirrors :func:`install_noust`, but pulls the package straight from the
+    index under its old name, because the point of ``--upgrade`` is to start
+    from what an operator running a WASM 2.x server actually has installed
     today.
 
     Args:
         name: Container name.
-        version: The exact ``wasm-cli`` version to install, e.g. "1.6.5".
+        version: The exact ``wasm-cli`` version to install, e.g. "2.3.0".
     """
     print(f"[setup] creating /opt/wasm venv and installing wasm-cli=={version} from PyPI")
     docker_exec(name, "python3 -m venv /opt/wasm", timeout=60)
@@ -338,37 +402,77 @@ def install_wasm_from_pypi(name: str, version: str) -> None:
     print(f"[setup] installed {result.stdout.strip()}")
 
 
-def upgrade_wasm_to_wheel(name: str, wheel: Path) -> None:
-    """Upgrade the venv in place to the locally built wheel, the way an operator would.
+def upgrade_to_noust(name: str, wheel: Path, transitional_wheel: Path) -> None:
+    """Upgrade the venv in place to Noust, the way ``docs/RENAME.md`` tells a pip user to.
 
-    On a real release the wheel's version is newer than what PyPI serves and
-    a plain ``pip install --upgrade 'wasm-cli[all]'`` replaces it. This
-    working tree's ``pyproject.toml`` has not been bumped past
-    :data:`UPGRADE_FROM_VERSION` yet (see the final report), so the wheel
-    built from it can carry the *same* version number as the PyPI release
-    already installed; a bare ``pip install`` of a same-version local file is
-    a no-op ("Requirement already satisfied"), which would leave the old
-    package in place and silently turn this whole rehearsal into a no-op too.
-    ``--force-reinstall`` makes the replacement happen regardless of what the
-    version string says, which is what actually matters here: whether the
-    new code runs correctly over data the old code created.
-    ``--no-deps`` is safe because the two versions declare the exact same
-    ``[all]`` dependencies (checked against 1.6.5's METADATA before writing
-    this), so nothing new needs fetching; without it every upgrade run would
-    re-resolve and reinstall fastapi/uvicorn/etc. for no reason.
+    A real operator runs a single ``pip install -U wasm-cli``: the
+    transitional package (built by :func:`build_transitional_wheel`) depends
+    on ``noust==<same version>``, so pip installs ``noust`` and only then
+    removes the real ``wasm-cli`` 2.x, whose file list includes ``bin/wasm``
+    (the comment in ``packaging/transitional/wasm-cli/pyproject.toml``
+    explains why the transitional package declares that entry point itself).
+
+    This working tree's ``pyproject.toml`` has not been bumped past
+    :data:`UPGRADE_FROM_VERSION` yet (see the final report), so the
+    transitional wheel built from it carries the *same* version number as
+    the real ``wasm-cli`` already installed, and pip's dependency resolver
+    treats identical-version requirements as already satisfied - a single
+    ``pip install --upgrade`` would do nothing, silently turning this whole
+    rehearsal into a no-op. Splitting the one command into two sidesteps it
+    without a ``--force-reinstall`` that would also be applied to every one
+    of ``noust``'s already-installed dependencies (click, fastapi, ...),
+    which ``--no-index`` (deliberate: this is a pre-release tree, and PyPI
+    has no matching ``noust`` to resolve against) would then fail to find:
+
+    1. Install ``noust[all]==<version>`` from the two wheels given, with
+       nothing forced: its dependencies are already on the venv from the
+       ``wasm-cli[all]`` install below, and pip leaves a satisfied
+       requirement alone.
+    2. Force-reinstall (``--no-deps``, since ``noust`` is already there and
+       correct) the empty transitional ``wasm-cli`` over the real one, which
+       removes the real package's code and puts back ``bin/wasm`` pointing at
+       ``noust``.
 
     Args:
         name: Container name.
-        wheel: Path to the wheel built from the working tree, on the host.
+        wheel: Path to the ``noust`` wheel built from the working tree, on
+            the host.
+        transitional_wheel: Path to the transitional ``wasm-cli`` wheel built
+            by :func:`build_transitional_wheel`, on the host.
     """
-    print(f"[setup] copying {wheel.name} into the container for the upgrade")
-    sh(["docker", "cp", str(wheel), f"{name}:/tmp/{wheel.name}"], timeout=60)
+    print(f"[setup] copying {wheel.name} and {transitional_wheel.name} into the container")
+    docker_exec(name, "mkdir -p /tmp/noust-upgrade-wheels", timeout=15)
+    for path in (wheel, transitional_wheel):
+        sh(["docker", "cp", str(path), f"{name}:/tmp/noust-upgrade-wheels/{path.name}"], timeout=60)
     docker_exec(
         name,
-        f"/opt/wasm/bin/pip install --quiet --force-reinstall --no-deps '/tmp/{wheel.name}[all]'",
+        "/opt/wasm/bin/pip install --quiet --no-index --find-links=/tmp/noust-upgrade-wheels "
+        f"'noust[all]=={UPGRADE_FROM_VERSION}'",
         timeout=PIP_INSTALL_TIMEOUT,
     )
-    result = docker_exec(name, "wasm --version", timeout=30)
+    docker_exec(
+        name,
+        "/opt/wasm/bin/pip install --quiet --no-index --find-links=/tmp/noust-upgrade-wheels "
+        "--force-reinstall --no-deps wasm-cli",
+        timeout=PIP_INSTALL_TIMEOUT,
+    )
+    # A real operator's `pip install -U wasm-cli` runs inside a venv whose
+    # bin/ is already on PATH (or is the system interpreter); /opt/wasm/bin
+    # is exposed the same way install_wasm_cli set it up for `wasm`, so
+    # `noust` gets the same treatment now that pip has put it there too.
+    docker_exec(name, "ln -sf /opt/wasm/bin/noust /usr/local/bin/noust", timeout=15)
+    docker_exec(name, "ln -sf /opt/wasm/bin/wasm /usr/local/bin/wasm", timeout=15)
+    # Never `noust --version` to check this: cli/app.py's entrypoint() runs
+    # the automatic migration before main() ever looks at argv, for every
+    # invocation, --version included (should_run_automatically() only skips
+    # it for --dry-run, migrate-from-wasm, or a non-root euid). Checking the
+    # upgrade with the real CLI would silently perform the very migration
+    # run_upgrade_rehearsal means to observe on its own first command, below.
+    # Reading noust.__version__ confirms what pip installed without invoking
+    # the CLI at all.
+    result = docker_exec(
+        name, "/opt/wasm/bin/python3 -c 'import noust; print(noust.__version__)'", timeout=30
+    )
     print(f"[setup] upgraded to {result.stdout.strip()}")
 
 
@@ -435,9 +539,9 @@ def scenario(name: str) -> Callable[[ScenarioFn], ScenarioFn]:
 def scenario_static_site(sc: Scenario) -> None:
     """A static site deploys with --no-ssl and nginx serves it and its image."""
     sc.run(
-        "wasm create -d static.test -s /root/fixtures/static-site -t static --no-ssl",
+        "noust create -d static.test -s /root/fixtures/static-site -t static --no-ssl",
         timeout=DEPLOY_TIMEOUT,
-        label="wasm create -d static.test -s /root/fixtures/static-site -t static --no-ssl",
+        label="noust create -d static.test -s /root/fixtures/static-site -t static --no-ssl",
     )
 
     page = sc.run(
@@ -446,7 +550,7 @@ def scenario_static_site(sc: Scenario) -> None:
         label="curl -H 'Host: static.test' http://127.0.0.1/",
     )
     sc.check(
-        "WASM Integration Static Fixture" in page.stdout,
+        "Noust Integration Static Fixture" in page.stdout,
         f"index page missing the fixture marker text: {page.stdout!r}",
     )
 
@@ -486,13 +590,13 @@ def scenario_static_site(sc: Scenario) -> None:
 
     challenge = sc.run(
         "mkdir -p /var/www/html/.well-known/acme-challenge && "
-        "echo wasm-integration-token > /var/www/html/.well-known/acme-challenge/probe && "
+        "echo noust-integration-token > /var/www/html/.well-known/acme-challenge/probe && "
         "curl -sS -H 'Host: static.test' http://127.0.0.1/.well-known/acme-challenge/probe",
         timeout=30,
         label="curl -H 'Host: static.test' http://127.0.0.1/.well-known/acme-challenge/probe",
     )
     sc.check(
-        "wasm-integration-token" in challenge.stdout,
+        "noust-integration-token" in challenge.stdout,
         f"ACME's own well-known path must stay reachable: {challenge.stdout!r}",
     )
 
@@ -508,9 +612,9 @@ def scenario_node_app_update(sc: Scenario) -> None:
     update leaves it there.
     """
     sc.run(
-        "wasm create -d node.test -s /root/fixtures/node-app -t nodejs --no-ssl --layout inplace",
+        "noust create -d node.test -s /root/fixtures/node-app -t nodejs --no-ssl --layout inplace",
         timeout=DEPLOY_TIMEOUT,
-        label="wasm create -d node.test -s /root/fixtures/node-app -t nodejs --no-ssl "
+        label="noust create -d node.test -s /root/fixtures/node-app -t nodejs --no-ssl "
         "--layout inplace",
     )
 
@@ -547,7 +651,7 @@ def scenario_node_app_update(sc: Scenario) -> None:
         label="(fixture repo) echo 2 > VERSION; git commit",
     )
 
-    sc.run("wasm update node.test", timeout=DEPLOY_TIMEOUT, label="wasm update node.test")
+    sc.run("noust update node.test", timeout=DEPLOY_TIMEOUT, label="noust update node.test")
 
     page2 = sc.run(
         "curl -sS -H 'Host: node.test' http://127.0.0.1/",
@@ -567,8 +671,8 @@ def scenario_node_app_update(sc: Scenario) -> None:
     )
     sc.check(
         upload_after.returncode == 0 and "integration-harness-upload" in upload_after.stdout,
-        "the uploaded file did not survive `wasm update` - this is the v1.6.3 "
-        "data-loss regression `wasm update` is supposed to have fixed",
+        "the uploaded file did not survive `noust update` - this is the v1.6.3 "
+        "data-loss regression `noust update` is supposed to have fixed",
     )
 
     env_after = sc.run(
@@ -577,7 +681,7 @@ def scenario_node_app_update(sc: Scenario) -> None:
         check=False,
         label="test -f /var/www/apps/node-test/.env (after update)",
     )
-    sc.check(env_after.stdout.strip() == "present", ".env did not survive `wasm update`")
+    sc.check(env_after.stdout.strip() == "present", ".env did not survive `noust update`")
 
     listing = sc.run(
         "ls -A /var/www/apps/node-test",
@@ -623,7 +727,12 @@ def scenario_ownership(sc: Scenario) -> None:
 
 def store_query(query: str) -> str:
     """Return the shell command that runs a read-only query against the store."""
-    return f'sqlite3 {WASM_DB} "{query}"'
+    return store_query_at(NOUST_DB, query)
+
+
+def store_query_at(db: str, query: str) -> str:
+    """Return the shell command that runs a read-only query against a given store file."""
+    return f'sqlite3 {db} "{query}"'
 
 
 def active_release(sc: Scenario, label: str) -> str:
@@ -650,7 +759,7 @@ def scenario_release_create(sc: Scenario) -> None:
     path that lives in shared/.
     """
     create = (
-        f"wasm create -d {RELEASE_DOMAIN} -s {RELEASE_URL} -t nodejs --no-ssl "
+        f"noust create -d {RELEASE_DOMAIN} -s {RELEASE_URL} -t nodejs --no-ssl "
         "--layout releases --persist uploads"
     )
     sc.run(create, timeout=DEPLOY_TIMEOUT, label=create)
@@ -733,9 +842,9 @@ def scenario_release_update(sc: Scenario) -> None:
 
     commit_fixture(sc, "echo 2 > VERSION", "bump version to 2")
     sc.run(
-        f"wasm update {RELEASE_DOMAIN}",
+        f"noust update {RELEASE_DOMAIN}",
         timeout=DEPLOY_TIMEOUT,
-        label=f"wasm update {RELEASE_DOMAIN}",
+        label=f"noust update {RELEASE_DOMAIN}",
     )
 
     # The console shows substeps only with -v; the captured deploy log has all.
@@ -807,13 +916,13 @@ def scenario_release_rollback(sc: Scenario) -> None:
         "break the server",
     )
     result = sc.run(
-        f"wasm update {RELEASE_DOMAIN}",
+        f"noust update {RELEASE_DOMAIN}",
         timeout=DEPLOY_TIMEOUT,
         check=False,
-        label=f"wasm update {RELEASE_DOMAIN} (broken commit)",
+        label=f"noust update {RELEASE_DOMAIN} (broken commit)",
     )
     output = result.stdout + result.stderr
-    sc.check(result.returncode != 0, "wasm update reported success for a release that never ran")
+    sc.check(result.returncode != 0, "noust update reported success for a release that never ran")
     sc.check("did not pass its health check" in output, "the failure does not say what failed")
     sc.check(
         f"{before.split('/')[-1]} is active again" in output,
@@ -865,16 +974,32 @@ def scenario_release_rollback(sc: Scenario) -> None:
 
 @scenario("status_and_list")
 def scenario_status_and_list(sc: Scenario) -> None:
-    """`wasm status` and `wasm list` succeed and mention the deployed apps."""
-    status = sc.run("wasm status node.test", timeout=30, label="wasm status node.test")
-    sc.check(status.returncode == 0, "wasm status node.test failed")
+    """`noust status` and `noust list` succeed and mention the deployed apps.
 
-    listing = sc.run("wasm list", timeout=30, label="wasm list")
-    sc.check(listing.returncode == 0, "wasm list failed")
+    Also where the ``wasm`` alias (kept for the whole 3.x series) is
+    exercised: it must behave identically, including under ``--json``, where
+    nothing but the JSON itself may be on stdout.
+    """
+    status = sc.run("noust status node.test", timeout=30, label="noust status node.test")
+    sc.check(status.returncode == 0, "noust status node.test failed")
+
+    listing = sc.run("noust list", timeout=30, label="noust list")
+    sc.check(listing.returncode == 0, "noust list failed")
     sc.check(
         "node.test" in listing.stdout and "static.test" in listing.stdout,
-        f"wasm list did not mention both deployed apps: {listing.stdout!r}",
+        f"noust list did not mention both deployed apps: {listing.stdout!r}",
     )
+
+    alias_status = sc.run("wasm status node.test", timeout=30, label="wasm status node.test")
+    sc.check(alias_status.returncode == 0, "the `wasm` alias failed a command `noust` accepts")
+
+    noust_json = sc.run("noust list --json", timeout=30, label="noust list --json").stdout
+    wasm_json = sc.run("wasm list --json", timeout=30, label="wasm list --json").stdout
+    sc.check(
+        wasm_json == noust_json,
+        f"`wasm list --json` differs from `noust list --json`:\n{wasm_json!r}\n{noust_json!r}",
+    )
+    json.loads(wasm_json)  # raises if the alias printed anything besides the JSON
 
 
 #: The strict policy the console is served under (plan, Global Constraints).
@@ -912,14 +1037,14 @@ def http_head_and_body(sc: Scenario, path: str) -> tuple[int, dict[str, str], st
 
 @scenario("web_panel_serves_the_console")
 def scenario_web_panel(sc: Scenario) -> None:
-    """`wasm web start` answers /health and serves the console from the wheel.
+    """`noust web start` answers /health and serves the console from the wheel.
 
     The console's Vite build ships inside the package (web/static), so this
     is also the packaging check: a build that was not committed, or a glob
     that stopped matching, is a blank page here and nowhere else before an
     operator opens it.
     """
-    sc.run("wasm web start --daemon", timeout=60, label="wasm web start --daemon")
+    sc.run("noust web start --daemon", timeout=60, label="noust web start --daemon")
 
     health: subprocess.CompletedProcess[str] | None = None
     deadline = time.time() + 30
@@ -999,7 +1124,7 @@ def scenario_web_panel(sc: Scenario) -> None:
             f"/api/does-not-exist answered {status} {headers.get('content-type')!r}",
         )
     finally:
-        sc.run("wasm web stop", timeout=30, check=False, label="wasm web stop")
+        sc.run("noust web stop", timeout=30, check=False, label="noust web stop")
 
 
 # ---------------------------------------------------------------------------
@@ -1022,15 +1147,15 @@ def tree_census(sc: Scenario, root: str, label: str) -> str:
 
 @scenario("release_app_instant_rollback")
 def scenario_instant_rollback(sc: Scenario) -> None:
-    """`wasm releases rollback` serves the previous release at once, with nothing rebuilt.
+    """`noust releases rollback` serves the previous release at once, with nothing rebuilt.
 
     Runs after the release scenarios, which leave two releases on disk: the
     first serving "ok 1" and the second, active, serving "ok 2".
     """
     listing = sc.run(
-        f"wasm releases list {RELEASE_DOMAIN} --json",
+        f"noust releases list {RELEASE_DOMAIN} --json",
         timeout=30,
-        label=f"wasm releases list {RELEASE_DOMAIN} --json",
+        label=f"noust releases list {RELEASE_DOMAIN} --json",
     )
     items = json.loads(listing.stdout)["items"]
     on_disk = [item for item in items if item["on_disk"]]
@@ -1039,10 +1164,10 @@ def scenario_instant_rollback(sc: Scenario) -> None:
     sc.check(on_disk[0]["active"], f"the newest release is not the active one: {items!r}")
 
     timed = sc.run(
-        f"start=$(date +%s%N); wasm releases rollback {RELEASE_DOMAIN}; "
+        f"start=$(date +%s%N); noust releases rollback {RELEASE_DOMAIN}; "
         'echo "elapsed_ms=$(( ($(date +%s%N) - start) / 1000000 ))"',
         timeout=120,
-        label=f"wasm releases rollback {RELEASE_DOMAIN} (timed)",
+        label=f"noust releases rollback {RELEASE_DOMAIN} (timed)",
     )
     elapsed = int(timed.stdout.rsplit("elapsed_ms=", 1)[1].strip())
     sc.check(elapsed < 30_000, f"the rollback took {elapsed} ms")
@@ -1091,9 +1216,9 @@ def scenario_instant_rollback(sc: Scenario) -> None:
 
     # And forward again, by id.
     sc.run(
-        f"wasm releases rollback {RELEASE_DOMAIN} {newer}",
+        f"noust releases rollback {RELEASE_DOMAIN} {newer}",
         timeout=120,
-        label=f"wasm releases rollback {RELEASE_DOMAIN} {newer}",
+        label=f"noust releases rollback {RELEASE_DOMAIN} {newer}",
     )
     page = sc.run(
         f"curl -sS -H 'Host: {RELEASE_DOMAIN}' http://127.0.0.1/",
@@ -1117,9 +1242,9 @@ def scenario_migrate(sc: Scenario) -> None:
     before = tree_census(sc, INPLACE_ROOT, "count files and bytes before the migration")
 
     sc.run(
-        f"wasm --dry-run app migrate {INPLACE_DOMAIN}",
+        f"noust --dry-run app migrate {INPLACE_DOMAIN}",
         timeout=60,
-        label=f"wasm --dry-run app migrate {INPLACE_DOMAIN}",
+        label=f"noust --dry-run app migrate {INPLACE_DOMAIN}",
     )
     sc.check(
         sc.run(f"ls -A {INPLACE_ROOT}", timeout=15, label="ls -A (after the rehearsal)").stdout
@@ -1128,9 +1253,9 @@ def scenario_migrate(sc: Scenario) -> None:
     )
 
     sc.run(
-        f"wasm app migrate {INPLACE_DOMAIN} --yes",
+        f"noust app migrate {INPLACE_DOMAIN} --yes",
         timeout=DEPLOY_TIMEOUT,
-        label=f"wasm app migrate {INPLACE_DOMAIN} --yes",
+        label=f"noust app migrate {INPLACE_DOMAIN} --yes",
     )
     after = tree_census(sc, INPLACE_ROOT, "count files and bytes after the migration")
     sc.check(after == before, f"files and bytes before {before!r}, after {after!r}")
@@ -1196,9 +1321,9 @@ def scenario_migrate(sc: Scenario) -> None:
         label="(fixture repo) echo 3 > VERSION; git commit",
     )
     sc.run(
-        f"wasm update {INPLACE_DOMAIN}",
+        f"noust update {INPLACE_DOMAIN}",
         timeout=DEPLOY_TIMEOUT,
-        label=f"wasm update {INPLACE_DOMAIN} (after the migration)",
+        label=f"noust update {INPLACE_DOMAIN} (after the migration)",
     )
     count = sc.run(f"ls {INPLACE_ROOT}/releases | wc -l", timeout=15, label="ls releases | wc -l")
     sc.check(count.stdout.strip() == "2", f"expected 2 releases, found {count.stdout.strip()}")
@@ -1219,7 +1344,7 @@ def scenario_migrate(sc: Scenario) -> None:
 
 @scenario("resource_limits_in_systemd")
 def scenario_limits(sc: Scenario) -> None:
-    """`wasm app limits` puts the limits in the unit, and systemd reports them.
+    """`noust app limits` puts the limits in the unit, and systemd reports them.
 
     ``--restart`` passes the same health gate as a deploy, so the application
     answers again the moment the command returns.
@@ -1231,9 +1356,9 @@ def scenario_limits(sc: Scenario) -> None:
     ).stdout.strip()
     sc.check(serving.startswith("ok "), f"{RELEASE_DOMAIN} is not serving: {serving!r}")
     sc.run(
-        f"wasm app limits {RELEASE_DOMAIN} --memory 512M --cpu 50% --tasks 256 --restart",
+        f"noust app limits {RELEASE_DOMAIN} --memory 512M --cpu 50% --tasks 256 --restart",
         timeout=60,
-        label=f"wasm app limits {RELEASE_DOMAIN} --memory 512M --cpu 50% --tasks 256 --restart",
+        label=f"noust app limits {RELEASE_DOMAIN} --memory 512M --cpu 50% --tasks 256 --restart",
     )
     shown = sc.run(
         "systemctl show rel-test -p MemoryMax,CPUQuotaPerSecUSec,TasksMax",
@@ -1271,9 +1396,9 @@ def scenario_limits(sc: Scenario) -> None:
 
     # Removing one removes its directive.
     sc.run(
-        f"wasm app limits {RELEASE_DOMAIN} --memory none",
+        f"noust app limits {RELEASE_DOMAIN} --memory none",
         timeout=60,
-        label=f"wasm app limits {RELEASE_DOMAIN} --memory none",
+        label=f"noust app limits {RELEASE_DOMAIN} --memory none",
     )
     unit = sc.run(
         "systemctl cat rel-test | grep -E '^(MemoryMax|CPUQuota|TasksMax)=' || true",
@@ -1300,24 +1425,24 @@ def curl_host(sc: Scenario, host: str, path: str = "/", *, head: bool = False) -
 def check_alias_and_redirect(sc: Scenario, primary: str, alias: str, redirect: str) -> None:
     """Give an app an alias and a redirect, and see nginx serve and redirect them."""
     sc.run(
-        f"wasm domain add {primary} {alias} --kind alias",
+        f"noust domain add {primary} {alias} --kind alias",
         timeout=60,
-        label=f"wasm domain add {primary} {alias} --kind alias",
+        label=f"noust domain add {primary} {alias} --kind alias",
     )
     sc.run(
-        f"wasm domain add {primary} {redirect} --kind redirect",
+        f"noust domain add {primary} {redirect} --kind redirect",
         timeout=60,
-        label=f"wasm domain add {primary} {redirect} --kind redirect",
+        label=f"noust domain add {primary} {redirect} --kind redirect",
     )
     listed = sc.run(
-        f"wasm domain list {primary} --json",
+        f"noust domain list {primary} --json",
         timeout=30,
-        label=f"wasm domain list {primary} --json",
+        label=f"noust domain list {primary} --json",
     )
     kinds = {item["domain"]: item["kind"] for item in json.loads(listed.stdout)["items"]}
     sc.check(
         kinds == {primary: "primary", alias: "alias", redirect: "redirect"},
-        f"wasm domain list says {kinds!r}",
+        f"noust domain list says {kinds!r}",
     )
 
     served = curl_host(sc, primary).strip()
@@ -1345,17 +1470,17 @@ def scenario_domains(sc: Scenario) -> None:
     The primary cannot be removed, and a removal takes effect within seconds.
     """
     sc.run(
-        "wasm create -d dom.test -s /root/fixtures/node-app -t nodejs --no-ssl --layout inplace",
+        "noust create -d dom.test -s /root/fixtures/node-app -t nodejs --no-ssl --layout inplace",
         timeout=DEPLOY_TIMEOUT,
-        label="wasm create -d dom.test -s /root/fixtures/node-app -t nodejs --no-ssl "
+        label="noust create -d dom.test -s /root/fixtures/node-app -t nodejs --no-ssl "
         "--layout inplace",
     )
     check_alias_and_redirect(sc, "dom.test", "alias.dom.test", "old-dom.test")
 
     sc.run(
-        "wasm domain remove dom.test alias.dom.test",
+        "noust domain remove dom.test alias.dom.test",
         timeout=60,
-        label="wasm domain remove dom.test alias.dom.test",
+        label="noust domain remove dom.test alias.dom.test",
     )
     # nginx -s reload signals the master and returns before the new workers
     # take connections, so an old worker may answer for a moment: the removal
@@ -1381,17 +1506,17 @@ def scenario_domains(sc: Scenario) -> None:
     sc.check("alias.dom.test" not in config.stdout, "the removed alias is still in the site")
 
     refused = sc.run(
-        "wasm domain remove dom.test dom.test",
+        "noust domain remove dom.test dom.test",
         timeout=30,
         check=False,
-        label="wasm domain remove dom.test dom.test (the primary)",
+        label="noust domain remove dom.test dom.test (the primary)",
     )
     sc.check(refused.returncode == 1, "removing the primary domain was not refused")
 
     sc.run(
-        f"wasm create -d reldom.test -s {RELEASE_URL} -t nodejs --no-ssl --layout releases",
+        f"noust create -d reldom.test -s {RELEASE_URL} -t nodejs --no-ssl --layout releases",
         timeout=DEPLOY_TIMEOUT,
-        label=f"wasm create -d reldom.test -s {RELEASE_URL} -t nodejs --no-ssl --layout releases",
+        label=f"noust create -d reldom.test -s {RELEASE_URL} -t nodejs --no-ssl --layout releases",
     )
     check_alias_and_redirect(sc, "reldom.test", "alias.reldom.test", "old-reldom.test")
 
@@ -1458,8 +1583,8 @@ def scenario_compose_rollback(sc: Scenario) -> None:
         "printf 'gate v1' > html/index.html && "
         'printf \'services:\\n  web:\\n    build: .\\n    ports:\\n      - "18091:80"\\n'
         "    volumes:\\n      - data:/data\\nvolumes:\\n  data: {}\\n' > docker-compose.yml && "
-        "git init -q && git config user.email wasm-it@example.com && "
-        "git config user.name 'WASM Integration' && git add -A && git commit -q -m 'gate v1'",
+        "git init -q && git config user.email noust-it@example.com && "
+        "git config user.name 'Noust Integration' && git add -A && git commit -q -m 'gate v1'",
         timeout=30,
         label="(fixture repo) a stack whose web image is built from the repository",
     )
@@ -1468,7 +1593,7 @@ def scenario_compose_rollback(sc: Scenario) -> None:
     ).stdout.strip()
 
     create = (
-        f"wasm create -d {COMPOSE_GATE_DOMAIN} -s {COMPOSE_GATE_URL} -t docker-compose --no-ssl"
+        f"noust create -d {COMPOSE_GATE_DOMAIN} -s {COMPOSE_GATE_URL} -t docker-compose --no-ssl"
     )
     sc.run(create, timeout=DEPLOY_TIMEOUT, label=create)
     page = sc.run(
@@ -1489,10 +1614,10 @@ def scenario_compose_rollback(sc: Scenario) -> None:
         label="(fixture repo) commit a version whose container cannot start",
     )
     update = sc.run(
-        f"wasm update {COMPOSE_GATE_DOMAIN}",
+        f"noust update {COMPOSE_GATE_DOMAIN}",
         timeout=DEPLOY_TIMEOUT,
         check=False,
-        label=f"wasm update {COMPOSE_GATE_DOMAIN}",
+        label=f"noust update {COMPOSE_GATE_DOMAIN}",
     )
     output = update.stdout + update.stderr
     sc.check(update.returncode != 0, "an update that does not answer must fail")
@@ -1543,19 +1668,19 @@ TOOLS_DIR = INTEGRATION_DIR / "tools"
 CONTAINER_TOOLS = "/root/it-tools"
 
 #: The notification recorder: a POST listener the ``webhook`` channel points at.
-RECORDER_UNIT = "wasm-it-recorder"
+RECORDER_UNIT = "noust-it-recorder"
 NOTIFY_PORT = 9199
-NOTIFY_URL = f"http://127.0.0.1:{NOTIFY_PORT}/wasm"
+NOTIFY_URL = f"http://127.0.0.1:{NOTIFY_PORT}/noust"
 NOTIFY_LOG = "/root/it-notifications.jsonl"
 
 #: The load generator: one request through nginx every LOAD_INTERVAL seconds.
-LOAD_UNIT = "wasm-it-load"
+LOAD_UNIT = "noust-it-load"
 LOAD_LOG = "/root/it-load.log"
 LOAD_INTERVAL = 0.05
 
 #: What every repository the 2.2 scenarios create commits as.
 GIT_IDENTITY = (
-    "git config user.email wasm-it@example.com && git config user.name 'WASM Integration'"
+    "git config user.email noust-it@example.com && git config user.name 'Noust Integration'"
 )
 
 
@@ -1630,7 +1755,7 @@ def journal_tail(sc: Scenario, units: str, label: str) -> None:
 
 def start_notifications(sc: Scenario, *, started: bool) -> None:
     """
-    Start the recorder and point WASM's ``webhook`` channel at it.
+    Start the recorder and point Noust's ``webhook`` channel at it.
 
     Loopback is inside the SSRF guard's forbidden networks, so the recorder's
     host is listed under ``notifications.allow_private_hosts``, which is
@@ -1668,14 +1793,14 @@ def start_notifications(sc: Scenario, *, started: bool) -> None:
         f"notifications.events.deploy_started {'true' if started else 'false'}",
         "notifications.enabled true",
     ):
-        sc.run(f"wasm config set {setting}", timeout=30, label=f"wasm config set {setting}")
+        sc.run(f"noust config set {setting}", timeout=30, label=f"noust config set {setting}")
 
 
 def stop_notifications(sc: Scenario) -> None:
     """Turn notifications off and stop the recorder; never raises."""
     sc.run(
-        "wasm config set notifications.enabled false; "
-        "wasm config set notifications.events.deploy_started false; "
+        "noust config set notifications.enabled false; "
+        "noust config set notifications.events.deploy_started false; "
         f"systemctl stop {RECORDER_UNIT} 2>/dev/null; true",
         timeout=60,
         check=False,
@@ -1774,15 +1899,15 @@ def load_phase(sc: Scenario, phase: str, since: int) -> int:
 BG_DOMAIN = "bg.test"
 BG_APP = "bg-test"
 BG_PORT = 3710
-BG_UPSTREAM = f"/etc/nginx/wasm-upstreams/{BG_APP}.conf"
+BG_UPSTREAM = f"/etc/nginx/noust-upstreams/{BG_APP}.conf"
 BG_TEMPLATE = f"/etc/systemd/system/{BG_APP}@.service"
 BG_UNIT_FILE = f"/etc/systemd/system/{BG_APP}.service"
 
 
 def zero_downtime_status(sc: Scenario, label: str) -> dict[str, Any]:
-    """``wasm app zero-downtime DOMAIN --json``."""
+    """``noust app zero-downtime DOMAIN --json``."""
     status: dict[str, Any] = json_of(
-        sc.run(f"wasm app zero-downtime {BG_DOMAIN} --json", timeout=30, label=label), label
+        sc.run(f"noust app zero-downtime {BG_DOMAIN} --json", timeout=30, label=label), label
     )
     return status
 
@@ -1814,9 +1939,7 @@ def scenario_blue_green(sc: Scenario) -> None:
     port again). Not one request may fail in any of them.
     """
     repo, url = make_node_repo(sc, "bg-app")
-    create = (
-        f"wasm create -d {BG_DOMAIN} -s {url} -t nodejs --no-ssl --layout releases --port {BG_PORT}"
-    )
+    create = f"noust create -d {BG_DOMAIN} -s {url} -t nodejs --no-ssl --layout releases --port {BG_PORT}"
     sc.run(create, timeout=DEPLOY_TIMEOUT, label=create)
     try:
         _blue_green(sc, repo)
@@ -1826,7 +1949,7 @@ def scenario_blue_green(sc: Scenario) -> None:
     finally:
         sc.run(f"systemctl stop {LOAD_UNIT}; true", timeout=30, check=False, label="stop the load")
         stop_notifications(sc)
-        sc.run(f"wasm delete {BG_DOMAIN} -f", timeout=180, check=False, label="cleanup")
+        sc.run(f"noust delete {BG_DOMAIN} -f", timeout=180, check=False, label="cleanup")
 
 
 def _blue_green(sc: Scenario, repo: str) -> None:
@@ -1835,11 +1958,11 @@ def _blue_green(sc: Scenario, repo: str) -> None:
     sc.check(served == "ok 1", f"expected 'ok 1' before the switch, got {served!r}")
 
     sc.run(
-        f"wasm app zero-downtime {BG_DOMAIN} on --drain 3",
+        f"noust app zero-downtime {BG_DOMAIN} on --drain 3",
         timeout=180,
-        label=f"wasm app zero-downtime {BG_DOMAIN} on --drain 3",
+        label=f"noust app zero-downtime {BG_DOMAIN} on --drain 3",
     )
-    status = zero_downtime_status(sc, "wasm app zero-downtime --json (after on)")
+    status = zero_downtime_status(sc, "noust app zero-downtime --json (after on)")
     sc.check(
         status["enabled"] and status["active_color"] == "green" and status["drain_seconds"] == 3,
         f"the mode after on: {status!r}",
@@ -1851,7 +1974,7 @@ def _blue_green(sc: Scenario, repo: str) -> None:
     files = sc.run(
         f"cat {BG_UPSTREAM}; test -e {BG_UNIT_FILE} && echo single-unit-file-present; "
         f"test -e {BG_TEMPLATE} && echo template-present; "
-        f"grep -c 'wasm-upstreams/{BG_APP}.conf' /etc/nginx/sites-available/{BG_DOMAIN}",
+        f"grep -c 'noust-upstreams/{BG_APP}.conf' /etc/nginx/sites-available/{BG_DOMAIN}",
         timeout=15,
         check=False,
         label="the upstream, the unit files and the site (after on)",
@@ -1874,9 +1997,9 @@ def _blue_green(sc: Scenario, repo: str) -> None:
 
     # (a) An update starts the new release on blue and switches to it.
     commit_to(sc, repo, "echo 2 > VERSION", "version 2")
-    sc.run(f"wasm update {BG_DOMAIN}", timeout=DEPLOY_TIMEOUT, label=f"wasm update {BG_DOMAIN}")
-    mark = load_phase(sc, "(a) wasm update (green -> blue)", mark)
-    status = zero_downtime_status(sc, "wasm app zero-downtime --json (after the update)")
+    sc.run(f"noust update {BG_DOMAIN}", timeout=DEPLOY_TIMEOUT, label=f"noust update {BG_DOMAIN}")
+    mark = load_phase(sc, "(a) noust update (green -> blue)", mark)
+    status = zero_downtime_status(sc, "noust app zero-downtime --json (after the update)")
     sc.check(status["active_color"] == "blue", f"the update did not switch colour: {status!r}")
     sc.check(status["upstream_port"] == BG_PORT, f"upstream after the update: {status!r}")
     states = unit_states(sc, "systemctl is-active (after the update)")
@@ -1889,12 +2012,12 @@ def _blue_green(sc: Scenario, repo: str) -> None:
 
     # (b) A rollback puts the previous release back on green.
     sc.run(
-        f"wasm releases rollback {BG_DOMAIN}",
+        f"noust releases rollback {BG_DOMAIN}",
         timeout=180,
-        label=f"wasm releases rollback {BG_DOMAIN}",
+        label=f"noust releases rollback {BG_DOMAIN}",
     )
-    mark = load_phase(sc, "(b) wasm releases rollback (blue -> green)", mark)
-    status = zero_downtime_status(sc, "wasm app zero-downtime --json (after the rollback)")
+    mark = load_phase(sc, "(b) noust releases rollback (blue -> green)", mark)
+    status = zero_downtime_status(sc, "noust app zero-downtime --json (after the rollback)")
     sc.check(status["active_color"] == "green", f"the rollback did not switch colour: {status!r}")
     served = curl_host(sc, BG_DOMAIN).strip()
     sc.check(served == "ok 1", f"expected 'ok 1' after the rollback, got {served!r}")
@@ -1908,18 +2031,18 @@ def _blue_green(sc: Scenario, repo: str) -> None:
         "break the server",
     )
     broken = sc.run(
-        f"wasm update {BG_DOMAIN}",
+        f"noust update {BG_DOMAIN}",
         timeout=DEPLOY_TIMEOUT,
         check=False,
-        label=f"wasm update {BG_DOMAIN} (a commit whose server throws at start)",
+        label=f"noust update {BG_DOMAIN} (a commit whose server throws at start)",
     )
-    mark = load_phase(sc, "(c) wasm update to a broken commit (green keeps serving)", mark)
+    mark = load_phase(sc, "(c) noust update to a broken commit (green keeps serving)", mark)
     sc.check(broken.returncode != 0, "the update of a release that never ran reported success")
     sc.check(
         "green instance kept serving" in broken.stdout + broken.stderr,
         "the failure does not say the serving instance kept serving",
     )
-    status = zero_downtime_status(sc, "wasm app zero-downtime --json (after the broken update)")
+    status = zero_downtime_status(sc, "noust app zero-downtime --json (after the broken update)")
     sc.check(status["active_color"] == "green", f"the colour moved: {status!r}")
     sc.check(status["upstream_port"] == BG_PORT + 1, f"the upstream moved: {status!r}")
     states = unit_states(sc, "systemctl is-active (after the broken update)")
@@ -1957,12 +2080,12 @@ def _blue_green(sc: Scenario, repo: str) -> None:
 
     # (d) Switching off hands the traffic back to the app's own unit.
     sc.run(
-        f"wasm app zero-downtime {BG_DOMAIN} off",
+        f"noust app zero-downtime {BG_DOMAIN} off",
         timeout=180,
-        label=f"wasm app zero-downtime {BG_DOMAIN} off",
+        label=f"noust app zero-downtime {BG_DOMAIN} off",
     )
-    mark = load_phase(sc, "(d) wasm app zero-downtime off (green -> single unit)", mark)
-    status = zero_downtime_status(sc, "wasm app zero-downtime --json (after off)")
+    mark = load_phase(sc, "(d) noust app zero-downtime off (green -> single unit)", mark)
+    status = zero_downtime_status(sc, "noust app zero-downtime --json (after off)")
     sc.check(not status["enabled"], f"the mode is still on: {status!r}")
     states = unit_states(sc, "systemctl is-active (after off)")
     sc.check(
@@ -1975,7 +2098,7 @@ def _blue_green(sc: Scenario, repo: str) -> None:
         f"test -e {BG_TEMPLATE} && echo template-present; "
         f"test -e {BG_UPSTREAM} && echo upstream-present; "
         f"test -e {BG_UNIT_FILE} && echo single-unit-file-present; "
-        f"grep -c 'wasm-upstreams' /etc/nginx/sites-available/{BG_DOMAIN}; "
+        f"grep -c 'noust-upstreams' /etc/nginx/sites-available/{BG_DOMAIN}; "
         f"ls -A /var/www/apps/{BG_APP}",
         timeout=15,
         check=False,
@@ -1998,15 +2121,15 @@ def _blue_green(sc: Scenario, repo: str) -> None:
 
 BK_DOMAIN = "bk.test"
 BK_APP = "bk-test"
-BK_REMOTE_DIR = "/srv/wasm-it-remote"
+BK_REMOTE_DIR = "/srv/noust-it-remote"
 SFTP_IMAGE = "atmoz/sftp:alpine"
-SFTP_USER = "wasmit"
+SFTP_USER = "noustit"
 
 
 def local_backup_ids(sc: Scenario, label: str) -> list[str]:
     """The ids of the application's local archives, oldest first."""
     proc = sc.run(
-        f"find /var/backups/wasm -name '{BK_APP}_*.tar.gz' -printf '%f\\n' | sort",
+        f"find /var/backups/noust -name '{BK_APP}_*.tar.gz' -printf '%f\\n' | sort",
         timeout=15,
         label=label,
     )
@@ -2014,7 +2137,7 @@ def local_backup_ids(sc: Scenario, label: str) -> list[str]:
 
 
 def remote_ids(listing: dict[str, Any]) -> list[str]:
-    """The backup ids of a ``wasm backup remote-list --app`` listing, sorted."""
+    """The backup ids of a ``noust backup remote-list --app`` listing, sorted."""
     return sorted(entry["backup_id"] for entry in listing.get("backups", []))
 
 
@@ -2031,7 +2154,7 @@ def scenario_remote_backups(sc: Scenario) -> None:
     """
     probe = sc.run("rclone version | head -1", timeout=30, check=False, label="rclone version")
     sc.check(probe.returncode == 0, "rclone is not installed in the image (Dockerfile.systemd)")
-    create = f"wasm create -d {BK_DOMAIN} -s /root/fixtures/static-site -t static --no-ssl"
+    create = f"noust create -d {BK_DOMAIN} -s /root/fixtures/static-site -t static --no-ssl"
     sc.run(create, timeout=DEPLOY_TIMEOUT, label=create)
     findings: list[str] = []
     sftp = f"{sc.container}-sftp"
@@ -2042,10 +2165,10 @@ def scenario_remote_backups(sc: Scenario) -> None:
         subprocess.run(["docker", "rm", "-f", sftp], capture_output=True, text=True, timeout=60)
         stop_notifications(sc)
         sc.run(
-            f"wasm backup schedule delete {BK_DOMAIN}; "
-            "wasm backup destination remove itlocal -f; "
-            "wasm backup destination remove itsftp -f; "
-            f"wasm delete {BK_DOMAIN} -f; rm -rf {BK_REMOTE_DIR}",
+            f"noust backup schedule delete {BK_DOMAIN}; "
+            "noust backup destination remove itlocal -f; "
+            "noust backup destination remove itsftp -f; "
+            f"noust delete {BK_DOMAIN} -f; rm -rf {BK_REMOTE_DIR}",
             timeout=180,
             check=False,
             label="cleanup",
@@ -2059,11 +2182,11 @@ def _remote_backups_local(sc: Scenario, findings: list[str]) -> None:
     # one the console's own placeholder suggests. Checked on its own, so the
     # rest of the scenario runs with dashless names whatever it finds.
     dashed = sc.run(
-        "wasm backup destination add it-dash --type local --field path=/tmp && "
-        "wasm backup destination test it-dash",
+        "noust backup destination add it-dash --type local --field path=/tmp && "
+        "noust backup destination test it-dash",
         timeout=60,
         check=False,
-        label="wasm backup destination add it-dash --type local --field path=/tmp; ... test it-dash",
+        label="noust backup destination add it-dash --type local --field path=/tmp; ... test it-dash",
     )
     if dashed.returncode != 0:
         findings.append(
@@ -2074,44 +2197,44 @@ def _remote_backups_local(sc: Scenario, findings: list[str]) -> None:
             "24.04 and upstream 1.75.1 alike)"
         )
     sc.run(
-        "wasm backup destination remove it-dash -f",
+        "noust backup destination remove it-dash -f",
         timeout=60,
         check=False,
-        label="wasm backup destination remove it-dash -f",
+        label="noust backup destination remove it-dash -f",
     )
 
     sc.run(f"rm -rf {BK_REMOTE_DIR}", timeout=15, label=f"rm -rf {BK_REMOTE_DIR}")
-    add = f"wasm backup destination add itlocal --type local --field path={BK_REMOTE_DIR}"
+    add = f"noust backup destination add itlocal --type local --field path={BK_REMOTE_DIR}"
     sc.run(add, timeout=60, label=add)
     fresh = sc.run(
-        "wasm backup destination test itlocal",
+        "noust backup destination test itlocal",
         timeout=60,
         check=False,
-        label="wasm backup destination test itlocal (its folder does not exist yet)",
+        label="noust backup destination test itlocal (its folder does not exist yet)",
     )
     if fresh.returncode != 0:
         findings.append(
-            "`wasm backup destination test` fails on a destination whose folder does not exist "
+            "`noust backup destination test` fails on a destination whose folder does not exist "
             "yet, although the path field's help says it is 'created if it does not exist' "
             "(managers/backup_destinations.py test(): `rclone lsf` of a missing directory)"
         )
         sc.run(f"mkdir -p {BK_REMOTE_DIR}", timeout=15, label=f"mkdir -p {BK_REMOTE_DIR}")
         sc.run(
-            "wasm backup destination test itlocal",
+            "noust backup destination test itlocal",
             timeout=60,
-            label="wasm backup destination test itlocal (folder created)",
+            label="noust backup destination test itlocal (folder created)",
         )
 
     schedule = (
-        f"wasm backup schedule create {BK_DOMAIN} --schedule daily --retention-count 1 "
+        f"noust backup schedule create {BK_DOMAIN} --schedule daily --retention-count 1 "
         "--destination itlocal:2"
     )
     sc.run(schedule, timeout=60, label=schedule)
     for run in range(1, 4):
         sc.run(
-            f"wasm backup run-schedule {BK_DOMAIN}",
+            f"noust backup run-schedule {BK_DOMAIN}",
             timeout=300,
-            label=f"wasm backup run-schedule {BK_DOMAIN} (run {run} of 3)",
+            label=f"noust backup run-schedule {BK_DOMAIN} (run {run} of 3)",
         )
 
     remote = sc.run(
@@ -2134,18 +2257,18 @@ def _remote_backups_local(sc: Scenario, findings: list[str]) -> None:
 
     listing = json_of(
         sc.run(
-            f"wasm backup remote-list itlocal --app {BK_APP} --json",
+            f"noust backup remote-list itlocal --app {BK_APP} --json",
             timeout=60,
-            label=f"wasm backup remote-list itlocal --app {BK_APP} --json",
+            label=f"noust backup remote-list itlocal --app {BK_APP} --json",
         ),
         "remote-list",
     )
     sc.check(remote_ids(listing) == archives, f"remote-list: {listing!r}")
     apps = json_of(
         sc.run(
-            "wasm backup remote-list itlocal --json",
+            "noust backup remote-list itlocal --json",
             timeout=60,
-            label="wasm backup remote-list itlocal --json",
+            label="noust backup remote-list itlocal --json",
         ),
         "remote-list",
     )
@@ -2154,10 +2277,10 @@ def _remote_backups_local(sc: Scenario, findings: list[str]) -> None:
     # The same listing from another working directory: an absolute path must
     # not depend on where the operator happens to stand.
     elsewhere = sc.run(
-        f"cd /root && wasm backup remote-list itlocal --app {BK_APP} --json",
+        f"cd /root && noust backup remote-list itlocal --app {BK_APP} --json",
         timeout=60,
         check=False,
-        label=f"cd /root && wasm backup remote-list itlocal --app {BK_APP} --json",
+        label=f"cd /root && noust backup remote-list itlocal --app {BK_APP} --json",
     )
     try:
         elsewhere_ids = remote_ids(json_of(elsewhere, "remote-list from /root"))
@@ -2184,11 +2307,11 @@ def _remote_backups_local(sc: Scenario, findings: list[str]) -> None:
         label=f"echo tampered > {root}/index.html",
     )
     sc.check(curl_host(sc, BK_DOMAIN).strip() == "tampered", "the tampered page is not served")
-    restore = f"wasm backup restore {archives[-1]} --from itlocal -f"
+    restore = f"noust backup restore {archives[-1]} --from itlocal -f"
     sc.run(restore, timeout=300, label=restore)
     page = curl_host(sc, BK_DOMAIN)
     sc.check(
-        "WASM Integration Static Fixture" in page,
+        "Noust Integration Static Fixture" in page,
         f"restoring from the destination did not bring the page back: {page[:200]!r}",
     )
 
@@ -2233,14 +2356,14 @@ def _remote_backups_sftp(sc: Scenario, sftp: str, findings: list[str]) -> None:
     )
 
     sc.run(
-        f"printf '%s' '{password}' | wasm backup destination add itsftp --type sftp "
-        f"--field host={address} --field user={SFTP_USER} --field path=upload/wasm --stdin",
+        f"printf '%s' '{password}' | noust backup destination add itsftp --type sftp "
+        f"--field host={address} --field user={SFTP_USER} --field path=upload/noust --stdin",
         timeout=60,
-        label=f"printf '%s' <password> | wasm backup destination add itsftp --type sftp "
-        f"--field host={address} --field user={SFTP_USER} --field path=upload/wasm --stdin",
+        label=f"printf '%s' <password> | noust backup destination add itsftp --type sftp "
+        f"--field host={address} --field user={SFTP_USER} --field path=upload/noust --stdin",
     )
     stored = sc.run(
-        f"grep -rl '{password}' /var/lib/wasm /root/.local/share/wasm /etc/wasm 2>/dev/null; "
+        f"grep -rl '{password}' /var/lib/noust /root/.local/share/noust /etc/noust 2>/dev/null; "
         f"ps -eo args | grep -c '{password}' || true",
         timeout=30,
         check=False,
@@ -2251,10 +2374,10 @@ def _remote_backups_sftp(sc: Scenario, sftp: str, findings: list[str]) -> None:
         f"the SFTP password is stored in clear outside the secret store: {stored.stdout!r}",
     )
     fresh = sc.run(
-        "wasm backup destination test itsftp",
+        "noust backup destination test itsftp",
         timeout=120,
         check=False,
-        label="wasm backup destination test itsftp (upload/wasm does not exist yet)",
+        label="noust backup destination test itsftp (upload/noust does not exist yet)",
     )
     if fresh.returncode != 0:
         sh(
@@ -2264,38 +2387,38 @@ def _remote_backups_sftp(sc: Scenario, sftp: str, findings: list[str]) -> None:
                 sftp,
                 "sh",
                 "-c",
-                f"mkdir -p /home/{SFTP_USER}/upload/wasm && "
-                f"chown -R {SFTP_USER} /home/{SFTP_USER}/upload/wasm",
+                f"mkdir -p /home/{SFTP_USER}/upload/noust && "
+                f"chown -R {SFTP_USER} /home/{SFTP_USER}/upload/noust",
             ],
             timeout=30,
         )
-        sc.evidence.append(f"[host] docker exec {sftp} mkdir -p /home/{SFTP_USER}/upload/wasm")
+        sc.evidence.append(f"[host] docker exec {sftp} mkdir -p /home/{SFTP_USER}/upload/noust")
         sc.run(
-            "wasm backup destination test itsftp",
+            "noust backup destination test itsftp",
             timeout=120,
-            label="wasm backup destination test itsftp (folder created)",
+            label="noust backup destination test itsftp (folder created)",
         )
 
     update = (
-        f"wasm backup schedule update {BK_DOMAIN} --schedule daily --retention-count 10 "
+        f"noust backup schedule update {BK_DOMAIN} --schedule daily --retention-count 10 "
         "--destination itsftp:5"
     )
     sc.run(update, timeout=60, label=update)
     pushed = sc.run(
-        f"wasm backup run-schedule {BK_DOMAIN}",
+        f"noust backup run-schedule {BK_DOMAIN}",
         timeout=300,
-        label=f"wasm backup run-schedule {BK_DOMAIN} (to SFTP)",
+        label=f"noust backup run-schedule {BK_DOMAIN} (to SFTP)",
     )
     match = re.search(rf"({BK_APP}_\d{{8}}_\d{{6}})", pushed.stdout + pushed.stderr)
     sc.check(match is not None, "run-schedule did not name the backup it took")
     backup_id = match.group(1) if match else ""
     arrived = sh(
-        ["docker", "exec", sftp, "ls", "-l", f"/home/{SFTP_USER}/upload/wasm/{BK_APP}"],
+        ["docker", "exec", sftp, "ls", "-l", f"/home/{SFTP_USER}/upload/noust/{BK_APP}"],
         timeout=30,
         check=False,
     )
     sc.evidence.append(
-        f"[host] docker exec {sftp} ls -l /home/{SFTP_USER}/upload/wasm/{BK_APP}\n"
+        f"[host] docker exec {sftp} ls -l /home/{SFTP_USER}/upload/noust/{BK_APP}\n"
         f"{arrived.stdout.rstrip()}{arrived.stderr.rstrip()}"
     )
     sc.check(
@@ -2304,9 +2427,9 @@ def _remote_backups_sftp(sc: Scenario, sftp: str, findings: list[str]) -> None:
     )
     listing = json_of(
         sc.run(
-            f"wasm backup remote-list itsftp --app {BK_APP} --json",
+            f"noust backup remote-list itsftp --app {BK_APP} --json",
             timeout=120,
-            label=f"wasm backup remote-list itsftp --app {BK_APP} --json",
+            label=f"noust backup remote-list itsftp --app {BK_APP} --json",
         ),
         "remote-list",
     )
@@ -2319,17 +2442,17 @@ def _remote_backups_sftp(sc: Scenario, sftp: str, findings: list[str]) -> None:
     before = local_backup_ids(sc, "the local archives (before the run with SFTP down)")
     started = time.monotonic()
     failed = sc.run(
-        f"wasm backup run-schedule {BK_DOMAIN}",
+        f"noust backup run-schedule {BK_DOMAIN}",
         timeout=600,
         check=False,
-        label=f"wasm backup run-schedule {BK_DOMAIN} (SFTP server stopped)",
+        label=f"noust backup run-schedule {BK_DOMAIN} (SFTP server stopped)",
     )
     elapsed = time.monotonic() - started
     sc.evidence.append(f"[timing] the failing run took {elapsed:.1f}s")
     sc.check(failed.returncode != 0, "run-schedule succeeded with the destination down")
     if "dial tcp" not in failed.stdout + failed.stderr:
         findings.append(
-            "`wasm backup run-schedule` (what the timer runs, so also its journal) does not say "
+            "`noust backup run-schedule` (what the timer runs, so also its journal) does not say "
             "why a destination failed: run_schedule() raises a summary BackupError once any "
             "destination fails (managers/backup_scheduler.py:745-749, 'see the notification for "
             "rclone's own error'), so the CLI's per-destination 'Failed to send to' lines "
@@ -2368,7 +2491,7 @@ PREVIEW_APP = f"pr-1-{PREV_APP}-previews-test"
 
 def wait_for_console(sc: Scenario) -> None:
     """Start the console and wait for /health."""
-    sc.run("wasm web start --daemon", timeout=60, label="wasm web start --daemon")
+    sc.run("noust web start --daemon", timeout=60, label="noust web start --daemon")
     deadline = time.time() + 30
     while time.time() < deadline:
         probe = docker_exec(
@@ -2521,18 +2644,18 @@ def scenario_pr_preview(sc: Scenario) -> None:
     update the parent.
     """
     repo, url = make_node_repo(sc, PREV_REPOSITORY)
-    create = f"wasm create -d {PREV_DOMAIN} -s {url} -t nodejs --no-ssl --layout releases"
+    create = f"noust create -d {PREV_DOMAIN} -s {url} -t nodejs --no-ssl --layout releases"
     sc.run(create, timeout=DEPLOY_TIMEOUT, label=create)
     findings: list[str] = []
     try:
         _pr_preview(sc, repo, findings)
     except AssertionError:
-        journal_tail(sc, "-u 'wasm*' -u 'pr-*'", "journalctl (on failure)")
+        journal_tail(sc, "-u 'noust*' -u 'pr-*'", "journalctl (on failure)")
         raise
     finally:
         sc.run(
-            f"wasm web stop; wasm preview disable {PREV_DOMAIN} -y; "
-            f"wasm delete {PREVIEW_DOMAIN} -f 2>/dev/null; wasm delete {PREV_DOMAIN} -f",
+            f"noust web stop; noust preview disable {PREV_DOMAIN} -y; "
+            f"noust delete {PREVIEW_DOMAIN} -f 2>/dev/null; noust delete {PREV_DOMAIN} -f",
             timeout=300,
             check=False,
             label="cleanup",
@@ -2542,18 +2665,18 @@ def scenario_pr_preview(sc: Scenario) -> None:
 
 def _pr_preview(sc: Scenario, repo: str, findings: list[str]) -> None:
     """The body of :func:`scenario_pr_preview`."""
-    enable = f"wasm preview enable {PREV_DOMAIN} --domain {PREV_BASE} --max 2 --ttl 1h"
+    enable = f"noust preview enable {PREV_DOMAIN} --domain {PREV_BASE} --max 2 --ttl 1h"
     sc.run(enable, timeout=60, label=enable)
 
     issued = docker_exec(
         sc.container,
-        f"wasm token create it-previews-{secrets.token_hex(4)} --scope admin",
+        f"noust token create it-previews-{secrets.token_hex(4)} --scope admin",
         timeout=30,
     )
     token_match = re.search(r"Token:\s*(\S+)", issued.stdout)
-    sc.check(token_match is not None, "wasm token create printed no token")
+    sc.check(token_match is not None, "noust token create printed no token")
     token = token_match.group(1) if token_match else ""
-    sc.evidence.append("$ wasm token create it-previews-... --scope admin\n(token issued)")
+    sc.evidence.append("$ noust token create it-previews-... --scope admin\n(token issued)")
 
     wait_for_console(sc)
     code, minted = api(
@@ -2604,9 +2727,9 @@ def _pr_preview(sc: Scenario, repo: str, findings: list[str]) -> None:
 
     listed = json_of(
         sc.run(
-            f"wasm preview list {PREV_DOMAIN} --json",
+            f"noust preview list {PREV_DOMAIN} --json",
             timeout=30,
-            label=f"wasm preview list {PREV_DOMAIN} --json",
+            label=f"noust preview list {PREV_DOMAIN} --json",
         ),
         "preview list",
     )
@@ -2666,7 +2789,7 @@ def _pr_preview(sc: Scenario, repo: str, findings: list[str]) -> None:
     if row.split("|")[1] == "0" and advertised.startswith("https://"):
         findings.append(
             f"the preview is served over HTTP only (its certificate failed, ssl_enabled=0) but "
-            f"`wasm preview list`, the API and the pull request comment advertise {advertised} "
+            f"`noust preview list`, the API and the pull request comment advertise {advertised} "
             "(managers/previews.py preview_url() always answers https://)"
         )
 
@@ -2720,9 +2843,9 @@ def _pr_preview(sc: Scenario, repo: str, findings: list[str]) -> None:
     )
     listed = json_of(
         sc.run(
-            f"wasm preview list {PREV_DOMAIN} --json",
+            f"noust preview list {PREV_DOMAIN} --json",
             timeout=30,
-            label=f"wasm preview list {PREV_DOMAIN} --json (after closed)",
+            label=f"noust preview list {PREV_DOMAIN} --json (after closed)",
         ),
         "preview list",
     )
@@ -2747,19 +2870,19 @@ def scenario_deploy_notifications(sc: Scenario) -> None:
     A deploy from the CLI notifies: started and success, then rolled back with the gate's cause.
 
     The webhook channel points at a recorder inside the container. With
-    deploy_started on, ``wasm update`` sends started then success for the
+    deploy_started on, ``noust update`` sends started then success for the
     application; an update to a commit whose server throws sends started then
     rolled back, the process's own error in the body.
     """
     repo, url = make_node_repo(sc, "ntf-app")
-    create = f"wasm create -d {NTF_DOMAIN} -s {url} -t nodejs --no-ssl --layout releases"
+    create = f"noust create -d {NTF_DOMAIN} -s {url} -t nodejs --no-ssl --layout releases"
     sc.run(create, timeout=DEPLOY_TIMEOUT, label=create)
     try:
         start_notifications(sc, started=True)
 
         commit = commit_to(sc, repo, "echo 2 > VERSION", "version 2")
         sc.run(
-            f"wasm update {NTF_DOMAIN}", timeout=DEPLOY_TIMEOUT, label=f"wasm update {NTF_DOMAIN}"
+            f"noust update {NTF_DOMAIN}", timeout=DEPLOY_TIMEOUT, label=f"noust update {NTF_DOMAIN}"
         )
         events = [
             event
@@ -2784,10 +2907,10 @@ def scenario_deploy_notifications(sc: Scenario) -> None:
             "break the server",
         )
         broken = sc.run(
-            f"wasm update {NTF_DOMAIN}",
+            f"noust update {NTF_DOMAIN}",
             timeout=DEPLOY_TIMEOUT,
             check=False,
-            label=f"wasm update {NTF_DOMAIN} (a commit whose server throws at start)",
+            label=f"noust update {NTF_DOMAIN} (a commit whose server throws at start)",
         )
         sc.check(broken.returncode != 0, "the broken update reported success")
         events = [
@@ -2806,14 +2929,14 @@ def scenario_deploy_notifications(sc: Scenario) -> None:
         )
     finally:
         stop_notifications(sc)
-        sc.run(f"wasm delete {NTF_DOMAIN} -f", timeout=180, check=False, label="cleanup")
+        sc.run(f"noust delete {NTF_DOMAIN} -f", timeout=180, check=False, label="cleanup")
 
 
 # -- 2.3: recipes, export and import -------------------------------------------------
 
 WP_DOMAIN = "wp.test"
 WP_ROOT = "/var/www/apps/wp-test"
-WP_TITLE = "WASM Integration Blog"
+WP_TITLE = "Noust Integration Blog"
 
 #: A recipe builds from what it downloads; a whole npm install and a Vite build
 #: for Uptime Kuma take minutes on a cold cache.
@@ -2877,18 +3000,18 @@ def scenario_recipe_wordpress(sc: Scenario) -> None:
     """
     require_network(sc, "https://wordpress.org/latest.tar.gz.sha1", "WordPress")
     unit = fpm_unit(sc)
-    create = f"wasm create --recipe wordpress -d {WP_DOMAIN} --no-ssl"
+    create = f"noust create --recipe wordpress -d {WP_DOMAIN} --no-ssl"
     sc.run(create, timeout=RECIPE_TIMEOUT, label=create)
     try:
         _recipe_wordpress(sc, unit)
     finally:
         journal_tail(sc, f"-u {unit}", f"journalctl -u {unit} (tail)")
-        sc.run(f"wasm delete {WP_DOMAIN} --force", timeout=180, check=False, label="cleanup")
+        sc.run(f"noust delete {WP_DOMAIN} --force", timeout=180, check=False, label="cleanup")
 
 
 def _recipe_wordpress(sc: Scenario, unit: str) -> None:
     version = unit.removeprefix("php").removesuffix("-fpm")
-    pool = f"/etc/php/{version}/fpm/pool.d/wasm-wp-test.conf"
+    pool = f"/etc/php/{version}/fpm/pool.d/noust-wp-test.conf"
     stat = sc.run(f"stat -c '%a %U' {pool}", timeout=15, label=f"stat {pool}")
     sc.check(stat.stdout.split() == ["640", "root"], f"pool file mode/owner: {stat.stdout!r}")
     env_line = sc.run(
@@ -2960,7 +3083,7 @@ def _recipe_wordpress(sc: Scenario, unit: str) -> None:
         label="plant a plugin in shared/wp-content/plugins",
     )
     before = sc.run(f"readlink {WP_ROOT}/current", timeout=15, label="readlink current").stdout
-    sc.run(f"wasm update {WP_DOMAIN}", timeout=RECIPE_TIMEOUT, label=f"wasm update {WP_DOMAIN}")
+    sc.run(f"noust update {WP_DOMAIN}", timeout=RECIPE_TIMEOUT, label=f"noust update {WP_DOMAIN}")
     after = sc.run(
         f"readlink {WP_ROOT}/current", timeout=15, label="readlink current (after update)"
     ).stdout
@@ -2978,9 +3101,9 @@ def _recipe_wordpress(sc: Scenario, unit: str) -> None:
     sc.check(code == "200", f"/ answered {code} after the update")
 
     sc.run(
-        f"wasm releases rollback {WP_DOMAIN}",
+        f"noust releases rollback {WP_DOMAIN}",
         timeout=300,
-        label=f"wasm releases rollback {WP_DOMAIN}",
+        label=f"noust releases rollback {WP_DOMAIN}",
     )
     rolled = sc.run(
         f"readlink {WP_ROOT}/current", timeout=15, label="readlink current (after rollback)"
@@ -2989,7 +3112,7 @@ def _recipe_wordpress(sc: Scenario, unit: str) -> None:
     code, _ = http_status(sc, WP_DOMAIN, "/", "curl -H 'Host: wp.test' / (after rollback)")
     sc.check(code == "200", f"/ answered {code} after the rollback")
 
-    sc.run(f"wasm delete {WP_DOMAIN} --force", timeout=180, label=f"wasm delete {WP_DOMAIN}")
+    sc.run(f"noust delete {WP_DOMAIN} --force", timeout=180, label=f"noust delete {WP_DOMAIN}")
     gone = sc.run(f"test -e {pool} || echo gone", timeout=15, check=False, label=f"test -e {pool}")
     sc.check(gone.stdout.strip() == "gone", f"{pool} is still there after the delete")
     active = sc.run(
@@ -3008,7 +3131,7 @@ def scenario_recipe_uptime_kuma(sc: Scenario) -> None:
     a new release keeps that database.
     """
     require_network(sc, "https://github.com/louislam/uptime-kuma.git", "Uptime Kuma")
-    create = f"wasm create --recipe uptime-kuma -d {KUMA_DOMAIN} --no-ssl"
+    create = f"noust create --recipe uptime-kuma -d {KUMA_DOMAIN} --no-ssl"
     sc.run(create, timeout=RECIPE_TIMEOUT, label=create)
     try:
         code, location = http_status(sc, KUMA_DOMAIN, "/", f"curl -H 'Host: {KUMA_DOMAIN}' /")
@@ -3034,7 +3157,9 @@ def scenario_recipe_uptime_kuma(sc: Scenario) -> None:
         sc.run(f"test -f {db} && ls -l {db}", timeout=15, label=f"test -f {db}")
         sum_before = sc.run(f"stat -c %i {db}", timeout=15, label=f"inode of {db}").stdout
         sc.run(
-            f"wasm update {KUMA_DOMAIN}", timeout=RECIPE_TIMEOUT, label=f"wasm update {KUMA_DOMAIN}"
+            f"noust update {KUMA_DOMAIN}",
+            timeout=RECIPE_TIMEOUT,
+            label=f"noust update {KUMA_DOMAIN}",
         )
         sum_after = sc.run(
             f"stat -c %i {db}", timeout=15, label=f"inode of {db} (after update)"
@@ -3047,7 +3172,7 @@ def scenario_recipe_uptime_kuma(sc: Scenario) -> None:
         sc.check(code in ("301", "302"), f"/ answered {code} after the update")
     finally:
         journal_tail(sc, "-u kuma-test", "journalctl -u kuma-test (tail)")
-        sc.run(f"wasm delete {KUMA_DOMAIN} --force", timeout=180, check=False, label="cleanup")
+        sc.run(f"noust delete {KUMA_DOMAIN} --force", timeout=180, check=False, label="cleanup")
 
 
 @scenario("app_export_import")
@@ -3063,7 +3188,7 @@ def scenario_app_export_import(sc: Scenario) -> None:
     """
     _, url = make_node_repo(sc, "exp-app")
     create = (
-        f"wasm create -d {EXPORT_DOMAIN} -s {url} -t nodejs --no-ssl --layout releases "
+        f"noust create -d {EXPORT_DOMAIN} -s {url} -t nodejs --no-ssl --layout releases "
         f"--env APP_SECRET={EXPORT_SECRET} --env GREETING=hello"
     )
     sc.run(create, timeout=DEPLOY_TIMEOUT, label=create)
@@ -3071,24 +3196,24 @@ def scenario_app_export_import(sc: Scenario) -> None:
         _export_import(sc)
     finally:
         for domain in (EXPORT_DOMAIN, "copy.test", "copy2.test"):
-            sc.run(f"wasm delete {domain} --force", timeout=180, check=False, label="cleanup")
+            sc.run(f"noust delete {domain} --force", timeout=180, check=False, label="cleanup")
         for job in ("exp-test-nightly", "copy-test-nightly", "copy2-test-nightly"):
-            sc.run(f"wasm cron delete {job} --force", timeout=60, check=False, label="cleanup")
+            sc.run(f"noust cron delete {job} --force", timeout=60, check=False, label="cleanup")
 
 
 def _export_import(sc: Scenario) -> None:
     for script in (
-        f"wasm domain add {EXPORT_DOMAIN} alias.{EXPORT_DOMAIN} --kind alias",
-        f"wasm cron create exp-test-nightly '/bin/true' --schedule daily --app {EXPORT_DOMAIN}",
-        f"wasm app health {EXPORT_DOMAIN} --path / --expect 200-399 --timeout 20",
-        f"wasm releases keep {EXPORT_DOMAIN} 3",
+        f"noust domain add {EXPORT_DOMAIN} alias.{EXPORT_DOMAIN} --kind alias",
+        f"noust cron create exp-test-nightly '/bin/true' --schedule daily --app {EXPORT_DOMAIN}",
+        f"noust app health {EXPORT_DOMAIN} --path / --expect 200-399 --timeout 20",
+        f"noust releases keep {EXPORT_DOMAIN} 3",
     ):
         sc.run(script, timeout=120, label=script)
 
     sc.run(
-        f"wasm app export {EXPORT_DOMAIN} -o /root/x.json",
+        f"noust app export {EXPORT_DOMAIN} -o /root/x.json",
         timeout=60,
-        label=f"wasm app export {EXPORT_DOMAIN} -o /root/x.json",
+        label=f"noust app export {EXPORT_DOMAIN} -o /root/x.json",
     )
     document = json.loads(sc.run("cat /root/x.json", timeout=15, label="cat /root/x.json").stdout)
     env = document["env"]
@@ -3100,10 +3225,10 @@ def _export_import(sc: Scenario) -> None:
     sc.check(EXPORT_SECRET not in json.dumps(document), "the secret's value is in the export")
 
     refused = sc.run(
-        "wasm app import /root/x.json --domain copy.test --yes",
+        "noust app import /root/x.json --domain copy.test --yes",
         timeout=120,
         check=False,
-        label="wasm app import /root/x.json --domain copy.test --yes (no value for the secret)",
+        label="noust app import /root/x.json --domain copy.test --yes (no value for the secret)",
     )
     sc.check(
         refused.returncode != 0 and "APP_SECRET" in refused.stdout + refused.stderr,
@@ -3112,10 +3237,10 @@ def _export_import(sc: Scenario) -> None:
 
     # The document creates a cron job, a command it chose: the import asks first.
     unconfirmed = sc.run(
-        f"wasm app import /root/x.json --domain copy.test --env APP_SECRET={EXPORT_SECRET}",
+        f"noust app import /root/x.json --domain copy.test --env APP_SECRET={EXPORT_SECRET}",
         timeout=120,
         check=False,
-        label="wasm app import /root/x.json --domain copy.test --env APP_SECRET=... (no --yes)",
+        label="noust app import /root/x.json --domain copy.test --env APP_SECRET=... (no --yes)",
     )
     sc.check(
         unconfirmed.returncode != 0 and "--yes" in unconfirmed.stdout + unconfirmed.stderr,
@@ -3129,9 +3254,9 @@ def _export_import(sc: Scenario) -> None:
     sc.check(created.stdout.strip() == "0", "the unconfirmed import created copy.test")
 
     imported = sc.run(
-        f"wasm app import /root/x.json --domain copy.test --env APP_SECRET={EXPORT_SECRET} --yes",
+        f"noust app import /root/x.json --domain copy.test --env APP_SECRET={EXPORT_SECRET} --yes",
         timeout=DEPLOY_TIMEOUT,
-        label="wasm app import /root/x.json --domain copy.test --env APP_SECRET=... --yes",
+        label="noust app import /root/x.json --domain copy.test --env APP_SECRET=... --yes",
     )
     printed = imported.stdout + imported.stderr
     sc.check(
@@ -3143,15 +3268,15 @@ def _export_import(sc: Scenario) -> None:
     sc.check(curl_host(sc, "alias.copy.test").strip() == "ok 1", "alias.copy.test does not serve")
 
     domains = json.loads(
-        sc.run("wasm domain list copy.test --json", timeout=30, label="wasm domain list").stdout
+        sc.run("noust domain list copy.test --json", timeout=30, label="noust domain list").stdout
     )
     kinds = {item["domain"]: item["kind"] for item in domains["items"]}
     sc.check(kinds == {"copy.test": "primary", "alias.copy.test": "alias"}, f"domains: {kinds!r}")
     cron = sc.run(
-        "systemctl cat wasm-cron-copy-test-nightly.timer",
+        "systemctl cat noust-cron-copy-test-nightly.timer",
         timeout=15,
         check=False,
-        label="systemctl cat wasm-cron-copy-test-nightly.timer",
+        label="systemctl cat noust-cron-copy-test-nightly.timer",
     )
     sc.check(cron.returncode == 0, "the cron job was not carried over as copy-test-nightly")
     row = sc.run(
@@ -3171,16 +3296,16 @@ def _export_import(sc: Scenario) -> None:
     sc.check(f"APP_SECRET={EXPORT_SECRET}" in env_file, "the secret given with --env is missing")
 
     sc.run(
-        f"wasm app export {EXPORT_DOMAIN} --with-secrets -o /root/xs.json",
+        f"noust app export {EXPORT_DOMAIN} --with-secrets -o /root/xs.json",
         timeout=60,
-        label=f"wasm app export {EXPORT_DOMAIN} --with-secrets -o /root/xs.json",
+        label=f"noust app export {EXPORT_DOMAIN} --with-secrets -o /root/xs.json",
     )
     mode = sc.run("stat -c %a /root/xs.json", timeout=15, label="stat /root/xs.json").stdout
     sc.check(mode.strip() == "600", f"the export with secrets is mode {mode.strip()}")
     sc.run(
-        "wasm app import /root/xs.json --domain copy2.test --yes",
+        "noust app import /root/xs.json --domain copy2.test --yes",
         timeout=DEPLOY_TIMEOUT,
-        label="wasm app import /root/xs.json --domain copy2.test --yes",
+        label="noust app import /root/xs.json --domain copy2.test --yes",
     )
     sc.check(curl_host(sc, "copy2.test").strip() == "ok 1", "copy2.test does not serve")
     env_file = sc.run(
@@ -3193,7 +3318,7 @@ def _export_import(sc: Scenario) -> None:
 
 @dataclass
 class UpgradeApp:
-    """One application the upgrade rehearsal deploys with 1.6.5 and re-checks after 2.0."""
+    """One application the upgrade rehearsal deploys with WASM 2.3 and re-checks under Noust."""
 
     label: str
     domain: str
@@ -3236,8 +3361,8 @@ def _unified_diff(before: str, after: str, label: str) -> str:
         difflib.unified_diff(
             before.splitlines(keepends=True),
             after.splitlines(keepends=True),
-            fromfile=f"1.6.5/{label}",
-            tofile=f"2.0/{label}",
+            fromfile=f"wasm-2.3/{label}",
+            tofile=f"noust-3.0/{label}",
         )
     )
     return diff if diff else f"(no differences: {label})"
@@ -3264,233 +3389,352 @@ def _snapshot_app(sc: Scenario, app: UpgradeApp, when: str) -> dict[str, str]:
     return {"nginx": nginx, "unit": unit, "ownership": ownership, "checksums": checksums}
 
 
-def _store_apps_snapshot(sc: Scenario, label: str) -> str:
-    """A dump of every app row's columns shared by schema v3 (1.6.5) and v8 (2.0)."""
-    return sc.run(store_query(APPS_SNAPSHOT_QUERY), timeout=15, label=label).stdout
+def _store_apps_snapshot(sc: Scenario, db: str, label: str) -> str:
+    """A dump of every app row's shared columns, from whichever store file holds them now."""
+    return sc.run(store_query_at(db, APPS_SNAPSHOT_QUERY), timeout=15, label=label).stdout
 
 
-def run_upgrade_rehearsal(sc: Scenario, wheel: Path) -> None:
-    """Deploy with 1.6.5, upgrade to the local 2.0 wheel in place, and check every promise.
+def _unit_state(sc: Scenario, unit: str, label: str) -> tuple[str, str]:
+    """(is-enabled, is-active) of a unit; "unknown" rather than failing when it is absent."""
+    proc = sc.run(
+        f"systemctl is-enabled {unit} 2>/dev/null || echo unknown; "
+        f"systemctl is-active {unit} 2>/dev/null || echo unknown",
+        timeout=15,
+        check=False,
+        label=label,
+    )
+    enabled, _, active = proc.stdout.strip().partition("\n")
+    return enabled.strip(), active.strip()
 
-    Deploys a Node app with an uploads directory and an in-place ``.env``, a
-    static site served on the apex and ``www``, and - only when Docker is
-    reachable inside the container - a Docker Compose app, all with the
-    released 1.6.5 CLI. Snapshots nginx, the unit, ownership and a checksum
-    of each application's tree, and the store. Upgrades the very same venv to
-    the wheel built from this working tree, exactly as ``pip install
-    --upgrade`` would on a real server. Then checks, with real commands
-    against real nginx, real systemd and the real store: nothing was
-    converted implicitly, every application still serves, its tree and
-    configuration are byte-identical unless the change is one
-    docs/UPGRADING-2.0.md documents, and the store migrated without losing a
-    row. Finally it exercises what 2.0 adds for a 1.x application - `wasm
-    update` still works in place, and `wasm app migrate` moves it onto the
-    release layout keeping its uploads - and starts the console for the
-    first time on this "upgraded" server.
+
+def run_upgrade_rehearsal(sc: Scenario, wheel: Path, transitional_wheel: Path) -> None:
+    """Deploy with the real, released WASM 2.3, upgrade to Noust, and check every promise.
+
+    Deploys a Node app on the release layout with an upload persisted in
+    ``shared/``, a static site, a cron job and a scheduled local backup (run
+    once, so a real archive exists), and enables the console as a systemd
+    service with an admin API token - all with the real ``wasm-cli==2.3.0``
+    from PyPI, the last release published under the WASM name. Before the
+    package is ever touched, the backups directory is put into the exact
+    on-disk state a migration crashing between renaming it and leaving its
+    symlink in place would leave (see the comment where that happens), so
+    that the upgrade below both migrates the server normally and resumes
+    that one interrupted step in the same run.
+
+    Upgrades the very same venv to Noust the way ``docs/RENAME.md`` tells an
+    operator to (see :func:`upgrade_to_noust`), then runs ``noust status`` -
+    an operator's first privileged command - and checks, with real commands
+    against real nginx, real systemd and the real store: the migration it
+    triggers on its own moves every directory, the store and WASM's own
+    units without losing a row or leaving an empty store; the applications'
+    own units, sites and trees are byte-for-byte unchanged; the admin token
+    still authenticates against the console, now running as
+    ``noust-web.service``; and running the migration, or the first command,
+    again is a no-op. Finally it exercises the ``wasm`` alias one last time,
+    against the upgraded install.
 
     Args:
         sc: Scenario the rehearsal runs its commands and checks through.
-        wheel: Path to the wheel built from the working tree, on the host.
+        wheel: Path to the ``noust`` wheel built from the working tree, on
+            the host.
+        transitional_wheel: Path to the transitional ``wasm-cli`` wheel, on
+            the host.
     """
     container = sc.container
-
     apps = [
         UpgradeApp("node", UPGRADE_NODE_DOMAIN, UPGRADE_NODE_APP, UPGRADE_NODE_ROOT),
         UpgradeApp(
             "static", UPGRADE_STATIC_DOMAIN, UPGRADE_STATIC_APP, UPGRADE_STATIC_ROOT, has_unit=False
         ),
     ]
+    legacy_cron_timer = f"wasm-cron-{UPGRADE_CRON_NAME}.timer"
+    legacy_backup_timer = f"wasm-backup-{UPGRADE_STATIC_APP}.timer"
+    noust_cron_timer = f"noust-cron-{UPGRADE_CRON_NAME}.timer"
+    noust_backup_timer = f"noust-backup-{UPGRADE_STATIC_APP}.timer"
 
-    # --- Deploy every application with the released 1.6.5 CLI --------------
+    # --- Enable the monitor first: on a real server (systemd's own
+    # --- StateDirectory=wasm on its unit, not the package) this is what
+    # --- gives /var/lib/wasm a real directory before anything touches the
+    # --- store; a bare `pip install` here has nothing else that would (see
+    # --- core/store.py:_resolve_db_path and rpm/noust.spec's changelog for
+    # --- the exact regression this order avoids: the store falling back to
+    # --- ~/.local/share/wasm and the migration having nothing at
+    # --- /var/lib/wasm to move).
+
+    sc.run("wasm monitor enable", timeout=60, label="[wasm 2.3] wasm monitor enable")
+    sc.check(
+        sc.run(
+            "test -d /var/lib/wasm && echo present",
+            timeout=15,
+            check=False,
+            label="[wasm 2.3] test -d /var/lib/wasm (systemd's StateDirectory=wasm)",
+        ).stdout.strip()
+        == "present",
+        "/var/lib/wasm was not created by enabling the monitor",
+    )
+
+    # --- Deploy every application with the real, released WASM 2.3 CLI ------
 
     sc.run(
-        f"wasm create -d {UPGRADE_NODE_DOMAIN} -s /root/fixtures/node-app -t nodejs --no-ssl",
+        f"wasm create -d {UPGRADE_NODE_DOMAIN} -s /root/fixtures/node-app -t nodejs --no-ssl "
+        "--layout releases --persist uploads",
         timeout=DEPLOY_TIMEOUT,
-        label=f"[1.6.5] wasm create -d {UPGRADE_NODE_DOMAIN} -s /root/fixtures/node-app "
-        "-t nodejs --no-ssl",
+        label=f"[wasm 2.3] wasm create -d {UPGRADE_NODE_DOMAIN} -s /root/fixtures/node-app "
+        "-t nodejs --no-ssl --layout releases --persist uploads",
     )
     page = sc.run(
         f"curl -sS -H 'Host: {UPGRADE_NODE_DOMAIN}' http://127.0.0.1/",
         timeout=30,
-        label=f"[1.6.5] curl -H 'Host: {UPGRADE_NODE_DOMAIN}' http://127.0.0.1/",
+        label=f"[wasm 2.3] curl -H 'Host: {UPGRADE_NODE_DOMAIN}' http://127.0.0.1/",
     )
     sc.check(page.stdout.strip() == "ok 1", f"expected 'ok 1', got {page.stdout!r}")
-    sc.check(
-        sc.run(
-            f"test -f {UPGRADE_NODE_ROOT}/.env && echo present",
-            timeout=15,
-            check=False,
-            label=f"[1.6.5] test -f {UPGRADE_NODE_ROOT}/.env",
-        ).stdout.strip()
-        == "present",
-        ".env was not created from .env.example on deploy",
-    )
     upload = sc.run(
         f"curl -sS -H 'Host: {UPGRADE_NODE_DOMAIN}' --data-binary 'pre-upgrade-upload' "
         "http://127.0.0.1/upload",
         timeout=30,
-        label=f"[1.6.5] curl -H 'Host: {UPGRADE_NODE_DOMAIN}' --data-binary ... http://127.0.0.1/upload",
+        label=f"[wasm 2.3] curl -H 'Host: {UPGRADE_NODE_DOMAIN}' --data-binary ... /upload",
     )
     sc.check("uploaded" in upload.stdout, f"upload did not succeed: {upload.stdout!r}")
-
-    sc.run(
-        f"wasm create -d {UPGRADE_STATIC_DOMAIN} -s /root/fixtures/static-site -t static "
-        "--no-ssl --www",
-        timeout=DEPLOY_TIMEOUT,
-        label=f"[1.6.5] wasm create -d {UPGRADE_STATIC_DOMAIN} -s /root/fixtures/static-site "
-        "-t static --no-ssl --www",
-    )
-    apex = sc.run(
-        f"curl -sS -H 'Host: {UPGRADE_STATIC_DOMAIN}' http://127.0.0.1/",
-        timeout=30,
-        label=f"[1.6.5] curl -H 'Host: {UPGRADE_STATIC_DOMAIN}' http://127.0.0.1/",
-    )
-    sc.check(
-        "WASM Integration Static Fixture" in apex.stdout,
-        f"the apex did not serve the fixture: {apex.stdout!r}",
-    )
-    www = sc.run(
-        f"curl -sS -H 'Host: www.{UPGRADE_STATIC_DOMAIN}' http://127.0.0.1/",
-        timeout=30,
-        label=f"[1.6.5] curl -H 'Host: www.{UPGRADE_STATIC_DOMAIN}' http://127.0.0.1/",
-    )
-    sc.check(
-        "WASM Integration Static Fixture" in www.stdout,
-        f"--www did not also serve the fixture on 1.6.5: {www.stdout!r}",
-    )
-
-    docker_probe = sc.run(
-        "command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1 "
-        "&& echo available || echo unavailable",
-        timeout=30,
-        check=False,
-        label="check whether Docker is reachable inside the container",
-    )
-    docker_available = docker_probe.stdout.strip() == "available"
-    if docker_available:
-        sc.run(
-            "mkdir -p /root/fixtures/compose-app/html && "
-            "cat > /root/fixtures/compose-app/docker-compose.yml <<'EOF'\n"
-            "services:\n"
-            "  web:\n"
-            "    image: nginx:alpine\n"
-            "    ports:\n"
-            '      - "18090:80"\n'
-            "    volumes:\n"
-            "      - ./html:/usr/share/nginx/html:ro\n"
-            "EOF\n"
-            "printf '<h1>compose-ok</h1>' > /root/fixtures/compose-app/html/index.html",
-            timeout=30,
-            label="write the docker-compose fixture (Docker is available)",
-        )
-        sc.run(
-            f"wasm create -d {UPGRADE_COMPOSE_DOMAIN} -s /root/fixtures/compose-app "
-            "-t docker-compose --no-ssl",
-            timeout=DEPLOY_TIMEOUT,
-            label=f"[1.6.5] wasm create -d {UPGRADE_COMPOSE_DOMAIN} -s /root/fixtures/compose-app "
-            "-t docker-compose --no-ssl",
-        )
-        compose_page = sc.run(
-            f"curl -sS -H 'Host: {UPGRADE_COMPOSE_DOMAIN}' http://127.0.0.1/",
-            timeout=30,
-            label=f"[1.6.5] curl -H 'Host: {UPGRADE_COMPOSE_DOMAIN}' http://127.0.0.1/",
-        )
-        sc.check(
-            "compose-ok" in compose_page.stdout,
-            f"the docker-compose app did not serve: {compose_page.stdout!r}",
-        )
-        apps.append(
-            UpgradeApp(
-                "docker-compose", UPGRADE_COMPOSE_DOMAIN, UPGRADE_COMPOSE_APP, UPGRADE_COMPOSE_ROOT
-            )
-        )
-    else:
-        sc.evidence.append(
-            "NOTE: Docker is not reachable inside the integration container "
-            "(tests/integration/Dockerfile.systemd does not install it), so the "
-            "docker-compose leg of the upgrade rehearsal is SKIPPED, as instructed. "
-            "The deploy, checksum, ownership, nginx/unit diff, `wasm status` and "
-            "serving checks below run for the Node and static-site applications only."
-        )
-
-    # --- Snapshot everything before touching the package --------------------
-
-    before_snapshots = {app.label: _snapshot_app(sc, app, "1.6.5") for app in apps}
-    before_apps_rows = _store_apps_snapshot(sc, "[1.6.5] SELECT every app row's shared columns")
-    sc.run(
-        f"sha256sum {WASM_DB}",
+    shared_upload = sc.run(
+        f"cat {UPGRADE_NODE_ROOT}/shared/uploads/upload.txt",
         timeout=15,
-        label="[1.6.5] sha256sum of the store (recorded as evidence; the migration below "
-        "rewrites the file, so this is not compared against the post-upgrade checksum)",
-    )
-
-    # --- Upgrade -------------------------------------------------------------
-
-    upgrade_wasm_to_wheel(container, wheel)
-    version_after = sc.run("wasm --version", timeout=30, label="[2.0] wasm --version").stdout
-
-    listing = sc.run("wasm list", timeout=30, label="[2.0] wasm list")
-    for app in apps:
-        sc.check(
-            app.domain in listing.stdout,
-            f"wasm list does not mention {app.domain}: {listing.stdout!r}",
-        )
-
-    health = sc.run("wasm health", timeout=60, check=False, label="[2.0] wasm health")
-    sc.check(
-        health.returncode == 0,
-        f"wasm health reported issues after the upgrade:\n{health.stdout}\n{health.stderr}",
-    )
-
-    for app in apps:
-        status = sc.run(
-            f"wasm status {app.domain}", timeout=30, label=f"[2.0] wasm status {app.domain}"
-        )
-        sc.check(status.returncode == 0, f"wasm status {app.domain} failed after the upgrade")
-
-    # --- Every application still serves, unchanged ---------------------------
-
-    page = sc.run(
-        f"curl -sS -H 'Host: {UPGRADE_NODE_DOMAIN}' http://127.0.0.1/",
-        timeout=30,
-        label=f"[2.0] curl -H 'Host: {UPGRADE_NODE_DOMAIN}' http://127.0.0.1/",
+        label="[wasm 2.3] cat shared/uploads/upload.txt (the release layout keeps it in shared/)",
     )
     sc.check(
-        page.stdout.strip() == "ok 1",
-        f"the node app stopped serving after the upgrade: {page.stdout!r}",
+        "pre-upgrade-upload" in shared_upload.stdout,
+        "the upload did not land in shared/ on the release layout",
+    )
+
+    sc.run(
+        f"wasm create -d {UPGRADE_STATIC_DOMAIN} -s /root/fixtures/static-site -t static --no-ssl",
+        timeout=DEPLOY_TIMEOUT,
+        label=f"[wasm 2.3] wasm create -d {UPGRADE_STATIC_DOMAIN} -s /root/fixtures/static-site "
+        "-t static --no-ssl",
     )
     apex = sc.run(
         f"curl -sS -H 'Host: {UPGRADE_STATIC_DOMAIN}' http://127.0.0.1/",
         timeout=30,
-        label=f"[2.0] curl -H 'Host: {UPGRADE_STATIC_DOMAIN}' http://127.0.0.1/",
+        label=f"[wasm 2.3] curl -H 'Host: {UPGRADE_STATIC_DOMAIN}' http://127.0.0.1/",
     )
     sc.check(
-        "WASM Integration Static Fixture" in apex.stdout,
-        f"the apex stopped serving after the upgrade: {apex.stdout!r}",
+        "Noust Integration Static Fixture" in apex.stdout,
+        f"the static site did not serve the fixture: {apex.stdout!r}",
     )
-    www = sc.run(
-        f"curl -sS -H 'Host: www.{UPGRADE_STATIC_DOMAIN}' http://127.0.0.1/",
+
+    sc.run(
+        f"wasm cron create {UPGRADE_CRON_NAME} '/bin/true' --schedule daily "
+        f"--app {UPGRADE_NODE_DOMAIN}",
+        timeout=60,
+        label=f"[wasm 2.3] wasm cron create {UPGRADE_CRON_NAME} '/bin/true' --schedule daily "
+        f"--app {UPGRADE_NODE_DOMAIN}",
+    )
+    sc.run(
+        f"wasm backup schedule create {UPGRADE_STATIC_DOMAIN} --schedule daily --retention-count 2",
+        timeout=60,
+        label=f"[wasm 2.3] wasm backup schedule create {UPGRADE_STATIC_DOMAIN} --schedule daily "
+        "--retention-count 2",
+    )
+    sc.run(
+        f"wasm backup run-schedule {UPGRADE_STATIC_DOMAIN}",
+        timeout=300,
+        label=f"[wasm 2.3] wasm backup run-schedule {UPGRADE_STATIC_DOMAIN} (one real archive, "
+        "for the interrupted-migration rehearsal below)",
+    )
+    old_backup = sc.run(
+        f"ls /var/backups/wasm/{UPGRADE_STATIC_APP}/{UPGRADE_STATIC_APP}_*.tar.gz",
+        timeout=15,
+        label="[wasm 2.3] the local backup archive run-schedule just took",
+    ).stdout.strip()
+    sc.check(bool(old_backup), "no local backup archive was created")
+
+    sc.run("wasm web enable", timeout=60, label="[wasm 2.3] wasm web enable")
+    health: subprocess.CompletedProcess[str] | None = None
+    deadline = time.time() + 30
+    while time.time() < deadline:
+        health = sc.run(
+            f"curl -sS -o /dev/null -w '%{{http_code}}' {PANEL_URL}/health",
+            timeout=15,
+            check=False,
+            label=f"[wasm 2.3] curl -o /dev/null -w '%{{http_code}}' {PANEL_URL}/health",
+        )
+        if health.stdout.strip() == "200":
+            break
+        time.sleep(1)
+    sc.check(
+        health is not None and health.stdout.strip() == "200",
+        f"the WASM 2.3 console did not answer /health: {health.stdout if health else None!r}",
+    )
+    issued = sc.run(
+        f"wasm token create {UPGRADE_TOKEN_NAME} --scope admin",
         timeout=30,
-        label=f"[2.0] curl -H 'Host: www.{UPGRADE_STATIC_DOMAIN}' http://127.0.0.1/",
+        label=f"[wasm 2.3] wasm token create {UPGRADE_TOKEN_NAME} --scope admin",
+    )
+    token_match = re.search(r"Token:\s*(\S+)", issued.stdout)
+    sc.check(token_match is not None, "wasm token create printed no token")
+    token = token_match.group(1) if token_match else ""
+    sc.evidence[-1] = sc.evidence[-1].replace(token, "<token>")
+    code, session = api(sc, token, "GET", "/api/auth/session", "[wasm 2.3] GET /api/auth/session")
+    sc.check(
+        code == 200 and session.get("authenticated") is True,
+        f"the token does not authenticate against the WASM 2.3 console: {code} {session!r}",
+    )
+
+    # --- Simulate a migration interrupted between renaming a directory and --
+    # --- putting its symlink back, before anything is ever migrated ---------
+    #
+    # Migrator._move_directory (core/migrate_from_wasm.py) builds a pending
+    # symlink, renames the legacy directory onto the new name, and only then
+    # renames the pending link over the legacy name; a crash in that last
+    # step leaves exactly this on disk, and the module promises that running
+    # again finishes it - the same promise
+    # tests/test_migrate_from_wasm.py::test_a_run_that_crashed_mid_way_is_completed
+    # proves against a fake filesystem. Reproducing the on-disk state by hand
+    # here, on the backups directory alone, means the very first
+    # `noust status` below both migrates the server normally *and* resumes
+    # this one interrupted step, in the same run.
+    sc.run(
+        f"test -d /var/backups/wasm && test -f {old_backup} && "
+        "ln -s /var/backups/noust /var/backups/.wasm.noust-migration && "
+        "mv /var/backups/wasm /var/backups/noust",
+        timeout=15,
+        label="simulate a migration interrupted right after /var/backups/wasm was renamed, "
+        "before the symlink was put back in its place",
+    )
+
+    # --- Snapshot everything before the package is ever touched -------------
+
+    before_snapshots = {app.label: _snapshot_app(sc, app, "wasm-2.3") for app in apps}
+    before_apps_rows = _store_apps_snapshot(
+        sc, UPGRADE_OLD_DB, "[wasm 2.3] SELECT every app row's shared columns"
+    )
+    before_app_count = sc.run(
+        store_query_at(UPGRADE_OLD_DB, "SELECT COUNT(*) FROM apps"),
+        timeout=15,
+        label="[wasm 2.3] SELECT COUNT(*) FROM apps",
+    ).stdout.strip()
+    sc.check(before_app_count == "2", f"expected 2 apps before the upgrade: {before_app_count!r}")
+
+    cron_before = _unit_state(sc, legacy_cron_timer, f"[wasm 2.3] the state of {legacy_cron_timer}")
+    backup_before = _unit_state(
+        sc, legacy_backup_timer, f"[wasm 2.3] the state of {legacy_backup_timer}"
+    )
+    web_before = _unit_state(sc, "wasm-web.service", "[wasm 2.3] the state of wasm-web.service")
+    monitor_before = _unit_state(
+        sc, "wasm-monitor.service", "[wasm 2.3] the state of wasm-monitor.service"
+    )
+    for what, state in (
+        ("cron", cron_before),
+        ("backup", backup_before),
+        ("console", web_before),
+        ("monitor", monitor_before),
+    ):
+        sc.check(
+            state == ("enabled", "active"),
+            f"the WASM 2.3 {what} unit is not enabled and active before the upgrade: {state!r}",
+        )
+
+    # --- Upgrade: `pip install -U wasm-cli`, the way docs/RENAME.md tells an -
+    # --- operator to (see upgrade_to_noust's docstring for the two-step -----
+    # --- workaround this same-version pre-release tree needs) ---------------
+
+    upgrade_to_noust(container, wheel, transitional_wheel)
+
+    # --- The first root command: `noust status` migrates on its own ---------
+
+    first_root = sc.run(
+        f"noust status {UPGRADE_NODE_DOMAIN}",
+        timeout=30,
+        label=f"[noust] noust status {UPGRADE_NODE_DOMAIN} (the first root command)",
+    )
+    sc.check(first_root.returncode == 0, f"noust status failed:\n{first_root.stdout}")
+    sc.check(
+        "migrating this server from WASM to Noust's names" in first_root.stderr,
+        f"the first root command did not announce the migration: {first_root.stderr!r}",
     )
     sc.check(
-        "WASM Integration Static Fixture" in www.stdout,
-        f"www stopped serving after the upgrade: {www.stdout!r}",
+        "linked /var/backups/wasm to /var/backups/noust" in first_root.stderr,
+        "the interrupted backups migration was not resumed as a `finish linking` step: "
+        f"{first_root.stderr!r}",
     )
-    if docker_available:
-        compose_page = sc.run(
-            f"curl -sS -H 'Host: {UPGRADE_COMPOSE_DOMAIN}' http://127.0.0.1/",
-            timeout=30,
-            label=f"[2.0] curl -H 'Host: {UPGRADE_COMPOSE_DOMAIN}' http://127.0.0.1/",
-        )
+
+    # --- The store: no empty one was created, every app row survived --------
+
+    after_app_count = sc.run(
+        store_query("SELECT COUNT(*) FROM apps"),
+        timeout=15,
+        label="[noust] SELECT COUNT(*) FROM apps",
+    ).stdout.strip()
+    sc.check(
+        after_app_count == before_app_count,
+        f"expected {before_app_count} apps after the upgrade, found {after_app_count}: "
+        "an empty store may have been created instead of the migrated one",
+    )
+    after_apps_rows = _store_apps_snapshot(sc, NOUST_DB, "[noust] SELECT every app row's columns")
+    sc.check(
+        after_apps_rows == before_apps_rows,
+        "app rows changed across the upgrade in a column shared by both:\n"
+        f"before:\n{before_apps_rows}\nafter:\n{after_apps_rows}",
+    )
+    schema = sc.run(
+        store_query("SELECT MAX(version) FROM schema_version"),
+        timeout=15,
+        label="[noust] SELECT MAX(version) FROM schema_version",
+    )
+    sc.check(
+        schema.stdout.strip() == str(SCHEMA_VERSION),
+        f"the store did not migrate to schema v{SCHEMA_VERSION}: {schema.stdout!r}",
+    )
+
+    # --- /var/lib/wasm and /etc/wasm are symlinks to the new directories -----
+
+    links = sc.run(
+        "readlink /var/lib/wasm; readlink /etc/wasm; readlink /var/backups/wasm",
+        timeout=15,
+        label="[noust] readlink /var/lib/wasm /etc/wasm /var/backups/wasm",
+    ).stdout.split()
+    sc.check(
+        links == ["/var/lib/noust", "/etc/noust", "/var/backups/noust"],
+        f"the legacy directories are not links to their Noust names: {links!r}",
+    )
+    kept_backup = sc.run(
+        f"ls /var/backups/noust/{UPGRADE_STATIC_APP}/{UPGRADE_STATIC_APP}_*.tar.gz",
+        timeout=15,
+        label="[noust] the backup archive, through the migrated directory",
+    ).stdout.strip()
+    sc.check(bool(kept_backup), "the backup archive did not survive the interrupted migration")
+
+    # --- WASM's own units were replaced by noust-*, enabled and active ------
+
+    web_after = _unit_state(sc, "noust-web.service", "[noust] the state of noust-web.service")
+    cron_after = _unit_state(sc, noust_cron_timer, f"[noust] the state of {noust_cron_timer}")
+    backup_after = _unit_state(sc, noust_backup_timer, f"[noust] the state of {noust_backup_timer}")
+    monitor_after = _unit_state(
+        sc, "noust-monitor.service", "[noust] the state of noust-monitor.service"
+    )
+    for what, state in (
+        ("console", web_after),
+        ("cron", cron_after),
+        ("backup", backup_after),
+        ("monitor", monitor_after),
+    ):
         sc.check(
-            "compose-ok" in compose_page.stdout,
-            f"the docker-compose app stopped serving after the upgrade: {compose_page.stdout!r}",
+            state == ("enabled", "active"),
+            f"the noust-* {what} unit is not enabled and active after the upgrade: {state!r}",
         )
+    gone = sc.run(
+        f"test -e /etc/systemd/system/wasm-web.service && echo present; "
+        f"test -e /etc/systemd/system/wasm-monitor.service && echo present; "
+        f"test -e /etc/systemd/system/{legacy_cron_timer} && echo present; "
+        f"test -e /etc/systemd/system/{legacy_backup_timer} && echo present; "
+        "true",
+        timeout=15,
+        label="[noust] the old wasm-web/wasm-monitor/wasm-cron/wasm-backup unit files",
+    ).stdout
+    sc.check(gone.strip() == "", f"a legacy unit file was not removed:\n{gone}")
 
-    # --- nginx, units and app trees: unchanged, or print the diff verbatim ---
+    # --- The applications' own units, sites and trees are untouched ---------
 
-    after_snapshots = {app.label: _snapshot_app(sc, app, "2.0") for app in apps}
+    after_snapshots = {app.label: _snapshot_app(sc, app, "noust-3.0") for app in apps}
     for app in apps:
         before = before_snapshots[app.label]
         after = after_snapshots[app.label]
@@ -3498,213 +3742,94 @@ def run_upgrade_rehearsal(sc: Scenario, wheel: Path) -> None:
             if key == "unit" and not app.has_unit:
                 continue
             diff = _unified_diff(before[key], after[key], f"{app.label}/{key}")
-            sc.evidence.append(f"$ diff {app.label}/{key} (1.6.5 vs 2.0)\n{diff}")
+            sc.evidence.append(f"$ diff {app.label}/{key} (wasm-2.3 vs noust-3.0)\n{diff}")
             sc.check(
                 not diff.startswith("---"),
-                f"{app.label}'s {key} changed across the upgrade, and that is not one of the "
-                f"changes docs/UPGRADING-2.0.md documents:\n{diff}",
+                f"{app.label}'s {key} changed across the upgrade:\n{diff}",
             )
 
-    # --- The store migrated: schema version, rows intact, layout=inplace ----
-
-    schema = sc.run(
-        store_query("SELECT MAX(version) FROM schema_version"),
-        timeout=15,
-        label="[2.0] SELECT MAX(version) FROM schema_version",
-    )
-    sc.check(
-        schema.stdout.strip() == str(SCHEMA_VERSION),
-        f"the store did not migrate to schema v{SCHEMA_VERSION}: {schema.stdout!r}",
-    )
-
-    after_apps_rows = _store_apps_snapshot(sc, "[2.0] SELECT every app row's shared columns")
-    sc.check(
-        after_apps_rows == before_apps_rows,
-        "app rows changed across the upgrade in a column common to both schemas:\n"
-        f"before:\n{before_apps_rows}\nafter:\n{after_apps_rows}",
-    )
-
-    layouts = sc.run(
-        store_query("SELECT domain || '=' || layout FROM apps ORDER BY domain"),
-        timeout=15,
-        label="[2.0] SELECT domain, layout FROM apps ORDER BY domain",
-    )
-    for app in apps:
-        sc.check(
-            f"{app.domain}=inplace" in layouts.stdout.split(),
-            f"{app.domain} was not migrated onto layout=inplace: {layouts.stdout!r}",
-        )
-
-    # --- `wasm update` still works in place on a 1.x application -------------
-
-    sc.run(
-        "cd /root/fixtures/node-app && echo 2 > VERSION && "
-        "git add VERSION && git commit -q -m 'bump version to 2 (post-upgrade)'",
-        timeout=30,
-        label="(fixture repo) echo 2 > VERSION; git commit",
-    )
-    sc.run(
-        f"wasm update {UPGRADE_NODE_DOMAIN}",
-        timeout=DEPLOY_TIMEOUT,
-        label=f"[2.0] wasm update {UPGRADE_NODE_DOMAIN}",
-    )
     page = sc.run(
         f"curl -sS -H 'Host: {UPGRADE_NODE_DOMAIN}' http://127.0.0.1/",
         timeout=30,
-        label=f"[2.0] curl -H 'Host: {UPGRADE_NODE_DOMAIN}' http://127.0.0.1/ (after wasm update)",
+        label=f"[noust] curl -H 'Host: {UPGRADE_NODE_DOMAIN}' http://127.0.0.1/",
+    )
+    sc.check(page.stdout.strip() == "ok 1", f"the node app stopped serving: {page.stdout!r}")
+    apex = sc.run(
+        f"curl -sS -H 'Host: {UPGRADE_STATIC_DOMAIN}' http://127.0.0.1/",
+        timeout=30,
+        label=f"[noust] curl -H 'Host: {UPGRADE_STATIC_DOMAIN}' http://127.0.0.1/",
     )
     sc.check(
-        page.stdout.strip() == "ok 2", f"expected 'ok 2' after the update, got {page.stdout!r}"
+        "Noust Integration Static Fixture" in apex.stdout,
+        f"the static site stopped serving: {apex.stdout!r}",
     )
-
     upload_after = sc.run(
-        f"cat {UPGRADE_NODE_ROOT}/uploads/upload.txt",
+        f"cat {UPGRADE_NODE_ROOT}/shared/uploads/upload.txt",
         timeout=15,
         check=False,
-        label=f"cat {UPGRADE_NODE_ROOT}/uploads/upload.txt (after wasm update)",
+        label="[noust] cat shared/uploads/upload.txt",
     )
     sc.check(
         upload_after.returncode == 0 and "pre-upgrade-upload" in upload_after.stdout,
-        "the pre-upgrade upload did not survive `wasm update`",
+        "the pre-upgrade upload did not survive the migration",
     )
+
+    # --- The token still authenticates, against the console running as ------
+    # --- noust-web.service (the migration started it under its new name) ----
+
+    code, session = api(sc, token, "GET", "/api/auth/session", "[noust] GET /api/auth/session")
     sc.check(
-        sc.run(
-            f"test -f {UPGRADE_NODE_ROOT}/.env && echo present",
-            timeout=15,
-            check=False,
-            label=f"test -f {UPGRADE_NODE_ROOT}/.env (after wasm update)",
-        ).stdout.strip()
-        == "present",
-        ".env did not survive `wasm update`",
-    )
-    layout_after_update = sc.run(
-        store_query("SELECT layout FROM apps WHERE domain = 'upg-node.test'"),
-        timeout=15,
-        label="[2.0] SELECT layout FROM apps WHERE domain = upg-node.test (after wasm update)",
-    )
-    sc.check(
-        layout_after_update.stdout.strip() == "inplace",
-        f"wasm update moved the in-place app onto releases by itself: {layout_after_update.stdout!r}",
+        code == 200 and session.get("authenticated") is True,
+        f"the pre-upgrade token no longer authenticates: {code} {session!r}",
     )
 
-    # --- `--dry-run app migrate` changes nothing ------------------------------
+    # --- Running the migration, or the first command, again is a no-op ------
 
-    before_listing = sc.run(
-        f"ls -A {UPGRADE_NODE_ROOT}",
-        timeout=15,
-        label=f"ls -A {UPGRADE_NODE_ROOT} (before the migration rehearsal)",
-    ).stdout
-    sc.run(
-        f"wasm --dry-run app migrate {UPGRADE_NODE_DOMAIN}",
-        timeout=60,
-        label=f"[2.0] wasm --dry-run app migrate {UPGRADE_NODE_DOMAIN}",
-    )
-    after_listing = sc.run(
-        f"ls -A {UPGRADE_NODE_ROOT}",
-        timeout=15,
-        label=f"ls -A {UPGRADE_NODE_ROOT} (after the migration rehearsal)",
-    ).stdout
-    sc.check(
-        after_listing == before_listing,
-        "the --dry-run migration rehearsal changed the app directory",
-    )
-
-    # --- `app migrate --yes` moves it onto releases, keeping uploads and serving --
-
-    sc.run(
-        f"wasm app migrate {UPGRADE_NODE_DOMAIN} --yes",
-        timeout=DEPLOY_TIMEOUT,
-        label=f"[2.0] wasm app migrate {UPGRADE_NODE_DOMAIN} --yes",
-    )
-    tree = sc.run(
-        f"ls -A {UPGRADE_NODE_ROOT}; readlink {UPGRADE_NODE_ROOT}/current "
-        f"{UPGRADE_NODE_ROOT}/current/uploads {UPGRADE_NODE_ROOT}/current/.env; "
-        f"cat {UPGRADE_NODE_ROOT}/shared/uploads/upload.txt",
-        timeout=15,
-        label="the migrated tree: entries, links and the upload in shared/",
-    )
-    for expected in ("current", "releases", "shared", "../../shared/uploads", "../../shared/.env"):
-        sc.check(
-            expected in tree.stdout.split(),
-            f"{expected} missing after the migration: {tree.stdout!r}",
-        )
-    sc.check("pre-upgrade-upload" in tree.stdout, "the pre-upgrade upload is not in shared/uploads")
-
-    page = sc.run(
-        f"curl -sS -H 'Host: {UPGRADE_NODE_DOMAIN}' http://127.0.0.1/",
+    again = sc.run(
+        "noust migrate-from-wasm --json",
         timeout=30,
-        label=f"[2.0] curl -H 'Host: {UPGRADE_NODE_DOMAIN}' http://127.0.0.1/ (after app migrate)",
+        label="[noust] noust migrate-from-wasm --json (run again)",
+    )
+    report = json.loads(again.stdout)
+    sc.check(
+        again.returncode == 0 and report.get("steps") == [],
+        f"a second `noust migrate-from-wasm` still had something to do: {report!r}",
+    )
+    second_root = sc.run(
+        f"noust status {UPGRADE_NODE_DOMAIN}",
+        timeout=30,
+        label=f"[noust] noust status {UPGRADE_NODE_DOMAIN} (a second time)",
     )
     sc.check(
-        page.stdout.strip() == "ok 2", f"expected 'ok 2' after the migration, got {page.stdout!r}"
+        "migrating this server from WASM" not in second_root.stderr,
+        f"a fully migrated server announced another migration: {second_root.stderr!r}",
     )
 
-    layout_after_migrate = sc.run(
-        store_query("SELECT layout FROM apps WHERE domain = 'upg-node.test'"),
-        timeout=15,
-        label="[2.0] SELECT layout FROM apps WHERE domain = upg-node.test (after app migrate --yes)",
+    # --- The `wasm` alias, one last time, against the upgraded install ------
+
+    alias_status = sc.run(
+        f"wasm status {UPGRADE_NODE_DOMAIN}",
+        timeout=30,
+        label=f"[noust] wasm status {UPGRADE_NODE_DOMAIN} (the alias, after the upgrade)",
     )
-    sc.check(
-        layout_after_migrate.stdout.strip() == "releases",
-        f"the store still says inplace after app migrate: {layout_after_migrate.stdout!r}",
-    )
+    sc.check(alias_status.returncode == 0, "the `wasm` alias failed after the upgrade to Noust")
 
-    # --- `wasm web start` and the console load --------------------------------
-
-    sc.run("wasm web start --daemon", timeout=60, label="[2.0] wasm web start --daemon")
-    try:
-        health_probe: subprocess.CompletedProcess[str] | None = None
-        deadline = time.time() + 30
-        while time.time() < deadline:
-            health_probe = sc.run(
-                f"curl -sS -o /dev/null -w '%{{http_code}}' {PANEL_URL}/health",
-                timeout=15,
-                check=False,
-                label=f"curl -o /dev/null -w '%{{http_code}}' {PANEL_URL}/health",
-            )
-            if health_probe.stdout.strip() == "200":
-                break
-            time.sleep(1)
-        sc.check(
-            health_probe is not None and health_probe.stdout.strip() == "200",
-            f"panel /health did not return 200 within 30s: "
-            f"{health_probe.stdout if health_probe else None!r}",
-        )
-
-        status, headers, html = http_head_and_body(sc, "/")
-        sc.check(status == 200, f"GET / answered {status}")
-        sc.check('<div id="root">' in html, f"GET / is not the console: {html[:200]!r}")
-        csp = headers.get("content-security-policy", "")
-        sc.check(
-            csp.startswith(CONSOLE_CSP) and "unsafe-inline" not in csp,
-            f"GET / is not served under the strict policy: {csp!r}",
-        )
-
-        session_status, _, session_body = http_head_and_body(sc, "/api/auth/session")
-        sc.check(session_status == 200, f"GET /api/auth/session answered {session_status}")
-        session = json.loads(session_body)
-        sc.check(
-            session.get("authenticated") is False,
-            f"/api/auth/session did not say authenticated=false for an anonymous caller: "
-            f"{session_body!r}",
-        )
-    finally:
-        sc.run("wasm web stop", timeout=30, check=False, label="[2.0] wasm web stop")
-
+    version_after = sc.run("noust --version", timeout=30, label="[noust] noust --version").stdout
     sc.evidence.append(
-        f"NOTE: `wasm --version` after the upgrade: {version_after.strip()!r}. This working "
-        f"tree's pyproject.toml is still at {UPGRADE_FROM_VERSION} (not yet bumped for the 2.0 "
-        "release - see scripts/release.py and the Releasing section of CLAUDE.md), so the "
-        "version string genuinely does not change across this rehearsal even though the code "
-        "does; see upgrade_wasm_to_wheel's docstring for how the upgrade step compensates."
+        f"NOTE: `noust --version` after the upgrade: {version_after.strip()!r}. This working "
+        f"tree's pyproject.toml is still at {UPGRADE_FROM_VERSION} (not yet bumped for the 3.0.0 "
+        "release - see scripts/release.py and the Releasing section of CLAUDE.md); "
+        "upgrade_to_noust's docstring explains how the upgrade step compensates for the two "
+        "packages (the real wasm-cli and this tree's noust) sharing that version number."
     )
 
 
-def run_upgrade_mode(wheel: Path, *, keep: bool) -> int:
-    """Run the 1.6.5 -> 2.0 upgrade rehearsal (see :func:`run_upgrade_rehearsal`) end to end.
+def run_upgrade_mode(wheel: Path, transitional_wheel: Path, *, keep: bool) -> int:
+    """Run the WASM 2.3 -> Noust 3.0 upgrade rehearsal (:func:`run_upgrade_rehearsal`) end to end.
 
     Args:
-        wheel: Path to the wheel built from the working tree, on the host.
+        wheel: Path to the ``noust`` wheel built from the working tree, on the host.
+        transitional_wheel: Path to the transitional ``wasm-cli`` wheel, on the host.
         keep: Do not remove the container when done.
 
     Returns:
@@ -3722,13 +3847,13 @@ def run_upgrade_mode(wheel: Path, *, keep: bool) -> int:
             start_container(name)
             wait_for_systemd(name)
             install_fixtures(name)
-            install_wasm_from_pypi(name, UPGRADE_FROM_VERSION)
+            install_wasm_cli(name, UPGRADE_FROM_VERSION)
         except HarnessError as exc:
             setup_error = str(exc)
         else:
-            print("\n=== upgrade_1_6_5_to_2_0 ===")
+            print("\n=== upgrade_wasm_2_3_to_noust_3_0 ===")
             try:
-                run_upgrade_rehearsal(sc, wheel)
+                run_upgrade_rehearsal(sc, wheel, transitional_wheel)
             except AssertionError as exc:
                 failed = True
                 error = str(exc)
@@ -3736,7 +3861,7 @@ def run_upgrade_mode(wheel: Path, *, keep: bool) -> int:
                 failed = True
                 error = str(exc)
             else:
-                print("PASS: upgrade_1_6_5_to_2_0")
+                print("PASS: upgrade_wasm_2_3_to_noust_3_0")
     finally:
         if sc.evidence:
             print("--- evidence ---")
@@ -3753,7 +3878,7 @@ def run_upgrade_mode(wheel: Path, *, keep: bool) -> int:
         print(f"\n[summary] 0/0 scenario(s) run, setup failed, {elapsed:.1f}s total")
         return 1
     if failed:
-        print(f"FAIL: upgrade_1_6_5_to_2_0: {error}")
+        print(f"FAIL: upgrade_wasm_2_3_to_noust_3_0: {error}")
     print(f"\n[summary] 1 scenario(s) run, {1 if failed else 0} failure(s), {elapsed:.1f}s total")
     return 1 if failed else 0
 
@@ -3764,7 +3889,7 @@ def run_upgrade_mode(wheel: Path, *, keep: bool) -> int:
 
 
 def random_container_name() -> str:
-    return f"wasm-it-{secrets.token_hex(4)}"
+    return f"noust-it-{secrets.token_hex(4)}"
 
 
 def parse_args() -> argparse.Namespace:
@@ -3793,8 +3918,8 @@ def parse_args() -> argparse.Namespace:
         "--upgrade",
         action="store_true",
         help=(
-            "Run only the 1.6.5 -> 2.0 upgrade rehearsal, in its own container, instead of "
-            "the regular scenario suite. --scenario is ignored when this is given."
+            "Run only the WASM 2.3 -> Noust 3.0 upgrade rehearsal, in its own container, "
+            "instead of the regular scenario suite. --scenario is ignored when this is given."
         ),
     )
     return parser.parse_args()
@@ -3817,9 +3942,9 @@ def main() -> int:
     workdir.mkdir(exist_ok=True)
 
     if args.skip_wheel_build:
-        wheels = sorted((workdir / "dist").glob("*.whl"))
+        wheels = sorted((workdir / "dist").glob("noust-*.whl"))
         if not wheels:
-            raise HarnessError("--skip-wheel-build given but no wheel exists yet")
+            raise HarnessError("--skip-wheel-build given but no noust-*.whl wheel exists yet")
         wheel = wheels[-1]
         print(f"[setup] reusing existing wheel {wheel.name}")
     else:
@@ -3831,7 +3956,8 @@ def main() -> int:
         print(f"[setup] reusing existing image {IMAGE_TAG}")
 
     if args.upgrade:
-        return run_upgrade_mode(wheel, keep=args.keep)
+        transitional_wheel = build_transitional_wheel(workdir)
+        return run_upgrade_mode(wheel, transitional_wheel, keep=args.keep)
 
     name = random_container_name()
     failures = 0
@@ -3843,7 +3969,7 @@ def main() -> int:
         try:
             start_container(name)
             wait_for_systemd(name)
-            install_wasm(name, wheel)
+            install_noust(name, wheel)
             install_fixtures(name)
             to_run = selected_scenarios(args.scenario)
         except HarnessError as exc:

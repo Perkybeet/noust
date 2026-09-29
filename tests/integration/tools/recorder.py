@@ -3,7 +3,7 @@
 Record every POST it receives, one body per line: a notification webhook.
 
 Runs inside the integration container, under ``systemd-run``, as the endpoint
-of WASM's ``webhook`` notification channel. Each request body (the channel's
+of Noust's ``webhook`` notification channel. Each request body (the channel's
 JSON) is appended to the output file on a line of its own, and answered 204.
 
 Usage:
