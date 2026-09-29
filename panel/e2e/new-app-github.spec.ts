@@ -7,39 +7,8 @@
  * out the seeded storefront project, so the review proposes what a real repository would.
  */
 
-import type { Page } from "@playwright/test";
-
+import { forgetApp } from "./apps-cleanup";
 import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, stillness, test } from "./fixtures";
-import type { ConsoleServer } from "./fixtures";
-
-/** The CSRF header every write through `page.request` carries, mirrored from its cookie. */
-async function csrf(page: Page): Promise<Record<string, string>> {
-  const cookie = (await page.context().cookies()).find((entry) => entry.name === "wasm_csrf");
-  return cookie ? { "X-WASM-CSRF": cookie.value } : {};
-}
-
-/**
- * Leaves the worker's machine as seeded once the deploy has ended: other specs count its apps.
- * A first deploy that failed has removed its app already; one that succeeded is deleted.
- */
-async function forgetApp(page: Page, server: ConsoleServer, domain: string): Promise<void> {
-  await page.goto("about:blank");
-  await expect
-    .poll(
-      async () => {
-        const active = (await (await page.request.get("/api/jobs/active")).json()) as { jobs: { metadata?: { domain?: string } }[] };
-        return active.jobs.some((job) => job.metadata?.domain === domain);
-      },
-      { timeout: 120_000, intervals: [1_000] },
-    )
-    .toBe(false);
-  if ((await page.request.get(`/api/apps/${domain}`)).status() === 404) return;
-  const elevated = await page.request.post("/api/auth/elevate", { data: { code: server.secondFactor() }, headers: await csrf(page) });
-  expect(elevated.ok(), await elevated.text()).toBe(true);
-  const deleted = await page.request.delete(`/api/apps/${domain}?remove_files=true&remove_ssl=true`, { headers: await csrf(page) });
-  expect(deleted.ok(), await deleted.text()).toBe(true);
-  await expect.poll(async () => (await page.request.get(`/api/apps/${domain}`)).status(), { timeout: 60_000 }).toBe(404);
-}
 
 test("a repository and branch chosen from GitHub reach the inspection and the deploy with their installation", async ({ page, consoleServer, problems }) => {
   test.setTimeout(240_000);

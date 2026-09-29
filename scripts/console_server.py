@@ -1345,6 +1345,9 @@ def seed_machine(
         sandbox, store, units, list(state.cert_domains), expired_certificate=expired_certificate
     )
     seed_release_22(sandbox, store, units, ports, domains)
+    seed_release_23(sandbox)
+    # PHP 8.3's FPM, a system unit WASM does not own, running the pools recipes write.
+    units["php8.3-fpm"] = Unit(active="active", pid=912, managed=False)
     return units, ports, domains, list(state.cert_domains)
 
 
@@ -5047,6 +5050,279 @@ def seed_env_marks(sandbox: Sandbox, store: Any) -> None:
 
 
 # ---------------------------------------------------------------------------
+# 2.3: recipes, other platforms' configuration, export and import
+# ---------------------------------------------------------------------------
+
+#: A static site set up with everything an export carries: an alias, a cron
+#: job, variables with a secret among them, a health check and a release
+#: retention. Deployed at seed time by the real deploy, so its export is one
+#: an import can deploy again in the sandbox.
+EXPORT_APP = "lanzamiento.example.org"
+
+#: Its alias, which an import onto another domain renames with it.
+EXPORT_ALIAS = "www.lanzamiento.example.org"
+
+#: Its cron job, named after it.
+EXPORT_CRON = "lanzamiento-sitemap"
+
+#: Its variables: the first two are shown, the secret one is hidden in an export.
+EXPORT_ENV = {
+    "SITE_NAME": "Lanzamiento",
+    "ANALYTICS_ID": "UA-000000-2",
+    "NEWSLETTER_API_KEY": "nl_live_8f2c61d0b7a94e3f",
+}
+
+#: The database it is linked to: named by an export, never recreated by an import.
+EXPORT_DATABASE = "lanzamiento_newsletter"
+
+#: The wizard's source whose repository carries a Railway configuration.
+WIZARD_RAILWAY_SOURCE = "railway-api"
+
+#: Where the recipes' archives come from, answered from files the seed builds:
+#: the dev server never reaches the network.
+_RECIPE_ARCHIVES = ("https://wordpress.org/latest.tar.gz",)
+
+
+def _wordpress_archive() -> bytes:
+    """
+    Build a small stand-in for wordpress.org's latest.tar.gz.
+
+    The layout WordPress ships (one ``wordpress/`` directory, ``index.php``,
+    ``wp-content/``, the files the recipe refuses to serve), so the recipe's
+    shared paths and refused paths have something to act on.
+
+    Returns:
+        The gzipped tarball.
+    """
+    import io
+
+    files = {
+        "wordpress/index.php": "<?php\ndefine('WP_USE_THEMES', true);\nrequire __DIR__ . '/wp-blog-header.php';\n",
+        "wordpress/wp-blog-header.php": "<?php\n// WordPress, as the console server models it.\n",
+        "wordpress/wp-config-sample.php": "<?php\ndefine('DB_NAME', 'database_name_here');\n",
+        "wordpress/readme.html": "<!DOCTYPE html>\n<title>WordPress</title>\n",
+        "wordpress/license.txt": "WordPress - Web publishing software\n",
+        "wordpress/wp-admin/install.php": "<?php\n// The installer.\n",
+        "wordpress/wp-content/index.php": "<?php\n// Silence is golden.\n",
+        "wordpress/wp-content/plugins/index.php": "<?php\n// Silence is golden.\n",
+        "wordpress/wp-content/themes/index.php": "<?php\n// Silence is golden.\n",
+    }
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
+        for name, text in files.items():
+            data = text.encode("utf-8")
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            info.mode = 0o644
+            info.mtime = int(time.time())
+            archive.addfile(info, io.BytesIO(data))
+    return buffer.getvalue()
+
+
+def _recipes_offline() -> None:
+    """
+    Answer the recipes' downloads from memory, and refuse every other one.
+
+    Patched where the source manager opens a URL, below the checksum check:
+    the archive is verified against the published SHA-1 exactly as on a real
+    server, only both files come from here instead of wordpress.org.
+    """
+    import hashlib
+    import io
+    from urllib.error import URLError
+
+    import wasm.managers.source_manager as source_module
+
+    archive = _wordpress_archive()
+    answers = {
+        _RECIPE_ARCHIVES[0]: archive,
+        f"{_RECIPE_ARCHIVES[0]}.sha1": hashlib.sha1(archive, usedforsecurity=False)
+        .hexdigest()
+        .encode("ascii"),
+    }
+
+    def open_url(url: str, timeout: int = 0) -> Any:
+        data = answers.get(url)
+        if data is None:
+            raise URLError(f"the console server does not reach the network ({url})")
+        return io.BytesIO(data)
+
+    source_module._open_url = open_url  # type: ignore[assignment]
+
+
+def _recipes_php_fpm(sandbox: Sandbox) -> None:
+    """
+    Model PHP 8.3's FPM, so a PHP recipe deploys and its pool is written.
+
+    The pool directory and the binary exist in the sandbox, where the
+    deployer is told to look for them; the binary's configuration test and
+    the reload go through the runner, which answers them. The pool is asked
+    over FastCGI by the health gate, and answers the way WordPress does before
+    it is installed: a redirect to its installer.
+
+    Args:
+        sandbox: The sandbox.
+    """
+    import functools
+
+    import wasm.deployers.helpers.php_fpm as fpm_helpers
+    import wasm.deployers.php_fpm as php_module
+
+    (sandbox.etc / "php" / "8.3" / "fpm" / "pool.d").mkdir(parents=True, exist_ok=True)
+    binary = sandbox.root / "usr" / "sbin" / "php-fpm8.3"
+    binary.parent.mkdir(parents=True, exist_ok=True)
+    binary.write_text("", encoding="utf-8")
+    binary.chmod(0o755)
+    php_module.FPM_ROOT = sandbox.root  # type: ignore[misc]
+    # The dependency report asks without a root: the same machine.
+    original_find = fpm_helpers.find_fpm
+    fpm_helpers.find_fpm = functools.partial(original_find, sandbox.root)  # type: ignore[assignment]
+
+    def installer(_socket: Path, _params: Mapping[str, str], **_kwargs: Any) -> Any:
+        return fpm_helpers.FastCgiResponse(
+            status=302, headers={"location": "/wp-admin/install.php"}, stderr=""
+        )
+
+    php_module.fastcgi_probe = functools.partial(  # type: ignore[assignment]
+        fpm_helpers.fastcgi_probe, requester=installer
+    )
+    # The machine snapshot sorts a PHP app by whether its pool's socket accepts a
+    # connection; the modelled FPM runs every pool whose file is in place.
+    if hasattr(php_module, "socket_accepts"):
+        php_module.socket_accepts = lambda _path, *args, **kwargs: True
+
+
+def _platform_sources(sandbox: Sandbox) -> None:
+    """
+    Write the wizard's source that was configured for Railway.
+
+    A Node API whose ``railway.toml`` names a health check path and timeout,
+    a build and a start command: the inspection proposes them, and the
+    review carries the health check into the deploy request.
+
+    Args:
+        sandbox: The sandbox.
+    """
+    root = sandbox.var / "www" / "src" / WIZARD_RAILWAY_SOURCE
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "railway-api",
+                "version": "0.9.0",
+                "private": True,
+                "scripts": {"build": "tsc -p .", "start": "node dist/server.js"},
+                "dependencies": {"fastify": "5.2.1"},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (root / "package-lock.json").write_text(
+        '{\n  "name": "railway-api",\n  "lockfileVersion": 3,\n  "requires": true,\n'
+        '  "packages": {}\n}\n',
+        encoding="utf-8",
+    )
+    (root / "railway.toml").write_text(
+        "[build]\n"
+        'builder = "NIXPACKS"\n'
+        'buildCommand = "npm run build"\n\n'
+        "[deploy]\n"
+        'startCommand = "npm start"\n'
+        'healthcheckPath = "/healthz"\n'
+        "healthcheckTimeout = 60\n"
+        'restartPolicyType = "ON_FAILURE"\n',
+        encoding="utf-8",
+    )
+    (root / "server.js").write_text(
+        "require('http').createServer((q, s) => s.end('ok')).listen(process.env.PORT);\n",
+        encoding="utf-8",
+    )
+
+
+def seed_exportable_app(sandbox: Sandbox) -> None:
+    """
+    Deploy the application the export and import screens work with.
+
+    A static site from the wizard's ``landing`` source, deployed by the real
+    job on releases, then given an alias, a cron job, a secret variable and a
+    release retention through the same functions the console's own pages
+    call. It is also linked to a database, which an export names and an
+    import cannot recreate: the import's "not applied" list has an entry.
+    A static site has no health check of its own (the web server answers for
+    it), so an import of it applies none.
+
+    Args:
+        sandbox: The sandbox.
+    """
+    from wasm.core.store import Database, DomainKind, get_store
+    from wasm.deployers import domains as domain_changes
+    from wasm.deployers.helpers.app_env import write_app_env
+    from wasm.deployers.lifecycle import set_release_retention
+    from wasm.managers.cron_manager import CronJob, CronManager
+    from wasm.web.jobs import Job, JobContext, JobType, deploy_app_job
+
+    source = sandbox.var / "www" / "src" / WIZARD_SOURCES[1]
+    # Run as the job function it is, outside the job manager: seeding must not
+    # leave a job in the history the Activity page and its tests count.
+    job = Job(id="seed2300", type=JobType.DEPLOY, name=f"Deploy {EXPORT_APP}", description="")
+    deploy_app_job(
+        job_context=JobContext(job, lambda _job: None),
+        domain=EXPORT_APP,
+        source=str(source),
+        app_type="static",
+        ssl=False,
+        layout="releases",
+    )
+    domain_changes.add_domain(EXPORT_APP, EXPORT_ALIAS, DomainKind.ALIAS.value, issue_cert=False)
+    set_release_retention(EXPORT_APP, 3)
+    CronManager().create_job(
+        CronJob(
+            name=EXPORT_CRON,
+            command="/usr/bin/curl -fsS http://127.0.0.1/sitemap.xml",
+            schedule="*-*-* 04:15:00",
+            app_domain=EXPORT_APP,
+        )
+    )
+    store = get_store()
+    app = store.get_app(EXPORT_APP)
+    if app is not None:
+        # Written the way the Environment tab writes it: a static deploy takes
+        # no variables (nothing runs to read them), but a build-time .env is
+        # an operator's to keep, and an export carries it.
+        write_app_env(app, EXPORT_ENV)
+        store.set_env_secret_marks(EXPORT_APP, {"NEWSLETTER_API_KEY": True})
+        store.create_database(
+            Database(
+                app_id=app.id,
+                name=EXPORT_DATABASE,
+                engine="postgresql",
+                port=5432,
+                username=EXPORT_DATABASE,
+            )
+        )
+
+
+def seed_release_23(sandbox: Sandbox) -> None:
+    """
+    Seed what the 2.3 screens need beyond the machine seeded before them.
+
+    Recipes deploy without the network (their archives are answered from
+    here, PHP-FPM is modelled) and the wizard has a repository configured for
+    another platform. The application an export is taken from is deployed
+    later, by :func:`seed_exportable_app`, once the runner answers for the
+    seeded units (a deploy's pre-flight asks whether nginx runs).
+
+    Args:
+        sandbox: The sandbox.
+    """
+    _recipes_offline()
+    _recipes_php_fpm(sandbox)
+    _platform_sources(sandbox)
+
+
+# ---------------------------------------------------------------------------
 # Serving
 # ---------------------------------------------------------------------------
 
@@ -5190,6 +5466,8 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     ports.update(seeded_ports)
     domains.update(seeded_domains)
     certs.extend(seeded_certs)
+    with contextlib.redirect_stdout(sys.stderr):
+        seed_exportable_app(sandbox)
 
     config = SecurityConfig(
         host=args.host,

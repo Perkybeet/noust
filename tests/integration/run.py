@@ -112,6 +112,10 @@ class HarnessError(RuntimeError):
     """Raised for failures in the setup phases (build, install), not scenarios."""
 
 
+class ScenarioSkipped(Exception):
+    """Raised by a scenario that cannot run here (no network), with the reason."""
+
+
 # ---------------------------------------------------------------------------
 # Host-side process helpers
 # ---------------------------------------------------------------------------
@@ -2798,6 +2802,388 @@ def scenario_deploy_notifications(sc: Scenario) -> None:
         sc.run(f"wasm delete {NTF_DOMAIN} -f", timeout=180, check=False, label="cleanup")
 
 
+# -- 2.3: recipes, export and import -------------------------------------------------
+
+WP_DOMAIN = "wp.test"
+WP_ROOT = "/var/www/apps/wp-test"
+WP_TITLE = "WASM Integration Blog"
+
+#: A recipe builds from what it downloads; a whole npm install and a Vite build
+#: for Uptime Kuma take minutes on a cold cache.
+RECIPE_TIMEOUT = 1500
+
+KUMA_DOMAIN = "kuma.test"
+KUMA_ROOT = "/var/www/apps/kuma-test"
+
+EXPORT_DOMAIN = "exp.test"
+EXPORT_SECRET = "it-export-secret-value-0123456789"
+
+
+def http_status(sc: Scenario, host: str, path: str, label: str) -> tuple[str, str]:
+    """Return the status code and the Location of one request through nginx."""
+    out = sc.run(
+        f"curl -sS -o /dev/null -w '%{{http_code}} %{{redirect_url}}' -H 'Host: {host}' "
+        f"'http://127.0.0.1{path}'",
+        timeout=60,
+        check=False,
+        label=label,
+    ).stdout.strip()
+    code, _, location = out.partition(" ")
+    return code, location
+
+
+def require_network(sc: Scenario, url: str, what: str) -> None:
+    """Skip the scenario, saying why, when the container cannot reach ``url``."""
+    probe = sc.run(
+        f"curl -sSI --max-time 20 '{url}'",
+        timeout=40,
+        check=False,
+        label=f"curl -sI {url} (is the network there?)",
+    )
+    if probe.returncode != 0:
+        raise ScenarioSkipped(
+            f"{url} is unreachable from the container, so {what} cannot be downloaded: "
+            f"{(probe.stderr or probe.stdout).strip()}"
+        )
+
+
+def fpm_unit(sc: Scenario) -> str:
+    """Name the PHP-FPM unit of the image (php8.3-fpm on Ubuntu 24.04)."""
+    return sc.run(
+        "basename /usr/lib/systemd/system/php*-fpm.service .service",
+        timeout=15,
+        label="the PHP-FPM unit",
+    ).stdout.strip()
+
+
+@scenario("recipe_wordpress")
+def scenario_recipe_wordpress(sc: Scenario) -> None:
+    """
+    WordPress from its recipe: PHP-FPM pool, MariaDB, the installer, updates and removal.
+
+    Real php-fpm and MariaDB behind real nginx. The pool carries the
+    database settings as env[] lines and is readable by root only; the
+    installer runs through nginx; what nginx must refuse is refused, a PHP
+    file planted among the uploads included; a plugin installed into shared/
+    survives an update to a new release and a rollback; deleting the site
+    removes its pool and leaves FPM running for everyone else.
+    """
+    require_network(sc, "https://wordpress.org/latest.tar.gz.sha1", "WordPress")
+    unit = fpm_unit(sc)
+    create = f"wasm create --recipe wordpress -d {WP_DOMAIN} --no-ssl"
+    sc.run(create, timeout=RECIPE_TIMEOUT, label=create)
+    try:
+        _recipe_wordpress(sc, unit)
+    finally:
+        journal_tail(sc, f"-u {unit}", f"journalctl -u {unit} (tail)")
+        sc.run(f"wasm delete {WP_DOMAIN} --force", timeout=180, check=False, label="cleanup")
+
+
+def _recipe_wordpress(sc: Scenario, unit: str) -> None:
+    version = unit.removeprefix("php").removesuffix("-fpm")
+    pool = f"/etc/php/{version}/fpm/pool.d/wasm-wp-test.conf"
+    stat = sc.run(f"stat -c '%a %U' {pool}", timeout=15, label=f"stat {pool}")
+    sc.check(stat.stdout.split() == ["640", "root"], f"pool file mode/owner: {stat.stdout!r}")
+    env_line = sc.run(
+        f"grep -c '^env\\[WORDPRESS_DB_NAME\\]' {pool}",
+        timeout=15,
+        check=False,
+        label=f"grep env[WORDPRESS_DB_NAME] {pool}",
+    )
+    sc.check(env_line.stdout.strip() == "1", "the pool does not carry env[WORDPRESS_DB_NAME]")
+
+    code, location = http_status(sc, WP_DOMAIN, "/", f"curl -H 'Host: {WP_DOMAIN}' /")
+    sc.check(
+        code == "302" and location.endswith("/wp-admin/install.php"),
+        f"/ before the installation answered {code} {location!r}, not a 302 to install.php",
+    )
+    code, _ = http_status(
+        sc, WP_DOMAIN, "/wp-admin/install.php", "curl -H 'Host: wp.test' /wp-admin/install.php"
+    )
+    sc.check(code == "200", f"/wp-admin/install.php answered {code}")
+
+    install = sc.run(
+        "curl -sS -o /dev/null -w '%{http_code}' -H 'Host: wp.test' "
+        f"--data-urlencode 'weblog_title={WP_TITLE}' --data-urlencode 'user_name=itadmin' "
+        "--data-urlencode 'admin_password=it-Admin-Passw0rd' "
+        "--data-urlencode 'admin_password2=it-Admin-Passw0rd' --data-urlencode 'pw_weak=1' "
+        "--data-urlencode 'admin_email=it@example.com' --data-urlencode 'blog_public=0' "
+        "'http://127.0.0.1/wp-admin/install.php?step=2'",
+        timeout=120,
+        label="POST the installation form to /wp-admin/install.php?step=2",
+    )
+    sc.check(install.stdout.strip() == "200", f"the installation answered {install.stdout!r}")
+    home = sc.run(
+        "curl -sS -w '\\n%{http_code}' -H 'Host: wp.test' http://127.0.0.1/",
+        timeout=60,
+        label="curl -H 'Host: wp.test' / (installed)",
+    ).stdout
+    sc.check(
+        home.rstrip().endswith("200") and WP_TITLE in home,
+        f"the installed site does not answer 200 with its title: {home[-300:]!r}",
+    )
+
+    sc.run(
+        f"mkdir -p {WP_ROOT}/shared/wp-content/uploads && "
+        f"echo '<?php echo \"planted\";' > {WP_ROOT}/shared/wp-content/uploads/x.php && "
+        f"chown www-data: {WP_ROOT}/shared/wp-content/uploads/x.php",
+        timeout=15,
+        label="plant wp-content/uploads/x.php",
+    )
+    for path in ("/wp-config.php", "/.env", "/readme.html", "/wp-content/uploads/x.php"):
+        code, _ = http_status(sc, WP_DOMAIN, path, f"curl -H 'Host: wp.test' {path}")
+        sc.check(code == "403", f"{path} answered {code}, not 403")
+
+    linked = sc.run(
+        store_query(
+            "SELECT d.engine || ':' || d.name FROM databases d JOIN apps a ON a.id = d.app_id "
+            "WHERE a.domain = 'wp.test'"
+        ),
+        timeout=15,
+        label="the databases the store links to wp.test",
+    )
+    sc.check(linked.stdout.strip().startswith("mysql:"), f"no linked database: {linked.stdout!r}")
+
+    plugin = f"{WP_ROOT}/shared/wp-content/plugins/it-plugin/it-plugin.php"
+    sc.run(
+        f"mkdir -p $(dirname {plugin}) && "
+        f"printf '<?php\\n/* Plugin Name: IT plugin */\\n' > {plugin} && "
+        f"chown -R www-data: $(dirname {plugin})",
+        timeout=15,
+        label="plant a plugin in shared/wp-content/plugins",
+    )
+    before = sc.run(f"readlink {WP_ROOT}/current", timeout=15, label="readlink current").stdout
+    sc.run(f"wasm update {WP_DOMAIN}", timeout=RECIPE_TIMEOUT, label=f"wasm update {WP_DOMAIN}")
+    after = sc.run(
+        f"readlink {WP_ROOT}/current", timeout=15, label="readlink current (after update)"
+    ).stdout
+    sc.check(
+        after.strip() != before.strip(), f"the update did not activate a new release: {after!r}"
+    )
+    survived = sc.run(
+        f"test -f {WP_ROOT}/current/wp-content/plugins/it-plugin/it-plugin.php && echo present",
+        timeout=15,
+        check=False,
+        label="the plugin, through the new release",
+    )
+    sc.check(survived.stdout.strip() == "present", "the plugin did not survive the update")
+    code, _ = http_status(sc, WP_DOMAIN, "/", "curl -H 'Host: wp.test' / (after update)")
+    sc.check(code == "200", f"/ answered {code} after the update")
+
+    sc.run(
+        f"wasm releases rollback {WP_DOMAIN}",
+        timeout=300,
+        label=f"wasm releases rollback {WP_DOMAIN}",
+    )
+    rolled = sc.run(
+        f"readlink {WP_ROOT}/current", timeout=15, label="readlink current (after rollback)"
+    ).stdout
+    sc.check(rolled.strip() == before.strip(), f"rollback activated {rolled!r}, not {before!r}")
+    code, _ = http_status(sc, WP_DOMAIN, "/", "curl -H 'Host: wp.test' / (after rollback)")
+    sc.check(code == "200", f"/ answered {code} after the rollback")
+
+    sc.run(f"wasm delete {WP_DOMAIN} --force", timeout=180, label=f"wasm delete {WP_DOMAIN}")
+    gone = sc.run(f"test -e {pool} || echo gone", timeout=15, check=False, label=f"test -e {pool}")
+    sc.check(gone.stdout.strip() == "gone", f"{pool} is still there after the delete")
+    active = sc.run(
+        f"systemctl is-active {unit}", timeout=15, check=False, label=f"systemctl is-active {unit}"
+    )
+    sc.check(active.stdout.strip() == "active", f"{unit} is {active.stdout.strip()!r}")
+
+
+@scenario("recipe_uptime_kuma")
+def scenario_recipe_uptime_kuma(sc: Scenario) -> None:
+    """
+    Uptime Kuma from its recipe: built from GitHub, on loopback only, its data in shared/.
+
+    Its Socket.IO endpoint answers through nginx, it listens on 127.0.0.1
+    and nothing else, its SQLite database is in shared/data, and an update to
+    a new release keeps that database.
+    """
+    require_network(sc, "https://github.com/louislam/uptime-kuma.git", "Uptime Kuma")
+    create = f"wasm create --recipe uptime-kuma -d {KUMA_DOMAIN} --no-ssl"
+    sc.run(create, timeout=RECIPE_TIMEOUT, label=create)
+    try:
+        code, location = http_status(sc, KUMA_DOMAIN, "/", f"curl -H 'Host: {KUMA_DOMAIN}' /")
+        sc.check(code in ("301", "302"), f"/ answered {code} {location!r}, not a redirect")
+        polling = curl_host(sc, KUMA_DOMAIN, "/socket.io/?EIO=4&transport=polling")
+        sc.check(polling.startswith("0{"), f"Socket.IO polling answered {polling[:200]!r}")
+
+        # The recipe asks for 3001; on a server where another application
+        # holds it, a free port is chosen, so the store says which.
+        port = sc.run(
+            store_query("SELECT port FROM apps WHERE domain = 'kuma.test'"),
+            timeout=15,
+            label="the port the store records for kuma.test",
+        ).stdout.strip()
+        listeners = sc.run(
+            f"ss -ltnH '( sport = :{port} )' | awk '{{print $4}}'",
+            timeout=15,
+            label=f"ss -ltn sport = :{port}",
+        ).stdout.split()
+        sc.check(listeners == [f"127.0.0.1:{port}"], f"port {port} is bound on {listeners!r}")
+
+        db = f"{KUMA_ROOT}/shared/data/kuma.db"
+        sc.run(f"test -f {db} && ls -l {db}", timeout=15, label=f"test -f {db}")
+        sum_before = sc.run(f"stat -c %i {db}", timeout=15, label=f"inode of {db}").stdout
+        sc.run(
+            f"wasm update {KUMA_DOMAIN}", timeout=RECIPE_TIMEOUT, label=f"wasm update {KUMA_DOMAIN}"
+        )
+        sum_after = sc.run(
+            f"stat -c %i {db}", timeout=15, label=f"inode of {db} (after update)"
+        ).stdout
+        sc.check(
+            sum_before.strip() == sum_after.strip(),
+            f"kuma.db was replaced by the update: {sum_before!r} -> {sum_after!r}",
+        )
+        code, _ = http_status(sc, KUMA_DOMAIN, "/", f"curl -H 'Host: {KUMA_DOMAIN}' / (after)")
+        sc.check(code in ("301", "302"), f"/ answered {code} after the update")
+    finally:
+        journal_tail(sc, "-u kuma-test", "journalctl -u kuma-test (tail)")
+        sc.run(f"wasm delete {KUMA_DOMAIN} --force", timeout=180, check=False, label="cleanup")
+
+
+@scenario("app_export_import")
+def scenario_app_export_import(sc: Scenario) -> None:
+    """
+    An application exported and imported under another domain comes back whole.
+
+    The export without secrets leaves the secret's value out, and the import
+    needs it given; aliases and cron job names follow the new domain; the
+    health check and the retention are applied; what could not be applied
+    (the port, which the original still holds) is listed. An export with
+    secrets imports with nothing else given.
+    """
+    _, url = make_node_repo(sc, "exp-app")
+    create = (
+        f"wasm create -d {EXPORT_DOMAIN} -s {url} -t nodejs --no-ssl --layout releases "
+        f"--env APP_SECRET={EXPORT_SECRET} --env GREETING=hello"
+    )
+    sc.run(create, timeout=DEPLOY_TIMEOUT, label=create)
+    try:
+        _export_import(sc)
+    finally:
+        for domain in (EXPORT_DOMAIN, "copy.test", "copy2.test"):
+            sc.run(f"wasm delete {domain} --force", timeout=180, check=False, label="cleanup")
+        for job in ("exp-test-nightly", "copy-test-nightly", "copy2-test-nightly"):
+            sc.run(f"wasm cron delete {job} --force", timeout=60, check=False, label="cleanup")
+
+
+def _export_import(sc: Scenario) -> None:
+    for script in (
+        f"wasm domain add {EXPORT_DOMAIN} alias.{EXPORT_DOMAIN} --kind alias",
+        f"wasm cron create exp-test-nightly '/bin/true' --schedule daily --app {EXPORT_DOMAIN}",
+        f"wasm app health {EXPORT_DOMAIN} --path / --expect 200-399 --timeout 20",
+        f"wasm releases keep {EXPORT_DOMAIN} 3",
+    ):
+        sc.run(script, timeout=120, label=script)
+
+    sc.run(
+        f"wasm app export {EXPORT_DOMAIN} -o /root/x.json",
+        timeout=60,
+        label=f"wasm app export {EXPORT_DOMAIN} -o /root/x.json",
+    )
+    document = json.loads(sc.run("cat /root/x.json", timeout=15, label="cat /root/x.json").stdout)
+    env = document["env"]
+    sc.check(
+        env.get("APP_SECRET") == {"secret": True, "value": None},
+        f"the export without secrets carries APP_SECRET as {env.get('APP_SECRET')!r}",
+    )
+    sc.check(env.get("GREETING", {}).get("value") == "hello", f"GREETING: {env.get('GREETING')!r}")
+    sc.check(EXPORT_SECRET not in json.dumps(document), "the secret's value is in the export")
+
+    refused = sc.run(
+        "wasm app import /root/x.json --domain copy.test --yes",
+        timeout=120,
+        check=False,
+        label="wasm app import /root/x.json --domain copy.test --yes (no value for the secret)",
+    )
+    sc.check(
+        refused.returncode != 0 and "APP_SECRET" in refused.stdout + refused.stderr,
+        "the import without the secret's value was not refused naming APP_SECRET",
+    )
+
+    # The document creates a cron job, a command it chose: the import asks first.
+    unconfirmed = sc.run(
+        f"wasm app import /root/x.json --domain copy.test --env APP_SECRET={EXPORT_SECRET}",
+        timeout=120,
+        check=False,
+        label="wasm app import /root/x.json --domain copy.test --env APP_SECRET=... (no --yes)",
+    )
+    sc.check(
+        unconfirmed.returncode != 0 and "--yes" in unconfirmed.stdout + unconfirmed.stderr,
+        "an import that creates cron jobs ran without being confirmed",
+    )
+    created = sc.run(
+        store_query("SELECT COUNT(*) FROM apps WHERE domain = 'copy.test'"),
+        timeout=15,
+        label="is copy.test in the store (after the unconfirmed import)",
+    )
+    sc.check(created.stdout.strip() == "0", "the unconfirmed import created copy.test")
+
+    imported = sc.run(
+        f"wasm app import /root/x.json --domain copy.test --env APP_SECRET={EXPORT_SECRET} --yes",
+        timeout=DEPLOY_TIMEOUT,
+        label="wasm app import /root/x.json --domain copy.test --env APP_SECRET=... --yes",
+    )
+    printed = imported.stdout + imported.stderr
+    sc.check(
+        "not applied" in printed and "port" in printed,
+        "the import did not print the parts it did not apply (the port the original holds)",
+    )
+    served = curl_host(sc, "copy.test").strip()
+    sc.check(served == "ok 1", f"copy.test served {served!r}")
+    sc.check(curl_host(sc, "alias.copy.test").strip() == "ok 1", "alias.copy.test does not serve")
+
+    domains = json.loads(
+        sc.run("wasm domain list copy.test --json", timeout=30, label="wasm domain list").stdout
+    )
+    kinds = {item["domain"]: item["kind"] for item in domains["items"]}
+    sc.check(kinds == {"copy.test": "primary", "alias.copy.test": "alias"}, f"domains: {kinds!r}")
+    cron = sc.run(
+        "systemctl cat wasm-cron-copy-test-nightly.timer",
+        timeout=15,
+        check=False,
+        label="systemctl cat wasm-cron-copy-test-nightly.timer",
+    )
+    sc.check(cron.returncode == 0, "the cron job was not carried over as copy-test-nightly")
+    row = sc.run(
+        store_query(
+            "SELECT health_path, health_expect, health_timeout, keep_releases FROM apps "
+            "WHERE domain = 'copy.test'"
+        ),
+        timeout=15,
+        label="health and retention of copy.test in the store",
+    ).stdout.strip()
+    sc.check(row == "/|200-399|20|3", f"health and retention of copy.test: {row!r}")
+    env_file = sc.run(
+        "cat /var/www/apps/copy-test/shared/.env",
+        timeout=15,
+        label="cat /var/www/apps/copy-test/shared/.env",
+    ).stdout
+    sc.check(f"APP_SECRET={EXPORT_SECRET}" in env_file, "the secret given with --env is missing")
+
+    sc.run(
+        f"wasm app export {EXPORT_DOMAIN} --with-secrets -o /root/xs.json",
+        timeout=60,
+        label=f"wasm app export {EXPORT_DOMAIN} --with-secrets -o /root/xs.json",
+    )
+    mode = sc.run("stat -c %a /root/xs.json", timeout=15, label="stat /root/xs.json").stdout
+    sc.check(mode.strip() == "600", f"the export with secrets is mode {mode.strip()}")
+    sc.run(
+        "wasm app import /root/xs.json --domain copy2.test --yes",
+        timeout=DEPLOY_TIMEOUT,
+        label="wasm app import /root/xs.json --domain copy2.test --yes",
+    )
+    sc.check(curl_host(sc, "copy2.test").strip() == "ok 1", "copy2.test does not serve")
+    env_file = sc.run(
+        "cat /var/www/apps/copy2-test/shared/.env",
+        timeout=15,
+        label="cat /var/www/apps/copy2-test/shared/.env",
+    ).stdout
+    sc.check(f"APP_SECRET={EXPORT_SECRET}" in env_file, "the exported secret did not come back")
+
+
 @dataclass
 class UpgradeApp:
     """One application the upgrade rehearsal deploys with 1.6.5 and re-checks after 2.0."""
@@ -3443,6 +3829,7 @@ def main() -> int:
     name = random_container_name()
     failures = 0
     attempted = 0
+    skipped = 0
     setup_error: str | None = None
 
     try:
@@ -3463,6 +3850,9 @@ def main() -> int:
                 sc = Scenario(container=name)
                 try:
                     fn(sc)
+                except ScenarioSkipped as exc:
+                    skipped += 1
+                    print(f"SKIP: {sc_name}: {exc}")
                 except AssertionError as exc:
                     failures += 1
                     print(f"FAIL: {sc_name}: {exc}")
@@ -3488,7 +3878,10 @@ def main() -> int:
         print(f"\n[summary] 0/0 scenario(s) run, setup failed, {elapsed:.1f}s total")
         return 1
 
-    print(f"\n[summary] {attempted} scenario(s) run, {failures} failure(s), {elapsed:.1f}s total")
+    print(
+        f"\n[summary] {attempted} scenario(s) run, {failures} failure(s), {skipped} skipped, "
+        f"{elapsed:.1f}s total"
+    )
     return 1 if failures else 0
 
 

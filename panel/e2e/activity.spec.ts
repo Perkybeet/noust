@@ -22,7 +22,7 @@ test("merges the jobs history and the audit log, newest first, including this si
   // most recent one - which, run just before navigating here, is this test's own.
   const signInRow = table.getByRole("row").filter({ has: page.getByText("Sign-in attempt") }).first();
   await expect(signInRow).toBeVisible();
-  await expect(signInRow.getByText("Success")).toBeVisible();
+  await expect(signInRow.getByText("Succeeded")).toBeVisible();
   await expect(signInRow.getByText(/^Session [0-9a-f]{8}$/)).toBeVisible();
 
   // A seeded job (the backup of shop.example.net), so the merge is proven with both kinds of row

@@ -5,44 +5,9 @@
  * with the CSP and console gates of the `problems` fixture and axe on every step.
  */
 
-import type { Page } from "@playwright/test";
-
+import { forgetApp } from "./apps-cleanup";
 import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, stillness, test } from "./fixtures";
-import type { ConsoleServer } from "./fixtures";
 import { inspectSource, typedSource, wizardSource } from "./wizard-sources";
-
-/** The CSRF header every write through `page.request` carries, mirrored from its cookie. */
-async function csrf(page: Page): Promise<Record<string, string>> {
-  const cookie = (await page.context().cookies()).find((entry) => entry.name === "wasm_csrf");
-  return cookie ? { "X-WASM-CSRF": cookie.value } : {};
-}
-
-/**
- * Leaves the worker's machine as seeded once this spec's deploy has ended: other specs count its
- * apps. A deploy that failed has removed its app already; one that succeeded is deleted.
- * Deleting it needs sudo mode, confirmed here with an unspent second factor.
- */
-async function forgetApp(page: Page, server: ConsoleServer, domain: string): Promise<void> {
-  // Nothing on screen may keep asking about the app once it is gone.
-  await page.goto("about:blank");
-  await expect
-    .poll(
-      async () => {
-        const active = (await (await page.request.get("/api/jobs/active")).json()) as { jobs: { metadata?: { domain?: string } }[] };
-        return active.jobs.some((job) => job.metadata?.domain === domain);
-      },
-      { timeout: 90_000, intervals: [1_000] },
-    )
-    .toBe(false);
-  // A first deploy that fails undoes itself, app record included.
-  if ((await page.request.get(`/api/apps/${domain}`)).status() === 404) return;
-  const elevated = await page.request.post("/api/auth/elevate", { data: { code: server.secondFactor() }, headers: await csrf(page) });
-  expect(elevated.ok(), await elevated.text()).toBe(true);
-  const deleted = await page.request.delete(`/api/apps/${domain}?remove_files=true&remove_ssl=true`, { headers: await csrf(page) });
-  expect(deleted.ok(), await deleted.text()).toBe(true);
-  await expect.poll(async () => (await page.request.get(`/api/apps/${domain}`)).status(), { timeout: 60_000 }).toBe(404);
-}
-
 
 test("inspects a directory on the server, deploys it and lands on its deployment", async ({ page, consoleServer, problems }) => {
   // The deploy runs to its end (a failed health check: nothing listens in the sandbox) before
@@ -202,7 +167,6 @@ test("also serving www and resource limits reach the deploy request", async ({ p
 
   await forgetApp(page, consoleServer, domain);
 });
-
 
 test("a source WASM cannot deploy as it is gets the inspection's verdict and the file to add", async ({ page, consoleServer, problems }) => {
   // Chromium logs the inspection's refusal as a failed resource.

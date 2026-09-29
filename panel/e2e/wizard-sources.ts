@@ -19,8 +19,11 @@ import type { ConsoleServer, PageProblems } from "./fixtures";
  */
 const INSPECT_NEEDS_SUDO = /status of 403 .* \/api\/apps\/inspect$/;
 
-/** `container-api` holds a lone Dockerfile: no type matches it, and the verdict says why. */
-export type WizardSource = "storefront" | "landing" | "container-api";
+/**
+ * `container-api` holds a lone Dockerfile: no type matches it, and the verdict says why.
+ * `railway-api` is a Node API with a railway.toml: the inspection proposes its settings.
+ */
+export type WizardSource = "storefront" | "landing" | "container-api" | "railway-api";
 
 /** The absolute path of a seeded source on the server `page` is signed in to. */
 export async function wizardSource(page: Page, name: WizardSource): Promise<string> {
@@ -36,8 +39,11 @@ export async function wizardSource(page: Page, name: WizardSource): Promise<stri
  * path", so the field returned is the one that stays.
  */
 export async function typedSource(page: Page) {
-  const typed = page.getByRole("radiogroup", { name: "Where the code is" }).getByRole("radio", { name: "URL or path" });
-  await expect(typed).toBeVisible();
+  const modes = page.getByRole("radiogroup", { name: "Where the code is" });
+  const typed = modes.getByRole("radio", { name: "URL or path" });
+  // "URL or path" is there, and checked, before the wizard knows of the App; waiting for it
+  // alone let the wizard switch to "From GitHub" after the check below and under the click.
+  await expect(modes.getByRole("radio", { name: "From GitHub" })).toBeVisible();
   if ((await typed.getAttribute("aria-checked")) !== "true") await typed.click();
   const field = page.getByLabel("Repository or directory");
   await expect(field).toBeVisible();

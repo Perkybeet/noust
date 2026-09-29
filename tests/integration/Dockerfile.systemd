@@ -12,6 +12,11 @@
 # destinations through it, and the distribution package is what an operator
 # installs (core/dependencies.py names it).
 #
+# PHP-FPM with the extensions WordPress uses, and MariaDB, are installed and
+# enabled for the recipe scenarios: WASM writes a pool per PHP application into
+# the distribution's FPM and provisions the recipe's database on the local
+# server, and both are what an operator installs from the distribution.
+#
 # certbot is deliberately not installed: every scenario that needs a
 # certificate is skipped in favour of --no-ssl, because this container has no
 # real domain and no path to the public internet's ACME servers.
@@ -38,6 +43,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         procps \
         iproute2 \
         rclone \
+        php-fpm \
+        php-mysql \
+        php-curl \
+        php-gd \
+        php-mbstring \
+        php-xml \
+        php-zip \
+        php-intl \
+        mariadb-server \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -59,6 +73,11 @@ RUN systemctl mask \
         sys-kernel-tracing.mount \
         systemd-remount-fs.service \
     && systemctl set-default multi-user.target
+
+# Enabled explicitly: package scripts cannot talk to systemd during a build,
+# and the recipe scenarios need both running when the container boots. The
+# FPM unit is versioned (php8.3-fpm on 24.04), so it is looked up.
+RUN systemctl enable mariadb "$(basename /usr/lib/systemd/system/php*-fpm.service)"
 
 # nginx starts under its own unit once WASM configures a site; the packaged
 # default site is removed so it never answers on port 80 before that.
