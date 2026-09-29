@@ -1,0 +1,48 @@
+# The Noust central on a NAS (UGREEN UGOS Pro, Synology, TrueNAS) or any
+# Docker host. On UGOS Pro: Docker > Project > Create, paste this file.
+#
+#   docker compose up -d
+#   docker compose logs noust      # the console's address and first sign-in
+#
+# Then open https://<the NAS address>:8443. The certificate is self-signed
+# until you mount your own (see NOUST_TLS_CERT below), so the browser asks
+# once.
+#
+# The central only dials out (SSH to each server it manages); nothing needs
+# opening on your router. Keep it that way: do not forward 8443 to the
+# internet.
+
+services:
+  noust:
+    # scripts/release.py keeps this tag in step with the release; `latest`
+    # follows every release if you prefer.
+    image: ghcr.io/perkybeet/noust:2.3.0
+    container_name: noust
+    restart: unless-stopped
+    ports:
+      - "8443:8443"
+    volumes:
+      # A named volume Docker creates with the right owner (uid 10001).
+      - noust-data:/data
+      # Or a folder on the NAS. It must belong to uid 10001 first:
+      #   sudo mkdir -p /volume1/docker/noust && sudo chown 10001:10001 /volume1/docker/noust
+      # - /volume1/docker/noust:/data
+    environment:
+      # Who may open the console: the private ranges by default.
+      # NOUST_ALLOW_IP: "192.168.1.0/24"
+      # Your own certificate instead of the self-signed one:
+      # NOUST_TLS_CERT: /data/tls/mine.crt
+      # NOUST_TLS_KEY: /data/tls/mine.key
+      # Your time zone, for the timestamps in the console and the logs.
+      TZ: UTC
+    # Nothing in the container needs more than this.
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
+volumes:
+  noust-data:

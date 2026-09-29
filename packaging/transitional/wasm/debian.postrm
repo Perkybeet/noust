@@ -1,0 +1,26 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    abort-install|abort-upgrade)
+        # The upgrade that preinst prepared did not happen: put the operator's
+        # configuration back where wasm 2.x expects it.
+        if [ -f /etc/wasm/config.yaml.noust-keep ] && [ ! -e /etc/wasm/config.yaml ]; then
+            mv /etc/wasm/config.yaml.noust-keep /etc/wasm/config.yaml
+        fi
+        ;;
+
+    remove|purge|upgrade|failed-upgrade|disappear)
+        # Nothing of this package's own is left to remove. The configuration
+        # belongs to noust now and is never touched here.
+        ;;
+
+    *)
+        echo "postrm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

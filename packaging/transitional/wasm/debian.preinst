@@ -1,0 +1,39 @@
+#!/bin/sh
+set -e
+
+# wasm 2.x shipped /etc/wasm/config.yaml as a conffile. This version ships
+# nothing, and dpkg keeps a conffile a package no longer ships registered as
+# "obsolete" for as long as the package is installed or has its configuration
+# kept - and deletes it when the package is purged. noust moves /etc/wasm to
+# /etc/noust and leaves /etc/wasm as a link to it, so that purge would follow
+# the link and delete the operator's /etc/noust/config.yaml: `apt purge wasm`,
+# or `apt autoremove --purge`, a year from now.
+#
+# dpkg forgets an obsolete conffile that is absent when the new version is
+# unpacked. So the file is moved aside here and put back by noust's postinst
+# and by this package's own postinst, whichever dpkg configures first, and by
+# postrm if the upgrade is abandoned.
+case "$1" in
+    install|upgrade)
+        # "install" with a version is a reinstall over configuration kept
+        # from a removal, which registers the same conffile.
+        if [ -n "$2" ] && dpkg --compare-versions "$2" lt 3.0.0~; then
+            if [ -f /etc/wasm/config.yaml ] && [ ! -L /etc/wasm ] \
+                    && [ ! -L /etc/wasm/config.yaml ]; then
+                mv -f /etc/wasm/config.yaml /etc/wasm/config.yaml.noust-keep
+            fi
+        fi
+        ;;
+
+    abort-upgrade)
+        ;;
+
+    *)
+        echo "preinst called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

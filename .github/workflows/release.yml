@@ -1,5 +1,18 @@
 name: Release
 
+# What a v* tag publishes, once every gate below has passed:
+#
+#   PyPI   noust (the product) and wasm-cli (transitional: no code, requires
+#          noust at the same version)
+#   OBS    home:Perkybeet/noust (the product, deb and rpm) and
+#          home:Perkybeet/wasm (transitional: an empty wasm deb and wasm-cli
+#          rpm that depend on noust, so `apt upgrade` and `dnf upgrade` bring
+#          it in)
+#   GHCR   ghcr.io/perkybeet/noust, the central for a NAS, amd64 and arm64
+#   GitHub the release, with the sdist, wheels and debs attached
+#
+# docs/RENAME.md says what each channel means for someone upgrading from WASM.
+
 on:
   push:
     tags:
@@ -7,7 +20,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to release (e.g., v0.14.2). Tag must exist.'
+        description: 'Tag to release (e.g., v3.0.0). Tag must exist.'
         required: true
         type: string
 
@@ -47,6 +60,7 @@ jobs:
 
       # A tag whose version does not match the files is a release nobody can
       # reproduce, and the distribution packages would carry the wrong number.
+      # This covers the transitional packages and the container image too.
       - name: Check version consistency
         run: python scripts/release.py --check
 
@@ -74,10 +88,10 @@ jobs:
           pip install "ruff==0.14.4" "mypy==1.19.0"
 
       - name: Lint
-        run: ruff check src/wasm tests scripts
+        run: ruff check src/noust tests scripts
 
       - name: Format
-        run: ruff format --check src/wasm tests scripts
+        run: ruff format --check src/noust tests scripts
 
       - name: Types
         run: python scripts/typecheck.py
@@ -100,24 +114,29 @@ jobs:
 
       - name: Build and install the wheel, nothing else
         run: |
-          pip install build
-          python -m build
-          pip install "$(ls dist/*.whl)[all]"
+          pip install build twine
+          python -m build --outdir dist/noust
+          python -m build packaging/transitional/wasm-cli --outdir dist/wasm-cli
+          twine check dist/noust/* dist/wasm-cli/*
+          pip install "$(ls dist/noust/*.whl)[all]"
 
       - name: Exercise it outside the source tree
         working-directory: /tmp
         run: |
+          noust --version
+          noust --help
           wasm --version
           wasm --help
           for group in backup cert db env monitor service setup site store web; do
+            noust "$group" --help > /dev/null
             wasm "$group" --help > /dev/null
           done
           python - <<'PY'
           import importlib, pkgutil, sys
-          import wasm
+          import noust
 
           failed = []
-          for mod in pkgutil.walk_packages(wasm.__path__, "wasm."):
+          for mod in pkgutil.walk_packages(noust.__path__, "noust."):
               try:
                   importlib.import_module(mod.name)
               except Exception as exc:
@@ -130,15 +149,31 @@ jobs:
           print("Every module imports from the installed package")
           PY
 
-  # Builds the .deb the way OBS does: in a container with only the declared
-  # Build-Depends, and no network during the build.
+      # The transitional wasm-cli must leave both commands working. pip
+      # installs noust before it removes wasm-cli 2.x, whose file list holds
+      # bin/wasm; without its own entry point the upgrade deleted the alias
+      # noust had just installed.
+      - name: Upgrade a pip install of wasm-cli 2.x through the transitional package
+        working-directory: /tmp
+        run: |
+          python -m venv /tmp/upgrade
+          /tmp/upgrade/bin/pip install "wasm-cli<3"
+          /tmp/upgrade/bin/pip install --find-links "$GITHUB_WORKSPACE/dist/noust" \
+            --find-links "$GITHUB_WORKSPACE/dist/wasm-cli" -U wasm-cli
+          /tmp/upgrade/bin/noust --version
+          /tmp/upgrade/bin/wasm --version
+
+  # Builds the .debs the way OBS does: from exactly the files the OBS job
+  # uploads (packaging/obs/stage.sh), with debian/ made only from the debian.*
+  # files as debtransform does, in a container with only the declared
+  # Build-Depends and no network during the build.
   #
   # The GitHub runner has python3-yaml and half a dozen other things installed
   # already, so building there proves nothing about a build host. That is how
   # v1.0.0 shipped with incomplete Build-Depends and failed on every OBS
   # target, on every architecture, with ModuleNotFoundError.
   deb-in-a-clean-container:
-    name: Build the .deb as OBS would
+    name: Build the .debs as OBS would
     runs-on: ubuntu-latest
     container: ${{ matrix.image }}
     strategy:
@@ -159,60 +194,75 @@ jobs:
         with:
           ref: ${{ inputs.tag || github.ref }}
 
-      - name: Lay out the debian directory
+      - name: Stage the OBS packages
         run: |
-          mkdir -p debian/source
-          cp obs/debian.changelog debian/changelog
-          cp obs/debian.control debian/control
-          cp obs/debian.copyright debian/copyright
-          cp obs/debian.rules debian/rules
-          cp obs/debian.postinst debian/postinst
-          cp obs/debian.postrm debian/postrm
-          cp obs/debian.prerm debian/prerm
-          cp obs/wasm.default.yaml debian/wasm.default.yaml
-          cp obs/wasm.dirs debian/dirs
-          cp obs/wasm.manpages debian/manpages
-          cp obs/wasm.1 debian/wasm.1
-          cp obs/source/format debian/source/format
-          cp obs/source/options debian/source/options
-          chmod +x debian/rules
+          git config --global --add safe.directory "$PWD"
+          packaging/obs/stage.sh noust /tmp/obs/noust
+          packaging/obs/stage.sh wasm /tmp/obs/wasm
 
-      # Installs exactly what debian/control declares, and nothing else. A
-      # missing Build-Depends fails here rather than on somebody's server.
+      # Installs exactly what each debian.control declares, and nothing else.
+      # A missing Build-Depends fails here rather than on somebody's server.
       - name: Install the declared build dependencies
-        run: mk-build-deps --install --remove --tool "apt-get -y --no-install-recommends" debian/control
+        run: |
+          for package in noust wasm; do
+            mk-build-deps --install --remove --tool "apt-get -y --no-install-recommends" \
+              "/tmp/obs/$package/debian.control"
+          done
 
       - name: Build
-        run: dpkg-buildpackage -us -uc -b
-
-      - name: Check the package holds what it should
         run: |
-          deb=$(ls ../wasm_*.deb)
-          echo "Built $deb"
-          dpkg-deb -c "$deb" > contents.txt
+          packaging/obs/build.sh deb /tmp/obs/noust /tmp/debs
+          packaging/obs/build.sh deb /tmp/obs/wasm /tmp/debs
+
+      - name: Check the packages hold what they should
+        run: |
+          dpkg-deb -c /tmp/debs/noust_*.deb > contents.txt
           for path in \
+            usr/bin/noust \
+            usr/bin/wasm \
+            usr/share/bash-completion/completions/noust \
             usr/share/bash-completion/completions/wasm \
-            usr/share/man/man1/wasm.1 \
+            usr/share/man/man1/noust.1.gz \
+            usr/share/man/man1/wasm.1.gz \
+            usr/share/noust/config.example.yaml \
             web/static/index.html \
             web/static/favicon.svg \
             web/static/assets/
           do
-            grep -q "$path" contents.txt || { echo "MISSING from the package: $path"; exit 1; }
+            grep -q "$path" contents.txt || { echo "MISSING from noust: $path"; exit 1; }
           done
-          echo "Every expected file is in the package"
+          # noust moves /etc/wasm to /etc/noust on its first run as root, and
+          # that rename is atomic only while /etc/noust does not exist.
+          if grep -q ' \./etc/' contents.txt; then
+            echo "noust must install nothing under /etc:"; grep ' \./etc/' contents.txt; exit 1
+          fi
+          echo "Every expected file is in noust"
+
+          transitional=$(ls /tmp/debs/wasm_*.deb)
+          dpkg-deb -f "$transitional" Depends | grep -q noust \
+            || { echo "The transitional wasm does not depend on noust"; exit 1; }
+          [ "$(dpkg-deb -f "$transitional" Section)" = oldlibs ] \
+            || { echo "The transitional wasm must be in section oldlibs, or apt autoremove takes noust"; exit 1; }
+          if dpkg-deb -c "$transitional" | grep '^-' | grep -v ' \./usr/share/doc/'; then
+            echo "The transitional wasm must ship nothing but its documentation"; exit 1
+          fi
+          echo "The transitional wasm is empty and depends on noust"
 
       # Building and installing are different claims. Debian 12 and Ubuntu
       # 22.04 built a package apt would not install, because it depended on
       # python3-questionary and those two releases do not have it. Listing the
       # contents said nothing about that.
-      - name: Install it and run it
+      - name: Install them and run both commands
         run: |
           export DEBIAN_FRONTEND=noninteractive
-          apt-get install -y "$(ls ../wasm_*.deb)"
+          apt-get install -y /tmp/debs/noust_*.deb /tmp/debs/wasm_*.deb
+          noust --version
+          noust --help > /dev/null
+          noust list --help > /dev/null
           wasm --version
           wasm --help > /dev/null
           wasm list --help > /dev/null
-          echo "The package installs and the command runs"
+          echo "The packages install and both commands run"
 
       # The panel must import against the pydantic this distribution actually
       # packages, not the one pip installs. Ubuntu 24.04 ships pydantic 1.10
@@ -220,7 +270,7 @@ jobs:
       # v1.5.0 imported `field_validator`, a pydantic-2-only name, and
       # `wasm web start` died with ImportError on every Ubuntu 24.04 install
       # while the whole test suite stayed green. The web stack is a
-      # Recommends, so this installs it exactly as `apt install wasm` would
+      # Recommends, so this installs it exactly as `apt install noust` would
       # and then imports the real web layer.
       - name: Import the panel with the distribution's own web stack
         run: |
@@ -240,7 +290,7 @@ jobs:
             exit 0
           fi
           python3 -c "import fastapi, pydantic; print('fastapi', fastapi.__version__, '/ pydantic', pydantic.VERSION)"
-          python3 -c "import wasm.web.api.router, wasm.web.server; print('The panel imports against the distribution web stack')"
+          python3 -c "import noust.web.api.router, noust.web.server; print('The panel imports against the distribution web stack')"
 
   # The same thing for the RPM distributions, which are thirteen of the
   # twenty-two OBS targets and were the thirteen that failed.
@@ -251,7 +301,7 @@ jobs:
   # and rpm runs the rest. That single comment failed every Fedora and
   # openSUSE target at once.
   rpm-in-a-clean-container:
-    name: Build the RPM as OBS would
+    name: Build the RPMs as OBS would
     runs-on: ubuntu-latest
     container: ${{ matrix.image }}
     strategy:
@@ -291,11 +341,10 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag || github.ref }}
-          fetch-depth: 0
 
-      # The same tarball the OBS job uploads: git archive of the tag, so only
-      # committed files are in it and the build needs no network.
-      - name: Lay out the rpmbuild tree
+      # The same tarballs the OBS job uploads: git archive of the tag, so only
+      # committed files are in them and the build needs no network.
+      - name: Stage the OBS packages
         run: |
           # actions/checkout falls back to downloading a tarball when the
           # container has no git, and then reports success. The result is a
@@ -308,52 +357,73 @@ jobs:
             echo "from the commit. Add git to this image's install line."
             exit 1
           fi
-
-          version=$(awk '/^Version:/ {print $2; exit}' rpm/wasm.spec)
-          mkdir -p /rpmbuild/SOURCES /rpmbuild/SPECS
           git config --global --add safe.directory "$PWD"
-          git archive --format=tar.gz --prefix="wasm-${version}/" HEAD ':!debian' \
-            > "/rpmbuild/SOURCES/wasm-${version}.tar.gz"
-          cp obs/wasm.default.yaml obs/wasm.1 /rpmbuild/SOURCES/
-          cp rpm/wasm.spec /rpmbuild/SPECS/
+          packaging/obs/stage.sh noust /tmp/obs/noust
+          packaging/obs/stage.sh wasm /tmp/obs/wasm
 
       - name: Build
-        run: rpmbuild --define "_topdir /rpmbuild" -ba /rpmbuild/SPECS/wasm.spec
-
-      - name: Check the package holds what it should
         run: |
-          rpm=$(find /rpmbuild/RPMS -name '*.rpm' | head -1)
-          echo "Built $rpm"
-          rpm -qlp "$rpm" > contents.txt
+          packaging/obs/build.sh rpm /tmp/obs/noust /tmp/rpms
+          packaging/obs/build.sh rpm /tmp/obs/wasm /tmp/rpms
+
+      - name: Check the packages hold what they should
+        run: |
+          noust=$(ls /tmp/rpms/noust-[0-9]*.noarch.rpm)
+          rpm -qlp "$noust" > contents.txt
           for path in \
+            /usr/bin/noust \
+            /usr/bin/wasm \
+            share/bash-completion/completions/noust \
             share/bash-completion/completions/wasm \
+            share/man/man1/noust.1 \
             share/man/man1/wasm.1 \
+            share/noust/config.example.yaml \
             web/static/index.html \
             web/static/favicon.svg \
             web/static/assets/
           do
-            grep -q "$path" contents.txt || { echo "MISSING from the package: $path"; exit 1; }
+            grep -q "$path" contents.txt || { echo "MISSING from noust: $path"; exit 1; }
           done
-          echo "Every expected file is in the package"
+          # noust moves /etc/wasm to /etc/noust on its first run as root, and
+          # that rename is atomic only while /etc/noust does not exist.
+          if grep -q '^/etc/' contents.txt; then
+            echo "noust must install nothing under /etc:"; grep '^/etc/' contents.txt; exit 1
+          fi
+          echo "Every expected file is in noust"
 
-      - name: Install it and run it
+          transitional=$(ls /tmp/rpms/wasm-cli-[0-9]*.noarch.rpm)
+          rpm -qRp "$transitional" | grep -q '^noust' \
+            || { echo "The transitional wasm-cli does not require noust"; exit 1; }
+          if rpm -qlp "$transitional" | grep -v '^/usr/share/\(doc\|licenses\)/'; then
+            echo "The transitional wasm-cli must ship nothing but its documentation"; exit 1
+          fi
+          echo "The transitional wasm-cli is empty and requires noust"
+
+      # The spec only Suggests the web stack, so this installs noust without
+      # FastAPI, exactly as `dnf install noust` does. v2.0.0's first tag failed
+      # here: commands that imported the web layer at module level broke the
+      # whole CLI on a machine without it.
+      - name: Install them and run both commands
         run: |
-          rpm=$(find /rpmbuild/RPMS -name '*.rpm' | head -1)
           if command -v dnf > /dev/null; then
-            dnf install -y --nogpgcheck "$rpm"
+            dnf install -y --nogpgcheck /tmp/rpms/noust-[0-9]*.noarch.rpm /tmp/rpms/wasm-cli-[0-9]*.noarch.rpm
           else
             # 106 is "a repository could not be refreshed, the operation
-            # completed"; the wasm --version below proves the install happened.
-            zypper --non-interactive install --allow-unsigned-rpm -y "$rpm" || [ $? -eq 106 ]
+            # completed"; the noust --version below proves the install happened.
+            zypper --non-interactive install --allow-unsigned-rpm -y \
+              /tmp/rpms/noust-[0-9]*.noarch.rpm /tmp/rpms/wasm-cli-[0-9]*.noarch.rpm || [ $? -eq 106 ]
           fi
+          noust --version
+          noust --help > /dev/null
+          noust list --help > /dev/null
           wasm --version
           wasm --help > /dev/null
           wasm list --help > /dev/null
-          echo "The package installs and the command runs"
+          echo "The packages install and both commands run"
 
       # The same claim the deb job makes: the panel imports against the
       # pydantic this distribution packages, which on the RPM side is 2.x and
-      # is the other half of the bridge in wasm.web.pydantic_compat. The web
+      # is the other half of the bridge in noust.web.pydantic_compat. The web
       # stack is a Suggests in the spec, so it is installed here explicitly.
       - name: Import the panel with the distribution's own web stack
         run: |
@@ -365,9 +435,9 @@ jobs:
               python3-pydantic python3-uvicorn python3-psutil || true
           fi
           # Leap 15.6 builds the python 3.11 flavor while /usr/bin/python3 is
-          # 3.6, so the default interpreter cannot import wasm at all there.
-          if ! python3 -c "import wasm" 2> /dev/null; then
-            echo "wasm is packaged for a non-default interpreter here. Skipping."
+          # 3.6, so the default interpreter cannot import noust at all there.
+          if ! python3 -c "import noust" 2> /dev/null; then
+            echo "noust is packaged for a non-default interpreter here. Skipping."
             exit 0
           fi
           if ! python3 -c "import fastapi" 2> /dev/null; then
@@ -379,11 +449,85 @@ jobs:
             exit 0
           fi
           python3 -c "import fastapi, pydantic; print('fastapi', fastapi.__version__, '/ pydantic', pydantic.VERSION)"
-          python3 -c "import wasm.web.api.router, wasm.web.server; print('The panel imports against the distribution web stack')"
+          python3 -c "import noust.web.api.router, noust.web.server; print('The panel imports against the distribution web stack')"
+
+  # A server running WASM 2.x from the OBS repository, upgraded the way its
+  # operator would (`apt upgrade`, `dnf upgrade`) to the packages this tag
+  # builds, on a container with systemd as PID 1 so the units are part of it.
+  # The rename is the one release where getting this wrong loses somebody's
+  # configuration or console: rpm renames a modified config file to .rpmsave
+  # when it erases the old package, dpkg would delete it on a purge of the
+  # transitional one, and the automatic migration stands aside inside a
+  # systemd unit, which is where unattended upgrades run.
+  # packaging/obs/upgrade-test.sh says exactly what it checks. Once OBS serves
+  # 3.x there is no 2.x left to upgrade from, and the job says so as a warning
+  # instead of failing.
+  upgrade-from-2x:
+    name: Upgrade a 2.x server (${{ matrix.kind }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - kind: deb
+            repository: "https://download.opensuse.org/repositories/home:/Perkybeet/Debian_12"
+          - kind: rpm
+            repository: "https://download.opensuse.org/repositories/home:/Perkybeet/Fedora_43"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Upgrade from the published 2.x
+        run: packaging/obs/upgrade-in-systemd.sh ${{ matrix.kind }} "${{ matrix.repository }}"
+
+  # The central's image, built and started the way the publish job will build
+  # it, before anything is published: /health must answer over TLS as the
+  # unprivileged user, from the wheel of this tag.
+  container-image:
+    name: Build and start the container image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Build the wheel into the image context
+        run: |
+          pip install build
+          python -m build --wheel --outdir packaging/container/dist
+
+      - name: Build the image
+        run: docker build -t noust-central:gate packaging/container
+
+      - name: Start it and wait for /health
+        run: |
+          docker run -d --name central -p 8443:8443 noust-central:gate
+          for _ in $(seq 1 30); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' central)
+            [ "$status" = healthy ] && break
+            sleep 3
+          done
+          docker logs central
+          [ "$status" = healthy ] || { echo "The container never became healthy ($status)"; exit 1; }
+          curl -fsSk https://127.0.0.1:8443/health
+          [ "$(docker exec central id -u)" = 10001 ] || { echo "The central must not run as root"; exit 1; }
+          docker exec central noust --version
 
   release:
     name: Create Release
-    needs: [verify, quality, clean-install, deb-in-a-clean-container, rpm-in-a-clean-container]
+    needs:
+      - verify
+      - quality
+      - clean-install
+      - deb-in-a-clean-container
+      - rpm-in-a-clean-container
+      - upgrade-from-2x
+      - container-image
     runs-on: ubuntu-latest
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
@@ -407,12 +551,16 @@ jobs:
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
 
+      # The entry for this version, up to the next entry of any package name:
+      # the history below 3.0.0 is under the old name, wasm.
       - name: Extract changelog
         id: changelog
         run: |
           VERSION="${{ steps.get_version.outputs.version }}"
-          # Extract changelog for this version from obs/debian.changelog
-          CHANGELOG=$(sed -n "/^wasm (${VERSION}/,/^wasm (/p" obs/debian.changelog | head -n -1 | tail -n +2 | sed 's/^  //')
+          CHANGELOG=$(awk -v v="${VERSION}" '
+            /^[a-z0-9][a-z0-9.+-]* \(/ { if (found) exit; if (index($0, "(" v "-")) { found = 1; next } }
+            found && !/^ -- / { sub(/^  /, ""); print }
+          ' obs/debian.changelog)
           echo "changelog<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -422,30 +570,37 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ steps.get_version.outputs.version }}
-          name: WASM v${{ steps.get_version.outputs.version }}
+          name: Noust v${{ steps.get_version.outputs.version }}
           body: |
             ## Changes in v${{ steps.get_version.outputs.version }}
-            
+
             ${{ steps.changelog.outputs.changelog }}
-            
+
             ## Installation
-            
+
+            Noust was called WASM until 3.0.0. `wasm` remains a command alias for the whole 3.x series, and existing installations upgrade in place: see [docs/RENAME.md](https://github.com/Perkybeet/noust/blob/main/docs/RENAME.md).
+
             ### Ubuntu/Debian
             ```bash
-            curl -fsSL https://download.opensuse.org/repositories/home:Perkybeet/xUbuntu_26.04/Release.key | sudo gpg --dearmor -o /usr/share/keyrings/wasm.gpg
-            echo "deb [signed-by=/usr/share/keyrings/wasm.gpg] https://download.opensuse.org/repositories/home:Perkybeet/xUbuntu_26.04/ /" | sudo tee /etc/apt/sources.list.d/wasm.list
-            sudo apt update && sudo apt install wasm
+            curl -fsSL https://download.opensuse.org/repositories/home:Perkybeet/xUbuntu_26.04/Release.key | sudo gpg --dearmor -o /usr/share/keyrings/noust.gpg
+            echo "deb [signed-by=/usr/share/keyrings/noust.gpg] https://download.opensuse.org/repositories/home:Perkybeet/xUbuntu_26.04/ /" | sudo tee /etc/apt/sources.list.d/noust.list
+            sudo apt update && sudo apt install noust
             ```
-            
+
             ### Fedora
             ```bash
-            sudo dnf config-manager addrepo --from-repofile=https://download.opensuse.org/repositories/home:Perkybeet/Fedora_42/home:Perkybeet.repo
-            sudo dnf install wasm-cli
+            sudo dnf config-manager addrepo --from-repofile=https://download.opensuse.org/repositories/home:Perkybeet/Fedora_43/home:Perkybeet.repo
+            sudo dnf install noust
             ```
-            
+
             ### From PyPI
             ```bash
-            pip install wasm-cli
+            pip install noust
+            ```
+
+            ### The central, as a container (a NAS or any Docker host)
+            ```bash
+            docker pull ghcr.io/perkybeet/noust:${{ steps.get_version.outputs.version }}
             ```
           draft: false
           prerelease: false
@@ -484,7 +639,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-deb:
-    name: Build Debian Package
+    name: Build Debian Packages
     runs-on: ubuntu-latest
     needs: release
     steps:
@@ -498,44 +653,36 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential debhelper dh-python pybuild-plugin-pyproject python3-all python3-setuptools python3-pip python3-wheel
 
-      - name: Prepare Debian directory
+      - name: Build the packages OBS builds
         run: |
-          mkdir -p debian
-          cp obs/debian.changelog debian/changelog
-          cp obs/debian.control debian/control
-          cp obs/debian.copyright debian/copyright
-          cp obs/debian.rules debian/rules
-          cp obs/debian.postinst debian/postinst
-          cp obs/debian.postrm debian/postrm
-          cp obs/debian.prerm debian/prerm
-          cp obs/wasm.default.yaml debian/wasm.default.yaml
-          cp obs/wasm.dirs debian/dirs
-          cp obs/wasm.manpages debian/manpages
-          cp obs/wasm.1 debian/wasm.1
-          mkdir -p debian/source
-          cp obs/source/format debian/source/format
-          cp obs/source/options debian/source/options
-          chmod +x debian/rules
-
-      - name: Build Debian package
-        run: dpkg-buildpackage -us -uc -b
+          packaging/obs/stage.sh noust /tmp/obs/noust
+          packaging/obs/stage.sh wasm /tmp/obs/wasm
+          packaging/obs/build.sh deb /tmp/obs/noust dist-deb
+          packaging/obs/build.sh deb /tmp/obs/wasm dist-deb
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ needs.release.outputs.version }}
-          files: ../wasm_*.deb
+          files: dist-deb/*.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # Both projects publish through trusted publishing from this job, in the
+  # pypi environment: noust through the publisher registered for it, wasm-cli
+  # through the one it has had since before the rename. That one may still
+  # name the repository "wasm"; if so its upload is refused, the job warns and
+  # the release stands (noust is out). The fix is on PyPI, not here: see the
+  # warning below and docs/RENAME.md.
   publish-pypi:
     name: Publish to PyPI
     runs-on: ubuntu-latest
     needs: [release, build-sdist]
     environment:
       name: pypi
-      url: https://pypi.org/p/wasm-cli
+      url: https://pypi.org/p/noust
     permissions:
+      contents: read
       id-token: write  # Required for trusted publishing
     steps:
       - name: Checkout code
@@ -548,14 +695,33 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install build tools
-        run: pip install build
+      - name: Build both distributions
+        run: |
+          pip install build twine
+          python -m build --outdir dist/noust
+          python -m build packaging/transitional/wasm-cli --outdir dist/wasm-cli
+          twine check dist/noust/* dist/wasm-cli/*
 
-      - name: Build package
-        run: python -m build
-
-      - name: Publish to PyPI
+      # skip-existing: re-running this job after fixing the wasm-cli publisher
+      # must not fail on the noust files already uploaded.
+      - name: Publish noust
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/noust/
+          skip-existing: true
+
+      - name: Publish the transitional wasm-cli
+        id: transitional
+        continue-on-error: true
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/wasm-cli/
+          skip-existing: true
+
+      - name: Explain a refused wasm-cli upload
+        if: steps.transitional.outcome == 'failure'
+        run: |
+          echo "::warning title=wasm-cli ${{ needs.release.outputs.version }} was not published::noust is on PyPI; the transitional wasm-cli was refused, most likely because its trusted publisher still names the repository 'wasm'. On https://pypi.org/manage/project/wasm-cli/settings/publishing/ edit (or add) the GitHub publisher: owner Perkybeet, repository noust, workflow release.yml, environment pypi. Then open this job (Publish to PyPI) in the run and use Re-run this job: noust is skipped as already uploaded and wasm-cli goes out. Until then, pip install -U wasm-cli stays on 2.x."
 
   publish-obs:
     name: Publish to OBS
@@ -566,7 +732,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.release.outputs.tag || github.ref }}
-          fetch-depth: 0  # Full history for git archive
 
       - name: Install osc
         run: |
@@ -607,65 +772,70 @@ jobs:
           # Verify credentials work before proceeding
           echo "=== Testing OBS connection ==="
           if ! osc api /about > /dev/null 2>&1; then
-            echo "::error::OBS authentication failed (403 Forbidden). The OBS_PASS secret is likely expired. Update it at: https://github.com/Perkybeet/wasm/settings/secrets/actions"
+            echo "::error::OBS authentication failed (403 Forbidden). The OBS_PASS secret is likely expired. Update it at: https://github.com/Perkybeet/noust/settings/secrets/actions"
             exit 1
           fi
           echo "OBS connection verified successfully."
 
-      - name: Get version
-        id: version
+      - name: Stage both packages
         run: |
-          VERSION=$(head -n 1 obs/debian.changelog | grep -oP '\(\K[^)]+' | cut -d'~' -f1)
-          VERSION_BASE=$(echo "${VERSION}" | cut -d'-' -f1)
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "version_base=${VERSION_BASE}" >> $GITHUB_OUTPUT
+          packaging/obs/stage.sh noust /tmp/obs/noust
+          packaging/obs/stage.sh wasm /tmp/obs/wasm
 
-      - name: Create source tarball
-        run: |
-          VERSION_BASE="${{ steps.version.outputs.version_base }}"
-          git archive --format=tar.gz --prefix=wasm-${VERSION_BASE}/ HEAD ':!debian' > wasm-${VERSION_BASE}.tar.gz
+      # noust first: the transitional package depends on it, and a repository
+      # that briefly has one without the other should be missing the
+      # transitional one, not the product.
+      - name: Upload home:Perkybeet/noust
+        run: packaging/obs/publish.sh home:Perkybeet noust /tmp/obs/noust "Release v${{ needs.release.outputs.version }} from GitHub Actions"
 
-      - name: Upload to OBS
+      - name: Upload home:Perkybeet/wasm (transitional)
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          VERSION_BASE="${{ steps.version.outputs.version_base }}"
-          TARBALL="wasm-${VERSION_BASE}.tar.gz"
-          
-          # Checkout OBS package
-          osc checkout home:Perkybeet/wasm
-          cd home:Perkybeet/wasm
-          
-          # Remove old tarballs
-          for old in wasm-*.tar.gz; do
-            [ -f "$old" ] && [ "$old" != "${TARBALL}" ] && osc rm "$old" 2>/dev/null || true
-          done
-          
-          # Copy new files
-          cp ../../${TARBALL} .
-          cp ../../rpm/wasm.spec .
-          cp ../../obs/wasm.dsc .
-          cp ../../obs/debian.control .
-          cp ../../obs/debian.rules .
-          cp ../../obs/debian.changelog .
-          cp ../../obs/debian.copyright .
-          cp ../../obs/debian.postinst . 2>/dev/null || true
-          cp ../../obs/debian.postrm . 2>/dev/null || true
-          cp ../../obs/wasm.default.yaml . 2>/dev/null || true
-          cp ../../obs/wasm.1 . 2>/dev/null || true
-          cp ../../obs/wasm.dirs . 2>/dev/null || true
-          cp ../../obs/wasm.manpages . 2>/dev/null || true
-          
-          # Add new files
-          osc add ${TARBALL} 2>/dev/null || true
-          osc add wasm.spec 2>/dev/null || true
-          osc add wasm.dsc 2>/dev/null || true
-          osc add debian.* 2>/dev/null || true
-          osc add wasm.default.yaml 2>/dev/null || true
-          osc add wasm.1 2>/dev/null || true
-          
-          # Show status and commit
-          osc status
-          osc commit -m "Release v${VERSION_BASE} from GitHub Actions"
-          
-          echo "✅ Package uploaded to OBS successfully!"
-          echo "View at: https://build.opensuse.org/package/show/home:Perkybeet/wasm"
+          packaging/obs/publish.sh home:Perkybeet wasm /tmp/obs/wasm \
+            "v${{ needs.release.outputs.version }}: transitional package, WASM is now Noust"
+
+  # The central for a NAS: ghcr.io/perkybeet/noust, amd64 and arm64, from the
+  # wheel of this tag. The container-image gate already built and started it
+  # for amd64; arm64 is the same Dockerfile under QEMU.
+  publish-container:
+    name: Publish the container image
+    runs-on: ubuntu-latest
+    needs: release
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag || github.ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build the wheel into the image context
+        run: |
+          pip install build
+          python -m build --wheel --outdir packaging/container/dist
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: packaging/container
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            NOUST_VERSION=${{ needs.release.outputs.version }}
+          tags: |
+            ghcr.io/perkybeet/noust:${{ needs.release.outputs.version }}
+            ghcr.io/perkybeet/noust:latest

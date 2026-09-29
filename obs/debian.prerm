@@ -3,25 +3,29 @@ set -e
 
 case "$1" in
     remove)
-        # 'wasm monitor install' writes and enables wasm-monitor.service at
-        # runtime; the package itself never ships that unit, so dpkg has no
-        # unit of its own to stop here and the daemon kept running under a
-        # binary that had just been deleted. Data (config.yaml, /var/log/wasm,
-        # deployed applications) is untouched: this only stops and disables
-        # units, never on "upgrade" below, where they are meant to survive
-        # the version bump.
+        # 'noust monitor install' and 'noust web enable' write and enable
+        # these units at runtime; the package itself never ships them, so dpkg
+        # has no unit of its own to stop here and the daemons kept running
+        # under a binary that had just been deleted. Both names: the wasm-*
+        # ones are what a server keeps until noust first runs as root and
+        # renames them. Data (the configuration, /var/lib/noust, deployed
+        # applications) is untouched: this only stops and disables units,
+        # never on "upgrade" below, where they are meant to survive the version
+        # bump.
+        systemctl stop noust-monitor.service >/dev/null 2>&1 || true
+        systemctl disable noust-monitor.service >/dev/null 2>&1 || true
         systemctl stop wasm-monitor.service >/dev/null 2>&1 || true
         systemctl disable wasm-monitor.service >/dev/null 2>&1 || true
 
-        # 'wasm web enable' writes and enables wasm-web.service at runtime, in
-        # the same way and for the same reason as the monitor above.
+        systemctl stop noust-web.service >/dev/null 2>&1 || true
+        systemctl disable noust-web.service >/dev/null 2>&1 || true
         systemctl stop wasm-web.service >/dev/null 2>&1 || true
         systemctl disable wasm-web.service >/dev/null 2>&1 || true
 
-        # Without 'wasm web enable' the console runs as a daemon (wasm web
+        # Without 'noust web enable' the console runs as a daemon (noust web
         # start -d), not as a unit; stop it while its binary still exists.
-        if [ -x /usr/bin/wasm ]; then
-            /usr/bin/wasm web stop >/dev/null 2>&1 || true
+        if [ -x /usr/bin/noust ]; then
+            /usr/bin/noust web stop >/dev/null 2>&1 || true
         fi
         ;;
 

@@ -1,0 +1,11 @@
+wasm: transitional package
+==========================
+
+WASM was renamed to Noust in 3.0.0. This package contains nothing: it only
+depends on noust, so that upgrading a server that has wasm (Debian, Ubuntu)
+or wasm-cli (Fedora, openSUSE) installed brings noust in.
+
+The command is noust; wasm remains an alias for the whole 3.x series. This
+package can be removed once noust is installed.
+
+https://github.com/Perkybeet/noust

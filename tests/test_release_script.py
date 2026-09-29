@@ -26,10 +26,19 @@ sys.modules["release_script"] = release
 SPEC.loader.exec_module(release)
 
 
+DEBIAN_ENTRY = (
+    "{package} (0.15.8-1) unstable; urgency=medium\n\n  * Something\n\n"
+    " -- A B <a@b>  Fri, 20 Mar 2026 14:00:00 +0000\n"
+)
+
+
 @pytest.fixture
 def repo(tmp_path, monkeypatch):
     """
     Build a miniature repository with every file the script rewrites.
+
+    The product's Debian changelog still has its last entry under the old
+    name, wasm, as the real one does until the first release as noust.
 
     Args:
         tmp_path: Per-test temporary directory.
@@ -38,21 +47,44 @@ def repo(tmp_path, monkeypatch):
     Returns:
         The repository root.
     """
-    (tmp_path / "src/wasm").mkdir(parents=True)
-    (tmp_path / "rpm").mkdir()
-    (tmp_path / "obs").mkdir()
+    for directory in (
+        "src/noust",
+        "rpm",
+        "obs",
+        "packaging/transitional/wasm",
+        "packaging/transitional/wasm-cli",
+        "packaging/container",
+    ):
+        (tmp_path / directory).mkdir(parents=True)
 
-    (tmp_path / "pyproject.toml").write_text('[project]\nname = "wasm-cli"\nversion = "0.15.8"\n')
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "noust"\nversion = "0.15.8"\n')
     (tmp_path / "setup.py").write_text('setup(\n    version="0.15.8",\n)\n')
-    (tmp_path / "src/wasm/__init__.py").write_text('_FALLBACK_VERSION = "0.15.8"\n')
-    (tmp_path / "rpm/wasm.spec").write_text(
-        "Name:           wasm-cli\nVersion:        0.15.8\n%changelog\n"
+    (tmp_path / "src/noust/__init__.py").write_text('_FALLBACK_VERSION = "0.15.8"\n')
+    (tmp_path / "rpm/noust.spec").write_text(
+        "Name:           noust\nVersion:        0.15.8\n%changelog\n"
     )
-    (tmp_path / "obs/wasm.dsc").write_text(
+    (tmp_path / "obs/noust.dsc").write_text(
+        "Version: 0.15.8-1\nFiles:\n 00000000000000000000000000000000 0 noust-0.15.8.tar.gz\n"
+    )
+    (tmp_path / "obs/debian.changelog").write_text(DEBIAN_ENTRY.format(package="wasm"))
+
+    transitional = tmp_path / "packaging/transitional/wasm"
+    (transitional / "wasm.spec").write_text(
+        "Name:           wasm-cli\nVersion:        0.15.8\nRequires:       noust >= %{version}\n"
+        "%changelog\n"
+    )
+    (transitional / "wasm.dsc").write_text(
         "Version: 0.15.8-1\nFiles:\n 00000000000000000000000000000000 0 wasm-0.15.8.tar.gz\n"
     )
-    (tmp_path / "obs/debian.changelog").write_text(
-        "wasm (0.15.8-1) unstable; urgency=medium\n\n  * Something\n\n -- A B <a@b>  Fri, 20 Mar 2026 14:00:00 +0000\n"
+    (transitional / "debian.changelog").write_text(DEBIAN_ENTRY.format(package="wasm"))
+    (tmp_path / "packaging/transitional/wasm-cli/pyproject.toml").write_text(
+        '[project]\nname = "wasm-cli"\nversion = "0.15.8"\ndependencies = [\n    "noust==0.15.8",\n]\n'
+    )
+    (tmp_path / "packaging/container/Dockerfile").write_text(
+        "FROM python:3.12-slim-bookworm\nARG NOUST_VERSION=0.15.8\n"
+    )
+    (tmp_path / "packaging/container/compose.yaml").write_text(
+        "services:\n  noust:\n    image: ghcr.io/perkybeet/noust:0.15.8\n"
     )
 
     monkeypatch.setattr(release, "ROOT", tmp_path)
@@ -67,12 +99,39 @@ def test_every_file_gets_the_version(repo, version):
 
     assert f'version = "{version}"' in (repo / "pyproject.toml").read_text()
     assert f'version="{version}"' in (repo / "setup.py").read_text()
-    assert f'_FALLBACK_VERSION = "{version}"' in (repo / "src/wasm/__init__.py").read_text()
-    assert f"Version:        {version}" in (repo / "rpm/wasm.spec").read_text()
+    assert f'_FALLBACK_VERSION = "{version}"' in (repo / "src/noust/__init__.py").read_text()
+    assert f"Version:        {version}" in (repo / "rpm/noust.spec").read_text()
 
-    dsc = (repo / "obs/wasm.dsc").read_text()
+    dsc = (repo / "obs/noust.dsc").read_text()
+    assert f"Version: {version}-1" in dsc
+    assert f"noust-{version}.tar.gz" in dsc
+
+
+@pytest.mark.parametrize("version", ["1.0.0", "3.0.0", "10.0.0"])
+def test_the_transitional_packages_and_the_image_follow(repo, version):
+    """
+    The transitional packages move with every release.
+
+    wasm-cli on PyPI pins noust to its own version, so a transitional package
+    left behind would hold `pip install -U wasm-cli` on an old noust.
+    """
+    assert release.bump(version, ["Released"]) == 0
+
+    transitional = repo / "packaging/transitional/wasm"
+    assert f"Version:        {version}" in (transitional / "wasm.spec").read_text()
+    dsc = (transitional / "wasm.dsc").read_text()
     assert f"Version: {version}-1" in dsc
     assert f"wasm-{version}.tar.gz" in dsc
+
+    pypi = (repo / "packaging/transitional/wasm-cli/pyproject.toml").read_text()
+    assert f'version = "{version}"' in pypi
+    assert f'    "noust=={version}",' in pypi
+
+    assert f"ARG NOUST_VERSION={version}" in (repo / "packaging/container/Dockerfile").read_text()
+    assert (
+        f"image: ghcr.io/perkybeet/noust:{version}"
+        in (repo / "packaging/container/compose.yaml").read_text()
+    )
 
 
 def test_the_indentation_of_setup_py_survives(repo):
@@ -97,14 +156,63 @@ def test_the_check_fails_on_drift(repo):
     assert release.check() == 1
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "packaging/transitional/wasm-cli/pyproject.toml",
+        "packaging/transitional/wasm/wasm.dsc",
+        "packaging/container/Dockerfile",
+    ],
+)
+def test_the_check_fails_when_a_transitional_file_drifts(repo, path):
+    """The files added for the rename are held to the same rule as the rest."""
+    release.bump("1.0.0", ["Something changed"])
+    file = repo / path
+    file.write_text(file.read_text().replace("1.0.0", "0.9.9"))
+
+    assert release.check() == 1
+
+
 def test_a_changelog_entry_lands_at_the_top(repo):
     """Debian reads the newest entry first."""
     release.bump("1.0.0", ["First thing", "Second thing"])
 
     first_line = (repo / "obs/debian.changelog").read_text().splitlines()[0]
-    assert first_line.startswith("wasm (1.0.0-1)")
+    assert first_line.startswith("noust (1.0.0-1)")
     assert "First thing" in (repo / "obs/debian.changelog").read_text()
-    assert "- First thing" in (repo / "rpm/wasm.spec").read_text()
+    assert "- First thing" in (repo / "rpm/noust.spec").read_text()
+
+
+def test_the_first_release_under_the_new_name_says_so(repo):
+    """
+    The entry that follows one written as wasm opens with the rename, in both
+    changelogs; the one after that does not repeat it.
+    """
+    release.bump("3.0.0", ["Fleet"])
+
+    debian = (repo / "obs/debian.changelog").read_text()
+    entry = debian.split("\n -- ", 1)[0]
+    assert entry.index("Renamed from wasm") < entry.index("Fleet")
+    assert "- Renamed from wasm" in (repo / "rpm/noust.spec").read_text()
+
+    release.bump("3.0.1", ["A fix"])
+
+    newest = (repo / "obs/debian.changelog").read_text().split("\n -- ", 1)[0]
+    assert newest.startswith("noust (3.0.1-1)")
+    assert "Renamed from wasm" not in newest
+
+
+def test_the_transitional_changelogs_are_written_for_every_release(repo):
+    """The transitional packages get their own entry, under their own names."""
+    release.bump("3.0.0", ["Fleet"])
+
+    transitional = repo / "packaging/transitional/wasm"
+    debian = (transitional / "debian.changelog").read_text()
+    assert debian.startswith("wasm (3.0.0-1)")
+    assert "installs noust 3.0.0" in debian.split("\n -- ", 1)[0]
+    assert "Fleet" not in debian
+    spec = (transitional / "wasm.spec").read_text()
+    assert "- 3.0.0-1\n- WASM is now Noust" in spec
 
 
 def test_a_version_that_is_not_semver_is_refused(repo):

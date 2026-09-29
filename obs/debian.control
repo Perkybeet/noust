@@ -1,4 +1,4 @@
-Source: wasm
+Source: noust
 Section: admin
 Priority: optional
 Maintainer: Yago López Prado <yago.lopez.adeje@gmail.com>
@@ -17,11 +17,19 @@ Build-Depends: debhelper-compat (= 13),
                python3-setuptools,
                python3-wheel
 Standards-Version: 4.6.0
-Homepage: https://github.com/Perkybeet/wasm
+Homepage: https://github.com/Perkybeet/noust
 Rules-Requires-Root: no
 
-Package: wasm
+Package: noust
 Architecture: all
+# Noust was called WASM until 3.0.0. The package that owned /usr/bin/wasm, the
+# man page and the completions before then was 'wasm'; it is now a transitional
+# package that depends on this one (packaging/transitional/wasm), so an ordinary
+# 'apt upgrade' brings noust in. Breaks+Replaces is the Debian way to take over
+# another package's files across a rename.
+Breaks: wasm (<< 3.0.0)
+Replaces: wasm (<< 3.0.0)
+Provides: wasm
 Depends: ${python3:Depends},
          ${misc:Depends},
          python3 (>= 3.10),
@@ -33,7 +41,7 @@ Depends: ${python3:Depends},
          python3-rich,
          nginx | apache2,
          certbot
-# python3-venv: wasm.deployers.python creates each Python app's virtualenv
+# python3-venv: noust.deployers.python creates each Python app's virtualenv
 # with 'python3 -m venv'. Debian and Ubuntu split venv (and the ensurepip
 # bootstrap it runs by default) out of the python3 package; without this,
 # every Python deployment fails at 'Creating virtual environment...'.
@@ -44,32 +52,28 @@ Depends: ${python3:Depends},
 #
 # questionary is a Recommends rather than a Depends because it is absent from
 # Debian 12 and Ubuntu 22.04, where a Depends built a package apt then refused
-# to install. apt installs Recommends by default, so nothing changes on the
-# releases that have it, and on the two that do not the package installs and
-# interactive mode explains what is missing.
-Recommends: python3-questionary,
-            python3-fastapi,
+# to install. On those two it is not even recommended (debian/rules decides,
+# through ${noust:Recommends}): an unsatisfiable Recommends made `apt upgrade`
+# keep wasm back instead of bringing noust in. apt installs Recommends by
+# default, so nothing changes on the releases that have it, and on the two that
+# do not the package installs and interactive mode explains what is missing.
+Recommends: python3-fastapi,
             python3-starlette,
             python3-pydantic,
             python3-uvicorn,
-            python3-psutil
+            python3-psutil,
+            ${noust:Recommends}
 Suggests: git,
           nodejs,
           npm,
           rclone
-Description: Web App System Management CLI Tool
- WASM is a robust CLI tool for deploying and managing web applications
- on Linux servers. It handles site configuration (Nginx/Apache), SSL
- certificates (Certbot), systemd services, and automated deployment
- workflows for various application types.
+Description: deploy and manage web applications on Linux servers
+ Noust deploys and manages web applications on the server it runs on. It
+ configures Nginx or Apache, obtains and renews TLS certificates, supervises
+ systemd services, manages databases and backups, and builds every deploy as
+ a health-gated release with instant rollback. An optional browser console
+ serves the same operations over a JSON API.
  .
- Features:
-  - Deploy Next.js, Node.js, Vite, Python, and static applications
-  - Nginx and Apache site management
-  - SSL certificate management via Certbot/Let's Encrypt
-  - Systemd service management
-  - Interactive mode with guided prompts
-  - Web dashboard for remote management (optional)
-  - REST API with token-based authentication
-  - Backup and rollback system
-  - AI-powered security monitoring
+ Noust was called WASM until 3.0.0. The command is noust; wasm remains an
+ alias for the whole 3.x series, so existing scripts and cron lines keep
+ working.

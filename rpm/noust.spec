@@ -1,19 +1,31 @@
-# spec file for package wasm-cli
+# spec file for package noust
 #
-# Copyright (c) 2024-2025 Yago López Prado
+# Copyright (c) 2024-2026 Yago López Prado
 # License: AGPL-3.0-or-later
 #
+# Noust was called WASM until 3.0.0 and this package was named wasm-cli. That
+# name lives on as a transitional package, built from packaging/transitional/wasm
+# in the OBS package home:Perkybeet/wasm: an empty wasm-cli that Requires noust,
+# so `dnf upgrade` and `zypper up` bring noust in as an ordinary upgrade.
+#
 
-Name:           wasm-cli
+Name:           noust
 Version:        2.3.0
 Release:        1%{?dist}
-Summary:        Web App System Management CLI Tool
+Summary:        Deploy and manage web applications on Linux servers
 License:        AGPL-3.0-or-later
-URL:            https://github.com/Perkybeet/wasm
-Source0:        wasm-%{version}.tar.gz
-Source1:        wasm.default.yaml
-Source2:        wasm.1
+URL:            https://github.com/Perkybeet/noust
+Source0:        noust-%{version}.tar.gz
 BuildArch:      noarch
+
+# Conflicts, not Obsoletes, and on purpose. With Obsoletes the solver replaces
+# wasm-cli 2.x with noust outright and never installs the transitional package,
+# so no wasm-cli is left after the transaction and rpm runs the old package's
+# %%preun with $1 = 0, its "last copy removed" branch: on every upgraded server
+# that stopped and disabled wasm-web and wasm-monitor and stopped the console.
+# A conflict makes the solver upgrade wasm-cli to the transitional package
+# instead, where the old %%preun sees $1 = 1 and leaves the services alone.
+Conflicts:      wasm-cli < 3.0.0
 
 # On Leap 15.x, python3 is 3.6. It cannot parse this code, so building against
 # it produced a package that installed and then failed with SyntaxError on the
@@ -63,11 +75,11 @@ Suggests:       python3-starlette
 Suggests:       python3-pydantic
 Suggests:       python3-uvicorn
 Suggests:       python3-psutil
-# Remote backup destinations (wasm backup destination); nothing else needs it.
+# Remote backup destinations (noust backup destination); nothing else needs it.
 Suggests:       rclone
 # No separate venv package is Required here: python3-libs, pulled in
 # transitively by python3 above, contains the venv module itself, which is
-# what wasm.deployers.python's 'python3 -m venv' needs. That call does not
+# what noust.deployers.python's 'python3 -m venv' needs. That call does not
 # pass --without-pip, so it also runs ensurepip to seed the new virtualenv
 # with pip; on Fedora, ensurepip's bundled wheels are unbundled into the
 # python3-pip-wheel package, but its presence is not otherwise guaranteed and
@@ -104,7 +116,7 @@ Requires:       python3-questionary
 %endif
 # openSUSE does not split the venv module, or the ensurepip bootstrap it runs
 # by default, out of the base python3 (or python311, on Leap 15.x) package the
-# way Fedora does, so wasm.deployers.python's 'python3 -m venv' works with
+# way Fedora does, so noust.deployers.python's 'python3 -m venv' works with
 # nothing beyond the Requires already declared above.
 %endif
 
@@ -121,25 +133,18 @@ Suggests:       nodejs
 Suggests:       npm
 
 %description
-WASM (Web App System Management) is a robust CLI tool for deploying 
-and managing web applications on Linux servers. It handles site 
-configuration (Nginx/Apache), SSL certificates (Certbot), systemd 
-services, and automated deployment workflows for various application types.
+Noust deploys and manages web applications on Linux servers. It configures
+Nginx or Apache, obtains and renews TLS certificates, supervises systemd
+services, manages databases and backups, and builds every deploy as a
+health-gated release with instant rollback. An optional browser console
+serves the same operations over a JSON API.
 
-Features:
- * Deploy Next.js, Node.js, Vite, Python, and static applications
- * Nginx and Apache site management
- * SSL certificate management via Certbot/Let's Encrypt
- * Systemd service management
- * Interactive mode with guided prompts
- * One-command deployments
- * Resource and service observability
- * Backup and rollback system
- * Control panel for remote management (optional)
- * REST API with token-based authentication
+Noust was called WASM until 3.0.0. The command is noust; wasm remains an
+alias for the whole 3.x series, so existing scripts and cron lines keep
+working.
 
 %prep
-%autosetup -n wasm-%{version}
+%autosetup -n noust-%{version}
 
 %build
 # The pyproject macros where they exist (Fedora deprecated %%py3_build in 43 and
@@ -161,7 +166,7 @@ Features:
 # this, Leap 15.6 built a package against Python 3.6 and published it; it
 # installed cleanly and raised SyntaxError on the first command.
 %{__python3} -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)' || { \
-    echo "wasm-cli needs Python 3.10 or newer, and %{__python3} is older."; \
+    echo "noust needs Python 3.10 or newer, and %{__python3} is older."; \
     exit 1; }
 
 %if 0%{?fedora} || 0%{?rhel}
@@ -177,120 +182,180 @@ Features:
 %py3_install
 %endif
 
-# Shell completion. Committed, not generated here: Click's scripts contain no
-# command names, so they cannot drift, and running Python during the build made
-# every runtime import a build dependency.
-install -Dm644 src/wasm/completions/wasm.bash %{buildroot}%{_datadir}/bash-completion/completions/wasm
+# Shell completion, for both names. Committed, not generated here: Click's
+# scripts contain no command names, so they cannot drift, and running Python
+# during the build made every runtime import a build dependency.
+install -Dm644 src/noust/completions/noust.bash %{buildroot}%{_datadir}/bash-completion/completions/noust
+install -Dm644 src/noust/completions/wasm.bash %{buildroot}%{_datadir}/bash-completion/completions/wasm
 
 %if ! 0%{?suse_version}
-install -Dm644 src/wasm/completions/wasm.fish %{buildroot}%{_datadir}/fish/vendor_completions.d/wasm.fish
-install -Dm644 src/wasm/completions/_wasm %{buildroot}%{_datadir}/zsh/site-functions/_wasm
+install -Dm644 src/noust/completions/noust.fish %{buildroot}%{_datadir}/fish/vendor_completions.d/noust.fish
+install -Dm644 src/noust/completions/wasm.fish %{buildroot}%{_datadir}/fish/vendor_completions.d/wasm.fish
+install -Dm644 src/noust/completions/_noust %{buildroot}%{_datadir}/zsh/site-functions/_noust
+install -Dm644 src/noust/completions/_wasm %{buildroot}%{_datadir}/zsh/site-functions/_wasm
 %endif
 
-# Install default configuration, owner-only: it holds credentials, matching
-# wasm.core.fs.SECRET_MODE (0600). The directory it lives in is 0700 below.
-install -Dm600 %{SOURCE1} %{buildroot}%{_sysconfdir}/wasm/config.yaml
+# The manual, and `man wasm` for the alias.
+install -Dm644 man/noust.1 %{buildroot}%{_mandir}/man1/noust.1
+ln -sf noust.1 %{buildroot}%{_mandir}/man1/wasm.1
 
-# Install man page
-install -Dm644 %{SOURCE2} %{buildroot}%{_mandir}/man1/wasm.1
+# The default configuration, as a reference only. Nothing is installed under
+# /etc/noust: on a server coming from WASM 2.x, noust moves /etc/wasm to
+# /etc/noust the first time it runs as root, and that rename is atomic only
+# while /etc/noust does not exist. A packaged config.yaml there would also be
+# a second, stale copy of the defaults noust.core.config already carries (the
+# one OBS shipped until 2.3 still enabled the AI monitor removed in 1.x).
+# noust writes /etc/noust/config.yaml itself, 0600 in a 0700 directory, when
+# `noust setup` or `noust config` first needs it.
+install -Dm644 obs/noust.default.yaml %{buildroot}%{_datadir}/noust/config.example.yaml
 
-# Create wasm-specific directories only (not /var/www or /var/backups)
-install -d %{buildroot}/var/log/wasm
+# noust-specific directories only (not /var/www or /var/backups)
+install -d %{buildroot}/var/log/noust
 
 %files
 %license LICENSE
 %doc README.md
 %doc docs/
-%{python3_sitelib}/wasm/
-%{python3_sitelib}/wasm_cli-*
+%doc docs/UPGRADING-3.0.md
+%{python3_sitelib}/noust/
+%{python3_sitelib}/noust-*
+%{_bindir}/noust
 %{_bindir}/wasm
+%{_mandir}/man1/noust.1*
 %{_mandir}/man1/wasm.1*
+%{_datadir}/noust/
+%{_datadir}/bash-completion/completions/noust
 %{_datadir}/bash-completion/completions/wasm
 %if ! 0%{?suse_version}
+%{_datadir}/fish/vendor_completions.d/noust.fish
 %{_datadir}/fish/vendor_completions.d/wasm.fish
+%{_datadir}/zsh/site-functions/_noust
 %{_datadir}/zsh/site-functions/_wasm
 %endif
-# /etc/wasm holds config.yaml's credentials and, when the panel is used,
-# wasm.web.auth's signing key and token hash. Both stay owner-only, matching
-# wasm.core.fs.SECRET_DIR_MODE/SECRET_MODE and wasm.web.auth.DIR_MODE/FILE_MODE.
-%attr(0700,root,root) %dir %{_sysconfdir}/wasm
-%attr(0600,root,root) %config(noreplace) %{_sysconfdir}/wasm/config.yaml
-%dir /var/log/wasm
+%dir /var/log/noust
+
+%pre
+# Coming from wasm-cli 2.x, rpm erases the old package after installing this
+# one, and erasing it renames a modified /etc/wasm/config.yaml to .rpmsave (or
+# deletes an unmodified one) before noust has had the chance to move /etc/wasm
+# to /etc/noust. A hard link keeps the operator's file whatever rpm does to the
+# name, and %%posttrans puts it back. Only while /etc/wasm is a real directory:
+# once moved it is a link to /etc/noust, which no old package owns.
+if [ -f /etc/wasm/config.yaml ] && [ ! -L /etc/wasm ] && [ ! -L /etc/wasm/config.yaml ]; then
+    rm -f /etc/wasm/config.yaml.noust-keep
+    ln /etc/wasm/config.yaml /etc/wasm/config.yaml.noust-keep || :
+fi
 
 %post
-echo "WASM installed successfully!"
-echo "Run 'wasm setup' to configure the tool."
-
-# Belt and suspenders alongside the %attr entries above: /etc/wasm holds
-# config.yaml's credentials and, when the panel is used, wasm.web.auth's
-# signing key and token hash, so both are tightened unconditionally on every
-# install and upgrade. Setting the exact target mode can only ever narrow or
-# leave permissions unchanged, never widen them.
-if [ -d /etc/wasm ]; then
-    chown root:root /etc/wasm
-    chmod 0700 /etc/wasm
-fi
-if [ -f /etc/wasm/config.yaml ]; then
-    chown root:root /etc/wasm/config.yaml
-    chmod 0600 /etc/wasm/config.yaml
-fi
-
-# Upgrade config file with new defaults (preserves user values)
-if [ -f /etc/wasm/config.yaml ]; then
-    echo ""
-    echo "Upgrading configuration with new defaults..."
-    wasm config upgrade --quiet 2>/dev/null || true
-fi
-
-# Update wasm-monitor service if it exists and is enabled
-if systemctl is-enabled wasm-monitor.service >/dev/null 2>&1; then
-    echo ""
-    echo "Updating wasm-monitor service..."
-    wasm monitor install >/dev/null 2>&1 || true
-    systemctl daemon-reload
-    systemctl restart wasm-monitor.service 2>/dev/null || true
-    echo "wasm-monitor service updated and restarted"
-    echo ""
-    echo "NOTE: the monitor no longer terminates processes or deletes files."
-    echo "It decided what was malicious by matching substrings against a"
-    echo "process command line, and acted on that as root. It now reports"
-    echo "resource use, service health and notable processes, and acts on"
-    echo "nothing. The auto_terminate and use_ai settings are ignored."
-fi
+echo "Noust installed. Run 'noust setup' to configure it."
 
 %preun
 # $1 is 0 only when this is the last version being removed, never on an
-# upgrade (where it is 1 or more, and the unit is meant to survive the
+# upgrade (where it is 1 or more, and the units are meant to survive the
 # version bump untouched).
 if [ $1 -eq 0 ]; then
-    # 'wasm monitor install' writes and enables wasm-monitor.service at
-    # runtime; this spec never packages that unit, so rpm has none of its own
-    # to stop here and the daemon kept running under a binary that had just
-    # been removed. Data (config.yaml, /var/log/wasm, deployed applications)
-    # is untouched: this only stops and disables units.
+    # 'noust monitor install' and 'noust web enable' write and enable these
+    # units at runtime; this spec never packages them, so rpm has none of its
+    # own to stop here and the daemons kept running under a binary that had
+    # just been removed. Both names: the wasm-* ones are what a server keeps
+    # until noust first runs as root and renames them. Data (the
+    # configuration, /var/lib/noust, deployed applications) is untouched.
+    systemctl stop noust-monitor.service >/dev/null 2>&1 || :
+    systemctl disable noust-monitor.service >/dev/null 2>&1 || :
     systemctl stop wasm-monitor.service >/dev/null 2>&1 || :
     systemctl disable wasm-monitor.service >/dev/null 2>&1 || :
 
-    # 'wasm web enable' writes and enables wasm-web.service at runtime, in the
-    # same way and for the same reason as the monitor above.
+    systemctl stop noust-web.service >/dev/null 2>&1 || :
+    systemctl disable noust-web.service >/dev/null 2>&1 || :
     systemctl stop wasm-web.service >/dev/null 2>&1 || :
     systemctl disable wasm-web.service >/dev/null 2>&1 || :
 
-    # Without 'wasm web enable' the console runs as a daemon (wasm web start
+    # Without 'noust web enable' the console runs as a daemon (noust web start
     # -d), not as a unit; stop it while its binary still exists.
-    if [ -x /usr/bin/wasm ]; then
-        /usr/bin/wasm web stop >/dev/null 2>&1 || :
+    if [ -x /usr/bin/noust ]; then
+        /usr/bin/noust web stop >/dev/null 2>&1 || :
     fi
 fi
 
 %posttrans
-# 'wasm web enable' runs the console as wasm-web.service, and %preun leaves it
-# running across an upgrade, still serving the code the upgrade replaced.
-# Restarted here rather than in %post because %posttrans runs once the whole
-# transaction is done, the old version's files removed included. try-restart
+# %%posttrans runs once the whole transaction is done, wasm-cli 2.x's files
+# removed included, which is why everything that runs noust is here and not in
+# %%post: first the configuration %%pre kept is put back, then noust runs.
+if [ -f /etc/wasm/config.yaml.noust-keep ]; then
+    if [ ! -e /etc/wasm/config.yaml ]; then
+        mv /etc/wasm/config.yaml.noust-keep /etc/wasm/config.yaml
+    else
+        rm -f /etc/wasm/config.yaml.noust-keep
+    fi
+    # The copy rpm made of the same file when it erased wasm-cli 2.x.
+    if [ /etc/wasm/config.yaml.rpmsave -ef /etc/wasm/config.yaml ]; then
+        rm -f /etc/wasm/config.yaml.rpmsave
+    fi
+fi
+
+# Belt and suspenders: the configuration directory holds config.yaml's
+# credentials and, when the console is used, noust.web.auth's signing key and
+# token hash, so both are tightened on every install and upgrade. Setting the
+# exact target mode can only narrow permissions or leave them unchanged. The
+# /etc/wasm lines cover a server noust has not yet moved to /etc/noust.
+if [ -d /etc/noust ] && [ ! -L /etc/noust ]; then
+    chown root:root /etc/noust
+    chmod 0700 /etc/noust
+fi
+if [ -f /etc/noust/config.yaml ]; then
+    chown root:root /etc/noust/config.yaml
+    chmod 0600 /etc/noust/config.yaml
+fi
+if [ -d /etc/wasm ] && [ ! -L /etc/wasm ]; then
+    chown root:root /etc/wasm
+    chmod 0700 /etc/wasm
+fi
+if [ -f /etc/wasm/config.yaml ] && [ ! -L /etc/wasm/config.yaml ]; then
+    chown root:root /etc/wasm/config.yaml
+    chmod 0600 /etc/wasm/config.yaml
+fi
+
+# A server coming from WASM 2.x moves onto Noust's names here: /etc, /var/lib
+# and /var/backups renamed (links left at the old names) and wasm-web,
+# wasm-monitor, wasm-cron-*, wasm-backup-* replaced by the same units named
+# noust-*, in the same state. Explicitly, because the automatic migration on a
+# first privileged run is skipped inside a systemd unit, where unattended
+# upgrades (dnf-automatic) run. A migration that does not finish must not fail
+# the transaction: noust keeps reading the old locations, and says so, until
+# it is re-run.
+if { [ -d /etc/wasm ] && [ ! -L /etc/wasm ]; } \
+        || { [ -d /var/lib/wasm ] && [ ! -L /var/lib/wasm ]; } \
+        || { [ -d /var/backups/wasm ] && [ ! -L /var/backups/wasm ]; } \
+        || [ -e /etc/systemd/system/wasm-web.service ] \
+        || [ -e /etc/systemd/system/wasm-monitor.service ]; then
+    echo "Moving this server from WASM's names to Noust's..."
+    /usr/bin/noust migrate-from-wasm || echo "noust: the migration from wasm did not finish; run 'noust migrate-from-wasm' (see %{_docdir}/noust/UPGRADING-3.0.md)" >&2
+fi
+
+# Add new defaults to an existing configuration (user values are kept).
+if [ -f /etc/noust/config.yaml ] || [ -f /etc/wasm/config.yaml ]; then
+    /usr/bin/noust config upgrade --quiet >/dev/null 2>&1 || :
+fi
+
+# Rewrite the monitor unit for this version if it is enabled. Only under its
+# own name: 'noust monitor install' refuses while wasm-monitor.service exists,
+# which after the migration above means the migration did not finish, and it
+# says so already.
+if systemctl is-enabled noust-monitor.service >/dev/null 2>&1; then
+    /usr/bin/noust monitor install >/dev/null 2>&1 || :
+    systemctl daemon-reload >/dev/null 2>&1 || :
+    systemctl try-restart noust-monitor.service >/dev/null 2>&1 || :
+elif systemctl is-enabled wasm-monitor.service >/dev/null 2>&1; then
+    systemctl try-restart wasm-monitor.service >/dev/null 2>&1 || :
+fi
+
+# 'noust web enable' runs the console as a unit, and %%preun leaves it running
+# across an upgrade, still serving the code the upgrade replaced. try-restart
 # only restarts a unit that is running: a console the operator stopped stays
-# stopped, and a first install has none running, so in practice this acts on
-# upgrades only. The unit itself names /usr/bin/wasm and is not rewritten.
+# stopped, and a first install has none running.
+if [ -f /etc/systemd/system/noust-web.service ]; then
+    systemctl try-restart noust-web.service >/dev/null 2>&1 || :
+fi
 if [ -f /etc/systemd/system/wasm-web.service ]; then
     systemctl try-restart wasm-web.service >/dev/null 2>&1 || :
 fi

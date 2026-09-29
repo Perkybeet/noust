@@ -35,10 +35,10 @@ jobs:
         run: pip install "ruff==${RUFF_VERSION}"
 
       - name: Check lint rules
-        run: ruff check src/wasm tests scripts
+        run: ruff check src/noust tests scripts
 
       - name: Check formatting
-        run: ruff format --check src/wasm tests scripts
+        run: ruff format --check src/noust tests scripts
 
   types:
     name: Type check
@@ -88,7 +88,7 @@ jobs:
         run: pip install -e ".[all,dev]"
 
       - name: Run tests
-        run: pytest --cov=wasm --cov-report=xml --cov-report=term-missing
+        run: pytest --cov=noust --cov-report=xml --cov-report=term-missing
 
       - name: Upload coverage
         if: matrix.python-version == '3.12'
@@ -105,7 +105,7 @@ jobs:
   # `wasm web start` died with ImportError on every Ubuntu 24.04 install
   # while this whole workflow stayed green. This job pins pydantic to 1.10
   # and imports and tests the real web layer against it, exercising the
-  # bridge in wasm.web.pydantic_compat from its v1 side.
+  # bridge in noust.web.pydantic_compat from its v1 side.
   #
   # fastapi is pinned to 0.115, the last line that supports pydantic 1: noble
   # itself ships 0.101, but the test fixtures need starlette's newer
@@ -134,7 +134,7 @@ jobs:
           python - <<'PY'
           import pydantic
           assert pydantic.VERSION.startswith("1."), pydantic.VERSION
-          import wasm.web.api.router, wasm.web.server
+          import noust.web.api.router, noust.web.server
           print(f"The web layer imports under pydantic {pydantic.VERSION}")
           PY
 
@@ -172,10 +172,10 @@ jobs:
         run: |
           python - <<'PY'
           import importlib, pkgutil, sys
-          import wasm
+          import noust
 
           failed = []
-          for mod in pkgutil.walk_packages(wasm.__path__, "wasm."):
+          for mod in pkgutil.walk_packages(noust.__path__, "noust."):
               try:
                   importlib.import_module(mod.name)
               except Exception as exc:
@@ -190,10 +190,12 @@ jobs:
 
       - name: Run the CLI
         run: |
+          noust --version
+          noust --help
           wasm --version
           wasm --help
 
-  # The console is built by Node but shipped by Python: src/wasm/web/static
+  # The console is built by Node but shipped by Python: src/noust/web/static
   # is the committed output of panel/, because OBS packages `git archive
   # HEAD` with no network and never runs Node. This job is the proof that
   # what is committed is what the source produces - the same pattern as the
@@ -237,12 +239,12 @@ jobs:
       - name: Check the committed build matches the source
         working-directory: .
         run: |
-          git diff --exit-code --stat -- src/wasm/web/static
-          untracked=$(git status --porcelain -- src/wasm/web/static)
+          git diff --exit-code --stat -- src/noust/web/static
+          untracked=$(git status --porcelain -- src/noust/web/static)
           if [ -n "$untracked" ]; then
             echo "The committed console build differs from what panel/ produces:"
             echo "$untracked"
-            echo "Run 'cd panel && npm run build' and commit src/wasm/web/static."
+            echo "Run 'cd panel && npm run build' and commit src/noust/web/static."
             exit 1
           fi
 
@@ -285,7 +287,7 @@ jobs:
       - name: Run the end-to-end suite
         working-directory: panel
         env:
-          WASM_PYTHON: python
+          NOUST_PYTHON: python
         run: npm run e2e
 
       - name: Keep the report of a failed run
@@ -337,8 +339,73 @@ jobs:
       - name: Check the completion scripts are current
         run: python scripts/generate_completions.py --check
 
+      # The product and the transitional wasm-cli that carries pip users of the
+      # old name over to it.
       - name: Build distributions
         run: |
           pip install build twine
-          python -m build
-          twine check dist/*
+          python -m build --outdir dist/noust
+          python -m build packaging/transitional/wasm-cli --outdir dist/wasm-cli
+          twine check dist/noust/* dist/wasm-cli/*
+
+  # The distribution packages from exactly what OBS receives, on every push,
+  # not only at the tag: v2.0.0's first tag failed on an RPM gate that branch
+  # CI never ran. The noust package and the transitional one it replaces, one
+  # Debian and one Fedora release; the Release workflow covers every target
+  # and the upgrade from 2.x.
+  packages:
+    name: Distribution packages (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: "debian:13"
+            kind: deb
+            install: "apt-get update && apt-get install -y --no-install-recommends devscripts equivs git ca-certificates"
+          - image: "fedora:43"
+            kind: rpm
+            install: "dnf install -y rpm-build python3-devel python3-setuptools python3-pip python3-wheel git tar gzip"
+    steps:
+      - name: Install only what a build host has
+        run: ${{ matrix.install }}
+
+      - uses: actions/checkout@v7
+
+      - name: Stage the OBS packages
+        run: |
+          git config --global --add safe.directory "$PWD"
+          packaging/obs/stage.sh noust /tmp/obs/noust
+          packaging/obs/stage.sh wasm /tmp/obs/wasm
+
+      - name: Build
+        run: |
+          if [ "${{ matrix.kind }}" = deb ]; then
+            for package in noust wasm; do
+              mk-build-deps --install --remove --tool "apt-get -y --no-install-recommends" \
+                "/tmp/obs/$package/debian.control"
+            done
+          fi
+          packaging/obs/build.sh ${{ matrix.kind }} /tmp/obs/noust /tmp/out
+          packaging/obs/build.sh ${{ matrix.kind }} /tmp/obs/wasm /tmp/out
+
+      # Without the console's dependencies, as `dnf install noust` leaves a
+      # machine: the CLI must not need FastAPI to start.
+      - name: Install both and run both commands
+        run: |
+          if [ "${{ matrix.kind }}" = deb ]; then
+            DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+              /tmp/out/noust_*.deb /tmp/out/wasm_*.deb
+          else
+            dnf install -y /tmp/out/noust-[0-9]*.noarch.rpm /tmp/out/wasm-cli-[0-9]*.noarch.rpm
+          fi
+          if python3 -c "import fastapi" 2> /dev/null; then
+            echo "FastAPI is installed; this step must run without it"; exit 1
+          fi
+          noust --version
+          noust --help > /dev/null
+          noust list --help > /dev/null
+          wasm --version
+          wasm --help > /dev/null
+          wasm list --help > /dev/null

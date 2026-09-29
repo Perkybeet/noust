@@ -1,0 +1,27 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    configure)
+        # See preinst: the operator's configuration, moved aside so dpkg would
+        # forget it as a conffile of this package. noust's postinst usually
+        # puts it back first; this covers the other order. mv -f: the kept
+        # file is the operator's, and anything at the name now can only be a
+        # default written meanwhile.
+        if [ -f /etc/wasm/config.yaml.noust-keep ]; then
+            mv -f /etc/wasm/config.yaml.noust-keep /etc/wasm/config.yaml
+        fi
+        ;;
+
+    abort-upgrade|abort-remove|abort-deconfigure)
+        ;;
+
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

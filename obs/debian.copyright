@@ -1,7 +1,7 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: wasm
+Upstream-Name: noust
 Upstream-Contact: Yago López Prado <yago.lopez.adeje@gmail.com>
-Source: https://github.com/Perkybeet/wasm
+Source: https://github.com/Perkybeet/noust
 
 Files: *
 Copyright: 2024-2026 Yago López Prado

@@ -1,0 +1,5 @@
+#!/usr/bin/make -f
+
+# An empty package: nothing to build, nothing to install but its README.
+%:
+	dh $@

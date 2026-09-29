@@ -1,0 +1,45 @@
+# The PyPI project wasm-cli after the rename: no code, only a dependency on
+# noust at the same version, so `pip install -U wasm-cli` keeps working and
+# brings noust. Built and published by .github/workflows/release.yml;
+# scripts/release.py keeps both versions below in step with the project.
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wasm-cli"
+version = "2.3.0"
+description = "WASM is now Noust: this package installs noust. Use `pip install noust`."
+readme = "README.md"
+license = { text = "AGPL-3.0-or-later" }
+requires-python = ">=3.10"
+authors = [
+    { name = "Yago López Prado", email = "yago.lopez.adeje@gmail.com" }
+]
+dependencies = [
+    "noust==2.3.0",
+]
+classifiers = [
+    "Development Status :: 7 - Inactive",
+    "Environment :: Console",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+]
+
+# pip installs noust first and only then removes wasm-cli 2.x, whose file list
+# includes bin/wasm: without this entry the upgrade deleted the very alias noust
+# had just installed, and `wasm` stopped existing. Declaring it here writes it
+# back after the old files are gone.
+[project.scripts]
+wasm = "noust.cli.app:entrypoint"
+
+[project.urls]
+Homepage = "https://github.com/Perkybeet/noust"
+Repository = "https://github.com/Perkybeet/noust.git"
+"Bug Tracker" = "https://github.com/Perkybeet/noust/issues"
+
+[tool.setuptools]
+packages = []
+py-modules = []

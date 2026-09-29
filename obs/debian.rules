@@ -1,42 +1,60 @@
 #!/usr/bin/make -f
 
-export PYBUILD_NAME=wasm
+export PYBUILD_NAME=noust
 export DH_VERBOSE=1
+
+# python3-questionary is packaged from Debian 13 and Ubuntu 24.04 on. Where it
+# is not, recommending it is worse than useless: apt's upgrade keeps back any
+# upgrade that would newly install a package whose Recommends it cannot
+# satisfy, and that is exactly how noust arrives on a server running wasm 2.x -
+# `apt upgrade` said "kept back: wasm" on Debian 12. The build root is the
+# target release, so its os-release says which one this is.
+NOUST_RECOMMENDS := $(shell grep -qsE '^VERSION_CODENAME=(bookworm|jammy)$$' /etc/os-release || echo python3-questionary)
 
 %:
 	dh $@ --with python3 --buildsystem=pybuild
 
+# Everything below reads from the source tree, never from debian/ beyond what
+# OBS puts there. OBS builds debian/ only from the files named debian.* in the
+# package (debtransform), so a file the rules expected as debian/<name> was
+# silently missing on OBS: the wasm package shipped a config.yaml uploaded by
+# hand years earlier, which still enabled the AI monitor removed in 1.x.
 override_dh_auto_install:
 	dh_auto_install
-	# Config directory: owner-only, since config.yaml holds credentials and,
-	# when the panel is used, wasm.web.auth's signing key and token hash live
-	# here too.
-	install -d -m 0700 debian/wasm/etc/wasm
-	# Default config, owner-only: matches wasm.core.fs.SECRET_MODE.
-	install -m 0600 debian/wasm.default.yaml debian/wasm/etc/wasm/config.yaml
 	# Create apps directory
-	install -d debian/wasm/var/www/apps
+	install -d debian/noust/var/www/apps
 	# Create log directory
-	install -d debian/wasm/var/log/wasm
-	# Shell completion. Committed, not generated here: Click's scripts contain
-	# no command names, so they cannot drift, and running Python during the
-	# build would make every runtime import a build dependency. That is what
-	# failed all twenty-two OBS targets.
-	install -Dm644 src/wasm/completions/wasm.bash \
-		debian/wasm/usr/share/bash-completion/completions/wasm
-	install -Dm644 src/wasm/completions/_wasm \
-		debian/wasm/usr/share/zsh/vendor-completions/_wasm
-	install -Dm644 src/wasm/completions/wasm.fish \
-		debian/wasm/usr/share/fish/vendor_completions.d/wasm.fish
+	install -d debian/noust/var/log/noust
+	# The default configuration, as a reference only. Nothing is installed
+	# under /etc/noust: on a server coming from WASM 2.x, noust moves /etc/wasm
+	# to /etc/noust the first time it runs as root, and that rename is atomic
+	# only while /etc/noust does not exist. noust writes the file itself, 0600
+	# in a 0700 directory, when it first needs it.
+	install -Dm644 obs/noust.default.yaml \
+		debian/noust/usr/share/noust/config.example.yaml
+	# The manual, and `man wasm` for the alias. dh_compress gzips the page and
+	# repoints the link.
+	install -Dm644 man/noust.1 debian/noust/usr/share/man/man1/noust.1
+	ln -sf noust.1 debian/noust/usr/share/man/man1/wasm.1
+	# Shell completion, for both names. Committed, not generated here: Click's
+	# scripts contain no command names, so they cannot drift, and running
+	# Python during the build would make every runtime import a build
+	# dependency. That is what failed all twenty-two OBS targets.
+	install -Dm644 src/noust/completions/noust.bash \
+		debian/noust/usr/share/bash-completion/completions/noust
+	install -Dm644 src/noust/completions/wasm.bash \
+		debian/noust/usr/share/bash-completion/completions/wasm
+	install -Dm644 src/noust/completions/_noust \
+		debian/noust/usr/share/zsh/vendor-completions/_noust
+	install -Dm644 src/noust/completions/_wasm \
+		debian/noust/usr/share/zsh/vendor-completions/_wasm
+	install -Dm644 src/noust/completions/noust.fish \
+		debian/noust/usr/share/fish/vendor_completions.d/noust.fish
+	install -Dm644 src/noust/completions/wasm.fish \
+		debian/noust/usr/share/fish/vendor_completions.d/wasm.fish
 
-override_dh_fixperms:
-	dh_fixperms
-	# dh_fixperms normalises every directory to 0755 and every file to 0644,
-	# undoing the modes set above. Re-tighten just these two paths afterwards
-	# so the shipped package still has them, regardless of dh_fixperms
-	# defaults on any debhelper version.
-	chmod 0700 debian/wasm/etc/wasm
-	chmod 0600 debian/wasm/etc/wasm/config.yaml
+override_dh_gencontrol:
+	dh_gencontrol -- '-Vnoust:Recommends=$(NOUST_RECOMMENDS)'
 
 override_dh_installsystemd:
 	dh_installsystemd --no-enable --no-start

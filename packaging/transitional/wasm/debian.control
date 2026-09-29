@@ -1,0 +1,19 @@
+Source: wasm
+Section: oldlibs
+Priority: optional
+Maintainer: Yago López Prado <yago.lopez.adeje@gmail.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.0
+Homepage: https://github.com/Perkybeet/noust
+Rules-Requires-Root: no
+
+Package: wasm
+Architecture: all
+Depends: noust (>= ${source:Upstream-Version}),
+         ${misc:Depends}
+Description: transitional package for noust
+ WASM was renamed to Noust in 3.0.0. This empty package only depends on
+ noust, so that upgrading a server that has wasm installed brings noust in.
+ .
+ The command is noust; wasm remains an alias for the whole 3.x series. This
+ package can be removed once noust is installed.

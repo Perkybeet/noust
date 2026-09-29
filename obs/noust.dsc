@@ -1,13 +1,13 @@
 Format: 1.0
-Source: wasm
-Binary: wasm
+Source: noust
+Binary: noust
 Architecture: all
 Version: 2.3.0-1
 Maintainer: Yago López Prado <yago.lopez.adeje@gmail.com>
-Homepage: https://github.com/Perkybeet/wasm
+Homepage: https://github.com/Perkybeet/noust
 Standards-Version: 4.6.0
 Build-Depends: debhelper-compat (= 13), dh-python, pybuild-plugin-pyproject, python3-all, python3-setuptools, python3-wheel
 Package-List:
- wasm deb admin optional arch=all
+ noust deb admin optional arch=all
 Files:
- 00000000000000000000000000000000 0 wasm-2.3.0.tar.gz
+ 00000000000000000000000000000000 0 noust-2.3.0.tar.gz
