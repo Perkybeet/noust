@@ -1,0 +1,103 @@
+# Upload a release to OBS: home:Perkybeet/noust and the transitional
+# home:Perkybeet/wasm. Called by release.yml once the release is verified, and
+# runnable by hand for a tag that is already published elsewhere, when only
+# this upload failed (Actions > Publish to OBS > Run workflow, tag vX.Y.Z).
+name: Publish to OBS
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: The release tag, e.g. v3.0.0
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to upload to OBS (e.g., v3.0.0). Tag must exist.'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish-obs:
+    name: Publish to OBS
+    runs-on: ubuntu-latest
+    steps:
+      # The publishing scripts from the commit this workflow runs at, and the
+      # release's own tree from its tag: re-running the upload of a published
+      # tag after a fix to the scripts must not need a new version.
+      - name: Checkout the publishing scripts
+        uses: actions/checkout@v4
+        with:
+          path: tools
+
+      - name: Checkout the release
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          path: release
+
+      - name: Install osc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y osc
+
+      - name: Configure osc
+        env:
+          OBS_USER: ${{ secrets.OBS_USER }}
+          OBS_PASS: ${{ secrets.OBS_PASS }}
+        run: |
+          if [ -z "${OBS_USER}" ] || [ -z "${OBS_PASS}" ]; then
+            echo "::error::OBS_USER or OBS_PASS secrets are not set. Update them in GitHub repository settings."
+            exit 1
+          fi
+
+          # Create config in both locations for compatibility
+          mkdir -p ~/.config/osc
+
+          # Write config
+          cat > ~/.oscrc << OSCEOF
+          [general]
+          apiurl = https://api.opensuse.org
+
+          [https://api.opensuse.org]
+          user = ${OBS_USER}
+          pass = ${OBS_PASS}
+          trusted_prj = openSUSE:Factory openSUSE:Tumbleweed
+          OSCEOF
+
+          # Remove leading spaces from heredoc
+          sed -i 's/^          //' ~/.oscrc
+          chmod 600 ~/.oscrc
+
+          # Symlink to config dir
+          ln -sf ~/.oscrc ~/.config/osc/oscrc
+
+          # Verify credentials work before proceeding
+          echo "=== Testing OBS connection ==="
+          if ! osc api /about > /dev/null 2>&1; then
+            echo "::error::OBS authentication failed (403 Forbidden). The OBS_PASS secret is likely expired. Update it at: https://github.com/Perkybeet/noust/settings/secrets/actions"
+            exit 1
+          fi
+          echo "OBS connection verified successfully."
+
+      - name: Stage both packages
+        working-directory: release
+        run: |
+          packaging/obs/stage.sh noust /tmp/obs/noust
+          packaging/obs/stage.sh wasm /tmp/obs/wasm
+
+      # noust first: the transitional package depends on it, and a repository
+      # that briefly has one without the other should be missing the
+      # transitional one, not the product.
+      - name: Upload home:Perkybeet/noust
+        run: tools/packaging/obs/publish.sh home:Perkybeet noust /tmp/obs/noust "Release ${{ inputs.tag }} from GitHub Actions"
+
+      - name: Upload home:Perkybeet/wasm (transitional)
+        run: |
+          tools/packaging/obs/publish.sh home:Perkybeet wasm /tmp/obs/wasm \
+            "${{ inputs.tag }}: transitional package, WASM is now Noust"
+

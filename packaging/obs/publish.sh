@@ -7,6 +7,8 @@
 # build.opensuse.org, not here). What this does to it:
 #   - prints what the package holds and its metadata, so a failed or odd
 #     build can be explained from the workflow log alone;
+#   - removes a git bridge (<scmsync>, from "SCM/CI integration" in the web
+#     UI), which refuses any commit that does not come from that repository;
 #   - turns a linked package (_link, from "branch" or "link" in the web UI)
 #     into one with sources of its own, since committing files on top of a
 #     link commits them as changes to the other package's sources;
@@ -35,6 +37,17 @@ echo "::endgroup::"
 
 if echo "$meta" | grep -q "<disable"; then
     echo "::warning::$project/$package disables some builds in its metadata (<disable>). They stay disabled; check https://build.opensuse.org/package/show/$project/$package if a distribution is missing."
+fi
+
+# A package created with "SCM/CI integration" on build.opensuse.org mirrors a
+# git repository (<scmsync> in its metadata) and refuses every commit made any
+# other way ("Can not change files in SCM bridged packages", HTTP 403). This
+# job is the one source of the package's files, so the bridge goes.
+if echo "$meta" | grep -q "<scmsync>"; then
+    echo "::warning::$project/$package mirrored a git repository (<scmsync>). Removing the bridge so this release can commit its own sources."
+    echo "$meta" | sed '/<scmsync>/d' > "${TMPDIR:-/tmp}/obs-meta-$package.xml"
+    osc meta pkg "$project" "$package" -F "${TMPDIR:-/tmp}/obs-meta-$package.xml"
+    rm -f "${TMPDIR:-/tmp}/obs-meta-$package.xml"
 fi
 
 if echo "$listing" | grep -q 'name="_link"'; then
