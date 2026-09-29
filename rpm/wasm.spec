@@ -5,7 +5,7 @@
 #
 
 Name:           wasm-cli
-Version:        2.2.1
+Version:        2.3.0
 Release:        1%{?dist}
 Summary:        Web App System Management CLI Tool
 License:        AGPL-3.0-or-later
@@ -296,6 +296,12 @@ if [ -f /etc/systemd/system/wasm-web.service ]; then
 fi
 
 %changelog
+* Tue Sep 29 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 2.3.0-1
+- The console in English and Spanish, with notifications in either language
+- Recipes: WordPress (PHP-FPM, MariaDB), Uptime Kuma, Umami and n8n, with pinned or checksummed sources
+- PHP-FPM applications: a confined pool per application, a fastcgi site that follows the release, a health gate on the pool
+- Export and import an application; read Vercel, Railway, Render and Heroku configuration
+- The update notice reports the version this server can install from its own package repository
 * Mon Sep 28 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 2.2.1-1
 - GitHub App creation works on a server without a public hooks URL: the App is created without events, which are switched on once hooks are exposed
 * Mon Sep 28 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 2.2.0-1
