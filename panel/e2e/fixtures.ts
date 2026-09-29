@@ -51,11 +51,30 @@ function python(): string {
   return existsSync(venv) ? venv : "python3";
 }
 
+export interface StartConsoleServerOptions {
+  /**
+   * Extra environment variables for this process alone, such as `NOUST_E2E_FLEET_APP` (the
+   * fleet's node app, see console_server.py's `seed_fleet_node_app`). Never mutates
+   * `process.env`: two servers started for the same test, a node and a central, must never
+   * see each other's overrides.
+   */
+  env?: Record<string, string>;
+  /**
+   * Written to standard input and closed: `--seal`'s passphrase (console_server.py reads it
+   * from standard input, never argv, the way `noust central seal` does). Omitted, standard
+   * input is closed empty, as it always was before this option existed.
+   */
+  stdin?: string;
+}
+
 /**
  * Starts `scripts/console_server.py` and waits for the JSON line it prints once it accepts
  * connections.
  */
-export async function startConsoleServer(args: readonly string[] = []): Promise<RunningServer> {
+export async function startConsoleServer(
+  args: readonly string[] = [],
+  options: StartConsoleServerOptions = {},
+): Promise<RunningServer> {
   // NOUST_E2E_STATIC points the backend at a private build (see console_server.py
   // --static-dir), so parallel work on the console never serves another's chunks.
   const staticDir = process.env.NOUST_E2E_STATIC;
@@ -64,9 +83,13 @@ export async function startConsoleServer(args: readonly string[] = []): Promise<
   const extra = [...(staticDir ? ["--static-dir", staticDir] : []), ...(hostname ? ["--hostname", hostname] : [])];
   const child = spawn(python(), [SERVER_SCRIPT, ...extra, ...args], {
     cwd: REPO,
-    stdio: ["ignore", "pipe", "pipe"],
-    env: { ...process.env, PYTHONUNBUFFERED: "1" },
+    stdio: ["pipe", "pipe", "pipe"],
+    env: { ...process.env, PYTHONUNBUFFERED: "1", ...options.env },
   });
+  // Closed at once with nothing written when no --seal passphrase is given: the same "a
+  // read blocks on nothing but EOF" a process never meant to read standard input sees from
+  // /dev/null, so every caller that predates this option keeps behaving exactly as before.
+  child.stdin.end(options.stdin);
   let stderr = "";
   child.stderr.setEncoding("utf8");
   child.stderr.on("data", (chunk: string) => {

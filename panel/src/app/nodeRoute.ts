@@ -43,6 +43,24 @@ function decodeSegment(value: string): string | null {
 }
 
 /**
+ * The node an address-bar-form console path names, and the plain path without it:
+ * `/n/web-2/apps` is `{ node: "web-2", pathname: "/apps" }`. For a caller that has to build
+ * `navigate({ to, search })` itself rather than hand the address to `navigate({ href })`:
+ * TanStack Router's `buildLocation` rewrites only the pathname half of a location built from
+ * an `href` (`nodeRewrite.input`'s own pathname survives, but what it added to the query
+ * string does not), so a "next" address typed or documented in the `/n/{node}/...` form -
+ * LoginForm's, in particular - loses the node silently if handed to `navigate({ href })`
+ * directly. A path already in the router's own form (`/apps?node=web-2`, wherever it came
+ * from) needs none of this: `navigate({ href })` keeps its query string exactly.
+ */
+export function nodeOfConsolePath(pathname: string): { node: string | null; pathname: string } {
+  const match = NODE_PATH.exec(pathname);
+  if (match === null) return { node: null, pathname };
+  const node = decodeSegment(match[1] ?? "");
+  return node === null ? { node: null, pathname } : { node, pathname: match[2] ?? "/" };
+}
+
+/**
  * The server a search object names: the router's parsed search, where a numeric-looking
  * name may already have been read as a number.
  */

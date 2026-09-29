@@ -1,1 +1,0 @@
-import{C as e,P as t}from"./documentTitle-8r-w03_W.js";var n={all:[`certs`],details:[`cert`],detail:e=>[`cert`,e]},r=()=>t({queryKey:n.all,queryFn:({signal:t})=>e(`get`,`/api/certs`,{signal:t})});export{r as n,n as t};

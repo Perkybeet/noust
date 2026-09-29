@@ -7,6 +7,7 @@ import type { SyntheticEvent } from "react";
 import { isApiError } from "../../api/client";
 import { login, sessionQuery } from "../../api/queries/auth";
 import { announce } from "../../app/Announcer";
+import { nodeOfConsolePath } from "../../app/nodeRoute";
 import { Button } from "../../components/ui/Button";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
@@ -109,7 +110,12 @@ export function LoginForm({ next, expired }: LoginFormProps) {
       await login(step === "token" ? { token, bearer: false } : { token, bearer: false, totp_code: code.trim() });
       await queryClient.query({ ...sessionQuery(), staleTime: 0 });
       announce(t("auth.signedIn"));
-      await navigate({ href: next, replace: true });
+      // `next` may name a node the address-bar way (`/n/web-2/apps`), which `navigate({
+      // href })` would land on stripped of its node (see nodeOfConsolePath): built as `{ to,
+      // search }` instead whenever it does, so a link to a node's page still opens there
+      // once its owner has signed in.
+      const { node, pathname } = nodeOfConsolePath(next);
+      await navigate(node === null ? { href: next, replace: true } : { to: pathname, search: { node }, replace: true });
     } catch (error: unknown) {
       if (!isApiError(error)) {
         setFailure(describeError(error));

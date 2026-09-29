@@ -1,0 +1,1 @@
+import{C as e,P as t}from"./documentTitle-DbZSdOOl.js";var n={all:[`metrics`],latest:[`metrics`,`latest`],catalogue:[`metrics`,`catalogue`],series:(e,t)=>[`metrics`,`series`,e,{window:t}]},r=(r,i)=>t({queryKey:n.series(r,i),queryFn:({signal:t})=>e(`get`,`/api/metrics/{metric}`,{params:{metric:r},query:{window:i},signal:t})});export{r as n,n as t};

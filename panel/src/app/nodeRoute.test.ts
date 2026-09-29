@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isCentralOnlyPath, nodeFromSearch, nodeRewrite, serverPath, switchTarget, validateNodeSearch } from "./nodeRoute";
+import { isCentralOnlyPath, nodeFromSearch, nodeOfConsolePath, nodeRewrite, serverPath, switchTarget, validateNodeSearch } from "./nodeRoute";
 
 function input(href: string): string {
   const url = new URL(href, "http://console.test");
@@ -62,6 +62,16 @@ describe("the node in the URL", () => {
     expect(validateNodeSearch({ node: "" })).toEqual({});
     expect(validateNodeSearch({})).toEqual({});
     expect(validateNodeSearch({ node: { evil: true } })).toEqual({});
+  });
+
+  it("splits an address-bar path into the node it names and the plain path, for a caller that cannot trust navigate({ href })", () => {
+    expect(nodeOfConsolePath("/n/web-2/apps/shop.example.com/logs")).toEqual({ node: "web-2", pathname: "/apps/shop.example.com/logs" });
+    expect(nodeOfConsolePath("/n/web-2")).toEqual({ node: "web-2", pathname: "/" });
+    expect(nodeOfConsolePath("/n/web-2/")).toEqual({ node: "web-2", pathname: "/" });
+    // Already the router's own form, or of the central's only: nothing to split out.
+    expect(nodeOfConsolePath("/apps?node=web-2")).toEqual({ node: null, pathname: "/apps?node=web-2" });
+    expect(nodeOfConsolePath("/apps/shop.example.com")).toEqual({ node: null, pathname: "/apps/shop.example.com" });
+    expect(nodeOfConsolePath("/")).toEqual({ node: null, pathname: "/" });
   });
 
   it("builds the address of a page on a server", () => {

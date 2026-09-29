@@ -48,6 +48,14 @@ import re
 import shutil
 import signal
 import socket
+
+# Only for the fleet's --seal bootstrap (see seal_sandbox_before_serving): a real,
+# throwaway process that seals a sandbox's secrets before this one serves it, so this
+# process never learns the passphrase itself and starts up genuinely locked. Nothing
+# this script serves ever runs through it - noust.core.runner.CommandRunner still is,
+# via the fake installed below - and CLAUDE.md's rule 1 is about src/noust, not this
+# development and test-only script.
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -67,6 +75,14 @@ REPO = Path(__file__).resolve().parent.parent
 #: Most commands a :class:`ConsoleRunner` remembers. It runs for as long as a
 #: developer leaves it up, and an unbounded call log is a slow memory leak.
 CALL_HISTORY = 256
+
+#: Names a domain this server should seed as its own single application, so a
+#: fleet E2E test (panel/e2e/fleet.spec.ts) can tell, from the Apps page alone,
+#: that it is reading this server's node and not the central's cache of it. An
+#: environment variable, not a flag: it is set once by the Playwright fixture that
+#: starts a node, never typed by a developer, and keeping it off the CLI's surface
+#: keeps it out of everything that only ever runs one console_server.py.
+FLEET_NODE_APP_ENV = "NOUST_E2E_FLEET_APP"
 
 #: Seconds uvicorn waits for open connections at shutdown. The event stream
 #: never ends by itself, so without a bound a Ctrl+C would wait for the tab.
@@ -149,6 +165,38 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             "report this hostname from the machine strip instead of this machine's own "
             "(development and screenshots only)"
         ),
+    )
+    parser.add_argument(
+        "--central-role",
+        choices=("server", "hub"),
+        default=None,
+        help="set central.role in the written config (the fleet's E2E suite only)",
+    )
+    parser.add_argument(
+        "--seal",
+        action="store_true",
+        help=(
+            "seal this central's secrets before it serves, with a passphrase read from "
+            "standard input (never argv); this process never unlocks them itself, so it "
+            "starts genuinely locked, as a central restarted after 'noust central seal' "
+            "does (the fleet's E2E suite only)"
+        ),
+    )
+    parser.add_argument(
+        "--fleet-node",
+        action="append",
+        default=[],
+        metavar="NAME=HOST:PORT",
+        help=(
+            "register, on this central, a node console already serving at HOST:PORT "
+            "under NAME, without ssh - see join_fleet_node() (the fleet's E2E suite only)"
+        ),
+    )
+    parser.add_argument(
+        "--internal-seal",
+        metavar="SANDBOX_ROOT",
+        default=None,
+        help=argparse.SUPPRESS,
     )
     args = parser.parse_args(argv)
     try:
@@ -399,16 +447,19 @@ def redirect_system_paths(sandbox: Sandbox) -> None:
         directory.mkdir(parents=True, exist_ok=True)
 
 
-def write_config(sandbox: Sandbox) -> None:
+def write_config(sandbox: Sandbox, *, central_role: str | None = None) -> None:
     """
     Write the Noust configuration the sandboxed machine runs with.
 
     Args:
         sandbox: The sandbox.
+        central_role: ``central.role`` to write (``server`` or ``hub``), for the
+            fleet's E2E suite; omitted, this server has none, which is the same
+            as ``server`` (see ``noust.central.role``).
     """
     import yaml
 
-    config = {
+    config: dict[str, Any] = {
         "apps_directory": str(sandbox.apps_dir),
         "webserver": "nginx",
         "service_user": "www-data",
@@ -417,6 +468,8 @@ def write_config(sandbox: Sandbox) -> None:
         "logging": {"level": "info", "file": str(sandbox.var / "log" / "noust" / "noust.log")},
         "backup": {"directory": str(sandbox.backup_dir), "max_per_app": 10},
     }
+    if central_role is not None:
+        config["central"] = {"role": central_role}
     sandbox.config_file.write_text(yaml.safe_dump(config, sort_keys=True), encoding="utf-8")
     sandbox.config_file.chmod(0o600)
 
@@ -616,6 +669,9 @@ INSTALLED_PROGRAMS = (
     "tar",
     # Backup destinations copy over rclone; the model answers it from a directory per remote.
     "rclone",
+    # The fleet's own key pair (NodeKeys.ensure_keypair), faked in ConsoleRunner
+    # below: this sandbox never opens a real SSH connection with it.
+    "ssh-keygen",
 )
 
 #: What each database client prints for ``--version``.
@@ -930,6 +986,38 @@ def make_runner(
                 subject = _git_commit_subject_line(args)
                 if subject is not None:
                     return ok(args, subject + "\n")
+            if program == "ssh-keygen":
+                return self._ssh_keygen(args)
+            return ok(args)
+
+        @staticmethod
+        def _ssh_keygen(args: tuple[str, ...]) -> CommandResult:
+            """
+            Fake the fleet's own key pair (``NodeKeys.ensure_keypair``).
+
+            Writes a structurally valid ed25519 pair, exactly as
+            ``tests.fleet_support.KeygenRunner`` already does for pytest (rule 3: one
+            implementation, reused here rather than copied). No real key material is
+            needed: this console never opens a real SSH connection with it - see
+            ``make_loopback_tunnels`` - so nothing ever reads these files for their
+            cryptographic content, only for their shape and for the fingerprint the
+            fleet's join code carries.
+            """
+            from tests.fleet_support import ed25519_line
+
+            if "-f" not in args:
+                return ok(args)
+            path = Path(args[args.index("-f") + 1])
+            comment = args[args.index("-C") + 1] if "-C" in args else ""
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(
+                "-----BEGIN OPENSSH PRIVATE KEY-----\nfake\n-----END OPENSSH PRIVATE KEY-----\n"
+            )
+            path.chmod(0o600)
+            # Deterministic within this process, and different per node name (the
+            # comment noust always passes), which is all a fingerprint needs here.
+            seed = hash(str(path)) & 0xFFFF
+            Path(f"{path}.pub").write_text(ed25519_line(seed, comment) + "\n")
             return ok(args)
 
         def _systemctl(self, args: tuple[str, ...]) -> CommandResult:
@@ -5342,6 +5430,48 @@ def seed_exportable_app(sandbox: Sandbox) -> None:
         )
 
 
+def seed_fleet_node_app(
+    sandbox: Sandbox,
+    units: dict[str, Unit],
+    ports: dict[str, int],
+    domains: dict[str, str],
+    domain: str,
+) -> None:
+    """
+    Seed one running application that exists on this server alone.
+
+    Read from :data:`FLEET_NODE_APP_ENV`, set only by the Playwright fixture that
+    starts a fleet's node (panel/e2e/fleet.spec.ts): the central's own seed
+    (:func:`seed_machine`) never has this domain, so once the console switches to
+    this server, seeing it is proof the page just read this server's API, not a
+    cache of the one the operator was on before.
+
+    Args:
+        sandbox: The sandbox.
+        units: The modelled units, mutated in place.
+        ports: Each unit's port, mutated in place.
+        domains: Each unit's domain, mutated in place.
+        domain: The application's domain.
+    """
+    from noust.core.store import App, get_store
+    from noust.core.utils import domain_to_app_name
+
+    root = sandbox.apps_dir / domain_to_app_name(domain)
+    root.mkdir(parents=True, exist_ok=True)
+    app = App(
+        domain=domain,
+        app_type="nodejs",
+        source=f"https://github.com/example-org/{domain_to_app_name(domain)}.git",
+        branch="main",
+        port=41990,
+        app_path=str(root),
+        status="running",
+        ssl_enabled=True,
+        layout="inplace",
+    )
+    _tabs_register(sandbox, get_store(), units, ports, domains, app, working_directory=root)
+
+
 def seed_release_23(sandbox: Sandbox) -> None:
     """
     Seed what the 2.3 screens need beyond the machine seeded before them.
@@ -5463,6 +5593,218 @@ def use_fixed_hostname(hostname: str) -> None:
     auth_api.socket = fixed  # type: ignore[assignment]
 
 
+# ---------------------------------------------------------------------------
+# The fleet: a central and a node as two real processes, without ssh
+# ---------------------------------------------------------------------------
+#
+# Playwright's fleet suite runs two of these servers - a "central" and a "node" -
+# and needs the central to reach the node exactly as it would in production: a real
+# HTTP request, with the real fleet token, answered by the node's real API. The one
+# thing missing on purpose is ssh: the sandbox has no sshd, no `authorized_keys` and
+# no root shell to authorize a key against, and none of that is worth modelling to
+# prove the fleet works. What follows replaces exactly the two things ssh would
+# otherwise be needed for - `noust fleet authorize` reading this machine's own SSH
+# host key and installing a key in `authorized_keys`, and the central's tunnel
+# turning a node's name into a local port - and nothing else: the token is minted by
+# the real TokenManager.create_fleet_token, the join code is the real JoinCode, and
+# registration is the real NodeManager.add, which is what a locked central's
+# _require_unlocked still refuses, and what a stopped node still fails against with a
+# genuine connection error. None of this is reachable from `noust.web.api`; it is
+# mounted only here, from this script, and ships in no wheel, deb, rpm or container.
+
+#: Where a node's test-only route mints a join code (see mount_fleet_test_seam).
+#: Never a real Noust path: '__test__' names it unmistakably, for anyone reading a
+#: request log wondering why a "node" answers something noust.web.api does not have.
+FLEET_TEST_MINT_PATH = "/__test__/fleet/mint-join-code"
+
+
+def mount_fleet_test_seam(app: Any, *, console_port: int) -> None:
+    """
+    Add the one route that stands in for ``noust fleet authorize`` on a node.
+
+    Real ``noust fleet authorize`` reads this machine's own SSH host key from
+    ``/etc/ssh`` and installs a restricted line in the SSH user's
+    ``authorized_keys``; a sandboxed, unprivileged test process may do neither. Both
+    are about ssh, which this fleet E2E setup does not use at all (see the module
+    comment above), so this route does only what is left: mint a fleet token, on this
+    node's own store, with the very method production issues one with
+    (:meth:`noust.web.auth.TokenManager.create_fleet_token`), and encode it in a real
+    :class:`noust.fleet.joincode.JoinCode`, exactly as ``authorize()`` would return one.
+
+    Mounted unconditionally - it is inert until a central's ``--fleet-node`` calls
+    it - so a plain ``console_server.py`` run is unaffected.
+
+    Args:
+        app: The FastAPI app this node serves.
+        console_port: This node's own bound port, embedded in the join code
+            exactly as ``noust fleet authorize`` fills in the console's real port.
+    """
+    from fastapi import Body
+
+    from noust import __version__
+    from noust.fleet.authorize import next_token_name
+    from noust.fleet.joincode import JoinCode
+    from noust.fleet.models import parse_public_key
+    from noust.web.server import get_token_manager
+    from tests.fleet_support import ed25519_line
+
+    # Not called inline in the signature below (ruff B008): a route's parameter defaults
+    # are evaluated once, at import time, same as this is, so there is no difference but
+    # the lint rule, which exists for defaults that are NOT meant to run once.
+    body_default = Body(...)
+
+    @app.post(FLEET_TEST_MINT_PATH, include_in_schema=False)
+    def mint_join_code(body: dict[str, Any] = body_default) -> dict[str, str]:
+        """Mint a fleet token and a join code for the central named in the body."""
+        central = str(body["central_name"])
+        node_name = str(body["node_name"])
+        central_key = parse_public_key(str(body["central_key"]), what="central key")
+        tokens = get_token_manager()
+        issued = tokens.create_fleet_token(next_token_name(tokens, central))
+        # A structurally valid host key nothing ever checks: the loopback seam
+        # (set_loopback_for_testing) never opens ssh, so nothing ever verifies it
+        # against a real one.
+        host_key = ed25519_line(hash(node_name) & 0xFFFF, "")
+        code = JoinCode(
+            ssh_host_key=host_key,
+            ssh_user="root",
+            ssh_port=22,
+            console_port=console_port,
+            token=str(issued["token"]),
+            noust_version=__version__,
+            central_key_fp=central_key.fingerprint,
+            node_name=node_name,
+            token_name=str(issued["name"]),
+            central=central,
+        )
+        return {"join_code": code.encode()}
+
+
+def join_fleet_node(entries: list[str]) -> None:
+    """
+    Register, on this central, every node named by ``--fleet-node NAME=HOST:PORT``.
+
+    Ties together three pieces of real product code across two real processes, the
+    only fake being the one line of ``noust.fleet.tunnels.set_loopback_for_testing``
+    that stands in for ssh (see that function):
+
+    1. this central generates its own key pair for the node
+       (:meth:`noust.fleet.nodes.NodeManager.central_public_key`; real
+       ``ssh-keygen``, faked by :class:`ConsoleRunner` above only because this
+       sandbox has no real one to run and never opens the connection it is for);
+    2. it asks the node's test seam to mint a join code with that key
+       (:data:`FLEET_TEST_MINT_PATH`), over a genuine HTTP request to the node's
+       own, already-running API;
+    3. it registers the node with :meth:`noust.fleet.nodes.NodeManager.add`,
+       exactly as ``noust node add`` or ``POST /api/nodes`` would: it pins the
+       (fake) host key, stores the (real) token, saves the record, and then asks
+       the node's real API for its version, through the tunnel manager - which,
+       with the loopback seam set first, answers with the node's real address
+       instead of dialling ssh, so what follows is a genuine HTTP call, with the
+       genuine fleet token, straight to that node's own FastAPI process. A locked
+       central's ``_require_unlocked`` still refuses every node (checked before
+       the seam), and a stopped node still fails this with a real connection error.
+
+    Must run after ``set_runner`` installs the fake ``ssh-keygen`` and before the
+    server starts accepting connections that might ask for this node's tunnel.
+
+    Args:
+        entries: ``["web-2=127.0.0.1:41234", ...]``, as ``--fleet-node`` collected them.
+
+    Raises:
+        SystemExit: When an entry is not ``NAME=HOST:PORT``, so a typo in a test
+            fails at start-up rather than in a request three tests later.
+    """
+    import httpx
+
+    from noust.fleet.models import central_name
+    from noust.fleet.nodes import NodeManager
+    from noust.fleet.tunnels import set_loopback_for_testing
+
+    manager = NodeManager()
+    this_central = central_name()
+
+    for entry in entries:
+        name, sep, address = entry.partition("=")
+        host, hsep, port_text = address.partition(":")
+        if not sep or not hsep or not name or not port_text.isdigit():
+            raise SystemExit(f"console_server: --fleet-node wants NAME=HOST:PORT, not {entry!r}")
+        port = int(port_text)
+        set_loopback_for_testing(name, port)
+        public_key = manager.central_public_key(name)
+        with httpx.Client(timeout=10.0, trust_env=False) as client:
+            response = client.post(
+                f"http://{host}:{port}{FLEET_TEST_MINT_PATH}",
+                json={"central_name": this_central, "central_key": public_key, "node_name": name},
+            )
+            response.raise_for_status()
+            join_code = response.json()["join_code"]
+        manager.add(name, ssh_target=f"root@{host}", join_code=join_code)
+
+
+def seal_sandbox_before_serving(sandbox: Sandbox) -> None:
+    """
+    Seal this sandbox's secrets in a throwaway subprocess, before this one serves.
+
+    :func:`noust.core.sealing.unlock` (which :func:`noust.core.sealing.seal_store`
+    also calls, on success) remembers the derived keys in the *calling process*, so
+    the process that goes on to serve requests has to be a different one for it to
+    start genuinely locked - exactly like a central started after ``noust central
+    seal`` on a previous run, never given the passphrase this run. The passphrase is
+    read from standard input here, and passed to the child the same way, never in
+    argv (see ``noust.cli.commands.central._read_passphrase``, which this mirrors).
+
+    Args:
+        sandbox: The sandbox, already prepared and with its config written.
+
+    Raises:
+        SystemExit: When standard input holds no usable passphrase, or the
+            bootstrap subprocess fails (its stderr is included).
+    """
+    from noust.core.sealing import MIN_PASSPHRASE_LENGTH
+
+    passphrase = sys.stdin.readline().rstrip("\r\n")
+    if len(passphrase) < MIN_PASSPHRASE_LENGTH:
+        raise SystemExit(
+            f"console_server: --seal needs a passphrase of {MIN_PASSPHRASE_LENGTH}+ "
+            "characters on standard input"
+        )
+    result = subprocess.run(
+        [sys.executable, str(Path(__file__).resolve()), "--internal-seal", str(sandbox.root)],
+        input=passphrase,
+        text=True,
+        capture_output=True,
+        timeout=30,
+    )
+    if result.returncode != 0:
+        raise SystemExit(f"console_server: sealing the sandbox failed:\n{result.stderr}")
+
+
+def run_internal_seal(sandbox_root: Path) -> int:
+    """
+    Seal an already-prepared sandbox's secrets: the ``--internal-seal`` entry point.
+
+    Never invoked directly; :func:`seal_sandbox_before_serving` runs this same
+    script with this flag as a short-lived child, precisely so the sealing happens
+    outside the process that goes on to serve. See that function's docstring.
+
+    Args:
+        sandbox_root: The sandbox the parent process already created and prepared.
+
+    Returns:
+        0.
+    """
+    sandbox = Sandbox(sandbox_root)
+    prepare_environment(sandbox)
+    redirect_system_paths(sandbox)
+    from noust.core import sealing
+    from noust.core.secrets import secrets_dir
+
+    passphrase = sys.stdin.readline().rstrip("\r\n")
+    sealing.seal_store(secrets_dir(), passphrase)
+    return 0
+
+
 def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     """
     Seed the machine and serve the panel until interrupted.
@@ -5479,7 +5821,7 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     from noust.web.server import create_app, get_token_manager
 
     redirect_system_paths(sandbox)
-    write_config(sandbox)
+    write_config(sandbox, central_role=args.central_role)
     forbid_real_processes()
     set_fs(make_sandbox_filesystem(sandbox))
 
@@ -5494,18 +5836,45 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     # Managers report progress on stdout, which belongs to the one JSON line
     # the caller parses.
     with contextlib.redirect_stdout(sys.stderr):
-        seeded_units, seeded_ports, seeded_domains, seeded_certs = seed_machine(
-            sandbox, expired_certificate=args.expired_certificate
-        )
-        if args.misplaced_backups:
-            seed_misplaced_backups(sandbox)
+        if args.central_role == "hub":
+            # A hub deploys nothing itself: seed_machine's seed is a server's - an
+            # application, cron jobs, backups - and creating any of it would hit the
+            # same noust.central.require_server_role guard a real hub answers with
+            # (RoleError). Nothing the fleet's E2E coverage needs of a hub reads it;
+            # the store still has to exist, which is otherwise seed_machine's doing.
+            from noust.core.store import get_store
+
+            get_store(sandbox.store_file)
+            seeded_units: dict[str, Unit] = {}
+            seeded_ports: dict[str, int] = {}
+            seeded_domains: dict[str, str] = {}
+            seeded_certs: list[str] = []
+        else:
+            seeded_units, seeded_ports, seeded_domains, seeded_certs = seed_machine(
+                sandbox, expired_certificate=args.expired_certificate
+            )
+            if args.misplaced_backups:
+                seed_misplaced_backups(sandbox)
     model_telegram_bot_api()
     units.update(seeded_units)
     ports.update(seeded_ports)
     domains.update(seeded_domains)
     certs.extend(seeded_certs)
-    with contextlib.redirect_stdout(sys.stderr):
-        seed_exportable_app(sandbox)
+    if args.central_role != "hub":
+        with contextlib.redirect_stdout(sys.stderr):
+            seed_exportable_app(sandbox)
+    fleet_node_app = os.environ.get(FLEET_NODE_APP_ENV)
+    if fleet_node_app:
+        with contextlib.redirect_stdout(sys.stderr):
+            seed_fleet_node_app(sandbox, units, ports, domains, fleet_node_app)
+
+    # Sealed last, once every seed above has finished writing whatever secrets it
+    # needed to (a GitHub app's private key, and so on): sealing before seeding, the
+    # way an earlier version of this function did, left seeding itself refused by the
+    # very store it was trying to write to. A real central seals only after it holds
+    # the secrets it will manage, which this now matches - see seal_sandbox_before_serving.
+    if args.seal:
+        seal_sandbox_before_serving(sandbox)
 
     config = SecurityConfig(
         host=args.host,
@@ -5528,6 +5897,11 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     sock = bind(args.host, args.port)
     host, port = sock.getsockname()[:2]
     display_host = f"[{host}]" if ":" in host else host
+    # Inert unless a central's --fleet-node calls it: see the module comment above
+    # mount_fleet_test_seam for why this - and only this - is mounted unconditionally.
+    mount_fleet_test_seam(app, console_port=port)
+    if args.fleet_node:
+        join_fleet_node(args.fleet_node)
     server = uvicorn.Server(
         uvicorn.Config(
             app,
@@ -5573,6 +5947,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         The exit status.
     """
     args = parse_args(argv)
+    if args.internal_seal is not None:
+        return run_internal_seal(Path(args.internal_seal))
     sandbox = Sandbox(Path(tempfile.mkdtemp(prefix="noust-console-")).resolve())
     try:
         prepare_environment(sandbox)
