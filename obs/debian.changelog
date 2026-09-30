@@ -1,3 +1,9 @@
+noust (3.1.9-1) unstable; urgency=medium
+
+  * The fleet summary's applications tile shows every application (static and stopped ones included), with the running ones below, so it matches the Applications tab
+
+ -- Yago Lopez Prado <yago.lopez.adeje@gmail.com>  Wed, 30 Sep 2026 22:38:55 +0000
+
 noust (3.1.8-1) unstable; urgency=medium
 
   * An operating system update whose unit finds nothing left to install (Ubuntu phases updates in and out between two looks) is recorded as completed instead of failing with no record; asked directly, it says there is nothing to install

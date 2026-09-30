@@ -10,7 +10,7 @@
 #
 
 Name:           noust
-Version:        3.1.8
+Version:        3.1.9
 Release:        1%{?dist}
 Summary:        Deploy and manage web applications on Linux servers
 License:        AGPL-3.0-or-later
@@ -390,6 +390,8 @@ if [ -f /etc/systemd/system/wasm-web.service ]; then
 fi
 
 %changelog
+* Wed Sep 30 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.9-1
+- The fleet summary's applications tile shows every application (static and stopped ones included), with the running ones below, so it matches the Applications tab
 * Wed Sep 30 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.8-1
 - An operating system update whose unit finds nothing left to install (Ubuntu phases updates in and out between two looks) is recorded as completed instead of failing with no record; asked directly, it says there is nothing to install
 * Wed Sep 30 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.7-1
