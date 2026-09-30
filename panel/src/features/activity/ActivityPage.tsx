@@ -120,6 +120,9 @@ export function ActivityPage({ search, onSearchChange }: ActivityPageProps) {
   const auditHardError = includeAuditQuery && !auditForbidden && audit.isError && audit.data === undefined;
   const loaded = (!includeJobsQuery || jobs.data !== undefined) && (!includeAuditQuery || auditForbidden || audit.data !== undefined);
   const nothingYet = loaded && !filtered && merged.rows.length === 0;
+  // Before either source has answered, neither is complete, so the merge reports "more"; a
+  // "Load more" drawn under the skeleton would then be pushed down as the rows arrive.
+  const hasMore = loaded && merged.hasMore;
   const running = (active.data?.jobs ?? []).slice(0, RUNNING_SHOWN);
 
   const set = (patch: SearchPatch): void => {
@@ -188,7 +191,7 @@ export function ActivityPage({ search, onSearchChange }: ActivityPageProps) {
             ) : (
               <EmptyState
                 variant="inline"
-                title={merged.hasMore ? t("activity.noMatchYet") : t("activity.noMatch")}
+                title={hasMore ? t("activity.noMatchYet") : t("activity.noMatch")}
                 action={
                   <Button size="sm" variant="ghost" onClick={() => onSearchChange(search.kind !== undefined ? { kind: search.kind } : {})}>
                     {t("activity.clearFilters")}
@@ -198,7 +201,7 @@ export function ActivityPage({ search, onSearchChange }: ActivityPageProps) {
             )
           }
         />
-        {merged.hasMore ? (
+        {hasMore ? (
           <div>
             <Button
               size="sm"

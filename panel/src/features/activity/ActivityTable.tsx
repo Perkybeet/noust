@@ -14,6 +14,14 @@ import { parseTimestamp } from "../../lib/format";
 import { actionWords, actorSource, actorWords, detailOf, resourceWords, resultView, rowActor } from "./data";
 import type { ActivityJob, ActivityRow } from "./data";
 
+/**
+ * Rows drawn while the timeline loads: more than a desktop screen holds. A history's first
+ * page (up to 50 jobs and 30 audit entries) almost always runs past the fold, so what sits
+ * under the table ("Load more", the terminal hint) starts below it and does not slide down
+ * as the rows arrive; a short history only makes the table shorter.
+ */
+const SKELETON_ROWS = 20;
+
 export interface ActivityTableProps {
   rows: readonly ActivityRow[];
   caption: string;
@@ -138,7 +146,7 @@ export function ActivityTable({ rows, caption, loading = false, empty, onOpenJob
       getRowId={(row) => row.id}
       caption={caption}
       loading={loading}
-      skeletonRows={8}
+      skeletonRows={SKELETON_ROWS}
       rowActions={(row) =>
         row.kind === "job" ? (
           <IconButton label={t("activity.viewLogAria", { name: row.job.name })} icon={<ScrollText />} size="sm" onClick={() => onOpenJobLog(row.job)} />

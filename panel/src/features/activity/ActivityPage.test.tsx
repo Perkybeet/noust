@@ -147,6 +147,21 @@ describe("the activity timeline", () => {
     expect(asked).toContainEqual(["change", "config", "account"]);
   });
 
+  it("offers no \"Load more\" until both sources have answered", async () => {
+    // Before an answer neither source is complete, which the merge reads as "more": a button
+    // drawn under the skeleton would be pushed down the page when the rows arrive.
+    let answer: (response: Response) => void = () => undefined;
+    const { table } = await activityAt({ "GET /api/audit": () => new Promise<Response>((resolve) => (answer = resolve)) });
+    expect(table.querySelector("table")).toHaveAttribute("aria-busy", "true");
+    expect(screen.queryByRole("button", { name: "Load more" })).not.toBeInTheDocument();
+    await act(async () => {
+      answer(json(200, { items: [AUDIT_ENTRIES[0]], next_before: AUDIT_ENTRIES[0]?.timestamp }));
+      await Promise.resolve();
+    });
+    await within(table).findByText("Sign-in");
+    expect(screen.getByRole("button", { name: "Load more" })).toBeInTheDocument();
+  });
+
   it("names what an action was done to, not the API path", async () => {
     const { table } = await activityAt();
     await within(table).findByText("shop.example.com");
