@@ -60,6 +60,7 @@ from noust.deployers.monorepo import MonorepoDeployer
 from noust.deployers.php_fpm import control_pool
 from noust.deployers.registry import available_types
 from noust.managers.apache_manager import ApacheManager
+from noust.managers.database.service import OWN_DATABASE_TYPES, DatabaseService
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.recipes import RecipeError, get_recipe
@@ -206,6 +207,7 @@ def _create_app(
     env_secret_marks: dict[str, bool] | None = None,
     limits: ResourceLimits | None = None,
     initial_health: tuple[str | None, str | None, int | None] | None = None,
+    database: tuple[str, str | None] | None = None,
 ) -> int:
     """
     Deploy an application.
@@ -242,6 +244,10 @@ def _create_app(
         initial_health: ``(path, expect, timeout)`` a new application's
             health check starts with, so its first deployment's gate already
             asks it (an import's); None leaves the defaults.
+        database: ``(engine, name)`` of a database created before the first
+            build, its connection string written into the environment marked
+            secret (``--database``); the name None derives it from the
+            application. Kept, with how to drop it, when the deploy fails.
 
     Returns:
         Exit code.
@@ -250,6 +256,10 @@ def _create_app(
         NoustError: When validation or any deployment step fails.
     """
     domain = validate_domain(domain)
+    if database is not None and app_type in OWN_DATABASE_TYPES:
+        raise click.UsageError(
+            f"--database cannot be used with a {app_type} application: it provisions its own."
+        )
 
     if app_type in ("monorepo", "docker-compose"):
         # Refuses an explicit --layout releases for the types that have no
@@ -338,6 +348,14 @@ def _create_app(
             replace_existing=replace_existing,
         )
 
+    options = _import_options(env_secret_marks, limits, initial_health)
+    databases = DatabaseService(logger=logger) if database is not None else None
+    new_database = None
+    if databases is not None and database is not None:
+        engine, name = database
+        new_database = databases.prepare_for_new_app(domain, engine, name=name, env=env_vars)
+        options.update(new_database.configure_options(options.get("env_secret_marks")))
+
     deployer = get_deployer(app_type, verbose=logger.verbose)
     deployer.configure(
         domain=domain,
@@ -354,9 +372,21 @@ def _create_app(
         layout=layout or CONFIGURED,
         persistent_paths=list(persist) if persist else None,
         replace_existing=replace_existing,
-        **_import_options(env_secret_marks, limits, initial_health),
+        **options,
     )
-    deployer.deploy()
+    try:
+        deployer.deploy()
+    except NoustError as exc:
+        if databases is not None and new_database is not None:
+            databases.keep_after_failed_deploy(new_database, exc)
+        raise
+    if databases is not None and new_database is not None:
+        outcome = databases.link_new_app(new_database)
+        if outcome.env_vars:
+            logger.success(
+                f"Database {outcome.database} ({outcome.engine}) linked as "
+                f"{', '.join(outcome.env_vars)}"
+            )
 
     return 0
 
@@ -393,6 +423,28 @@ def _import_options(
             resource_limits_given=True,
         )
     return options
+
+
+def _parse_database(spec: str) -> tuple[str, str | None]:
+    """
+    Read ``--database ENGINE[:NAME]``.
+
+    Args:
+        spec: What was given.
+
+    Returns:
+        The engine and the name, None when it was left out.
+
+    Raises:
+        click.UsageError: When there is no engine.
+    """
+    engine, _, name = spec.partition(":")
+    if not engine.strip():
+        raise click.UsageError(
+            f"--database {spec!r} names no engine: give ENGINE or ENGINE:NAME, such as "
+            "postgresql or postgresql:shop."
+        )
+    return engine.strip(), name.strip() or None
 
 
 def _parse_env_pairs(pairs: tuple[str, ...]) -> dict[str, str]:
@@ -1636,6 +1688,14 @@ def cli() -> None:
 )
 @click.option("--no-database", is_flag=True, help="Skip database provisioning for a monorepo.")
 @click.option(
+    "--database",
+    "database_spec",
+    metavar="ENGINE[:NAME]",
+    help="Create a database for the application before its first build, owned by an "
+    "account of its own, with its connection string in the environment (DATABASE_URL, "
+    "REDIS_URL for Redis). NAME defaults to one derived from the domain. Not with --recipe.",
+)
+@click.option(
     "--compose-file",
     help="Compose file to use, relative to the project. Detected when omitted.",
 )
@@ -1682,6 +1742,7 @@ def create(
     subdomains: tuple[str, ...],
     workspaces: tuple[str, ...],
     no_database: bool,
+    database_spec: str | None,
     compose_file: str | None,
     compose_profiles: tuple[str, ...],
     layout: str | None,
@@ -1696,6 +1757,9 @@ def create(
     type, the database and the settings come from the recipe.
     """
     env_vars = _parse_env_pairs(env_pairs)
+    database = _parse_database(database_spec) if database_spec is not None else None
+    if recipe is not None and database is not None:
+        raise click.UsageError("--database cannot be used with --recipe: the recipe has its own.")
     if recipe is not None:
         _exit(
             _create_from_recipe(
@@ -1742,6 +1806,7 @@ def create(
             layout=layout,
             persist=persist,
             replace_existing=force,
+            database=database,
         ),
     )
 

@@ -1,0 +1,7 @@
+Core libraries or services have been updated since boot-up:
+  * kernel
+  * glibc
+  * systemd
+
+Reboot is required to fully utilize these updates.
+More information: https://access.redhat.com/solutions/27943

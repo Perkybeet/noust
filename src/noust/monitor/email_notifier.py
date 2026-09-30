@@ -1,5 +1,5 @@
 """
-Email delivery for monitor observations.
+Email delivery: the one SMTP implementation, and the monitor's observation report.
 
 Three properties matter here, and each maps to a defect this module used to
 have:
@@ -11,6 +11,15 @@ have:
   unencrypted connection puts the password on the wire; the notifier refuses.
 - **The password never reaches a log.** Server replies are echoed into error
   details, and some servers echo back what was sent, so details are redacted.
+
+There is one email path. An event notification (``noust.core.notifier``'s email
+channel), the monitor's process-observation report and the "send a test" button
+all build a :class:`~noust.core.notifications.model.Notification` and reach the
+server through :meth:`EmailNotifier.send_notification`, which lays it out with
+the one email renderer (:mod:`noust.core.notifications.render.email`): a
+``multipart/alternative`` message with a text part and a table-based HTML part,
+the wordmark attached inline, and the ``Date``, ``Message-ID``,
+``Auto-Submitted`` headers a well-behaved automatic message carries.
 """
 
 from __future__ import annotations
@@ -18,17 +27,22 @@ from __future__ import annotations
 import smtplib
 import socket
 import ssl
+import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from html import escape
-from typing import Any
+from email import policy
+from email.message import EmailMessage
+from email.utils import formataddr, formatdate
+from typing import cast
 
 from noust.core.config import Config
 from noust.core.exceptions import EmailError
 from noust.core.logger import Logger
 from noust.core.messages import Locale, message, normalize_locale
+from noust.core.notifications.composers import compose_observations, compose_test
+from noust.core.notifications.context import NotificationContext
+from noust.core.notifications.model import Fact, Notification, Section, State
+from noust.core.notifications.render import email as render_email
 from noust.monitor.models import SEVERITY_WARNING, ProcessObservation
 
 #: Deadline for every SMTP socket operation, in seconds. Long enough for a slow
@@ -101,16 +115,24 @@ class EmailContent:
         text: Plain text body.
         html: HTML body.
         headers: Extra headers to set.
+        images: Images the HTML refers to by ``cid:``, attached inline.
+        message_id: The local part of ``Message-ID``, when the caller wants
+            the message identifiable (the notification's own id); a fresh
+            one is made otherwise.
+        sender_name: The display name in ``From`` (``Noust (web-1)``).
     """
 
     subject: str
     text: str
     html: str
     headers: dict[str, str] = field(default_factory=dict)
+    images: Sequence[render_email.InlineImage] = ()
+    message_id: str | None = None
+    sender_name: str | None = None
 
 
 class EmailNotifier:
-    """Sends monitor observations by email."""
+    """Sends notifications and the monitor's observation report by email."""
 
     def __init__(
         self,
@@ -258,6 +280,44 @@ class EmailNotifier:
                 ),
             ) from exc
 
+    def _build_message(self, content: EmailContent) -> EmailMessage:
+        """
+        Assemble the MIME message of a rendered email.
+
+        A ``multipart/alternative`` with the text part first (RFC 2046: the
+        preferred part goes last) and the HTML after it, whose inline images
+        travel in a ``multipart/related`` next to it.
+
+        Args:
+            content: The rendered message.
+
+        Returns:
+            The message, with ``Date`` and ``Message-ID`` set.
+        """
+        sender = self.smtp_config.from_address or self.smtp_config.username
+        domain = sender.rpartition("@")[2] if "@" in sender else self._hostname()
+        mail = EmailMessage(policy=policy.SMTP)
+        mail["Subject"] = content.subject
+        mail["From"] = formataddr((content.sender_name, sender)) if content.sender_name else sender
+        mail["To"] = ", ".join(self.recipients)
+        mail["Date"] = formatdate(usegmt=True)
+        mail["Message-ID"] = f"<{content.message_id or uuid.uuid4()}@{domain}>"
+        for header, value in content.headers.items():
+            mail[header] = value
+        mail.set_content(content.text)
+        mail.add_alternative(content.html, subtype="html")
+        html_part = cast("list[EmailMessage]", mail.get_payload())[1]
+        for image in content.images:
+            html_part.add_related(
+                image.data,
+                "image",
+                image.subtype,
+                cid=f"<{image.cid}>",
+                filename=image.filename,
+                disposition="inline",
+            )
+        return mail
+
     def _send(self, content: EmailContent) -> bool:
         """
         Deliver a rendered message.
@@ -271,21 +331,13 @@ class EmailNotifier:
         Raises:
             EmailError: When the message could not be delivered.
         """
-        message = MIMEMultipart("alternative")
-        message["Subject"] = content.subject
-        message["From"] = self.smtp_config.from_address or self.smtp_config.username
-        message["To"] = ", ".join(self.recipients)
-        for header, value in content.headers.items():
-            message[header] = value
-        message.attach(MIMEText(content.text, "plain"))
-        message.attach(MIMEText(content.html, "html"))
-
+        mail = self._build_message(content)
         server = self._create_connection()
         try:
             server.sendmail(
                 self.smtp_config.from_address or self.smtp_config.username,
                 self.recipients,
-                message.as_string(),
+                mail.as_bytes(),
             )
         except (smtplib.SMTPException, TimeoutError, OSError) as exc:
             raise EmailError(
@@ -303,6 +355,46 @@ class EmailNotifier:
         self.logger.debug(f"Sent '{content.subject}' to {len(self.recipients)} recipient(s)")
         return True
 
+    def send_notification(self, notification: Notification) -> bool:
+        """
+        Lay a notification out as an email and send it.
+
+        The one way anything reaches the mail server: an event, the test
+        message and the observation report differ only in the notification.
+
+        Args:
+            notification: What to tell the recipients.
+
+        Returns:
+            True when the server accepted the message.
+
+        Raises:
+            EmailError: When the message could not be delivered.
+        """
+        return self._send(self.content_for(notification))
+
+    @staticmethod
+    def content_for(notification: Notification) -> EmailContent:
+        """
+        Render a notification into the message the transport sends.
+
+        Args:
+            notification: What to tell the recipients.
+
+        Returns:
+            The subject, both parts, the headers and the inline image.
+        """
+        rendered = render_email.render(notification)
+        return EmailContent(
+            subject=rendered.subject,
+            text=rendered.text,
+            html=rendered.html,
+            headers=rendered.headers,
+            images=rendered.images,
+            message_id=rendered.message_id,
+            sender_name=f"Noust ({notification.server})",
+        )
+
     def _hostname(self) -> str:
         """
         Return the machine name used in subjects and bodies.
@@ -315,6 +407,48 @@ class EmailNotifier:
         except OSError:
             return "unknown"
 
+    def _context(self) -> NotificationContext:
+        """
+        Who is speaking and in which language, for this notifier's own reports.
+
+        Returns:
+            The context of ``notifications.language`` and ``server.name``; the
+            report carries no link.
+        """
+        return NotificationContext.from_config(self.config)
+
+    def _observation_section(self, observation: ProcessObservation, locale: Locale) -> Section:
+        """
+        Args:
+            observation: One process the scan noted.
+            locale: The language of the labels.
+
+        Returns:
+            The block that describes it. What the scan and the kernel said
+            (the signal, the detail, the command line) stays verbatim.
+        """
+        process = observation.process
+        severity = message(
+            "severity.warning" if observation.severity == SEVERITY_WARNING else "severity.notice",
+            locale,
+        )
+        rows = [
+            Fact("signal", message("fact.signal", locale), observation.signal),
+            Fact("user", message("fact.user", locale), process.user),
+            Fact("cpu", message("fact.cpu", locale), f"{process.cpu_percent:.1f}%"),
+            Fact("memory", message("fact.memory", locale), f"{process.memory_percent:.1f}%"),
+            Fact("detail", message("fact.detail", locale), observation.detail),
+            Fact("command", message("fact.command", locale), process.command, mono=True),
+        ]
+        if process.parent_pid:
+            parent = f"{process.parent_name or '?'} (PID {process.parent_pid})"
+            rows.append(Fact("parent", message("fact.parent", locale), parent))
+        return Section(
+            heading=f"{severity}: {process.name} (PID {process.pid})",
+            rows=tuple(rows),
+            state=State.WARNING if observation.severity == SEVERITY_WARNING else State.INFO,
+        )
+
     def render_observations(self, observations: list[ProcessObservation]) -> EmailContent:
         """
         Render an observation report.
@@ -323,82 +457,17 @@ class EmailNotifier:
             observations: What the scan noticed.
 
         Returns:
-            The message to send.
+            The message to send: the same layout as every other notification.
         """
-        locale = self._locale()
-        hostname = self._hostname()
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        count = len(observations)
+        ctx = self._context()
         warnings = sum(1 for o in observations if o.severity == SEVERITY_WARNING)
-
-        subject = message("email_observations_subject", locale, count=count, hostname=hostname)
-        heading = message("email_observations_heading", locale)
-        server_line = message("email_server_line", locale, hostname=hostname)
-        time_line = message("email_time_line", locale, timestamp=timestamp)
-        noted_line = message(
-            "email_observations_noted_line", locale, count=count, warnings=warnings
+        report = compose_observations(
+            [self._observation_section(o, ctx.locale) for o in observations],
+            processes=len(observations),
+            warnings=warnings,
+            ctx=ctx,
         )
-        disclaimer = message("email_observations_disclaimer", locale)
-
-        lines = [
-            heading,
-            "=" * 60,
-            "",
-            server_line,
-            time_line,
-            noted_line,
-            "",
-            disclaimer,
-            "",
-            "-" * 60,
-        ]
-        for observation in observations:
-            process = observation.process
-            lines.extend(
-                [
-                    "",
-                    f"[{observation.severity.upper()}] {process.name} (PID {process.pid})",
-                    f"  Signal:  {observation.signal}",
-                    f"  User:    {process.user}",
-                    f"  CPU:     {process.cpu_percent:.1f}%",
-                    f"  Memory:  {process.memory_percent:.1f}%",
-                    f"  Detail:  {observation.detail}",
-                    f"  Command: {process.command}",
-                ]
-            )
-            if process.parent_pid:
-                lines.append(f"  Parent:  {process.parent_name or '?'} (PID {process.parent_pid})")
-
-        rows = "".join(
-            f"""
-        <tr>
-            <td>{o.severity.upper()}</td>
-            <td>{_escape(o.process.name)} (PID {o.process.pid})</td>
-            <td>{o.process.user}</td>
-            <td>{o.process.cpu_percent:.1f}%</td>
-            <td>{o.process.memory_percent:.1f}%</td>
-            <td>{_escape(o.signal)}: {_escape(o.detail)}<br>
-                <code>{_escape(o.process.command)}</code></td>
-        </tr>"""
-            for o in observations
-        )
-
-        html = f"""<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><title>{escape(subject)}</title></head>
-<body style="font-family: system-ui, sans-serif; color: #222;">
-    <h2>{escape(heading)}</h2>
-    <p>{escape(server_line)}<br>
-       {escape(time_line)}<br>
-       {escape(noted_line)}</p>
-    <p>{escape(disclaimer)}</p>
-    <table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse;">
-        <tr><th>Severity</th><th>Process</th><th>User</th><th>CPU</th><th>Memory</th><th>Why</th></tr>{rows}
-    </table>
-</body>
-</html>"""
-
-        return EmailContent(subject=subject, text="\n".join(lines), html=html)
+        return self.content_for(report)
 
     def send_observation_alert(self, observations: list[ProcessObservation]) -> bool:
         """
@@ -432,48 +501,4 @@ class EmailNotifier:
         Raises:
             EmailError: When delivery fails.
         """
-        locale = self._locale()
-        hostname = self._hostname()
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        subject = message("email_test_subject", locale, hostname=hostname)
-        heading = message("email_test_heading", locale)
-        server_line = message("email_server_line", locale, hostname=hostname)
-        time_line = message("email_time_line", locale, timestamp=timestamp)
-        body = message("email_test_body", locale)
-
-        text = f"{heading}\n{'=' * len(heading)}\n\n{server_line}\n{time_line}\n\n{body}"
-        html = f"""<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><title>{escape(heading)}</title></head>
-<body style="font-family: system-ui, sans-serif; color: #222;">
-    <h2>{escape(heading)}</h2>
-    <p>{escape(server_line)}<br>
-       {escape(time_line)}</p>
-    <p>{escape(body)}</p>
-</body>
-</html>"""
-
-        return self._send(
-            EmailContent(
-                subject=subject,
-                text=text,
-                html=html,
-            )
-        )
-
-
-def _escape(value: Any) -> str:
-    """
-    Escape a value for inclusion in the HTML body.
-
-    Command lines come from other users on the machine and must not be able to
-    inject markup into a report an administrator opens.
-
-    Args:
-        value: The value to render.
-
-    Returns:
-        The escaped string.
-    """
-    return escape(str(value), quote=True)
+        return self.send_notification(compose_test("email", self._context()))

@@ -15,6 +15,10 @@ line and ``-F /dev/null``, so neither the operator's ``~/.ssh/config`` nor the
 system's can redirect a node, add an agent, or relax host key checking. The
 host key is checked against the node's own pinned ``known_hosts`` under a
 fixed alias, strictly: a changed key stops the tunnel and says so, verbatim.
+The algorithms are pinned too (:data:`PINNED_ALGORITHMS`): ed25519 host keys,
+a post-quantum hybrid or X25519 key exchange, and AEAD ciphers only - checked
+once against what this central's ssh client knows (``ssh -Q``), so an older
+client drops what it lacks instead of refusing every tunnel.
 
 On a central whose secrets are sealed, a locked process dials nothing: every
 node key is ciphertext until the operator unlocks it. Once unlocked, ssh is
@@ -27,6 +31,7 @@ from __future__ import annotations
 
 import atexit
 import contextlib
+import re
 import socket
 import threading
 import time
@@ -41,6 +46,7 @@ from noust.core.exceptions import NodeError, NodeRefusedError, NodeUnreachableEr
 from noust.core.runner import CommandRunner, ProcessHandle, get_runner
 from noust.core.store import NodeRecord, NoustStore, get_store
 from noust.fleet.keys import NodeKeys, host_key_alias
+from noust.fleet.models import parse_public_key
 
 #: Close a tunnel nothing has used for this long.
 IDLE_SECONDS = 600.0
@@ -66,6 +72,75 @@ SERVER_ALIVE_COUNT = 3
 CONNECT_TIMEOUT = 10
 
 LOOPBACK = "127.0.0.1"
+
+#: What a central's tunnel may negotiate, strongest first. ed25519 is the only
+#: host key the join code pins; sntrup761x25519 is post-quantum hybrid (OpenSSH
+#: 8.5+), curve25519-sha256 the classic fallback every node has (OpenSSH 7.4+,
+#: and a node needs 7.8 for its key line anyway); the ciphers are AEAD, so the
+#: MACs only matter if one ever is not, and then only encrypt-then-MAC.
+PINNED_ALGORITHMS: dict[str, tuple[str, ...]] = {
+    "HostKeyAlgorithms": ("ssh-ed25519",),
+    "KexAlgorithms": ("sntrup761x25519-sha512@openssh.com", "curve25519-sha256"),
+    "Ciphers": ("chacha20-poly1305@openssh.com", "aes256-gcm@openssh.com"),
+    "MACs": ("hmac-sha2-512-etm@openssh.com", "hmac-sha2-256-etm@openssh.com"),
+}
+
+#: ``ssh -Q`` query for each pinned option.
+_ALGORITHM_QUERIES = {
+    "HostKeyAlgorithms": "key",
+    "KexAlgorithms": "kex",
+    "Ciphers": "cipher",
+    "MACs": "mac",
+}
+
+#: How long ``ssh -Q`` may take. It is instantaneous; this bounds a hang.
+QUERY_TIMEOUT = 10
+
+
+def ssh_algorithms(runner: CommandRunner) -> dict[str, str]:
+    """
+    Choose the pinned algorithms this central's ssh client supports.
+
+    Args:
+        runner: The runner ``ssh -Q`` goes through.
+
+    Returns:
+        Option name to the comma-separated list to pass. When ssh cannot say
+        what it supports, the whole pinned list: ssh then names what it does
+        not know, verbatim, rather than this guessing.
+
+    Raises:
+        NodeError: When ssh supports none of an option's pinned algorithms.
+    """
+    chosen: dict[str, str] = {}
+    for option, wanted in PINNED_ALGORITHMS.items():
+        result = runner.run(["ssh", "-Q", _ALGORITHM_QUERIES[option]], timeout=QUERY_TIMEOUT)
+        known = {line.strip() for line in result.stdout.splitlines() if line.strip()}
+        if not result.success or not known:
+            chosen[option] = ",".join(wanted)
+            continue
+        usable = [name for name in wanted if name in known]
+        if not usable:
+            raise NodeError(
+                f"This central's ssh client supports none of the {option} Noust pins",
+                details=(
+                    f"Noust uses {', '.join(wanted)}. Upgrade the OpenSSH client on the "
+                    "central (8.5 or later has them all), then try again."
+                ),
+            )
+        chosen[option] = ",".join(usable)
+    return chosen
+
+
+def _default_algorithms() -> dict[str, str]:
+    """
+    The pinned algorithms, every one of them.
+
+    Returns:
+        Option name to its comma-separated list.
+    """
+    return {option: ",".join(names) for option, names in PINNED_ALGORITHMS.items()}
+
 
 #: Test seam: node name to a local port its tunnel resolves to without dialling ssh.
 #: Empty in every process but the one ``scripts/console_server.py`` builds for the fleet's
@@ -134,7 +209,12 @@ def port_accepts(port: int) -> bool:
 
 
 def ssh_argv(
-    record: NodeRecord, local_port: int, *, identity: Path, known_hosts: Path
+    record: NodeRecord,
+    local_port: int,
+    *,
+    identity: Path,
+    known_hosts: Path,
+    algorithms: dict[str, str] | None = None,
 ) -> list[str]:
     """
     Build the tunnel's ssh command line.
@@ -148,6 +228,7 @@ def ssh_argv(
         identity: The node's private key file, as ssh can read it
             (:meth:`NodeKeys.usable_private_key`).
         known_hosts: The node's pinned ``known_hosts``, likewise.
+        algorithms: :func:`ssh_algorithms`' choice; every pinned one when None.
 
     Returns:
         The argv.
@@ -172,6 +253,7 @@ def ssh_argv(
         "ForwardX11": "no",
         "PermitLocalCommand": "no",
         "LogLevel": "ERROR",
+        **(algorithms if algorithms is not None else _default_algorithms()),
     }
     argv = [
         "ssh",
@@ -230,12 +312,65 @@ def explain_ssh_failure(stderr: str, record: NodeRecord, exit_code: int | None) 
         return f"SSH to {where} timed out"
     if "address already in use" in text or "cannot listen to port" in text:
         return "The tunnel's local port was taken by something else; the next attempt uses another"
+    if "no matching" in text and ("found" in text or "method" in text):
+        return (
+            f"{record.name}'s sshd offers none of the algorithms this central pins "
+            "(ed25519 host keys, sntrup761x25519 or curve25519 key exchange, AEAD "
+            "ciphers); upgrade OpenSSH on the node"
+        )
     if "dry run" in text:
         return f"The tunnel to {record.name} was not opened: this is a dry run"
     if "command not found" in text:
         return "The ssh client is not installed on this central"
     status = f" (exit {exit_code})" if exit_code is not None else ""
     return f"The SSH tunnel to {record.name} ({where}) failed{status}"
+
+
+#: What ssh prints about the key a node presented instead of the pinned one.
+_PRESENTED_FINGERPRINT = re.compile(r"sent by the remote host is\s+(SHA256:[A-Za-z0-9+/=]+)")
+
+
+def host_key_changed(stderr: str) -> bool:
+    """
+    Report whether ssh's own words say the node presented another host key.
+
+    Args:
+        stderr: ssh's standard error.
+
+    Returns:
+        True for a mismatch with the pinned key. The pin is written from the
+        store before every connection, so a failed verification is a change,
+        never a key that was simply not known yet.
+    """
+    text = stderr.lower()
+    return "remote host identification has changed" in text or (
+        "host key verification failed" in text
+    )
+
+
+def host_key_fingerprints(stderr: str, record: NodeRecord) -> tuple[str | None, str | None]:
+    """
+    Name the pinned host key and the one the node presented, by fingerprint.
+
+    Args:
+        stderr: ssh's standard error.
+        record: The node, whose ``host_key`` is the pinned ``known_hosts`` line.
+
+    Returns:
+        ``(pinned, presented)``, each ``SHA256:...`` or None when it cannot
+        be read.
+    """
+    pinned: str | None = None
+    words = record.host_key.split()
+    for index, word in enumerate(words[:-1]):
+        if word.startswith("ssh-"):
+            try:
+                pinned = parse_public_key(f"{word} {words[index + 1]}").fingerprint
+            except (NodeError, ValueError):
+                pinned = None
+            break
+    match = _PRESENTED_FINGERPRINT.search(stderr)
+    return pinned, match.group(1).rstrip(".") if match else None
 
 
 def key_was_revoked(stderr: str) -> bool:
@@ -281,6 +416,9 @@ class _Tunnel:
     failures: int = 0
     retry_at: float = 0.0
     last_error: str | None = None
+    #: The operator was told this node presented another host key; told once
+    #: until a tunnel opens again.
+    host_key_alerted: bool = False
 
 
 class TunnelManager:
@@ -328,6 +466,7 @@ class TunnelManager:
         self._tunnels: dict[str, _Tunnel] = {}
         self._reaper: threading.Thread | None = None
         self._stopping = threading.Event()
+        self._algorithms: dict[str, str] | None = None
 
     @property
     def runner(self) -> CommandRunner:
@@ -496,6 +635,9 @@ class TunnelManager:
                 the same way a node's HTTP 401 is, so nothing keeps
                 presenting it on an endless backoff.
         """
+        if self._algorithms is None:
+            # Once per manager: the client does not change under a running central.
+            self._algorithms = ssh_algorithms(self.runner)
         local_port = self._free_port()
         handle = self.runner.start(
             ssh_argv(
@@ -503,6 +645,7 @@ class TunnelManager:
                 local_port,
                 identity=self.keys.usable_private_key(node),
                 known_hosts=self.keys.usable_known_hosts(node),
+                algorithms=self._algorithms,
             )
         )
         deadline = self._clock() + self.ready_timeout
@@ -511,6 +654,8 @@ class TunnelManager:
                 stderr = handle.stderr_tail()
                 self._failed(tunnel, stderr)
                 message = explain_ssh_failure(stderr, record, handle.exit_code)
+                if host_key_changed(stderr):
+                    self._alert_host_key(tunnel, record, stderr)
                 if key_was_revoked(stderr):
                     # Mirrors NodeClient.mark_refused(): persisted at the
                     # point of failure, not left to whichever caller's
@@ -536,7 +681,41 @@ class TunnelManager:
         tunnel.last_used = self._clock()
         tunnel.failures = 0
         tunnel.retry_at = 0.0
+        tunnel.host_key_alerted = False
         return LOOPBACK, local_port
+
+    def _alert_host_key(self, tunnel: _Tunnel, record: NodeRecord, stderr: str) -> None:
+        """
+        Tell the operator a node presented another host key, once per change.
+
+        The tunnel stays closed whatever happens here; every retry of the
+        backoff would otherwise be another alert about the same key.
+
+        Args:
+            tunnel: The node's entry, which remembers it was told.
+            record: The node.
+            stderr: ssh's standard error.
+        """
+        if tunnel.host_key_alerted:
+            return
+        tunnel.host_key_alerted = True
+        from noust.core import audit
+        from noust.core.notifications.fleet import notify_node_host_key_changed
+
+        pinned, presented = host_key_fingerprints(stderr, record)
+        audit.record(
+            "fleet.tunnel.hostkey_changed",
+            target=f"node:{record.name}",
+            outcome="failure",
+            details={"pinned": pinned, "presented": presented},
+        )
+        notify_node_host_key_changed(
+            record.name,
+            address=f"{record.ssh_user}@{record.ssh_host}:{record.ssh_port}",
+            pinned=pinned,
+            presented=presented,
+            command=f"noust node rekey {record.name}",
+        )
 
     def _failed(self, tunnel: _Tunnel, error: str) -> None:
         """

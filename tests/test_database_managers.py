@@ -223,6 +223,7 @@ def test_postgres_backup_streams_through_capture_to_file_not_through_run(
 
     info = postgres.backup("shop", compress=False)
 
+    # 3.1: new dumps are custom format (-Fc), compressed by pg_dump itself.
     expected = (
         "runuser",
         "-u",
@@ -230,10 +231,11 @@ def test_postgres_backup_streams_through_capture_to_file_not_through_run(
         "--",
         "pg_dump",
         "--no-password",
-        "--format=plain",
+        "--format=custom",
         "shop",
     )
     assert runner.written[info.path] == expected
+    assert info.path.name.endswith(".dump")
     # database_exists is the only run() call: the dump added none, so it cannot
     # have been buffered through Python and written by the manager itself.
     assert len(runner.inputs) - inputs_before == 1
@@ -515,6 +517,7 @@ def test_mysql_backup_argv(mysql: MySQLManager, runner: FakeRunner) -> None:
         "--single-transaction",
         "--routines",
         "--triggers",
+        "--events",
         "shop",
     )
     assert info.path.read_text() == NASTY_DUMP
@@ -546,6 +549,7 @@ def test_mysql_restore_reads_the_staged_file_through_the_client(
 
 def test_mysql_install_argv(mysql: MySQLManager, runner: FakeRunner) -> None:
     """Installation prefers MariaDB and hardens the result."""
+    runner.only_knows("mysql", "mysqldump", "apt-get")
     mysql.install()
 
     assert runner.calls[0] == ("apt-get", "update")
@@ -653,36 +657,58 @@ def test_redis_argv_table(redis: RedisManager, runner: FakeRunner) -> None:
 def test_redis_restore_installs_the_snapshot_and_fixes_ownership(
     redis: RedisManager, runner: FakeRunner, tmp_path: Path
 ) -> None:
-    """A restore stops the server, replaces dump.rdb and starts it again."""
+    """A restore takes a safety copy, stops the server, replaces dump.rdb and starts it."""
+    runner.script(["redis-cli", "-n", "0", "INFO"], stdout="rdb_bgsave_in_progress:0")
     snapshot = tmp_path / "snapshot.rdb"
     snapshot.write_bytes(b"\x00\x01binary")
 
-    redis.restore("all", snapshot)
+    outcome = redis.restore("all", snapshot)
 
     rdb = str(redis.DATA_DIR / "dump.rdb")
-    assert runner.calls[0] == ("systemctl", "stop", "redis-server")
-    assert runner.calls[1] == ("cp", str(snapshot), rdb)
-    assert runner.calls[2] == ("chown", "redis:redis", rdb)
+    stop = runner.calls.index(("systemctl", "stop", "redis-server"))
+    assert ("cat", rdb) in runner.calls[:stop], "the safety copy comes before the stop"
+    assert runner.calls[stop + 1] == ("cp", str(snapshot), rdb)
+    assert runner.calls[stop + 2] == ("chown", "redis:redis", rdb)
     assert runner.calls[-1] == ("systemctl", "start", "redis-server")
+    assert outcome.safety_copy is not None and outcome.safety_copy.exists()
 
 
-def test_redis_restore_does_not_claim_success_when_ownership_fails(
+def test_redis_restore_puts_the_previous_snapshot_back_when_ownership_fails(
     redis: RedisManager, runner: FakeRunner, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """
     The chown and chmod used to run with their results discarded, so a
     restore that left dump.rdb owned by root was still logged as "Restored".
+    Now it is a failure, the safety copy is tried back, and the server is
+    started either way.
     """
     snapshot = tmp_path / "snapshot.rdb"
     snapshot.write_bytes(b"\x00\x01binary")
     runner.script(["chown"], exit_code=1, stderr="chown: invalid user: 'redis:redis'")
 
-    redis.restore("all", snapshot)
+    with pytest.raises(DatabaseBackupError) as excinfo:
+        redis.restore("all", snapshot)
 
     assert "Restored Redis from" not in capsys.readouterr().out
+    assert "safety copy is kept" in excinfo.value.details
     assert runner.ran("systemctl", "start", "redis-server"), (
         "the service must still be started even when the hand-over failed"
     )
+
+
+def test_redis_restore_is_refused_when_the_server_uses_the_append_only_file(
+    redis: RedisManager, runner: FakeRunner, tmp_path: Path
+) -> None:
+    """With appendonly yes Redis ignores dump.rdb; the restore says so and touches nothing."""
+    runner.script(["redis-cli", "-n", "0", "CONFIG", "GET", "appendonly"], stdout="appendonly\nyes")
+    snapshot = tmp_path / "snapshot.rdb"
+    snapshot.write_bytes(b"\x00\x01binary")
+
+    with pytest.raises(DatabaseBackupError) as excinfo:
+        redis.restore("all", snapshot)
+
+    assert "append-only" in str(excinfo.value)
+    assert not runner.ran("systemctl", "stop", "redis-server")
 
 
 # ==================== Privilege whitelist ====================
@@ -1298,7 +1324,8 @@ def test_each_engine_keeps_its_own_name_limits_and_suffixes() -> None:
     assert PostgresManager.MAX_DATABASE_NAME_LENGTH == 63
     assert PostgresManager.MAX_USER_NAME_LENGTH == 63
     assert MySQLManager.BACKUP_SUFFIX == ".sql"
-    assert PostgresManager.BACKUP_SUFFIX == ".sql"
+    # 3.1: PostgreSQL's new dumps are custom-format archives.
+    assert PostgresManager.BACKUP_SUFFIX == ".dump"
     assert MongoDBManager.BACKUP_SUFFIX == ".tar.gz"
     assert RedisManager.BACKUP_SUFFIX == ".rdb"
 

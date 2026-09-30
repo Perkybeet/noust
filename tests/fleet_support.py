@@ -91,15 +91,25 @@ def join_code(central_key: str, **overrides: Any) -> str:
 
 
 class KeygenRunner(FakeRunner):
-    """A FakeRunner whose ssh-keygen writes a key pair, as the real one does."""
+    """
+    A FakeRunner whose ssh-keygen writes a key pair, as the real one does.
+
+    Each pair is different (the first is always seed 99), so a rotation's new
+    key is never the old one.
+    """
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.generated = 0
 
     def run(self, argv: Sequence[str], **kwargs: Any) -> CommandResult:  # type: ignore[override]
         result = super().run(argv, **kwargs)
         if argv and argv[0] == "ssh-keygen" and result.success:
             path = Path(argv[argv.index("-f") + 1])
             comment = argv[argv.index("-C") + 1]
-            path.write_text("-----BEGIN OPENSSH PRIVATE KEY-----\nfake\n")
-            Path(f"{path}.pub").write_text(ed25519_line(99, comment) + "\n")
+            path.write_text(f"-----BEGIN OPENSSH PRIVATE KEY-----\nfake {self.generated}\n")
+            Path(f"{path}.pub").write_text(ed25519_line(99 + self.generated, comment) + "\n")
+            self.generated += 1
         return result
 
 
@@ -114,6 +124,7 @@ class FakeNode:
         revoked: Whether its fleet token was revoked.
         version: What it reports.
         responses: Path overrides: status and JSON body.
+        access: What ``GET /api/auth/fleet/self`` publishes; None answers 404, as 3.0 does.
     """
 
     token: str = TOKEN
@@ -121,6 +132,9 @@ class FakeNode:
     revoked: bool = False
     version: str = "3.0.1"
     responses: dict[str, tuple[int, Any]] = field(default_factory=dict)
+    access: dict[str, Any] | None = field(
+        default_factory=lambda: {"level": "admin", "host_access": False}
+    )
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         """
@@ -161,6 +175,10 @@ class FakeNode:
                     "total": 3,
                 },
             )
+        if path == "/api/auth/fleet/self":
+            if self.access is None:
+                return httpx.Response(404, json={"error": "not_found"})
+            return httpx.Response(200, json=self.access)
         if path == "/api/auth/fleet/revoke" and request.method == "POST":
             self.revoked = True
             return httpx.Response(200, json={"success": True})

@@ -12,6 +12,7 @@ server {
     listen 80;
     listen [::]:80;
     server_name {{ server_names | default(domain) }};
+    server_tokens off;
 
     # ACME challenge location for Let's Encrypt (webroot method)
     location /.well-known/acme-challenge/ {
@@ -30,6 +31,7 @@ server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
     server_name {{ server_names | default(domain) }};
+    server_tokens off;
 
     # SSL Configuration
     ssl_certificate {{ ssl_certificate | default('/etc/letsencrypt/live/' + domain + '/fullchain.pem') }};
@@ -52,8 +54,10 @@ server {
     # Security headers
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+{% if ssl and hsts %}
+    add_header Strict-Transport-Security "{{ hsts }}" always;
+{% endif %}
 
     # Gzip compression
     gzip on;

@@ -3,6 +3,5 @@
   "has-type": 2,
   "no-any-return": 3,
   "return-value": 2,
-  "unused-ignore": 2,
   "var-annotated": 2
 }

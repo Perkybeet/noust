@@ -1,0 +1,26 @@
+{
+  "deploy.rolled_back": {
+    "chat_id": "-1001234567890",
+    "text": "▲ Revertido · shop.example.com\nLa nueva versión no ha respondido a la comprobación de salud, así que la anterior vuelve a estar en servicio.\n\nServidor: web-1\nVersión: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nIniciado por: Webhook\nDuración: 1 min 12 s\nRevísalo con: noust diagnose shop.example.com\n\nÚltimas líneas del registro de shop-example-com:\n  Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\n  Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\n  Sep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\n  Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\n  Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n  20 líneas anteriores omitidas\n\nAbrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false
+  },
+  "cert.expired": {
+    "chat_id": "-1001234567890",
+    "text": "✕ Certificado caducado · shop.example.com\nCaducó hace 80 días (11 jul 2026).\n\nServidor: web-1\nCubre: shop.example.com, www.shop.example.com\nRenuévalo con: noust cert renew shop.example.com\n\nAbrir en la consola: https://console.example.com/n/web-1/domains",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false
+  },
+  "test": {
+    "chat_id": "-1001234567890",
+    "text": "○ Notificación de prueba · Telegram\nSi ves esto, el canal Telegram está bien configurado.\n\nServidor: web-1",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true
+  }
+}

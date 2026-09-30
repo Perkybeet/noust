@@ -86,6 +86,11 @@ case "$1" in
         if [ -f /etc/noust/config.yaml ] || [ -f /etc/wasm/config.yaml ]; then
             echo "Upgrading configuration with new defaults..."
             noust config upgrade --quiet 2>/dev/null || true
+            # Remove the settings no version reads any more (the old AI
+            # monitor's OpenAI key among them), as text and with a dated 0600
+            # copy first. It only ever removes what 'noust config show' lists
+            # as obsolete, and a file it cannot edit safely is left alone.
+            noust config clean --quiet 2>/dev/null || true
         fi
 
         # Rewrite the monitor unit for this version if it is enabled. Only
@@ -99,6 +104,17 @@ case "$1" in
             systemctl try-restart noust-monitor.service || true
         elif systemctl is-enabled wasm-monitor.service >/dev/null 2>&1; then
             systemctl try-restart wasm-monitor.service || true
+        fi
+
+        # The charts' history is recorded by the monitor, so a server gets it
+        # without the operator having to know: installed and enabled on a
+        # first install, and on an upgrade that finds none. It never overrides
+        # a decision - a monitor that is installed stays as it is, and one an
+        # operator disabled or removed stays off - and it does nothing where
+        # there is no systemd. 'noust monitor autoenable' makes that call in
+        # one place; it must not fail the package.
+        if [ -d /run/systemd/system ]; then
+            noust monitor autoenable >/dev/null 2>&1 || true
         fi
 
         # 'noust web enable' runs the console as a unit (wasm-web.service

@@ -1,0 +1,2542 @@
+{
+  "deploy.started": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000000",
+    "event": "deploy_started",
+    "code": "deploy.started",
+    "state": "progress",
+    "locale": "en",
+    "title": "Deploying: shop.example.com",
+    "summary": "Noust is building the new version and will tell you how it ends.",
+    "body": "Noust is building the new version and will tell you how it ends.\n\nServer: web-1\nCommit: a1b2c3d (main)\nStarted by: Webhook\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "commit",
+        "label": "Commit",
+        "value": "a1b2c3d (main)"
+      },
+      {
+        "key": "trigger",
+        "label": "Started by",
+        "value": "Webhook"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "excerpt": null
+  },
+  "deploy.succeeded": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000001",
+    "event": "deploy_success",
+    "code": "deploy.succeeded",
+    "state": "ok",
+    "locale": "en",
+    "title": "Deployed: shop.example.com",
+    "summary": "The new version is live.",
+    "body": "The new version is live.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 42 s\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "release",
+        "label": "Release",
+        "value": "20260929-104449"
+      },
+      {
+        "key": "commit",
+        "label": "Commit",
+        "value": "a1b2c3d (main): Fix cart total"
+      },
+      {
+        "key": "trigger",
+        "label": "Started by",
+        "value": "Webhook"
+      },
+      {
+        "key": "duration",
+        "label": "Duration",
+        "value": "42 s"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "excerpt": null
+  },
+  "deploy.failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000002",
+    "event": "deploy_failed",
+    "code": "deploy.failed",
+    "state": "failed",
+    "locale": "en",
+    "title": "Deploy failed: shop.example.com",
+    "summary": "It stopped at an error before the new version could take over.",
+    "body": "It stopped at an error before the new version could take over.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  npm run build failed\n  > shop@1.4.2 build\n  > next build\n  Failed to compile.\n  ./app/cart/page.tsx\n  Type error: Property 'total' does not exist on type 'Cart'.\n  npm error Lifecycle script `build` failed with error:\n  npm error code 1\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "release",
+        "label": "Release",
+        "value": "20260929-104449"
+      },
+      {
+        "key": "commit",
+        "label": "Commit",
+        "value": "a1b2c3d (main): Fix cart total"
+      },
+      {
+        "key": "trigger",
+        "label": "Started by",
+        "value": "Webhook"
+      },
+      {
+        "key": "duration",
+        "label": "Duration",
+        "value": "1 min 12 s"
+      },
+      {
+        "key": "inspect",
+        "label": "Inspect with",
+        "value": "noust diagnose shop.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "excerpt": {
+      "label": "What the system reported",
+      "lines": [
+        "npm run build failed",
+        "> shop@1.4.2 build",
+        "> next build",
+        "Failed to compile.",
+        "./app/cart/page.tsx",
+        "Type error: Property 'total' does not exist on type 'Cart'.",
+        "npm error Lifecycle script `build` failed with error:",
+        "npm error code 1"
+      ],
+      "omitted": 0
+    }
+  },
+  "deploy.rolled_back": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000003",
+    "event": "deploy_rolled_back",
+    "code": "deploy.rolled_back",
+    "state": "warning",
+    "locale": "en",
+    "title": "Rolled back: shop.example.com",
+    "summary": "The new version did not answer its health check, so the previous one is serving again.",
+    "body": "The new version did not answer its health check, so the previous one is serving again.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nLast lines of the journal of shop-example-com:\n  Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\n  Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\n  Sep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\n  Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\n  Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n  17 earlier lines omitted\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "release",
+        "label": "Release",
+        "value": "20260929-104449"
+      },
+      {
+        "key": "commit",
+        "label": "Commit",
+        "value": "a1b2c3d (main): Fix cart total"
+      },
+      {
+        "key": "trigger",
+        "label": "Started by",
+        "value": "Webhook"
+      },
+      {
+        "key": "duration",
+        "label": "Duration",
+        "value": "1 min 12 s"
+      },
+      {
+        "key": "inspect",
+        "label": "Inspect with",
+        "value": "noust diagnose shop.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "excerpt": {
+      "label": "Last lines of the journal of shop-example-com",
+      "lines": [
+        "Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.",
+        "Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE",
+        "Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.",
+        "Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.",
+        "Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).",
+        "Sep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start",
+        "Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004",
+        "Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.",
+        "Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE",
+        "Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.",
+        "Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4."
+      ],
+      "omitted": 17
+    }
+  },
+  "update.started": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000004",
+    "event": "deploy_started",
+    "code": "update.started",
+    "state": "progress",
+    "locale": "en",
+    "title": "Updating: shop.example.com",
+    "summary": "Noust is fetching and building the latest code and will tell you how it ends.",
+    "body": "Noust is fetching and building the latest code and will tell you how it ends.\n\nServer: web-1\nCommit: a1b2c3d (main)\nStarted by: Webhook\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "commit",
+        "label": "Commit",
+        "value": "a1b2c3d (main)"
+      },
+      {
+        "key": "trigger",
+        "label": "Started by",
+        "value": "Webhook"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "excerpt": null
+  },
+  "update.succeeded": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000005",
+    "event": "deploy_success",
+    "code": "update.succeeded",
+    "state": "ok",
+    "locale": "en",
+    "title": "Updated: shop.example.com",
+    "summary": "The application runs the new version.",
+    "body": "The application runs the new version.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 42 s\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "release",
+        "label": "Release",
+        "value": "20260929-104449"
+      },
+      {
+        "key": "commit",
+        "label": "Commit",
+        "value": "a1b2c3d (main): Fix cart total"
+      },
+      {
+        "key": "trigger",
+        "label": "Started by",
+        "value": "Webhook"
+      },
+      {
+        "key": "duration",
+        "label": "Duration",
+        "value": "42 s"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "excerpt": null
+  },
+  "update.failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000006",
+    "event": "deploy_failed",
+    "code": "update.failed",
+    "state": "failed",
+    "locale": "en",
+    "title": "Update failed: shop.example.com",
+    "summary": "It stopped at an error before the new version could take over.",
+    "body": "It stopped at an error before the new version could take over.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  npm run build failed\n  > shop@1.4.2 build\n  > next build\n  Failed to compile.\n  ./app/cart/page.tsx\n  Type error: Property 'total' does not exist on type 'Cart'.\n  npm error Lifecycle script `build` failed with error:\n  npm error code 1\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "release",
+        "label": "Release",
+        "value": "20260929-104449"
+      },
+      {
+        "key": "commit",
+        "label": "Commit",
+        "value": "a1b2c3d (main): Fix cart total"
+      },
+      {
+        "key": "trigger",
+        "label": "Started by",
+        "value": "Webhook"
+      },
+      {
+        "key": "duration",
+        "label": "Duration",
+        "value": "1 min 12 s"
+      },
+      {
+        "key": "inspect",
+        "label": "Inspect with",
+        "value": "noust diagnose shop.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "excerpt": {
+      "label": "What the system reported",
+      "lines": [
+        "npm run build failed",
+        "> shop@1.4.2 build",
+        "> next build",
+        "Failed to compile.",
+        "./app/cart/page.tsx",
+        "Type error: Property 'total' does not exist on type 'Cart'.",
+        "npm error Lifecycle script `build` failed with error:",
+        "npm error code 1"
+      ],
+      "omitted": 0
+    }
+  },
+  "update.rolled_back": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000007",
+    "event": "deploy_rolled_back",
+    "code": "update.rolled_back",
+    "state": "warning",
+    "locale": "en",
+    "title": "Rolled back: shop.example.com",
+    "summary": "The new version did not answer its health check, so the previous one is serving again.",
+    "body": "The new version did not answer its health check, so the previous one is serving again.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nLast lines of the journal of shop-example-com:\n  Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\n  Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\n  Sep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\n  Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\n  Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n  17 earlier lines omitted\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "release",
+        "label": "Release",
+        "value": "20260929-104449"
+      },
+      {
+        "key": "commit",
+        "label": "Commit",
+        "value": "a1b2c3d (main): Fix cart total"
+      },
+      {
+        "key": "trigger",
+        "label": "Started by",
+        "value": "Webhook"
+      },
+      {
+        "key": "duration",
+        "label": "Duration",
+        "value": "1 min 12 s"
+      },
+      {
+        "key": "inspect",
+        "label": "Inspect with",
+        "value": "noust diagnose shop.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "excerpt": {
+      "label": "Last lines of the journal of shop-example-com",
+      "lines": [
+        "Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.",
+        "Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE",
+        "Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.",
+        "Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.",
+        "Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).",
+        "Sep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start",
+        "Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004",
+        "Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.",
+        "Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE",
+        "Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.",
+        "Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4."
+      ],
+      "omitted": 17
+    }
+  },
+  "rollback.started": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000008",
+    "event": "deploy_started",
+    "code": "rollback.started",
+    "state": "progress",
+    "locale": "en",
+    "title": "Reverting: shop.example.com",
+    "summary": "Noust is putting an earlier version back and will tell you how it ends.",
+    "body": "Noust is putting an earlier version back and will tell you how it ends.\n\nServer: web-1\nCommit: a1b2c3d (main)\nStarted by: Webhook\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "commit",
+        "label": "Commit",
+        "value": "a1b2c3d (main)"
+      },
+      {
+        "key": "trigger",
+        "label": "Started by",
+        "value": "Webhook"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "excerpt": null
+  },
+  "rollback.succeeded": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000009",
+    "event": "deploy_success",
+    "code": "rollback.succeeded",
+    "state": "ok",
+    "locale": "en",
+    "title": "Reverted: shop.example.com",
+    "summary": "The earlier version is serving again.",
+    "body": "The earlier version is serving again.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 42 s\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "release",
+        "label": "Release",
+        "value": "20260929-104449"
+      },
+      {
+        "key": "commit",
+        "label": "Commit",
+        "value": "a1b2c3d (main): Fix cart total"
+      },
+      {
+        "key": "trigger",
+        "label": "Started by",
+        "value": "Webhook"
+      },
+      {
+        "key": "duration",
+        "label": "Duration",
+        "value": "42 s"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "excerpt": null
+  },
+  "rollback.failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000010",
+    "event": "deploy_failed",
+    "code": "rollback.failed",
+    "state": "failed",
+    "locale": "en",
+    "title": "Revert failed: shop.example.com",
+    "summary": "Going back stopped at an error before the earlier version could take over.",
+    "body": "Going back stopped at an error before the earlier version could take over.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  rollback step failed\n  systemctl: Job for shop-example-com.service failed\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "release",
+        "label": "Release",
+        "value": "20260929-104449"
+      },
+      {
+        "key": "commit",
+        "label": "Commit",
+        "value": "a1b2c3d (main): Fix cart total"
+      },
+      {
+        "key": "trigger",
+        "label": "Started by",
+        "value": "Webhook"
+      },
+      {
+        "key": "duration",
+        "label": "Duration",
+        "value": "1 min 12 s"
+      },
+      {
+        "key": "inspect",
+        "label": "Inspect with",
+        "value": "noust diagnose shop.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "excerpt": {
+      "label": "What the system reported",
+      "lines": [
+        "rollback step failed",
+        "systemctl: Job for shop-example-com.service failed"
+      ],
+      "omitted": 0
+    }
+  },
+  "rollback.rolled_back": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000011",
+    "event": "deploy_rolled_back",
+    "code": "rollback.rolled_back",
+    "state": "warning",
+    "locale": "en",
+    "title": "Revert failed: shop.example.com",
+    "summary": "The earlier version did not answer its health check, so the one serving before is serving again.",
+    "body": "The earlier version did not answer its health check, so the one serving before is serving again.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nLast lines of the journal of shop-example-com:\n  Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\n  Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\n  Sep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\n  Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\n  Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n  17 earlier lines omitted\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "release",
+        "label": "Release",
+        "value": "20260929-104449"
+      },
+      {
+        "key": "commit",
+        "label": "Commit",
+        "value": "a1b2c3d (main): Fix cart total"
+      },
+      {
+        "key": "trigger",
+        "label": "Started by",
+        "value": "Webhook"
+      },
+      {
+        "key": "duration",
+        "label": "Duration",
+        "value": "1 min 12 s"
+      },
+      {
+        "key": "inspect",
+        "label": "Inspect with",
+        "value": "noust diagnose shop.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "excerpt": {
+      "label": "Last lines of the journal of shop-example-com",
+      "lines": [
+        "Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.",
+        "Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE",
+        "Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.",
+        "Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.",
+        "Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).",
+        "Sep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start",
+        "Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004",
+        "Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.",
+        "Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE",
+        "Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.",
+        "Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4."
+      ],
+      "omitted": 17
+    }
+  },
+  "activate.started": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000012",
+    "event": "deploy_started",
+    "code": "activate.started",
+    "state": "progress",
+    "locale": "en",
+    "title": "Activating release: shop.example.com",
+    "summary": "Noust is switching to the chosen release and will tell you how it ends.",
+    "body": "Noust is switching to the chosen release and will tell you how it ends.\n\nServer: web-1\nCommit: a1b2c3d (main)\nStarted by: Webhook\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "commit",
+        "label": "Commit",
+        "value": "a1b2c3d (main)"
+      },
+      {
+        "key": "trigger",
+        "label": "Started by",
+        "value": "Webhook"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "excerpt": null
+  },
+  "activate.succeeded": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000013",
+    "event": "deploy_success",
+    "code": "activate.succeeded",
+    "state": "ok",
+    "locale": "en",
+    "title": "Release activated: shop.example.com",
+    "summary": "The chosen release is serving.",
+    "body": "The chosen release is serving.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 42 s\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "release",
+        "label": "Release",
+        "value": "20260929-104449"
+      },
+      {
+        "key": "commit",
+        "label": "Commit",
+        "value": "a1b2c3d (main): Fix cart total"
+      },
+      {
+        "key": "trigger",
+        "label": "Started by",
+        "value": "Webhook"
+      },
+      {
+        "key": "duration",
+        "label": "Duration",
+        "value": "42 s"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "excerpt": null
+  },
+  "activate.failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000014",
+    "event": "deploy_failed",
+    "code": "activate.failed",
+    "state": "failed",
+    "locale": "en",
+    "title": "Activation failed: shop.example.com",
+    "summary": "Switching stopped at an error before the chosen release could take over.",
+    "body": "Switching stopped at an error before the chosen release could take over.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  activate step failed\n  systemctl: Job for shop-example-com.service failed\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "release",
+        "label": "Release",
+        "value": "20260929-104449"
+      },
+      {
+        "key": "commit",
+        "label": "Commit",
+        "value": "a1b2c3d (main): Fix cart total"
+      },
+      {
+        "key": "trigger",
+        "label": "Started by",
+        "value": "Webhook"
+      },
+      {
+        "key": "duration",
+        "label": "Duration",
+        "value": "1 min 12 s"
+      },
+      {
+        "key": "inspect",
+        "label": "Inspect with",
+        "value": "noust diagnose shop.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "excerpt": {
+      "label": "What the system reported",
+      "lines": [
+        "activate step failed",
+        "systemctl: Job for shop-example-com.service failed"
+      ],
+      "omitted": 0
+    }
+  },
+  "activate.rolled_back": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000015",
+    "event": "deploy_rolled_back",
+    "code": "activate.rolled_back",
+    "state": "warning",
+    "locale": "en",
+    "title": "Activation failed: shop.example.com",
+    "summary": "The chosen release did not answer its health check, so the previous one is serving again.",
+    "body": "The chosen release did not answer its health check, so the previous one is serving again.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nLast lines of the journal of shop-example-com:\n  Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\n  Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\n  Sep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\n  Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\n  Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n  17 earlier lines omitted\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "release",
+        "label": "Release",
+        "value": "20260929-104449"
+      },
+      {
+        "key": "commit",
+        "label": "Commit",
+        "value": "a1b2c3d (main): Fix cart total"
+      },
+      {
+        "key": "trigger",
+        "label": "Started by",
+        "value": "Webhook"
+      },
+      {
+        "key": "duration",
+        "label": "Duration",
+        "value": "1 min 12 s"
+      },
+      {
+        "key": "inspect",
+        "label": "Inspect with",
+        "value": "noust diagnose shop.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "excerpt": {
+      "label": "Last lines of the journal of shop-example-com",
+      "lines": [
+        "Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.",
+        "Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE",
+        "Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.",
+        "Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.",
+        "Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).",
+        "Sep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start",
+        "Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004",
+        "Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.",
+        "Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE",
+        "Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.",
+        "Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4."
+      ],
+      "omitted": 17
+    }
+  },
+  "migrate.started": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000016",
+    "event": "deploy_started",
+    "code": "migrate.started",
+    "state": "progress",
+    "locale": "en",
+    "title": "Migrating to releases: shop.example.com",
+    "summary": "Noust is moving the application to releases and will tell you how it ends.",
+    "body": "Noust is moving the application to releases and will tell you how it ends.\n\nServer: web-1\nCommit: a1b2c3d (main)\nStarted by: Webhook\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "commit",
+        "label": "Commit",
+        "value": "a1b2c3d (main)"
+      },
+      {
+        "key": "trigger",
+        "label": "Started by",
+        "value": "Webhook"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "excerpt": null
+  },
+  "migrate.succeeded": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000017",
+    "event": "deploy_success",
+    "code": "migrate.succeeded",
+    "state": "ok",
+    "locale": "en",
+    "title": "Migrated to releases: shop.example.com",
+    "summary": "Every deploy now builds in its own release, and going back takes seconds.",
+    "body": "Every deploy now builds in its own release, and going back takes seconds.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 42 s\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "release",
+        "label": "Release",
+        "value": "20260929-104449"
+      },
+      {
+        "key": "commit",
+        "label": "Commit",
+        "value": "a1b2c3d (main): Fix cart total"
+      },
+      {
+        "key": "trigger",
+        "label": "Started by",
+        "value": "Webhook"
+      },
+      {
+        "key": "duration",
+        "label": "Duration",
+        "value": "42 s"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "excerpt": null
+  },
+  "migrate.failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000018",
+    "event": "deploy_failed",
+    "code": "migrate.failed",
+    "state": "failed",
+    "locale": "en",
+    "title": "Migration failed: shop.example.com",
+    "summary": "It stopped at an error; Noust puts the in-place layout back when that happens.",
+    "body": "It stopped at an error; Noust puts the in-place layout back when that happens.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  migrate step failed\n  systemctl: Job for shop-example-com.service failed\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "release",
+        "label": "Release",
+        "value": "20260929-104449"
+      },
+      {
+        "key": "commit",
+        "label": "Commit",
+        "value": "a1b2c3d (main): Fix cart total"
+      },
+      {
+        "key": "trigger",
+        "label": "Started by",
+        "value": "Webhook"
+      },
+      {
+        "key": "duration",
+        "label": "Duration",
+        "value": "1 min 12 s"
+      },
+      {
+        "key": "inspect",
+        "label": "Inspect with",
+        "value": "noust diagnose shop.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "excerpt": {
+      "label": "What the system reported",
+      "lines": [
+        "migrate step failed",
+        "systemctl: Job for shop-example-com.service failed"
+      ],
+      "omitted": 0
+    }
+  },
+  "restore.completed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000019",
+    "event": "restore_success",
+    "code": "restore.completed",
+    "state": "ok",
+    "locale": "en",
+    "title": "Restored: shop.example.com",
+    "summary": "The application's files are back as the backup had them.",
+    "body": "The application's files are back as the backup had them.\n\nServer: web-1\nBackup: 20260928-020000\n\nOpen in the console: https://console.example.com/n/web-1/backups",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "backup",
+        "label": "Backup",
+        "value": "20260928-020000"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "excerpt": null
+  },
+  "restore.failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000020",
+    "event": "restore_failed",
+    "code": "restore.failed",
+    "state": "failed",
+    "locale": "en",
+    "title": "Restore failed: shop.example.com",
+    "summary": "It stopped at an error, so the application's files may be only partly restored.",
+    "body": "It stopped at an error, so the application's files may be only partly restored.\n\nServer: web-1\nBackup: 20260928-020000\n\nWhat the system reported:\n  tar: Unexpected EOF in archive\n  tar: Error is not recoverable: exiting now\n\nOpen in the console: https://console.example.com/n/web-1/backups",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "backup",
+        "label": "Backup",
+        "value": "20260928-020000"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "excerpt": {
+      "label": "What the system reported",
+      "lines": [
+        "tar: Unexpected EOF in archive",
+        "tar: Error is not recoverable: exiting now"
+      ],
+      "omitted": 0
+    }
+  },
+  "backup.failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000021",
+    "event": "backup_failed",
+    "code": "backup.failed",
+    "state": "failed",
+    "locale": "en",
+    "title": "Backup failed: shop.example.com",
+    "summary": "No new copy of the application was saved.",
+    "body": "No new copy of the application was saved.\n\nServer: web-1\n\nWhat the system reported:\n  tar: /var/www/apps/shop-example-com/shared/uploads: Cannot write: No space left on device\n\nOpen in the console: https://console.example.com/n/web-1/backups",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "excerpt": {
+      "label": "What the system reported",
+      "lines": [
+        "tar: /var/www/apps/shop-example-com/shared/uploads: Cannot write: No space left on device"
+      ],
+      "omitted": 0
+    }
+  },
+  "backup.upload_failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000022",
+    "event": "backup_failed",
+    "code": "backup.upload_failed",
+    "state": "warning",
+    "locale": "en",
+    "title": "Backup upload failed: shop.example.com",
+    "summary": "The copy was kept on this server but could not be uploaded.",
+    "body": "The copy was kept on this server but could not be uploaded.\n\nServer: web-1\nDestination: s3-eu\n\nWhat the system reported:\n  2026/09/29 02:00:14 Failed to copy: AccessDenied: Access Denied\n      status code: 403\n\nOpen in the console: https://console.example.com/n/web-1/backups",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "destination",
+        "label": "Destination",
+        "value": "s3-eu"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "excerpt": {
+      "label": "What the system reported",
+      "lines": [
+        "2026/09/29 02:00:14 Failed to copy: AccessDenied: Access Denied",
+        "    status code: 403"
+      ],
+      "omitted": 0
+    }
+  },
+  "backup.schedule_missing": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000023",
+    "event": "backup_failed",
+    "code": "backup.schedule_missing",
+    "state": "warning",
+    "locale": "en",
+    "title": "Backup schedule missing: shop.example.com",
+    "summary": "The timer fired but Noust has no schedule stored for this application, so the backup ran with the default settings.",
+    "body": "The timer fired but Noust has no schedule stored for this application, so the backup ran with the default settings.\n\nServer: web-1\nSave it again with: noust backup schedule update shop.example.com\n\nOpen in the console: https://console.example.com/n/web-1/backups",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "reschedule",
+        "label": "Save it again with",
+        "value": "noust backup schedule update shop.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "excerpt": null
+  },
+  "backup.completed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000024",
+    "event": "backup_success",
+    "code": "backup.completed",
+    "state": "ok",
+    "locale": "en",
+    "title": "Backup completed: shop.example.com",
+    "summary": "A new copy of the application was saved.",
+    "body": "A new copy of the application was saved.\n\nServer: web-1\nBackup: 20260929-020000\nSize: 48.0 MB\nUploaded to: s3-eu\n\nOpen in the console: https://console.example.com/n/web-1/backups",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "backup",
+        "label": "Backup",
+        "value": "20260929-020000"
+      },
+      {
+        "key": "size",
+        "label": "Size",
+        "value": "48.0 MB"
+      },
+      {
+        "key": "destinations",
+        "label": "Uploaded to",
+        "value": "s3-eu"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "excerpt": null
+  },
+  "cert.expiring": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000025",
+    "event": "cert_expiring",
+    "code": "cert.expiring",
+    "state": "warning",
+    "locale": "en",
+    "title": "Certificate expiring: shop.example.com",
+    "summary": "Expires in 7 days (6 Oct 2026).",
+    "body": "Expires in 7 days (6 Oct 2026).\n\nServer: web-1\nCovers: shop.example.com, www.shop.example.com\nRenew with: noust cert renew shop.example.com\n\nOpen in the console: https://console.example.com/n/web-1/domains",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "covers",
+        "label": "Covers",
+        "value": "shop.example.com, www.shop.example.com"
+      },
+      {
+        "key": "renew",
+        "label": "Renew with",
+        "value": "noust cert renew shop.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ],
+    "excerpt": null
+  },
+  "cert.expired": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000026",
+    "event": "cert_expiring",
+    "code": "cert.expired",
+    "state": "failed",
+    "locale": "en",
+    "title": "Certificate expired: shop.example.com",
+    "summary": "Expired 80 days ago (11 Jul 2026).",
+    "body": "Expired 80 days ago (11 Jul 2026).\n\nServer: web-1\nCovers: shop.example.com, www.shop.example.com\nRenew with: noust cert renew shop.example.com\n\nOpen in the console: https://console.example.com/n/web-1/domains",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "covers",
+        "label": "Covers",
+        "value": "shop.example.com, www.shop.example.com"
+      },
+      {
+        "key": "renew",
+        "label": "Renew with",
+        "value": "noust cert renew shop.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ],
+    "excerpt": null
+  },
+  "unit.failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000027",
+    "event": "unit_failed",
+    "code": "unit.failed",
+    "state": "failed",
+    "locale": "en",
+    "title": "Service failed: shop-example-com",
+    "summary": "systemd marked it as failed.",
+    "body": "systemd marked it as failed.\n\nServer: web-1\nInspect with: journalctl -u shop-example-com -n 50\n\nLast lines of the journal of shop-example-com:\n  Sep 29 10:45:13 web-1 npm[48211]: > shop@1.4.2 start\n  Sep 29 10:45:13 web-1 npm[48211]: > next start -p 3004\n  Sep 29 10:45:14 web-1 npm[48227]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1.\n\nOpen in the console: https://console.example.com/n/web-1/server/services/shop-example-com",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "inspect",
+        "label": "Inspect with",
+        "value": "journalctl -u shop-example-com -n 50"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server/services/shop-example-com"
+      }
+    ],
+    "excerpt": {
+      "label": "Last lines of the journal of shop-example-com",
+      "lines": [
+        "Sep 29 10:45:13 web-1 npm[48211]: > shop@1.4.2 start",
+        "Sep 29 10:45:13 web-1 npm[48211]: > next start -p 3004",
+        "Sep 29 10:45:14 web-1 npm[48227]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.",
+        "Sep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE",
+        "Sep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.",
+        "Sep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1."
+      ],
+      "omitted": 0
+    }
+  },
+  "unit.crash_loop": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000028",
+    "event": "unit_failed",
+    "code": "unit.crash_loop",
+    "state": "failed",
+    "locale": "en",
+    "title": "Service crash-looping: shop-example-com",
+    "summary": "systemd restarted it 3 times since the last check and it still does not stay up.",
+    "body": "systemd restarted it 3 times since the last check and it still does not stay up.\n\nServer: web-1\nRestarts: 9\nInspect with: journalctl -u shop-example-com -n 50\n\nLast lines of the journal of shop-example-com:\n  Sep 29 10:45:14 web-1 npm[48227]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1.\n  Sep 29 10:45:18 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\n  Sep 29 10:45:19 web-1 npm[48287]: > shop@1.4.2 start\n  Sep 29 10:45:19 web-1 npm[48287]: > next start -p 3004\n  Sep 29 10:45:20 web-1 npm[48303]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:24 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 2.\n  3 earlier lines omitted\n\nOpen in the console: https://console.example.com/n/web-1/server/services/shop-example-com",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "restarts",
+        "label": "Restarts",
+        "value": "9"
+      },
+      {
+        "key": "inspect",
+        "label": "Inspect with",
+        "value": "journalctl -u shop-example-com -n 50"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server/services/shop-example-com"
+      }
+    ],
+    "excerpt": {
+      "label": "Last lines of the journal of shop-example-com",
+      "lines": [
+        "Sep 29 10:45:14 web-1 npm[48227]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.",
+        "Sep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE",
+        "Sep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.",
+        "Sep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1.",
+        "Sep 29 10:45:18 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).",
+        "Sep 29 10:45:19 web-1 npm[48287]: > shop@1.4.2 start",
+        "Sep 29 10:45:19 web-1 npm[48287]: > next start -p 3004",
+        "Sep 29 10:45:20 web-1 npm[48303]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.",
+        "Sep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE",
+        "Sep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.",
+        "Sep 29 10:45:24 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 2."
+      ],
+      "omitted": 3
+    }
+  },
+  "unit.stopped_on_failure": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000029",
+    "event": "unit_failed",
+    "code": "unit.stopped_on_failure",
+    "state": "failed",
+    "locale": "en",
+    "title": "Service stopped on a failure: shop-example-com",
+    "summary": "It stopped after a run that failed, and systemd is not restarting it.",
+    "body": "It stopped after a run that failed, and systemd is not restarting it.\n\nServer: web-1\nResult: signal\nExit status: 9\nInspect with: journalctl -u shop-example-com -n 50\n\nOpen in the console: https://console.example.com/n/web-1/server/services/shop-example-com",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "result",
+        "label": "Result",
+        "value": "signal"
+      },
+      {
+        "key": "exit_status",
+        "label": "Exit status",
+        "value": "9"
+      },
+      {
+        "key": "inspect",
+        "label": "Inspect with",
+        "value": "journalctl -u shop-example-com -n 50"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server/services/shop-example-com"
+      }
+    ],
+    "excerpt": null
+  },
+  "unit.recovered": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000030",
+    "event": "unit_failed",
+    "code": "unit.recovered",
+    "state": "ok",
+    "locale": "en",
+    "title": "Service recovered: shop-example-com",
+    "summary": "It is running again and has not restarted since the last check.",
+    "body": "It is running again and has not restarted since the last check.\n\nServer: web-1\n\nOpen in the console: https://console.example.com/n/web-1/server/services/shop-example-com",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server/services/shop-example-com"
+      }
+    ],
+    "excerpt": null
+  },
+  "disk.threshold": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000031",
+    "event": "disk_threshold",
+    "code": "disk.threshold",
+    "state": "warning",
+    "locale": "en",
+    "title": "Disk almost full: /",
+    "summary": "It is past the 90% alert threshold, and a full disk stops deployments, logs and databases on this server.",
+    "body": "It is past the 90% alert threshold, and a full disk stops deployments, logs and databases on this server.\n\nServer: web-1\nUsed: 91.7% (18.3 GB / 20.0 GB)\nFree: 1.7 GB\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "used",
+        "label": "Used",
+        "value": "91.7% (18.3 GB / 20.0 GB)"
+      },
+      {
+        "key": "free",
+        "label": "Free",
+        "value": "1.7 GB"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": null
+  },
+  "disk.recovered": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000032",
+    "event": "disk_threshold",
+    "code": "disk.recovered",
+    "state": "ok",
+    "locale": "en",
+    "title": "Disk space recovered: /",
+    "summary": "Usage is back under the alert threshold.",
+    "body": "Usage is back under the alert threshold.\n\nServer: web-1\nUsed: 71.2%\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "used",
+        "label": "Used",
+        "value": "71.2%"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": null
+  },
+  "test": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000033",
+    "event": "test",
+    "code": "test",
+    "state": "info",
+    "locale": "en",
+    "title": "Test notification: Telegram",
+    "summary": "If you can read this, the Telegram channel is configured correctly.",
+    "body": "If you can read this, the Telegram channel is configured correctly.\n\nServer: web-1",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      }
+    ],
+    "links": [],
+    "excerpt": null
+  },
+  "node.unreachable": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000034",
+    "event": "node_unreachable",
+    "code": "node.unreachable",
+    "state": "failed",
+    "locale": "en",
+    "title": "Server unreachable: web-2",
+    "summary": "Noust cannot reach this server through its tunnel.",
+    "body": "Noust cannot reach this server through its tunnel.\n\nServer: web-1\nAddress: 10.0.0.2\nUnreachable since: 2026-09-29 10:30 UTC\n\nWhat the system reported:\n  ssh: connect to host 10.0.0.2 port 22: Connection timed out\n\nOpen in the console: https://console.example.com/n/web-1/fleet",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "address",
+        "label": "Address",
+        "value": "10.0.0.2"
+      },
+      {
+        "key": "since",
+        "label": "Unreachable since",
+        "value": "2026-09-29 10:30 UTC"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/fleet"
+      }
+    ],
+    "excerpt": {
+      "label": "What the system reported",
+      "lines": [
+        "ssh: connect to host 10.0.0.2 port 22: Connection timed out"
+      ],
+      "omitted": 0
+    }
+  },
+  "node.recovered": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000035",
+    "event": "node_recovered",
+    "code": "node.recovered",
+    "state": "ok",
+    "locale": "en",
+    "title": "Server reachable again: web-2",
+    "summary": "The tunnel is open again and the server answers.",
+    "body": "The tunnel is open again and the server answers.\n\nServer: web-1\nWas unreachable for: 12 min 34 s\n\nOpen in the console: https://console.example.com/n/web-1/n/web-2/",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "downtime",
+        "label": "Was unreachable for",
+        "value": "12 min 34 s"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/n/web-2/"
+      }
+    ],
+    "excerpt": null
+  },
+  "node.host_key_changed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000036",
+    "event": "node_host_key_changed",
+    "code": "node.host_key_changed",
+    "state": "failed",
+    "locale": "en",
+    "title": "Host key changed: web-2",
+    "summary": "The server presented a different SSH host key, so the tunnel stays closed until someone checks it.",
+    "body": "The server presented a different SSH host key, so the tunnel stays closed until someone checks it.\n\nServer: web-1\nAddress: 10.0.0.2\nPinned key: SHA256:kQ3vP1xN0m0e5sYt3n2c1H0b9k2q3Wz8nq0w1d0aAbc\nPresented key: SHA256:Zr9LmTq7bV2d8Yh1uJ0aXc4eF6gH3iK5oP7sRtUvWxy\nCheck it with: noust node trust web-2\n\nOpen in the console: https://console.example.com/n/web-1/fleet",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "address",
+        "label": "Address",
+        "value": "10.0.0.2"
+      },
+      {
+        "key": "pinned",
+        "label": "Pinned key",
+        "value": "SHA256:kQ3vP1xN0m0e5sYt3n2c1H0b9k2q3Wz8nq0w1d0aAbc"
+      },
+      {
+        "key": "presented",
+        "label": "Presented key",
+        "value": "SHA256:Zr9LmTq7bV2d8Yh1uJ0aXc4eF6gH3iK5oP7sRtUvWxy"
+      },
+      {
+        "key": "verify",
+        "label": "Check it with",
+        "value": "noust node trust web-2"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/fleet"
+      }
+    ],
+    "excerpt": null
+  },
+  "report.observations": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000037",
+    "event": "report",
+    "code": "report.observations",
+    "state": "warning",
+    "locale": "en",
+    "title": "Process observations",
+    "summary": "The monitor only reports: no process was signalled and no file was touched. Review each entry before acting.",
+    "body": "The monitor only reports: no process was signalled and no file was touched. Review each entry before acting.\n\nServer: web-1\nProcesses: 1\nWarnings: 1\n\nWarning: xmrig (PID 1234)\n  Signal: name-pattern\n  User: nobody\n  CPU: 97.5%\n  Detail: Executable name matches the known-malware pattern 'xmrig'.\n  Command: /tmp/.x/xmrig -o pool.example.org:3333",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "processes",
+        "label": "Processes",
+        "value": "1"
+      },
+      {
+        "key": "warnings",
+        "label": "Warnings",
+        "value": "1"
+      }
+    ],
+    "links": [],
+    "excerpt": null
+  },
+  "server.rebooted": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000038",
+    "event": "server_rebooted",
+    "code": "server.rebooted",
+    "state": "warning",
+    "locale": "en",
+    "title": "Server restarted: web-1",
+    "summary": "Nobody asked for this restart from Noust: check that every application came back.",
+    "body": "Nobody asked for this restart from Noust: check that every application came back.\n\nServer: web-1\nBack at: 2026-09-29 04:02 UTC\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "returned",
+        "label": "Back at",
+        "value": "2026-09-29 04:02 UTC"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": null
+  },
+  "server.back": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000039",
+    "event": "server_back",
+    "code": "server.back",
+    "state": "ok",
+    "locale": "en",
+    "title": "Server back: web-1",
+    "summary": "The restart asked from Noust is done and the console is running again.",
+    "body": "The restart asked from Noust is done and the console is running again.\n\nServer: web-1\nAsked by: alice\nScheduled for: 2026-09-29 04:00 UTC\nTook: 2 min 10 s\nBack at: 2026-09-29 04:02 UTC\n\nOpen in the console: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "requested_by",
+        "label": "Asked by",
+        "value": "alice"
+      },
+      {
+        "key": "scheduled",
+        "label": "Scheduled for",
+        "value": "2026-09-29 04:00 UTC"
+      },
+      {
+        "key": "took",
+        "label": "Took",
+        "value": "2 min 10 s"
+      },
+      {
+        "key": "returned",
+        "label": "Back at",
+        "value": "2026-09-29 04:02 UTC"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": null
+  },
+  "approval.requested": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000040",
+    "event": "approval_requested",
+    "code": "approval.requested",
+    "state": "progress",
+    "locale": "en",
+    "title": "Approval requested: #12",
+    "summary": "A change that needs a second person is waiting for someone to decide it.",
+    "body": "A change that needs a second person is waiting for someone to decide it.\n\nServer: web-1\nRequest: #12\nChange: fleet.node.add\nCall: POST /api/nodes\nAsked by: alice\nReason: Adding the new database server of the shop\nDecide before: 2026-09-30 10:45 UTC\nDecide with: noust approval approve 12\n\nOpen in the console: https://console.example.com/n/web-1/settings/security",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "request",
+        "label": "Request",
+        "value": "#12"
+      },
+      {
+        "key": "action",
+        "label": "Change",
+        "value": "fleet.node.add"
+      },
+      {
+        "key": "call",
+        "label": "Call",
+        "value": "POST /api/nodes"
+      },
+      {
+        "key": "requested_by",
+        "label": "Asked by",
+        "value": "alice"
+      },
+      {
+        "key": "reason",
+        "label": "Reason",
+        "value": "Adding the new database server of the shop"
+      },
+      {
+        "key": "decide_before",
+        "label": "Decide before",
+        "value": "2026-09-30 10:45 UTC"
+      },
+      {
+        "key": "decide",
+        "label": "Decide with",
+        "value": "noust approval approve 12"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/settings/security"
+      }
+    ],
+    "excerpt": null
+  },
+  "approval.approved": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000041",
+    "event": "approval_decided",
+    "code": "approval.approved",
+    "state": "ok",
+    "locale": "en",
+    "title": "Request approved: #12",
+    "summary": "The person who asked can make the change once, before the approval runs out.",
+    "body": "The person who asked can make the change once, before the approval runs out.\n\nServer: web-1\nRequest: #12\nChange: fleet.node.add\nCall: POST /api/nodes\nAsked by: alice\nDecided by: bob\nComment: Checked with the shop's owner\nUse it before: 2026-09-29 11:15 UTC\n\nOpen in the console: https://console.example.com/n/web-1/settings/security",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "request",
+        "label": "Request",
+        "value": "#12"
+      },
+      {
+        "key": "action",
+        "label": "Change",
+        "value": "fleet.node.add"
+      },
+      {
+        "key": "call",
+        "label": "Call",
+        "value": "POST /api/nodes"
+      },
+      {
+        "key": "requested_by",
+        "label": "Asked by",
+        "value": "alice"
+      },
+      {
+        "key": "decided_by",
+        "label": "Decided by",
+        "value": "bob"
+      },
+      {
+        "key": "comment",
+        "label": "Comment",
+        "value": "Checked with the shop's owner"
+      },
+      {
+        "key": "use_before",
+        "label": "Use it before",
+        "value": "2026-09-29 11:15 UTC"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/settings/security"
+      }
+    ],
+    "excerpt": null
+  },
+  "approval.rejected": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000042",
+    "event": "approval_decided",
+    "code": "approval.rejected",
+    "state": "warning",
+    "locale": "en",
+    "title": "Request rejected: #12",
+    "summary": "The change will not be made; whoever asked can ask again with more context.",
+    "body": "The change will not be made; whoever asked can ask again with more context.\n\nServer: web-1\nRequest: #12\nChange: fleet.node.add\nCall: POST /api/nodes\nAsked by: alice\nDecided by: bob\nComment: Not before the maintenance window\n\nOpen in the console: https://console.example.com/n/web-1/settings/security",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "request",
+        "label": "Request",
+        "value": "#12"
+      },
+      {
+        "key": "action",
+        "label": "Change",
+        "value": "fleet.node.add"
+      },
+      {
+        "key": "call",
+        "label": "Call",
+        "value": "POST /api/nodes"
+      },
+      {
+        "key": "requested_by",
+        "label": "Asked by",
+        "value": "alice"
+      },
+      {
+        "key": "decided_by",
+        "label": "Decided by",
+        "value": "bob"
+      },
+      {
+        "key": "comment",
+        "label": "Comment",
+        "value": "Not before the maintenance window"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/settings/security"
+      }
+    ],
+    "excerpt": null
+  },
+  "database.backup.failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000043",
+    "event": "backup_failed",
+    "code": "database.backup.failed",
+    "state": "failed",
+    "locale": "en",
+    "title": "Backup failed: postgresql/shop",
+    "summary": "No new copy of the database was saved.",
+    "body": "No new copy of the database was saved.\n\nServer: web-1\n\nWhat the system reported:\n  The dump was taken but failed its check\n  pg_restore: error: could not read input file: end of file\n\nOpen in the console: https://console.example.com/n/web-1/databases/postgresql/shop",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ],
+    "excerpt": {
+      "label": "What the system reported",
+      "lines": [
+        "The dump was taken but failed its check",
+        "pg_restore: error: could not read input file: end of file"
+      ],
+      "omitted": 0
+    }
+  },
+  "database.backup.upload_failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000044",
+    "event": "backup_failed",
+    "code": "database.backup.upload_failed",
+    "state": "warning",
+    "locale": "en",
+    "title": "Backup upload failed: postgresql/shop",
+    "summary": "The copy of the database was kept on this server but could not be uploaded.",
+    "body": "The copy of the database was kept on this server but could not be uploaded.\n\nServer: web-1\nDestination: offsite-s3\n\nWhat the system reported:\n  Failed to copy: AccessDenied: Access Denied\n\nOpen in the console: https://console.example.com/n/web-1/databases/postgresql/shop",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "destination",
+        "label": "Destination",
+        "value": "offsite-s3"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ],
+    "excerpt": {
+      "label": "What the system reported",
+      "lines": [
+        "Failed to copy: AccessDenied: Access Denied"
+      ],
+      "omitted": 0
+    }
+  },
+  "database.backup.completed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000045",
+    "event": "backup_success",
+    "code": "database.backup.completed",
+    "state": "ok",
+    "locale": "en",
+    "title": "Backup completed: postgresql/shop",
+    "summary": "A new copy of the database was saved.",
+    "body": "A new copy of the database was saved.\n\nServer: web-1\nBackup: shop-20260929-104551.dump\nSize: 48.0 MB\nUploaded to: offsite-s3\n\nOpen in the console: https://console.example.com/n/web-1/databases/postgresql/shop",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "backup",
+        "label": "Backup",
+        "value": "shop-20260929-104551.dump"
+      },
+      {
+        "key": "size",
+        "label": "Size",
+        "value": "48.0 MB"
+      },
+      {
+        "key": "destinations",
+        "label": "Uploaded to",
+        "value": "offsite-s3"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ],
+    "excerpt": null
+  },
+  "database.restore.completed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000046",
+    "event": "restore_success",
+    "code": "database.restore.completed",
+    "state": "ok",
+    "locale": "en",
+    "title": "Restored: postgresql/shop",
+    "summary": "The database is back as the dump had it.",
+    "body": "The database is back as the dump had it.\n\nServer: web-1\nBackup: shop-20260929-104551.dump\n\nOpen in the console: https://console.example.com/n/web-1/databases/postgresql/shop",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "backup",
+        "label": "Backup",
+        "value": "shop-20260929-104551.dump"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ],
+    "excerpt": null
+  },
+  "database.restore.failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000047",
+    "event": "restore_failed",
+    "code": "database.restore.failed",
+    "state": "failed",
+    "locale": "en",
+    "title": "Restore failed: postgresql/shop",
+    "summary": "It stopped at an error, so the database may be only partly restored.",
+    "body": "It stopped at an error, so the database may be only partly restored.\n\nServer: web-1\nBackup: shop-20260929-104551.dump\n\nWhat the system reported:\n  pg_restore: error: relation \"orders\" already exists\n\nOpen in the console: https://console.example.com/n/web-1/databases/postgresql/shop",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "backup",
+        "label": "Backup",
+        "value": "shop-20260929-104551.dump"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ],
+    "excerpt": {
+      "label": "What the system reported",
+      "lines": [
+        "pg_restore: error: relation \"orders\" already exists"
+      ],
+      "omitted": 0
+    }
+  },
+  "hostile.deploy_failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000001000",
+    "event": "deploy_failed",
+    "code": "deploy.failed",
+    "state": "failed",
+    "locale": "en",
+    "title": "Deploy failed: shop.example.com",
+    "summary": "It stopped at an error before the new version could take over.",
+    "body": "It stopped at an error before the new version could take over.\n\nServer: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nRelease: 20260929-104449\nCommit: a1b2c3d (<b>x</b>&amp;<!channel> @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here <@U123> <#C1> red emoji 🚀\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  Release did not pass <its> health & check\n  <urlopen error [Errno 111] Connection refused>\n  ```\n  @everyone <!channel> <@U123|admin> &lt;b&gt;\n  red *bold* _italic_ ~strike~ `code`\n  noitcnuf\n  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "domain": "shop.example.com",
+    "server": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+      },
+      {
+        "key": "release",
+        "label": "Release",
+        "value": "20260929-104449"
+      },
+      {
+        "key": "commit",
+        "label": "Commit",
+        "value": "a1b2c3d (<b>x</b>&amp;<!channel> @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here <@U123> <#C1> red emoji 🚀"
+      },
+      {
+        "key": "trigger",
+        "label": "Started by",
+        "value": "Webhook"
+      },
+      {
+        "key": "duration",
+        "label": "Duration",
+        "value": "1 min 12 s"
+      },
+      {
+        "key": "inspect",
+        "label": "Inspect with",
+        "value": "noust diagnose shop.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "excerpt": {
+      "label": "What the system reported",
+      "lines": [
+        "Release did not pass <its> health & check",
+        "<urlopen error [Errno 111] Connection refused>",
+        "```",
+        "@everyone <!channel> <@U123|admin> &lt;b&gt;",
+        "red *bold* _italic_ ~strike~ `code`",
+        "noitcnuf",
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…"
+      ],
+      "omitted": 0
+    }
+  },
+  "hostile.long_output": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000001001",
+    "event": "deploy_failed",
+    "code": "update.failed",
+    "state": "failed",
+    "locale": "en",
+    "title": "Update failed: shop.example.com",
+    "summary": "It stopped at an error before the new version could take over.",
+    "body": "It stopped at an error before the new version could take over.\n\nServer: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  npm run build failed\n  line 495: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n  line 496: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n  line 497: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n  line 498: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n  line 499: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n  495 earlier lines omitted\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "domain": "shop.example.com",
+    "server": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+      },
+      {
+        "key": "release",
+        "label": "Release",
+        "value": "20260929-104449"
+      },
+      {
+        "key": "commit",
+        "label": "Commit",
+        "value": "a1b2c3d (main): Fix cart total"
+      },
+      {
+        "key": "trigger",
+        "label": "Started by",
+        "value": "Webhook"
+      },
+      {
+        "key": "duration",
+        "label": "Duration",
+        "value": "1 min 12 s"
+      },
+      {
+        "key": "inspect",
+        "label": "Inspect with",
+        "value": "noust diagnose shop.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "excerpt": {
+      "label": "What the system reported",
+      "lines": [
+        "npm run build failed",
+        "line 495: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…",
+        "line 496: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…",
+        "line 497: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…",
+        "line 498: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…",
+        "line 499: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…"
+      ],
+      "omitted": 495
+    }
+  },
+  "hostile.no_link": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000001002",
+    "event": "deploy_success",
+    "code": "deploy.succeeded",
+    "state": "ok",
+    "locale": "en",
+    "title": "Deployed: shop.example.com",
+    "summary": "The new version is live.",
+    "body": "The new version is live.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 42 s",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "release",
+        "label": "Release",
+        "value": "20260929-104449"
+      },
+      {
+        "key": "commit",
+        "label": "Commit",
+        "value": "a1b2c3d (main): Fix cart total"
+      },
+      {
+        "key": "trigger",
+        "label": "Started by",
+        "value": "Webhook"
+      },
+      {
+        "key": "duration",
+        "label": "Duration",
+        "value": "42 s"
+      }
+    ],
+    "links": [],
+    "excerpt": null
+  },
+  "hostile.preview": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000001003",
+    "event": "deploy_success",
+    "code": "deploy.succeeded",
+    "state": "ok",
+    "locale": "en",
+    "title": "Deployed: pr-12.shop.example.com",
+    "summary": "The new version is live.",
+    "body": "The new version is live.\n\nServer: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nPreview of: shop.example.com #12\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 42 s\n\nOpen in the console: https://console.example.com/n/web-1/apps/pr-12.shop.example.com/deployments/42",
+    "domain": "pr-12.shop.example.com",
+    "server": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+      },
+      {
+        "key": "preview",
+        "label": "Preview of",
+        "value": "shop.example.com #12"
+      },
+      {
+        "key": "release",
+        "label": "Release",
+        "value": "20260929-104449"
+      },
+      {
+        "key": "commit",
+        "label": "Commit",
+        "value": "a1b2c3d (main): Fix cart total"
+      },
+      {
+        "key": "trigger",
+        "label": "Started by",
+        "value": "Webhook"
+      },
+      {
+        "key": "duration",
+        "label": "Duration",
+        "value": "42 s"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/pr-12.shop.example.com/deployments/42"
+      }
+    ],
+    "excerpt": null
+  },
+  "hostile.no_commit": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000001004",
+    "event": "deploy_success",
+    "code": "update.succeeded",
+    "state": "ok",
+    "locale": "en",
+    "title": "Updated: shop.example.com",
+    "summary": "The application runs the new version.",
+    "body": "The application runs the new version.\n\nServer: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nStarted by: Webhook\nDuration: 42 s\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "domain": "shop.example.com",
+    "server": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+      },
+      {
+        "key": "trigger",
+        "label": "Started by",
+        "value": "Webhook"
+      },
+      {
+        "key": "duration",
+        "label": "Duration",
+        "value": "42 s"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "excerpt": null
+  },
+  "hostile.huge_subject": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000001005",
+    "event": "backup_failed",
+    "code": "backup.failed",
+    "state": "failed",
+    "locale": "en",
+    "title": "Backup failed: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd.example.com",
+    "summary": "No new copy of the application was saved.",
+    "body": "No new copy of the application was saved.\n\nServer: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n\nWhat the system reported:\n  boom\n\nOpen in the console: https://console.example.com/n/web-1/backups",
+    "domain": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd.example.com",
+    "server": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "excerpt": {
+      "label": "What the system reported",
+      "lines": [
+        "boom"
+      ],
+      "omitted": 0
+    }
+  }
+}

@@ -19,7 +19,9 @@ from __future__ import annotations
 
 import io
 import json
+import tempfile
 from argparse import Namespace
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -59,6 +61,18 @@ CONTRACT_COMMANDS = [
     "user-create",
     "user-delete",
     "user-list",
+    # 3.1: one service, applications, access profiles, exposure.
+    "access",
+    "adopt",
+    "connect-info",
+    "exposure",
+    "fix-owner",
+    "forget",
+    "link",
+    "links",
+    "provision",
+    "unlink",
+    "user-password",
 ]
 
 #: Flags that belong to the root command. A subcommand that declares one of
@@ -78,6 +92,10 @@ class FakeBackupInfo:
             path: Where the backup was written.
         """
         self.path = path
+        # What a dump in the engine's directory is recorded and checked by.
+        self.database = "shop"
+        self.engine = "postgresql"
+        self.created = datetime.now()
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -86,6 +104,16 @@ class FakeBackupInfo:
         """
         return {"path": str(self.path), "size_human": "1.2 MB"}
 
+    @property
+    def name(self) -> str:
+        """The file name, as the audit record names it."""
+        return self.path.name
+
+    @property
+    def size(self) -> int:
+        """A size, as the audit record keeps it."""
+        return 1200
+
 
 class FakeManager:
     """A database manager that records what the CLI asked it to do."""
@@ -93,6 +121,8 @@ class FakeManager:
     ENGINE_NAME = "postgresql"
     DISPLAY_NAME = "PostgreSQL"
     DEFAULT_PORT = 5432
+    CAPABILITIES = frozenset({"sql", "read_only", "users", "dump"})
+    BACKUP_DIR = Path("/nonexistent/noust-test-dumps")
 
     def __init__(
         self,
@@ -147,6 +177,32 @@ class FakeManager:
 
     def is_running(self) -> bool:
         return self._running
+
+    # What the database service asks of any manager besides the recorded calls.
+
+    def validate_database_name(self, name: str) -> str:
+        return name
+
+    def validate_user_name(self, name: str) -> str:
+        return name
+
+    def database_exists(self, name: str) -> bool:
+        return True
+
+    def is_internal_user(self, username: str) -> bool:
+        return username == "postgres"
+
+    def server_port(self) -> int:
+        return self.DEFAULT_PORT
+
+    def list_backups(self, database: str | None = None) -> list[Any]:
+        return []
+
+    def drop_read_only_account(self, database: str) -> None:
+        self._record("drop_read_only_account", database)
+
+    def list_databases(self) -> list[Any]:
+        return []
 
     def get_version(self) -> str:
         return "16.2"
@@ -205,10 +261,13 @@ class FakeManager:
         self._record("restore", database, backup_path=backup_path, drop_existing=drop_existing)
 
     def backup(
-        self, database: str, output_path: Path | None = None, compress: bool = True
+        self, database: str, output_path: Path | None = None, compress: bool = True, **kwargs: Any
     ) -> FakeBackupInfo:
-        self._record("backup", database, output_path=output_path, compress=compress)
-        return FakeBackupInfo(output_path or Path("/var/backups/wasm/databases/shop.sql"))
+        self._record("backup", database, output_path=output_path, compress=compress, **kwargs)
+        path = output_path or Path(tempfile.mkdtemp()) / "postgresql-shop-20260101_120000.sql"
+        # A real dump is a file, and one in the engine's directory is hashed and checked.
+        path.write_text("-- PostgreSQL database dump\n-- PostgreSQL database dump complete\n")
+        return FakeBackupInfo(path)
 
 
 def _guard_outcome(guard: Any, statement: str) -> str:
@@ -262,24 +321,30 @@ def logged(monkeypatch: pytest.MonkeyPatch) -> io.StringIO:
 
 
 @pytest.fixture
-def forgotten(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
+def forgotten(tmp_path: Path) -> Any:
     """
-    Stand in for the SQLite store and record what it was told to forget.
+    A real store that tracks the database the tests drop.
+
+    The CLI and the API go through one service that records and forgets
+    databases in the store; asserting on the store itself is what shows the
+    two front ends leave it in the same state.
 
     Args:
-        monkeypatch: Patching helper, scoped to the test.
+        tmp_path: Per-test temporary directory.
 
-    Returns:
-        The (database, engine) pairs the CLI deleted from the store.
+    Yields:
+        A callable answering whether the store still tracks ``shop``.
     """
-    deleted: list[tuple[str, str]] = []
+    from noust.core.store import Database, NoustStore
 
-    class FakeStore:
-        def delete_database(self, name: str, engine: str) -> None:
-            deleted.append((name, engine))
-
-    monkeypatch.setattr("noust.core.store.get_store", lambda: FakeStore())
-    return deleted
+    NoustStore.reset_instance()
+    store = NoustStore(tmp_path / "noust.db")
+    store.create_database(Database(name="shop", engine="postgresql"))
+    try:
+        yield lambda: store.get_database("shop", "postgresql") is None
+    finally:
+        store.close()
+        NoustStore.reset_instance()
 
 
 @pytest.fixture
@@ -568,7 +633,7 @@ class TestDestructiveCommands:
         assert manager.names_called() == []
 
     def test_drop_proceeds_when_the_operator_agrees(
-        self, cli_runner: CliRunner, manager: FakeManager, forgotten: list[tuple[str, str]]
+        self, cli_runner: CliRunner, manager: FakeManager, forgotten: Any
     ):
         result = cli_runner.invoke(
             cli_app.cli, ["db", "drop", "shop", "-e", "postgresql"], input="y\n"
@@ -576,17 +641,20 @@ class TestDestructiveCommands:
 
         assert result.exit_code == 0, result.output
         assert manager.called("drop_database") is not None
-        assert forgotten == [("shop", "postgresql")]
+        assert forgotten(), "the store no longer tracks it"
+        names = manager.names_called()
+        assert names.index("backup") < names.index("drop_database"), "a last dump comes first"
 
     def test_force_skips_the_question(
-        self, cli_runner: CliRunner, manager: FakeManager, forgotten: list[tuple[str, str]]
+        self, cli_runner: CliRunner, manager: FakeManager, forgotten: Any
     ):
         result = cli_runner.invoke(
-            cli_app.cli, ["db", "drop", "shop", "-e", "postgresql", "--force"]
+            cli_app.cli, ["db", "drop", "shop", "-e", "postgresql", "--force", "--no-backup"]
         )
 
         assert result.exit_code == 0, result.output
         assert manager.called("drop_database") == {"force": True}
+        assert manager.called("backup") is None
 
     def test_user_delete_asks_before_deleting(self, cli_runner: CliRunner, manager: FakeManager):
         result = cli_runner.invoke(
@@ -809,24 +877,41 @@ class TestQuery:
         assert manager.names_called() == []
         assert "noust db connect" in logged.getvalue()
 
-    def test_the_guard_matches_the_one_the_panel_applies(self):
+    def test_the_guard_is_the_one_the_panel_applies(self):
         """
         The CLI and the web console have to agree on what one statement is.
 
         They are two front doors to the same root-level console; a rule that
-        holds at one of them only is the rule not holding.
+        holds at one of them only is the rule not holding. There is one guard
+        now, and both call it.
         """
-        from noust.web.api import databases as databases_api
+        from noust.managers.database import service
 
-        for statement in ("SELECT 1;", "  SELECT 1  ", "SELECT ';'", "SELECT 1; DROP TABLE t"):
-            cli_result = _guard_outcome(db_cli._single_statement, statement)
-            api_result = _guard_outcome(databases_api._reject_multiple_statements, statement)
-            assert cli_result == api_result, statement
+        assert db_cli.console_request is service.console_request
+        # The API's console runs through QueryConsole (3.1), which applies it.
+        api_source = (
+            Path(service.__file__).parents[2] / "web" / "api" / "databases" / "query.py"
+        ).read_text(encoding="utf-8")
+        console_source = (Path(service.__file__).parent / "console.py").read_text(encoding="utf-8")
+        assert "QueryConsole" in api_source
+        assert "console_request(query, single=read_only)" in console_source
+        for statement, outcome in (
+            ("SELECT 1;", "SELECT 1"),
+            ("  SELECT 1  ", "SELECT 1"),
+            ("SELECT ';'", "refused"),
+            ("SELECT 1; DROP TABLE t", "refused"),
+        ):
+            assert (
+                _guard_outcome(lambda q: service.console_request(q, single=True), statement)
+                == outcome
+            ), statement
 
     def test_an_engine_that_cannot_be_held_read_only_refuses_to_pretend(
         self, cli_runner: CliRunner, monkeypatch: pytest.MonkeyPatch, logged: io.StringIO
     ):
         fake = FakeManager(engine="redis", display_name="Redis")
+        # What the refusal reads: the engine's own capabilities, not its name.
+        fake.CAPABILITIES = frozenset({"keys", "users", "dump"})
         monkeypatch.setattr(db_cli, "get_db_manager", lambda engine, verbose=False: fake)
 
         result = cli_runner.invoke(cli_app.cli, ["db", "query", "0", "KEYS *", "-e", "redis"])
@@ -900,9 +985,7 @@ class TestConnectionString:
 class TestLegacyFrontEnd:
     """The argparse path still works, and shares the implementation."""
 
-    def test_handle_db_routes_to_the_same_function(
-        self, manager: FakeManager, forgotten: list[tuple[str, str]]
-    ):
+    def test_handle_db_routes_to_the_same_function(self, manager: FakeManager, forgotten: Any):
         args = Namespace(action="drop", name="shop", engine="postgresql", force=True, verbose=False)
 
         assert db_cli.handle_db(args) == 0

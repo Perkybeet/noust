@@ -31,6 +31,16 @@ Scenarios (see the module docstring of each ``@fleet_scenario`` function):
     8. central_image (packaging/container/Dockerfile; builds and runs its own
        second central, ``noust-fleet-central2``, against the same node)
 
+Added in 3.1 (run between 5 and 6, while the enrollment is intact):
+    - tunnel_account_contained: the node enrolls as ``noust-tunnel`` under
+      ``PermitRootLogin no`` (a key rotation), the account runs nothing, and
+      ``-L`` to another port and ``-R /etc/nologin:...`` (the 3.0 hole) fail
+    - ceiling_enforced_by_the_node: a node held to ``read`` refuses a write
+      even when the central claims admin
+    - authorize_adopts_a_background_console: ``noust fleet authorize`` moves a
+      ``noust web start -d`` console to the service, keeps its token, and
+      ``noust node migrate-tunnel`` finishes on the central
+
 Secrets (the master token, the two-factor secret, TOTP codes, the fleet
 token, session and CSRF tokens, the sealed-secrets passphrase) never appear in
 any argv, on this host or inside a container: they travel over ``docker exec
@@ -148,6 +158,15 @@ STATIC_SITE_GIT_URL = "git://127.0.0.1/static-site"
 
 #: The store of a freshly installed Noust (matches run.py's NOUST_DB).
 NOUST_DB = "/var/lib/noust/noust.db"
+
+#: The account a 3.1 node gives centrals, and the root-owned file of its keys.
+TUNNEL_USER = "noust-tunnel"
+TUNNEL_KEYS_FILE = "/etc/ssh/noust/noust-tunnel.keys"
+
+#: What the tunnel account's shell says when sshd hands it any command -
+#: ForceCommand included, since sshd runs commands through the account's
+#: shell. It is the proof that nothing else ran: no uid from `id`, nothing.
+NOLOGIN_MESSAGES = ("", "This account is currently not available.")
 
 DEPLOY_TIMEOUT = 180
 
@@ -486,7 +505,7 @@ class FleetEnv:
     central_label: str = ""
     node_console_port: int = 0
     node_host_key: str = ""
-    node_ssh_target: str = field(default_factory=lambda: f"root@{NODE_NAME}")
+    node_ssh_target: str = field(default_factory=lambda: f"{TUNNEL_USER}@{NODE_NAME}")
     static_domain: str = STATIC_DOMAIN
     central_secrets_root: str = ""
 
@@ -648,7 +667,9 @@ def enroll_node(env: FleetEnv) -> None:
     # (commit 336ca9b - a `--dry-run fleet authorize` used to print a join
     # code carrying a live token even though nothing was saved to redeem it).
     keys_before = docker_exec(
-        node.container, "cat /root/.ssh/authorized_keys 2>/dev/null; true", timeout=15
+        node.container,
+        f"cat /root/.ssh/authorized_keys {TUNNEL_KEYS_FILE} 2>/dev/null; true",
+        timeout=15,
     ).stdout
     tokens_before = docker_exec(node.container, "noust token list --json", timeout=15).stdout
     dry_run_command = authorize_command_run.replace("noust ", "noust --dry-run ", 1)
@@ -659,7 +680,9 @@ def enroll_node(env: FleetEnv) -> None:
         f"'{dry_run_command}' failed: {dry_authorize.stdout}\n{dry_authorize.stderr}",
     )
     keys_after = docker_exec(
-        node.container, "cat /root/.ssh/authorized_keys 2>/dev/null; true", timeout=15
+        node.container,
+        f"cat /root/.ssh/authorized_keys {TUNNEL_KEYS_FILE} 2>/dev/null; true",
+        timeout=15,
     ).stdout
     tokens_after = docker_exec(node.container, "noust token list --json", timeout=15).stdout
     node.check(keys_after == keys_before, "a --dry-run fleet authorize changed authorized_keys")
@@ -754,7 +777,8 @@ def scenario_key_restrictions(env: FleetEnv) -> None:
         f"-i {key_path} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
         "-o BatchMode=yes -o ConnectTimeout=5"
     )
-    target = env.node_ssh_target.split("@", 1)[-1]
+    # user@host: the key is the tunnel account's (3.1), not root's.
+    target = env.node_ssh_target
 
     command_attempt = central.run(
         f"ssh {ssh_opts} {target} id",
@@ -766,7 +790,7 @@ def scenario_key_restrictions(env: FleetEnv) -> None:
         command_attempt.returncode != 0, "the restricted key was allowed to run a command"
     )
     central.check(
-        command_attempt.stdout.strip() == "",
+        command_attempt.stdout.strip() in NOLOGIN_MESSAGES,
         f"the forced command produced output: {command_attempt.stdout!r}",
     )
 
@@ -1082,6 +1106,372 @@ def scenario_sudo_enforced(env: FleetEnv) -> None:
 
 
 # ---------------------------------------------------------------------------
+# 3.1: the tunnel account, the access ceiling, adopting a background console.
+# ---------------------------------------------------------------------------
+
+
+def central_key_ssh_options(env: FleetEnv) -> str:
+    """ssh options that use the central's own key for the node, and nothing else."""
+    key_path = env.secret_path("fleet", "nodes", env.node_name, "id_ed25519")
+    return (
+        f"-i {key_path} -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "
+        "-o UserKnownHostsFile=/dev/null -o BatchMode=yes -o ConnectTimeout=5"
+    )
+
+
+def rejoin(env: FleetEnv, command: str, *, how: str) -> None:
+    """Run the node's half of `noust node rekey|migrate-tunnel`, and paste its code back.
+
+    `how` is `rekey` or `migrate-tunnel`. The node's output carries a join
+    code (a one-time token), so it is recorded redacted.
+    """
+    node_result = docker_exec(NODE_NAME, f"{command} --yes", timeout=90)
+    redact(env.node, command, "a join code carrying a one-time fleet token")
+    join_match = re.search(r"(noust-join:v1:\S+)", node_result.stdout)
+    if join_match is None:
+        raise HarnessError(
+            f"'{command}' printed no join code:\n{node_result.stdout}\n{node_result.stderr}"
+        )
+    script = f"noust node {how} {env.node_name} --join-code - --json"
+    finished = run_stdin(env.central, script, join_match.group(1) + "\n", timeout=60, label=script)
+    record = as_json(finished, what=f"noust node {how} --json")
+    env.central.check(
+        record.get("status") == "reachable" and record.get("ssh_user") == TUNNEL_USER,
+        f"'noust node {how}' did not leave the node reachable as {TUNNEL_USER}: {record!r}",
+    )
+
+
+@fleet_scenario("tunnel_account_contained")
+def scenario_tunnel_account(env: FleetEnv) -> None:
+    """The central reaches the node as noust-tunnel, which can forward the console port and nothing else.
+
+    The account is what `noust fleet authorize` made it (no home, nologin,
+    password `*`) and sshd applies Noust's Match block to it. Then, with
+    `PermitRootLogin no` on the node, the central rotates its key (`noust node
+    rekey`): enrollment needs no root login at all. Finally the central's own
+    key, driven by hand: root is refused, a command runs nothing, a terminal
+    is refused, `-L` to another port reaches nothing, and `-R` to a Unix
+    socket path - which in 3.0 created `/etc/nologin` as root - is refused
+    and creates nothing.
+    """
+    central, node = env.central, env.node
+
+    account = node.run(f"getent passwd {TUNNEL_USER}", label=f"getent passwd {TUNNEL_USER}")
+    fields = account.stdout.strip().split(":")
+    node.check(
+        len(fields) == 7 and fields[5] == "/nonexistent" and fields[6].endswith("nologin"),
+        f"{TUNNEL_USER} is not a no-home, nologin account: {account.stdout!r}",
+    )
+    password = node.run(
+        f"getent shadow {TUNNEL_USER} | cut -d: -f2", label=f"password field of {TUNNEL_USER}"
+    )
+    node.check(
+        password.stdout.strip() == "*", f"password field is {password.stdout.strip()!r}, not '*'"
+    )
+    effective = node.run(
+        f"sshd -T -C user={TUNNEL_USER},host=localhost,addr=127.0.0.1",
+        label=f"sshd -T -C user={TUNNEL_USER},host=localhost,addr=127.0.0.1",
+    )
+    applied = {line.strip().lower() for line in effective.stdout.splitlines()}
+    for expected in (
+        "allowtcpforwarding local",
+        "allowstreamlocalforwarding no",
+        f"permitopen 127.0.0.1:{env.node_console_port}",
+        "permittty no",
+        "x11forwarding no",
+        "allowagentforwarding no",
+        "forcecommand /usr/bin/false",
+    ):
+        node.check(expected in applied, f"sshd does not apply '{expected}' to {TUNNEL_USER}")
+
+    node.run(
+        "printf 'PermitRootLogin no\\n' > /etc/ssh/sshd_config.d/99-harness-no-root.conf "
+        "&& systemctl reload ssh",
+        label="PermitRootLogin no on the node",
+    )
+    try:
+        root_login = node.run(
+            "sshd -T -C user=root,host=localhost,addr=127.0.0.1 | grep -i '^permitrootlogin'",
+            label="sshd -T -C user=root | grep permitrootlogin",
+        )
+        node.check(
+            root_login.stdout.strip().lower() == "permitrootlogin no",
+            f"PermitRootLogin no is not in force: {root_login.stdout!r}",
+        )
+
+        rekey = central.run(
+            f"noust node rekey {env.node_name} --json",
+            label=f"noust node rekey {env.node_name} --json",
+        )
+        rejoin(
+            env,
+            str(as_json(rekey, what="noust node rekey --json")["authorize_command"]),
+            how="rekey",
+        )
+        tested = as_json(
+            central.run(
+                f"noust node test {env.node_name} --json",
+                label=f"noust node test {env.node_name} --json (new key, PermitRootLogin no)",
+            ),
+            what="noust node test --json",
+        )
+        central.check(
+            tested.get("reachable") is True, f"the rotated key does not reach the node: {tested!r}"
+        )
+
+        opts = central_key_ssh_options(env)
+        as_root = central.run(
+            f"ssh {opts} root@{NODE_NAME} true",
+            timeout=20,
+            check=False,
+            label="ssh <central's key> root@<node> true",
+        )
+        central.check(
+            as_root.returncode != 0 and "permission denied" in as_root.stderr.lower(),
+            f"the central's key logged in as root: {as_root.returncode} {as_root.stderr!r}",
+        )
+        command = central.run(
+            f"ssh {opts} {TUNNEL_USER}@{NODE_NAME} id",
+            timeout=20,
+            check=False,
+            label=f"ssh <central's key> {TUNNEL_USER}@<node> id",
+        )
+        central.check(
+            command.returncode != 0 and command.stdout.strip() in NOLOGIN_MESSAGES,
+            f"{TUNNEL_USER} ran a command: {command.returncode} {command.stdout!r}",
+        )
+        terminal = central.run(
+            f"ssh -tt {opts} {TUNNEL_USER}@{NODE_NAME} < /dev/null",
+            timeout=20,
+            check=False,
+            label=f"ssh -tt <central's key> {TUNNEL_USER}@<node>",
+        )
+        central.check(terminal.returncode != 0, f"{TUNNEL_USER} got a terminal")
+
+        bad_port = 39800 + (hash(env.node_name) % 50)
+        central.run(
+            f"pkill -f '[s]sh .*-L 127.0.0.1:{bad_port}' 2>/dev/null; true",
+            timeout=10,
+            check=False,
+            label="(cleanup) kill any stray forward",
+        )
+        try:
+            central.run(
+                f"ssh -f -N {opts} -L 127.0.0.1:{bad_port}:127.0.0.1:22 {TUNNEL_USER}@{NODE_NAME}",
+                timeout=20,
+                label=f"ssh -f -N -L 127.0.0.1:{bad_port}:127.0.0.1:22 {TUNNEL_USER}@<node>",
+            )
+            time.sleep(1)
+            through = central.run(
+                f"timeout 5 bash -c 'exec 3<>/dev/tcp/127.0.0.1/{bad_port} && head -c 64 <&3'",
+                timeout=15,
+                check=False,
+                label="read the node's sshd banner through -L to port 22 (must get nothing)",
+            )
+            central.check(
+                "ssh-" not in through.stdout.lower(),
+                f"-L reached a port other than the console: {through.stdout!r}",
+            )
+        finally:
+            central.run(
+                f"pkill -f '[s]sh .*-L 127.0.0.1:{bad_port}'",
+                timeout=10,
+                check=False,
+                label="(cleanup) kill the forbidden-port forward",
+            )
+
+        node.run("rm -f /etc/nologin", label="(setup) no /etc/nologin")
+        socket_forward = central.run(
+            f"timeout 10 ssh -N -o ExitOnForwardFailure=yes {opts} "
+            f"-R /etc/nologin:127.0.0.1:22 {TUNNEL_USER}@{NODE_NAME}",
+            timeout=20,
+            check=False,
+            label=f"ssh -N -R /etc/nologin:127.0.0.1:22 {TUNNEL_USER}@<node>  (the 3.0 hole)",
+        )
+        created = node.run(
+            "test -e /etc/nologin && echo present || echo absent",
+            label="is there an /etc/nologin now?",
+        )
+        node.check(created.stdout.strip() == "absent", "a remote forward created /etc/nologin")
+        central.check(
+            socket_forward.returncode not in (0, 124),
+            f"-R to a Unix socket path was not refused (exit {socket_forward.returncode})",
+        )
+    finally:
+        node.run(
+            "rm -f /etc/ssh/sshd_config.d/99-harness-no-root.conf /etc/nologin "
+            "&& systemctl reload ssh",
+            check=False,
+            label="(cleanup) PermitRootLogin back to the image's default",
+        )
+
+
+@fleet_scenario("ceiling_enforced_by_the_node")
+def scenario_ceiling(env: FleetEnv) -> None:
+    """A node held to `read` refuses a write, even when the central claims admin for its operator.
+
+    The node's own admission applies `noust.fleet.policy.permits` to the
+    ceiling it keeps, never to anything the central sends. The central learns
+    the ceiling from `GET /api/auth/fleet/self` when it tests the node.
+
+    Relies on workstream B1's side: the fleet admission in noust.web.auth
+    (`fleet_ceiling`, which calls `fleet.policy.permits`) and
+    `/api/auth/fleet/self` in its `FLEET_AUTH_PATHS`. The two checks marked
+    B1 fail with the status the node answered if either is missing.
+    """
+    central, node = env.central, env.node
+    port = env.node_console_port
+    fleet_token = docker_exec(
+        CENTRAL_NAME,
+        f"cat {env.secret_path('fleet', 'nodes', env.node_name, 'token')}",
+        timeout=15,
+    ).stdout.strip()
+    redact(central, f"cat the fleet token stored for {env.node_name}", "the fleet token itself")
+
+    access = as_json(
+        node.run("noust fleet access --level read --json", label="noust fleet access --level read"),
+        what="noust fleet access --json",
+    )
+    node.check(access == {"level": "read", "host_access": False}, f"unexpected ceiling: {access!r}")
+    try:
+        claims_admin = {
+            "X-Noust-Actor": "harness",
+            "X-Noust-Actor-Scope": "admin",
+            "X-Noust-Elevated": "1",
+        }
+        status, _body, raw = api_call(
+            NODE_NAME,
+            "GET",
+            f"http://127.0.0.1:{port}/api/apps",
+            token=fleet_token,
+            headers=claims_admin,
+            max_time=10,
+        )
+        log_api(node, "GET", "/api/apps (fleet token, ceiling read)", status, raw[:300])
+        node.check(status == 200, f"a read ceiling refused a read: {status} {raw[:300]!r}")
+
+        # An invalid body: admitted, it would be a 422 and change nothing; the
+        # ceiling must answer 403 before the body is even looked at.
+        status, _body, raw = api_call(
+            NODE_NAME,
+            "POST",
+            f"http://127.0.0.1:{port}/api/apps",
+            token=fleet_token,
+            headers=claims_admin,
+            json_body={"domain": "not a domain"},
+            max_time=10,
+        )
+        log_api(
+            node, "POST", "/api/apps (fleet token claiming admin, ceiling read)", status, raw[:300]
+        )
+        node.check(
+            status == 403,
+            "(B1) a node held to read did not refuse a write the central claimed admin for: "
+            f"{status} {raw[:300]!r}",
+        )
+
+        central.run(
+            f"noust node test {env.node_name} --json", label=f"noust node test {env.node_name}"
+        )
+        shown = as_json(
+            central.run(
+                f"noust node show {env.node_name} --json",
+                label=f"noust node show {env.node_name} --json",
+            ),
+            what="noust node show --json",
+        )
+        central.check(
+            shown.get("access_level") == "read",
+            f"(B1) the central did not learn the node's ceiling: {shown.get('access_level')!r}",
+        )
+    finally:
+        node.run(
+            "noust fleet access --level admin",
+            check=False,
+            label="noust fleet access --level admin",
+        )
+
+
+@fleet_scenario("authorize_adopts_a_background_console")
+def scenario_adopt_background_console(env: FleetEnv) -> None:
+    """`noust fleet authorize` moves a background console to the service, and keeps its token.
+
+    The node's console is put in the background on its port, as an operator
+    who ran `noust web start -d` would have it; authorizing again (the node's
+    half of `noust node migrate-tunnel`) stops it, runs the service on the
+    same port, prints no banner and no new console token, and the token the
+    background console printed still signs in.
+    """
+    node, central = env.node, env.central
+    port = env.node_console_port
+    node.run("noust web disable", label="noust web disable")
+    # The service's closed connections hold the port in TIME_WAIT for up to a
+    # minute, and 'noust web start' refuses a port it cannot bind exclusively.
+    started = docker_exec(
+        NODE_NAME,
+        f"for attempt in $(seq 1 45); do noust web start -d --port {port} && exit 0; "
+        "sleep 2; done; exit 1",
+        timeout=150,
+    )
+    redact(node, f"noust web start -d --port {port}", "the console's access token")
+    token_match = re.search(r"Access Token:\s*(\S+)", started.stdout)
+    if token_match is None:
+        raise HarnessError(
+            f"'noust web start -d' printed no token:\n{started.stdout}\n{started.stderr}"
+        )
+    operator_token = token_match.group(1)
+
+    command = central.run(
+        f"noust node migrate-tunnel {env.node_name} --json",
+        label=f"noust node migrate-tunnel {env.node_name} --json",
+    )
+    authorize_command = str(
+        as_json(command, what="noust node migrate-tunnel --json")["authorize_command"]
+    )
+    node_result = docker_exec(NODE_NAME, f"{authorize_command} --yes", timeout=120, check=False)
+    redact(node, authorize_command, "a join code carrying a one-time fleet token")
+    output = node_result.stdout + node_result.stderr
+    node.check(
+        node_result.returncode == 0,
+        f"authorize over a background console failed:\n{output[-2000:]}",
+    )
+    node.check("Access Token" not in output, "authorize printed the console's banner")
+    node.check("Console access token" not in output, "authorize issued a new console token")
+    join_match = re.search(r"(noust-join:v1:\S+)", node_result.stdout)
+    if join_match is None:
+        raise HarnessError("authorize over a background console printed no join code")
+    script = f"noust node migrate-tunnel {env.node_name} --join-code - --json"
+    record = as_json(
+        run_stdin(central, script, join_match.group(1) + "\n", timeout=60, label=script),
+        what="noust node migrate-tunnel --json",
+    )
+    central.check(record.get("status") == "reachable", f"the node is not reachable: {record!r}")
+
+    active = node.run(
+        "systemctl is-active noust-web", check=False, label="systemctl is-active noust-web"
+    )
+    node.check(
+        active.stdout.strip() == "active", f"noust-web is {active.stdout.strip()!r}, not active"
+    )
+    pid_file = node.run(
+        "test -e /run/noust-web.pid && echo present || echo absent",
+        label="is the daemon's PID file gone?",
+    )
+    node.check(
+        pid_file.stdout.strip() == "absent", "the background console's PID file is still there"
+    )
+    status, _body, raw = api_call(
+        NODE_NAME,
+        "GET",
+        f"http://127.0.0.1:{port}/api/auth/verify",
+        token=operator_token,
+        max_time=10,
+    )
+    log_api(node, "GET", "/api/auth/verify (the background console's own token)", status, raw[:200])
+    node.check(status == 200, f"the operator's console token stopped working: {status}")
+
+
+# ---------------------------------------------------------------------------
 # Scenario 6: fleet token rules on the node.
 # ---------------------------------------------------------------------------
 
@@ -1221,7 +1611,7 @@ def scenario_fleet_token_rules(env: FleetEnv) -> None:
     # count is normalized with a trailing `; true` instead, so a `check=True`
     # run never fails on the "not found" case (exit 1).
     key_line_before = node.run(
-        f"grep -c 'noust-central:{env.central_label}' /root/.ssh/authorized_keys 2>/dev/null; true",
+        f"grep -c 'noust-central:{env.central_label}' {TUNNEL_KEYS_FILE} 2>/dev/null; true",
         timeout=10,
         label="grep the central's key line in authorized_keys before deauthorize",
     )
@@ -1240,7 +1630,7 @@ def scenario_fleet_token_rules(env: FleetEnv) -> None:
     )
 
     key_line_after = node.run(
-        f"grep -c 'noust-central:{env.central_label}' /root/.ssh/authorized_keys 2>/dev/null; true",
+        f"grep -c 'noust-central:{env.central_label}' {TUNNEL_KEYS_FILE} 2>/dev/null; true",
         timeout=10,
         check=False,
         label="grep the central's key line in authorized_keys after deauthorize",

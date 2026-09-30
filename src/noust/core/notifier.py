@@ -4,21 +4,31 @@
 """
 Multi-channel notifications for operational events.
 
-One implementation, stdlib only. Deploys, the monitor and the backup jobs all
-publish a :class:`NotificationEvent` here instead of growing their own
-delivery code, and the panel's settings page configures it; the per-channel
-"send a test" button is :meth:`Notifier.test_channel`.
+One transport, stdlib only. Deploys, the monitor, the backup jobs and the
+fleet all build a :class:`~noust.core.notifications.model.Notification` (a
+structured message: state, one sentence, facts, a verbatim excerpt, a link -
+see :mod:`noust.core.notifications`) and publish it here instead of growing
+their own delivery code; a pure renderer per channel
+(:mod:`noust.core.notifications.render`) lays it out, and the panel's settings
+page configures the channels. The per-channel "send a test" button is
+:meth:`Notifier.test_channel`.
 
-Channels and the payload each one receives:
+Channels and what each one receives:
 
-- **webhook** - the operator's own endpoint. POST JSON with the keys
-  ``event`` (the kind), ``title``, ``body``, ``domain`` (null when the event
-  is not about one) and ``ts`` (ISO 8601, UTC).
-- **slack** - Slack incoming webhook, ``{"text": "..."}``.
-- **discord** - Discord webhook, ``{"content": "..."}``.
-- **telegram** - Bot API ``sendMessage``, ``{"chat_id": ..., "text": ...}``.
+- **webhook** - the operator's own endpoint. POST JSON, ``version: 1``: the
+  keys it always had (``event``, ``title``, ``body``, ``domain``, ``ts``) and
+  the structure of the message besides. With ``notifications.channels.webhook.secret``
+  set, every delivery is signed (``X-Noust-Signature: sha256=...``).
+  Contract: :mod:`noust.core.notifications.render.webhook`.
+- **slack** - Slack incoming webhook: Block Kit in an attachment with the
+  state's colour strip.
+- **discord** - Discord webhook: one embed.
+- **telegram** - Bot API ``sendMessage`` in HTML, the console link as a button,
+  silent unless it needs attention; retried once as plain text if Telegram
+  refuses the markup.
 - **email** - delegates to :class:`noust.monitor.email_notifier.EmailNotifier`,
-  so there is exactly one SMTP implementation.
+  so there is exactly one SMTP implementation and one email layout (the
+  monitor's observation report uses it too).
 
 Four rules hold everywhere:
 
@@ -28,11 +38,11 @@ Four rules hold everywhere:
   event and the caller never sees the failure.
 - Secrets never reach a log. The Telegram bot token is part of the request
   URL and urllib quotes the URL in some of its errors, so error text is
-  scrubbed before it is logged or returned.
-- Slack, Discord and Telegram each reject a message over their own length
-  outright; a deploy failure's body can carry a health gate's full evidence,
-  so :func:`_message_text` cuts to :data:`_MESSAGE_LIMITS` per channel at
-  send time rather than asking every caller to know three different numbers.
+  scrubbed before it is logged or returned. The webhook's signing secret is
+  scrubbed the same way.
+- Every channel has its own limit and none of them may cost the message its
+  link: each renderer stays inside its platform's limits by shortening the
+  excerpt first, never by cutting the end.
 
 A fourth rule is enforced by :func:`_require_public_destination` rather than
 by convention: a notification channel is *configured* by whoever can write to
@@ -71,9 +81,8 @@ import re
 import socket
 import urllib.request
 from collections.abc import Callable
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from html import escape
 from http.client import HTTPException
 from typing import TYPE_CHECKING, Any
 from urllib.error import HTTPError, URLError
@@ -84,7 +93,18 @@ from noust import __version__
 from noust.core.background import BackgroundQueue
 from noust.core.config import Config
 from noust.core.exceptions import NoustError
-from noust.core.messages import Locale, message, normalize_locale
+from noust.core.messages import Locale
+from noust.core.notifications.composers import compose_test, server_fact
+from noust.core.notifications.context import NotificationContext
+from noust.core.notifications.excerpt import make_excerpt
+from noust.core.notifications.model import (
+    EVENT_KINDS,
+    OFF_BY_DEFAULT,
+    TEST_KIND,
+    Notification,
+    State,
+)
+from noust.core.notifications.render import discord, slack, telegram, webhook
 from noust.validators.telegram import validate_telegram_chat_id
 
 if TYPE_CHECKING:
@@ -100,48 +120,30 @@ NOTIFY_TIMEOUT = 10
 #: Identifies Noust to the receiving endpoint.
 USER_AGENT = f"noust-notifier/{__version__}"
 
-#: Event kinds an operator can switch off under ``notifications.events``.
-#: ``DEFAULT_CONFIG["notifications"]["events"]`` spells out the same names;
-#: config.py cannot import this module (this module reads its settings from
-#: config.py), so the agreement is pinned by a test in tests/test_notifier.py,
-#: the same pattern that keeps the web security defaults honest.
-#:
-#: ``deploy_started`` and ``deploy_rolled_back`` are published by
-#: :mod:`noust.core.deploy_notifications`, the default subscriber of every
-#: deployment in every process - CLI, console jobs and the webhook alike -
-#: alongside ``deploy_success`` and ``deploy_failed``. ``deploy_started``
-#: ships off by default (DEFAULT_CONFIG): it fires once per deployment
-#: attempt and is the one kind here with no failure or outcome to report,
-#: so an operator who wants the others is not opted into a message for
-#: every deploy that later also succeeds.
-EVENT_KINDS: tuple[str, ...] = (
-    "deploy_started",
-    "deploy_success",
-    "deploy_failed",
-    "deploy_rolled_back",
-    "cert_expiring",
-    "unit_failed",
-    "disk_threshold",
-    "backup_failed",
-)
+#: The kinds an operator can switch off under ``notifications.events`` live in
+#: :mod:`noust.core.notifications.model` (:data:`EVENT_KINDS`, imported above and
+#: re-exported from here for the callers that always imported it from this
+#: module). ``DEFAULT_CONFIG["notifications"]["events"]`` spells out the same
+#: names; config.py cannot import this module (this module reads its settings
+#: from config.py), so the agreement is pinned by a test in tests/test_notifier.py.
 
-#: Longest message :func:`_message_text` may build for a channel with a hard
-#: limit on what it accepts, applied at send time so a caller building a
-#: :class:`NotificationEvent` never has to know Telegram's or Discord's own
-#: numbers - a deploy failure's body carries the health gate's evidence
-#: verbatim, unbounded, and only the channel that would otherwise reject it
-#: outright needs to cut it down. Slack's own limit is close to 40,000
-#: characters for a plain ``text`` payload; the webhook and email channels
-#: have no comparable ceiling and are left alone.
-_MESSAGE_LIMITS: dict[str, int] = {
-    "slack": 40000,
-    "discord": 2000,
-    "telegram": 4096,
-}
-
-#: The kind :meth:`Notifier.test_channel` sends. Always accepted and never
-#: filtered, so the settings-page button works before anything is enabled.
-TEST_KIND = "test"
+__all__ = [
+    "CHANNELS",
+    "EVENT_KINDS",
+    "NOTIFICATION_QUEUE",
+    "NOTIFY_TIMEOUT",
+    "TEST_KIND",
+    "USER_AGENT",
+    "NotificationEvent",
+    "Notifier",
+    "TelegramChat",
+    "fresh_config",
+    "legacy_notification",
+    "notify_composed",
+    "notify_in_background",
+    "notify_now",
+    "validate_telegram_bot_token",
+]
 
 #: Delivery order. Every name is a key under ``notifications.channels``.
 CHANNELS: tuple[str, ...] = ("webhook", "slack", "discord", "telegram", "email")
@@ -426,7 +428,14 @@ class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
 @dataclass
 class NotificationEvent:
     """
-    One operational fact worth telling the operator about.
+    The pre-3.1 shape of a notification: a title and a body of text.
+
+    Kept so code that still builds one keeps working; nothing in Noust does.
+    :meth:`Notifier.notify` turns it into a
+    :class:`~noust.core.notifications.model.Notification` whose title is the
+    ``title`` and whose excerpt is the ``body``. Build a ``Notification`` with
+    :mod:`noust.core.notifications.composers` instead: it says who, what and
+    how it went in a way every channel can lay out.
 
     Attributes:
         kind: One of :data:`EVENT_KINDS`, or :data:`TEST_KIND`.
@@ -457,6 +466,48 @@ class NotificationEvent:
             raise ValueError(f"Unknown notification kind {self.kind!r}; expected one of: {known}")
 
 
+#: How a legacy event's kind reads as a state.
+_LEGACY_STATES: dict[str, State] = {
+    "deploy_started": State.PROGRESS,
+    "deploy_success": State.OK,
+    "restore_success": State.OK,
+    "backup_success": State.OK,
+    "node_recovered": State.OK,
+    "deploy_rolled_back": State.WARNING,
+    "cert_expiring": State.WARNING,
+    "disk_threshold": State.WARNING,
+    TEST_KIND: State.INFO,
+}
+
+
+def legacy_notification(event: NotificationEvent, ctx: NotificationContext) -> Notification:
+    """
+    Turn a pre-3.1 event into a notification every channel can lay out.
+
+    Args:
+        event: The title-and-body event.
+        ctx: The context, for the language and the server's name.
+
+    Returns:
+        A notification whose title is the event's, whose excerpt is its body
+        (verbatim, whole lines) and whose state follows its kind.
+    """
+    return Notification(
+        kind=event.kind,
+        code=f"legacy.{event.kind}",
+        state=_LEGACY_STATES.get(event.kind, State.FAILED),
+        locale=ctx.locale,
+        title=event.title,
+        subject="",
+        summary="",
+        server=ctx.server,
+        facts=(server_fact(ctx),),
+        excerpt=make_excerpt(event.body, label=""),
+        domain=event.domain,
+        ts=event.ts,
+    )
+
+
 @dataclass(frozen=True)
 class TelegramChat:
     """
@@ -479,28 +530,6 @@ class TelegramChat:
     type: str
     title: str | None = None
     username: str | None = None
-
-
-def _message_text(event: NotificationEvent, *, limit: int | None = None) -> str:
-    """
-    Render the plain text the chat channels carry.
-
-    Args:
-        event: The event to render.
-        limit: The channel's own maximum message length, when it has one.
-            The cut always keeps the title, since that is the one line an
-            operator glancing at a notification list reads first.
-
-    Returns:
-        Title and body separated by a newline, or just the title when the
-        body is empty; cut to ``limit`` characters, with a marker in place
-        of what was dropped, when it would otherwise be too long to send.
-    """
-    text = f"{event.title}\n{event.body}" if event.body else event.title
-    if limit is not None and len(text) > limit:
-        marker = "\n... (truncated)"
-        text = text[: max(limit - len(marker), 0)] + marker
-    return text
 
 
 def _require_http_url(url: str, setting: str) -> str:
@@ -527,9 +556,26 @@ def _require_http_url(url: str, setting: str) -> str:
     return url
 
 
-def _json_request(url: str, payload: dict[str, Any]) -> Request:
+def _post(url: str, body: bytes, extra_headers: dict[str, str] | None = None) -> Request:
     """
     Build a JSON POST with this module's identity.
+
+    Args:
+        url: Destination URL, already validated.
+        body: The exact JSON bytes to send.
+        extra_headers: Headers to add (a delivery id, a signature).
+
+    Returns:
+        The request, ready for the opener.
+    """
+    headers = {"Content-Type": "application/json", "User-Agent": USER_AGENT}
+    headers.update(extra_headers or {})
+    return Request(url, data=body, headers=headers, method="POST")
+
+
+def _json_request(url: str, payload: dict[str, Any]) -> Request:
+    """
+    Build a JSON POST from a payload.
 
     Args:
         url: Destination URL, already validated.
@@ -538,25 +584,21 @@ def _json_request(url: str, payload: dict[str, Any]) -> Request:
     Returns:
         The request, ready for the opener.
     """
-    return Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json", "User-Agent": USER_AGENT},
-        method="POST",
-    )
+    return _post(url, json.dumps(payload).encode("utf-8"))
 
 
-def _webhook_request(url: str, event: NotificationEvent) -> Request:
+def _webhook_request(url: str, notification: Notification, secret: str = "") -> Request:
     """
     Build the generic webhook POST.
 
-    The payload is this module's own documented contract: ``event`` (the
-    kind), ``title``, ``body``, ``domain`` (null when the event is not about
-    one) and ``ts`` (ISO 8601).
+    The body is the documented contract of
+    :mod:`noust.core.notifications.render.webhook`; the signature, when there
+    is a secret, covers the exact bytes sent.
 
     Args:
         url: The operator's endpoint.
-        event: The event to deliver.
+        notification: The notification to deliver.
+        secret: ``notifications.channels.webhook.secret``; empty for none.
 
     Returns:
         The request.
@@ -565,59 +607,17 @@ def _webhook_request(url: str, event: NotificationEvent) -> Request:
         ValueError: When the URL is not HTTP(S).
     """
     _require_http_url(url, "notifications.channels.webhook.webhook_url")
-    payload = {
-        "event": event.kind,
-        "title": event.title,
-        "body": event.body,
-        "domain": event.domain,
-        "ts": event.ts.isoformat(),
-    }
-    return _json_request(url, payload)
+    body = webhook.encode(webhook.render(notification))
+    return _post(url, body, webhook.headers(notification, body, secret))
 
 
-def _slack_escape(text: str) -> str:
+def _slack_request(url: str, notification: Notification) -> Request:
     """
-    Escape the three characters Slack reads as control sequences.
-
-    A title or body carries text someone else chose - a branch name, a commit
-    message, a health gate's output - and ``<!channel>`` or ``<@U123>`` in it
-    would ping people. Slack asks for exactly these three to be escaped; a
-    bare URL is still linked.
-
-    Args:
-        text: Text to send.
-
-    Returns:
-        The text with ``&``, ``<`` and ``>`` as entities.
-    """
-    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-
-#: ``@everyone`` and ``@here``, however they are capitalised.
-_DISCORD_MASS_MENTION = re.compile(r"@(everyone|here)", re.IGNORECASE)
-
-
-def _discord_defuse(text: str) -> str:
-    """
-    Break Discord's mass mentions in text someone else chose.
-
-    Args:
-        text: Text to send.
-
-    Returns:
-        The text with a zero-width space after the ``@`` of ``@everyone``
-        and ``@here``, so they read the same and ping nobody.
-    """
-    return _DISCORD_MASS_MENTION.sub("@\u200b\\1", text)
-
-
-def _slack_request(url: str, event: NotificationEvent) -> Request:
-    """
-    Build the Slack incoming-webhook POST, ``{"text": ...}``.
+    Build the Slack incoming-webhook POST.
 
     Args:
         url: The Slack webhook URL.
-        event: The event to deliver.
+        notification: The notification to deliver.
 
     Returns:
         The request.
@@ -626,17 +626,16 @@ def _slack_request(url: str, event: NotificationEvent) -> Request:
         ValueError: When the URL is not HTTP(S).
     """
     _require_http_url(url, "notifications.channels.slack.webhook_url")
-    escaped = replace(event, title=_slack_escape(event.title), body=_slack_escape(event.body))
-    return _json_request(url, {"text": _message_text(escaped, limit=_MESSAGE_LIMITS["slack"])})
+    return _json_request(url, slack.render(notification))
 
 
-def _discord_request(url: str, event: NotificationEvent) -> Request:
+def _discord_request(url: str, notification: Notification) -> Request:
     """
-    Build the Discord webhook POST, ``{"content": ...}``.
+    Build the Discord webhook POST.
 
     Args:
         url: The Discord webhook URL.
-        event: The event to deliver.
+        notification: The notification to deliver.
 
     Returns:
         The request.
@@ -645,21 +644,20 @@ def _discord_request(url: str, event: NotificationEvent) -> Request:
         ValueError: When the URL is not HTTP(S).
     """
     _require_http_url(url, "notifications.channels.discord.webhook_url")
-    defused = replace(event, title=_discord_defuse(event.title), body=_discord_defuse(event.body))
-    text = _message_text(defused, limit=_MESSAGE_LIMITS["discord"])
-    # Belt and braces: even a mention the text still spells (a role or user
-    # id in a branch name) pings nobody.
-    return _json_request(url, {"content": text, "allowed_mentions": {"parse": []}})
+    return _json_request(url, discord.render(notification))
 
 
-def _telegram_request(bot_token: str, chat_id: str, event: NotificationEvent) -> Request:
+def _telegram_request(
+    bot_token: str, chat_id: str, notification: Notification, *, plain: bool = False
+) -> Request:
     """
     Build the Bot API ``sendMessage`` POST.
 
     Args:
         bot_token: The bot's token; it becomes part of the request path.
         chat_id: Destination chat, travels in the JSON body.
-        event: The event to deliver.
+        notification: The notification to deliver.
+        plain: Send without markup, for the retry after Telegram refused it.
 
     Returns:
         The request.
@@ -672,8 +670,7 @@ def _telegram_request(bot_token: str, chat_id: str, event: NotificationEvent) ->
     validate_telegram_bot_token(bot_token)
     chat_id = validate_telegram_chat_id(chat_id)
     url = f"{_TELEGRAM_API}/bot{bot_token}/sendMessage"
-    text = _message_text(event, limit=_MESSAGE_LIMITS["telegram"])
-    return _json_request(url, {"chat_id": chat_id, "text": text})
+    return _json_request(url, telegram.render(notification, chat_id, plain=plain))
 
 
 def _describe_error(exc: BaseException, *, include_body: bool = True) -> str:
@@ -713,6 +710,9 @@ def _describe_error(exc: BaseException, *, include_body: bool = True) -> str:
     return str(exc)
 
 
+_DESCRIPTION_ATTR = "_noust_telegram_description"
+
+
 def _telegram_error_description(exc: HTTPError) -> str | None:
     """
     Read the Bot API's own ``description`` field out of a rejected request.
@@ -734,13 +734,21 @@ def _telegram_error_description(exc: HTTPError) -> str | None:
         The ``description`` field, or None when the body is not the JSON
         shape the Bot API always answers with.
     """
+    # The body can only be read once; the plain-text retry and the test button
+    # both ask, so the answer is kept on the error itself.
+    if hasattr(exc, _DESCRIPTION_ATTR):
+        return getattr(exc, _DESCRIPTION_ATTR)  # type: ignore[no-any-return]
+    description: str | None = None
     try:
         body = exc.read(2048).decode("utf-8", "replace")
         data = json.loads(body)
     except (OSError, ValueError):
-        return None
-    description = data.get("description") if isinstance(data, dict) else None
-    return description if isinstance(description, str) and description else None
+        data = None
+    found = data.get("description") if isinstance(data, dict) else None
+    if isinstance(found, str) and found:
+        description = found
+    setattr(exc, _DESCRIPTION_ATTR, description)
+    return description
 
 
 def _chat_from_update(update: dict[str, Any]) -> dict[str, Any] | None:
@@ -838,36 +846,38 @@ class Notifier:
         )
         self._email_notifier = email_notifier
 
-    def notify(self, event: NotificationEvent) -> None:
+    def notify(self, event: Notification | NotificationEvent) -> None:
         """
-        Publish an event to every channel enabled for its kind.
+        Publish a notification to every channel enabled for its kind.
 
         Never raises for a delivery problem: a dead channel is logged and the
-        remaining channels still get the event, because the caller is a
-        deploy or the monitor loop and its work matters more than the
-        announcement of it.
+        remaining channels still get it, because the caller is a deploy or the
+        monitor loop and its work matters more than the announcement of it.
 
         Args:
-            event: What happened.
+            event: What happened. A pre-3.1 :class:`NotificationEvent` is
+                accepted and turned into a notification.
         """
         settings = self._settings()
         if not settings.get("enabled", False):
             return
+        notification = self._structured(event)
         events = settings.get("events") or {}
-        if event.kind != TEST_KIND and not events.get(event.kind, True):
+        default = notification.kind not in OFF_BY_DEFAULT
+        if notification.kind != TEST_KIND and not events.get(notification.kind, default):
             return
 
         channels: dict[str, Any] = settings.get("channels") or {}
         for name in CHANNELS:
             try:
-                self._dispatch(name, event, channels)
+                self._dispatch(name, notification, channels)
             except _DELIVERY_ERRORS as exc:
                 # The request URL never reaches the log: urllib quotes it in
                 # some errors, and the Telegram one embeds the bot token.
                 logger.warning(
                     "Notification channel %s failed for event %s: %s",
                     name,
-                    event.kind,
+                    notification.kind,
                     _scrub(_describe_error(exc), channels),
                 )
 
@@ -891,14 +901,9 @@ class Notifier:
             return f"Unknown notification channel {name!r}; expected one of: {known}"
 
         channels: dict[str, Any] = self._settings().get("channels") or {}
-        locale = self._locale()
-        event = NotificationEvent(
-            kind=TEST_KIND,
-            title=message("test_notification_title", locale),
-            body=message("test_notification_body", locale, channel=name),
-        )
+        notification = compose_test(name, self._context())
         try:
-            sent = self._dispatch(name, event, channels)
+            sent = self._dispatch(name, notification, channels)
         except _DELIVERY_ERRORS as exc:
             if name == "telegram" and isinstance(exc, HTTPError):
                 description = _telegram_error_description(exc)
@@ -965,6 +970,17 @@ class Notifier:
         settings = self._config.get("notifications", {})
         return settings if isinstance(settings, dict) else {}
 
+    def _context(self) -> NotificationContext:
+        """
+        Who is speaking and in which language, as the configuration says.
+
+        Returns:
+            The language of ``notifications.language`` (normalised), the name
+            of the server (``server.name``, the hostname when unset) and the
+            base of the console links (``web.public_url``).
+        """
+        return NotificationContext.from_config(self._config)
+
     def _locale(self) -> Locale:
         """
         Language this instance's own notification texts render in.
@@ -975,15 +991,27 @@ class Notifier:
             :data:`~noust.core.messages.DEFAULT_LOCALE` for anything unset or
             not one of the two catalogued locales.
         """
-        return normalize_locale(self._settings().get("language"))
+        return self._context().locale
 
-    def _dispatch(self, name: str, event: NotificationEvent, channels: dict[str, Any]) -> bool:
+    def _structured(self, event: Notification | NotificationEvent) -> Notification:
         """
-        Deliver one event through one channel.
+        Args:
+            event: A notification, or a pre-3.1 event.
+
+        Returns:
+            The notification.
+        """
+        if isinstance(event, Notification):
+            return event
+        return legacy_notification(event, self._context())
+
+    def _dispatch(self, name: str, notification: Notification, channels: dict[str, Any]) -> bool:
+        """
+        Deliver one notification through one channel.
 
         Args:
             name: Channel name, one of :data:`CHANNELS`.
-            event: The event to deliver.
+            notification: The notification to deliver.
             channels: The ``notifications.channels`` block.
 
         Returns:
@@ -997,11 +1025,32 @@ class Notifier:
             NoustError: When the email transport reports a problem.
         """
         if name == "email":
-            return self._send_email(event, channels.get("email") or {})
+            return self._send_email(notification, channels.get("email") or {})
 
-        request = self._request_for(name, event, channels)
+        request = self._request_for(name, notification, channels)
         if request is None:
             return False
+        try:
+            self._send(request)
+        except HTTPError as exc:
+            retry = self._plain_retry(name, exc, notification, channels)
+            if retry is None:
+                raise
+            self._send(retry)
+        return True
+
+    def _send(self, request: Request) -> None:
+        """
+        Send one request, behind the SSRF guard.
+
+        Args:
+            request: The request to send.
+
+        Raises:
+            OSError: When the endpoint is unreachable or rejects it.
+            ValueError: When the destination resolves inside a forbidden
+                network.
+        """
         # The SSRF guard: see the module docstring. Checked here, once, for
         # every HTTP channel, rather than in each _*_request builder - one
         # chokepoint a new channel cannot forget to pass through.
@@ -1009,17 +1058,52 @@ class Notifier:
         # urlopen raises HTTPError for any non-2xx answer, so reaching close()
         # means the endpoint accepted the message; the body is not our data.
         self._opener(request, timeout=NOTIFY_TIMEOUT).close()
-        return True
+
+    def _plain_retry(
+        self,
+        name: str,
+        error: HTTPError,
+        notification: Notification,
+        channels: dict[str, Any],
+    ) -> Request | None:
+        """
+        Build the one retry Telegram deserves when it refuses the markup.
+
+        A message whose entities Telegram cannot parse is answered with 400
+        ``can't parse entities``. An alert must not be lost to a formatting
+        quirk, so it is sent once more, as plain text.
+
+        Args:
+            name: The channel that failed.
+            error: What it answered.
+            notification: What was being delivered.
+            channels: The ``notifications.channels`` block.
+
+        Returns:
+            The plain-text request, or None when this failure is not that one.
+        """
+        if name != "telegram" or error.code != 400:
+            return None
+        description = _telegram_error_description(error) or ""
+        if "can't parse entities" not in description.lower():
+            return None
+        telegram_settings: dict[str, Any] = channels.get("telegram") or {}
+        return _telegram_request(
+            str(telegram_settings.get("bot_token") or ""),
+            str(telegram_settings.get("chat_id") or ""),
+            notification,
+            plain=True,
+        )
 
     def _request_for(
-        self, name: str, event: NotificationEvent, channels: dict[str, Any]
+        self, name: str, notification: Notification, channels: dict[str, Any]
     ) -> Request | None:
         """
         Build the request one HTTP channel would send, if it is configured.
 
         Args:
             name: Channel name, every one of :data:`CHANNELS` except email.
-            event: The event to deliver.
+            notification: The notification to deliver.
             channels: The ``notifications.channels`` block.
 
         Returns:
@@ -1034,24 +1118,25 @@ class Notifier:
             chat_id = str(channel.get("chat_id") or "")
             if not bot_token or not chat_id:
                 return None
-            return _telegram_request(bot_token, chat_id, event)
+            return _telegram_request(bot_token, chat_id, notification)
 
         url = str(channel.get("webhook_url") or "")
         if not url:
             return None
-        builders: dict[str, Callable[[str, NotificationEvent], Request]] = {
-            "webhook": _webhook_request,
+        if name == "webhook":
+            return _webhook_request(url, notification, str(channel.get("secret") or ""))
+        builders: dict[str, Callable[[str, Notification], Request]] = {
             "slack": _slack_request,
             "discord": _discord_request,
         }
-        return builders[name](url, event)
+        return builders[name](url, notification)
 
-    def _send_email(self, event: NotificationEvent, channel: dict[str, Any]) -> bool:
+    def _send_email(self, notification: Notification, channel: dict[str, Any]) -> bool:
         """
         Deliver through the monitor's SMTP implementation.
 
         Args:
-            event: The event to deliver.
+            notification: The notification to deliver.
             channel: The ``notifications.channels.email`` block.
 
         Returns:
@@ -1067,31 +1152,17 @@ class Notifier:
 
         # Deferred import: the monitor publishes events to this module, so a
         # module-level import in both directions would be a cycle.
-        from noust.monitor.email_notifier import EmailContent, EmailNotifier
+        from noust.monitor.email_notifier import EmailNotifier
 
         notifier = self._email_notifier
         if notifier is None:
             notifier = self._email_notifier = EmailNotifier()
         if not notifier.is_configured:
             return False
-
-        html = (
-            '<!DOCTYPE html><html><body style="font-family: system-ui, sans-serif;'
-            ' color: #222;">'
-            f"<h2>{escape(event.title)}</h2><p>{escape(event.body)}</p>"
-            "</body></html>"
-        )
-        # _send is the transport's one generic entry point; its public methods
-        # are all shaped around monitor observations. Reusing it beats writing
-        # a second SMTP implementation, which is the defect class rule three
-        # exists to prevent.
-        notifier._send(
-            EmailContent(
-                subject=f"[Noust] {event.title}",
-                text=_message_text(event),
-                html=html,
-            )
-        )
+        # One SMTP implementation and one email layout: the transport renders
+        # the notification itself, the same way for an event and for the
+        # monitor's observation report.
+        notifier.send_notification(notification)
         return True
 
 
@@ -1119,14 +1190,15 @@ def _channel_secrets(channels: dict[str, Any]) -> tuple[str, ...]:
         channels: The ``notifications.channels`` block.
 
     Returns:
-        The non-empty secrets: the Telegram bot token and every webhook URL,
-        Slack and Discord embed theirs in the path.
+        The non-empty secrets: the Telegram bot token, every webhook URL (Slack
+        and Discord embed theirs in the path) and the webhook's signing secret.
     """
-    telegram: dict[str, Any] = channels.get("telegram") or {}
-    candidates = [str(telegram.get("bot_token") or "")]
+    telegram_settings: dict[str, Any] = channels.get("telegram") or {}
+    candidates = [str(telegram_settings.get("bot_token") or "")]
     for name in ("webhook", "slack", "discord"):
         channel: dict[str, Any] = channels.get(name) or {}
         candidates.append(str(channel.get("webhook_url") or ""))
+    candidates.append(str((channels.get("webhook") or {}).get("secret") or ""))
     return tuple(value for value in candidates if value)
 
 
@@ -1134,10 +1206,10 @@ def _channel_secrets(channels: dict[str, Any]) -> tuple[str, ...]:
 #: in first out: a thread per event let a fast "failed" reach the channel
 #: before the "Deploying" published a moment earlier. It is drained, under a
 #: hard cap, when the process exits (noust.core.background).
-NOTIFICATION_QUEUE = BackgroundQueue("wasm-notify")
+NOTIFICATION_QUEUE = BackgroundQueue("noust-notify")
 
 
-def notify_in_background(event: NotificationEvent) -> None:
+def notify_in_background(event: Notification | NotificationEvent) -> None:
     """
     Deliver an event on the notification worker and return at once.
 
@@ -1152,7 +1224,35 @@ def notify_in_background(event: NotificationEvent) -> None:
     NOTIFICATION_QUEUE.submit(lambda: notify_now(event))
 
 
-def notify_now(event: NotificationEvent) -> None:
+def notify_composed(build: Callable[[NotificationContext], Notification]) -> None:
+    """
+    Compose a notification on the notification worker and deliver it.
+
+    The way an emitter that only has facts sends one: it hands over a function
+    from the context (language, server name, console URL) to the
+    notification, and both the configuration read and the composition happen
+    on the worker, in publication order, never on the thread that is busy
+    deploying or scanning.
+
+    Args:
+        build: Builds the notification from the context; usually
+            ``lambda ctx: compose_x(..., ctx)``.
+    """
+    NOTIFICATION_QUEUE.submit(lambda: _compose_and_notify(build))
+
+
+def _compose_and_notify(build: Callable[[NotificationContext], Notification]) -> None:
+    """
+    Compose and deliver over the configuration as it stands on disk.
+
+    Args:
+        build: Builds the notification from the context.
+    """
+    config = fresh_config()
+    Notifier(config).notify(build(NotificationContext.from_config(config)))
+
+
+def notify_now(event: Notification | NotificationEvent) -> None:
     """
     Deliver an event now, over the configuration as it stands on disk.
 

@@ -146,6 +146,23 @@ class FakeNode:
                 status_code=500,
             )
 
+        @app.post("/api/server/power/reboot")
+        async def reboot(request: Request) -> Response:
+            node.seen.append({"method": "POST", "path": request.url.path})
+            return JSONResponse(
+                {
+                    "id": 7,
+                    "action": "reboot",
+                    "scheduled_for": "2099-01-01T00:05:00+00:00",
+                    "requested_by": "master",
+                }
+            )
+
+        @app.delete("/api/server/power/scheduled")
+        async def cancel(request: Request) -> Response:
+            node.seen.append({"method": "DELETE", "path": request.url.path})
+            return JSONResponse({"cancelled": True})
+
         @app.get("/api/revoked")
         def revoked() -> Response:
             return JSONResponse(
@@ -574,6 +591,28 @@ class TestForwarding:
         assert seen["headers"]["x-noust-elevated"] == "1"
         assert seen["headers"]["content-type"] == "application/json"
         assert seen["headers"]["if-none-match"] == '"v0"'
+
+    def test_a_reboot_asked_through_the_central_is_expected_until_cancelled(
+        self, central: TestClient, master: dict[str, str], node: FakeNode, manager: FakeManager
+    ) -> None:
+        from noust.core.store import get_store
+        from noust.fleet import expected
+
+        get_store().save_node(manager.records["web-2"])
+
+        response = proxied(central, "POST", "server/power/reboot", json={}, headers=master)
+
+        assert response.status_code == 200, response.text
+        assert response.json()["scheduled_for"] == "2099-01-01T00:05:00+00:00"
+        outage = expected.current("web-2")
+        assert outage is not None
+        assert outage.due_at == "2099-01-01T00:05:00+00:00"
+        assert outage.requested_by == "master"
+
+        cancelled = proxied(central, "DELETE", "server/power/scheduled", headers=master)
+
+        assert cancelled.status_code == 200, cancelled.text
+        assert expected.current("web-2") is None
 
     def test_the_centrals_own_credentials_stay_on_the_central(
         self, central: TestClient, node: FakeNode

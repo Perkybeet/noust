@@ -91,12 +91,21 @@ class FakeServiceManager:
     ) -> None:
         self.names = names
         self.error = error
+        self.journal_reads: list[str] = []
+        self.journal_error: Exception | None = None
         self.describe_units = ServiceManager(runner=runner).describe_units
 
     def managed_units(self) -> list[SimpleNamespace]:
         if self.error is not None:
             raise self.error
         return [SimpleNamespace(name=name) for name in self.names]
+
+    def logs(self, name: str, lines: int = 50) -> str:
+        """The journal of a unit: what the notification's excerpt is made of."""
+        self.journal_reads.append(name)
+        if self.journal_error is not None:
+            raise self.journal_error
+        return f"Sep 29 10:45:12 web-1 app[1]: {name} crashed\nSep 29 10:45:13 web-1 app[1]: boom"
 
 
 class FakeEventNotifier:
@@ -276,16 +285,22 @@ def test_a_failed_unit_alerts_once_and_rearms_after_it_recovers() -> None:
 
     assert len(notifier.events) == 1
     event = notifier.events[0]
-    assert event.kind == "unit_failed"
-    assert event.title == "Unit shop-example-com failed"
-    assert "result exit-code" in event.body
-    assert "exit status 1" in event.body
-    assert "journalctl -u shop-example-com" in event.body
+    assert (event.kind, event.code) == ("unit_failed", "unit.failed")
+    assert (event.title, event.subject) == ("Service failed", "shop-example-com")
+    assert event.command is not None
+    assert event.command.value == "journalctl -u shop-example-com -n 50"
+    assert event.excerpt is not None
+    assert event.excerpt.lines[-1].endswith("app[1]: boom")
+
+    # Up again: the alert closes, once, under the same switch.
+    scan(runner, monitor, show_block("shop-example-com.service"))
+    assert [e.code for e in notifier.events] == ["unit.failed", "unit.recovered"]
+    assert notifier.events[1].kind == "unit_failed"
 
     scan(runner, monitor, show_block("shop-example-com.service"))
     scan(runner, monitor, failed)
 
-    assert len(notifier.events) == 2
+    assert [e.code for e in notifier.events] == ["unit.failed", "unit.recovered", "unit.failed"]
 
 
 def test_a_failed_unit_is_announced_in_the_configured_language(config: Config) -> None:
@@ -301,10 +316,11 @@ def test_a_failed_unit_is_announced_in_the_configured_language(config: Config) -
 
     assert len(notifier.events) == 1
     event = notifier.events[0]
-    assert event.title == "La unidad shop-example-com ha fallado"
-    assert "result exit-code" in event.body
-    assert "exit status 1" in event.body
-    assert "journalctl -u shop-example-com" in event.body
+    assert (event.locale, event.title) == ("es", "Servicio fallido")
+    assert event.excerpt is not None
+    # The journal is systemd's own report, so it stays exactly as written.
+    assert event.excerpt.label == "Últimas líneas del registro de shop-example-com"
+    assert event.excerpt.lines[-1].endswith("app[1]: boom")
 
 
 def test_a_unit_stopped_on_purpose_does_not_alert() -> None:
@@ -331,8 +347,8 @@ def test_an_inactive_unit_whose_last_run_failed_alerts() -> None:
         ),
     )
 
-    assert [e.title for e in notifier.events] == ["Unit shop-example-com stopped on a failure"]
-    assert "result signal" in notifier.events[0].body
+    assert [e.title for e in notifier.events] == ["Service stopped on a failure"]
+    assert notifier.events[0].excerpt is not None
 
 
 def test_a_crash_loop_alerts_when_the_restart_count_grows() -> None:
@@ -363,9 +379,9 @@ def test_a_crash_loop_alerts_when_the_restart_count_grows() -> None:
             unit, active="activating", sub="auto-restart", result="exit-code", status=1, restarts=11
         ),
     )
-    assert [e.title for e in notifier.events] == ["Unit example-com is crash-looping"]
-    assert "6 time(s) since the previous check" in notifier.events[0].body
-    assert "11 automatic restarts in total" in notifier.events[0].body
+    assert [e.title for e in notifier.events] == ["Service crash-looping"]
+    assert notifier.events[0].summary.startswith("systemd restarted it 6 times")
+    assert {fact.key: fact.value for fact in notifier.events[0].facts}["restarts"] == "11"
 
     # Caught up between two crashes: still restarting, still the same outage.
     scan(runner, monitor, show_block(unit, restarts=12))
@@ -373,6 +389,7 @@ def test_a_crash_loop_alerts_when_the_restart_count_grows() -> None:
 
     # Up, with no restart since the previous scan: recovered, and re-armed.
     scan(runner, monitor, show_block(unit, restarts=12))
+    assert [e.code for e in notifier.events] == ["unit.crash_loop", "unit.recovered"]
     scan(
         runner,
         monitor,
@@ -380,7 +397,11 @@ def test_a_crash_loop_alerts_when_the_restart_count_grows() -> None:
             unit, active="activating", sub="auto-restart", result="exit-code", status=1, restarts=13
         ),
     )
-    assert len(notifier.events) == 2
+    assert [e.code for e in notifier.events] == [
+        "unit.crash_loop",
+        "unit.recovered",
+        "unit.crash_loop",
+    ]
 
 
 def test_many_restarts_in_one_interval_is_a_loop_even_when_caught_up() -> None:
@@ -392,7 +413,55 @@ def test_many_restarts_in_one_interval_is_a_loop_even_when_caught_up() -> None:
     scan(runner, monitor, show_block(unit, restarts=0))
     scan(runner, monitor, show_block(unit, restarts=4))
 
-    assert [e.title for e in notifier.events] == ["Unit shop-example-com is crash-looping"]
+    assert [e.title for e in notifier.events] == ["Service crash-looping"]
+
+
+def test_a_unit_that_was_deleted_while_failed_is_not_announced_as_recovered() -> None:
+    runner = FakeRunner()
+    monitor, notifier = make_monitor(runner, ["shop-example-com"])
+    failed = show_block(
+        "shop-example-com.service", active="failed", sub="failed", result="exit-code"
+    )
+
+    scan(runner, monitor, failed)
+    scan(
+        runner, monitor, show_block("shop-example-com.service", load="not-found", active="inactive")
+    )
+
+    assert [e.code for e in notifier.events] == ["unit.failed"]
+
+
+def test_a_journal_that_cannot_be_read_costs_the_excerpt_not_the_notification() -> None:
+    runner = FakeRunner()
+    services = FakeServiceManager(runner, ["shop-example-com"])
+    services.journal_error = ServiceError("journalctl unreachable")
+    monitor, notifier = make_monitor(runner, ["shop-example-com"], services=services)
+
+    scan(
+        runner,
+        monitor,
+        show_block("shop-example-com.service", active="failed", sub="failed", result="exit-code"),
+    )
+
+    assert [e.code for e in notifier.events] == ["unit.failed"]
+    assert notifier.events[0].excerpt is None
+    # With no journal to say it, what systemd reported is a fact.
+    assert {f.key: f.value for f in notifier.events[0].facts}["result"] == "exit-code"
+
+
+def test_the_journal_is_read_once_per_outage_not_once_per_scan() -> None:
+    runner = FakeRunner()
+    services = FakeServiceManager(runner, ["shop-example-com"])
+    monitor, _ = make_monitor(runner, ["shop-example-com"], services=services)
+    failed = show_block(
+        "shop-example-com.service", active="failed", sub="failed", result="exit-code"
+    )
+
+    scan(runner, monitor, failed)
+    scan(runner, monitor, failed)
+    scan(runner, monitor, failed)
+
+    assert services.journal_reads == ["shop-example-com"]
 
 
 def test_a_single_restart_that_recovered_is_not_a_loop() -> None:

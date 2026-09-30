@@ -1,0 +1,998 @@
+{
+  "deploy.started": {
+    "chat_id": "-1001234567890",
+    "text": "◐ <b>Deploying</b> · shop.example.com\nNoust is building the new version and will tell you how it ends.\n\n<b>Server:</b> web-1\n<b>Commit:</b> a1b2c3d (main)\n<b>Started by:</b> Webhook",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+          }
+        ]
+      ]
+    }
+  },
+  "deploy.succeeded": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Deployed</b> · shop.example.com\nThe new version is live.\n\n<b>Server:</b> web-1\n<b>Release:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (main): Fix cart total\n<b>Started by:</b> Webhook\n<b>Duration:</b> 42 s",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+          }
+        ]
+      ]
+    }
+  },
+  "deploy.failed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Deploy failed</b> · shop.example.com\nIt stopped at an error before the new version could take over.\n\n<b>Server:</b> web-1\n<b>Release:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (main): Fix cart total\n<b>Started by:</b> Webhook\n<b>Duration:</b> 1 min 12 s\n<b>Inspect with:</b> <code>noust diagnose shop.example.com</code>\n\n<i>What the system reported</i>\n<pre>npm run build failed\n&gt; shop@1.4.2 build\n&gt; next build\nFailed to compile.\n./app/cart/page.tsx\nType error: Property 'total' does not exist on type 'Cart'.\nnpm error Lifecycle script `build` failed with error:\nnpm error code 1</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+          }
+        ]
+      ]
+    }
+  },
+  "deploy.rolled_back": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Rolled back</b> · shop.example.com\nThe new version did not answer its health check, so the previous one is serving again.\n\n<b>Server:</b> web-1\n<b>Release:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (main): Fix cart total\n<b>Started by:</b> Webhook\n<b>Duration:</b> 1 min 12 s\n<b>Inspect with:</b> <code>noust diagnose shop.example.com</code>\n\n<i>Last lines of the journal of shop-example-com</i>\n<pre>systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nsystemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nnpm[48439]: &gt; shop@1.4.2 start\nnpm[48439]: &gt; next start -p 3004\nnpm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nsystemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nsystemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nsystemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 20 earlier lines omitted</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+          }
+        ]
+      ]
+    }
+  },
+  "update.started": {
+    "chat_id": "-1001234567890",
+    "text": "◐ <b>Updating</b> · shop.example.com\nNoust is fetching and building the latest code and will tell you how it ends.\n\n<b>Server:</b> web-1\n<b>Commit:</b> a1b2c3d (main)\n<b>Started by:</b> Webhook",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+          }
+        ]
+      ]
+    }
+  },
+  "update.succeeded": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Updated</b> · shop.example.com\nThe application runs the new version.\n\n<b>Server:</b> web-1\n<b>Release:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (main): Fix cart total\n<b>Started by:</b> Webhook\n<b>Duration:</b> 42 s",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+          }
+        ]
+      ]
+    }
+  },
+  "update.failed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Update failed</b> · shop.example.com\nIt stopped at an error before the new version could take over.\n\n<b>Server:</b> web-1\n<b>Release:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (main): Fix cart total\n<b>Started by:</b> Webhook\n<b>Duration:</b> 1 min 12 s\n<b>Inspect with:</b> <code>noust diagnose shop.example.com</code>\n\n<i>What the system reported</i>\n<pre>npm run build failed\n&gt; shop@1.4.2 build\n&gt; next build\nFailed to compile.\n./app/cart/page.tsx\nType error: Property 'total' does not exist on type 'Cart'.\nnpm error Lifecycle script `build` failed with error:\nnpm error code 1</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+          }
+        ]
+      ]
+    }
+  },
+  "update.rolled_back": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Rolled back</b> · shop.example.com\nThe new version did not answer its health check, so the previous one is serving again.\n\n<b>Server:</b> web-1\n<b>Release:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (main): Fix cart total\n<b>Started by:</b> Webhook\n<b>Duration:</b> 1 min 12 s\n<b>Inspect with:</b> <code>noust diagnose shop.example.com</code>\n\n<i>Last lines of the journal of shop-example-com</i>\n<pre>systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nsystemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nnpm[48439]: &gt; shop@1.4.2 start\nnpm[48439]: &gt; next start -p 3004\nnpm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nsystemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nsystemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nsystemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 20 earlier lines omitted</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+          }
+        ]
+      ]
+    }
+  },
+  "rollback.started": {
+    "chat_id": "-1001234567890",
+    "text": "◐ <b>Reverting</b> · shop.example.com\nNoust is putting an earlier version back and will tell you how it ends.\n\n<b>Server:</b> web-1\n<b>Commit:</b> a1b2c3d (main)\n<b>Started by:</b> Webhook",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+          }
+        ]
+      ]
+    }
+  },
+  "rollback.succeeded": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Reverted</b> · shop.example.com\nThe earlier version is serving again.\n\n<b>Server:</b> web-1\n<b>Release:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (main): Fix cart total\n<b>Started by:</b> Webhook\n<b>Duration:</b> 42 s",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+          }
+        ]
+      ]
+    }
+  },
+  "rollback.failed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Revert failed</b> · shop.example.com\nGoing back stopped at an error before the earlier version could take over.\n\n<b>Server:</b> web-1\n<b>Release:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (main): Fix cart total\n<b>Started by:</b> Webhook\n<b>Duration:</b> 1 min 12 s\n<b>Inspect with:</b> <code>noust diagnose shop.example.com</code>\n\n<i>What the system reported</i>\n<pre>rollback step failed\nsystemctl: Job for shop-example-com.service failed</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+          }
+        ]
+      ]
+    }
+  },
+  "rollback.rolled_back": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Revert failed</b> · shop.example.com\nThe earlier version did not answer its health check, so the one serving before is serving again.\n\n<b>Server:</b> web-1\n<b>Release:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (main): Fix cart total\n<b>Started by:</b> Webhook\n<b>Duration:</b> 1 min 12 s\n<b>Inspect with:</b> <code>noust diagnose shop.example.com</code>\n\n<i>Last lines of the journal of shop-example-com</i>\n<pre>systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nsystemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nnpm[48439]: &gt; shop@1.4.2 start\nnpm[48439]: &gt; next start -p 3004\nnpm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nsystemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nsystemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nsystemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 20 earlier lines omitted</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+          }
+        ]
+      ]
+    }
+  },
+  "activate.started": {
+    "chat_id": "-1001234567890",
+    "text": "◐ <b>Activating release</b> · shop.example.com\nNoust is switching to the chosen release and will tell you how it ends.\n\n<b>Server:</b> web-1\n<b>Commit:</b> a1b2c3d (main)\n<b>Started by:</b> Webhook",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+          }
+        ]
+      ]
+    }
+  },
+  "activate.succeeded": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Release activated</b> · shop.example.com\nThe chosen release is serving.\n\n<b>Server:</b> web-1\n<b>Release:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (main): Fix cart total\n<b>Started by:</b> Webhook\n<b>Duration:</b> 42 s",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+          }
+        ]
+      ]
+    }
+  },
+  "activate.failed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Activation failed</b> · shop.example.com\nSwitching stopped at an error before the chosen release could take over.\n\n<b>Server:</b> web-1\n<b>Release:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (main): Fix cart total\n<b>Started by:</b> Webhook\n<b>Duration:</b> 1 min 12 s\n<b>Inspect with:</b> <code>noust diagnose shop.example.com</code>\n\n<i>What the system reported</i>\n<pre>activate step failed\nsystemctl: Job for shop-example-com.service failed</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+          }
+        ]
+      ]
+    }
+  },
+  "activate.rolled_back": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Activation failed</b> · shop.example.com\nThe chosen release did not answer its health check, so the previous one is serving again.\n\n<b>Server:</b> web-1\n<b>Release:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (main): Fix cart total\n<b>Started by:</b> Webhook\n<b>Duration:</b> 1 min 12 s\n<b>Inspect with:</b> <code>noust diagnose shop.example.com</code>\n\n<i>Last lines of the journal of shop-example-com</i>\n<pre>systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nsystemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nnpm[48439]: &gt; shop@1.4.2 start\nnpm[48439]: &gt; next start -p 3004\nnpm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nsystemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nsystemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nsystemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 20 earlier lines omitted</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+          }
+        ]
+      ]
+    }
+  },
+  "migrate.started": {
+    "chat_id": "-1001234567890",
+    "text": "◐ <b>Migrating to releases</b> · shop.example.com\nNoust is moving the application to releases and will tell you how it ends.\n\n<b>Server:</b> web-1\n<b>Commit:</b> a1b2c3d (main)\n<b>Started by:</b> Webhook",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+          }
+        ]
+      ]
+    }
+  },
+  "migrate.succeeded": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Migrated to releases</b> · shop.example.com\nEvery deploy now builds in its own release, and going back takes seconds.\n\n<b>Server:</b> web-1\n<b>Release:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (main): Fix cart total\n<b>Started by:</b> Webhook\n<b>Duration:</b> 42 s",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+          }
+        ]
+      ]
+    }
+  },
+  "migrate.failed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Migration failed</b> · shop.example.com\nIt stopped at an error; Noust puts the in-place layout back when that happens.\n\n<b>Server:</b> web-1\n<b>Release:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (main): Fix cart total\n<b>Started by:</b> Webhook\n<b>Duration:</b> 1 min 12 s\n<b>Inspect with:</b> <code>noust diagnose shop.example.com</code>\n\n<i>What the system reported</i>\n<pre>migrate step failed\nsystemctl: Job for shop-example-com.service failed</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+          }
+        ]
+      ]
+    }
+  },
+  "restore.completed": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Restored</b> · shop.example.com\nThe application's files are back as the backup had them.\n\n<b>Server:</b> web-1\n<b>Backup:</b> <code>20260928-020000</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/backups"
+          }
+        ]
+      ]
+    }
+  },
+  "restore.failed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Restore failed</b> · shop.example.com\nIt stopped at an error, so the application's files may be only partly restored.\n\n<b>Server:</b> web-1\n<b>Backup:</b> <code>20260928-020000</code>\n\n<i>What the system reported</i>\n<pre>tar: Unexpected EOF in archive\ntar: Error is not recoverable: exiting now</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/backups"
+          }
+        ]
+      ]
+    }
+  },
+  "backup.failed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Backup failed</b> · shop.example.com\nNo new copy of the application was saved.\n\n<b>Server:</b> web-1\n\n<i>What the system reported</i>\n<pre>tar: /var/www/apps/shop-example-com/shared/uploads: Cannot write: No space left on device</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/backups"
+          }
+        ]
+      ]
+    }
+  },
+  "backup.upload_failed": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Backup upload failed</b> · shop.example.com\nThe copy was kept on this server but could not be uploaded.\n\n<b>Server:</b> web-1\n<b>Destination:</b> s3-eu\n\n<i>What the system reported</i>\n<pre>2026/09/29 02:00:14 Failed to copy: AccessDenied: Access Denied\n    status code: 403</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/backups"
+          }
+        ]
+      ]
+    }
+  },
+  "backup.schedule_missing": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Backup schedule missing</b> · shop.example.com\nThe timer fired but Noust has no schedule stored for this application, so the backup ran with the default settings.\n\n<b>Server:</b> web-1\n<b>Save it again with:</b> <code>noust backup schedule update shop.example.com</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/backups"
+          }
+        ]
+      ]
+    }
+  },
+  "backup.completed": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Backup completed</b> · shop.example.com\nA new copy of the application was saved.\n\n<b>Server:</b> web-1\n<b>Backup:</b> <code>20260929-020000</code>\n<b>Size:</b> 48.0 MB\n<b>Uploaded to:</b> s3-eu",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/backups"
+          }
+        ]
+      ]
+    }
+  },
+  "cert.expiring": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Certificate expiring</b> · shop.example.com\nExpires in 7 days (6 Oct 2026).\n\n<b>Server:</b> web-1\n<b>Covers:</b> shop.example.com, www.shop.example.com\n<b>Renew with:</b> <code>noust cert renew shop.example.com</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/domains"
+          }
+        ]
+      ]
+    }
+  },
+  "cert.expired": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Certificate expired</b> · shop.example.com\nExpired 80 days ago (11 Jul 2026).\n\n<b>Server:</b> web-1\n<b>Covers:</b> shop.example.com, www.shop.example.com\n<b>Renew with:</b> <code>noust cert renew shop.example.com</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/domains"
+          }
+        ]
+      ]
+    }
+  },
+  "unit.failed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Service failed</b> · shop-example-com\nsystemd marked it as failed.\n\n<b>Server:</b> web-1\n<b>Inspect with:</b> <code>journalctl -u shop-example-com -n 50</code>\n\n<i>Last lines of the journal of shop-example-com</i>\n<pre>npm[48211]: &gt; shop@1.4.2 start\nnpm[48211]: &gt; next start -p 3004\nnpm[48227]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nsystemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nsystemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nsystemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1.</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/server/services/shop-example-com"
+          }
+        ]
+      ]
+    }
+  },
+  "unit.crash_loop": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Service crash-looping</b> · shop-example-com\nsystemd restarted it 3 times since the last check and it still does not stay up.\n\n<b>Server:</b> web-1\n<b>Restarts:</b> 9\n<b>Inspect with:</b> <code>journalctl -u shop-example-com -n 50</code>\n\n<i>Last lines of the journal of shop-example-com</i>\n<pre>systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1.\nsystemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nnpm[48287]: &gt; shop@1.4.2 start\nnpm[48287]: &gt; next start -p 3004\nnpm[48303]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nsystemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nsystemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nsystemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 2.\n… 6 earlier lines omitted</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/server/services/shop-example-com"
+          }
+        ]
+      ]
+    }
+  },
+  "unit.stopped_on_failure": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Service stopped on a failure</b> · shop-example-com\nIt stopped after a run that failed, and systemd is not restarting it.\n\n<b>Server:</b> web-1\n<b>Result:</b> <code>signal</code>\n<b>Exit status:</b> 9\n<b>Inspect with:</b> <code>journalctl -u shop-example-com -n 50</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/server/services/shop-example-com"
+          }
+        ]
+      ]
+    }
+  },
+  "unit.recovered": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Service recovered</b> · shop-example-com\nIt is running again and has not restarted since the last check.\n\n<b>Server:</b> web-1",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/server/services/shop-example-com"
+          }
+        ]
+      ]
+    }
+  },
+  "disk.threshold": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Disk almost full</b> · /\nIt is past the 90% alert threshold, and a full disk stops deployments, logs and databases on this server.\n\n<b>Server:</b> web-1\n<b>Used:</b> 91.7% (18.3 GB / 20.0 GB)\n<b>Free:</b> 1.7 GB",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "disk.recovered": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Disk space recovered</b> · /\nUsage is back under the alert threshold.\n\n<b>Server:</b> web-1\n<b>Used:</b> 71.2%",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "test": {
+    "chat_id": "-1001234567890",
+    "text": "○ <b>Test notification</b> · Telegram\nIf you can read this, the Telegram channel is configured correctly.\n\n<b>Server:</b> web-1",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML"
+  },
+  "node.unreachable": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Server unreachable</b> · web-2\nNoust cannot reach this server through its tunnel.\n\n<b>Server:</b> web-1\n<b>Address:</b> <code>10.0.0.2</code>\n<b>Unreachable since:</b> 2026-09-29 10:30 UTC\n\n<i>What the system reported</i>\n<pre>ssh: connect to host 10.0.0.2 port 22: Connection timed out</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/fleet"
+          }
+        ]
+      ]
+    }
+  },
+  "node.recovered": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Server reachable again</b> · web-2\nThe tunnel is open again and the server answers.\n\n<b>Server:</b> web-1\n<b>Was unreachable for:</b> 12 min 34 s",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/n/web-2/"
+          }
+        ]
+      ]
+    }
+  },
+  "node.host_key_changed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Host key changed</b> · web-2\nThe server presented a different SSH host key, so the tunnel stays closed until someone checks it.\n\n<b>Server:</b> web-1\n<b>Address:</b> <code>10.0.0.2</code>\n<b>Pinned key:</b> <code>SHA256:kQ3vP1xN0m0e5sYt3n2c1H0b9k2q3Wz8nq0w1d0aAbc</code>\n<b>Presented key:</b> <code>SHA256:Zr9LmTq7bV2d8Yh1uJ0aXc4eF6gH3iK5oP7sRtUvWxy</code>\n<b>Check it with:</b> <code>noust node trust web-2</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/fleet"
+          }
+        ]
+      ]
+    }
+  },
+  "report.observations": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Process observations</b>\nThe monitor only reports: no process was signalled and no file was touched. Review each entry before acting.\n\n<b>Server:</b> web-1\n<b>Processes:</b> 1\n<b>Warnings:</b> 1\n\n<b>Warning: xmrig (PID 1234)</b>\n<b>Signal:</b> name-pattern\n<b>User:</b> nobody\n<b>CPU:</b> 97.5%\n<b>Detail:</b> Executable name matches the known-malware pattern 'xmrig'.\n<b>Command:</b> <code>/tmp/.x/xmrig -o pool.example.org:3333</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML"
+  },
+  "server.rebooted": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Server restarted</b> · web-1\nNobody asked for this restart from Noust: check that every application came back.\n\n<b>Server:</b> web-1\n<b>Back at:</b> 2026-09-29 04:02 UTC",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "server.back": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Server back</b> · web-1\nThe restart asked from Noust is done and the console is running again.\n\n<b>Server:</b> web-1\n<b>Asked by:</b> alice\n<b>Scheduled for:</b> 2026-09-29 04:00 UTC\n<b>Took:</b> 2 min 10 s\n<b>Back at:</b> 2026-09-29 04:02 UTC",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "approval.requested": {
+    "chat_id": "-1001234567890",
+    "text": "◐ <b>Approval requested</b> · #12\nA change that needs a second person is waiting for someone to decide it.\n\n<b>Server:</b> web-1\n<b>Request:</b> #12\n<b>Change:</b> <code>fleet.node.add</code>\n<b>Call:</b> <code>POST /api/nodes</code>\n<b>Asked by:</b> alice\n<b>Reason:</b> Adding the new database server of the shop\n<b>Decide before:</b> 2026-09-30 10:45 UTC\n<b>Decide with:</b> <code>noust approval approve 12</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/settings/security"
+          }
+        ]
+      ]
+    }
+  },
+  "approval.approved": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Request approved</b> · #12\nThe person who asked can make the change once, before the approval runs out.\n\n<b>Server:</b> web-1\n<b>Request:</b> #12\n<b>Change:</b> <code>fleet.node.add</code>\n<b>Call:</b> <code>POST /api/nodes</code>\n<b>Asked by:</b> alice\n<b>Decided by:</b> bob\n<b>Comment:</b> Checked with the shop's owner\n<b>Use it before:</b> 2026-09-29 11:15 UTC",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/settings/security"
+          }
+        ]
+      ]
+    }
+  },
+  "approval.rejected": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Request rejected</b> · #12\nThe change will not be made; whoever asked can ask again with more context.\n\n<b>Server:</b> web-1\n<b>Request:</b> #12\n<b>Change:</b> <code>fleet.node.add</code>\n<b>Call:</b> <code>POST /api/nodes</code>\n<b>Asked by:</b> alice\n<b>Decided by:</b> bob\n<b>Comment:</b> Not before the maintenance window",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/settings/security"
+          }
+        ]
+      ]
+    }
+  },
+  "database.backup.failed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Backup failed</b> · postgresql/shop\nNo new copy of the database was saved.\n\n<b>Server:</b> web-1\n\n<i>What the system reported</i>\n<pre>The dump was taken but failed its check\npg_restore: error: could not read input file: end of file</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+          }
+        ]
+      ]
+    }
+  },
+  "database.backup.upload_failed": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Backup upload failed</b> · postgresql/shop\nThe copy of the database was kept on this server but could not be uploaded.\n\n<b>Server:</b> web-1\n<b>Destination:</b> offsite-s3\n\n<i>What the system reported</i>\n<pre>Failed to copy: AccessDenied: Access Denied</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+          }
+        ]
+      ]
+    }
+  },
+  "database.backup.completed": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Backup completed</b> · postgresql/shop\nA new copy of the database was saved.\n\n<b>Server:</b> web-1\n<b>Backup:</b> <code>shop-20260929-104551.dump</code>\n<b>Size:</b> 48.0 MB\n<b>Uploaded to:</b> offsite-s3",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+          }
+        ]
+      ]
+    }
+  },
+  "database.restore.completed": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Restored</b> · postgresql/shop\nThe database is back as the dump had it.\n\n<b>Server:</b> web-1\n<b>Backup:</b> <code>shop-20260929-104551.dump</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+          }
+        ]
+      ]
+    }
+  },
+  "database.restore.failed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Restore failed</b> · postgresql/shop\nIt stopped at an error, so the database may be only partly restored.\n\n<b>Server:</b> web-1\n<b>Backup:</b> <code>shop-20260929-104551.dump</code>\n\n<i>What the system reported</i>\n<pre>pg_restore: error: relation \"orders\" already exists</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+          }
+        ]
+      ]
+    }
+  },
+  "hostile.deploy_failed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Deploy failed</b> · shop.example.com\nIt stopped at an error before the new version could take over.\n\n<b>Server:</b> wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n<b>Release:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (&lt;b&gt;x&lt;/b&gt;&amp;amp;&lt;!channel&gt; @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here &lt;@U123&gt; &lt;#C1&gt; red emoji 🚀\n<b>Started by:</b> Webhook\n<b>Duration:</b> 1 min 12 s\n<b>Inspect with:</b> <code>noust diagnose shop.example.com</code>\n\n<i>What the system reported</i>\n<pre>Release did not pass &lt;its&gt; health &amp; check\n&lt;urlopen error [Errno 111] Connection refused&gt;\n```\n@everyone &lt;!channel&gt; &lt;@U123|admin&gt; &amp;lt;b&amp;gt;\nred *bold* _italic_ ~strike~ `code`\nnoitcnuf\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+          }
+        ]
+      ]
+    }
+  },
+  "hostile.long_output": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Update failed</b> · shop.example.com\nIt stopped at an error before the new version could take over.\n\n<b>Server:</b> wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n<b>Release:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (main): Fix cart total\n<b>Started by:</b> Webhook\n<b>Duration:</b> 1 min 12 s\n<b>Inspect with:</b> <code>noust diagnose shop.example.com</code>\n\n<i>What the system reported</i>\n<pre>line 496: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 497: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 498: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 499: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n… 497 earlier lines omitted</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+          }
+        ]
+      ]
+    }
+  },
+  "hostile.no_link": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Deployed</b> · shop.example.com\nThe new version is live.\n\n<b>Server:</b> web-1\n<b>Release:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (main): Fix cart total\n<b>Started by:</b> Webhook\n<b>Duration:</b> 42 s",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML"
+  },
+  "hostile.preview": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Deployed</b> · pr-12.shop.example.com\nThe new version is live.\n\n<b>Server:</b> wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n<b>Preview of:</b> shop.example.com #12\n<b>Release:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (main): Fix cart total\n<b>Started by:</b> Webhook\n<b>Duration:</b> 42 s",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/pr-12.shop.example.com/deployments/42"
+          }
+        ]
+      ]
+    }
+  },
+  "hostile.no_commit": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Updated</b> · shop.example.com\nThe application runs the new version.\n\n<b>Server:</b> wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n<b>Started by:</b> Webhook\n<b>Duration:</b> 42 s",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+          }
+        ]
+      ]
+    }
+  },
+  "hostile.huge_subject": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Backup failed</b> · ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd…\nNo new copy of the application was saved.\n\n<b>Server:</b> wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n\n<i>What the system reported</i>\n<pre>boom</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/backups"
+          }
+        ]
+      ]
+    }
+  }
+}

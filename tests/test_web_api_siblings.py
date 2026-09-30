@@ -43,6 +43,8 @@ from noust.web.api import jobs as jobs_api
 from noust.web.api import sites as sites_api
 from noust.web.api import system as system_api
 from noust.web.api.auth import get_current_session
+from noust.web.api.databases import query as databases_query_api
+from noust.web.api.databases import users as databases_users_api
 from noust.web.api.deps import strict_domain
 
 #: The aggregate router module, imported by path because the package re-exports
@@ -380,7 +382,7 @@ class TestRouteOrdering:
             (sites_api, "/templates", "/{domain}"),
             (jobs_api, "/jobs/active", "/jobs/{job_id}"),
             (jobs_api, "/jobs/cleanup", "/jobs/{job_id}"),
-            (databases_api, "/users/grant", "/users/{engine}"),
+            (databases_users_api, "/users/grant", "/users/{engine}"),
         ],
     )
     def test_literal_routes_come_first(self, module: Any, literal: str, parametrised: str) -> None:
@@ -763,41 +765,38 @@ class TestTraversal:
 
 
 class TestDatabaseConsole:
-    """The SQL console is kept, but only as an explicit, bounded one."""
+    """
+    The SQL console is kept, but only as an explicit, bounded one.
 
-    def test_read_mode_refuses_a_write(self) -> None:
-        """A statement that changes data needs mode='write'."""
-        with pytest.raises(Exception) as excinfo:
-            databases_api._check_read_only("postgres", "DELETE FROM users")
-        assert "read-only" in str(excinfo.value).lower()
+    3.1 removed the keyword filter: read mode is the server's to enforce
+    (the database's read-only account), and the one-statement rule is the
+    guard the CLI shares (:func:`noust.managers.database.service.console_request`).
+    """
 
-    @pytest.mark.parametrize(
-        "statement",
-        ["SELECT 1", "show tables", "EXPLAIN SELECT 1", "WITH x AS (SELECT 1) SELECT 1"],
-    )
-    def test_read_mode_accepts_reads(self, statement: str) -> None:
-        """Read statements pass."""
-        databases_api._check_read_only("postgres", statement)
-
-    def test_read_mode_is_refused_for_engines_without_a_known_grammar(self) -> None:
-        """WASM does not pretend to know what a read is in Redis."""
-        with pytest.raises(Exception) as excinfo:
-            databases_api._check_read_only("redis", "GET key")
-        assert "read-only mode is not available" in str(excinfo.value).lower()
+    def test_the_keyword_filter_is_gone(self) -> None:
+        """No list of read keywords stands between a statement and the server."""
+        assert not hasattr(databases_api, "_check_read_only")
+        assert not hasattr(databases_query_api, "READ_STATEMENT_KEYWORDS")
 
     def test_a_second_statement_is_refused(self) -> None:
         """One statement per request, so a SELECT cannot carry a DROP."""
+        from noust.managers.database.service import console_request
+
         with pytest.raises(Exception) as excinfo:
-            databases_api._reject_multiple_statements("SELECT 1; DROP TABLE users")
+            console_request("SELECT 1; DROP TABLE users", single=True)
         assert "one statement" in str(excinfo.value).lower()
 
     def test_a_trailing_semicolon_is_fine(self) -> None:
         """The common case still works."""
-        assert databases_api._reject_multiple_statements("SELECT 1;") == "SELECT 1"
+        from noust.managers.database.service import console_request
+
+        assert console_request("SELECT 1;", single=True) == "SELECT 1"
 
     def test_output_is_bounded(self) -> None:
         """A large result set cannot pull the panel over."""
-        text, truncated, rows = databases_api._truncate("\n".join(str(i) for i in range(500)), 10)
+        text, truncated, rows = databases_query_api.truncate_output(
+            "\n".join(str(i) for i in range(500)), 10
+        )
 
         assert truncated is True
         assert rows == 10

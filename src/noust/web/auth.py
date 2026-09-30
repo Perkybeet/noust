@@ -31,6 +31,12 @@ equivalent to a root shell. The design decisions that follow from that:
 - **Sessions die of old age.** Renewal keeps an active operator logged in, but
   it rotates the session id and never pushes the absolute deadline, so a session
   that is used continuously still expires.
+- **Every request acts as someone, with permissions.** A session is a person's
+  account (read from the store on every request, so disabling it or changing
+  its role applies at once) or the master token, which holds the console only
+  while no account exists and is break-glass after. :func:`require_auth` holds
+  the principal to the permission its route declares in
+  :mod:`noust.web.permissions`.
 """
 
 from __future__ import annotations
@@ -38,6 +44,7 @@ from __future__ import annotations
 import errno
 import hashlib
 import hmac
+import importlib
 import ipaddress
 import json
 import logging
@@ -49,7 +56,7 @@ import sqlite3
 import stat
 import threading
 import time
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Mapping
 from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -61,8 +68,33 @@ from fastapi import HTTPException, Request, status
 from starlette.requests import HTTPConnection
 
 from noust.core import paths, totp
+from noust.core.accounts import AccountManager, AuthPolicy, load_policy
+from noust.core.accounts.model import Account
+from noust.core.audit import install as install_core_audit_log
+from noust.core.audit.legacy import AuditLogger
 from noust.core.exceptions import SecurityError
 from noust.core.fs import SECRET_MODE, get_fs, is_rehearsal
+from noust.core.store import StoreError
+from noust.web.permissions import ALL_PERMISSIONS, PUBLIC, Permission
+from noust.web.permissions.enforce import (
+    PermissionDenied,
+    check_permission,
+    has_permission,
+    patched_config_key,
+    required_permissions,
+)
+from noust.web.permissions.roles import (
+    GRANT_BREAK_GLASS,
+    GRANT_COMPAT,
+    GRANT_PERMISSIONS,
+    GRANT_RECOVERY,
+    LEGACY_SCOPES,
+    ROLE_PERMISSIONS,
+    TOKEN_SCOPES,
+    legacy_scope,
+    permissions_for_role,
+    permissions_for_scope,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -242,8 +274,14 @@ FLEET_ACTOR_HEADER = "X-Noust-Actor"
 #: The scope that operator holds on the central. The fleet token is narrowed
 #: to it, so a read-only token on the central reads a node exactly as a
 #: read-only token on the node would: admin-only GETs and process command
-#: lines included.
+#: lines included. What a 3.0 central sends; a 3.1 one sends the role too.
 FLEET_ACTOR_SCOPE_HEADER = "X-Noust-Actor-Scope"
+#: The role that operator's account holds on the central. When present the
+#: node grants that role's permissions from its own table, narrowed to its
+#: ceiling (:func:`noust.fleet.policy.permits`), and ignores the scope; an
+#: unknown role reads, never more.
+FLEET_ACTOR_ROLE_HEADER = "X-Noust-Actor-Role"
+FLEET_ROLE_PATTERN = re.compile(r"[a-z][a-z_-]{0,31}")
 #: ``1`` when that operator's own credential on the central is inside sudo
 #: mode, or is one sudo mode does not ask (the master token, an API token).
 #: The node's sudo window cannot be opened by a token, so this is how an
@@ -265,7 +303,9 @@ FORWARDING_HEADERS = ("forwarded", "x-forwarded-for", "x-real-ip")
 #: say who it is, and the one that revokes itself when the central removes the
 #: node. Minting and revoking tokens, two-factor authentication,
 #: sessions, sudo mode and WebSocket tickets are the node's own operator's.
-FLEET_AUTH_PATHS = frozenset({"/api/auth/session", "/api/auth/verify", "/api/auth/fleet/revoke"})
+FLEET_AUTH_PATHS = frozenset(
+    {"/api/auth/session", "/api/auth/verify", "/api/auth/fleet/revoke", "/api/auth/fleet/self"}
+)
 
 #: Path prefixes a fleet token never reaches, whatever the method: the node's
 #: own credentials, and fleet enrollment - a central must not be able to use a
@@ -277,9 +317,12 @@ FLEET_REFUSED_PREFIXES = ("/api/auth", "/api/nodes", "/api/fleet", "/api/central
 FLEET_REFUSED_WRITES = frozenset({("PUT", "/api/config"), ("PUT", "/api/config/web")})
 
 #: Configuration sections that are this server's security settings: who may
-#: reach its console and from where, and its fleet role. ``PATCH /api/config``
-#: addresses one key by a dotted path in its body; one under these is refused.
-FLEET_PROTECTED_CONFIG_SECTIONS = frozenset({"web", "fleet", "central"})
+#: reach its console and from where, its sign-in policy and audit trail, and
+#: its fleet role. ``PATCH /api/config`` addresses one key by a dotted path in
+#: its body; one under these is refused.
+FLEET_PROTECTED_CONFIG_SECTIONS = frozenset(
+    {"web", "fleet", "central", "auth", "security", "audit", "approval"}
+)
 
 #: Recorded in the payload the auth dependency hands to endpoints. Kept as
 #: names rather than a JWT: see SessionStore._encode for why the JWT went.
@@ -298,8 +341,18 @@ SESSION_ROTATION_GRACE = 30
 
 #: Hard ceiling on a session's life, however active it is. Renewal resets the
 #: idle clock but never this one, so a stolen cookie that is kept warm still
-#: stops working within a day.
+#: stops working within a day. The sign-in policy
+#: (:attr:`noust.core.accounts.AuthPolicy.absolute_hours`, 12 hours, 8 under
+#: the ENS profile) is the ceiling that normally applies; this one caps it.
 SESSION_MAX_HOURS = 24
+
+#: How often a session's last activity is written, at most. The idle timeout
+#: is minutes long; a write per request would be a write per poll.
+SESSION_ACTIVITY_THROTTLE = 30
+
+#: What a session is: a person's account, or the master token signed in.
+SESSION_KIND_ACCOUNT = "account"
+SESSION_KIND_MASTER = "master"
 
 #: The audit log is written by anonymous, unauthenticated events (a refused
 #: handshake is one), so it is rotated rather than allowed to fill the disk.
@@ -369,6 +422,9 @@ class SecurityConfig:
         webhook_max_failures: Wrong signatures one application's hook takes
             before it refuses deliveries for ``webhook_lockout_duration``.
         webhook_lockout_duration: Seconds that window and that refusal last.
+        auth_policy: The sign-in policy, fixed; None reads it from the
+            configuration on every use (``security.profile`` and ``auth.*``),
+            which is what a running console does.
     """
 
     host: str = "127.0.0.1"
@@ -399,6 +455,14 @@ class SecurityConfig:
     max_hook_body_bytes: int = MAX_HOOK_BODY_BYTES
     webhook_max_failures: int = WEBHOOK_MAX_FAILURES
     webhook_lockout_duration: int = WEBHOOK_LOCKOUT_DURATION
+    auth_policy: AuthPolicy | None = None
+
+    def policy(self) -> AuthPolicy:
+        """
+        Returns:
+            The sign-in policy in force.
+        """
+        return self.auth_policy or load_policy()
 
     @property
     def resolved_state_dir(self) -> Path:
@@ -501,6 +565,9 @@ def set_audit_logger(audit: AuditLogger | None) -> None:
     """
     global _global_audit_logger
     _global_audit_logger = audit
+    # One trail per process: what noust.core.audit.record writes (the CLI
+    # hook, the host action ledger, new call sites) goes to the same log.
+    install_core_audit_log(audit.log if audit is not None else None)
 
 
 def get_audit_logger() -> AuditLogger | None:
@@ -990,9 +1057,102 @@ API_TOKENS_TABLE_SQL = """
         created_at REAL NOT NULL,
         expires_at REAL,
         last_used_at REAL,
-        revoked_at REAL
+        revoked_at REAL,
+        owner_account_id INTEGER,
+        permissions TEXT,
+        allowed_cidrs TEXT,
+        allow_elevated INTEGER,
+        created_by TEXT,
+        last_used_ip TEXT
     )
 """
+
+#: Columns 3.1 added to ``api_tokens``, for a database a 3.0 console created.
+#: ``owner_account_id`` NULL is a token issued before its server had
+#: accounts: it keeps the power of its scope until the first ``admin``
+#: account adopts it. ``permissions`` NULL means "what the scope says".
+#: ``allow_elevated`` NULL keeps 3.0's rule, where a token was never asked
+#: for sudo mode; a token issued since says so explicitly.
+API_TOKEN_COLUMNS_3_1 = (
+    ("owner_account_id", "INTEGER"),
+    ("permissions", "TEXT"),
+    ("allowed_cidrs", "TEXT"),
+    ("allow_elevated", "INTEGER"),
+    ("created_by", "TEXT"),
+    ("last_used_ip", "TEXT"),
+)
+
+
+#: What no API token holds under the ENS profile, whoever owns it: a token is
+#: a standing credential nobody watches, and root-equivalent changes or
+#: governing accounts and security settings need a person (ens.md §4.2.6).
+ENS_TOKEN_EXCLUDED = frozenset(
+    {Permission.ROOT_EQUIVALENT, Permission.ACCOUNTS_MANAGE, Permission.SECURITY_MANAGE}
+)
+
+
+def _validated_networks(entries: list[str] | None) -> list[str] | None:
+    """
+    Check the networks a token is restricted to.
+
+    Args:
+        entries: Addresses or CIDRs, or None for no restriction.
+
+    Returns:
+        The networks in canonical form, or None when there are none.
+
+    Raises:
+        SecurityError: When an entry is not an address or a network.
+    """
+    if not entries:
+        return None
+    networks = []
+    for entry in entries:
+        try:
+            networks.append(str(ipaddress.ip_network(str(entry).strip(), strict=False)))
+        except ValueError as exc:
+            raise SecurityError(
+                f"Not an address or a network: {entry!r}",
+                details="Use addresses or CIDRs, such as 203.0.113.7 or 10.0.0.0/8.",
+            ) from exc
+    return networks
+
+
+def _json_list(raw: Any) -> list[str] | None:
+    """
+    Args:
+        raw: A JSON list as stored, or NULL.
+
+    Returns:
+        Its items as strings, or None for NULL or anything unreadable.
+    """
+    if raw is None:
+        return None
+    try:
+        value = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    return [str(item) for item in value] if isinstance(value, list) else None
+
+
+def _token_record(row: Mapping[str, Any]) -> dict[str, Any]:
+    """
+    Turn an ``api_tokens`` row into the record callers see, hash excluded.
+
+    Args:
+        row: A row of ``api_tokens``.
+
+    Returns:
+        The record, with its JSON columns decoded and ``allow_elevated`` as a
+        boolean or None.
+    """
+    record = dict(row)
+    record.pop("token_hash", None)
+    record["permissions"] = _json_list(record.get("permissions"))
+    record["allowed_cidrs"] = _json_list(record.get("allowed_cidrs"))
+    elevated = record.get("allow_elevated")
+    record["allow_elevated"] = None if elevated is None else bool(elevated)
+    return record
 
 
 class SessionStore:
@@ -1104,6 +1264,21 @@ class SessionStore:
                 # sid in its grace period re-issues that successor instead of
                 # minting another on every request still carrying it.
                 self._conn.execute("ALTER TABLE sessions ADD COLUMN rotated_to TEXT")
+            if "kind" not in columns:
+                # Every session before 3.1 was the master token signed in; the
+                # default says so, so an operator signed in across the upgrade
+                # stays signed in with exactly what they had.
+                self._conn.execute(
+                    "ALTER TABLE sessions ADD COLUMN kind TEXT NOT NULL DEFAULT 'master'"
+                )
+            if "account_id" not in columns:
+                self._conn.execute("ALTER TABLE sessions ADD COLUMN account_id INTEGER")
+            if "auth_method" not in columns:
+                self._conn.execute("ALTER TABLE sessions ADD COLUMN auth_method TEXT")
+            if "last_activity" not in columns:
+                # NULL reads as the last issue: a session that predates the
+                # idle timer has been idle since it was last renewed at most.
+                self._conn.execute("ALTER TABLE sessions ADD COLUMN last_activity REAL")
             self._conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS ws_tickets (
@@ -1119,6 +1294,13 @@ class SessionStore:
             # an audit line naming a token always names one thing.
             self._conn.execute(API_TOKENS_TABLE_SQL.format(table="api_tokens"))
             self._allow_fleet_scope()
+            token_columns = {
+                row["name"]
+                for row in self._conn.execute("PRAGMA table_info(api_tokens)").fetchall()
+            }
+            for column, declaration in API_TOKEN_COLUMNS_3_1:
+                if column not in token_columns:
+                    self._conn.execute(f"ALTER TABLE api_tokens ADD COLUMN {column} {declaration}")
 
     def _allow_fleet_scope(self) -> None:
         """
@@ -1155,6 +1337,11 @@ class SessionStore:
         client_ip: str,
         expires_at: float,
         created_at: float | None = None,
+        *,
+        kind: str = SESSION_KIND_MASTER,
+        account_id: int | None = None,
+        auth_method: str | None = None,
+        last_activity: float | None = None,
     ) -> None:
         """
         Persist a new session.
@@ -1167,13 +1354,19 @@ class SessionStore:
             created_at: Birth of the login this session descends from. Defaults
                 to now; a rotation passes the original value so that renewal
                 cannot extend the absolute lifetime.
+            kind: ``account`` for a person's sign-in, ``master`` for the
+                master token's.
+            account_id: The account signed in, for an ``account`` session.
+            auth_method: How it signed in: ``password``, ``token``, ``passkey``.
+            last_activity: Start of the idle clock; now by default.
         """
         now = time.time()
         with self._lock, self._conn:
             self._conn.execute(
                 "INSERT OR REPLACE INTO sessions "
-                "(sid, csrf_token, client_ip, issued_at, created_at, expires_at, revoked, family) "
-                "VALUES (?, ?, ?, ?, ?, ?, 0, ?)",
+                "(sid, csrf_token, client_ip, issued_at, created_at, expires_at, revoked, family, "
+                "kind, account_id, auth_method, last_activity) "
+                "VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)",
                 (
                     sid,
                     csrf_token,
@@ -1182,9 +1375,46 @@ class SessionStore:
                     now if created_at is None else created_at,
                     expires_at,
                     sid,
+                    kind,
+                    account_id,
+                    auth_method,
+                    _now() if last_activity is None else last_activity,
                 ),
             )
         self.purge_expired()
+
+    def touch_activity(self, sid: str, at: float) -> None:
+        """
+        Record that a session was used, restarting its idle clock.
+
+        Args:
+            sid: Session identifier.
+            at: The moment of use.
+        """
+        with self._lock, self._conn:
+            self._conn.execute("UPDATE sessions SET last_activity = ? WHERE sid = ?", (at, sid))
+
+    def revoke_account(self, account_id: int) -> int:
+        """
+        Revoke every session of one account and drop their tickets.
+
+        Args:
+            account_id: The account.
+
+        Returns:
+            Number of sessions revoked.
+        """
+        with self._lock, self._conn:
+            sids = [
+                str(row["sid"])
+                for row in self._conn.execute(
+                    "SELECT sid FROM sessions WHERE account_id = ? AND revoked = 0", (account_id,)
+                ).fetchall()
+            ]
+            for sid in sids:
+                self._conn.execute("UPDATE sessions SET revoked = 1 WHERE sid = ?", (sid,))
+                self._conn.execute("DELETE FROM ws_tickets WHERE sid = ?", (sid,))
+        return len(sids)
 
     def get(self, sid: str) -> dict[str, Any] | None:
         """
@@ -1259,7 +1489,8 @@ class SessionStore:
             self._conn.execute(
                 "INSERT OR REPLACE INTO sessions "
                 "(sid, csrf_token, client_ip, issued_at, created_at, expires_at, revoked, "
-                "elevated_until, family) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)",
+                "elevated_until, family, kind, account_id, auth_method, last_activity) "
+                "VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)",
                 (
                     new_sid,
                     csrf_token,
@@ -1271,6 +1502,10 @@ class SessionStore:
                     # whatever is left of it to the new session id.
                     row["elevated_until"],
                     row["family"] or old_sid,
+                    row["kind"],
+                    row["account_id"],
+                    row["auth_method"],
+                    row["last_activity"],
                 ),
             )
             # The retired identifier is not deleted outright: a dashboard fires
@@ -1333,12 +1568,15 @@ class SessionStore:
             self._conn.execute("UPDATE sessions SET revoked = 1")
             self._conn.execute("DELETE FROM ws_tickets")
 
-    def revoke_all_except(self, keep_sid: str) -> int:
+    def revoke_all_except(self, keep_sid: str, account_id: int | None = None) -> int:
         """
         Revoke every session but one, and drop every pending ticket but its own.
 
         Args:
             keep_sid: Session identifier to leave untouched.
+            account_id: Only the sessions of this account, when given: a
+                person's "sign out everywhere else" is their own sessions,
+                not everybody's.
 
         Returns:
             Number of sessions revoked.
@@ -1350,16 +1588,28 @@ class SessionStore:
             family = row["family"] if row is not None and row["family"] else keep_sid
             # The kept sign-in keeps its whole lineage: the predecessor still
             # in its grace is the same operator's requests in flight.
-            cursor = self._conn.execute(
-                "UPDATE sessions SET revoked = 1 "
-                "WHERE sid != ? AND COALESCE(family, sid) != ? AND revoked = 0",
-                (keep_sid, family),
-            )
-            self._conn.execute(
-                "DELETE FROM ws_tickets WHERE sid != ? AND sid NOT IN "
-                "(SELECT sid FROM sessions WHERE family = ?)",
-                (keep_sid, family),
-            )
+            if account_id is None:
+                cursor = self._conn.execute(
+                    "UPDATE sessions SET revoked = 1 "
+                    "WHERE sid != ? AND COALESCE(family, sid) != ? AND revoked = 0",
+                    (keep_sid, family),
+                )
+                self._conn.execute(
+                    "DELETE FROM ws_tickets WHERE sid != ? AND sid NOT IN "
+                    "(SELECT sid FROM sessions WHERE family = ?)",
+                    (keep_sid, family),
+                )
+            else:
+                cursor = self._conn.execute(
+                    "UPDATE sessions SET revoked = 1 WHERE sid != ? AND "
+                    "COALESCE(family, sid) != ? AND revoked = 0 AND account_id = ?",
+                    (keep_sid, family, account_id),
+                )
+                self._conn.execute(
+                    "DELETE FROM ws_tickets WHERE sid IN (SELECT sid FROM sessions "
+                    "WHERE revoked = 1 AND account_id = ?)",
+                    (account_id,),
+                )
         return cursor.rowcount
 
     def active_count(self) -> int:
@@ -1394,29 +1644,34 @@ class SessionStore:
             self._conn.execute("DELETE FROM ws_tickets WHERE expires_at <= ?", (now,))
         return cursor.rowcount
 
-    def list_active(self) -> list[dict[str, Any]]:
+    def list_active(self, account_id: int | None = None) -> list[dict[str, Any]]:
         """
         List every session that is still usable, newest activity first.
+
+        Args:
+            account_id: Only this account's sessions, when given.
 
         Returns:
             The live session rows as dicts.
         """
         with self._lock:
             rows = self._conn.execute(
-                "SELECT sid, client_ip, issued_at, created_at, expires_at FROM sessions "
+                "SELECT sid, client_ip, issued_at, created_at, expires_at, kind, account_id, "
+                "last_activity FROM sessions "
                 "WHERE revoked = 0 AND expires_at > ? AND rotated_to IS NULL "
-                "ORDER BY issued_at DESC",
-                (time.time(),),
+                "AND (? IS NULL OR account_id = ?) ORDER BY issued_at DESC",
+                (time.time(), account_id, account_id),
             ).fetchall()
         return [dict(row) for row in rows]
 
-    def sids_with_prefix(self, prefix: str) -> list[str]:
+    def sids_with_prefix(self, prefix: str, account_id: int | None = None) -> list[str]:
         """
         Find the live sessions whose identifier starts with a prefix.
 
         Args:
             prefix: Leading characters of a session id. The caller has already
                 validated it as hexadecimal, so it cannot carry LIKE wildcards.
+            account_id: Only this account's sessions, when given.
 
         Returns:
             The matching session identifiers.
@@ -1424,8 +1679,9 @@ class SessionStore:
         with self._lock:
             rows = self._conn.execute(
                 "SELECT sid FROM sessions WHERE revoked = 0 AND expires_at > ? "
-                "AND rotated_to IS NULL AND sid LIKE ? ORDER BY sid",
-                (time.time(), prefix + "%"),
+                "AND rotated_to IS NULL AND sid LIKE ? AND (? IS NULL OR account_id = ?) "
+                "ORDER BY sid",
+                (time.time(), prefix + "%", account_id, account_id),
             ).fetchall()
         return [str(row["sid"]) for row in rows]
 
@@ -1436,6 +1692,12 @@ class SessionStore:
         scope: str,
         created_at: float,
         expires_at: float | None,
+        *,
+        owner_account_id: int | None = None,
+        permissions: list[str] | None = None,
+        allowed_cidrs: list[str] | None = None,
+        allow_elevated: bool | None = None,
+        created_by: str | None = None,
     ) -> int:
         """
         Persist a new API token record.
@@ -1446,6 +1708,13 @@ class SessionStore:
             scope: One of :data:`API_TOKEN_SCOPES`.
             created_at: Creation time as a UNIX timestamp.
             expires_at: Expiry as a UNIX timestamp, or None for no expiry.
+            owner_account_id: The account it acts for; None for a token of a
+                server without accounts, or a fleet token.
+            permissions: What it may do at most, or None for its scope's.
+            allowed_cidrs: Networks it is accepted from, or None for any.
+            allow_elevated: Whether it may act where sudo mode is asked; None
+                keeps 3.0's rule.
+            created_by: Who issued it, for the record.
 
         Returns:
             The new record's id.
@@ -1455,11 +1724,81 @@ class SessionStore:
         """
         with self._lock, self._conn:
             cursor = self._conn.execute(
-                "INSERT INTO api_tokens (name, token_hash, scope, created_at, expires_at) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (name, token_hash, scope, created_at, expires_at),
+                "INSERT INTO api_tokens (name, token_hash, scope, created_at, expires_at, "
+                "owner_account_id, permissions, allowed_cidrs, allow_elevated, created_by) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    name,
+                    token_hash,
+                    scope,
+                    created_at,
+                    expires_at,
+                    owner_account_id,
+                    None if permissions is None else json.dumps(sorted(permissions)),
+                    None if allowed_cidrs is None else json.dumps(allowed_cidrs),
+                    None if allow_elevated is None else int(allow_elevated),
+                    created_by,
+                ),
             )
         return int(cursor.lastrowid or 0)
+
+    def adopt_unowned_tokens(self, account_id: int) -> int:
+        """
+        Give every token issued before accounts existed to one account.
+
+        Fleet tokens are left alone: they belong to a central, not a person.
+
+        Args:
+            account_id: The account that adopts them, the first ``admin``.
+
+        Returns:
+            How many tokens it adopted.
+        """
+        with self._lock, self._conn:
+            cursor = self._conn.execute(
+                "UPDATE api_tokens SET owner_account_id = ? "
+                "WHERE owner_account_id IS NULL AND scope != ?",
+                (account_id, FLEET_SCOPE),
+            )
+        return cursor.rowcount
+
+    def get_api_token_by_id(self, token_id: int) -> dict[str, Any] | None:
+        """
+        Fetch an API token record by id, without its hash.
+
+        Args:
+            token_id: The record's id.
+
+        Returns:
+            The record, revoked or not, or None.
+        """
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM api_tokens WHERE id = ?", (token_id,)
+            ).fetchone()
+        if row is None:
+            return None
+        record = dict(row)
+        record.pop("token_hash", None)
+        return record
+
+    def revoke_account_tokens(self, account_id: int) -> int:
+        """
+        Revoke every live token of one account.
+
+        Args:
+            account_id: The owner.
+
+        Returns:
+            How many were revoked.
+        """
+        with self._lock, self._conn:
+            cursor = self._conn.execute(
+                "UPDATE api_tokens SET revoked_at = ? WHERE owner_account_id = ? "
+                "AND revoked_at IS NULL",
+                (time.time(), account_id),
+            )
+        return cursor.rowcount
 
     def get_api_token(self, token_hash: str) -> dict[str, Any] | None:
         """
@@ -1519,32 +1858,41 @@ class SessionStore:
             ).fetchone()
         return dict(row) if row else None
 
-    def touch_api_token(self, token_id: int, used_at: float) -> None:
+    def touch_api_token(self, token_id: int, used_at: float, used_ip: str | None = None) -> None:
         """
-        Record when a token last authenticated a request.
+        Record when a token last authenticated a request, and from where.
 
         Args:
             token_id: The token record's id.
             used_at: The moment of use, as a UNIX timestamp.
+            used_ip: The address it came from.
         """
         with self._lock, self._conn:
             self._conn.execute(
-                "UPDATE api_tokens SET last_used_at = ? WHERE id = ?", (used_at, token_id)
+                "UPDATE api_tokens SET last_used_at = ?, last_used_ip = COALESCE(?, last_used_ip) "
+                "WHERE id = ?",
+                (used_at, used_ip, token_id),
             )
 
-    def list_api_tokens(self) -> list[dict[str, Any]]:
+    def list_api_tokens(self, owner_account_id: int | None = None) -> list[dict[str, Any]]:
         """
-        List every API token record, newest first, without the hashes.
+        List API token records, newest first, without the hashes.
+
+        Args:
+            owner_account_id: Only this account's tokens, when given.
 
         Returns:
             The token rows as dicts.
         """
         with self._lock:
             rows = self._conn.execute(
-                "SELECT id, name, scope, created_at, expires_at, last_used_at, revoked_at "
-                "FROM api_tokens ORDER BY created_at DESC, id DESC"
+                "SELECT id, name, scope, created_at, expires_at, last_used_at, revoked_at, "
+                "owner_account_id, permissions, allowed_cidrs, allow_elevated, created_by, "
+                "last_used_ip FROM api_tokens WHERE (? IS NULL OR owner_account_id = ?) "
+                "ORDER BY created_at DESC, id DESC",
+                (owner_account_id, owner_account_id),
             ).fetchall()
-        return [dict(row) for row in rows]
+        return [_token_record(row) for row in rows]
 
     def revoke_api_token(self, token_id: int) -> str | None:
         """
@@ -1623,227 +1971,6 @@ class SessionStore:
             self._conn.close()
 
 
-class AuditLogger:
-    """
-    Append-only record of privileged actions.
-
-    Each line is one JSON object: who acted, when, from where, on what, and how
-    it ended. Tokens never reach this file; sessions are identified by their
-    session id only.
-
-    Unauthenticated events are auditable too - a refused handshake is the most
-    interesting record there is - which means an anonymous client can drive the
-    write rate. The file is therefore rotated at a fixed size and a fixed number
-    of backups, so the worst an attacker achieves is erasing their own older
-    footprints rather than filling the disk of a machine Noust runs as root.
-    """
-
-    def __init__(
-        self,
-        path: Path,
-        enabled: bool = True,
-        max_bytes: int = AUDIT_MAX_BYTES,
-        backups: int = AUDIT_BACKUPS,
-    ) -> None:
-        """
-        Prepare the audit log.
-
-        Args:
-            path: Log file path.
-            enabled: When false, records are dropped.
-            max_bytes: Size at which the file is rotated.
-            backups: Number of rotated files kept.
-
-        Raises:
-            SecurityError: When the log file cannot be created.
-        """
-        self.path = path
-        self.enabled = enabled
-        self.max_bytes = max(1024, max_bytes)
-        self.backups = max(0, backups)
-        self._lock = threading.Lock()
-        self._size = 0
-        # A rehearsal writes no file, the audit log included; what would have
-        # been recorded goes to the process log instead, so it is not lost.
-        self._rehearsal = is_rehearsal()
-        if not enabled or self._rehearsal:
-            return
-        ensure_state_dir(path.parent)
-        try:
-            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, FILE_MODE)
-            os.close(fd)
-            os.chmod(path, FILE_MODE)
-            self._size = path.stat().st_size
-        except OSError as exc:
-            raise SecurityError(
-                f"Cannot open the web audit log {path}",
-                details=(
-                    "A panel that runs systemd as root must be auditable. Run as root, "
-                    f"or set {STATE_DIR_ENV} to a directory the current user owns."
-                ),
-            ) from exc
-
-    def record(
-        self,
-        action: str,
-        result: str,
-        client_ip: str,
-        actor: str = "anonymous",
-        resource: str | None = None,
-        detail: str | None = None,
-    ) -> None:
-        """
-        Append one audit entry.
-
-        Args:
-            action: What was attempted, for example ``auth.login``.
-            result: Outcome, for example ``success`` or ``denied``.
-            client_ip: Address the request came from.
-            actor: Who acted, as :func:`actor_label` names them, or
-                ``anonymous`` before any credential was verified.
-            resource: Target of the action, such as an API path.
-            detail: Extra context. Must never contain a credential.
-        """
-        if not self.enabled:
-            return
-
-        entry = {
-            "ts": utcnow().isoformat(),
-            "action": action,
-            "result": result,
-            "actor": actor,
-            "ip": client_ip,
-            "resource": resource,
-            "detail": detail,
-        }
-        payload = (json.dumps({k: v for k, v in entry.items() if v is not None}) + "\n").encode()
-        if self._rehearsal:
-            logger.info("Audit entry not written during a rehearsal: %s", payload.decode().strip())
-            return
-        try:
-            with self._lock:
-                if self._size + len(payload) > self.max_bytes:
-                    self._rotate()
-                fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, FILE_MODE)
-                try:
-                    os.write(fd, payload)
-                finally:
-                    os.close(fd)
-                self._size += len(payload)
-        except OSError as exc:
-            # Losing the audit trail must be noisy, but it must not take the
-            # panel down mid-request.
-            logger.error("Cannot write audit entry to %s: %s", self.path, exc)
-
-    def _rotate(self) -> None:
-        """
-        Move the current log aside, dropping the oldest backup.
-
-        Raises:
-            OSError: When the files cannot be renamed; the caller logs it.
-        """
-        if self.backups == 0:
-            self.path.unlink(missing_ok=True)
-        else:
-            oldest = self.path.with_name(f"{self.path.name}.{self.backups}")
-            oldest.unlink(missing_ok=True)
-            for index in range(self.backups - 1, 0, -1):
-                source = self.path.with_name(f"{self.path.name}.{index}")
-                if source.exists():
-                    source.rename(self.path.with_name(f"{self.path.name}.{index + 1}"))
-            if self.path.exists():
-                self.path.rename(self.path.with_name(f"{self.path.name}.1"))
-        self._size = 0
-
-    def _files_newest_first(self) -> list[Path]:
-        """
-        List every log file this logger has written, most recent first.
-
-        Returns:
-            The current file, then each rotated backup in age order, for
-            whichever of them actually exist.
-        """
-        files = [self.path]
-        for index in range(1, self.backups + 1):
-            candidate = self.path.with_name(f"{self.path.name}.{index}")
-            if candidate.exists():
-                files.append(candidate)
-        return files
-
-    def _iter_entries(self) -> Iterator[dict[str, Any]]:
-        """
-        Yield every recorded entry, newest first, across rotated files.
-
-        A file's own lines are already chronological, so reading each file
-        backwards and reading the files themselves in rotation order (current,
-        then ``.1``, then ``.2``, ...) gives a single newest-first stream
-        without loading the whole log into memory to sort it.
-
-        Yields:
-            Each entry as the dict :meth:`record` wrote, malformed lines
-            skipped rather than failing the whole read.
-        """
-        for path in self._files_newest_first():
-            try:
-                lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
-            except OSError:
-                continue
-            for line in reversed(lines):
-                if not line.strip():
-                    continue
-                try:
-                    entry = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if isinstance(entry, dict):
-                    yield entry
-
-    def read(
-        self,
-        *,
-        limit: int = 50,
-        before: str | None = None,
-        action: str | None = None,
-        result: str | None = None,
-        actor: str | None = None,
-    ) -> list[dict[str, Any]]:
-        """
-        Read audit entries, newest first, with keyset pagination.
-
-        Args:
-            limit: Maximum number of entries to return.
-            before: Only entries strictly older than this ``ts`` value - the
-                timestamp of the last entry from a previous call, so the next
-                page picks up exactly where it left off even as new entries
-                keep being appended between calls.
-            action: Only entries with this exact action, when given.
-            result: Only entries with this exact result, when given.
-            actor: Only entries with this exact actor, when given.
-
-        Returns:
-            Up to ``limit`` matching entries, newest first. Empty when
-            auditing is disabled.
-        """
-        if not self.enabled:
-            return []
-
-        matched: list[dict[str, Any]] = []
-        for entry in self._iter_entries():
-            timestamp = entry.get("ts", "")
-            if before is not None and not (str(timestamp) < before):
-                continue
-            if action is not None and entry.get("action") != action:
-                continue
-            if result is not None and entry.get("result") != result:
-                continue
-            if actor is not None and entry.get("actor") != actor:
-                continue
-            matched.append(entry)
-            if len(matched) >= limit:
-                break
-        return matched
-
-
 @dataclass(frozen=True)
 class IssuedSession:
     """
@@ -1902,6 +2029,153 @@ class TokenManager:
         # Serialises read-modify-write cycles on the two-factor state file, so
         # two logins racing to consume the same backup code cannot both win.
         self._totp_lock = threading.Lock()
+        #: The people who sign in. Their rows live in the store; sessions and
+        #: tokens here refer to them by id and read them on every request, so
+        #: disabling an account or changing its role applies at once.
+        self.accounts = AccountManager(policy=self.config.auth_policy)
+
+    # ------------------------------------------------------------- principals
+
+    def policy(self) -> AuthPolicy:
+        """
+        Returns:
+            The sign-in policy in force.
+        """
+        return self.config.policy()
+
+    def accounts_exist(self) -> bool:
+        """
+        Report whether this server has any account yet.
+
+        Returns:
+            True once one exists. A store that cannot be read answers False,
+            and says so in the log: the master token is how an operator gets
+            back in, and it must not be narrowed by the fault it is needed for.
+        """
+        try:
+            return self.accounts.any_exist()
+        except (StoreError, sqlite3.Error) as exc:
+            logger.error("Cannot read the accounts from the store: %s", exc)
+            return False
+
+    def master_grant(self) -> str:
+        """
+        How the master token holds the console right now.
+
+        Returns:
+            ``recovery`` under the ENS profile (account recovery only),
+            ``break_glass`` once accounts exist, ``compat`` before (the whole
+            console, exactly as in 3.0).
+        """
+        if self.policy().ens:
+            return GRANT_RECOVERY
+        return GRANT_BREAK_GLASS if self.accounts_exist() else GRANT_COMPAT
+
+    def _account(self, account_id: Any) -> Account | None:
+        """
+        Read an account a session or a token refers to.
+
+        Args:
+            account_id: The id stored with the session or token.
+
+        Returns:
+            The account, or None when it is gone or the store cannot be read,
+            which refuses the credential: it is not known to be still allowed.
+        """
+        if account_id is None:
+            return None
+        try:
+            return self.accounts.get(int(account_id))
+        except (StoreError, sqlite3.Error, ValueError) as exc:
+            logger.error("Cannot read account %s from the store: %s", account_id, exc)
+            return None
+
+    def account_fields(self, account: Account) -> dict[str, Any]:
+        """
+        What a session payload says about the account behind it.
+
+        Args:
+            account: The account.
+
+        Returns:
+            Its id, name, role and permissions, the legacy scope those amount
+            to, and whether it must enrol a second factor or accept the usage
+            notice before anything else.
+        """
+        permissions = permissions_for_role(account.role)
+        notice = self.policy().notice_version
+        return {
+            "account_id": account.id,
+            "username": account.username,
+            "role": account.role,
+            "permissions": permissions,
+            "scope": legacy_scope(permissions),
+            "mfa_pending": not account.has_mfa,
+            "notice_pending": notice is not None and account.notice_version != notice,
+        }
+
+    def _apply_principal(self, payload: dict[str, Any], record: Mapping[str, Any]) -> bool:
+        """
+        Fill a session payload with who it is and what it may do.
+
+        Args:
+            payload: The payload being built. Modified in place.
+            record: The session row.
+
+        Returns:
+            False when the session's account can no longer sign in, which ends
+            the session: disabling an account ends its sessions at once.
+        """
+        if record.get("kind") == SESSION_KIND_ACCOUNT:
+            account = self._account(record.get("account_id"))
+            if account is None or not account.can_sign_in():
+                return False
+            payload.update(self.account_fields(account))
+            payload["elevation_exempt"] = False
+            return True
+        grant = self.master_grant()
+        permissions = GRANT_PERMISSIONS[grant]
+        payload.update(
+            {
+                "grant": grant,
+                "permissions": permissions,
+                "scope": legacy_scope(permissions),
+                "elevation_exempt": False,
+            }
+        )
+        return True
+
+    def _idle_seconds(self) -> float:
+        """
+        Returns:
+            How long a session may go unused, from the sign-in policy.
+        """
+        return float(self.policy().idle_minutes) * 60.0
+
+    def _idle_expired(self, record: Mapping[str, Any]) -> bool:
+        """
+        Report whether a session has been unused for longer than the policy allows.
+
+        Args:
+            record: A session row.
+
+        Returns:
+            True when its last activity is older than the idle timeout.
+        """
+        last = record.get("last_activity") or record.get("issued_at") or 0.0
+        return _now() - float(last) > self._idle_seconds()
+
+    def _note_activity(self, record: Mapping[str, Any]) -> None:
+        """
+        Restart a session's idle clock, at most every few seconds.
+
+        Args:
+            record: The session row being used.
+        """
+        now = _now()
+        last = record.get("last_activity") or record.get("issued_at") or 0.0
+        if now - float(last) >= SESSION_ACTIVITY_THROTTLE:
+            self.sessions.touch_activity(str(record["sid"]), now)
 
     def _load_or_create_secret(self) -> str:
         """
@@ -2121,6 +2395,11 @@ class TokenManager:
             expires_at = record["expires_at"]
             if expires_at is not None and float(expires_at) <= time.time():
                 return False
+            owner = record.get("owner_account_id")
+            if owner is not None:
+                account = self._account(owner)
+                if account is None or not account.can_sign_in():
+                    return False
             return payload.get("generation") == self._key_generation()
 
         if kind == "session":
@@ -2128,7 +2407,12 @@ class TokenManager:
             if not family:
                 return False
             row = self.sessions.family_alive(str(family))
-            return row is not None and not self._past_absolute_deadline(row)
+            if row is None or self._past_absolute_deadline(row) or self._idle_expired(row):
+                return False
+            if row.get("kind") == SESSION_KIND_ACCOUNT:
+                account = self._account(row.get("account_id"))
+                return account is not None and account.can_sign_in()
+            return True
 
         return False
 
@@ -2425,7 +2709,16 @@ class TokenManager:
     # ------------------------------------------------------------- API tokens
 
     def create_api_token(
-        self, name: str, scope: str, expires_hours: float | None = None
+        self,
+        name: str,
+        scope: str,
+        expires_hours: float | None = None,
+        *,
+        owner: Account | None = None,
+        permissions: list[str] | None = None,
+        allowed_cidrs: list[str] | None = None,
+        allow_elevated: bool = False,
+        created_by: str | None = None,
     ) -> dict[str, Any]:
         """
         Issue a named, scoped API token.
@@ -2433,11 +2726,25 @@ class TokenManager:
         The token is returned in clear exactly once; only its salted hash is
         stored, the same way the master token is stored.
 
+        A token issued for an account acts as that account, with at most its
+        permissions, checked again on every use: a token never outlives its
+        owner's role or its owner being disabled. A token issued without an
+        owner (the root CLI, or the master token before accounts exist) keeps
+        its scope's power until the first ``admin`` account adopts it.
+
         Args:
             name: Human-chosen name, unique across all tokens ever issued.
             scope: One of :data:`API_TOKEN_SCOPES`.
             expires_hours: Lifetime in hours, or None for a token that only
-                dies by revocation.
+                dies by revocation. Required under the ENS profile, at most
+                its ``token_max_days``, and defaulting to it.
+            owner: The account the token acts for.
+            permissions: Permissions to narrow it to, instead of its scope's;
+                every one must be held by the owner.
+            allowed_cidrs: Networks it is accepted from; any when omitted.
+            allow_elevated: Let it act where sudo mode is asked, which a
+                token cannot open by itself. Refused under the ENS profile.
+            created_by: Who issued it, for the record.
 
         Returns:
             The record, including the one and only clear copy of the token
@@ -2445,8 +2752,9 @@ class TokenManager:
 
         Raises:
             SecurityError: When the name is empty or taken, the scope is not
-                a scope, is ``fleet`` (see :meth:`create_fleet_token`), or the
-                expiry is not positive.
+                a scope, is ``fleet`` (see :meth:`create_fleet_token`), the
+                expiry is not positive or too long, a permission or network
+                is not valid, or the owner does not hold a permission asked.
         """
         if scope == FLEET_SCOPE:
             # The chokepoint for the one scope that may speak for somebody
@@ -2465,7 +2773,64 @@ class TokenManager:
                 f"Unknown API token scope: {scope!r}",
                 details=f"Use one of: {', '.join(API_TOKEN_SCOPES)}.",
             )
-        return self._issue_api_token(name, scope, expires_hours)
+        policy = self.policy()
+        if owner is None and policy.ens:
+            raise SecurityError(
+                "Under the ENS profile an API token belongs to an account",
+                details=(
+                    "Issue it signed in as that account, or from the CLI with "
+                    "'noust token create NAME --owner USERNAME'."
+                ),
+            )
+        if policy.token_max_days is not None:
+            longest = float(policy.token_max_days) * 24
+            if expires_hours is None:
+                expires_hours = longest
+            elif expires_hours > longest:
+                raise SecurityError(
+                    f"API tokens last at most {policy.token_max_days} days under the ENS profile",
+                    details=f"Ask for {int(longest)} hours or fewer, and issue a new one then.",
+                )
+            if allow_elevated:
+                raise SecurityError(
+                    "API tokens cannot act in sudo mode under the ENS profile",
+                    details="Do what needs confirming from the console, as a person.",
+                )
+        stored_permissions: list[str] | None = None
+        if owner is not None:
+            held = permissions_for_role(owner.role)
+            if permissions is None:
+                granted = TOKEN_SCOPES[scope] & held
+            else:
+                unknown = sorted(set(permissions) - ALL_PERMISSIONS)
+                if unknown:
+                    raise SecurityError(
+                        f"Unknown permissions: {', '.join(unknown)}",
+                        details="GET /api/auth/roles lists every permission there is.",
+                    )
+                missing = sorted(set(permissions) - held)
+                if missing:
+                    raise SecurityError(
+                        f"A token cannot hold more than its owner: {', '.join(missing)}",
+                        details=f"The {owner.role} role does not hold them; leave them out.",
+                    )
+                granted = frozenset(permissions) | {Permission.SELF}
+            stored_permissions = sorted(granted)
+            scope = legacy_scope(granted)
+        networks = _validated_networks(allowed_cidrs)
+        return self._issue_api_token(
+            name,
+            scope,
+            expires_hours,
+            owner_account_id=owner.id if owner is not None else None,
+            permissions=stored_permissions,
+            allowed_cidrs=networks,
+            # A token nobody owns is issued the 3.0 way, by the master token
+            # or root, and keeps 3.0's rule until an admin adopts it; a
+            # person's token is asked for sudo mode unless issued otherwise.
+            allow_elevated=bool(allow_elevated) if owner is not None or allow_elevated else None,
+            created_by=created_by,
+        )
 
     def create_fleet_token(self, name: str) -> dict[str, Any]:
         """
@@ -2487,7 +2852,16 @@ class TokenManager:
         return self._issue_api_token(name, FLEET_SCOPE, None)
 
     def _issue_api_token(
-        self, name: str, scope: str, expires_hours: float | None
+        self,
+        name: str,
+        scope: str,
+        expires_hours: float | None,
+        *,
+        owner_account_id: int | None = None,
+        permissions: list[str] | None = None,
+        allowed_cidrs: list[str] | None = None,
+        allow_elevated: bool | None = None,
+        created_by: str | None = None,
     ) -> dict[str, Any]:
         """
         Mint and store an API token whose scope the caller already vetted.
@@ -2496,6 +2870,11 @@ class TokenManager:
             name: Human-chosen name, unique across all tokens ever issued.
             scope: The scope, already checked by the public caller.
             expires_hours: Lifetime in hours, or None.
+            owner_account_id: The owner, or None.
+            permissions: Its permissions, or None for its scope's.
+            allowed_cidrs: Networks it is accepted from, or None.
+            allow_elevated: Whether it may act in sudo mode; None for 3.0's rule.
+            created_by: Who issued it.
 
         Returns:
             The record, including the one and only clear copy of the token.
@@ -2521,7 +2900,16 @@ class TokenManager:
         expires_at = now + float(expires_hours) * 3600 if expires_hours is not None else None
         try:
             token_id = self.sessions.create_api_token(
-                cleaned, self._hash_token(token), scope, now, expires_at
+                cleaned,
+                self._hash_token(token),
+                scope,
+                now,
+                expires_at,
+                owner_account_id=owner_account_id,
+                permissions=permissions,
+                allowed_cidrs=allowed_cidrs,
+                allow_elevated=allow_elevated,
+                created_by=created_by,
             )
         except sqlite3.IntegrityError as exc:
             raise SecurityError(
@@ -2539,16 +2927,60 @@ class TokenManager:
             "token": token,
             "created_at": now,
             "expires_at": expires_at,
+            "owner_account_id": owner_account_id,
+            "permissions": permissions,
+            "allowed_cidrs": allowed_cidrs,
+            "allow_elevated": allow_elevated,
         }
 
-    def list_api_tokens(self) -> list[dict[str, Any]]:
+    def list_api_tokens(self, owner_account_id: int | None = None) -> list[dict[str, Any]]:
         """
-        List every API token record. No hash and no token is in the result.
+        List API token records. No hash and no token is in the result.
+
+        Args:
+            owner_account_id: Only this account's tokens, when given.
 
         Returns:
             The records, newest first.
         """
-        return self.sessions.list_api_tokens()
+        return self.sessions.list_api_tokens(owner_account_id)
+
+    def get_api_token(self, token_id: int) -> dict[str, Any] | None:
+        """
+        Args:
+            token_id: A token record's id.
+
+        Returns:
+            The record without its hash, or None.
+        """
+        return self.sessions.get_api_token_by_id(token_id)
+
+    def adopt_unowned_tokens(self, account_id: int) -> int:
+        """
+        Hand every token issued before accounts existed to one account.
+
+        Args:
+            account_id: The first ``admin`` account.
+
+        Returns:
+            How many tokens it adopted.
+        """
+        return self.sessions.adopt_unowned_tokens(account_id)
+
+    def end_account_access(self, account_id: int) -> tuple[int, int]:
+        """
+        Revoke every session and token of an account, for disabling or removing it.
+
+        Args:
+            account_id: The account.
+
+        Returns:
+            How many sessions and how many tokens were revoked.
+        """
+        return (
+            self.sessions.revoke_account(account_id),
+            self.sessions.revoke_account_tokens(account_id),
+        )
 
     def revoke_api_token(self, token_id: int) -> str | None:
         """
@@ -2639,11 +3071,7 @@ class TokenManager:
         if expires_at is not None and float(expires_at) <= now:
             return None
 
-        last_used = record["last_used_at"]
-        if last_used is None or now - float(last_used) >= API_TOKEN_LAST_USED_THROTTLE:
-            self.sessions.touch_api_token(int(record["id"]), now)
-
-        return {
+        payload: dict[str, Any] = {
             "type": "api_token",
             "sid": f"{API_TOKEN_SID_PREFIX}{record['name']}",
             "scope": str(record["scope"]),
@@ -2652,26 +3080,148 @@ class TokenManager:
             "token_name": str(record["name"]),
             "generation": self._key_generation(),
         }
+        if record["scope"] != FLEET_SCOPE:
+            payload.update(self._token_principal(record, client_ip))
+
+        last_used = record["last_used_at"]
+        if last_used is None or now - float(last_used) >= API_TOKEN_LAST_USED_THROTTLE:
+            self.sessions.touch_api_token(int(record["id"]), now, client_ip)
+        return payload
+
+    def _token_principal(self, record: Mapping[str, Any], client_ip: str | None) -> dict[str, Any]:
+        """
+        Decide what an API token may do on this request.
+
+        Args:
+            record: The token's row, live and unexpired.
+            client_ip: The address presenting it.
+
+        Returns:
+            The payload fields: permissions, the scope they amount to, the
+            owner and its role, and whether sudo mode is not asked of it.
+
+        Raises:
+            CredentialRefused: 401 when it is used from outside its networks,
+                its owner can no longer sign in, or it has no owner under the
+                ENS profile. None of these is a guess, so none is counted.
+        """
+        policy = self.policy()
+        cidrs = _json_list(record.get("allowed_cidrs"))
+        if cidrs and not (client_ip and ip_matches(client_ip, cidrs)):
+            raise CredentialRefused(
+                401,
+                "token_network",
+                f"The API token {record['name']!r} is not accepted from this address.",
+                "Use it from one of the networks it was issued for, or issue another.",
+                action="auth.token.denied",
+            )
+        owner_id = record.get("owner_account_id")
+        if owner_id is None:
+            first_admin = self._first_admin()
+            if first_admin is not None:
+                # The first admin account adopts every token issued before
+                # accounts existed, the moment one of them is next used: from
+                # then on each acts as a person and within their role.
+                self.sessions.adopt_unowned_tokens(first_admin.id)
+                owner_id = first_admin.id
+        stored = _json_list(record.get("permissions"))
+        requested = (
+            frozenset(stored)
+            if stored is not None
+            else LEGACY_SCOPES.get(str(record["scope"]), permissions_for_scope("read"))
+        )
+        role: str | None = None
+        if owner_id is None:
+            if policy.ens:
+                raise CredentialRefused(
+                    401,
+                    "legacy_token_refused",
+                    f"The API token {record['name']!r} belongs to no account, which the "
+                    "ENS profile does not accept.",
+                    "Create an admin account (noust user create --role admin): it adopts "
+                    "every token issued before, or issue a new token from an account.",
+                    action="auth.token.denied",
+                )
+            permissions = requested
+        else:
+            owner = self._account(owner_id)
+            if owner is None or not owner.can_sign_in():
+                raise CredentialRefused(
+                    401,
+                    "token_owner_inactive",
+                    f"The account the API token {record['name']!r} belongs to cannot sign in.",
+                    "Enable the account again, or issue a token from an active one.",
+                    action="auth.token.denied",
+                )
+            role = owner.role
+            permissions = requested & permissions_for_role(owner.role)
+        if policy.ens:
+            permissions = permissions - ENS_TOKEN_EXCLUDED
+        allow_elevated = record.get("allow_elevated")
+        return {
+            "permissions": frozenset(permissions),
+            "scope": legacy_scope(permissions),
+            "role": role,
+            "owner_account_id": owner_id,
+            "elevation_exempt": (allow_elevated is None or bool(allow_elevated)) and not policy.ens,
+        }
+
+    def _first_admin(self) -> Account | None:
+        """
+        Returns:
+            The oldest usable ``admin`` account, or None when there is none
+            or the store cannot be read.
+        """
+        try:
+            return self.accounts.first_admin()
+        except (StoreError, sqlite3.Error) as exc:
+            logger.error("Cannot read the accounts from the store: %s", exc)
+            return None
 
     # ---------------------------------------------------------------- sessions
 
-    def create_session(self, client_ip: str) -> IssuedSession:
+    def create_session(
+        self,
+        client_ip: str,
+        *,
+        account_id: int | None = None,
+        auth_method: str = "token",
+    ) -> IssuedSession:
         """
         Create and persist a session.
 
         Args:
             client_ip: IP the session is issued to.
+            account_id: The account signing in; None for the master token.
+            auth_method: How it signed in: ``token`` (the master token),
+                ``password`` or ``passkey``.
 
         Returns:
             The issued session, including its CSRF token.
+
+        Raises:
+            IncidentLockdownError: The console is locked down for an incident
+                (``noust incident freeze``) and this is an account; the
+                master token, the break-glass way in, still signs in.
         """
+        from noust.core.ens.incident import refuse_new_session
+
+        refuse_new_session(account_id=account_id, client_ip=client_ip)
         now = utcnow()
-        max_age = int(self.config.token_expiration_hours * 3600)
+        max_age = int(min(self.config.token_expiration_hours * 3600, self._absolute_seconds()))
         expires = now + timedelta(seconds=max_age)
         session_id = secrets.token_hex(16)
         csrf_token = secrets.token_urlsafe(32)
 
-        self.sessions.create(session_id, csrf_token, client_ip, expires.timestamp())
+        self.sessions.create(
+            session_id,
+            csrf_token,
+            client_ip,
+            expires.timestamp(),
+            kind=SESSION_KIND_ACCOUNT if account_id is not None else SESSION_KIND_MASTER,
+            account_id=account_id,
+            auth_method=auth_method,
+        )
         token = self._encode(session_id, client_ip, now, expires)
 
         return IssuedSession(
@@ -2784,7 +3334,7 @@ class TokenManager:
             "iss": SESSION_ISSUER,
         }
 
-        if self._past_absolute_deadline(record):
+        if self._past_absolute_deadline(record) or self._idle_expired(record):
             self.sessions.revoke(session_id)
             return None
 
@@ -2795,10 +3345,12 @@ class TokenManager:
         payload["expires_at"] = record["expires_at"]
         payload["family"] = record.get("family") or session_id
         payload["type"] = "session"
-        # A session is an operator in a browser; scopes exist to narrow
-        # automation, not to narrow the person holding the panel.
-        payload["scope"] = "admin"
         payload["elevated_until"] = record.get("elevated_until")
+        payload["auth_method"] = record.get("auth_method")
+        if not self._apply_principal(payload, record):
+            self.sessions.revoke(session_id)
+            return None
+        self._note_activity(record)
         return payload
 
     def _absolute_seconds(self) -> float:
@@ -2806,12 +3358,15 @@ class TokenManager:
         Return the hard lifetime of a login, in seconds.
 
         Returns:
-            The absolute lifetime, never shorter than the idle lifetime.
+            The sign-in policy's absolute lifetime (12 hours, 8 under the ENS
+            profile), capped by this console's own ceiling, which is never
+            shorter than the renewal window.
         """
-        return max(
+        ceiling = max(
             float(self.config.session_max_hours) * 3600.0,
             float(self.config.token_expiration_hours) * 3600.0,
         )
+        return min(ceiling, float(self.policy().absolute_hours) * 3600.0)
 
     def _past_absolute_deadline(self, record: dict[str, Any]) -> bool:
         """
@@ -2990,23 +3545,27 @@ class TokenManager:
         if sid == MASTER_SID:
             # generate_master_token spends these tickets, so one that is still
             # here was issued to the token in force.
-            return master_payload(record["client_ip"], self.current_master_generation())
+            if self.policy().ens:
+                return None
+            return master_payload(
+                record["client_ip"], self.current_master_generation(), self.master_grant()
+            )
         if sid.startswith(API_TOKEN_SID_PREFIX):
             token = self.sessions.get_api_token_by_name(sid[len(API_TOKEN_SID_PREFIX) :])
             return None if token is None else self._api_token_payload(token, record["client_ip"])
 
         session = self.sessions.get(sid)
-        if session is None or self._past_absolute_deadline(session):
+        if session is None or self._past_absolute_deadline(session) or self._idle_expired(session):
             return None
 
-        return {
+        payload: dict[str, Any] = {
             "type": "session",
             "sid": record["sid"],
             "ip": record["client_ip"],
             "csrf": session["csrf_token"],
             "family": session.get("family") or record["sid"],
-            "scope": "admin",
         }
+        return payload if self._apply_principal(payload, session) else None
 
     def revoke_session(self, session_id: str) -> None:
         """
@@ -3017,7 +3576,9 @@ class TokenManager:
         """
         self.sessions.revoke(session_id)
 
-    def list_sessions(self, current_sid: str | None = None) -> list[dict[str, Any]]:
+    def list_sessions(
+        self, current_sid: str | None = None, account_id: int | None = None
+    ) -> list[dict[str, Any]]:
         """
         Describe every live session without exposing a usable identifier.
 
@@ -3027,6 +3588,7 @@ class TokenManager:
 
         Args:
             current_sid: The caller's own session id, so its row is marked.
+            account_id: Only this account's sessions, when given.
 
         Returns:
             One dict per live session, newest activity first.
@@ -3036,14 +3598,18 @@ class TokenManager:
                 "sid_prefix": str(row["sid"])[:8],
                 "client_ip": str(row["client_ip"]),
                 "created_at": float(row["created_at"] or row["issued_at"]),
-                "last_seen": float(row["issued_at"]),
+                "last_seen": float(row.get("last_activity") or row["issued_at"]),
                 "expires_at": float(row["expires_at"]),
                 "is_current": bool(current_sid and row["sid"] == current_sid),
+                "kind": str(row.get("kind") or SESSION_KIND_MASTER),
+                "account_id": row.get("account_id"),
             }
-            for row in self.sessions.list_active()
+            for row in self.sessions.list_active(account_id)
         ]
 
-    def revoke_session_by_prefix(self, prefix: str, protect_sid: str | None = None) -> str | None:
+    def revoke_session_by_prefix(
+        self, prefix: str, protect_sid: str | None = None, account_id: int | None = None
+    ) -> str | None:
         """
         Revoke exactly one session, named by a unique prefix of its id.
 
@@ -3071,7 +3637,7 @@ class TokenManager:
                 ),
             )
 
-        matches = self.sessions.sids_with_prefix(candidate)
+        matches = self.sessions.sids_with_prefix(candidate, account_id)
         if not matches:
             return None
         if len(matches) > 1:
@@ -3095,7 +3661,7 @@ class TokenManager:
         """Revoke every session."""
         self.sessions.revoke_all()
 
-    def revoke_other_sessions(self, keep_sid: str) -> int:
+    def revoke_other_sessions(self, keep_sid: str, account_id: int | None = None) -> int:
         """
         Revoke every session except the one named, leaving it signed in.
 
@@ -3106,11 +3672,12 @@ class TokenManager:
 
         Args:
             keep_sid: The session id to leave untouched.
+            account_id: Only this account's other sessions, when given.
 
         Returns:
             Number of sessions revoked.
         """
-        return self.sessions.revoke_all_except(keep_sid)
+        return self.sessions.revoke_all_except(keep_sid, account_id)
 
     def get_active_session_count(self) -> int:
         """
@@ -3449,6 +4016,43 @@ def failure_key(credential: str | None, client_ip: str) -> str:
     return client_ip
 
 
+def audit_event(
+    event: str,
+    outcome: str,
+    *,
+    client_ip: str,
+    session: Mapping[str, Any] | None = None,
+    target: str | None = None,
+    detail: str | None = None,
+) -> None:
+    """
+    Record one event of the console's identity layer in the audit trail.
+
+    The one door the sign-in, account and token endpoints record through, so
+    the events keep one shape: a name from the audit catalog
+    (``auth.login``, ``user.create``...), the actor as :func:`actor_label`
+    names it, the address, the target and one sentence. Never a credential.
+
+    Args:
+        event: Catalog name of what happened.
+        outcome: ``success``, ``failure``, ``denied`` or ``warning``.
+        client_ip: Where the request came from.
+        session: The authenticated payload, or None for an anonymous caller.
+        target: What it was done to, such as ``account:maria``.
+        detail: One sentence of context.
+    """
+    audit = get_audit_logger()
+    if audit is not None:
+        audit.record(
+            action=event,
+            result=outcome,
+            client_ip=client_ip,
+            actor=actor_label(session) if session else "anonymous",
+            resource=target,
+            detail=detail,
+        )
+
+
 def record_auth_failure(
     client_ip: str, resource: str, source: str, *, lockout_key: str | None = None
 ) -> None:
@@ -3543,9 +4147,10 @@ def sees_command_lines(payload: Mapping[str, Any]) -> bool:
         payload: The authenticated payload.
 
     Returns:
-        True for a credential of ``admin`` scope.
+        True for a credential holding ``secrets.reveal``: an admin, the
+        master token, and an ``admin`` token of 3.0.
     """
-    return scope_satisfies(str(payload.get("scope") or "read"), "admin")
+    return has_permission(payload, Permission.SECRETS_REVEAL)
 
 
 def actor_label(session: Mapping[str, Any]) -> str:
@@ -3571,37 +4176,52 @@ def actor_label(session: Mapping[str, Any]) -> str:
             builds it.
 
     Returns:
-        ``"master"``, ``"token:<name>"``, the first 12 characters of a
-        cookie session's id, or ``"<fleet token name> on behalf of <actor>"``
-        for a central acting for one of its operators.
+        The username of an account's session, ``"master"``,
+        ``"token:<name>"``, the first 12 characters of a master token
+        session's id, or ``"<fleet token name> on behalf of <actor>"`` for a
+        central acting for one of its operators.
     """
     on_behalf_of = session.get("on_behalf_of")
     if session.get("fleet") and on_behalf_of:
         return f"{session.get('token_name') or 'fleet'} on behalf of {on_behalf_of}"
+    if session.get("account_id") is not None and session.get("username"):
+        # A person, by the name they sign in with: the audit trail names who
+        # acted, not which of their sessions (ENS op.exp.8, art. 24.3).
+        return str(session["username"])
     sid = str(session.get("sid") or "unknown")
     if sid in (MASTER_SID, "unknown") or sid.startswith(API_TOKEN_SID_PREFIX):
         return sid
     return sid[:12]
 
 
-class FleetCredentialRefused(HTTPException):
+class CredentialRefused(HTTPException):
     """
-    A fleet token presented where, or how, it is not accepted.
+    A real credential presented where, or how, it is not accepted.
 
-    Raised where the credential is resolved, so no endpoint can accept one
-    that failed admission. It is an ``HTTPException`` because the API's
-    error boundary already answers those in the one contract, and a dict
-    ``detail`` carries its own ``error`` code there.
+    Not a guess, so it is audited but never counted by the lockout: a fleet
+    token from outside its tunnel, an API token from outside its networks or
+    whose owner was disabled, the master token as a Bearer under the ENS
+    profile. Raised where the credential is resolved, so no endpoint can
+    accept one. It is an ``HTTPException`` because the API's error boundary
+    already answers those in the one contract, and a dict ``detail`` carries
+    its own ``error`` code there.
+
+    Attributes:
+        reason: The sentence answered, for the audit record.
+        action: The audit action it is recorded under.
     """
 
-    def __init__(self, status_code: int, error: str, detail: str, hint: str) -> None:
+    def __init__(
+        self, status_code: int, error: str, detail: str, hint: str, *, action: str = "auth.fleet"
+    ) -> None:
         """
         Args:
-            status_code: 401 for a token from the wrong place, 400 for a
-                malformed fleet header, 403 for a refused operation.
+            status_code: 401 for a credential from the wrong place, 400 for a
+                malformed header, 403 for a refused operation.
             error: Machine-readable code for the error contract.
             detail: What was refused.
             hint: What to do instead.
+            action: The audit action.
         """
         super().__init__(
             status_code=status_code,
@@ -3609,6 +4229,11 @@ class FleetCredentialRefused(HTTPException):
             headers={"WWW-Authenticate": "Bearer"} if status_code == 401 else None,
         )
         self.reason = detail
+        self.action = action
+
+
+class FleetCredentialRefused(CredentialRefused):
+    """A fleet token presented where, or how, it is not accepted."""
 
 
 def is_fleet(payload: Mapping[str, Any]) -> bool:
@@ -3724,11 +4349,55 @@ def admit_fleet(payload: dict[str, Any], connection: HTTPConnection | None) -> d
             )
         granted = actor_scope
 
+    # A 3.1 central names its operator's role; this node grants what its own
+    # table gives that role, never what the central says it may do.
+    role: str | None = None
+    base = permissions_for_scope(granted)
+    actor_role = connection.headers.get(FLEET_ACTOR_ROLE_HEADER)
+    if actor_role is not None:
+        if not FLEET_ROLE_PATTERN.fullmatch(actor_role):
+            raise FleetCredentialRefused(
+                400,
+                "validation_error",
+                f"{FLEET_ACTOR_ROLE_HEADER} must be a role name: lower-case letters, '-' or '_'.",
+                "The central sends its operator's role; check the central's version.",
+            )
+        role = actor_role if actor_role in ROLE_PERMISSIONS else "viewer"
+        base = permissions_for_role(role)
+    permits = fleet_ceiling()
+    permissions = frozenset(permission for permission in base if permits(permission))
+
     payload["fleet"] = True
-    payload["scope"] = granted
+    payload["role"] = role
+    payload["permissions"] = permissions
+    payload["scope"] = legacy_scope(permissions)
     payload["on_behalf_of"] = actor
     payload["elevation_attested"] = connection.headers.get(FLEET_ELEVATED_HEADER) == "1"
     return payload
+
+
+def fleet_ceiling() -> Callable[[str], bool]:
+    """
+    The most this node lets any central do, as a test of one permission.
+
+    ``noust fleet authorize --access read|deploy|admin`` (and ``noust fleet
+    access``) set it on the node; :mod:`noust.fleet.policy` reads it. A fleet
+    request is granted its role's permissions intersected with this.
+
+    Returns:
+        A function saying whether the ceiling permits a permission.
+    """
+    policy = importlib.import_module("noust.fleet.policy")
+    current_access = getattr(policy, "current_access", None)
+    permits = getattr(policy, "permits", None)
+    if current_access is None or permits is None:
+        # INTEGRATION POINT (B5a): noust.fleet.policy.current_access() and
+        # permits() are being added with the per-node ceiling. Until they
+        # exist the ceiling is the one 3.0 had - admin, everything - so a
+        # node upgraded ahead of its ceiling keeps working as before.
+        return lambda permission: True
+    access = current_access()
+    return lambda permission: bool(permits(access, permission))
 
 
 def _under(path: str, prefix: str) -> bool:
@@ -3822,30 +4491,6 @@ def _refuse_fleet_operation(
     )
 
 
-async def _patched_config_key(request: Request) -> str | None:
-    """
-    Read the dotted key a ``PATCH /api/config`` body addresses.
-
-    The body is at most :data:`MAX_BODY_BYTES` - the middleware read it
-    already - and Starlette caches it on the request, so the endpoint parses
-    the same bytes afterwards.
-
-    Args:
-        request: The incoming request.
-
-    Returns:
-        The key, or ``""`` when the body does not name one as a string - which
-        the endpoint refuses on its own - so a malformed body is never
-        mistaken for an allowed key.
-    """
-    try:
-        body = json.loads(await request.body() or b"null")
-    except (ValueError, UnicodeDecodeError):
-        return ""
-    key = body.get("path") if isinstance(body, dict) else None
-    return key if isinstance(key, str) else ""
-
-
 async def ensure_fleet_allowed(request: Request, payload: Mapping[str, Any]) -> None:
     """
     Refuse a fleet request :func:`fleet_refusal` names, at ``require_auth``.
@@ -3863,7 +4508,7 @@ async def ensure_fleet_allowed(request: Request, payload: Mapping[str, Any]) -> 
     method = request.method.upper()
     path = request.url.path
     config_key = (
-        await _patched_config_key(request) if (method, path) == ("PATCH", "/api/config") else None
+        await patched_config_key(request) if (method, path) == ("PATCH", "/api/config") else None
     )
     reason = fleet_refusal(method, path, config_key)
     if reason is not None:
@@ -3891,14 +4536,16 @@ def ensure_fleet_handshake_allowed(connection: HTTPConnection, payload: Mapping[
 
 def required_scope(method: str, path: str) -> str:
     """
-    The scope policy, stated once: what a request needs to be allowed to run.
+    The 3.0 scope policy: what a request needed before routes had permissions.
 
     Reads need ``read``. The mutations that move an existing application - an
     update, a rollback, activating a release - need ``deploy``. Every other
-    mutation, creating an application included, needs ``admin``. Endpoints
-    with a stricter need than this table gives them - listing the API tokens
-    is a GET that must not be readable by a ``read`` token - declare it with
-    :func:`noust.web.api.deps.require_scope`; nothing may declare a looser one.
+    mutation, creating an application included, needs ``admin``. Since 3.1
+    every route of this server declares a permission instead
+    (:mod:`noust.web.permissions`); this rule is kept for the one case no map
+    can answer - a path of a node, reached through the proxy, that this
+    server does not know - so a newer node is reached no more loosely than
+    3.0 reached it.
 
     Args:
         method: The HTTP method.
@@ -3926,9 +4573,10 @@ def ensure_scope(request: Request, payload: dict[str, Any], required: str) -> No
     """
     Refuse a request whose credential does not carry the scope it needs.
 
-    This runs at the same chokepoint that resolves the credential, so a new
-    endpoint is covered the moment it exists rather than when somebody
-    remembers to guard it.
+    For the handlers whose need depends on what they are asked (an unmasked
+    ``.env``, the console's own journal): the route's permission is enforced
+    before they run, by :func:`require_auth`. A payload's ``scope`` is the 3.0
+    scope its permissions amount to (:func:`noust.web.permissions.roles.legacy_scope`).
 
     Args:
         request: The incoming request.
@@ -3965,7 +4613,9 @@ def ensure_scope(request: Request, payload: dict[str, Any], required: str) -> No
     )
 
 
-def master_payload(client_ip: str | None, generation: str | None = None) -> dict[str, Any]:
+def master_payload(
+    client_ip: str | None, generation: str | None = None, grant: str = GRANT_COMPAT
+) -> dict[str, Any]:
     """
     The payload the master token authenticates, wherever it is presented.
 
@@ -3974,16 +4624,23 @@ def master_payload(client_ip: str | None, generation: str | None = None) -> dict
         generation: Which issue of the master token it was, from
             :meth:`TokenManager.master_token_generation`, so a stream can
             tell later whether it has been rotated since.
+        grant: How it holds the console (:meth:`TokenManager.master_grant`).
 
     Returns:
-        An ``admin`` payload named :data:`MASTER_SID`.
+        A payload named :data:`MASTER_SID` with the grant's permissions.
     """
+    permissions = GRANT_PERMISSIONS[grant]
     return {
         "type": "master",
         "sid": MASTER_SID,
         "ip": client_ip,
-        "scope": "admin",
+        "scope": legacy_scope(permissions),
         "generation": generation,
+        "grant": grant,
+        "permissions": permissions,
+        # The one credential 3.0 exempted from sudo mode as a Bearer, kept
+        # for compatibility; the ENS profile refuses the Bearer outright.
+        "elevation_exempt": True,
     }
 
 
@@ -4198,7 +4855,7 @@ def rate_limit_identity(connection: HTTPConnection, client_ip: str) -> str | Non
             continue
         try:
             payload = check_credential(credential, client_ip, connection)
-        except FleetCredentialRefused:
+        except CredentialRefused:
             # A real token from the wrong place is not a guess; the endpoint
             # refuses and audits it, and the request is counted by address.
             return None
@@ -4226,8 +4883,9 @@ def check_credential(
         The session payload, or None when the credential is not valid.
 
     Raises:
-        FleetCredentialRefused: When the credential is a fleet token that the
-            connection may not carry.
+        CredentialRefused: When the credential is a fleet token that the
+            connection may not carry, an API token refused on this request,
+            or the master token under the ENS profile.
     """
     manager = get_global_token_manager()
     if manager is None or not credential:
@@ -4247,28 +4905,68 @@ def check_credential(
 
     generation = manager.master_token_generation(credential)
     if generation is not None:
-        return master_payload(client_ip, generation)
+        grant = manager.master_grant()
+        if grant == GRANT_RECOVERY:
+            # ENS: the master token recovers access through the sign-in
+            # page, as a session with its own second factor and audit trail;
+            # as a standing Bearer it is a way around both (finding H1).
+            raise CredentialRefused(
+                401,
+                "master_bearer_disabled",
+                "The master token is not accepted as a credential under the ENS profile.",
+                "Sign in with an account. To recover access, sign in with the master "
+                "token on the console's sign-in page, or use 'noust user' as root.",
+                action="auth.break_glass",
+            )
+        return master_payload(client_ip, generation, grant)
 
     return None
 
 
-def _audit_fleet_refusal(client_ip: str, resource: str, reason: str) -> None:
+def _audit_refusal(client_ip: str, resource: str, refusal: CredentialRefused) -> None:
     """
-    Record a fleet token presented where it is not accepted.
+    Record a real credential presented where it is not accepted.
 
     Args:
         client_ip: Address it came from.
         resource: Path being reached.
-        reason: Why it was refused.
+        refusal: The refusal, carrying its action and reason.
     """
     audit = get_audit_logger()
     if audit is not None:
         audit.record(
-            action="auth.fleet",
+            action=refusal.action,
             result="denied",
             client_ip=client_ip,
             resource=resource,
-            detail=reason,
+            detail=refusal.reason,
+        )
+
+
+def _audit_master_token_use(client_ip: str, resource: str, payload: Mapping[str, Any]) -> None:
+    """
+    Warn in the audit log that the master token itself was used as a credential.
+
+    Every use is recorded: it is the one credential shared by whoever has
+    root on this machine, and once accounts exist it is the break-glass one.
+
+    Args:
+        client_ip: Address it came from.
+        resource: Path being reached.
+        payload: The master token's payload.
+    """
+    audit = get_audit_logger()
+    if audit is not None:
+        audit.record(
+            action="auth.break_glass",
+            result="warning",
+            client_ip=client_ip,
+            actor="master",
+            resource=resource,
+            detail=(
+                f"master token used directly as a credential ({payload.get('grant')}, "
+                f"via {payload.get('source') or 'a header'})"
+            ),
         )
 
 
@@ -4299,14 +4997,15 @@ def verify_credential(
         from the cookie to the header.
 
     Raises:
-        FleetCredentialRefused: When a fleet token is presented from anywhere
-            but the tunnel, or with a malformed fleet header. Audited, and not
-            counted as a guess: the token is real.
+        CredentialRefused: When a real credential is refused on this request
+            (a fleet token from anywhere but the tunnel, an API token outside
+            its networks, the master token under the ENS profile). Audited,
+            and not counted as a guess: the credential is real.
     """
     try:
         payload = check_credential(credential, client_ip, connection)
-    except FleetCredentialRefused as exc:
-        _audit_fleet_refusal(client_ip, resource, exc.reason)
+    except CredentialRefused as exc:
+        _audit_refusal(client_ip, resource, exc)
         _mark_counted(credential)
         raise
     if payload is None:
@@ -4318,6 +5017,8 @@ def verify_credential(
             _mark_counted(credential)
         return None
     payload["source"] = source
+    if payload.get("type") == "master":
+        _audit_master_token_use(client_ip, resource, payload)
     return payload
 
 
@@ -4366,8 +5067,8 @@ def authenticate_connection(
                 return admit_fleet(payload, connection)
             if payload is not None:
                 return payload
-    except FleetCredentialRefused as exc:
-        _audit_fleet_refusal(client_ip, resource, exc.reason)
+    except CredentialRefused as exc:
+        _audit_refusal(client_ip, resource, exc)
         _mark_counted(*candidates)
         return None
 
@@ -4421,9 +5122,93 @@ def _check_csrf(request: Request, payload: dict[str, Any], client_ip: str) -> No
     )
 
 
+def ensure_permission(request: Request, payload: Mapping[str, Any], permission: str) -> None:
+    """
+    Refuse a request whose principal lacks a permission, and audit the refusal.
+
+    The route's own permission is enforced by :func:`require_auth`; a handler
+    whose need depends on what it is asked calls this for the rest.
+
+    Args:
+        request: The incoming request.
+        payload: The authenticated payload.
+        permission: A :class:`~noust.web.permissions.Permission` value.
+
+    Raises:
+        PermissionDenied: 403, per
+            :func:`noust.web.permissions.enforce.check_permission`.
+    """
+    try:
+        check_permission(payload, permission)
+    except PermissionDenied as exc:
+        # A person told to enrol a factor or accept the notice is not being
+        # refused anything; auditing each poll the console makes meanwhile
+        # would bury the refusals that matter.
+        if exc.error == "permission_denied":
+            _audit_permission_refusal(request, payload, exc.reason)
+        raise
+
+
+def _audit_permission_refusal(request: Request, payload: Mapping[str, Any], reason: str) -> None:
+    """
+    Record a request refused for want of a permission.
+
+    Args:
+        request: The request.
+        payload: Who made it.
+        reason: The sentence it was refused with.
+    """
+    audit = get_audit_logger()
+    if audit is not None:
+        audit.record(
+            action="auth.scope",
+            result="denied",
+            client_ip=get_client_ip(request),
+            actor=actor_label(payload),
+            resource=request.url.path,
+            detail=reason,
+        )
+
+
+def authorize(request: Request, payload: Mapping[str, Any], needed: list[str] | None) -> None:
+    """
+    Hold a principal to everything its route needs.
+
+    Args:
+        request: The incoming request.
+        payload: The authenticated payload.
+        needed: What :func:`~noust.web.permissions.enforce.required_permissions`
+            answered; None for a route no map names.
+
+    Raises:
+        PermissionDenied: 403 when a permission is missing, or the route
+            declares none: a route nobody classified is refused, not served.
+    """
+    if needed is None:
+        route = f"{request.method} {request.url.path}"
+        logger.error("No permission is declared for %s; refusing it", route)
+        _audit_permission_refusal(request, payload, f"{route} declares no permission")
+        raise PermissionDenied(
+            "permission_undeclared",
+            "",
+            f"{route} declares no permission",
+            "This is a defect in Noust: every route must name its permission in "
+            "noust.web.permissions. Report it; the route is refused until then.",
+        )
+    for permission in needed:
+        ensure_permission(request, payload, permission)
+
+
 async def require_auth(request: Request) -> dict[str, Any]:
     """
-    FastAPI dependency enforcing authentication on an endpoint.
+    FastAPI dependency enforcing authentication and permissions on an endpoint.
+
+    Installed on the API router itself, so every route under ``/api`` runs it
+    whether or not its handler asks for the payload, and every handler that
+    does gets the same payload - FastAPI resolves a dependency once per
+    request. A route the permission maps call public (the sign-in, the
+    invitation pages) is let through with an empty payload and no credential
+    is looked at.
 
     Accepts, in order, an ``Authorization: Bearer`` session token, API token
     or master token (for the CLI), or the session cookie. A session - in the
@@ -4433,21 +5218,26 @@ async def require_auth(request: Request) -> dict[str, Any]:
 
     Whichever channel is used, a credential that does not match is counted by
     :func:`record_auth_failure`, so the lockout applies to master token guessing
-    on any endpoint and not only to ``/api/auth/login``. The credential's scope
-    is then held against :func:`required_scope` here, at the same chokepoint,
-    so a scoped API token is narrowed on every endpoint including the ones
-    written after it was issued.
+    on any endpoint and not only to ``/api/auth/login``. The principal is then
+    held to the permission its route declares
+    (:mod:`noust.web.permissions`), here, at the same chokepoint, so a new
+    endpoint is covered the moment it is mapped and refused until it is.
 
     Args:
         request: The incoming request.
 
     Returns:
-        The session payload, also stored on ``request.state.session``.
+        The session payload, also stored on ``request.state.session``; empty
+        for a public route.
 
     Raises:
-        HTTPException: 401 when unauthenticated, 403 on a CSRF failure or an
-            insufficient scope, 500 when the server was never initialised.
+        HTTPException: 401 when unauthenticated, 403 on a CSRF failure or a
+            missing permission, 500 when the server was never initialised.
     """
+    needed = await required_permissions(request)
+    if needed == [PUBLIC]:
+        return {}
+
     manager = get_global_token_manager()
     if manager is None:
         raise HTTPException(
@@ -4474,8 +5264,10 @@ async def require_auth(request: Request) -> dict[str, Any]:
             # the CSRF token in the same response as the session token.
             _check_csrf(request, payload, client_ip)
         request.state.session = payload
-        ensure_scope(request, payload, required_scope(request.method, resource))
+        # A fleet token's refusals name why a central may never do this, which
+        # says more than the permission it also lacks.
         await ensure_fleet_allowed(request, payload)
+        authorize(request, payload, needed)
         return payload
 
     cookie = request.cookies.get(SESSION_COOKIE_NAME)
@@ -4487,8 +5279,8 @@ async def require_auth(request: Request) -> dict[str, Any]:
             raise _unauthorized("Session expired or revoked. Please log in again.")
         _check_csrf(request, payload, client_ip)
         request.state.session = payload
-        ensure_scope(request, payload, required_scope(request.method, resource))
         await ensure_fleet_allowed(request, payload)
+        authorize(request, payload, needed)
         renewed = manager.renew_session(payload)
         if renewed is not None:
             request.state.renewed_session = renewed

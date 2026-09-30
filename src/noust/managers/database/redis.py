@@ -2,7 +2,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Redis manager.
+Redis and Valkey manager: one family, one manager.
+
+Valkey is the fork Fedora ships instead of Redis and Debian 13 ships beside
+it; it speaks the same protocol, keeps the same files and answers the same
+commands. What differs is the unit (``redis-server`` on Debian, ``redis`` on
+Fedora, ``valkey-server`` or ``valkey``) and the programs (``valkey-cli``,
+``valkey-server``), so both are detected rather than assumed.
 
 Redis is a key-value store: its "databases" are numbered slots and its users are
 ACL entries, so several operations that make sense elsewhere are refused here
@@ -10,35 +16,60 @@ with an explanation instead of being emulated.
 
 Passwords never reach argv. ``ACL SETUSER`` receives the SHA-256 form Redis
 documents for exactly this reason, ``requirepass`` is set over stdin, and the
-client authenticates through ``REDISCLI_AUTH``.
+client authenticates through ``REDISCLI_AUTH``. The password the client
+authenticates with is read from ``databases.credentials.redis.password`` or,
+once Noust has set one, from its secret store: before 3.1 it was only known
+to the process that set it, so every operation on a server with
+``requirepass`` failed with ``NOAUTH``.
 """
 
 from __future__ import annotations
 
 import hashlib
 import re
+import shlex
 import time
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 from noust.core.exceptions import (
+    ConfigError,
     DatabaseBackupError,
     DatabaseError,
     DatabaseNotFoundError,
     DatabaseQueryError,
     DatabaseUserError,
 )
+from noust.core.sealing import SealError
+from noust.core.secrets import SecretStore
 from noust.deployers.helpers.permissions import hand_over_file
 from noust.managers.database.base import (
+    PROFILES,
     QUERY_TIMEOUT,
     TRANSFER_TIMEOUT,
+    AccessEntry,
     BackupInfo,
     BaseDatabaseManager,
     DatabaseInfo,
+    ListenAddress,
+    RestoreOutcome,
     UserInfo,
+    listen_address,
 )
 from noust.managers.database.registry import DatabaseRegistry
+
+#: Where Noust keeps the password it set with ``requirepass``.
+REQUIREPASS_SECRET = "databases/redis/requirepass"  # noqa: S105 - a secret name, not a secret
+
+#: The ACL rules each access profile gives. ACLs are instance-wide: a Redis
+#: "database" is a slot any client may SELECT, so the profile is the user's
+#: on every slot.
+PROFILE_RULES: dict[str, tuple[str, ...]] = {
+    "owner": ("allkeys", "allchannels", "+@all"),
+    "read_write": ("allkeys", "allchannels", "+@all", "-@dangerous"),
+    "read_only": ("allkeys", "resetchannels", "-@all", "+@read", "+@connection", "-@dangerous"),
+}
 
 #: ACL rules that are bare keywords.
 ACL_KEYWORDS = frozenset(
@@ -72,19 +103,29 @@ ACL_PATTERN_RULE = re.compile(r"\A(?:%(?:R|W|RW))?[~&][A-Za-z0-9_.:*?{}\[\]-]*\Z
 PERSISTENCE_POLL_SECONDS = 60
 
 
+class RedisSignInError(DatabaseQueryError):
+    """An ACL user :meth:`RedisManager.run_commands` was asked to sign in as was refused."""
+
+
 class RedisManager(BaseDatabaseManager):
-    """Manager for a Redis instance."""
+    """Manager for a Redis or Valkey instance."""
 
     ENGINE_NAME = "redis"
     DISPLAY_NAME = "Redis"
     DEFAULT_PORT = 6379
     SERVICE_NAME = "redis-server"
+    SERVICE_CANDIDATES = ("redis-server", "redis", "valkey-server", "valkey")
     PACKAGE_NAMES = ("redis-server",)
+    #: Debian 13 and Ubuntu 24.04 (universe) ship Valkey under this name.
+    VALKEY_PACKAGES = ("valkey-server",)
     CLIENT_BINARY = "redis-cli"
+    #: The client Valkey ships; ``redis-cli`` is only there with its compat package.
+    VALKEY_CLIENT = "valkey-cli"
     VERSION_ARGV = ("redis-server", "--version")
     VERSION_PATTERN = r"v=(\d+\.\d+\.\d+)"
     PURGE_PATHS = ("/var/lib/redis", "/etc/redis")
     BACKUP_SUFFIX = ".rdb"
+    CAPABILITIES = frozenset({"keys", "users", "profiles", "dump", "metrics"})
 
     #: Where the server keeps its RDB and AOF files.
     DATA_DIR = Path("/var/lib/redis")
@@ -102,8 +143,110 @@ class RedisManager(BaseDatabaseManager):
         """
         super().__init__(verbose=verbose)
         self._password: str | None = None
+        self._password_loaded = False
+
+    # ==================== Family ====================
+
+    def _is_valkey(self) -> bool:
+        """
+        Tell whether the instance is Valkey rather than Redis.
+
+        Returns:
+            True when Valkey's server is installed and Redis's is not.
+        """
+        return self.runner.exists("valkey-server") and not self.runner.exists("redis-server")
+
+    def _cli(self) -> str:
+        """
+        Name the client program to run.
+
+        Returns:
+            ``redis-cli``, or ``valkey-cli`` where only Valkey's client exists.
+        """
+        if self.runner.exists(self.CLIENT_BINARY):
+            return self.CLIENT_BINARY
+        if self.runner.exists(self.VALKEY_CLIENT):
+            return self.VALKEY_CLIENT
+        return self.CLIENT_BINARY
+
+    def is_installed(self) -> bool:
+        """
+        Report whether a Redis or Valkey client is installed.
+
+        Returns:
+            True when either client is on PATH.
+        """
+        return self.runner.exists(self.CLIENT_BINARY) or self.runner.exists(self.VALKEY_CLIENT)
+
+    def get_version(self) -> str | None:
+        """
+        Read the server's version, from Redis's or Valkey's own binary.
+
+        Returns:
+            The version, or None.
+        """
+        if self._is_valkey():
+            self.DISPLAY_NAME = "Valkey"
+            self.EOL_FAMILY = "valkey"
+            result = self._exec(["valkey-server", "--version"])
+            match = re.search(self.VERSION_PATTERN, result.stdout) if result.success else None
+            return match.group(1) if match else None
+        return super().get_version()
+
+    def _package_sets(self) -> tuple[list[str], ...]:
+        """
+        Prefer Redis, and fall back to Valkey where only Valkey is packaged.
+
+        Returns:
+            The Redis packages first, the Valkey ones as a fallback.
+        """
+        return (list(self.PACKAGE_NAMES), list(self.VALKEY_PACKAGES))
 
     # ==================== Client ====================
+
+    def _secrets(self) -> SecretStore:
+        """
+        The secret store the ``requirepass`` password is kept in.
+
+        Returns:
+            A store rooted beside the Noust store.
+        """
+        return SecretStore()
+
+    def _known_password(self) -> str | None:
+        """
+        Find the password the client must authenticate with, once.
+
+        ``databases.credentials.redis.password`` wins, as the operator's
+        word; then the password Noust set itself. An unreadable or sealed
+        secret is reported and treated as absent: the command then fails with
+        Redis's own ``NOAUTH``, which says what is wrong.
+
+        Returns:
+            The password, or None when there is none.
+        """
+        if self._password_loaded:
+            return self._password
+        self._password_loaded = True
+        settings = self.config.get("databases", {}).get("credentials", {}).get("redis", {})
+        configured = settings.get("password") if isinstance(settings, dict) else None
+        if configured:
+            self._password = str(configured)
+            return self._password
+        try:
+            self._password = self._secrets().read(REQUIREPASS_SECRET)
+        except (ConfigError, SealError) as exc:
+            self.logger.warning(f"Could not read the Redis password Noust stored: {exc}")
+        return self._password
+
+    def client_password(self) -> str | None:
+        """
+        Name the password clients authenticate with, as an application's URL needs it.
+
+        Returns:
+            The configured or stored ``requirepass``, or None when there is none.
+        """
+        return self._known_password()
 
     def _client_env(self) -> Mapping[str, str] | None:
         """
@@ -113,7 +256,8 @@ class RedisManager(BaseDatabaseManager):
             REDISCLI_AUTH carrying the password, or None when there is none.
             The password never goes in argv, where ``ps`` would show it.
         """
-        return {"REDISCLI_AUTH": self._password} if self._password else None
+        password = self._known_password()
+        return {"REDISCLI_AUTH": password} if password else None
 
     def _execute_redis(self, *args: str, db: int = 0) -> tuple[bool, str]:
         """
@@ -126,11 +270,12 @@ class RedisManager(BaseDatabaseManager):
         Returns:
             Whether the command succeeded, and its output or its error text.
         """
+        env = self._client_env()
         result = self._exec(
-            ["redis-cli", "-n", str(db), *args],
-            env=self._client_env(),
+            [self._cli(), "-n", str(db), *args],
+            env=env,
             timeout=QUERY_TIMEOUT,
-            secrets=(self._password,) if self._password else (),
+            secrets=tuple(env.values()) if env else (),
         )
         output = result.stdout if result.success else result.stderr
         if result.success and result.stdout.lstrip().startswith(("(error)", "ERR ")):
@@ -164,16 +309,99 @@ class RedisManager(BaseDatabaseManager):
         Returns:
             Whether the command succeeded, and its output.
         """
+        env = self._client_env()
         result = self._exec(
-            ["redis-cli"],
+            [self._cli()],
             input=f"{command}\n",
-            env=self._client_env(),
+            env=env,
             timeout=QUERY_TIMEOUT,
-            secrets=(secret,),
+            secrets=(secret, *(env.values() if env else ())),
         )
         if result.success and result.stdout.lstrip().startswith(("(error)", "ERR ")):
             return False, result.stdout
         return result.success, result.stdout if result.success else result.stderr
+
+    @staticmethod
+    def _quote_argument(value: str | bytes) -> str:
+        """
+        Render one argument as a redis-cli literal, whatever bytes it holds.
+
+        Args:
+            value: Text (sent as UTF-8) or raw bytes, such as a key read back
+                from the server.
+
+        Returns:
+            A double quoted literal with every byte hex-escaped.
+        """
+        data = value.encode() if isinstance(value, str) else value
+        return '"' + "".join(f"\\x{byte:02x}" for byte in data) + '"'
+
+    def run_commands(
+        self,
+        commands: Sequence[Sequence[str | bytes]],
+        *,
+        db: int = 0,
+        username: str | None = None,
+        password: str | None = None,
+        secrets: Sequence[str] = (),
+        timeout: int = QUERY_TIMEOUT,
+    ) -> str:
+        """
+        Run several commands through one redis-cli, answers in CSV.
+
+        The commands are written to the client's stdin, one per line, every
+        argument hex-escaped (:meth:`_quote_argument`), so a key with a space,
+        a quote or a newline is one argument and nothing reaches argv. With
+        ``--csv`` each answer is one line - arrays flattened, strings quoted
+        and escaped - which is what lets a batch be read back answer by
+        answer (:mod:`noust.managers.database.keys` parses it).
+
+        Args:
+            commands: The commands, each a sequence of arguments.
+            db: The database slot.
+            username: Sign in as this ACL user instead of the client's
+                default identity.
+            password: That user's password, passed as ``REDISCLI_AUTH``.
+            secrets: Values the commands carry that must not be logged.
+            timeout: Deadline in seconds.
+
+        Returns:
+            One CSV line per command.
+
+        Raises:
+            RedisSignInError: When ``username`` was refused. redis-cli carries
+                on after a refused AUTH with the connection's default
+                identity, so a refusal must never pass for a successful read.
+            DatabaseQueryError: When the client itself fails.
+        """
+        script = "".join(
+            " ".join(self._quote_argument(argument) for argument in command) + "\n"
+            for command in commands
+        )
+        argv = [self._cli(), "-n", str(db), "--csv"]
+        if username is not None:
+            argv[1:1] = ["--user", username]
+            env: Mapping[str, str] | None = {"REDISCLI_AUTH": password or ""}
+        else:
+            env = self._client_env()
+        result = self._exec(
+            argv,
+            input=script,
+            env=env,
+            timeout=timeout,
+            secrets=(*secrets, *(env.values() if env else ())),
+        )
+        if username is not None and (
+            "AUTH failed" in result.stderr or "WRONGPASS" in result.stderr
+        ):
+            raise RedisSignInError(
+                f"Redis refused the sign-in as {username}", output=result.stderr.strip()
+            )
+        if not result.success:
+            raise DatabaseQueryError(
+                "redis-cli failed", details=(result.stderr or result.stdout).strip()
+            )
+        return result.stdout
 
     # ==================== Validation ====================
 
@@ -733,24 +961,66 @@ class RedisManager(BaseDatabaseManager):
                 return candidate
         return self.DATA_DIR / filename
 
+    def list_backups(self, database: str | None = None) -> list[BackupInfo]:
+        """
+        List the snapshots, whichever slot was asked about.
+
+        A snapshot holds every slot of the instance, so a slot's page must
+        show all of them: filtering on the slot number, as the other engines
+        filter on a database name, showed none.
+
+        Args:
+            database: Ignored; every snapshot covers every slot.
+
+        Returns:
+            Snapshots, newest first.
+        """
+        return super().list_backups(database=None)
+
+    def _append_only(self) -> bool:
+        """
+        Ask whether the server persists through the append-only file.
+
+        Returns:
+            True when ``appendonly`` is ``yes``.
+        """
+        success, output = self._execute_redis("CONFIG", "GET", "appendonly")
+        lines = output.strip().splitlines() if success else []
+        return len(lines) >= 2 and lines[1].strip().lower() == "yes"
+
     def restore(
         self,
         database: str,
         backup_path: Path,
         drop_existing: bool = False,
+        *,
+        safety_backup: bool = True,
         **kwargs,
-    ) -> None:
+    ) -> RestoreOutcome:
         """
-        Replace the instance's RDB snapshot with a backup and restart.
+        Replace the instance's snapshot with a backup, keeping a safety copy.
+
+        A snapshot replaces every slot, so the safety copy is always taken.
+        With ``appendonly yes`` the restore is refused before anything
+        changes: Redis rebuilds its data from the append-only file when both
+        exist, so the copied snapshot would be ignored and the previous
+        version reported "Restored" over data that never changed. When the
+        new snapshot cannot be handed to the server's account, the safety
+        copy is put back.
 
         Args:
             database: Ignored; a Redis snapshot covers the whole instance.
             backup_path: Path to the backup file, plain or gzipped.
             drop_existing: Ignored; the snapshot replaces everything.
+            safety_backup: Ignored; the safety copy is always taken.
             **kwargs: Unused.
 
+        Returns:
+            What was done.
+
         Raises:
-            DatabaseBackupError: When the file is missing or cannot be installed.
+            DatabaseBackupError: When the file is missing, the server uses
+                the append-only file, or the snapshot cannot be installed.
         """
         backup_path = Path(backup_path)
         if not backup_path.exists():
@@ -758,10 +1028,59 @@ class RedisManager(BaseDatabaseManager):
                 f"Backup file not found: {backup_path}",
                 details="Run 'noust db backups' to list the backups Noust knows about.",
             )
+        if self._append_only():
+            raise DatabaseBackupError(
+                "This server rebuilds its data from the append-only file, not from a snapshot",
+                details=(
+                    "appendonly is yes, so Redis would ignore the restored dump.rdb and "
+                    "keep the data it has. Turn it off first (redis-cli CONFIG SET "
+                    "appendonly no, and in redis.conf), restore, then turn it back on: "
+                    "Redis rewrites the append-only file from the restored data."
+                ),
+            )
 
+        safety = self.backup("all").path
+        self.logger.info(f"Safety copy of the instance taken before the restore: {safety}")
+        try:
+            self._load_backup("all", backup_path)
+        except DatabaseBackupError as exc:
+            try:
+                self._load_backup("all", safety)
+            except DatabaseBackupError as again:
+                raise DatabaseBackupError(
+                    "Restoring the snapshot failed, and putting the previous one back failed too",
+                    details=(
+                        f"The restore said:\n{exc.details or exc}\n\nThe safety copy said:\n"
+                        f"{again.details or again}\n\nThe safety copy is kept at {safety}."
+                    ),
+                ) from exc
+            raise DatabaseBackupError(
+                "Restoring the snapshot failed; the previous one was put back",
+                details=f"{exc.details or exc}\n\nThe safety copy is kept at {safety}.",
+            ) from exc
+
+        self.logger.info(f"Restored Redis from: {backup_path}")
+        return RestoreOutcome(database="all", source=backup_path, safety_copy=safety, replaced=True)
+
+    def _load_backup(self, database: str, backup_path: Path, **kwargs: Any) -> None:
+        """
+        Install a snapshot as ``dump.rdb`` with the server stopped.
+
+        The server is started again whatever happens: it may still read a
+        file it does not own, or it may fail, and the operator needs its
+        journal for that, not a stopped service.
+
+        Args:
+            database: Ignored; a snapshot covers the instance.
+            backup_path: The snapshot, plain or gzipped.
+            **kwargs: Unused.
+
+        Raises:
+            DatabaseBackupError: When the file cannot be written or handed to
+                the server's account.
+        """
         rdb_file = self.DATA_DIR / "dump.rdb"
         self.stop()
-        handed_over = False
         try:
             if backup_path.suffix == ".gz":
                 result = self.runner.capture_to_file(
@@ -786,16 +1105,16 @@ class RedisManager(BaseDatabaseManager):
                 runner=self.runner,
                 logger=self.logger,
             )
+            if not handed_over:
+                raise DatabaseBackupError(
+                    f"Could not give {rdb_file} to the {self.DATA_OWNER} account",
+                    details=(
+                        f"The server runs as {self.DATA_OWNER} and could not read a snapshot "
+                        "root owns. Check that the account exists (id redis)."
+                    ),
+                )
         finally:
             self.start()
-
-        # Redis is started either way: it may still read a file it does not
-        # own, or it may fail, and the operator needs the service logs for
-        # that, not a misleading success line here. What must not happen is
-        # "Restored" over a hand-over that hand_over_file already logged as
-        # failed.
-        if handed_over:
-            self.logger.info(f"Restored Redis from: {backup_path}")
 
     # ==================== Query Execution ====================
 
@@ -824,7 +1143,15 @@ class RedisManager(BaseDatabaseManager):
         except (TypeError, ValueError):
             db_number = 0
 
-        parts = query.split()
+        # Split the way redis-cli's own prompt does, quotes included, so
+        # SET greeting "hello world" sets one value and not two arguments.
+        try:
+            parts = shlex.split(query)
+        except ValueError as exc:
+            raise DatabaseQueryError(
+                "The Redis command has an unbalanced quote",
+                details=f"{exc}. Close the quote, or escape it with a backslash.",
+            ) from exc
         if not parts:
             raise DatabaseQueryError(
                 "Empty Redis command", details="Pass a command such as 'INFO server'."
@@ -843,11 +1170,11 @@ class RedisManager(BaseDatabaseManager):
         host: str = "localhost",
     ) -> str:
         """
-        Build a Redis URI.
+        Build a Redis URI, the slot as its path.
 
         Args:
-            database: Slot number.
-            username: ACL user, or ``default``.
+            database: Slot number; anything else means slot 0.
+            username: ACL user, or ``default`` for the password alone.
             password: Password.
             host: Host to connect to.
 
@@ -858,10 +1185,165 @@ class RedisManager(BaseDatabaseManager):
             db_number = int(database)
         except (TypeError, ValueError):
             db_number = 0
+        return super().get_connection_string(str(db_number), username, password, host)
 
-        if username and username != "default":
-            return f"redis://{username}:{password}@{host}:{self.DEFAULT_PORT}/{db_number}"
-        return f"redis://:{password}@{host}:{self.DEFAULT_PORT}/{db_number}"
+    def server_port(self) -> int:
+        """
+        Return the port the server says it listens on.
+
+        Returns:
+            ``CONFIG GET port``, or :attr:`DEFAULT_PORT` when it cannot say.
+        """
+        cached = getattr(self, "_port", None)
+        if cached is not None:
+            return int(cached)
+        success, output = self._execute_redis("CONFIG", "GET", "port")
+        lines = output.strip().splitlines() if success else []
+        if len(lines) >= 2 and lines[1].strip().isdigit():
+            self._port = int(lines[1].strip())
+            return self._port
+        return self.DEFAULT_PORT
+
+    def listen_addresses(self) -> ListenAddress | None:
+        """
+        Ask the server for its ``bind`` setting.
+
+        Returns:
+            The addresses, or None when the server cannot say.
+        """
+        success, output = self._execute_redis("CONFIG", "GET", "bind")
+        lines = output.strip().splitlines() if success else []
+        if len(lines) < 2:
+            return None
+        return listen_address("bind", lines[1])
+
+    def warnings(self) -> list[str]:
+        """
+        Warn when the instance takes commands from anyone without a password.
+
+        Returns:
+            One sentence when no password is known and the server answered.
+        """
+        if self._known_password():
+            return []
+        success, output = self._execute_redis("ACL", "WHOAMI")
+        if success and output.strip() == "default":
+            return [
+                "Redis accepts every command without a password: any process on this "
+                "server can read and change every key. Set one with 'noust db "
+                "user-password default --engine redis'."
+            ]
+        return []
+
+    def set_user_password(self, username: str, password: str, host: str = "localhost") -> None:
+        """
+        Give an ACL user a new password, or the instance a new ``requirepass``.
+
+        Args:
+            username: The ACL user, or ``default`` for ``requirepass``.
+            password: The new password.
+            host: Ignored; Redis has no per-host users.
+
+        Raises:
+            DatabaseUserError: When the user does not exist or the server
+                refuses.
+        """
+        if username in ("", "default"):
+            try:
+                self.set_password(password)
+            except DatabaseError as exc:
+                raise DatabaseUserError(str(exc), details=exc.details) from exc
+            return
+        self.validate_user_name(username)
+        if not self.user_exists(username):
+            raise DatabaseUserError(
+                f"User '{username}' does not exist",
+                details="Run 'noust db user-list --engine redis' to see the ACL users.",
+            )
+        digest = hashlib.sha256(password.encode()).hexdigest()
+        success, output = self._execute_redis("ACL", "SETUSER", username, "resetpass", f"#{digest}")
+        if not success:
+            raise DatabaseUserError(
+                f"Failed to change the password of '{username}'", details=output.strip()
+            )
+        self._execute_redis("ACL", "SAVE")
+        self.logger.info(f"Changed the password of: {username}")
+
+    def apply_profile(
+        self, username: str, database: str, profile: str, host: str = "localhost"
+    ) -> None:
+        """
+        Give an ACL user one of the profile presets.
+
+        Redis ACLs are instance-wide, so the profile holds on every slot: the
+        ``database`` argument names the slot only for the caller's messages.
+
+        Args:
+            username: The ACL user.
+            database: Ignored beyond messages.
+            profile: ``owner``, ``read_write`` or ``read_only``.
+            host: Ignored; Redis has no per-host users.
+
+        Raises:
+            DatabaseUserError: When the profile is unknown, the user does not
+                exist, or the server refuses.
+        """
+        self.validate_user_name(username)
+        if profile not in PROFILES:
+            raise DatabaseUserError(
+                f"Unknown access profile: {profile!r}",
+                details=f"Use one of: {', '.join(PROFILES)}.",
+            )
+        if not self.user_exists(username):
+            raise DatabaseUserError(
+                f"User '{username}' does not exist",
+                details="Create it first with 'noust db user-create --engine redis'.",
+            )
+        success, output = self._execute_redis(
+            "ACL",
+            "SETUSER",
+            username,
+            "nocommands",
+            "resetkeys",
+            "resetchannels",
+            *PROFILE_RULES[profile],
+        )
+        if not success:
+            raise DatabaseUserError(
+                f"Failed to give '{username}' the {profile} profile", details=output.strip()
+            )
+        self._execute_redis("ACL", "SAVE")
+
+    def list_access(self, database: str) -> list[AccessEntry]:
+        """
+        List the ACL users with the profile their rules amount to.
+
+        Args:
+            database: Ignored; ACLs are instance-wide.
+
+        Returns:
+            One entry per ACL user.
+        """
+        entries: list[AccessEntry] = []
+        for user in self.list_users():
+            rules = set(user.privileges)
+            if "+@all" in rules and "-@dangerous" not in rules:
+                profile = "owner"
+            elif "+@all" in rules:
+                profile = "read_write"
+            elif "+@read" in rules and "+@write" not in rules:
+                profile = "read_only"
+            else:
+                profile = "custom"
+            entries.append(
+                AccessEntry(
+                    username=user.username,
+                    profile=profile,
+                    privileges=tuple(user.privileges),
+                    internal=self.is_internal_user(user.username),
+                )
+            )
+        return entries
 
     def get_interactive_command(
         self,
@@ -878,7 +1360,7 @@ class RedisManager(BaseDatabaseManager):
         Returns:
             The argument vector.
         """
-        argv = ["redis-cli"]
+        argv = [self._cli()]
         if database is not None and str(database).isdigit():
             argv.extend(["-n", str(int(database))])
         if username:
@@ -907,6 +1389,11 @@ class RedisManager(BaseDatabaseManager):
             raise DatabaseError("Failed to set the Redis password", details=output.strip())
 
         self._password = password
+        self._password_loaded = True
+        # Kept so the next process authenticates too: the password used to
+        # live only in the object that set it, and every later command failed
+        # with NOAUTH.
+        self._secrets().write(REQUIREPASS_SECRET, password)
         self._execute_redis("CONFIG", "REWRITE")
 
     def get_memory_stats(self) -> dict[str, str]:
@@ -938,4 +1425,4 @@ class RedisManager(BaseDatabaseManager):
             raise DatabaseError("Failed to flush all databases", details=output.strip())
 
 
-DatabaseRegistry.register(RedisManager, aliases=["redis-server"])
+DatabaseRegistry.register(RedisManager, aliases=["redis-server", "valkey", "valkey-server"])

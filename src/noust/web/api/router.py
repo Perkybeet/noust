@@ -11,10 +11,12 @@ application can register the same translation for anything raised outside a
 route, such as in a dependency.
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from noust.core.exceptions import FleetUnavailableError
 from noust.web.api.app_export import router as app_export_router
+from noust.web.api.approvals import require_approval
+from noust.web.api.approvals import router as approvals_router
 from noust.web.api.apps import router as apps_router
 from noust.web.api.audit import router as audit_router
 from noust.web.api.auth import router as auth_router
@@ -25,6 +27,7 @@ from noust.web.api.central import router as central_router
 from noust.web.api.certs import router as certs_router
 from noust.web.api.config import router as config_router
 from noust.web.api.cron import router as cron_router
+from noust.web.api.databases import apps_router as databases_apps_router
 from noust.web.api.databases import router as databases_router
 from noust.web.api.deployments import app_router as deployment_actions_router
 from noust.web.api.deployments import router as deployments_router
@@ -32,18 +35,27 @@ from noust.web.api.deps import NoustErrorRoute, install_error_handlers
 from noust.web.api.diagnose import router as diagnose_router
 from noust.web.api.domains import dns_router
 from noust.web.api.domains import router as domains_router
+from noust.web.api.ens import router as ens_router
+from noust.web.api.fleet import router as fleet_router
+from noust.web.api.fleet_self import router as fleet_self_router
 from noust.web.api.integrations import router as integrations_router
 from noust.web.api.jobs import router as jobs_router
+from noust.web.api.metrics import app_router as app_metrics_router
 from noust.web.api.metrics import router as metrics_router
 from noust.web.api.monitor import router as monitor_router
 from noust.web.api.nodes import router as nodes_router
 from noust.web.api.openapi import router as openapi_router
+from noust.web.api.overview import router as overview_router
+from noust.web.api.passkeys import router as passkeys_router
 from noust.web.api.previews import router as previews_router
 from noust.web.api.recipes import router as recipes_router
+from noust.web.api.sandbox import router as sandbox_router
+from noust.web.api.server import router as server_router
 from noust.web.api.services import router as services_router
 from noust.web.api.sites import router as sites_router
 from noust.web.api.system import router as system_router
 from noust.web.api.zero_downtime import router as zero_downtime_router
+from noust.web.auth import require_auth
 
 __all__ = ["install_error_handlers", "router"]
 
@@ -77,21 +89,33 @@ def node_proxy_router() -> APIRouter:
     return proxy
 
 
-router = APIRouter()
+# Every route below authenticates and is held to the permission its
+# noust.web.permissions map declares, whether or not its handler asks for the
+# payload: a route cannot forget either, and one no map names is refused.
+# The four-eyes guard sits beside it for the same reason: a root-equivalent
+# route cannot forget it (noust.web.api.approvals).
+router = APIRouter(dependencies=[Depends(require_auth), Depends(require_approval)])
 
 router.include_router(auth_router, prefix="/auth", tags=["Authentication"])
 router.include_router(audit_router, prefix="/audit", tags=["Audit"])
+router.include_router(ens_router, prefix="/ens", tags=["Compliance"])
 # Before apps_router: POST /apps/import must not reach a route that reads
 # "import" as a domain. It also owns GET "/{domain}/export", which apps.py
 # does not define.
 router.include_router(app_export_router, prefix="/apps", tags=["Applications"])
 router.include_router(apps_router, prefix="/apps", tags=["Applications"])
 router.include_router(services_router, prefix="/services", tags=["Services"])
+# The machine itself: updates, power, disks, swap, clock, journal. /services stays as it is.
+router.include_router(server_router, prefix="/server", tags=["Server"])
 router.include_router(sites_router, prefix="/sites", tags=["Sites"])
 router.include_router(certs_router, prefix="/certs", tags=["Certificates"])
 router.include_router(system_router, prefix="/system", tags=["System"])
 router.include_router(monitor_router, prefix="/monitor", tags=["Monitor"])
 router.include_router(metrics_router, prefix="/metrics", tags=["Metrics"])
+router.include_router(overview_router, prefix="/overview", tags=["Overview"])
+# Same composition as diagnose: one path under "/{domain}/metrics" that apps.py
+# does not define.
+router.include_router(app_metrics_router, prefix="/apps", tags=["Metrics"])
 # The jobs router carries its own "/jobs" prefix.
 router.include_router(jobs_router, tags=["Jobs"])
 router.include_router(config_router, prefix="/config", tags=["Configuration"])
@@ -100,6 +124,7 @@ router.include_router(
     backup_schedules_router, prefix="/backup-schedules", tags=["Backup Schedules"]
 )
 router.include_router(databases_router, prefix="/databases", tags=["Databases"])
+router.include_router(databases_apps_router, prefix="/apps", tags=["Databases"])
 router.include_router(cron_router, prefix="/cron", tags=["Cron Jobs"])
 router.include_router(deployments_router, prefix="/deployments", tags=["Deployments"])
 # Mounted at the same "/apps" prefix as apps_router: diagnose.py owns exactly
@@ -123,10 +148,17 @@ router.include_router(integrations_router, prefix="/integrations", tags=["Integr
 # apps.py does not define ("/zero-downtime", "/previews").
 router.include_router(zero_downtime_router, prefix="/apps", tags=["Applications"])
 router.include_router(previews_router, prefix="/apps", tags=["Previews"])
+# Same composition: sandbox.py owns only paths under "/{domain}/sandbox".
+router.include_router(sandbox_router, prefix="/apps", tags=["Applications"])
 router.include_router(recipes_router, prefix="/recipes", tags=["Recipes"])
 # The fleet, on a central: the registry of nodes, and the proxy that makes
 # every other route here reachable on a node as /nodes/{node}/api/...
 router.include_router(central_router, prefix="/central", tags=["Central"])
+router.include_router(fleet_self_router, prefix="/auth/fleet", tags=["Fleet"])
+# Under /auth like the rest of one's own credentials, so no fleet token reaches it.
+router.include_router(passkeys_router, prefix="/auth/passkeys", tags=["Passkeys"])
+router.include_router(approvals_router, prefix="/approvals", tags=["Approvals"])
+router.include_router(fleet_router, prefix="/fleet", tags=["Fleet"])
 router.include_router(nodes_router, prefix="/nodes", tags=["Nodes"])
 router.include_router(node_proxy_router(), prefix="/nodes", tags=["Nodes"])
 # No prefix: the route is declared as "/openapi.json" and this router mounts

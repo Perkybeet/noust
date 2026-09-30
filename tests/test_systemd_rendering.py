@@ -187,6 +187,10 @@ def test_valid_unit_render_snapshot(jinja: Environment) -> None:
         "SyslogIdentifier=app-com\n"
         "\n"
         "# Resource limits\n"
+        "# The metrics tab reads memory.current and cpu.stat, which exist only while\n"
+        "# systemd counts; a distribution may ship with that off.\n"
+        "MemoryAccounting=yes\n"
+        "CPUAccounting=yes\n"
         "LimitNOFILE=65535\n"
         "\n"
         "[Install]\n"
@@ -349,6 +353,8 @@ def _bare_deployer() -> _Deployer:
     deployer.webserver = "nginx"
     deployer.port = 3000
     deployer.env_vars = {}
+    # What a database provisioned at create time adds to the environment (3.1).
+    deployer._database_env = {}
     deployer.config = MagicMock(service_user="www-data", service_group="www-data")
     deployer._env_manager = MagicMock(spec=EnvManager)
     deployer._env_manager.read_env_file.return_value = {}

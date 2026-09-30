@@ -124,6 +124,9 @@ class FakeGit:
         self.commits: dict[str, Path] = {}
         self.head: str | None = None
         self.calls: list[tuple[Any, ...]] = []
+        # What the repository cache is on: a branch, or detached (at a tag).
+        self.branch = "main"
+        self.detached = False
 
     def publish(self, tree: Path) -> str:
         """
@@ -150,7 +153,7 @@ class FakeGit:
         shutil.copytree(self.commits[commit], destination, dirs_exist_ok=True)
 
     def get_repo_info(self, path: Path) -> dict[str, Any]:
-        return {"branch": "main", "commit": None}
+        return {"branch": self.branch, "detached": self.detached, "commit": None}
 
     def fetch(self, *args: Any, **kwargs: Any) -> bool:
         raise AssertionError("a git source must go through the repository cache")
@@ -653,6 +656,97 @@ def test_an_update_builds_a_new_release_and_keeps_shared_data(
     app = store.get_app(DOMAIN)
     statuses = {r.id: r.status for r in store.list_releases(app.id)}
     assert statuses == {first: "superseded", second: "active"}
+
+
+class TestTheBranchAReleaseUpdateFollows:
+    """
+    A release update never changes branch unless an operator says so.
+
+    The repository cache follows a branch; a 3.0 ``noust update --branch``
+    moved it without recording the choice. Building the recorded branch
+    instead would switch what production serves on the next plain update.
+    """
+
+    def _deployed(
+        self, tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace
+    ) -> None:
+        machine.git.publish(node_tree(tmp_path / "v1"))
+        deploy_new(root, machine)
+        app = store.get_app(DOMAIN)
+        app.branch = "main"
+        store.update_app(app)
+        machine.git.publish(node_tree(tmp_path / "v2", server=GOOD_SERVER + "// v2\n"))
+        machine.git.calls.clear()
+
+    def _synced(self, machine: SimpleNamespace) -> list[str | None]:
+        return [call[3] for call in machine.git.calls if call[0] == "sync"]
+
+    def test_a_cache_on_another_branch_keeps_it_and_the_store_learns_it(
+        self,
+        tmp_path: Path,
+        root: Path,
+        store: NoustStore,
+        machine: SimpleNamespace,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        self._deployed(tmp_path, root, store, machine)
+        machine.git.branch = "develop"
+
+        update(machine, monkeypatch)
+
+        assert self._synced(machine) == ["develop"]
+        assert store.get_app(DOMAIN).branch == "develop"
+        assert lifecycle.pinned_branch(DOMAIN) is None
+
+    def test_a_cache_detached_at_a_tag_follows_the_recorded_name(
+        self,
+        tmp_path: Path,
+        root: Path,
+        store: NoustStore,
+        machine: SimpleNamespace,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """A recipe pins a tag; the branch git names for a detached cache is a guess."""
+        self._deployed(tmp_path, root, store, machine)
+        machine.git.branch, machine.git.detached = "develop", True
+
+        update(machine, monkeypatch)
+
+        assert self._synced(machine) == ["main"]
+        assert store.get_app(DOMAIN).branch == "main"
+
+    def test_a_pinned_branch_is_built_whatever_the_cache_is_on(
+        self,
+        tmp_path: Path,
+        root: Path,
+        store: NoustStore,
+        machine: SimpleNamespace,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        self._deployed(tmp_path, root, store, machine)
+        remote = SimpleNamespace(remote_head=lambda source, branch: SimpleNamespace(commit="c0"))
+        lifecycle.set_branch(DOMAIN, "release", source_manager=remote)  # type: ignore[arg-type]
+        machine.git.branch = "develop"
+
+        update(machine, monkeypatch)
+
+        assert self._synced(machine) == ["release"]
+
+    def test_update_with_a_branch_records_and_pins_it(
+        self,
+        tmp_path: Path,
+        root: Path,
+        store: NoustStore,
+        machine: SimpleNamespace,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        self._deployed(tmp_path, root, store, machine)
+
+        update(machine, monkeypatch, branch="develop")
+
+        assert self._synced(machine) == ["develop"]
+        assert store.get_app(DOMAIN).branch == "develop"
+        assert lifecycle.pinned_branch(DOMAIN) == "develop"
 
 
 def test_an_unhealthy_release_rolls_back_to_the_previous_one(

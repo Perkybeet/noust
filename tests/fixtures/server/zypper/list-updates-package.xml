@@ -1,0 +1,10 @@
+<?xml version='1.0'?>
+<stream>
+<update-status version="0.6">
+<update-list>
+<update name="openssl-3" edition="3.1.4-150600.5.21.1" edition-old="3.1.4-150600.5.18.1" arch="x86_64" kind="package"><source url="https://download.opensuse.org/update/leap/15.6/sle/" alias="repo-sle-update"/></update>
+<update name="kernel-default" edition="6.4.0-150600.23.53.1" edition-old="6.4.0-150600.23.47.1" arch="x86_64" kind="package"><source url="https://download.opensuse.org/update/leap/15.6/sle/" alias="repo-sle-update"/></update>
+<update name="bash" edition="4.4-150400.27.3.2" edition-old="4.4-150400.27.3.1" arch="x86_64" kind="package"><source url="https://download.opensuse.org/update/leap/15.6/sle/" alias="repo-sle-update"/></update>
+</update-list>
+</update-status>
+</stream>

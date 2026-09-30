@@ -135,7 +135,7 @@ def test_enable_takes_bots_and_excluded_variables(store: NoustStore) -> None:
     settings = store.get_preview_settings(PARENT)
     assert settings is not None
     assert (settings.allow_bots, settings.exclude_env) == (True, ["STRIPE_KEY", "S3_SECRET"])
-    assert "as root" in result.output
+    assert "production secrets included" in result.output
 
 
 def test_enable_changes_one_setting_and_keeps_the_rest(store: NoustStore) -> None:
@@ -169,11 +169,12 @@ def test_enable_refuses_an_invalid_variable_name(store: NoustStore) -> None:
     assert store.get_preview_settings(PARENT) is None
 
 
-def test_enable_help_says_builds_run_as_root() -> None:
+def test_enable_help_says_builds_run_in_the_sandbox_with_the_secrets() -> None:
     result = invoke(["preview", "enable", "--help"])
 
     assert result.exit_code == 0
-    assert "as root" in result.output
+    assert "build sandbox" in result.output
+    assert "production secrets" in result.output
     assert "--allow-bots" in result.output and "--exclude-env" in result.output
 
 

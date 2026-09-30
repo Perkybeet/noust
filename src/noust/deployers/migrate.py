@@ -1063,6 +1063,7 @@ def _migrate(domain: str, plan: MigrationPlan, *, trigger: str, log: Logger) -> 
         trigger,
         logger=log,
         git_info=lambda: (plan.commit[:7] if plan.commit else None, app.branch),
+        operation="migrate",
     )
 
     def put_back(error: BaseException) -> None:

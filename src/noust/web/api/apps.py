@@ -56,6 +56,7 @@ from noust.deployers.inspect import SourceInspection, inspect_source
 from noust.deployers.lifecycle import (
     activate_release,
     list_releases,
+    set_branch,
     set_health_check,
     set_release_retention,
     set_resource_limits,
@@ -65,6 +66,7 @@ from noust.deployers.php_fpm import control_pool
 from noust.deployers.registry import DeployerRegistry, available_types
 from noust.deployers.releases import is_release_id
 from noust.managers.backup_manager import RollbackManager
+from noust.managers.database.service import OWN_DATABASE_TYPES
 from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.recipes import RecipeError, get_recipe
 from noust.recipes.deploy import refuse_conflicts
@@ -97,7 +99,7 @@ from noust.web.jobs import (
     get_job_manager,
     migrate_app_job,
 )
-from noust.web.pydantic_compat import iso_offset_validator
+from noust.web.pydantic_compat import dump_model, iso_offset_validator
 
 #: app_state's display labels, translated to the fixed API vocabulary.
 #: Decoupled from AppState.label on purpose: that string is for a terminal
@@ -235,6 +237,26 @@ class AppListResponse(BaseModel):
     total: int
 
 
+class NewAppDatabaseRequest(BaseModel):
+    """
+    A database to create with a new application, before its first build.
+
+    Attributes:
+        engine: The engine (``GET /api/databases/engines``), installed and
+            running.
+        name: The database; derived from the application when omitted
+            (``<app>_db``), a slot number for Redis (0 by default).
+        env_var: The variable; ``DATABASE_URL``, or ``REDIS_URL`` for Redis.
+        extra_vars: Also write ``DB_HOST``, ``DB_PORT``, ``DB_NAME``,
+            ``DB_USER`` and ``DB_PASSWORD``.
+    """
+
+    engine: str = Field(..., description="Database engine")
+    name: str | None = Field(default=None, description="Database name")
+    env_var: str | None = Field(default=None, description="Variable to write")
+    extra_vars: bool = Field(default=False, description="Also write the DB_* variables")
+
+
 class CreateAppRequest(BaseModel):
     """
     Request to deploy a new application.
@@ -327,6 +349,14 @@ class CreateAppRequest(BaseModel):
         default=None,
         description="GitHub App installation that clones this application's repository, "
         "as the repository list returned it; kept for every later update",
+    )
+    database: NewAppDatabaseRequest | None = Field(
+        default=None,
+        description="Create a database for the application before its first build, owned by "
+        "an account of its own, and write its connection string into the application's "
+        "environment, marked secret: the first build and the first start already have it. "
+        "Not with a recipe, a monorepo or a Docker Compose project, which provision their "
+        "own. A first deploy that fails keeps the database, and its error says how to drop it",
     )
 
 
@@ -917,6 +947,15 @@ def create_app(
     else:
         _require_local_source_privilege(request, session, body.source)
     app_type = recipe.app_type if recipe is not None else body.app_type
+    if body.database is not None and (recipe is not None or app_type in OWN_DATABASE_TYPES):
+        raise ValidationError(
+            "A database cannot be created with "
+            + ("a recipe" if recipe is not None else f"a {app_type} application"),
+            details="A recipe, a monorepo and a Docker Compose project provision their own "
+            "databases. Leave database out, or create one after the deploy with POST "
+            "/api/apps/{domain}/databases.",
+            field="database",
+        )
 
     if get_store().get_app(domain):
         raise HTTPException(status_code=409, detail=f"Application already exists: {domain}")
@@ -982,6 +1021,7 @@ def create_app(
             "health_path": body.health_path,
             "health_expect": body.health_expect,
             "health_timeout": body.health_timeout,
+            "database": dump_model(body.database) if body.database is not None else None,
         },
         metadata={
             "domain": domain,
@@ -2253,6 +2293,78 @@ def update_app_health(
         effective_path=check.path,
         effective_expect=check.describe_expect(),
         effective_timeout=check.seconds,
+    )
+
+
+# ---------------------------------------------------------------------------
+# The branch it deploys from
+# ---------------------------------------------------------------------------
+
+
+class UpdateBranchRequest(BaseModel):
+    """Pin the branch an application deploys from, or unpin it."""
+
+    branch: str | None = Field(
+        ...,
+        description="The branch to pin; it must exist on the remote. Null: any push deploys",
+    )
+
+
+class BranchResponse(BaseModel):
+    """
+    The branch an application deploys from now.
+
+    Attributes:
+        domain: The application's domain.
+        branch: The pinned branch, or None when any push deploys.
+        pinned: Whether a branch is pinned.
+        commit: The branch's head on the remote when it was pinned.
+        previous: The branch it had before.
+    """
+
+    domain: str
+    branch: str | None = None
+    pinned: bool
+    commit: str | None = None
+    previous: str | None = None
+
+
+@router.patch("/{domain}/branch", response_model=BranchResponse)
+def update_app_branch(
+    domain: str,
+    body: UpdateBranchRequest,
+    session: Annotated[dict, Depends(require_elevated)],
+) -> BranchResponse:
+    """
+    Pin the branch an application deploys from, or unpin it.
+
+    With a branch pinned, the webhook ignores pushes to any other branch and
+    every update builds it; unpinned, any push deploys. The branch is checked
+    on the remote first; nothing is fetched or rebuilt until the next update.
+    Changing what deploys needs sudo mode, like the health check and the limits.
+
+    Args:
+        domain: Domain of the application.
+        body: The branch, or null.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The branch it deploys from now, its head, and the one before.
+
+    Raises:
+        HTTPException: 404 when the application is unknown.
+        SourceError: Not deployed from git, not a branch name, no such branch
+            on the remote, or the remote cannot be read (400, git's words in
+            ``output``).
+    """
+    app = _env_app(domain)
+    pin = set_branch(app.domain, body.branch)
+    return BranchResponse(
+        domain=pin.domain,
+        branch=pin.branch,
+        pinned=pin.branch is not None,
+        commit=pin.commit,
+        previous=pin.previous,
     )
 
 

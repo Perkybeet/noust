@@ -4,24 +4,34 @@
 """
 A typed catalog of Noust's own words in every notification Noust sends.
 
-2.3 adds ``notifications.language`` (see :data:`noust.core.config.DEFAULT_CONFIG`):
-an operator can read a deploy failure or a disk warning in Spanish instead of
-English. This module is the one place that pairing lives - every title and
-body a notification carries is a key here, in both locales, never built by
-concatenating translated fragments, because word order is not the same
+An operator reads a deploy failure or a disk warning in English or Spanish
+(``notifications.language``, see :data:`noust.core.config.DEFAULT_CONFIG`).
+This module is the one place that pairing lives: every phrase a notification
+carries is a key here, in both locales, a whole sentence with placeholders and
+never a fragment to glue to another one, because word order is not the same
 sentence in both languages.
 
-What this catalog is not for: the evidence inside a body - a health gate's
-probes, a journal line, rclone's or certbot's own stderr, a :class:`NoustError`
-message - is never a value in :data:`MESSAGES`. That text stays in English
-and reaches the operator verbatim, exactly as the console shows it, because
-paraphrasing another program's own words is how an operator stops trusting
-what Noust tells them. A caller passes it in as a ``str.format`` parameter of
-a key that translates only the sentence around it.
+The keys are grouped by what they are, and the composers
+(:mod:`noust.core.notifications.composers`) are the only callers that know
+which belongs where:
 
-The CLI and every other server-generated string are out of scope for 2.3 (see
-``docs/superpowers/specs/2026-09-28-wasm-2.3-design.md`` S1): this catalog
-covers notifications only.
+- ``title.<code>``: the state as a phrase (``Rolled back``), first thing read;
+- ``summary.<code>``: the one sentence under it;
+- ``fact.<key>``: the label of a fact (``Started by``);
+- ``trigger.<name>`` and ``channel.<name>``: what an enum value is called;
+- ``ui.*`` and ``excerpt.*``: the words around the parts every channel draws.
+
+What this catalog is not for: the evidence inside a notification - a health
+gate's probes, a journal line, rclone's or certbot's own stderr, a
+:class:`NoustError` message, a branch name - is never a value here. That text
+stays as the program wrote it and reaches the operator verbatim, exactly as the
+console shows it, because paraphrasing another program's own words is how an
+operator stops trusting what Noust tells them. A composer passes it in as a
+``str.format`` parameter, or, more often, as a fact value or an excerpt line
+that no catalog sentence wraps at all.
+
+The CLI and every other server-generated string are out of scope: this
+catalog covers notifications only.
 """
 
 from __future__ import annotations
@@ -35,224 +45,445 @@ Locale = Literal["en", "es"]
 #: What an unset or unrecognised ``notifications.language`` falls back to.
 DEFAULT_LOCALE: Locale = "en"
 
+_GENERIC_FAILURE: dict[Locale, str] = {
+    "en": "It stopped at an error before the new version could take over.",
+    "es": "Se ha detenido por un error antes de que la nueva versión tomara el relevo.",
+}
+
+_ROLLED_BACK: dict[Locale, str] = {
+    "en": "The new version did not answer its health check, so the previous one is serving again.",
+    "es": (
+        "La nueva versión no ha respondido a la comprobación de salud, así que la anterior "
+        "vuelve a estar en servicio."
+    ),
+}
+
 #: Every notification text Noust builds, keyed by a short name and then by
 #: locale. ``tests/test_messages.py`` enforces the invariant a Python dict
 #: cannot: both locales define exactly the same keys, with exactly the same
 #: ``str.format`` placeholders, and neither text is empty.
 MESSAGES: dict[str, dict[Locale, str]] = {
-    # -- Deploys (noust.core.deploy_notifications, noust.web.server) ----------
-    "deploy_started_title": {
-        "en": "Deploying {domain}",
-        "es": "Desplegando {domain}",
+    # -- Titles: the state, as a phrase. Never the subject, never a fact. -----
+    "title.deploy.started": {"en": "Deploying", "es": "Desplegando"},
+    "title.deploy.succeeded": {"en": "Deployed", "es": "Desplegado"},
+    "title.deploy.failed": {"en": "Deploy failed", "es": "Despliegue fallido"},
+    "title.deploy.rolled_back": {"en": "Rolled back", "es": "Revertido"},
+    "title.update.started": {"en": "Updating", "es": "Actualizando"},
+    "title.update.succeeded": {"en": "Updated", "es": "Actualizado"},
+    "title.update.failed": {"en": "Update failed", "es": "Actualización fallida"},
+    "title.update.rolled_back": {"en": "Rolled back", "es": "Revertido"},
+    "title.rollback.started": {"en": "Reverting", "es": "Volviendo atrás"},
+    "title.rollback.succeeded": {"en": "Reverted", "es": "Vuelta atrás completada"},
+    "title.rollback.failed": {"en": "Revert failed", "es": "Vuelta atrás fallida"},
+    "title.rollback.rolled_back": {"en": "Revert failed", "es": "Vuelta atrás fallida"},
+    "title.activate.started": {"en": "Activating release", "es": "Activando versión"},
+    "title.activate.succeeded": {"en": "Release activated", "es": "Versión activada"},
+    "title.activate.failed": {"en": "Activation failed", "es": "Activación fallida"},
+    "title.activate.rolled_back": {"en": "Activation failed", "es": "Activación fallida"},
+    "title.migrate.started": {"en": "Migrating to releases", "es": "Migrando a versiones"},
+    "title.migrate.succeeded": {"en": "Migrated to releases", "es": "Migrado a versiones"},
+    "title.migrate.failed": {"en": "Migration failed", "es": "Migración fallida"},
+    "title.restore.completed": {"en": "Restored", "es": "Restaurado"},
+    "title.restore.failed": {"en": "Restore failed", "es": "Restauración fallida"},
+    "title.backup.failed": {"en": "Backup failed", "es": "Copia de seguridad fallida"},
+    "title.backup.upload_failed": {
+        "en": "Backup upload failed",
+        "es": "Subida de la copia fallida",
     },
-    "deploy_succeeded_title": {
-        "en": "{domain} deployed{detail}",
-        "es": "{domain} desplegado{detail}",
+    "title.backup.schedule_missing": {
+        "en": "Backup schedule missing",
+        "es": "Falta la programación de la copia",
     },
-    "deploy_failed_title": {
-        "en": "{domain} failed to deploy",
-        "es": "No se ha podido desplegar {domain}",
+    "title.backup.completed": {"en": "Backup completed", "es": "Copia completada"},
+    "title.cert.expiring": {
+        "en": "Certificate expiring",
+        "es": "Certificado a punto de caducar",
     },
-    # noust.web.server.JobNotificationSubscriber's fallback for a deploy,
-    # update or rollback job that failed before the recorder opened and
-    # carries no domain in its metadata - the job's own English name (console
-    # text, out of scope per the module docstring) is the placeholder rather
-    # than a paraphrase of it.
-    "deploy_failed_title_no_domain": {
-        "en": "{name} failed",
-        "es": "{name} ha fallado",
+    "title.cert.expired": {"en": "Certificate expired", "es": "Certificado caducado"},
+    "title.unit.failed": {"en": "Service failed", "es": "Servicio fallido"},
+    "title.unit.crash_loop": {
+        "en": "Service crash-looping",
+        "es": "Servicio en bucle de reinicios",
     },
-    "deploy_rolled_back_title": {
-        "en": "{domain} rolled back",
-        "es": "Se ha vuelto a la versión anterior de {domain}",
+    "title.unit.stopped_on_failure": {
+        "en": "Service stopped on a failure",
+        "es": "Servicio detenido por un fallo",
     },
-    "deploy_trigger": {
-        "en": "Trigger: {trigger}",
-        "es": "Origen: {trigger}",
+    "title.unit.recovered": {"en": "Service recovered", "es": "Servicio recuperado"},
+    "title.disk.threshold": {"en": "Disk almost full", "es": "Disco casi lleno"},
+    "title.disk.recovered": {
+        "en": "Disk space recovered",
+        "es": "Espacio en disco recuperado",
     },
-    "deploy_commit": {
-        "en": "Commit: {commit}",
-        "es": "Commit: {commit}",
+    "title.test": {"en": "Test notification", "es": "Notificación de prueba"},
+    "title.node.unreachable": {"en": "Server unreachable", "es": "Servidor inaccesible"},
+    "title.node.recovered": {
+        "en": "Server reachable again",
+        "es": "Servidor accesible de nuevo",
     },
-    "deploy_preview_with_number": {
-        "en": "Preview of {parent} #{number}.",
-        "es": "Vista previa de {parent} n.º {number}.",
-    },
-    "deploy_preview": {
-        "en": "Preview of {parent}.",
-        "es": "Vista previa de {parent}.",
-    },
-    # -- Backup restores (noust.web.server) -----------------------------------
-    "restore_succeeded_title": {
-        "en": "{domain} restored",
-        "es": "Se ha restaurado {domain}",
-    },
-    "restore_succeeded_title_no_domain": {
-        "en": "Restore completed",
-        "es": "Restauración completada",
-    },
-    # v2.2.1 carried the backup id in the job's own description, reused
-    # verbatim as the notification body; that text is English-only console
-    # copy, out of scope for a translated notification (see the module
-    # docstring), so the backup id travels as a placeholder here instead.
-    "restore_succeeded_body": {
-        "en": "Restored from backup {backup_id}.",
-        "es": "Restaurado a partir de la copia de seguridad {backup_id}.",
-    },
-    "restore_failed_title": {
-        "en": "{domain} restore failed",
-        "es": "No se ha podido restaurar {domain}",
-    },
-    "restore_failed_title_no_domain": {
-        "en": "Restore failed",
-        "es": "No se ha podido completar la restauración",
-    },
-    # -- A backup job's own failure (noust.web.server) ------------------------
-    "backup_job_failed_title": {
-        "en": "Backup of {domain} failed",
-        "es": "La copia de seguridad de {domain} ha fallado",
-    },
-    "backup_job_failed_title_no_domain": {
+    "title.node.host_key_changed": {"en": "Host key changed", "es": "Clave de host cambiada"},
+    "title.server.rebooted": {"en": "Server restarted", "es": "Servidor reiniciado"},
+    "title.server.back": {"en": "Server back", "es": "Servidor de vuelta"},
+    "title.approval.requested": {"en": "Approval requested", "es": "Aprobación solicitada"},
+    "title.approval.approved": {"en": "Request approved", "es": "Solicitud aprobada"},
+    "title.approval.rejected": {"en": "Request rejected", "es": "Solicitud rechazada"},
+    "title.database.backup.failed": {
         "en": "Backup failed",
-        "es": "La copia de seguridad ha fallado",
+        "es": "Copia de seguridad fallida",
     },
-    # -- Scheduled backups (noust.managers.backup_scheduler) ------------------
-    "backup_schedule_missing_title": {
-        "en": "Backup schedule settings missing: {domain}",
-        "es": "Faltan los ajustes de la copia de seguridad programada: {domain}",
+    "title.database.backup.upload_failed": {
+        "en": "Backup upload failed",
+        "es": "Subida de la copia fallida",
     },
-    "backup_schedule_missing_body": {
+    "title.database.backup.completed": {"en": "Backup completed", "es": "Copia completada"},
+    "title.database.restore.completed": {"en": "Restored", "es": "Restaurado"},
+    "title.database.restore.failed": {"en": "Restore failed", "es": "Restauración fallida"},
+    "title.report.observations": {
+        "en": "Process observations",
+        "es": "Observaciones de procesos",
+    },
+    # -- Summaries: one sentence that repeats neither the title nor a fact. ---
+    "summary.deploy.started": {
+        "en": "Noust is building the new version and will tell you how it ends.",
+        "es": "Noust está construyendo la nueva versión y te avisará de cómo termina.",
+    },
+    "summary.deploy.succeeded": {
+        "en": "The new version is live.",
+        "es": "La nueva versión ya está en servicio.",
+    },
+    "summary.deploy.failed": _GENERIC_FAILURE,
+    "summary.deploy.rolled_back": _ROLLED_BACK,
+    "summary.update.started": {
+        "en": "Noust is fetching and building the latest code and will tell you how it ends.",
+        "es": (
+            "Noust está descargando y construyendo el código más reciente y te avisará de "
+            "cómo termina."
+        ),
+    },
+    "summary.update.succeeded": {
+        "en": "The application runs the new version.",
+        "es": "La aplicación ya ejecuta la nueva versión.",
+    },
+    "summary.update.failed": _GENERIC_FAILURE,
+    "summary.update.rolled_back": _ROLLED_BACK,
+    "summary.rollback.started": {
+        "en": "Noust is putting an earlier version back and will tell you how it ends.",
+        "es": "Noust está volviendo a una versión anterior y te avisará de cómo termina.",
+    },
+    "summary.rollback.succeeded": {
+        "en": "The earlier version is serving again.",
+        "es": "La versión anterior vuelve a estar en servicio.",
+    },
+    "summary.rollback.failed": {
+        "en": "Going back stopped at an error before the earlier version could take over.",
+        "es": (
+            "La vuelta atrás se ha detenido por un error antes de que la versión anterior "
+            "tomara el relevo."
+        ),
+    },
+    "summary.rollback.rolled_back": {
         "en": (
-            "The timer for {domain} fired but Noust's store has no schedule for it, so the "
-            "backup was taken as 2.1 took it: databases included, backup.max_per_app "
-            "rotation, no remote destinations. Check which store Noust is using "
-            "(/var/lib/noust), then save the schedule again with 'noust backup schedule "
-            "update {domain}' or from the console."
+            "The earlier version did not answer its health check, so the one serving before "
+            "is serving again."
         ),
         "es": (
-            "El temporizador de {domain} se ha activado, pero el almacén de Noust no "
-            "tiene una programación para él, así que la copia de seguridad "
-            "se ha hecho como en 2.1: con las bases de datos incluidas, rotación por "
-            "backup.max_per_app y sin destinos remotos. Comprueba qué almacén "
-            "está usando Noust (/var/lib/noust) y vuelve a guardar la programación "
-            "con 'noust backup schedule update {domain}' o desde la consola."
+            "La versión anterior no ha respondido a la comprobación de salud, así que vuelve "
+            "a estar en servicio la que lo estaba antes."
         ),
     },
-    "backup_scheduled_failed_title": {
-        "en": "Scheduled backup failed: {domain}",
-        "es": "La copia de seguridad programada de {domain} ha fallado",
+    "summary.activate.started": {
+        "en": "Noust is switching to the chosen release and will tell you how it ends.",
+        "es": "Noust está cambiando a la versión elegida y te avisará de cómo termina.",
     },
-    "backup_upload_failed_title": {
-        "en": "Backup upload to {name} failed: {domain}",
-        "es": "No se ha podido subir la copia de seguridad de {domain} a {name}",
+    "summary.activate.succeeded": {
+        "en": "The chosen release is serving.",
+        "es": "La versión elegida está en servicio.",
     },
-    # -- The monitor daemon (noust.monitor.process_monitor) -------------------
-    "disk_threshold_title": {
-        "en": "Disk usage at {percent}% on {mountpoint}",
-        "es": "Uso de disco al {percent}% en {mountpoint}",
+    "summary.activate.failed": {
+        "en": "Switching stopped at an error before the chosen release could take over.",
+        "es": (
+            "El cambio se ha detenido por un error antes de que la versión elegida tomara "
+            "el relevo."
+        ),
     },
-    "disk_threshold_body": {
+    "summary.activate.rolled_back": {
         "en": (
-            "{mountpoint} is {percent}% full, past the {threshold}% alert threshold. A "
-            "full disk stops deployments, logs and databases on this machine."
+            "The chosen release did not answer its health check, so the previous one is "
+            "serving again."
         ),
         "es": (
-            "{mountpoint} está al {percent}% de su capacidad, por encima del umbral "
-            "de aviso del {threshold}%. Un disco lleno detiene los despliegues, los "
-            "registros y las bases de datos de esta máquina."
+            "La versión elegida no ha respondido a la comprobación de salud, así que la "
+            "anterior vuelve a estar en servicio."
         ),
     },
-    "cert_expiring_title": {
-        "en": "Certificate for {name} expires in {days} {unit}",
-        "es": "El certificado de {name} caduca en {days} {unit}",
+    "summary.migrate.started": {
+        "en": "Noust is moving the application to releases and will tell you how it ends.",
+        "es": "Noust está pasando la aplicación a versiones y te avisará de cómo termina.",
     },
-    "cert_expiring_body": {
-        "en": "{covers} expires on {expiry}. Renew it with: noust cert renew {name}",
-        "es": "{covers} caduca el {expiry}. Renuévalo con: noust cert renew {name}",
+    "summary.migrate.succeeded": {
+        "en": "Every deploy now builds in its own release, and going back takes seconds.",
+        "es": (
+            "Cada despliegue se construye ahora en su propia versión y volver atrás lleva segundos."
+        ),
     },
-    "unit_failed_title_failed": {
-        "en": "Unit {unit} failed",
-        "es": "La unidad {unit} ha fallado",
+    "summary.migrate.failed": {
+        "en": "It stopped at an error; Noust puts the in-place layout back when that happens.",
+        "es": "Se ha detenido por un error; en ese caso Noust restaura la disposición anterior.",
     },
-    "unit_failed_title_crash_loop": {
-        "en": "Unit {unit} is crash-looping",
-        "es": "La unidad {unit} está en bucle de reinicios",
+    "summary.restore.completed": {
+        "en": "The application's files are back as the backup had them.",
+        "es": ("Los archivos de la aplicación han vuelto a como estaban en la copia de seguridad."),
     },
-    "unit_failed_title_stopped_on_failure": {
-        "en": "Unit {unit} stopped on a failure",
-        "es": "La unidad {unit} se ha detenido tras un fallo",
+    "summary.restore.failed": {
+        "en": "It stopped at an error, so the application's files may be only partly restored.",
+        "es": (
+            "Se ha detenido por un error, así que los archivos de la aplicación podrían estar "
+            "restaurados solo en parte."
+        ),
     },
-    "unit_failed_body": {
-        "en": "{detail}\nInspect it with: systemctl status {unit} and journalctl -u {unit} -n 50",
-        "es": "{detail}\nRevísalo con: systemctl status {unit} y journalctl -u {unit} -n 50",
+    "summary.backup.failed": {
+        "en": "No new copy of the application was saved.",
+        "es": "No se ha guardado ninguna copia nueva de la aplicación.",
     },
-    # -- The settings page's "send a test" button (noust.core.notifier) ------
-    "test_notification_title": {
-        "en": "Noust test notification",
-        "es": "Notificación de prueba de Noust",
+    "summary.backup.upload_failed": {
+        "en": "The copy was kept on this server but could not be uploaded.",
+        "es": "La copia se ha guardado en este servidor, pero no se ha podido subir.",
     },
-    "test_notification_body": {
-        "en": "Receiving this means the {channel} channel is configured correctly.",
-        "es": "Si recibes esto, el canal {channel} está bien configurado.",
-    },
-    # -- The monitor's own SMTP report (noust.monitor.email_notifier) --------
-    # This is a second delivery path from noust.core.notifier's multi-channel
-    # one above: EmailNotifier renders its own EmailContent directly, rather
-    # than a NotificationEvent already built from this catalog, so it reads
-    # notifications.language for itself.
-    "email_observations_subject": {
-        "en": "[Noust] {count} process observation(s) on {hostname}",
-        "es": "[Noust] {count} observación(es) de proceso en {hostname}",
-    },
-    "email_observations_heading": {
-        "en": "Noust monitor - process observations",
-        "es": "Noust monitor - observaciones de procesos",
-    },
-    "email_server_line": {
-        "en": "Server: {hostname}",
-        "es": "Servidor: {hostname}",
-    },
-    "email_time_line": {
-        "en": "Time: {timestamp}",
-        "es": "Hora: {timestamp}",
-    },
-    "email_observations_noted_line": {
-        "en": "Noted: {count} process(es), {warnings} of them as warnings",
-        "es": "Detectados: {count} proceso(s), {warnings} de ellos marcados como aviso",
-    },
-    "email_observations_disclaimer": {
+    "summary.backup.schedule_missing": {
         "en": (
-            "The monitor reports only. No process was signalled and no file was "
-            "touched. Review each entry before taking any action."
+            "The timer fired but Noust has no schedule stored for this application, so the "
+            "backup ran with the default settings."
         ),
         "es": (
-            "El monitor solo informa. No se ha enviado ninguna señal a ningún proceso "
-            "ni se ha tocado ningún archivo. Revisa cada entrada antes de actuar."
+            "El temporizador se ha activado, pero Noust no tiene una programación guardada "
+            "para esta aplicación, así que la copia se ha hecho con los ajustes por defecto."
         ),
     },
-    "email_test_subject": {
-        "en": "[Noust] Test email - {hostname}",
-        "es": "[Noust] Correo de prueba - {hostname}",
+    "summary.backup.completed": {
+        "en": "A new copy of the application was saved.",
+        "es": "Se ha guardado una copia nueva de la aplicación.",
     },
-    "email_test_heading": {
-        "en": "Noust monitor - test email",
-        "es": "Noust monitor - correo de prueba",
+    "summary.cert.expiring": {
+        "en": "Expires in {days} {unit} ({date}).",
+        "es": "Caduca en {days} {unit} ({date}).",
     },
-    "email_test_body": {
-        "en": "Receiving this means monitor notifications are configured correctly.",
-        "es": "Si recibes esto, las notificaciones del monitor están bien configuradas.",
+    "summary.cert.expiring_today": {
+        "en": "Expires today ({date}).",
+        "es": "Caduca hoy ({date}).",
     },
+    "summary.cert.expired": {
+        "en": "Expired {days} {unit} ago ({date}).",
+        "es": "Caducó hace {days} {unit} ({date}).",
+    },
+    "summary.unit.failed": {
+        "en": "systemd marked it as failed.",
+        "es": "systemd lo ha marcado como fallido.",
+    },
+    "summary.unit.crash_loop": {
+        "en": (
+            "systemd restarted it {count} {times} since the last check and it still does not "
+            "stay up."
+        ),
+        "es": (
+            "systemd lo ha reiniciado {count} {times} desde la última comprobación y sigue "
+            "sin arrancar."
+        ),
+    },
+    "summary.unit.stopped_on_failure": {
+        "en": "It stopped after a run that failed, and systemd is not restarting it.",
+        "es": "Se ha detenido tras una ejecución fallida y systemd no lo está reiniciando.",
+    },
+    "summary.unit.recovered": {
+        "en": "It is running again and has not restarted since the last check.",
+        "es": "Vuelve a estar en marcha y no se ha reiniciado desde la última comprobación.",
+    },
+    "summary.disk.threshold": {
+        "en": (
+            "It is past the {threshold}% alert threshold, and a full disk stops deployments, "
+            "logs and databases on this server."
+        ),
+        "es": (
+            "Ha superado el umbral de aviso del {threshold}%, y un disco lleno detiene los "
+            "despliegues, los registros y las bases de datos de este servidor."
+        ),
+    },
+    "summary.disk.recovered": {
+        "en": "Usage is back under the alert threshold.",
+        "es": "El uso vuelve a estar por debajo del umbral de aviso.",
+    },
+    "summary.test": {
+        "en": "If you can read this, the {channel} channel is configured correctly.",
+        "es": "Si ves esto, el canal {channel} está bien configurado.",
+    },
+    "summary.node.unreachable": {
+        "en": "Noust cannot reach this server through its tunnel.",
+        "es": "Noust no puede alcanzar este servidor a través de su túnel.",
+    },
+    "summary.node.recovered": {
+        "en": "The tunnel is open again and the server answers.",
+        "es": "El túnel vuelve a estar abierto y el servidor responde.",
+    },
+    "summary.node.host_key_changed": {
+        "en": (
+            "The server presented a different SSH host key, so the tunnel stays closed until "
+            "someone checks it."
+        ),
+        "es": (
+            "El servidor ha presentado otra clave de host SSH, así que el túnel sigue cerrado "
+            "hasta que alguien la compruebe."
+        ),
+    },
+    "summary.server.rebooted": {
+        "en": ("Nobody asked for this restart from Noust: check that every application came back."),
+        "es": (
+            "Nadie ha pedido este reinicio desde Noust: comprueba que todas las aplicaciones "
+            "han vuelto."
+        ),
+    },
+    "summary.server.back": {
+        "en": "The restart asked from Noust is done and the console is running again.",
+        "es": "El reinicio pedido desde Noust ha terminado y la consola vuelve a funcionar.",
+    },
+    "summary.approval.requested": {
+        "en": "A change that needs a second person is waiting for someone to decide it.",
+        "es": "Un cambio que necesita a una segunda persona está esperando a que alguien lo decida.",
+    },
+    "summary.approval.approved": {
+        "en": "The person who asked can make the change once, before the approval runs out.",
+        "es": ("Quien lo pidió puede hacer el cambio una vez, antes de que caduque la aprobación."),
+    },
+    "summary.approval.rejected": {
+        "en": "The change will not be made; whoever asked can ask again with more context.",
+        "es": "El cambio no se hará; quien lo pidió puede volver a pedirlo con más contexto.",
+    },
+    "summary.database.backup.failed": {
+        "en": "No new copy of the database was saved.",
+        "es": "No se ha guardado ninguna copia nueva de la base de datos.",
+    },
+    "summary.database.backup.upload_failed": {
+        "en": "The copy of the database was kept on this server but could not be uploaded.",
+        "es": (
+            "La copia de la base de datos se ha guardado en este servidor, pero no se ha podido "
+            "subir."
+        ),
+    },
+    "summary.database.backup.completed": {
+        "en": "A new copy of the database was saved.",
+        "es": "Se ha guardado una copia nueva de la base de datos.",
+    },
+    "summary.database.restore.completed": {
+        "en": "The database is back as the dump had it.",
+        "es": "La base de datos ha vuelto a como estaba en el volcado.",
+    },
+    "summary.database.restore.failed": {
+        "en": "It stopped at an error, so the database may be only partly restored.",
+        "es": (
+            "Se ha detenido por un error, así que la base de datos podría estar restaurada solo "
+            "en parte."
+        ),
+    },
+    "summary.report.observations": {
+        "en": (
+            "The monitor only reports: no process was signalled and no file was touched. "
+            "Review each entry before acting."
+        ),
+        "es": (
+            "El monitor solo informa: no se ha enviado ninguna señal a ningún proceso ni se "
+            "ha tocado ningún archivo. Revisa cada entrada antes de actuar."
+        ),
+    },
+    # -- Fact labels ---------------------------------------------------------
+    "fact.server": {"en": "Server", "es": "Servidor"},
+    "fact.release": {"en": "Release", "es": "Versión"},
+    "fact.commit": {"en": "Commit", "es": "Commit"},
+    "fact.trigger": {"en": "Started by", "es": "Iniciado por"},
+    "fact.duration": {"en": "Duration", "es": "Duración"},
+    "fact.preview": {"en": "Preview of", "es": "Vista previa de"},
+    "fact.backup": {"en": "Backup", "es": "Copia"},
+    "fact.destination": {"en": "Destination", "es": "Destino"},
+    "fact.size": {"en": "Size", "es": "Tamaño"},
+    "fact.destinations": {"en": "Uploaded to", "es": "Subida a"},
+    "fact.covers": {"en": "Covers", "es": "Cubre"},
+    "fact.unit": {"en": "Unit", "es": "Unidad"},
+    "fact.restarts": {"en": "Restarts", "es": "Reinicios"},
+    "fact.result": {"en": "Result", "es": "Resultado"},
+    "fact.exit_status": {"en": "Exit status", "es": "Código de salida"},
+    "fact.used": {"en": "Used", "es": "Usado"},
+    "fact.free": {"en": "Free", "es": "Libre"},
+    "fact.address": {"en": "Address", "es": "Dirección"},
+    "fact.reason": {"en": "Reason", "es": "Motivo"},
+    "fact.since": {"en": "Unreachable since", "es": "Inaccesible desde"},
+    "fact.downtime": {"en": "Was unreachable for", "es": "Estuvo inaccesible durante"},
+    "fact.pinned": {"en": "Pinned key", "es": "Clave fijada"},
+    "fact.presented": {"en": "Presented key", "es": "Clave presentada"},
+    "fact.renew": {"en": "Renew with", "es": "Renuévalo con"},
+    "fact.inspect": {"en": "Inspect with", "es": "Revísalo con"},
+    "fact.reschedule": {"en": "Save it again with", "es": "Guárdala de nuevo con"},
+    "fact.verify": {"en": "Check it with", "es": "Compruébalo con"},
+    "fact.processes": {"en": "Processes", "es": "Procesos"},
+    "fact.warnings": {"en": "Warnings", "es": "Avisos"},
+    "fact.signal": {"en": "Signal", "es": "Señal"},
+    "fact.user": {"en": "User", "es": "Usuario"},
+    "fact.cpu": {"en": "CPU", "es": "CPU"},
+    "fact.memory": {"en": "Memory", "es": "Memoria"},
+    "fact.detail": {"en": "Detail", "es": "Detalle"},
+    "fact.command": {"en": "Command", "es": "Comando"},
+    "fact.parent": {"en": "Parent", "es": "Padre"},
+    "fact.returned": {"en": "Back at", "es": "De vuelta a las"},
+    "fact.requested_by": {"en": "Asked by", "es": "Pedido por"},
+    "fact.scheduled": {"en": "Scheduled for", "es": "Programado para"},
+    "fact.took": {"en": "Took", "es": "Tardó"},
+    "fact.request": {"en": "Request", "es": "Solicitud"},
+    "fact.action": {"en": "Change", "es": "Cambio"},
+    "fact.call": {"en": "Call", "es": "Llamada"},
+    "fact.decided_by": {"en": "Decided by", "es": "Decidida por"},
+    "fact.comment": {"en": "Comment", "es": "Comentario"},
+    "fact.decide_before": {"en": "Decide before", "es": "Decídela antes de"},
+    "fact.use_before": {"en": "Use it before", "es": "Úsala antes de"},
+    "fact.decide": {"en": "Decide with", "es": "Decídela con"},
+    # -- Names of enum values ------------------------------------------------
+    "trigger.cli": {"en": "CLI", "es": "CLI"},
+    "trigger.panel": {"en": "Console", "es": "Consola"},
+    "trigger.webhook": {"en": "Webhook", "es": "Webhook"},
+    "channel.webhook": {"en": "Webhook", "es": "Webhook"},
+    "channel.slack": {"en": "Slack", "es": "Slack"},
+    "channel.discord": {"en": "Discord", "es": "Discord"},
+    "channel.telegram": {"en": "Telegram", "es": "Telegram"},
+    "channel.email": {"en": "Email", "es": "Correo electrónico"},
+    "severity.warning": {"en": "Warning", "es": "Aviso"},
+    "severity.notice": {"en": "Notice", "es": "Nota"},
+    # -- The words around what every channel draws ---------------------------
+    "ui.open_console": {"en": "Open in the console", "es": "Abrir en la consola"},
+    "ui.sent_by": {"en": "Sent by Noust", "es": "Enviado por Noust"},
+    "ui.change_settings": {
+        "en": "Change what you receive in Settings > Notifications",
+        "es": "Cambia lo que recibes en Ajustes > Notificaciones",
+    },
+    "ui.omitted.one": {"en": "1 earlier line omitted", "es": "1 línea anterior omitida"},
+    "ui.omitted.other": {
+        "en": "{count} earlier lines omitted",
+        "es": "{count} líneas anteriores omitidas",
+    },
+    "excerpt.journal": {
+        "en": "Last lines of the journal of {unit}",
+        "es": "Últimas líneas del registro de {unit}",
+    },
+    "excerpt.output": {"en": "What the system reported", "es": "Lo que ha informado el sistema"},
 }
 
-#: Singular and plural nouns for the few counted quantities a notification
-#: spells out, by :func:`plural`'s own ``key`` and then locale. English's
-#: pre-2.3 text sidestepped grammatical number altogether - "3 day(s)" - and
-#: that wording is a byte-for-byte contract existing tests assert on, so
-#: both its forms are the same literal here; Spanish gets the real singular
-#: and plural, "día" and "días", since it never had that shortcut
-#: to preserve.
+#: Singular and plural nouns for the counted quantities a notification spells
+#: out, by :func:`plural`'s own ``key`` and then locale.
 _PLURAL_FORMS: dict[str, dict[Locale, tuple[str, str]]] = {
-    "day": {"en": ("day(s)", "day(s)"), "es": ("día", "días")},
+    "day": {"en": ("day", "days"), "es": ("día", "días")},
+    "time": {"en": ("time", "times"), "es": ("vez", "veces")},
+    "process": {"en": ("process", "processes"), "es": ("proceso", "procesos")},
+}
+
+#: Abbreviated month names, for the dates a notification spells out. Not
+#: sentences, so not in :data:`MESSAGES`.
+MONTHS: dict[Locale, tuple[str, ...]] = {
+    "en": ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"),
+    "es": ("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"),
 }
 
 

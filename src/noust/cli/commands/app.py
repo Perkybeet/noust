@@ -31,6 +31,8 @@ from pathlib import Path
 import click
 
 from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
+from noust.cli.commands.app_sandbox import sandbox as sandbox_group
+from noust.cli.commands.app_webhook import webhook as webhook_group
 from noust.cli.commands.webapp import _create_app, _read_env_file
 from noust.core.exceptions import DeploymentError, NoustError, ValidationError
 from noust.core.fs import SECRET_MODE, get_fs
@@ -55,7 +57,7 @@ from noust.deployers.bluegreen import (
     zero_downtime_status,
 )
 from noust.deployers.helpers.health_gate import HealthCheck
-from noust.deployers.lifecycle import set_health_check, set_resource_limits
+from noust.deployers.lifecycle import set_branch, set_health_check, set_resource_limits
 from noust.deployers.migrate import MigrationPlan, migrate, plan_migration
 from noust.deployers.recorder import CapturingLogger
 from noust.managers.service_manager import ResourceLimits
@@ -95,6 +97,10 @@ def print_plan(logger: Logger, plan: MigrationPlan) -> None:
 @click.group("app", cls=NoustGroup)
 def cli() -> None:
     """Change how a deployed application is laid out and what it may use."""
+
+
+cli.add_command(webhook_group)
+cli.add_command(sandbox_group)
 
 
 @cli.command("migrate")
@@ -373,6 +379,47 @@ def health_command(
     ctx.logger.key_value(
         "Timeout", f"{check.seconds} s" + ("" if app.health_timeout is not None else " (default)")
     )
+
+
+@cli.command("branch")
+@click.argument("domain")
+@click.argument("branch", required=False)
+@click.option("--unpin", is_flag=True, default=False, help="Deploy any branch a push names.")
+@global_flags
+@json_option("Print the branch as JSON.")
+@pass_context
+def branch_command(ctx: Context, domain: str, branch: str | None, unpin: bool) -> None:
+    """
+    Show, pin or unpin the branch an application deploys from.
+
+    With a branch pinned, the webhook ignores pushes to any other branch and
+    every update builds it. BRANCH must exist on the remote. Nothing is
+    rebuilt now: the next update builds it.
+    """
+    app = get_store().get_app(domain)
+    if app is None:
+        raise NoustError(
+            f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
+        )
+    if unpin and branch:
+        raise click.UsageError("--unpin removes the pin; name no branch with it.")
+    if unpin or branch:
+        pin = set_branch(app.domain, None if unpin else branch)
+        current: str | None = pin.branch
+        if not ctx.json_output:
+            if pin.branch is None:
+                ctx.logger.success(f"{app.domain} deploys any branch a push names")
+            else:
+                ctx.logger.success(
+                    f"{app.domain} deploys {pin.branch} (now at {(pin.commit or '')[:7]})"
+                )
+    else:
+        current = app.branch
+    if ctx.json_output:
+        click.echo(json.dumps({"domain": app.domain, "branch": current, "pinned": bool(current)}))
+        return
+    if not (unpin or branch):
+        ctx.logger.key_value("Branch", current or "any (not pinned)")
 
 
 def zero_downtime_payload(status: ZeroDowntimeStatus) -> dict[str, object]:

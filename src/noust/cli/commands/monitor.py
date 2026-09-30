@@ -24,6 +24,9 @@ kept, and tested directly, for the same reason.
 from __future__ import annotations
 
 import json
+import signal
+import sqlite3
+import threading
 from argparse import Namespace
 from collections.abc import Callable
 from typing import Any
@@ -51,6 +54,8 @@ from noust.monitor import (
     default_db_path,
     scan_interval_warning,
 )
+from noust.monitor.collector import monitor_service_probe, recording_status
+from noust.monitor.timeseries import MetricsStore, default_metrics_db_path
 
 #: Options the parser still accepts from the antivirus era. Accepting and
 #: explaining them beats an argparse error for a flag a user's script may pass.
@@ -183,7 +188,27 @@ def _status_as_dict(monitor: ProcessMonitor) -> dict[str, Any]:
     else:
         payload["store"] = {"database": str(default_db_path()), **stats}
 
+    history = _history_status()
+    payload["history"] = history.to_dict() if history is not None else None
     return payload
+
+
+def _history_status() -> Any:
+    """
+    Say whether the metrics history is being recorded.
+
+    Returns:
+        The :class:`~noust.monitor.collector.RecordingStatus`, or None when
+        there is no metrics database to ask (nothing has ever recorded, or it
+        cannot be opened): a status command must not create one.
+    """
+    path = default_metrics_db_path()
+    if not path.is_file():
+        return None
+    try:
+        return recording_status(MetricsStore(path), monitor=monitor_service_probe)
+    except (NoustError, OSError, sqlite3.Error):
+        return None
 
 
 def _show_status(verbose: bool = False, *, json_output: bool = False) -> int:
@@ -237,8 +262,37 @@ def _show_status(verbose: bool = False, *, json_output: bool = False) -> int:
     logger.key_value("Row cap", str(config.max_observations))
     _print_store_counts(logger)
 
+    _print_history(logger)
     _print_scope(logger)
     return 0
+
+
+def _print_history(logger: Logger) -> None:
+    """
+    Show whether the charts' history is being recorded, and if not, why.
+
+    Args:
+        logger: Logger to report through.
+    """
+    history = _history_status()
+    logger.section("Metrics history")
+    if history is None:
+        logger.key_value("Recording", "No (nothing has recorded yet)")
+        logger.info("Run 'noust monitor enable' to start recording it")
+        return
+    logger.key_value("Database", str(default_metrics_db_path()))
+    logger.key_value("Recording", "Yes" if history.recording else "No")
+    logger.key_value("Kept", f"{history.retention_days} days (metrics.retention_days)")
+    if history.host:
+        logger.key_value(
+            "Recorded by", "the monitor" if history.host == "daemon" else "the console"
+        )
+    if history.reason is not None:
+        logger.warning(history.reason.message)
+        if history.reason.fix:
+            logger.info(f"Try: {history.reason.fix}")
+    if history.last_error:
+        logger.key_value("Last error", history.last_error)
 
 
 def _watched_units_label(extras: Any) -> str:
@@ -334,11 +388,22 @@ def _run_foreground(verbose: bool = False) -> int:
     logger.info(f"Starting monitor, scanning every {monitor.config.scan_interval}s")
     logger.info("Press Ctrl+C to stop")
 
+    # systemd stops a unit with SIGTERM, which ends a Python process on the spot:
+    # the metrics collector would never hand its lease over, and the next
+    # daemon would wait for it to expire. Turn it into the same orderly stop
+    # Ctrl+C gets.
+    previous = None
+    on_main_thread = threading.current_thread() is threading.main_thread()
+    if on_main_thread:
+        previous = signal.signal(signal.SIGTERM, lambda signum, frame: monitor.stop())
     try:
         monitor.run()
     except KeyboardInterrupt:
         monitor.stop()
         logger.info("Stopped")
+    finally:
+        if on_main_thread and previous is not None:
+            signal.signal(signal.SIGTERM, previous)
 
     return 0
 
@@ -404,6 +469,36 @@ def _enable(verbose: bool = False) -> int:
         f"Scanning every {monitor.config.scan_interval}s. Logs: journalctl -u noust-monitor"
     )
     _print_scope(logger)
+    return 0
+
+
+def _autoenable(verbose: bool = False) -> int:
+    """
+    Install and start the monitor the way a package does, unless it was turned off.
+
+    This is what the Debian and RPM packages run on install and on upgrade, so
+    the metrics history is recorded on every server without anyone having to
+    ask. It never overrides a choice: a monitor that is installed stays as it
+    is, and one an operator disabled or removed stays off.
+
+    Args:
+        verbose: Print the detail of each step.
+
+    Returns:
+        Exit code.
+    """
+    _require_root("monitor autoenable")
+    logger = Logger(verbose=verbose)
+    outcome = ProcessMonitor(verbose=verbose).install_by_default()
+    messages = {
+        "enabled": "Monitor installed and started: it records the metrics history",
+        "installed": "Monitor already installed; left as it is",
+        "declined": "Monitor was turned off on this server; left off (noust monitor enable)",
+        "legacy": "Monitor is still on WASM's names; noust migrate-from-wasm moves it",
+        "no_systemd": "No systemd here; the console records the metrics history while it runs",
+        "no_psutil": "psutil is not installed; the monitor was not enabled",
+    }
+    logger.info(messages.get(outcome, outcome))
     return 0
 
 
@@ -540,6 +635,7 @@ ACTIONS: dict[str, Callable[..., int]] = {
     "run": _run_foreground,
     "install": _install,
     "enable": _enable,
+    "autoenable": _autoenable,
     "disable": _disable,
     "uninstall": _uninstall,
     "test-email": _test_email,
@@ -663,6 +759,13 @@ def install(ctx: Context) -> int:
 def enable(ctx: Context) -> int:
     """Start the monitor now and on every boot, installing it if needed."""
     return _enable(verbose=ctx.verbose)
+
+
+@cli.command("autoenable")
+@pass_context
+def autoenable(ctx: Context) -> int:
+    """Enable the monitor unless it was turned off (what the package runs)."""
+    return _autoenable(verbose=ctx.verbose)
 
 
 @cli.command("disable")

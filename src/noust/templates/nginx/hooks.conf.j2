@@ -5,6 +5,7 @@ server {
     listen 80;
     listen [::]:80;
     server_name {{ domain }};
+    server_tokens off;
 
     # ACME challenge location for Let's Encrypt (webroot method)
     location /.well-known/acme-challenge/ {
@@ -22,6 +23,7 @@ server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
     server_name {{ domain }};
+    server_tokens off;
 
     ssl_certificate {{ ssl_certificate | default('/etc/letsencrypt/live/' + domain + '/fullchain.pem') }};
     ssl_certificate_key {{ ssl_certificate_key | default('/etc/letsencrypt/live/' + domain + '/privkey.pem') }};

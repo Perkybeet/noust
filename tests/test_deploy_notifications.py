@@ -11,10 +11,11 @@ defended:
 - **Every deploy event kind maps to its own notification kind**, and an
   event kind this module does not recognise is logged and dropped, not
   raised.
-- **The title and body match the documented shapes**: trigger, commit and
-  branch, the health gate's evidence verbatim for a failure or a rollback,
-  a preview's parent and pull request number when the domain is one, and a
-  console link when ``web.public_url`` is configured.
+- **The notification is composed from the event and the configuration**: the
+  language, the server's name, the console link under ``web.public_url`` and a
+  preview's parent and pull request number when the domain is one. What each
+  composition says is pinned in tests/test_notification_composers.py; here only
+  the wiring from the configuration and the store is.
 - **``deploy_started`` ships off by default**; the others ship on. Asserted
   through the real :class:`~noust.core.notifier.Notifier`, the same way
   tests/test_web_notifications_wiring.py asserts the job-based wiring's
@@ -40,7 +41,10 @@ import pytest
 
 from noust.core import deploy_notifications
 from noust.core.config import DEFAULT_CONFIG, Config
-from noust.core.notifier import NOTIFICATION_QUEUE, NotificationEvent, Notifier
+from noust.core.notifications.composers import compose_deploy
+from noust.core.notifications.context import NotificationContext
+from noust.core.notifications.model import Notification
+from noust.core.notifier import NOTIFICATION_QUEUE, Notifier
 from noust.core.store import App, NoustStore, PreviewRecord
 from noust.deployers.deploy_events import DeployEvent, DeployEventKind
 from tests.test_notifier import CapturingOpener, config, public_dns  # noqa: F401
@@ -79,6 +83,8 @@ def make_event(
     commit: str | None = "abc1234",
     branch: str | None = "main",
     error: str | None = None,
+    error_output: str | None = None,
+    operation: str = "deploy",
 ) -> DeployEvent:
     """Build a DeployEvent, overriding only what a test cares about."""
     return DeployEvent(
@@ -89,6 +95,8 @@ def make_event(
         commit=commit,
         branch=branch,
         error=error,
+        error_output=error_output,
+        operation=operation,
     )
 
 
@@ -98,13 +106,13 @@ class FakeNotifier:
     #: Shared across every instance created in a test, so on_deploy_event's
     #: own Notifier(config) construction still lands in the one place the
     #: test can see it.
-    calls: list[NotificationEvent] = []
+    calls: list[Notification] = []
     delay: float = 0.0
 
     def __init__(self, config: Config) -> None:
         del config
 
-    def notify(self, event: NotificationEvent) -> None:
+    def notify(self, event: Notification) -> None:
         if self.delay:
             time.sleep(self.delay)
         FakeNotifier.calls.append(event)
@@ -159,90 +167,98 @@ class TestKindMapping:
         assert "not-a-real-kind" in caplog.text
 
 
-class TestTitle:
-    """The one-line headline, exactly as specified."""
+class TestComposedFromTheConfiguration:
+    """What the subscriber reads from configuration and the store."""
 
-    def test_started(self) -> None:
-        title = deploy_notifications._title(make_event(DeployEventKind.STARTED))
-        assert title == "Deploying shop.example.com"
+    @pytest.fixture(autouse=True)
+    def _fresh(self, config: Config, monkeypatch: pytest.MonkeyPatch) -> None:
+        # The subscriber reads the file afresh on the worker; the test stands in
+        # for that disk read with the sandboxed configuration it just changed.
+        monkeypatch.setattr(deploy_notifications, "fresh_config", lambda: config)
 
-    def test_succeeded_carries_the_commit_and_branch(self) -> None:
-        title = deploy_notifications._title(make_event(DeployEventKind.SUCCEEDED))
-        assert title == "shop.example.com deployed abc1234 (main)"
+    def _sent(self, fake_notifier: type[FakeNotifier], event: DeployEvent) -> Notification:
+        deploy_notifications.on_deploy_event(event)
+        NOTIFICATION_QUEUE.drain(timeout=5.0)
+        return fake_notifier.calls[0]
 
-    def test_succeeded_with_no_commit_known(self) -> None:
-        title = deploy_notifications._title(
-            make_event(DeployEventKind.SUCCEEDED, commit=None, branch=None)
+    def test_it_is_the_notification_the_composer_builds(
+        self, config: Config, fake_notifier: type[FakeNotifier]
+    ) -> None:
+        config.set("server.name", "web-1")
+        event = make_event()
+
+        sent = self._sent(fake_notifier, event)
+
+        expected = compose_deploy(event, NotificationContext.from_config(config))
+        assert (sent.kind, sent.code, sent.title, sent.subject, sent.server) == (
+            expected.kind,
+            expected.code,
+            expected.title,
+            expected.subject,
+            expected.server,
         )
-        assert title == "shop.example.com deployed"
+        assert sent.server == "web-1"
 
-    def test_failed(self) -> None:
-        title = deploy_notifications._title(make_event(DeployEventKind.FAILED))
-        assert title == "shop.example.com failed to deploy"
-
-    def test_rolled_back(self) -> None:
-        title = deploy_notifications._title(make_event(DeployEventKind.ROLLED_BACK))
-        assert title == "shop.example.com rolled back"
-
-
-class TestTitleInSpanish:
-    """notifications.language: es renders WASM's own words, commit and branch left alone."""
-
-    def test_started(self) -> None:
-        title = deploy_notifications._title(make_event(DeployEventKind.STARTED), "es")
-        assert title == "Desplegando shop.example.com"
-
-    def test_succeeded_carries_the_commit_and_branch_untranslated(self) -> None:
-        title = deploy_notifications._title(make_event(DeployEventKind.SUCCEEDED), "es")
-        assert title == "shop.example.com desplegado abc1234 (main)"
-
-    def test_failed(self) -> None:
-        title = deploy_notifications._title(make_event(DeployEventKind.FAILED), "es")
-        assert title == "No se ha podido desplegar shop.example.com"
-
-    def test_rolled_back(self) -> None:
-        title = deploy_notifications._title(make_event(DeployEventKind.ROLLED_BACK), "es")
-        assert title == "Se ha vuelto a la versión anterior de shop.example.com"
-
-
-class TestBody:
-    """Trigger, commit, evidence and a console link, apart in their own paragraph."""
-
-    def test_carries_the_trigger_and_commit(self, config: Config) -> None:
-        body = deploy_notifications._body(make_event(), config)
-        assert "Trigger: webhook" in body
-        assert "Commit: abc1234 (main)" in body
-
-    def test_a_failures_evidence_is_verbatim_never_paraphrased(self, config: Config) -> None:
+    def test_a_failures_evidence_reaches_the_excerpt_verbatim(
+        self, config: Config, fake_notifier: type[FakeNotifier]
+    ) -> None:
         evidence = "Probe / -> 502\nnginx: [emerg] duplicate listen\njournalctl: ..."
-        body = deploy_notifications._body(
-            make_event(DeployEventKind.FAILED, error=evidence), config
+
+        sent = self._sent(
+            fake_notifier,
+            make_event(DeployEventKind.FAILED, error=evidence, error_output=evidence),
         )
-        assert evidence in body
 
-    def test_a_rollbacks_evidence_says_what_is_active_again(self, config: Config) -> None:
-        evidence = "Release 2 did not pass; release 1 is active again"
-        body = deploy_notifications._body(
-            make_event(DeployEventKind.ROLLED_BACK, error=evidence), config
+        assert sent.excerpt is not None
+        assert sent.excerpt.lines == tuple(evidence.splitlines())
+
+    def test_no_console_link_when_no_public_url_is_configured(
+        self, config: Config, fake_notifier: type[FakeNotifier]
+    ) -> None:
+        assert self._sent(fake_notifier, make_event()).links == ()
+
+    def test_a_console_link_is_built_from_the_public_url(
+        self, config: Config, fake_notifier: type[FakeNotifier]
+    ) -> None:
+        config.set("web.public_url", "https://console.example.test")
+
+        sent = self._sent(fake_notifier, make_event(deployment_id=7))
+
+        assert [link.url for link in sent.links] == [
+            "https://console.example.test/apps/shop.example.com/deployments/7"
+        ]
+
+    def test_a_node_reachable_only_through_the_central_links_under_it(
+        self, config: Config, fake_notifier: type[FakeNotifier]
+    ) -> None:
+        config.set("web.public_url", "https://central.example.test/n/web-2")
+
+        sent = self._sent(fake_notifier, make_event(deployment_id=7))
+
+        assert sent.links[0].url == (
+            "https://central.example.test/n/web-2/apps/shop.example.com/deployments/7"
         )
-        assert evidence in body
 
-    def test_no_console_link_when_no_public_url_is_configured(self, config: Config) -> None:
-        body = deploy_notifications._body(make_event(), config)
-        assert "http" not in body
-
-    def test_a_console_link_is_built_from_the_public_url(self, config: Config) -> None:
+    def test_without_a_deployment_id_it_links_to_the_application(
+        self, config: Config, fake_notifier: type[FakeNotifier]
+    ) -> None:
         config.set("web.public_url", "https://console.example.test")
-        body = deploy_notifications._body(make_event(deployment_id=7), config)
-        assert "https://console.example.test/apps/shop.example.com/deployments/7" in body
 
-    def test_no_console_link_without_a_deployment_id(self, config: Config) -> None:
-        config.set("web.public_url", "https://console.example.test")
-        body = deploy_notifications._body(make_event(deployment_id=None), config)
-        assert "console.example.test" not in body
+        sent = self._sent(fake_notifier, make_event(deployment_id=None))
+
+        assert sent.links[0].url == "https://console.example.test/apps/shop.example.com"
+
+    def test_the_language_is_the_configured_one(
+        self, config: Config, fake_notifier: type[FakeNotifier]
+    ) -> None:
+        config.set("notifications.language", "es")
+
+        sent = self._sent(fake_notifier, make_event())
+
+        assert (sent.locale, sent.title) == ("es", "Desplegado")
 
     def test_names_the_preview_and_its_pull_request_number(
-        self, config: Config, store: NoustStore
+        self, config: Config, store: NoustStore, fake_notifier: type[FakeNotifier]
     ) -> None:
         store.create_app(
             App(
@@ -262,12 +278,12 @@ class TestBody:
             )
         )
 
-        body = deploy_notifications._body(make_event(domain="pr-42.example.com"), config)
+        sent = self._sent(fake_notifier, make_event(domain="pr-42.example.com"))
 
-        assert "Preview of shop.example.com #42." in body
+        assert {fact.key: fact.value for fact in sent.facts}["preview"] == "shop.example.com #42"
 
     def test_a_preview_with_no_recorded_number_still_names_its_parent(
-        self, config: Config, store: NoustStore
+        self, config: Config, store: NoustStore, fake_notifier: type[FakeNotifier]
     ) -> None:
         store.create_app(
             App(
@@ -277,69 +293,37 @@ class TestBody:
             )
         )
 
-        body = deploy_notifications._body(make_event(domain="pr-9.example.com"), config)
+        sent = self._sent(fake_notifier, make_event(domain="pr-9.example.com"))
 
-        assert "Preview of shop.example.com." in body
+        assert {fact.key: fact.value for fact in sent.facts}["preview"] == "shop.example.com"
 
-    def test_an_ordinary_application_has_no_preview_line(
-        self, config: Config, store: NoustStore
+    def test_an_ordinary_application_has_no_preview_fact(
+        self, config: Config, store: NoustStore, fake_notifier: type[FakeNotifier]
     ) -> None:
         store.create_app(App(domain="shop.example.com", app_path="/var/www/apps/shop-example-com"))
 
-        body = deploy_notifications._body(make_event(), config)
+        sent = self._sent(fake_notifier, make_event())
 
-        assert "Preview of" not in body
+        assert "preview" not in {fact.key for fact in sent.facts}
 
-    def test_an_application_the_store_has_never_heard_of_has_no_preview_line(
-        self, config: Config, store: NoustStore
+    def test_an_application_the_store_has_never_heard_of_has_no_preview_fact(
+        self, config: Config, store: NoustStore, fake_notifier: type[FakeNotifier]
     ) -> None:
         """The domain is real (it is deploying), just not yet recorded."""
-        body = deploy_notifications._body(make_event(domain="new.example.com"), config)
-        assert "Preview of" not in body
+        sent = self._sent(fake_notifier, make_event(domain="new.example.com"))
 
+        assert "preview" not in {fact.key for fact in sent.facts}
 
-class TestBodyInSpanish:
-    """notifications.language: es translates WASM's sentences; evidence stays verbatim."""
-
-    def test_carries_the_trigger_and_commit(self, config: Config) -> None:
-        config.set("notifications.language", "es")
-        body = deploy_notifications._body(make_event(), config)
-        assert "Origen: webhook" in body
-        assert "Commit: abc1234 (main)" in body
-
-    def test_a_failures_evidence_is_still_verbatim_never_translated(self, config: Config) -> None:
-        config.set("notifications.language", "es")
-        evidence = "Probe / -> 502\nnginx: [emerg] duplicate listen\njournalctl: ..."
-        body = deploy_notifications._body(
-            make_event(DeployEventKind.FAILED, error=evidence), config
-        )
-        assert evidence in body
-
-    def test_names_the_preview_and_its_pull_request_number(
-        self, config: Config, store: NoustStore
+    def test_the_operation_names_the_event(
+        self, config: Config, fake_notifier: type[FakeNotifier]
     ) -> None:
-        config.set("notifications.language", "es")
-        store.create_app(
-            App(
-                domain="pr-42.example.com",
-                app_path="/var/www/apps/pr-42-example-com",
-                preview_parent="shop.example.com",
-            )
-        )
-        store.save_preview(
-            PreviewRecord(
-                parent_domain="shop.example.com",
-                domain="pr-42.example.com",
-                number=42,
-                branch="feature",
-                provider="github",
-                expires_at="2099-01-01T00:00:00Z",
-            )
-        )
+        sent = self._sent(fake_notifier, make_event(operation="update"))
 
-        body = deploy_notifications._body(make_event(domain="pr-42.example.com"), config)
-
-        assert "Vista previa de shop.example.com n.º 42." in body
+        assert (sent.kind, sent.code, sent.title) == (
+            "deploy_success",
+            "update.succeeded",
+            "Updated",
+        )
 
 
 class TestDefaultEnablement:
@@ -355,11 +339,8 @@ class TestDefaultEnablement:
         config.set("notifications.enabled", True)
         config.set("notifications.channels.webhook.webhook_url", WEBHOOK_URL)
         opener = CapturingOpener()
-        notification = NotificationEvent(
-            kind="deploy_started",
-            title=deploy_notifications._title(make_event(DeployEventKind.STARTED)),
-            body=deploy_notifications._body(make_event(DeployEventKind.STARTED), config),
-            domain="shop.example.com",
+        notification = compose_deploy(
+            make_event(DeployEventKind.STARTED), NotificationContext.from_config(config)
         )
 
         Notifier(config, opener=opener).notify(notification)
@@ -371,8 +352,8 @@ class TestDefaultEnablement:
         config.set("notifications.channels.webhook.webhook_url", WEBHOOK_URL)
         config.set("notifications.events.deploy_started", True)
         opener = CapturingOpener()
-        notification = NotificationEvent(
-            kind="deploy_started", title="Deploying shop.example.com", body="", domain=None
+        notification = compose_deploy(
+            make_event(DeployEventKind.STARTED), NotificationContext.from_config(config)
         )
 
         Notifier(config, opener=opener).notify(notification)
@@ -383,11 +364,9 @@ class TestDefaultEnablement:
         config.set("notifications.enabled", True)
         config.set("notifications.channels.webhook.webhook_url", WEBHOOK_URL)
         opener = CapturingOpener()
-        notification = NotificationEvent(
-            kind="deploy_rolled_back",
-            title="shop.example.com rolled back",
-            body="Release 1 is active again",
-            domain="shop.example.com",
+        notification = compose_deploy(
+            make_event(DeployEventKind.ROLLED_BACK, error_output="Release 1 is active again"),
+            NotificationContext.from_config(config),
         )
 
         Notifier(config, opener=opener).notify(notification)
@@ -450,7 +429,7 @@ class TestOrdering:
             def __init__(self, config: Config) -> None:
                 del config
 
-            def notify(self, event: NotificationEvent) -> None:
+            def notify(self, event: Notification) -> None:
                 if event.kind == "deploy_started":
                     time.sleep(0.1)
                 delivered.append(event.kind)

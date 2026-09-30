@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig, get_audit_logger
@@ -169,3 +170,185 @@ def test_keyset_pagination_walks_every_entry_exactly_once(sandbox: Path) -> None
     third = client.get(f"/api/audit?limit=2&action=paged&before={second['next_before']}").json()
     assert [item["actor"] for item in third["items"]] == ["0"]
     assert third["next_before"] is None
+
+
+# -- 3.1: the audit trail v2 --------------------------------------------------
+
+
+def test_entries_carry_the_chain_and_the_structured_actor(sandbox: Path) -> None:
+    """3.1 adds fields next to the 3.0 ones; the old ones keep their meaning."""
+    from noust.core.audit import Actor, record
+
+    client = build_client(sandbox)
+    login_admin(client)
+    record(
+        "apps.delete",
+        actor=Actor(kind="user", id="17", name="maria", role="admin", source="10.0.0.7"),
+        target="app:shop.example.com",
+        details={"why": "retired"},
+        correlation_id="req-1",
+    )
+
+    item = client.get("/api/audit?action=apps.delete").json()["items"][0]
+
+    assert item["actor"] == "maria"
+    assert item["client_ip"] == "10.0.0.7"
+    assert item["resource"] == "app:shop.example.com"
+    assert item["detail"] == "why=retired"
+    assert item["details"] == {"why": "retired"}
+    assert item["category"] == "change"
+    assert item["severity"] == 5
+    assert item["correlation_id"] == "req-1"
+    assert item["who"]["role"] == "admin"
+    assert isinstance(item["seq"], int)
+    by_correlation = client.get("/api/audit?correlation_id=req-1").json()["items"]
+    assert [entry["action"] for entry in by_correlation] == ["apps.delete"]
+
+
+def test_reading_the_log_is_itself_recorded_once_per_window(sandbox: Path) -> None:
+    client = build_client(sandbox)
+    login_admin(client)
+    for _ in range(3):
+        client.get("/api/audit")
+
+    reads = client.get("/api/audit?action=audit.read").json()["items"]
+    assert len(reads) == 1
+    assert reads[0]["resource"] == "audit log"
+
+
+def test_verify_reports_an_intact_chain_and_its_limit(sandbox: Path) -> None:
+    client = build_client(sandbox)
+    login_admin(client)
+
+    body = client.get("/api/audit/verify").json()
+
+    assert body["ok"] is True
+    assert body["checked"] > 0
+    assert "Root on this machine" in body["limitation"]
+    assert client.get("/api/audit?action=audit.verify").json()["items"][0]["result"] == "ok"
+
+
+def test_verify_names_a_tampered_line(sandbox: Path) -> None:
+    import json
+
+    client = build_client(sandbox)
+    login_admin(client)
+    path = sandbox / "state" / "web-audit.log"
+    lines = path.read_text().splitlines()
+    entry = json.loads(lines[1])
+    entry["result"] = "rewritten"
+    lines[1] = json.dumps(entry)
+    path.write_text("\n".join(lines) + "\n")
+
+    body = client.get("/api/audit/verify").json()
+
+    assert body["ok"] is False
+    assert body["broken"]["line"] == 2
+    assert "MAC" in body["broken"]["reason"]
+
+
+def test_status_says_whether_the_trail_works(sandbox: Path) -> None:
+    client = build_client(sandbox)
+    login_admin(client)
+    body = client.get("/api/audit/status").json()
+    assert body["status"] == "ok", body["problems"]
+    assert body["failing"] is False
+
+
+def test_a_review_is_an_attestation_in_the_log(sandbox: Path) -> None:
+    client = build_client(sandbox)
+    login_admin(client)
+
+    created = client.post(
+        "/api/audit/reviews",
+        json={"period_start": "2000-01-01", "period_end": "2100-12-31", "notes": "weekly"},
+    )
+
+    assert created.status_code == 201, created.text
+    review = created.json()
+    assert review["notes"] == "weekly"
+    assert review["chain_ok"] is True
+    assert review["events_in_period"] > 0
+    listed = client.get("/api/audit/reviews").json()["items"]
+    assert [item["notes"] for item in listed] == ["weekly"]
+
+
+def test_a_review_of_a_reversed_period_is_refused(sandbox: Path) -> None:
+    client = build_client(sandbox)
+    login_admin(client)
+    response = client.post(
+        "/api/audit/reviews", json={"period_start": "2026-02-01", "period_end": "2026-01-01"}
+    )
+    assert response.status_code in (400, 422)
+
+
+def test_export_is_ndjson_with_the_chain_and_is_recorded(sandbox: Path) -> None:
+    import json
+
+    client = build_client(sandbox)
+    login_admin(client)
+
+    response = client.get("/api/audit/export")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/x-ndjson")
+    events = [json.loads(line) for line in response.text.splitlines()]
+    assert events[0]["action"] == "audit.chain_start"
+    assert all("mac" in event for event in events)
+    assert client.get("/api/audit?action=audit.export").json()["items"]
+
+
+def test_the_catalog_is_published_for_the_console(sandbox: Path) -> None:
+    client = build_client(sandbox)
+    login_admin(client)
+    body = client.get("/api/audit/events").json()
+    assert "access" in body["categories"]
+    names = {event["name"]: event for event in body["events"]}
+    assert names["apps.env.reveal"]["sensitive_read"] is True
+
+
+def test_a_read_token_cannot_reach_the_new_routes(sandbox: Path) -> None:
+    client = build_client(sandbox)
+    login_admin(client)
+    reader = get_token_manager().create_api_token("reader-v2", "read")["token"]
+    headers = {"Authorization": f"Bearer {reader}"}
+    for path in (
+        "/api/audit/verify",
+        "/api/audit/status",
+        "/api/audit/export",
+        "/api/audit/reviews",
+    ):
+        assert client.get(path, headers=headers).status_code == 403, path
+
+
+def test_the_events_of_one_request_share_its_correlation_id(
+    sandbox: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The endpoint's event, the middleware's and the host actions they caused are linked."""
+    from noust.core.audit.ledger import install_ledger
+    from noust.core.fs import get_fs
+    from noust.web.api import audit as audit_api
+
+    client = build_client(sandbox)
+    login_admin(client)
+    install_ledger()
+    marker = sandbox / "written-by-request.txt"
+    original = audit_api._day_bound
+
+    def bound_and_touch(value: str, *, end: bool) -> str:
+        # Stands in for whatever a real endpoint changes on disk.
+        get_fs().write_text(marker, "x")
+        return original(value, end=end)
+
+    monkeypatch.setattr(audit_api, "_day_bound", bound_and_touch)
+    response = client.post(
+        "/api/audit/reviews",
+        json={"period_start": "2000-01-01", "period_end": "2000-01-02"},
+        headers={"X-Noust-Request-Id": "req-link-1"},
+    )
+    assert response.status_code == 201, response.text
+
+    linked = client.get("/api/audit?correlation_id=req-link-1&limit=50").json()["items"]
+    actions = {item["action"] for item in linked}
+    assert {"audit.review", "api.post", "host.fs"} <= actions
+    assert any(item["resource"] == str(marker) for item in linked)

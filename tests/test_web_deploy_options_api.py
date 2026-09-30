@@ -394,3 +394,166 @@ def test_the_job_defaults_the_package_manager_to_auto(monkeypatch: pytest.Monkey
     )
 
     assert captured["package_manager"] == "auto"
+
+
+# ------------------------------------------------ a database with the first deploy
+
+
+class FakeDatabases:
+    """
+    Stands in for ``DatabaseService`` in the deploy job: records the calls.
+
+    Attributes:
+        calls: ``(method, argument)`` in order.
+    """
+
+    calls: list[tuple[str, Any]] = []
+
+    def __init__(self, **_: Any) -> None:
+        """Accept whatever the job constructs the service with."""
+
+    def prepare_for_new_app(self, domain: str, engine: str, **kwargs: Any) -> Any:
+        from noust.managers.database.service import NewAppDatabase
+
+        FakeDatabases.calls.append(("prepare", {"domain": domain, "engine": engine, **kwargs}))
+        return NewAppDatabase(
+            domain=domain,
+            engine="postgresql",
+            database="shop_db",
+            username="shop_user",
+            env_var="DATABASE_URL",
+            extra_vars=False,
+            created_database=True,
+            values={"DATABASE_URL": "postgresql://shop_user:s3cretpassw0rd@localhost:5432/shop_db"},
+        )
+
+    def link_new_app(self, prepared: Any) -> None:
+        FakeDatabases.calls.append(("link", prepared.database))
+
+    def keep_after_failed_deploy(self, prepared: Any, error: Any) -> None:
+        FakeDatabases.calls.append(("keep", prepared.database))
+        error.details = f"{error.details} The database shop_db was kept."
+
+
+def test_a_request_with_a_database_carries_it_to_the_job(
+    client: TestClient, queued: list[dict[str, Any]]
+) -> None:
+    """The database block reaches the job whole, its defaults filled in."""
+    response = client.post(
+        "/api/apps", json={**FORM, "database": {"engine": "postgresql", "extra_vars": True}}
+    )
+
+    assert response.status_code == 202, response.text
+    assert queued[0]["kwargs"]["database"] == {
+        "engine": "postgresql",
+        "name": None,
+        "env_var": None,
+        "extra_vars": True,
+    }
+
+
+def test_a_request_without_a_database_asks_for_none(
+    client: TestClient, queued: list[dict[str, Any]]
+) -> None:
+    response = client.post("/api/apps", json=FORM)
+
+    assert response.status_code == 202, response.text
+    assert queued[0]["kwargs"]["database"] is None
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"app_type": "monorepo"},
+        {"app_type": "docker-compose"},
+        {"source": None, "app_type": "auto", "recipe": "umami"},
+    ],
+)
+def test_a_database_is_refused_where_the_deploy_provisions_its_own(
+    client: TestClient, queued: list[dict[str, Any]], extra: dict[str, Any]
+) -> None:
+    """A monorepo, a compose project and a recipe bring their own databases."""
+    response = client.post(
+        "/api/apps", json={**FORM, **extra, "database": {"engine": "postgresql"}}
+    )
+
+    assert response.status_code == 400, response.text
+    assert "database" in response.text
+    assert queued == []
+
+
+def _run_job(monkeypatch: pytest.MonkeyPatch, *, deployed: bool) -> dict[str, Any]:
+    """
+    Run the deploy job with a database, over a deployer that records its settings.
+
+    Args:
+        monkeypatch: Patching helper, scoped to the test.
+        deployed: What the deployer answers.
+
+    Returns:
+        What ``configure`` received.
+    """
+    from noust.web.jobs import Job, JobContext, JobType, deploy_app_job
+
+    captured: dict[str, Any] = {}
+
+    class FakeDeployer:
+        last_deployment_id = None
+
+        def configure(self, **kwargs: Any) -> None:
+            FakeDatabases.calls.append(("configure", None))
+            captured.update(kwargs)
+
+        def deploy(self) -> bool:
+            FakeDatabases.calls.append(("deploy", None))
+            return deployed
+
+    FakeDatabases.calls = []
+    monkeypatch.setattr("noust.deployers.get_deployer", lambda *a, **k: FakeDeployer())
+    monkeypatch.setattr("noust.managers.database.service.DatabaseService", FakeDatabases)
+    job = Job(id="job-db", type=JobType.DEPLOY, name="deploy", description="")
+    deploy_app_job(
+        "shop.example.com",
+        "https://github.com/you/shop",
+        "nextjs",
+        env_vars={"FOO": "bar"},
+        env_secret_marks={"FOO": False},
+        database={"engine": "postgresql", "name": None, "env_var": None, "extra_vars": False},
+        job_context=JobContext(job, lambda _job: None),
+    )
+    captured["job"] = job
+    return captured
+
+
+def test_the_job_creates_the_database_before_the_first_build(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    The database exists and its connection string is in the deployer's
+    settings before anything is built, marked secret, and linked once the
+    application exists.
+    """
+    captured = _run_job(monkeypatch, deployed=True)
+
+    assert [call[0] for call in FakeDatabases.calls] == ["prepare", "configure", "deploy", "link"]
+    assert FakeDatabases.calls[0][1]["env"] == {"FOO": "bar"}, "checked against what was given"
+    assert captured["database_env"] == {
+        "DATABASE_URL": "postgresql://shop_user:s3cretpassw0rd@localhost:5432/shop_db"
+    }
+    assert captured["env_vars"] == {"FOO": "bar"}, "the operator's own variables, unchanged"
+    assert captured["env_secret_marks"] == {"FOO": False, "DATABASE_URL": True}
+    job = captured["job"]
+    job.add_log("DATABASE_URL=postgresql://shop_user:s3cretpassw0rd@localhost:5432/shop_db")
+    assert "s3cretpassw0rd" not in str([entry.message for entry in job.logs])
+
+
+def test_a_failed_first_deploy_keeps_the_database_and_says_so(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from noust.core.exceptions import DeploymentError
+
+    with pytest.raises(DeploymentError) as excinfo:
+        _run_job(monkeypatch, deployed=False)
+
+    assert [call[0] for call in FakeDatabases.calls] == ["prepare", "configure", "deploy", "keep"]
+    assert "shop_db was kept" in excinfo.value.details

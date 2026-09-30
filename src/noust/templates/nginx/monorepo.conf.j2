@@ -13,6 +13,7 @@ server {
     listen 80;
     listen [::]:80;
     server_name {{ domain }} {% for ws in workspaces %}{{ ws.subdomain }}.{{ domain }} {% endfor %};
+    server_tokens off;
 
     # ACME challenge location for Let's Encrypt
     location /.well-known/acme-challenge/ {
@@ -32,6 +33,7 @@ server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
     server_name {{ domain }};
+    server_tokens off;
 
     ssl_certificate /etc/letsencrypt/live/{{ domain }}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/{{ domain }}/privkey.pem;
@@ -49,6 +51,7 @@ server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
     server_name {{ workspace.subdomain }}.{{ domain }};
+    server_tokens off;
 
     # SSL Configuration
     ssl_certificate /etc/letsencrypt/live/{{ domain }}/fullchain.pem;
@@ -68,8 +71,10 @@ server {
     # Security headers
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+{% if ssl and hsts %}
+    add_header Strict-Transport-Security "{{ hsts }}" always;
+{% endif %}
 
     # Gzip compression
     gzip on;

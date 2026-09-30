@@ -48,7 +48,9 @@ from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from noust.central import RoleError
+from noust.core.accounts import AccountNotFoundError, AuthenticationFailed
 from noust.core.applock import AppBusyError
+from noust.core.ens.incident import IncidentLockdownError
 from noust.core.exceptions import (
     ConfigError,
     DatabaseExistsError,
@@ -73,6 +75,7 @@ from noust.validators.domain import validate_domain
 from noust.web.auth import (
     SCOPE_RANK,
     actor_label,
+    ensure_permission,
     ensure_scope,
     get_audit_logger,
     get_client_ip,
@@ -80,6 +83,7 @@ from noust.web.auth import (
     is_fleet,
     require_auth,
 )
+from noust.web.permissions import ALL_PERMISSIONS
 from noust.web.pydantic_compat import dump_model
 
 #: Requests under this prefix are the JSON API and answer in the contract this
@@ -111,6 +115,11 @@ DEFAULT_ERROR_STATUS = 500
 #: base class.
 _STATUS_BY_ERROR: tuple[tuple[type[NoustError], int], ...] = (
     (DatabaseNotFoundError, 404),
+    # Before SecurityError, whose subclasses they are: an unknown account is
+    # a missing resource, and a refused credential is a 401 whatever its
+    # reason, which the error does not carry to the client.
+    (AccountNotFoundError, 404),
+    (AuthenticationFailed, 401),
     (DatabaseExistsError, 409),
     (DomainConflictError, 409),
     (AppBusyError, 409),
@@ -157,6 +166,8 @@ _CONTRACT_BY_ERROR: tuple[tuple[type[NoustError], str, str], ...] = (
 #: still their own ``details``: the console branches on the code (the unlock
 #: form, a hidden page on a hub) and shows the sentence as it is.
 _CODE_BY_ERROR: tuple[tuple[type[NoustError], str], ...] = (
+    (IncidentLockdownError, "incident_lockdown"),
+    (AuthenticationFailed, "invalid_credentials"),
     (WrongPassphraseError, "wrong_passphrase"),
     (SecretsLockedError, "central_locked"),
     (RoleError, "hub_role"),
@@ -526,14 +537,13 @@ def install_error_handlers(app: FastAPI) -> None:
 
 def require_scope(scope: str) -> Callable[..., Coroutine[Any, Any, dict[str, Any]]]:
     """
-    Build a dependency that demands a minimum credential scope.
+    Build a dependency that demands a minimum 3.0 credential scope.
 
-    The blanket policy already runs where the credential is resolved -
-    :func:`noust.web.auth.required_scope` at the ``require_auth`` chokepoint -
-    so most endpoints declare nothing. This is for the ones whose need is
-    stricter than the method implies: listing the API tokens is a GET, and a
-    ``read`` token must still not see it. It can only tighten; the chokepoint
-    has already enforced the floor by the time this runs.
+    Every route's permission is enforced where the credential is resolved,
+    by ``require_auth`` from the maps in :mod:`noust.web.permissions`; prefer
+    :func:`require_permission` for anything new. This remains for handlers
+    written against scopes: it can only tighten, and a payload's scope is
+    what its permissions amount to.
 
     Args:
         scope: The minimum scope, one of ``read``, ``deploy`` or ``admin``.
@@ -569,6 +579,47 @@ def require_scope(scope: str) -> Callable[..., Coroutine[Any, Any, dict[str, Any
     return dependency
 
 
+def require_permission(permission: str) -> Callable[..., Coroutine[Any, Any, dict[str, Any]]]:
+    """
+    Build a dependency asking for one more permission than the route's own.
+
+    The route's own permission is enforced by ``require_auth``, from the maps
+    in :mod:`noust.web.permissions`; this is for a handler whose need is
+    stricter than its route's, stated in its signature. It can only tighten.
+
+    Args:
+        permission: A :class:`~noust.web.permissions.Permission` value.
+
+    Returns:
+        A dependency yielding the payload, like ``require_auth``.
+
+    Raises:
+        ValueError: When the permission does not exist. At import time, on
+            purpose: a typo must fail the module, not guard nothing.
+    """
+    if permission not in ALL_PERMISSIONS:
+        raise ValueError(f"Unknown permission {permission!r}")
+
+    async def dependency(
+        request: Request, session: dict[str, Any] = Depends(require_auth)
+    ) -> dict[str, Any]:
+        """
+        Args:
+            request: The incoming request.
+            session: The authenticated payload.
+
+        Returns:
+            The payload.
+
+        Raises:
+            HTTPException: 403 when the permission is missing.
+        """
+        ensure_permission(request, session, permission)
+        return session
+
+    return dependency
+
+
 #: Wire format for a refused destructive action, per D5 and the auth
 #: endpoints' own error shape: passes through ``handle_http_exception``
 #: verbatim because it already carries ``error``.
@@ -580,11 +631,32 @@ _ELEVATION_REQUIRED_DETAIL: dict[str, Any] = {
 }
 
 
-#: Credentials sudo mode does not ask to confirm. Both are standing
-#: credentials an operator issued on purpose - the master token, or an API
-#: token minted from a confirmed session or from the root CLI - so the
-#: confirmation already happened once, when they were made.
+#: Credentials sudo mode did not ask to confirm in 3.0: the master token and
+#: API tokens. A payload says itself whether it is exempt now
+#: (``elevation_exempt``, set where the credential is verified): API tokens
+#: issued since 3.1 are not unless issued so, and nothing is under the ENS
+#: profile. This set only decides for a payload that does not say.
 ELEVATION_EXEMPT_TYPES = frozenset({"master", "api_token"})
+
+
+def elevation_satisfied(session: dict[str, Any]) -> bool:
+    """
+    Report whether sudo mode is satisfied for a credential right now.
+
+    The one answer :func:`ensure_elevated` and a central vouching for its
+    operator (``X-Noust-Elevated``) both use.
+
+    Args:
+        session: The authenticated payload.
+
+    Returns:
+        True for a credential not asked for sudo mode, or a session inside
+        its window.
+    """
+    exempt = session.get("elevation_exempt")
+    if exempt is None:
+        exempt = session.get("type") in ELEVATION_EXEMPT_TYPES
+    return bool(exempt) or is_elevated(session)
 
 
 #: A fleet request whose central did not vouch for its operator's sudo mode:
@@ -632,9 +704,10 @@ def ensure_elevated(request: Request, session: dict[str, Any]) -> None:
     Refuse a destructive action from a session that has not confirmed recently.
 
     This is the chokepoint D5's sudo mode runs at. A console session must have
-    called ``POST /api/auth/elevate`` within the last ten minutes; the master
-    token and API tokens are exempt, because issuing that credential at all
-    already required an operator's confirmation once.
+    called ``POST /api/auth/elevate`` within the last ten minutes. The master
+    token as a Bearer, and API tokens issued before 3.1 or issued with sudo
+    allowed, are exempt, because issuing that credential at all already
+    required an operator's confirmation once; see :func:`elevation_satisfied`.
 
     The exemption is decided by what the credential *is*
     (``session["type"]``, set where it was verified), never by the channel it
@@ -668,7 +741,7 @@ def ensure_elevated(request: Request, session: dict[str, Any]) -> None:
             return
         _refuse_elevation(request, session, _FLEET_ELEVATION_REQUIRED_DETAIL)
 
-    if session.get("type") in ELEVATION_EXEMPT_TYPES or is_elevated(session):
+    if elevation_satisfied(session):
         return
 
     _refuse_elevation(request, session, _ELEVATION_REQUIRED_DETAIL)

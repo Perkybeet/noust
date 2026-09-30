@@ -15,7 +15,9 @@ signature or the secret.
 - ``ping``: 200; GitHub sends it when the webhook is switched on, which is
   how the console learns that it is.
 - ``push``: the update the per-application webhook queues, for every
-  application that deploys the pushed branch of the pushed repository.
+  application that deploys the pushed branch of the pushed repository; each
+  one is kept in that application's delivery log
+  (:mod:`noust.core.webhook_deliveries`) too.
 - ``pull_request``: handed to the previews.
 - ``installation`` and ``installation_repositories``: the stored
   installations follow.
@@ -37,6 +39,7 @@ from noust.core.exceptions import NoustError
 from noust.core.forge_events import PushEvent, parse_pull_request
 from noust.core.secrets import SecretStore
 from noust.core.store import DeploymentTrigger, get_store
+from noust.core.webhook_deliveries import DEPLOY_STARTED, record_delivery
 from noust.integrations.github import webhooks
 from noust.integrations.github.app import WEBHOOK_SECRET, read_meta, write_meta
 from noust.integrations.github.service import github_hooks_url
@@ -141,6 +144,19 @@ def _queue_updates(
             actor="webhook",
         )
         queued.append({"domain": app.domain, "job_id": job.id})
+        if app.id is not None:
+            # In the application's own delivery log, next to what its own
+            # webhook received, so its setup page shows the App deploying it.
+            record_delivery(
+                app.id,
+                DEPLOY_STARTED,
+                provider="github-app",
+                event="push",
+                branch=push.branch,
+                detail=f"push to {push.repository}@{push.branch} through the GitHub App",
+                job_id=job.id,
+                delivery_id=delivery,
+            )
     return queued
 
 

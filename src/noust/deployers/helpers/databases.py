@@ -34,7 +34,6 @@ import hashlib
 import secrets
 import string
 from dataclasses import dataclass
-from urllib.parse import quote
 
 from noust.core.exceptions import DatabaseError
 from noust.core.logger import Logger
@@ -42,6 +41,7 @@ from noust.core.secrets import SecretStore
 from noust.core.store import Database, NoustStore, get_store
 from noust.managers.database.base import BaseDatabaseManager
 from noust.managers.database.registry import DatabaseRegistry
+from noust.managers.database.urls import connection_url
 
 #: Engines this module knows how to provision. Other engines the registry
 #: knows about (Redis, MongoDB) have no concept of a per-application
@@ -83,11 +83,18 @@ class DatabaseCredentials:
         host or the path instead of the credential.
 
         Returns:
-            ``<engine>://<user>:<password>@<host>:<port>/<name>``.
+            ``<engine>://<user>:<password>@<host>:<port>/<name>``, built by
+            :func:`~noust.managers.database.urls.connection_url`, the one
+            constructor every engine and endpoint uses.
         """
-        user = quote(self.user, safe="")
-        password = quote(self.password, safe="")
-        return f"{self.engine}://{user}:{password}@{self.host}:{self.port}/{self.name}"
+        return connection_url(
+            self.engine,
+            database=self.name,
+            user=self.user,
+            password=self.password,
+            host=self.host,
+            port=self.port,
+        )
 
     def context(self) -> dict[str, str]:
         """
@@ -427,6 +434,7 @@ def provision_database(
     logger: Logger,
     store: NoustStore | None = None,
     secret_store: SecretStore | None = None,
+    manager: BaseDatabaseManager | None = None,
 ) -> DatabaseCredentials:
     """
     Create a database and user, or reuse them if a previous attempt already did.
@@ -457,6 +465,9 @@ def provision_database(
             process-wide store.
         secret_store: Where the user's password and owner are kept. Defaults
             to one rooted at the store's own secrets directory.
+        manager: The engine's manager, when the caller already resolved it
+            (:class:`~noust.managers.database.service.DatabaseService` does,
+            through its own resolver). Resolved from ``engine`` when None.
 
     Returns:
         The credentials to reach the database with.
@@ -468,7 +479,15 @@ def provision_database(
             Noust, the user is this application's but Noust does not know its
             password, or creating the database, the user or the grant fails.
     """
-    canonical, manager = _resolve_manager(engine)
+    if manager is None:
+        canonical, manager = _resolve_manager(engine)
+    else:
+        canonical = manager.ENGINE_NAME
+        if canonical not in SUPPORTED_ENGINES:
+            raise DatabaseError(
+                f"Noust does not provision a {manager.DISPLAY_NAME} database and user",
+                details=f"Noust provisions: {', '.join(SUPPORTED_ENGINES)}.",
+            )
     if not manager.is_installed():
         raise DatabaseError(
             f"{manager.DISPLAY_NAME} is not installed",
@@ -544,15 +563,20 @@ def provision_database(
     elif existing_row.app_id is None and app is not None and domain:
         store.link_database_to_app(name, canonical, domain)
 
-    if manager.database_exists(name):
-        logger.substep(f"Reusing existing {manager.DISPLAY_NAME} database: {name}")
-    else:
-        manager.create_database(name)
-        logger.substep(f"Created {manager.DISPLAY_NAME} database: {name}")
-
+    # The user first, so the database can be created owned by it: since
+    # PostgreSQL 15 only the database owner may create in its public schema,
+    # and a database owned by postgres left the application's migrations
+    # failing with "permission denied for schema public". An existing
+    # database keeps its owner; `noust db fix-owner` changes it, explicitly.
     if not user_exists:
         manager.create_user(user, password=password, createdb=createdb)
         logger.substep(f"Created {manager.DISPLAY_NAME} user: {user}")
+
+    if manager.database_exists(name):
+        logger.substep(f"Reusing existing {manager.DISPLAY_NAME} database: {name}")
+    else:
+        manager.create_database(name, owner=user)
+        logger.substep(f"Created {manager.DISPLAY_NAME} database: {name}")
 
     manager.grant_privileges(username=user, database=name)
 

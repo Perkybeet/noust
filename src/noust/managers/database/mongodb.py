@@ -9,18 +9,34 @@ because a ``createUser`` script carries a password and argv is world readable.
 Every value interpolated into a script is rendered with :func:`json.dumps`, which
 is a valid JavaScript literal for strings, numbers and objects alike, so a
 database name can never become code.
+
+Authorization. Before 3.1 MongoDB was installed without
+``security.authorization``: the users and roles Noust created protected
+nothing, and anything on the server could read every database. A new install
+now creates an administrator (``noust_admin``, its password in Noust's secret
+store) and turns authorization on before anything else connects. The shell
+authenticates as it with ``db.auth()`` at the head of the script on stdin, and
+the dump tools read the password from a 0600 ``--config`` file, so the
+password is never in argv. An existing install is not changed: turning
+authorization on breaks every application that connects without credentials,
+so it gets a warning and the steps instead (:meth:`MongoDBManager.warnings`).
 """
 
 from __future__ import annotations
 
 import json
+import os
 import re
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
+import yaml  # type: ignore[import-untyped]
+
 from noust.core.exceptions import (
+    ConfigError,
     DatabaseBackupError,
     DatabaseEngineError,
     DatabaseError,
@@ -29,15 +45,21 @@ from noust.core.exceptions import (
     DatabaseQueryError,
     DatabaseUserError,
 )
+from noust.core.sealing import SealError
+from noust.core.secrets import SecretStore
 from noust.managers.database.base import (
     PACKAGE_TIMEOUT,
+    PROFILES,
     QUERY_TIMEOUT,
     TRANSFER_TIMEOUT,
+    AccessEntry,
     BackupInfo,
     BaseDatabaseManager,
     DatabaseInfo,
+    ListenAddress,
     UserInfo,
     format_size,
+    listen_address,
 )
 from noust.managers.database.registry import DatabaseRegistry
 
@@ -70,14 +92,38 @@ BUILT_IN_ROLES = frozenset(
 #: from another by its Unicode block is not a role name anyone typed on purpose.
 CUSTOM_ROLE_PATTERN = re.compile(r"\A[A-Za-z0-9_]+\Z")
 
-#: Release series of the packages this manager installs.
-SERVER_SERIES = "7.0"
+#: Release series of the packages this manager installs: the one MongoDB
+#: publishes for every distribution below, supported until October 2029.
+SERVER_SERIES = "8.0"
 
 #: Where the repository signing key is stored.
 KEYRING_PATH = Path(f"/usr/share/keyrings/mongodb-server-{SERVER_SERIES}.gpg")
 
 #: The apt source list this manager owns.
 SOURCES_PATH = Path(f"/etc/apt/sources.list.d/mongodb-org-{SERVER_SERIES}.list")
+
+#: Where the distribution names itself.
+OS_RELEASE = Path("/etc/os-release")
+
+#: The repository line per distribution and release MongoDB publishes packages
+#: for: the path, the suite and the component. Anything else is refused
+#: rather than pointed at another distribution's packages, which is what the
+#: fixed "ubuntu jammy" line did on Debian.
+REPOSITORIES: dict[tuple[str, str], tuple[str, str, str]] = {
+    ("ubuntu", "jammy"): ("ubuntu", "jammy", "multiverse"),
+    ("ubuntu", "noble"): ("ubuntu", "noble", "multiverse"),
+    ("debian", "bookworm"): ("debian", "bookworm", "main"),
+}
+
+#: The administrator a new install is given, and where its password is kept.
+ADMIN_USER = "noust_admin"
+ADMIN_SECRET = "databases/mongodb/admin"  # noqa: S105 - a secret name, not a secret
+
+#: mongod's configuration file.
+MONGOD_CONF = Path("/etc/mongod.conf")
+
+#: The built-in role each access profile maps to, on one database.
+PROFILE_ROLES: dict[str, str] = {"owner": "dbOwner", "read_write": "readWrite", "read_only": "read"}
 
 
 class MongoDBManager(BaseDatabaseManager):
@@ -95,6 +141,8 @@ class MongoDBManager(BaseDatabaseManager):
     BACKUP_SUFFIX = ".tar.gz"
     MAX_DATABASE_NAME_LENGTH = 63
     MAX_USER_NAME_LENGTH = 63
+    CAPABILITIES = frozenset({"documents", "users", "profiles", "dump", "metrics"})
+    INTERNAL_USERS = frozenset({ADMIN_USER})
 
     #: Databases that belong to the deployment, not to a user.
     SYSTEM_DATABASES = frozenset({"admin", "config", "local"})
@@ -104,13 +152,54 @@ class MongoDBManager(BaseDatabaseManager):
 
     # ==================== Installation ====================
 
+    def _repository(self) -> tuple[str, str, str]:
+        """
+        Pick MongoDB's repository for the distribution this server runs.
+
+        Checked before the signing key is downloaded, so an unsupported
+        distribution costs nothing.
+
+        Returns:
+            The repository's path, suite and component.
+
+        Raises:
+            DatabaseEngineError: When MongoDB publishes no packages for it.
+        """
+        facts: dict[str, str] = {}
+        try:
+            for line in OS_RELEASE.read_text(encoding="utf-8").splitlines():
+                name, _, value = line.partition("=")
+                facts[name.strip()] = value.strip().strip('"')
+        except OSError as exc:
+            raise DatabaseEngineError(
+                f"Could not read {OS_RELEASE} to choose MongoDB's repository",
+                details=str(exc),
+            ) from exc
+        release = (facts.get("ID", ""), facts.get("VERSION_CODENAME", ""))
+        repository = REPOSITORIES.get(release)
+        if repository is None:
+            supported = ", ".join(f"{name} {codename}" for name, codename in REPOSITORIES)
+            raise DatabaseEngineError(
+                f"MongoDB {SERVER_SERIES} publishes no packages for "
+                f"{facts.get('PRETTY_NAME') or ' '.join(release).strip() or 'this system'}",
+                details=(
+                    f"Noust installs MongoDB on {supported}. Elsewhere, install it by hand "
+                    "following mongodb.com/docs/manual/installation, then manage it with "
+                    "'noust db status mongodb'."
+                ),
+            )
+        return repository
+
     def _pre_install(self) -> None:
         """
         Add the upstream repository, since no distribution ships mongodb-org.
 
         Raises:
-            DatabaseEngineError: When the key cannot be fetched or converted.
+            DatabaseEngineError: When the distribution is not one MongoDB
+                publishes packages for, or the key cannot be fetched or
+                converted.
         """
+        self._repository()
         with tempfile.TemporaryDirectory(prefix="wasm-mongodb-") as workdir:
             armoured = Path(workdir) / "server.asc"
             result = self.runner.capture_to_file(
@@ -134,17 +223,208 @@ class MongoDBManager(BaseDatabaseManager):
                     details=result.stderr.strip() or f"Could not write {KEYRING_PATH}.",
                 )
 
+        path, suite, component = self._repository()
         source = (
             f"deb [ arch=amd64,arm64 signed-by={KEYRING_PATH} ] "
-            f"https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/{SERVER_SERIES} multiverse\n"
+            f"https://repo.mongodb.org/apt/{path} {suite}/mongodb-org/{SERVER_SERIES} {component}\n"
         )
         try:
-            SOURCES_PATH.write_text(source)
+            self.fs.write_text(SOURCES_PATH, source)
         except OSError as exc:
             raise DatabaseEngineError(
                 "Failed to add the MongoDB apt source",
                 details=f"{exc}. Write {SOURCES_PATH} manually and retry.",
             ) from exc
+
+    # ==================== Authorization ====================
+
+    def _secrets(self) -> SecretStore:
+        """
+        The secret store the administrator's password is kept in.
+
+        Returns:
+            A store rooted beside the Noust store.
+        """
+        return SecretStore()
+
+    def _admin_password(self) -> str | None:
+        """
+        Read the administrator's password, when Noust created one.
+
+        Returns:
+            The password, or None on an install Noust did not secure.
+        """
+        cached = getattr(self, "_admin", None)
+        if cached is not None:
+            return str(cached) or None
+        try:
+            password = self._secrets().read(ADMIN_SECRET)
+        except (ConfigError, SealError) as exc:
+            self.logger.warning(f"Could not read the MongoDB administrator's password: {exc}")
+            password = None
+        self._admin = password or ""
+        return password
+
+    def _auth_preamble(self) -> tuple[str, str | None]:
+        """
+        Build the line that authenticates a shell script, when there is one.
+
+        ``void`` keeps the result of ``auth()`` out of the output, which the
+        JSON helpers parse.
+
+        Returns:
+            The line (empty without credentials) and the password it carries.
+        """
+        password = self._admin_password()
+        if not password:
+            return "", None
+        return (
+            f"void db.getSiblingDB('admin').auth({self._js(ADMIN_USER)}, {self._js(password)});\n",
+            password,
+        )
+
+    @contextmanager
+    def _tool_credentials(self) -> Iterator[list[str]]:
+        """
+        Provide the arguments that authenticate mongodump and mongorestore.
+
+        The password goes in a 0600 ``--config`` file, which the database
+        tools read for exactly this purpose; the user name is not a secret.
+
+        Yields:
+            Arguments for the tool, empty on an install without credentials.
+        """
+        password = self._admin_password()
+        if not password:
+            yield []
+            return
+        fd, path = tempfile.mkstemp(prefix="noust_mongo_", suffix=".yaml")
+        try:
+            with os.fdopen(fd, "w") as handle:
+                handle.write(yaml.safe_dump({"password": password}))
+            yield [
+                f"--config={path}",
+                "--username",
+                ADMIN_USER,
+                "--authenticationDatabase",
+                "admin",
+            ]
+        finally:
+            self.fs.remove(Path(path))
+
+    def _authorization_enabled(self) -> bool | None:
+        """
+        Read whether mongod enforces authorization, from its configuration.
+
+        Returns:
+            True or False, or None when the file cannot be read.
+        """
+        try:
+            config = yaml.safe_load(MONGOD_CONF.read_text(encoding="utf-8")) or {}
+        except (OSError, yaml.YAMLError):
+            return None
+        security = config.get("security") if isinstance(config, dict) else None
+        return isinstance(security, dict) and security.get("authorization") == "enabled"
+
+    def _post_install(self) -> None:
+        """
+        Turn authorization on for a new install, with an administrator.
+
+        The administrator is created first, over the localhost exception
+        (the only connection allowed while no user exists), its password kept
+        in the secret store before the user exists, so a failure between the
+        two leaves a password nobody uses rather than a user nobody can sign
+        in as. Then ``security.authorization: enabled`` is written and mongod
+        restarted.
+
+        Raises:
+            DatabaseEngineError: When the administrator cannot be created or
+                the configuration cannot be written.
+        """
+        password = self.generate_password()
+        self._secrets().write(ADMIN_SECRET, password)
+        script = (
+            f"db.getSiblingDB('admin').createUser({{user: {self._js(ADMIN_USER)}, "
+            f"pwd: {self._js(password)}, roles: [{{role: 'root', db: 'admin'}}]}})"
+        )
+        # No preamble: the user it would authenticate as is being created.
+        result = self._exec(
+            [self._shell(), "admin", "--quiet"],
+            input=script,
+            timeout=QUERY_TIMEOUT,
+            secrets=(password,),
+        )
+        if not result.success:
+            raise DatabaseEngineError(
+                "Could not create MongoDB's administrator",
+                details=(result.stderr or result.stdout).strip(),
+            )
+        self._admin = password
+
+        try:
+            config = yaml.safe_load(MONGOD_CONF.read_text(encoding="utf-8")) or {}
+        except (OSError, yaml.YAMLError) as exc:
+            raise DatabaseEngineError(
+                f"Could not read {MONGOD_CONF} to turn authorization on",
+                details=f"{exc}. Add 'security:\\n  authorization: enabled' by hand.",
+            ) from exc
+        if not isinstance(config, dict):
+            config = {}
+        security = config.get("security")
+        config["security"] = {
+            **(security if isinstance(security, dict) else {}),
+            "authorization": "enabled",
+        }
+        self.fs.write_text(MONGOD_CONF, yaml.safe_dump(config, sort_keys=False), mode=0o644)
+        self.restart()
+
+    def warnings(self) -> list[str]:
+        """
+        Warn when mongod does not enforce authorization.
+
+        Returns:
+            The warning and what to do, or nothing.
+        """
+        if self._authorization_enabled() is False:
+            return [
+                "MongoDB runs without authorization: the users Noust creates protect "
+                "nothing, and any process on this server can read and change every "
+                "database. To turn it on: create an administrator (db.createUser with the "
+                "root role in admin), give every application a user of its own, set "
+                "'security.authorization: enabled' in /etc/mongod.conf and restart mongod. "
+                "Applications that connect without credentials stop working until they "
+                "have one."
+            ]
+        return []
+
+    def listen_addresses(self) -> ListenAddress | None:
+        """
+        Ask mongod for ``net.bindIp``.
+
+        Returns:
+            The addresses; ``127.0.0.1`` when unset, mongod's own default.
+        """
+        success, data = self._execute_mongo_json("db.adminCommand({getCmdLineOpts: 1}).parsed")
+        if not success or not isinstance(data, dict):
+            return None
+        found = data.get("net")
+        net: dict[str, Any] = found if isinstance(found, dict) else {}
+        bind = str(net.get("bindIp") or "127.0.0.1")
+        if net.get("bindIpAll"):
+            bind = "0.0.0.0"  # noqa: S104 - reporting the setting, not binding
+        return listen_address("net.bindIp", bind, separator=",")
+
+    def server_port(self) -> int:
+        """
+        Return the port mongod says it listens on.
+
+        Returns:
+            ``net.port``, or :attr:`DEFAULT_PORT`.
+        """
+        success, data = self._execute_mongo_json("db.adminCommand({getCmdLineOpts: 1}).parsed")
+        net = data.get("net") if success and isinstance(data, dict) else None
+        port = net.get("port") if isinstance(net, dict) else None
+        return int(port) if isinstance(port, int) and 0 < port < 65536 else self.DEFAULT_PORT
 
     # ==================== Shell ====================
 
@@ -219,11 +499,12 @@ class MongoDBManager(BaseDatabaseManager):
         Returns:
             Whether the shell succeeded, and its output or its error text.
         """
+        preamble, password = self._auth_preamble()
         result = self._exec(
             [self._shell(), database, "--quiet"],
-            input=script,
+            input=preamble + script,
             timeout=timeout,
-            secrets=secrets,
+            secrets=(*secrets, *((password,) if password else ())),
         )
         return result.success, result.stdout if result.success else result.stderr
 
@@ -476,9 +757,32 @@ class MongoDBManager(BaseDatabaseManager):
         )
         return user, password
 
+    def _user_database(self, username: str) -> str | None:
+        """
+        Find the database a user is defined in.
+
+        A user belongs to the database it was created in (its authentication
+        database), and every command about it has to be run there. The
+        previous version only ever looked in ``admin``, so a user created for
+        an application's own database was reported missing.
+
+        Args:
+            username: The user.
+
+        Returns:
+            The database, or None when no database defines the user.
+        """
+        success, data = self._execute_mongo_json(
+            "db.getSiblingDB('admin').system.users"
+            f".find({{user: {self._js(username)}}}, {{db: 1}}).toArray().map(u => u.db)"
+        )
+        if success and isinstance(data, list) and data:
+            return str(data[0])
+        return None
+
     def drop_user(self, username: str, host: str = "localhost") -> None:
         """
-        Drop a user from the admin database.
+        Drop a user from the database that defines it.
 
         Args:
             username: User name.
@@ -488,13 +792,16 @@ class MongoDBManager(BaseDatabaseManager):
             DatabaseUserError: When the user is missing or the drop fails.
         """
         self.validate_user_name(username)
-        if not self.user_exists(username):
+        home = self._user_database(username)
+        if home is None:
             raise DatabaseUserError(
                 f"User '{username}' does not exist",
-                details="Run 'noust db users --engine mongodb' to see the users.",
+                details="Run 'noust db user-list --engine mongodb' to see the users.",
             )
 
-        success, output = self._execute_mongo(f"db.dropUser({self._js(username)})")
+        success, output = self._execute_mongo(
+            f"db.getSiblingDB({self._js(home)}).dropUser({self._js(username)})"
+        )
         if not success:
             raise DatabaseUserError(f"Failed to drop user '{username}'", details=output.strip())
 
@@ -502,38 +809,32 @@ class MongoDBManager(BaseDatabaseManager):
 
     def user_exists(self, username: str, host: str = "localhost") -> bool:
         """
-        Report whether a user exists in the admin database.
+        Report whether any database defines a user.
 
         Args:
             username: User name.
             host: Ignored; MongoDB has no per-host users.
 
         Returns:
-            True when getUser returns a document.
+            True when a database defines it.
         """
-        success, output = self._execute_mongo(f"db.getUser({self._js(username)})")
-        return bool(success and output.strip() and output.strip() != "null")
+        return self._user_database(username) is not None
 
     def list_users(self) -> list[UserInfo]:
         """
-        List the users of the admin database.
+        List every user of every database.
 
         Returns:
-            One entry per user, with its roles and databases.
+            One entry per user, with its roles and the databases they cover.
         """
-        success, data = self._execute_mongo_json("db.getUsers()")
-        if not success:
+        success, data = self._execute_mongo_json(
+            "db.getSiblingDB('admin').system.users.find({}, {user: 1, db: 1, roles: 1}).toArray()"
+        )
+        if not success or not isinstance(data, list):
             return []
 
-        if isinstance(data, dict):
-            entries = data.get("users", [])
-        elif isinstance(data, list):
-            entries = data
-        else:
-            entries = []
-
         users = []
-        for entry in entries:
+        for entry in data:
             if not isinstance(entry, dict):
                 continue
             roles = [role for role in entry.get("roles", []) if isinstance(role, dict)]
@@ -543,6 +844,10 @@ class MongoDBManager(BaseDatabaseManager):
                     engine=self.ENGINE_NAME,
                     databases=sorted({role.get("db", "") for role in roles if role.get("db")}),
                     privileges=sorted({role.get("role", "") for role in roles}),
+                    extra={
+                        "auth_database": entry.get("db"),
+                        "roles": [{"role": r.get("role"), "db": r.get("db")} for r in roles],
+                    },
                 )
             )
         return users
@@ -569,9 +874,11 @@ class MongoDBManager(BaseDatabaseManager):
         self.validate_user_name(username)
         self.validate_database_name(database)
         roles = [{"role": role, "db": database} for role in self.validate_privileges(privileges)]
+        home = self._user_database(username) or "admin"
 
         success, output = self._execute_mongo(
-            f"db.grantRolesToUser({self._js(username)}, {self._js(roles)})"
+            f"db.getSiblingDB({self._js(home)})"
+            f".grantRolesToUser({self._js(username)}, {self._js(roles)})"
         )
         if not success:
             raise DatabaseUserError(
@@ -602,9 +909,11 @@ class MongoDBManager(BaseDatabaseManager):
         self.validate_user_name(username)
         self.validate_database_name(database)
         roles = [{"role": role, "db": database} for role in self.validate_privileges(privileges)]
+        home = self._user_database(username) or "admin"
 
         success, output = self._execute_mongo(
-            f"db.revokeRolesFromUser({self._js(username)}, {self._js(roles)})"
+            f"db.getSiblingDB({self._js(home)})"
+            f".revokeRolesFromUser({self._js(username)}, {self._js(roles)})"
         )
         if not success:
             raise DatabaseUserError(
@@ -650,8 +959,11 @@ class MongoDBManager(BaseDatabaseManager):
 
         archive = self._backup_path(database, output_path, False)
 
-        with tempfile.TemporaryDirectory(prefix="wasm-mongodump-") as workdir:
-            argv = ["mongodump", "--db", database, "--out", workdir]
+        with (
+            tempfile.TemporaryDirectory(prefix="wasm-mongodump-") as workdir,
+            self._tool_credentials() as credentials,
+        ):
+            argv = ["mongodump", *credentials, "--db", database, "--out", workdir]
             if compress:
                 argv.append("--gzip")
 
@@ -678,36 +990,28 @@ class MongoDBManager(BaseDatabaseManager):
         info.compressed = True
         return info
 
-    def restore(
-        self,
-        database: str,
-        backup_path: Path,
-        drop_existing: bool = False,
-        **kwargs,
-    ) -> None:
+    def _create_for_restore(self, database: str, owner: str | None) -> None:
         """
-        Restore a database from a mongodump tarball or directory.
+        Nothing to create: MongoDB creates a database on its first write.
 
         Args:
-            database: Target database name.
+            database: The database.
+            owner: Ignored; MongoDB grants roles instead.
+        """
+
+    def _load_backup(self, database: str, backup_path: Path, **kwargs: Any) -> None:
+        """
+        Load a mongodump tarball or directory with mongorestore.
+
+        Args:
+            database: The database to load into.
             backup_path: Tarball or dump directory.
-            drop_existing: Drop the collections being restored first.
             **kwargs: Unused.
 
         Raises:
-            DatabaseBackupError: When the file is missing or the restore fails.
+            DatabaseBackupError: When the archive cannot be extracted or
+                mongorestore fails.
         """
-        self.validate_database_name(database)
-        backup_path = Path(backup_path)
-        if not backup_path.exists():
-            raise DatabaseBackupError(
-                f"Backup file not found: {backup_path}",
-                details="Run 'noust db backups' to list the backups Noust knows about.",
-            )
-
-        if drop_existing and self.database_exists(database):
-            self.drop_database(database, force=True)
-
         with tempfile.TemporaryDirectory(prefix="wasm-mongorestore-") as workdir:
             if backup_path.is_dir():
                 dump_dir = backup_path
@@ -726,21 +1030,17 @@ class MongoDBManager(BaseDatabaseManager):
 
             source = dump_dir / database if (dump_dir / database).is_dir() else dump_dir
 
-            argv = ["mongorestore", "--db", database]
-            if drop_existing:
-                argv.append("--drop")
-            if any(source.rglob("*.gz")):
-                argv.append("--gzip")
-            argv.append(str(source))
-
-            result = self._exec(argv, timeout=TRANSFER_TIMEOUT)
+            with self._tool_credentials() as credentials:
+                argv = ["mongorestore", *credentials, "--db", database]
+                if any(source.rglob("*.gz")):
+                    argv.append("--gzip")
+                argv.append(str(source))
+                result = self._exec(argv, timeout=TRANSFER_TIMEOUT)
             if not result.success:
                 raise DatabaseBackupError(
                     f"Failed to restore database '{database}'",
                     details=result.stderr.strip() or "mongorestore reported no error text.",
                 )
-
-        self.logger.info(f"Restored database: {database} from {backup_path}")
 
     # ==================== Query Execution ====================
 
@@ -773,26 +1073,120 @@ class MongoDBManager(BaseDatabaseManager):
             raise DatabaseQueryError("Query failed", details=output.strip())
         return success, output
 
-    def get_connection_string(
-        self,
-        database: str,
-        username: str,
-        password: str,
-        host: str = "localhost",
-    ) -> str:
+    # ==================== Passwords and profiles ====================
+
+    def set_user_password(self, username: str, password: str, host: str = "localhost") -> None:
         """
-        Build a MongoDB URI.
+        Give a user a new password, with the script on stdin.
 
         Args:
-            database: Database name.
-            username: User name.
-            password: Password.
-            host: Host to connect to.
+            username: The user.
+            password: Its new password.
+            host: Ignored; MongoDB has no per-host users.
+
+        Raises:
+            DatabaseUserError: When the user does not exist or the change fails.
+        """
+        self.validate_user_name(username)
+        home = self._user_database(username)
+        if home is None:
+            raise DatabaseUserError(
+                f"User '{username}' does not exist",
+                details="Run 'noust db user-list --engine mongodb' to see the users.",
+            )
+        success, output = self._execute_mongo(
+            f"db.getSiblingDB({self._js(home)})"
+            f".changeUserPassword({self._js(username)}, {self._js(password)})",
+            secrets=(password,),
+        )
+        if not success:
+            raise DatabaseUserError(
+                f"Failed to change the password of '{username}'", details=output.strip()
+            )
+        self.logger.info(f"Changed the password of: {username}")
+
+    def apply_profile(
+        self, username: str, database: str, profile: str, host: str = "localhost"
+    ) -> None:
+        """
+        Give a user one built-in role on a database, and only that one.
+
+        ``owner`` is ``dbOwner``, ``read_write`` ``readWrite``, ``read_only``
+        ``read``; the other two are revoked in the same script.
+
+        Args:
+            username: The user.
+            database: The database.
+            profile: ``owner``, ``read_write`` or ``read_only``.
+            host: Ignored; MongoDB has no per-host users.
+
+        Raises:
+            DatabaseUserError: When the profile is unknown, the user does not
+                exist, or the change fails.
+        """
+        self.validate_user_name(username)
+        self.validate_database_name(database)
+        if profile not in PROFILES:
+            raise DatabaseUserError(
+                f"Unknown access profile: {profile!r}",
+                details=f"Use one of: {', '.join(PROFILES)}.",
+            )
+        home = self._user_database(username)
+        if home is None:
+            raise DatabaseUserError(
+                f"User '{username}' does not exist",
+                details="Create it first with 'noust db user-create --engine mongodb'.",
+            )
+        others = [
+            {"role": role, "db": database}
+            for name, role in PROFILE_ROLES.items()
+            if name != profile
+        ]
+        wanted = [{"role": PROFILE_ROLES[profile], "db": database}]
+        target = f"db.getSiblingDB({self._js(home)})"
+        success, output = self._execute_mongo(
+            f"{target}.revokeRolesFromUser({self._js(username)}, {self._js(others)});\n"
+            f"{target}.grantRolesToUser({self._js(username)}, {self._js(wanted)})"
+        )
+        if not success:
+            raise DatabaseUserError(
+                f"Failed to give '{username}' the {profile} profile on '{database}'",
+                details=output.strip(),
+            )
+
+    def list_access(self, database: str) -> list[AccessEntry]:
+        """
+        List the users holding a role on a database, with their profile.
+
+        Args:
+            database: The database.
 
         Returns:
-            The connection string.
+            One entry per user.
         """
-        return f"mongodb://{username}:{password}@{host}:{self.DEFAULT_PORT}/{database}"
+        by_role = {role: profile for profile, role in PROFILE_ROLES.items()}
+        entries: list[AccessEntry] = []
+        for user in self.list_users():
+            roles = [
+                str(role.get("role"))
+                for role in user.extra.get("roles", [])
+                if isinstance(role, dict) and role.get("db") == database
+            ]
+            if not roles:
+                continue
+            profiles = [by_role[role] for role in roles if role in by_role]
+            profile = next((candidate for candidate in PROFILES if candidate in profiles), "custom")
+            if len(roles) > len(profiles):
+                profile = "custom"
+            entries.append(
+                AccessEntry(
+                    username=user.username,
+                    profile=profile,
+                    privileges=tuple(sorted(roles)),
+                    internal=self.is_internal_user(user.username),
+                )
+            )
+        return entries
 
     def get_interactive_command(
         self,

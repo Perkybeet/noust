@@ -203,13 +203,19 @@ def started(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         return 0
 
     def daemon(
-        config: Any, verbose: bool, *, insecure_http: bool = False, options: Any = None
+        config: Any,
+        verbose: bool,
+        *,
+        insecure_http: bool = False,
+        options: Any = None,
+        issue_token: bool = True,
     ) -> int:
         captured["config"] = config
         captured["mode"] = "daemon"
         captured["verbose"] = verbose
         captured["insecure_http"] = insecure_http
         captured["options"] = options
+        captured["issue_token"] = issue_token
         return 0
 
     monkeypatch.setattr(web, "_start_foreground", foreground)

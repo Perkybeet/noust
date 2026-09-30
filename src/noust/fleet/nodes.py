@@ -19,6 +19,13 @@ Enrollment, from the central's side:
    (:meth:`NodeManager.add`) checks the code, pins the host key, stores the
    token, opens the tunnel and asks the node for its version with the token.
    Any failure undoes everything ``add`` wrote.
+
+Two changes go the same way round, the node authorizing first and the
+central switching only once the node answers: ``noust node rekey`` (a new key
+pair, :meth:`NodeManager.rekey`) and ``noust node migrate-tunnel`` (a node
+authorized as root by 3.0 moving to the ``noust-tunnel`` account,
+:meth:`NodeManager.migrate_tunnel`). Both are resumable: the same join code
+can be pasted again, and a failure puts back what the central had.
 """
 
 from __future__ import annotations
@@ -30,7 +37,7 @@ import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from noust.core.exceptions import NodeError, NodeRefusedError
+from noust.core.exceptions import NodeError, NodeRefusedError, ValidationError
 from noust.core.runner import CommandRunner
 from noust.core.secrets import SecretStore
 from noust.core.store import NodeRecord, NoustStore, get_store
@@ -40,8 +47,8 @@ from noust.fleet.joincode import JoinCode
 if TYPE_CHECKING:
     import httpx
 from noust.fleet.keys import KNOWN_HOSTS, TOKEN, NodeKeys, known_hosts_line, secret_name
-from noust.fleet.models import central_name, parse_ssh_target, validate_node_name
-from noust.fleet.policy import node_registration_blockers
+from noust.fleet.models import PublicKey, central_name, parse_ssh_target, validate_node_name
+from noust.fleet.policy import FleetAccess, node_registration_blockers
 from noust.fleet.tunnels import TunnelManager, get_tunnels
 
 #: What a node answers to prove the token works, and says its version with.
@@ -51,6 +58,12 @@ VERSION_PATH = "/api/system/version"
 #: (the only credential endpoint that is); it only ever revokes the token
 #: that calls it.
 FLEET_REVOKE_PATH = "/api/auth/fleet/revoke"
+
+#: Where a node publishes the most any central may do on it (Noust 3.1+).
+FLEET_SELF_PATH = "/api/auth/fleet/self"
+
+#: The account a 3.1 node's ``noust fleet authorize`` gives centrals.
+TUNNEL_USER = "noust-tunnel"
 
 
 def cli_actor() -> str:
@@ -197,7 +210,7 @@ class NodeManager:
             NodeError: As :meth:`central_public_key`.
         """
         key = self.central_public_key(name)
-        return f"noust fleet authorize --central-key {shlex.quote(key)} --name {central_name()}"
+        return _authorize_line(key)
 
     def add(
         self, name: str, *, ssh_target: str, join_code: str, actor: str | None = None
@@ -296,6 +309,7 @@ class NodeManager:
         finally:
             if not registered:
                 self._undo_add(name)
+        self.refresh_access(name, actor=actor)
         return self.get(name)
 
     def _undo_add(self, name: str) -> None:
@@ -420,7 +434,266 @@ class NodeManager:
         version = info.get("current_version") if isinstance(info, dict) else None
         version = version if isinstance(version, str) else None
         self.store.set_node_status(name, "reachable", version=version)
+        self.refresh_access(name, actor=actor)
         return self._outcome(True, version or record.version, latency, "reachable", None)
+
+    def refresh_access(self, name: str, *, actor: str | None = None) -> FleetAccess | None:
+        """
+        Ask a node the most it lets this central do, and record it.
+
+        The node enforces its ceiling whatever the central believes; this is
+        so the central can show it and grey out what the node would refuse.
+        A node that does not publish one (3.0: 404) is recorded as unknown; a
+        node that cannot be asked right now keeps what was known.
+
+        Args:
+            name: The node's name.
+            actor: Who asks, for the node's audit log; :func:`cli_actor` when None.
+
+        Returns:
+            The ceiling, or None when it is not known.
+        """
+        try:
+            body = self.client(name, timeout=15.0).get_json(
+                FLEET_SELF_PATH, actor=actor or cli_actor(), actor_scope="read"
+            )
+        except NodeRefusedError:
+            # A node whose permission table predates the endpoint refuses it
+            # to a fleet token (403); nothing to learn, nothing to forget.
+            return self._recorded_access(name)
+        except NodeError as exc:
+            if "answered 404" in exc.message:
+                self.store.set_node_access(name, None, None)
+                return None
+            return self._recorded_access(name)
+        try:
+            access = FleetAccess.from_dict(body)
+        except ValidationError:
+            return self._recorded_access(name)
+        self.store.set_node_access(name, access.level, access.host_access)
+        return access
+
+    def _recorded_access(self, name: str) -> FleetAccess | None:
+        """
+        Read the ceiling last recorded for a node.
+
+        Args:
+            name: The node's name.
+
+        Returns:
+            It, or None when none was.
+        """
+        record = self.store.get_node(name)
+        if record is None or record.access_level is None:
+            return None
+        try:
+            return FleetAccess.from_dict(
+                {"level": record.access_level, "host_access": bool(record.host_access)}
+            )
+        except ValidationError:
+            return None
+
+    # -------------------------------------------------------------------------
+    # Key rotation and the move to the tunnel account
+    # -------------------------------------------------------------------------
+
+    def rekey_command(self, name: str) -> str:
+        """
+        Start rotating a node's key: generate the new pair once, and spell the node's command.
+
+        Asking again before the rotation finishes gives the same key and
+        command, so it can be copied again.
+
+        Args:
+            name: The node's name.
+
+        Returns:
+            ``noust fleet authorize --central-key '<new key>' --name <central>``.
+
+        Raises:
+            NodeError: When the node is not registered, or ssh-keygen fails.
+        """
+        self.get(name)
+        return _authorize_line(self._keys.ensure_pending_keypair(name, central_name()).line())
+
+    def rekey(self, name: str, *, join_code: str, actor: str | None = None) -> NodeRecord:
+        """
+        Finish rotating a node's key, from the join code the node printed for the new one.
+
+        The new pair becomes the node's, the code's token replaces the old one,
+        and the node must answer with both; otherwise the old key, token and
+        record are put back and the new pair keeps waiting, so the same code
+        can be tried again. The old private key is then gone from this central.
+
+        Args:
+            name: The node's name.
+            join_code: What ``noust fleet authorize`` printed for the new key.
+            actor: Who rotates it, for the node's audit log.
+
+        Returns:
+            The node, reachable with its new key.
+
+        Raises:
+            NodeError: When no rotation is under way, the code is for another
+                key or another server, or the node does not answer.
+        """
+        record = self.get(name)
+        code = JoinCode.decode(join_code)
+        pending = self._keys.pending_public_key(name)
+        current = self._keys.public_key(name)
+        if pending is None:
+            if current is not None and current.fingerprint == code.central_key_fp:
+                # The rotation already swapped the pair; the rest is resumable.
+                return self._rejoin(record, code, actor=actor)
+            raise NodeError(
+                f"No new key is waiting for {name}",
+                details=f"Start with 'noust node rekey {name}', run what it prints on the node, "
+                "and paste the join code that prints.",
+                field="join_code",
+            )
+        if code.central_key_fp != pending.fingerprint:
+            raise NodeError(
+                f"This join code authorizes another key than the new one for {name}",
+                details=_fingerprint_help(name, code.central_key_fp, pending, current),
+                field="join_code",
+            )
+        previous = self._keys.promote_pending(name)
+        node = self._rejoin(
+            record, code, actor=actor, undo=lambda: self._keys.write_pair(name, previous)
+        )
+        self._keys.discard_pending(name)
+        return node
+
+    def migrate_tunnel_command(self, name: str) -> str:
+        """
+        Spell the command that moves a node from root to the tunnel account.
+
+        Args:
+            name: The node's name.
+
+        Returns:
+            ``noust fleet authorize`` with this central's current key for it:
+            on a Noust 3.1 node it installs the key for ``noust-tunnel`` and
+            takes it out of root's ``authorized_keys``.
+
+        Raises:
+            NodeError: When the node is not registered or has no key here.
+        """
+        self.get(name)
+        current = self._keys.public_key(name)
+        if current is None:
+            raise NodeError(
+                f"This central holds no key for {name}",
+                details=f"Rotate it instead: noust node rekey {name}",
+            )
+        return _authorize_line(current.line())
+
+    def migrate_tunnel(self, name: str, *, join_code: str, actor: str | None = None) -> NodeRecord:
+        """
+        Move a node to the account its join code names, keeping the key.
+
+        Args:
+            name: The node's name.
+            join_code: What ``noust fleet authorize`` printed on the node.
+            actor: Who moves it, for the node's audit log.
+
+        Returns:
+            The node, reachable as the new account.
+
+        Raises:
+            NodeError: When the code is for root, another key or another
+                server, or the node does not answer (the central is put back).
+        """
+        record = self.get(name)
+        code = JoinCode.decode(join_code)
+        current = self._keys.public_key(name)
+        if current is None or code.central_key_fp != current.fingerprint:
+            raise NodeError(
+                f"This join code authorizes another key than the one this central holds for {name}",
+                details=_fingerprint_help(name, code.central_key_fp, None, current),
+                field="join_code",
+            )
+        if code.ssh_user == "root":
+            raise NodeError(
+                f"The join code still authorizes root on {name}",
+                details=(
+                    f"Run the command 'noust node migrate-tunnel {name}' printed, without "
+                    f"--ssh-user root: the node's Noust must be 3.1 or later, which "
+                    f"authorizes {TUNNEL_USER}."
+                ),
+                field="join_code",
+            )
+        return self._rejoin(record, code, actor=actor)
+
+    def _rejoin(
+        self,
+        record: NodeRecord,
+        code: JoinCode,
+        *,
+        actor: str | None,
+        undo: Callable[[], None] | None = None,
+    ) -> NodeRecord:
+        """
+        Switch a registered node to a new join code's account, port and token, and prove it.
+
+        Args:
+            record: The node as recorded.
+            code: The new code, already matched to the key it is for.
+            actor: Who does it, for the node's audit log.
+            undo: Puts back anything the caller changed first (the key pair).
+
+        Returns:
+            The node, reachable.
+
+        Raises:
+            NodeError: When the code is for another server, or the node does
+                not answer; everything is put back first.
+        """
+        name = record.name
+        pinned = known_hosts_line(name, code.ssh_host_key)
+        if pinned != record.host_key:
+            if undo is not None:
+                undo()
+            raise NodeError(
+                f"This join code is from another server than {name}",
+                details=(
+                    "Its SSH host key is not the one pinned when the node was added. If the "
+                    f"server was reinstalled, remove it and add it again: noust node remove "
+                    f"{name}."
+                ),
+                field="join_code",
+            )
+        old_token = self._secrets.read(secret_name(name, TOKEN))
+        updated = NodeRecord(
+            **{
+                **record.to_dict(),
+                "ssh_user": code.ssh_user,
+                "console_port": code.console_port,
+            }
+        )
+        self.tunnels.close(name)
+        switched = False
+        try:
+            self._secrets.write(secret_name(name, TOKEN), code.token)
+            self.store.save_node(updated)
+            info = self.client(name, retry_refused=True).get_json(
+                VERSION_PATH, actor=actor or cli_actor(), actor_scope="read"
+            )
+            version = info.get("current_version") if isinstance(info, dict) else None
+            self.store.set_node_status(
+                name, "reachable", version=version if isinstance(version, str) else None
+            )
+            switched = True
+        finally:
+            if not switched:
+                self.tunnels.close(name)
+                if old_token is not None:
+                    self._secrets.write(secret_name(name, TOKEN), old_token)
+                self.store.save_node(record)
+                if undo is not None:
+                    undo()
+        self.refresh_access(name, actor=actor)
+        return self.get(name)
 
     @staticmethod
     def _outcome(
@@ -451,3 +724,44 @@ class NodeManager:
             "error": error.message if error else None,
             "details": (error.details or None) if error else None,
         }
+
+
+def _authorize_line(key: str) -> str:
+    """
+    Spell the command a node's operator runs to authorize this central's key.
+
+    Args:
+        key: The public key line.
+
+    Returns:
+        ``noust fleet authorize --central-key '...' --name <central>``.
+    """
+    return f"noust fleet authorize --central-key {shlex.quote(key)} --name {central_name()}"
+
+
+def _fingerprint_help(
+    name: str, code_fp: str, pending: PublicKey | None, current: PublicKey | None
+) -> str:
+    """
+    Explain which key a join code is for, against the keys this central holds for a node.
+
+    Args:
+        name: The node's name.
+        code_fp: The fingerprint the code carries.
+        pending: The key waiting in a rotation.
+        current: The key in use.
+
+    Returns:
+        The details of the error.
+    """
+    held = []
+    if pending is not None:
+        held.append(f"the new key is {pending.fingerprint}")
+    if current is not None:
+        held.append(f"the key in use is {current.fingerprint}")
+    return (
+        f"The code is for {code_fp}; for {name} "
+        + ("; ".join(held) or "this central holds no key")
+        + ". Run the command this central printed for it on the node, and paste the join "
+        "code that prints."
+    )

@@ -9,9 +9,13 @@ Enrollment starts here and finishes on the node:
 1. ``noust node key web-2`` prints this central's key for web-2 and the
    ``noust fleet authorize`` command to run on web-2.
 2. On web-2, that command prints a join code.
-3. ``noust node add web-2 --ssh root@web2.example.com --join-code -`` reads
-   the code from stdin (never from argv, where ``ps`` shows it), pins web-2's
-   host key from it and checks the tunnel and the token.
+3. ``noust node add web-2 --ssh web2.example.com --join-code -`` reads the
+   code from stdin (never from argv, where ``ps`` shows it), pins web-2's host
+   key from it and checks the tunnel and the token. The SSH account comes from
+   the code: ``noust-tunnel`` on a 3.1 node.
+
+``noust node rekey`` and ``noust node migrate-tunnel`` follow the same two
+steps for a node already registered: a command for the node, then its code.
 
 A thin front end over :class:`~noust.fleet.nodes.NodeManager`, the same one
 ``/api/nodes`` uses.
@@ -29,6 +33,7 @@ from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.core.exceptions import NodeError
 
 if TYPE_CHECKING:
+    from noust.core.store import NodeRecord
     from noust.fleet.nodes import NodeManager
 
 
@@ -104,7 +109,7 @@ def key_command(ctx: Context, name: str) -> None:
     click.echo(command)
     logger.blank()
     logger.info(
-        f"It prints a join code. Then, here: noust node add {name} --ssh root@<address> "
+        f"It prints a join code. Then, here: noust node add {name} --ssh <address> "
         "--join-code -   (and paste the code)"
     )
 
@@ -169,18 +174,39 @@ def list_command(ctx: Context) -> None:
         logger.info("This central manages no nodes. Add one with 'noust node key NAME'.")
         return
     logger.table(
-        ["Name", "SSH", "Status", "Version", "Last seen"],
+        ["Name", "SSH", "Status", "Version", "Access", "Last seen"],
         [
             [
                 record.name,
                 f"{record.ssh_user}@{record.ssh_host}:{record.ssh_port}",
                 record.status,
                 record.version or "-",
+                _access_cell(record),
                 record.last_seen or "never",
             ]
             for record in records
         ],
     )
+    if any(record.ssh_user == "root" for record in records):
+        logger.warning(
+            "Nodes reached as root can be moved to the unprivileged tunnel account: "
+            "noust node migrate-tunnel NAME"
+        )
+
+
+def _access_cell(record: NodeRecord) -> str:
+    """
+    Show the ceiling a node published, as a table cell.
+
+    Args:
+        record: The node.
+
+    Returns:
+        Such as ``read`` or ``admin + host``; ``unknown`` for a node that never said.
+    """
+    if record.access_level is None:
+        return "unknown"
+    return record.access_level + (" + host" if record.host_access else "")
 
 
 @cli.command("show")
@@ -209,6 +235,11 @@ def show_command(ctx: Context, name: str) -> None:
     logger.key_value("Console", f"127.0.0.1:{record.console_port} on the node")
     logger.key_value("Status", record.status)
     logger.key_value("Version", record.version or "-")
+    logger.key_value(
+        "Access",
+        _access_cell(record)
+        + (" (the node enforces it)" if record.access_level else " (Noust 3.0, or not asked yet)"),
+    )
     logger.key_value("Last seen", record.last_seen or "never")
     logger.key_value(
         "Tunnel", f"open on 127.0.0.1:{tunnel['local_port']}" if tunnel["open"] else "closed"
@@ -289,3 +320,121 @@ def remove_command(ctx: Context, name: str, no_revoke: bool, force: bool) -> Non
     ctx.logger.success(f"Node {name} removed from this central")
     for warning in warnings:
         ctx.logger.warning(warning)
+
+
+@cli.command("rekey")
+@click.argument("name")
+@click.option(
+    "--join-code",
+    default=None,
+    help="The code NAME printed for the new key; '-' reads it from stdin. Omitted, the "
+    "rotation starts and the command to run on NAME is printed.",
+)
+@json_option("Print the command, or the node, as JSON.")
+@pass_context
+def rekey_command(ctx: Context, name: str, join_code: str | None) -> None:
+    """
+    Give NAME a new key: first the command to run on it, then the join code it prints.
+
+    Without --join-code, a new key pair is generated (once: asking again
+    prints the same command) and the command to authorize it on NAME is
+    printed. With --join-code, the new key replaces the old one here, once
+    NAME answers with it; otherwise nothing changes and the code can be
+    pasted again. Authorizing the new key on NAME already removed the old one
+    there.
+    """
+    _two_step(ctx, name, join_code, what="rekey")
+
+
+@cli.command("migrate-tunnel")
+@click.argument("name")
+@click.option(
+    "--join-code",
+    default=None,
+    help="The code NAME printed; '-' reads it from stdin. Omitted, the command to run "
+    "on NAME is printed.",
+)
+@json_option("Print the command, or the node, as JSON.")
+@pass_context
+def migrate_tunnel_command(ctx: Context, name: str, join_code: str | None) -> None:
+    """
+    Move NAME from root to the unprivileged noust-tunnel account (a node enrolled by 3.0).
+
+    Without --join-code, prints the command to run on NAME (Noust 3.1 or
+    later there): it creates noust-tunnel, restricts it in sshd, installs this
+    central's key for it and takes it out of root's authorized_keys. With
+    --join-code, this central switches to it once NAME answers; otherwise
+    nothing changes here and the code can be pasted again.
+    """
+    _two_step(ctx, name, join_code, what="migrate")
+
+
+def _two_step(ctx: Context, name: str, join_code: str | None, *, what: str) -> None:
+    """
+    Run either step of ``rekey`` or ``migrate-tunnel``.
+
+    Args:
+        ctx: The command's context.
+        name: The node's name.
+        join_code: None for the first step, the code (or ``-``) for the second.
+        what: ``rekey`` or ``migrate``.
+    """
+    from noust.fleet.audit import audit
+
+    manager = _manager()
+    manager.get(name)
+    action = f"fleet.node.{what}"
+    command_name = "rekey" if what == "rekey" else "migrate-tunnel"
+    if join_code is None:
+        if ctx.dry_run:
+            ctx.logger.info(
+                f"would print the command that authorizes {name} again"
+                + (", with a new key pair" if what == "rekey" else "")
+            )
+            return
+        command = (
+            manager.rekey_command(name) if what == "rekey" else manager.migrate_tunnel_command(name)
+        )
+        if ctx.json_output:
+            click.echo(json.dumps({"node": name, "authorize_command": command}))
+            return
+        logger = ctx.logger
+        logger.info(f"On {name}, as root (Noust 3.1 or later there), run:")
+        logger.blank()
+        click.echo(command)
+        logger.blank()
+        logger.info(
+            f"It prints a join code. Then, here: noust node {command_name} {name} "
+            "--join-code -   (and paste the code)"
+        )
+        return
+    if ctx.dry_run:
+        ctx.logger.info(f"would switch {name} to what the join code authorizes")
+        return
+    code = _read_join_code(join_code)
+    try:
+        record = (
+            manager.rekey(name, join_code=code)
+            if what == "rekey"
+            else manager.migrate_tunnel(name, join_code=code)
+        )
+    except NodeError as exc:
+        audit(action, "failure", resource=f"node:{name}", detail=exc.message)
+        raise
+    audit(
+        action,
+        "success",
+        resource=f"node:{name}",
+        detail=f"{record.ssh_user}@{record.ssh_host}:{record.ssh_port}",
+    )
+    if ctx.json_output:
+        click.echo(json.dumps(record.to_dict()))
+        return
+    done = "has a new key" if what == "rekey" else f"is reached as {record.ssh_user}"
+    ctx.logger.success(f"{name} {done}, and answered: Noust {record.version or 'unknown'}")
+
+
+# The fleet's views and bulk actions, and node labels, live in their own module
+# (B5b) and attach themselves to this group; importing it here is what makes
+# them part of 'noust node'.
+from noust.cli.commands import fleet_views as _fleet_views  # noqa: E402,F401

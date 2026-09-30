@@ -1,0 +1,7 @@
+               Local time: Tue 2026-09-29 22:33:24 WEST
+           Universal time: Tue 2026-09-29 21:33:24 UTC
+                 RTC time: Tue 2026-09-29 21:33:24
+                Time zone: Atlantic/Canary (WEST, +0100)
+System clock synchronized: no
+              NTP service: inactive
+          RTC in local TZ: no

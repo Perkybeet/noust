@@ -7,34 +7,62 @@ The node's side of enrollment: authorize a central, or stop trusting it.
 ``noust fleet authorize`` runs on the node, as root, by the node's own
 operator - the central never gets a shell here. It:
 
-1. installs the central's key in the SSH user's ``authorized_keys``, as::
+1. makes sure the console runs as a service, bound to loopback only;
+2. creates the unprivileged account centrals log in as, ``noust-tunnel``
+   (a system account with no home, ``nologin`` as its shell and ``*`` as its
+   password, so no password ever works and a locked-account check never
+   refuses its key), and restricts it in sshd itself with a Noust
+   ``Match User noust-tunnel`` block (:func:`tunnel_policy_block`): its keys
+   are read from a root-owned file it cannot edit, it may forward a local
+   port to the console and nothing else - no Unix-socket forwarding, no
+   remote forwarding, no terminal, no agent, no X11, no command but
+   ``/usr/bin/false``;
+3. installs the central's key in that account's key file, as::
 
        restrict,port-forwarding,permitopen="127.0.0.1:<console port>",permitlisten="127.0.0.1:1",command="/usr/bin/false" ssh-ed25519 AAAA... noust-central:<central>
 
    ``restrict`` turns off everything (port, agent and X11 forwarding, pty,
    user rc); ``port-forwarding`` turns TCP forwarding back on, in both
    directions; ``permitopen`` narrows ``ssh -L`` to the console on loopback
-   and ``permitlisten`` narrows ``ssh -R`` to a port nothing uses (see
+   and ``permitlisten`` narrows TCP ``ssh -R`` to a port nothing uses (see
    :data:`NO_LISTEN`); the forced command makes any attempt to run something
-   exit 1. The key can forward one port and do nothing else. OpenSSH 7.8 or
-   later reads ``permitlisten`` (every supported distribution ships 8.4 or
-   later); an older sshd rejects the whole line, so the key fails closed;
-2. makes sure the console runs as a service, bound to loopback only;
-3. creates a ``fleet`` token, ``fleet-<central>``;
-4. prints the join code the central needs: this server's host key, the SSH
+   exit 1. The key's options and the ``Match`` block say the same thing
+   twice on purpose: a line pasted without its options is still contained;
+4. creates a ``fleet`` token, ``fleet-<central>``, and records this server's
+   access ceiling for its centrals when ``--access`` is given
+   (:mod:`noust.fleet.policy`);
+5. prints the join code the central needs: this server's host key, the SSH
    user and port, the console port and the token.
 
-``noust fleet deauthorize`` undoes 1 and 3.
+**Why not root.** Up to 3.0 the key went into root's ``authorized_keys``,
+and the claim was that it could forward one port and do nothing else. That
+was not true: ``permitlisten`` only limits TCP listeners, so the same key
+could ask for ``ssh -R /path/to/socket:...`` and sshd created that Unix socket
+**as root**, anywhere - ``/etc/nologin`` included, which stops every non-root
+login. ``noust-tunnel`` cannot create a file anywhere it could not already,
+and its ``Match`` block refuses Unix-socket forwarding outright
+(``AllowStreamLocalForwarding no``). ``--ssh-user root`` still works, with
+an explicit ``--i-understand`` and a warning; a node authorized by 3.0 moves
+with ``noust node migrate-tunnel`` on the central.
+
+Every check runs before anything changes; each step that changes something
+puts it back when a later one fails and it can be put back.
+
+``noust fleet deauthorize`` removes the central's key lines and revokes its
+tokens.
 """
 
 from __future__ import annotations
 
 import errno
 import fcntl
+import fnmatch
+import grp
 import hashlib
 import os
 import pwd
 import re
+import stat
 import threading
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -44,26 +72,69 @@ from typing import TYPE_CHECKING, Any
 
 from noust import __version__
 from noust.core.applock import locks_directory
-from noust.core.exceptions import NodeError, SecurityError
+from noust.core.exceptions import ConfigError, NodeError, SecurityError
 from noust.core.fs import FileSystem, get_fs
 from noust.core.runner import CommandError, CommandRunner, get_runner
+from noust.core.sealing import SealError
 from noust.fleet.joincode import JoinCode
 from noust.fleet.models import (
     PublicKey,
+    central_name,
     local_node_name,
     parse_public_key,
     validate_central_name,
     validate_ssh_user,
 )
+from noust.fleet.policy import DEFAULT_ACCESS, FleetAccess, current_access, set_access
 
 if TYPE_CHECKING:
+    from noust.core.store import NoustStore
     from noust.web.auth import TokenManager
 
 #: The server configuration read when ``sshd -T`` cannot run.
 SSHD_CONFIG = Path("/etc/ssh/sshd_config")
 
+#: The directory sshd includes configuration fragments from, on every
+#: distribution that has one (Debian 11+, Ubuntu 20.04+, Fedora, RHEL 9).
+SSHD_DROPIN_DIR = Path("/etc/ssh/sshd_config.d")
+
+#: Noust's fragment there. ``00-`` so it is read before any other (Ubuntu's
+#: cloud images ship ``50-cloud-init.conf``): when two ``Match`` blocks apply
+#: to one account, sshd keeps the first value it reads.
+SSHD_DROPIN_NAME = "00-noust-tunnel.conf"
+
+#: Marks the block when sshd_config includes no fragment directory and the
+#: block is appended to the file itself, last (a ``Match`` runs to the end).
+POLICY_BEGIN = "# BEGIN Noust fleet tunnel account (generated by Noust; do not edit)"
+POLICY_END = "# END Noust fleet tunnel account"
+
 #: This server's ed25519 host key, which the join code carries.
 HOST_KEY_FILE = Path("/etc/ssh/ssh_host_ed25519_key.pub")
+
+#: The account centrals' tunnels log in as, by default.
+TUNNEL_USER = "noust-tunnel"
+
+#: Where the tunnel account's keys live: a directory and file of root's, so
+#: the account can neither add a key nor leave anything for sshd to read.
+TUNNEL_KEYS_DIR = Path("/etc/ssh/noust")
+
+#: sshd reads an account's keys with that account's privileges, so the file
+#: and its directory must be readable by it - and writable by root alone,
+#: which StrictModes checks. Public keys only: nothing secret is in it.
+TUNNEL_KEYS_MODE = 0o644
+TUNNEL_KEYS_DIR_MODE = 0o755
+
+#: The tunnel account's home. It must not exist: nothing is ever read from it.
+TUNNEL_HOME = "/nonexistent"
+
+#: Shells that let nobody in, tried in order for a new account.
+NOLOGIN_SHELLS = ("/usr/sbin/nologin", "/sbin/nologin", "/usr/bin/nologin")
+
+#: Shells an existing tunnel account may have; anything else can log in.
+NO_LOGIN_SHELLS = frozenset({*NOLOGIN_SHELLS, "/bin/false", "/usr/bin/false"})
+
+#: sshd units, as Debian/Ubuntu and RHEL/SUSE name them.
+SSHD_UNITS = ("ssh.service", "sshd.service")
 
 #: Comment of every key line this module writes: ``noust-central:<central>``.
 KEY_COMMENT_PREFIX = "noust-central:"
@@ -82,16 +153,23 @@ FORCED_COMMAND = "/usr/bin/false"
 #: nothing on a node connects to loopback port 1 (tcpmux) even when the key
 #: is root's. The host is explicit because ssh sends ``localhost`` when none
 #: is given, which does not match it, so a plain ``-R 1:...`` is refused too.
+#: It says nothing about Unix-socket listeners: that is what the tunnel
+#: account's ``AllowStreamLocalForwarding no`` is for.
 NO_LISTEN = "127.0.0.1:1"
 
-#: How long ``sshd -T`` and ``chown`` may take.
+#: How long ``sshd -T``, ``sshd -t``, ``chown``, ``useradd`` and a reload may take.
 SSHD_TIMEOUT = 15
 
-#: Mode of the ``.ssh`` directory this module creates.
+#: Mode of the ``.ssh`` directory this module creates in a home.
 SSH_DIR_MODE = 0o700
 
-#: Mode of ``authorized_keys``.
+#: Mode of ``authorized_keys`` in a home.
 AUTHORIZED_KEYS_MODE = 0o600
+
+#: Mode of Noust's sshd fragment: sshd reads it as root, and hardening
+#: benchmarks (CIS) want sshd's configuration readable by root alone. An
+#: existing sshd_config keeps the mode it has.
+SSHD_POLICY_MODE = 0o600
 
 #: Mode of the lock file :func:`_locked_for_write` takes.
 LOCK_FILE_MODE = 0o600
@@ -107,11 +185,24 @@ FLEET_SCOPE = "fleet"
 #: ``noust node add`` fails as a bad token, not a bad join code.
 DRY_RUN_TOKEN = "noust_tok_dry-run-token-was-not-issued"  # noqa: S105 - a placeholder, never issued
 
+#: What ``sshd -T -C`` is told about the connection it evaluates. Only the
+#: account matters to Noust's ``Match User`` block; the central's own address
+#: is not known here.
+EVALUATE_HOST = "localhost"
+EVALUATE_ADDR = "127.0.0.1"
+
+#: A progress callback: the step being started, how many there are, and what it does.
+Progress = Callable[[int, int, str], None]
+
 
 @dataclass(frozen=True)
 class SshdSettings:
     """
     The parts of sshd's configuration enrollment depends on.
+
+    Read with ``sshd -T -C user=<account>,...`` they are what sshd applies to
+    that account, ``Match`` blocks included; read from the file (sshd
+    missing) they are the global section only.
 
     Attributes:
         port: The first port sshd listens on.
@@ -120,6 +211,16 @@ class SshdSettings:
         permit_root_login: ``PermitRootLogin``.
         authorized_keys_files: ``AuthorizedKeysFile``, unexpanded.
         source: ``sshd -T``, the config file, or ``defaults``.
+        allow_stream_local_forwarding: ``AllowStreamLocalForwarding``.
+        permit_open: ``PermitOpen`` entries (``any`` when unrestricted).
+        permit_tty: ``PermitTTY``.
+        x11_forwarding: ``X11Forwarding``.
+        allow_agent_forwarding: ``AllowAgentForwarding``.
+        force_command: ``ForceCommand``, None when there is none.
+        allow_users: ``AllowUsers`` patterns.
+        deny_users: ``DenyUsers`` patterns.
+        allow_groups: ``AllowGroups`` patterns.
+        deny_groups: ``DenyGroups`` patterns.
     """
 
     port: int = 22
@@ -128,14 +229,29 @@ class SshdSettings:
     permit_root_login: str = "prohibit-password"
     authorized_keys_files: tuple[str, ...] = (".ssh/authorized_keys", ".ssh/authorized_keys2")
     source: str = "defaults"
+    allow_stream_local_forwarding: str = "yes"
+    permit_open: tuple[str, ...] = ("any",)
+    permit_tty: str = "yes"
+    x11_forwarding: str = "no"
+    allow_agent_forwarding: str = "yes"
+    force_command: str | None = None
+    allow_users: tuple[str, ...] = ()
+    deny_users: tuple[str, ...] = ()
+    allow_groups: tuple[str, ...] = ()
+    deny_groups: tuple[str, ...] = ()
+
+
+#: Keywords that may repeat and accumulate: ``sshd -T`` prints one line per
+#: entry, and a config file may spread them over several lines.
+_ACCUMULATED = ("allowusers", "denyusers", "allowgroups", "denygroups")
 
 
 def _parse_sshd(lines: list[str], source: str) -> SshdSettings:
     """
     Read sshd settings from ``sshd -T`` output or ``sshd_config`` lines.
 
-    The first value of each keyword wins, as in sshd; a ``Match`` block ends
-    what applies to everyone.
+    The first value of each keyword wins, as in sshd, except for the access
+    lists, which accumulate; a ``Match`` block ends what applies to everyone.
 
     Args:
         lines: The lines.
@@ -145,6 +261,7 @@ def _parse_sshd(lines: list[str], source: str) -> SshdSettings:
         The settings, defaults for what is not named.
     """
     found: dict[str, str] = {}
+    lists: dict[str, list[str]] = {name: [] for name in _ACCUMULATED}
     for raw in lines:
         line = raw.strip()
         if not line or line.startswith("#"):
@@ -155,10 +272,14 @@ def _parse_sshd(lines: list[str], source: str) -> SshdSettings:
         keyword = keyword.strip().lower()
         if keyword == "match":
             break
+        if keyword in lists:
+            lists[keyword].extend(value.split())
+            continue
         found.setdefault(keyword, value.strip())
     defaults = SshdSettings()
     port_text = found.get("port", "").split()[0] if found.get("port") else ""
     files = tuple(found["authorizedkeysfile"].split()) if found.get("authorizedkeysfile") else ()
+    force = found.get("forcecommand")
     return SshdSettings(
         port=int(port_text)
         if port_text.isdigit() and 0 < int(port_text) < 65536
@@ -168,11 +289,30 @@ def _parse_sshd(lines: list[str], source: str) -> SshdSettings:
         permit_root_login=found.get("permitrootlogin", defaults.permit_root_login).lower(),
         authorized_keys_files=files or defaults.authorized_keys_files,
         source=source,
+        allow_stream_local_forwarding=found.get(
+            "allowstreamlocalforwarding", defaults.allow_stream_local_forwarding
+        ).lower(),
+        permit_open=tuple(found["permitopen"].split())
+        if found.get("permitopen")
+        else defaults.permit_open,
+        permit_tty=found.get("permittty", defaults.permit_tty).lower(),
+        x11_forwarding=found.get("x11forwarding", defaults.x11_forwarding).lower(),
+        allow_agent_forwarding=found.get(
+            "allowagentforwarding", defaults.allow_agent_forwarding
+        ).lower(),
+        force_command=None if force is None or force.lower() == "none" else force,
+        allow_users=tuple(lists["allowusers"]),
+        deny_users=tuple(lists["denyusers"]),
+        allow_groups=tuple(lists["allowgroups"]),
+        deny_groups=tuple(lists["denygroups"]),
     )
 
 
 def read_sshd_settings(
-    runner: CommandRunner | None = None, config_path: Path = SSHD_CONFIG
+    runner: CommandRunner | None = None,
+    config_path: Path = SSHD_CONFIG,
+    *,
+    user: str | None = None,
 ) -> SshdSettings:
     """
     Learn sshd's effective settings: ``sshd -T``, else its config file, else defaults.
@@ -180,13 +320,24 @@ def read_sshd_settings(
     Args:
         runner: The runner ``sshd -T`` goes through.
         config_path: The file read when ``sshd -T`` cannot run.
+        user: Evaluate for this account (``sshd -T -C user=...``), so the
+            ``Match`` blocks that apply to it count - which is where Noust's
+            own restrictions on the tunnel account live, and where an
+            ``AllowUsers`` elsewhere would shut it out. None reads the global
+            section only.
 
     Returns:
         The settings.
     """
-    result = (runner or get_runner()).run(["sshd", "-T"], timeout=SSHD_TIMEOUT)
+    argv = ["sshd", "-T"]
+    if user is not None:
+        argv += [
+            "-C",
+            f"user={validate_ssh_user(user)},host={EVALUATE_HOST},addr={EVALUATE_ADDR}",
+        ]
+    result = (runner or get_runner()).run(argv, timeout=SSHD_TIMEOUT)
     if result.success and result.stdout.strip():
-        return _parse_sshd(result.stdout.splitlines(), "sshd -T")
+        return _parse_sshd(result.stdout.splitlines(), " ".join(argv[:3]))
     try:
         text = config_path.read_text(encoding="utf-8")
     except OSError:
@@ -194,19 +345,43 @@ def read_sshd_settings(
     return _parse_sshd(text.splitlines(), str(config_path))
 
 
-def sshd_blockers(settings: SshdSettings, user: str) -> list[str]:
+def _matches(name: str, patterns: tuple[str, ...]) -> bool:
+    """
+    Report whether a name matches any sshd access-list pattern.
+
+    Args:
+        name: An account or group name.
+        patterns: ``AllowUsers``-style patterns (``*`` and ``?``; a
+            ``user@host`` entry is compared on its user part).
+
+    Returns:
+        True when one matches.
+    """
+    return any(
+        fnmatch.fnmatchcase(name, pattern.partition("@")[0]) for pattern in patterns if pattern
+    )
+
+
+def sshd_blockers(
+    settings: SshdSettings, user: str, groups: tuple[str, ...] = (), *, tunnel: bool = False
+) -> list[str]:
     """
     List what in sshd's configuration would stop the central's tunnel.
 
     Args:
-        settings: sshd's settings.
+        settings: sshd's settings for the account (``-C``).
         user: The account the key is installed for.
+        groups: The account's groups, for ``AllowGroups``/``DenyGroups``.
+        tunnel: The account is Noust's tunnel account: forwarding is its own
+            ``Match`` block's to allow, so a global ban is not a blocker.
 
     Returns:
         One actionable sentence per problem.
     """
     blockers: list[str] = []
-    if settings.disable_forwarding or settings.allow_tcp_forwarding in ("no", "remote"):
+    if not tunnel and (
+        settings.disable_forwarding or settings.allow_tcp_forwarding in ("no", "remote")
+    ):
         blockers.append(
             "sshd does not allow local TCP forwarding (AllowTcpForwarding or "
             "DisableForwarding), which is all the central's key may do. Set "
@@ -215,8 +390,32 @@ def sshd_blockers(settings: SshdSettings, user: str) -> list[str]:
         )
     if user == "root" and settings.permit_root_login == "no":
         blockers.append(
-            "sshd refuses root logins (PermitRootLogin no). Authorize for another account "
-            "with --ssh-user, or allow key logins for root (PermitRootLogin prohibit-password)."
+            "sshd refuses root logins (PermitRootLogin no). Authorize for the tunnel "
+            f"account instead (drop --ssh-user root: {TUNNEL_USER} is the default), or "
+            "allow key logins for root (PermitRootLogin prohibit-password)."
+        )
+    reload_hint = "reload sshd (systemctl reload ssh, or sshd) and authorize again."
+    if settings.allow_users and not _matches(user, settings.allow_users):
+        blockers.append(
+            f"sshd only lets these accounts in (AllowUsers {' '.join(settings.allow_users)}), "
+            f"and {user} is not one of them. Add {user} to AllowUsers, then {reload_hint}"
+        )
+    if _matches(user, settings.deny_users):
+        blockers.append(
+            f"sshd refuses {user} (DenyUsers {' '.join(settings.deny_users)}). "
+            f"Remove it from DenyUsers, then {reload_hint}"
+        )
+    if settings.allow_groups and not any(_matches(g, settings.allow_groups) for g in groups):
+        blockers.append(
+            f"sshd only lets members of these groups in (AllowGroups "
+            f"{' '.join(settings.allow_groups)}), and {user} is in none of them "
+            f"({', '.join(groups) or 'no group'}). Add one of its groups to AllowGroups, "
+            f"then {reload_hint}"
+        )
+    if any(_matches(g, settings.deny_groups) for g in groups):
+        blockers.append(
+            f"sshd refuses a group {user} is in (DenyGroups {' '.join(settings.deny_groups)}). "
+            f"Remove it from DenyGroups, then {reload_hint}"
         )
     return blockers
 
@@ -358,7 +557,12 @@ def _locked_for_write(path: Path) -> Iterator[None]:
         return
 
     directory = locks_directory()
-    get_fs().make_dir(directory, mode=0o700, parents=True)
+    try:
+        get_fs().make_dir(directory, mode=0o700, parents=True)
+    except FileExistsError:
+        # Another authorize for another central created it in the meantime:
+        # the directory is there, which is all this needs.
+        pass
     digest = hashlib.sha256(str(path).encode("utf-8")).hexdigest()[:16]
     lock_path = directory / f"authorized-keys-{digest}.lock"
     # O_NOFOLLOW: the directory is root's, but a link planted there must not
@@ -419,6 +623,9 @@ class AuthorizedKeys:
             None to leave them root's (a file outside the account's home).
         fs: The filesystem seam.
         runner: The runner ``chown`` goes through.
+        mode: The file's mode: 0600 in a home, 0644 for the tunnel
+            account's root-owned file, which sshd reads as that account.
+        dir_mode: Mode of the directory when this creates it.
     """
 
     def __init__(
@@ -428,9 +635,13 @@ class AuthorizedKeys:
         *,
         fs: FileSystem | None = None,
         runner: CommandRunner | None = None,
+        mode: int = AUTHORIZED_KEYS_MODE,
+        dir_mode: int = SSH_DIR_MODE,
     ) -> None:
         self.path = path
         self.owner = owner
+        self.mode = mode
+        self.dir_mode = dir_mode
         self._fs = fs
         self._runner = runner
 
@@ -483,7 +694,7 @@ class AuthorizedKeys:
 
     def write(self, text: str | None) -> None:
         """
-        Replace the file's content atomically, 0600, owned by the account.
+        Replace the file's content atomically, with its mode, owned by the account.
 
         Args:
             text: The new content, or None to remove the file.
@@ -493,9 +704,15 @@ class AuthorizedKeys:
             return
         directory = self.path.parent
         if not directory.exists():
-            self.fs.make_dir(directory, mode=SSH_DIR_MODE, parents=True)
+            self.fs.make_dir(directory, mode=self.dir_mode, parents=True)
+            # make_dir's mode passes through the umask; sshd needs exactly this.
+            self.fs.chmod(directory, self.dir_mode)
             self._chown(directory)
-        self.fs.write_text(self.path, text, mode=AUTHORIZED_KEYS_MODE)
+        self.fs.write_text(self.path, text, mode=self.mode)
+        if self.mode != AUTHORIZED_KEYS_MODE:
+            # Likewise: a 0644 file created under umask 077 is 0600, which the
+            # tunnel account could not read.
+            self.fs.chmod(self.path, self.mode)
         self._chown(self.path)
 
     def would_change(self, line: str, central: str) -> bool:
@@ -598,6 +815,25 @@ def _account(user: str, passwd: Callable[[str], pwd.struct_passwd]) -> pwd.struc
         ) from exc
 
 
+def _groups_of(account: pwd.struct_passwd) -> tuple[str, ...]:
+    """
+    Name an account's groups, primary first, for ``AllowGroups``.
+
+    Args:
+        account: The account.
+
+    Returns:
+        The group names this server knows.
+    """
+    names: list[str] = []
+    try:
+        names.append(grp.getgrgid(account.pw_gid).gr_name)
+    except KeyError:
+        pass
+    names += [group.gr_name for group in grp.getgrall() if account.pw_name in group.gr_mem]
+    return tuple(dict.fromkeys(names))
+
+
 def _authorized_keys_for(
     account: pwd.struct_passwd,
     settings: SshdSettings,
@@ -622,6 +858,486 @@ def _authorized_keys_for(
     return AuthorizedKeys(
         path, (account.pw_uid, account.pw_gid) if owned else None, fs=fs, runner=runner
     )
+
+
+def tunnel_keys_file(
+    user: str,
+    *,
+    keys_dir: Path = TUNNEL_KEYS_DIR,
+    fs: FileSystem | None = None,
+    runner: CommandRunner | None = None,
+) -> AuthorizedKeys:
+    """
+    Build the editor of the tunnel account's key file: root's, readable by sshd as the account.
+
+    Args:
+        user: The tunnel account.
+        keys_dir: Where the key files are.
+        fs: The filesystem seam.
+        runner: The runner.
+
+    Returns:
+        The editor of ``<keys_dir>/<user>.keys``.
+    """
+    return AuthorizedKeys(
+        keys_dir / f"{validate_ssh_user(user)}.keys",
+        None,
+        fs=fs,
+        runner=runner,
+        mode=TUNNEL_KEYS_MODE,
+        dir_mode=TUNNEL_KEYS_DIR_MODE,
+    )
+
+
+# ---------------------------------------------------------------------------
+# The tunnel account
+# ---------------------------------------------------------------------------
+
+
+def _nologin_shell() -> str:
+    """
+    Pick the shell a new tunnel account gets.
+
+    Returns:
+        The first ``nologin`` this server has; ``/usr/sbin/nologin`` when
+        none is found (useradd records it either way; sshd then refuses a
+        session, which is all a tunnel account needs).
+    """
+    for candidate in NOLOGIN_SHELLS:
+        if Path(candidate).exists():
+            return candidate
+    return NOLOGIN_SHELLS[0]
+
+
+def _refuse_login_shell(account: pwd.struct_passwd) -> None:
+    """
+    Refuse a tunnel account someone can log in to.
+
+    Args:
+        account: The existing account.
+
+    Raises:
+        NodeError: When its shell is not one that lets nobody in.
+    """
+    if account.pw_shell in NO_LOGIN_SHELLS:
+        return
+    user = account.pw_name
+    raise NodeError(
+        f"The account {user} exists and can log in (its shell is {account.pw_shell})",
+        details=(
+            f"{user} is meant for centrals' tunnels alone. Give it a shell that lets "
+            f"nobody in (usermod --shell /usr/sbin/nologin {user}) if it is yours to "
+            "change, or authorize for another dedicated account with --ssh-user."
+        ),
+    )
+
+
+def ensure_tunnel_account(
+    user: str,
+    *,
+    runner: CommandRunner,
+    passwd: Callable[[str], pwd.struct_passwd],
+    dry_run: bool,
+) -> tuple[pwd.struct_passwd, bool]:
+    """
+    Create the tunnel account, or check the one that exists.
+
+    A system account with its own group, no home (``/nonexistent``) and a
+    shell that lets nobody in. Its password field is set to ``*`` every time:
+    no password matches it, and unlike the ``!`` useradd leaves, sshd never
+    reads it as a locked account and refuses the key (``UsePAM no``).
+
+    Args:
+        user: The account's name.
+        runner: The runner ``useradd``/``usermod`` go through.
+        passwd: Account lookup.
+        dry_run: Rehearse: an account that would be created is described,
+            not looked up.
+
+    Returns:
+        The account, and whether it was created now.
+
+    Raises:
+        NodeError: When an account of that name exists and can log in, or
+            the account cannot be created.
+    """
+    user = validate_ssh_user(user)
+    created = False
+    try:
+        account: pwd.struct_passwd | None = passwd(user)
+    except KeyError:
+        account = None
+    if account is not None:
+        _refuse_login_shell(account)
+    try:
+        if account is None:
+            runner.run(
+                [
+                    "useradd",
+                    "--system",
+                    "--user-group",
+                    "--no-create-home",
+                    "--home-dir",
+                    TUNNEL_HOME,
+                    "--shell",
+                    _nologin_shell(),
+                    "--comment",
+                    "Noust fleet tunnel",
+                    user,
+                ],
+                timeout=SSHD_TIMEOUT,
+                check=True,
+            )
+            created = True
+        runner.run(["usermod", "--password", "*", user], timeout=SSHD_TIMEOUT, check=True)
+    except CommandError as exc:
+        raise NodeError(
+            f"Could not prepare the tunnel account {user}",
+            details="useradd and usermod (shadow-utils) must be installed; run as root.",
+            output=exc.details,
+        ) from exc
+    if account is None:
+        try:
+            account = passwd(user)
+        except KeyError as exc:
+            if not dry_run:
+                raise NodeError(
+                    f"The account {user} was not found after it was created",
+                    details="Check /etc/passwd and the output of 'getent passwd "
+                    f"{user}', then authorize again.",
+                ) from exc
+            account = pwd.struct_passwd((user, "*", 0, 0, "", TUNNEL_HOME, _nologin_shell()))
+    return account, created
+
+
+# ---------------------------------------------------------------------------
+# The tunnel account's restrictions in sshd
+# ---------------------------------------------------------------------------
+
+
+def tunnel_policy_block(user: str, console_port: int, keys_dir: Path = TUNNEL_KEYS_DIR) -> str:
+    """
+    Spell the ``Match User`` block that restricts the tunnel account in sshd itself.
+
+    Args:
+        user: The tunnel account.
+        console_port: The console's loopback port, the only place it may reach.
+        keys_dir: Where its key file is.
+
+    Returns:
+        The block, ending with a newline.
+    """
+    lines = [
+        f"Match User {validate_ssh_user(user)}",
+        f"    AuthorizedKeysFile {keys_dir}/%u.keys",
+        "    PubkeyAuthentication yes",
+        "    AuthenticationMethods publickey",
+        "    DisableForwarding no",
+        "    AllowTcpForwarding local",
+        "    AllowStreamLocalForwarding no",
+        f"    PermitOpen 127.0.0.1:{int(console_port)}",
+        "    PermitListen none",
+        "    GatewayPorts no",
+        "    PermitTunnel no",
+        "    PermitTTY no",
+        "    X11Forwarding no",
+        "    AllowAgentForwarding no",
+        "    PermitUserRC no",
+        f"    ForceCommand {FORCED_COMMAND}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _includes(sshd_config: Path, dropin: Path) -> bool:
+    """
+    Report whether sshd_config includes a fragment at this path.
+
+    Args:
+        sshd_config: The main configuration file.
+        dropin: The fragment.
+
+    Returns:
+        True when an ``Include`` pattern names it.
+    """
+    try:
+        text = sshd_config.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    for raw in text.splitlines():
+        fields = raw.strip().split()
+        if not fields or fields[0].lower() != "include":
+            continue
+        for pattern in fields[1:]:
+            absolute = pattern if pattern.startswith("/") else str(sshd_config.parent / pattern)
+            if fnmatch.fnmatchcase(str(dropin), absolute):
+                return True
+    return False
+
+
+def _without_block(text: str) -> str:
+    """
+    Remove Noust's marked block from sshd_config's text.
+
+    Args:
+        text: The file's content.
+
+    Returns:
+        The content without the block, ending with a newline when not empty.
+    """
+    kept: list[str] = []
+    inside = False
+    for line in text.splitlines():
+        if line.strip() == POLICY_BEGIN:
+            inside = True
+            continue
+        if inside and line.strip() == POLICY_END:
+            inside = False
+            continue
+        if not inside:
+            kept.append(line)
+    while kept and not kept[-1].strip():
+        kept.pop()
+    return "\n".join(kept) + "\n" if kept else ""
+
+
+@dataclass
+class SshdPolicy:
+    """
+    Where the tunnel account's restrictions are written, and what was there before.
+
+    Attributes:
+        path: The fragment, or sshd_config itself when it includes none.
+        previous: The file's content before, None when it did not exist.
+        content: The content it gets.
+    """
+
+    path: Path
+    previous: str | None
+    content: str
+
+    @property
+    def changed(self) -> bool:
+        """Whether writing it changes the file."""
+        return self.previous != self.content
+
+
+def plan_tunnel_policy(
+    user: str,
+    console_port: int,
+    *,
+    sshd_config: Path = SSHD_CONFIG,
+    dropin_dir: Path = SSHD_DROPIN_DIR,
+    keys_dir: Path = TUNNEL_KEYS_DIR,
+) -> SshdPolicy:
+    """
+    Decide where the tunnel account's ``Match`` block goes, and what the file becomes.
+
+    Args:
+        user: The tunnel account.
+        console_port: The console's loopback port.
+        sshd_config: sshd's main configuration file.
+        dropin_dir: sshd's fragment directory.
+        keys_dir: Where the account's key file is.
+
+    Returns:
+        The plan; nothing is written.
+
+    Raises:
+        NodeError: When a file on the way is a symlink.
+    """
+    block = tunnel_policy_block(user, console_port, keys_dir)
+    dropin = dropin_dir / SSHD_DROPIN_NAME
+    # No sshd_config at all is a distribution that keeps it under /usr (openSUSE's
+    # /usr/etc/ssh), which includes the fragment directory itself; creating one
+    # here would replace the vendor's whole configuration. Whether the fragment
+    # is read is checked afterwards with sshd -T either way.
+    main_missing = not sshd_config.exists() and not sshd_config.is_symlink()
+    if dropin_dir.is_dir() and (main_missing or _includes(sshd_config, dropin)):
+        header = (
+            "# Generated by Noust: the account centrals' SSH tunnels log in as.\n"
+            "# 'noust fleet authorize' writes this file; changes made here are replaced.\n"
+        )
+        return SshdPolicy(dropin, _read_no_follow(dropin), header + block)
+    if main_missing:
+        raise NodeError(
+            f"sshd's configuration was not found ({sshd_config}, {dropin_dir})",
+            details="Install OpenSSH's server (openssh-server), then authorize again.",
+        )
+    previous = _read_no_follow(sshd_config)
+    base = _without_block(previous or "")
+    # Last in the file: every line after a Match belongs to it.
+    marked = f"{POLICY_BEGIN}\n{block}{POLICY_END}\n"
+    content = f"{base}\n{marked}" if base else marked
+    return SshdPolicy(sshd_config, previous, content)
+
+
+def _write_policy(policy: SshdPolicy, text: str | None, fs: FileSystem) -> None:
+    """
+    Write a policy file, or remove it.
+
+    Args:
+        policy: The plan.
+        text: The content, or None to remove the file.
+        fs: The filesystem seam.
+    """
+    if text is None:
+        fs.remove(policy.path, missing_ok=True)
+        return
+    try:
+        mode = stat.S_IMODE(policy.path.lstat().st_mode)
+    except FileNotFoundError:
+        mode = SSHD_POLICY_MODE
+    fs.write_text(policy.path, text, mode=mode)
+    fs.chmod(policy.path, mode)
+
+
+def reload_sshd(runner: CommandRunner) -> str | None:
+    """
+    Reload sshd so it reads its configuration again; live sessions survive a reload.
+
+    Args:
+        runner: The runner.
+
+    Returns:
+        The unit reloaded, or None when none is running (socket activation:
+        the next connection starts sshd with the new configuration).
+
+    Raises:
+        NodeError: When the reload fails.
+    """
+    for unit in SSHD_UNITS:
+        state = runner.run(["systemctl", "is-active", unit], timeout=SSHD_TIMEOUT)
+        if state.stdout.strip() != "active":
+            continue
+        try:
+            runner.run(["systemctl", "reload", unit], timeout=SSHD_TIMEOUT, check=True)
+        except CommandError as exc:
+            raise NodeError(
+                f"sshd ({unit}) could not be reloaded",
+                details=f"See 'journalctl -u {unit} -n 50'.",
+                output=exc.details,
+            ) from exc
+        return unit
+    return None
+
+
+def tunnel_policy_problems(settings: SshdSettings, console_port: int, keys_dir: Path) -> list[str]:
+    """
+    Compare what sshd applies to the tunnel account with what Noust's block asks for.
+
+    Args:
+        settings: ``sshd -T -C user=<tunnel account>``.
+        console_port: The console's loopback port.
+        keys_dir: Where the account's key file is.
+
+    Returns:
+        One sentence per setting sshd applies differently: an earlier
+        ``Match`` block or file set it first.
+    """
+    expected: list[tuple[str, object, object]] = [
+        ("AllowTcpForwarding", settings.allow_tcp_forwarding, "local"),
+        ("DisableForwarding", "yes" if settings.disable_forwarding else "no", "no"),
+        ("AllowStreamLocalForwarding", settings.allow_stream_local_forwarding, "no"),
+        ("PermitOpen", " ".join(settings.permit_open), f"127.0.0.1:{int(console_port)}"),
+        ("PermitTTY", settings.permit_tty, "no"),
+        ("X11Forwarding", settings.x11_forwarding, "no"),
+        ("AllowAgentForwarding", settings.allow_agent_forwarding, "no"),
+        ("ForceCommand", settings.force_command or "none", FORCED_COMMAND),
+        ("AuthorizedKeysFile", " ".join(settings.authorized_keys_files), f"{keys_dir}/%u.keys"),
+    ]
+    return [
+        f"sshd applies '{name} {actual}' to the tunnel account, not '{name} {wanted}': "
+        "another Match block or configuration file sets it first."
+        for name, actual, wanted in expected
+        if actual != wanted
+    ]
+
+
+def apply_tunnel_policy(
+    user: str,
+    console_port: int,
+    *,
+    runner: CommandRunner,
+    fs: FileSystem,
+    sshd_config: Path = SSHD_CONFIG,
+    dropin_dir: Path = SSHD_DROPIN_DIR,
+    keys_dir: Path = TUNNEL_KEYS_DIR,
+    dry_run: bool = False,
+) -> SshdPolicy:
+    """
+    Write the tunnel account's ``Match`` block, check it, reload sshd and verify it applies.
+
+    ``sshd -t`` validates the whole configuration before sshd is reloaded,
+    and ``sshd -T -C user=<account>`` afterwards shows what sshd really
+    applies to the account - reading the files is not enough, since an
+    earlier file or ``Match`` wins. Any failure puts the file back as it was
+    (and reloads again when it had reloaded), so a refused change leaves sshd
+    exactly as it found it.
+
+    Args:
+        user: The tunnel account.
+        console_port: The console's loopback port.
+        runner: The runner.
+        fs: The filesystem seam.
+        sshd_config: sshd's main configuration file.
+        dropin_dir: sshd's fragment directory.
+        keys_dir: Where the account's key file is.
+        dry_run: Plan only: nothing is written, tested or reloaded.
+
+    Returns:
+        What was written (or would be).
+
+    Raises:
+        NodeError: When sshd refuses the configuration, cannot be reloaded,
+            or does not apply the block to the account. Details carry sshd's
+            own words or the settings that differ.
+    """
+    policy = plan_tunnel_policy(
+        user, console_port, sshd_config=sshd_config, dropin_dir=dropin_dir, keys_dir=keys_dir
+    )
+    if dry_run:
+        return policy
+    if policy.changed:
+        _write_policy(policy, policy.content, fs)
+    reloaded = False
+    try:
+        test = runner.run(["sshd", "-t"], timeout=SSHD_TIMEOUT)
+        if not test.success:
+            raise NodeError(
+                "sshd refused the tunnel account's configuration; nothing was changed",
+                details=f"The file {policy.path} was put back as it was. sshd said:",
+                output=(test.stderr or test.stdout).strip(),
+            )
+        if policy.changed:
+            reloaded = reload_sshd(runner) is not None
+        problems = tunnel_policy_problems(
+            read_sshd_settings(runner, sshd_config, user=user), console_port, keys_dir
+        )
+        if problems:
+            raise NodeError(
+                f"sshd does not apply Noust's restrictions to {user}",
+                details="\n".join(
+                    [
+                        *problems,
+                        f"{policy.path} was put back as it was. Find what sets these for "
+                        f"{user} ('sshd -T -C user={user},host={EVALUATE_HOST},"
+                        f"addr={EVALUATE_ADDR}' shows the result), remove it, and authorize "
+                        "again.",
+                    ]
+                ),
+            )
+    except NodeError:
+        if policy.changed:
+            _write_policy(policy, policy.previous, fs)
+            if reloaded:
+                reload_sshd(runner)
+        raise
+    return policy
+
+
+# ---------------------------------------------------------------------------
+# Tokens
+# ---------------------------------------------------------------------------
 
 
 def token_base_name(central: str) -> str:
@@ -695,6 +1411,88 @@ def next_token_name(tokens: TokenManager, central: str) -> str:
     return f"{base}.{number}"
 
 
+# ---------------------------------------------------------------------------
+# Running on the central that issued the key
+# ---------------------------------------------------------------------------
+
+
+def issued_here(key: PublicKey, central: str) -> str | None:
+    """
+    Tell whether this server is the central that issued a key, and how that is known.
+
+    A central does not enroll itself; ``noust fleet authorize`` pasted into
+    the wrong terminal (the central's own, or ``docker exec`` into the central's
+    container) would otherwise install the central's key on the central.
+    Two signs, strongest first: this server holds that very key for one of
+    its nodes (needs its secrets readable), or it is a central by that name
+    managing nodes (works on a sealed, locked central: only names are read).
+
+    Args:
+        key: The key being authorized.
+        central: The ``--name`` given.
+
+    Returns:
+        The reason, or None when nothing says this server is that central.
+    """
+    from noust.core.secrets import SecretStore, secrets_dir
+    from noust.core.store import StoreError, get_store
+    from noust.fleet.keys import NODES_NAMESPACE, NodeKeys
+
+    try:
+        nodes_dir = secrets_dir() / NODES_NAMESPACE
+        registered = bool(get_store().list_nodes())
+    except StoreError:
+        # No store yet (a rehearsal does not create one): no fleet state, so
+        # not a central.
+        return None
+    names = sorted(p.name for p in nodes_dir.iterdir() if p.is_dir()) if nodes_dir.is_dir() else []
+    held = NodeKeys(SecretStore())
+    for name in names:
+        try:
+            public = held.public_key(name)
+        except (NodeError, ConfigError, SealError):
+            # Sealed and locked, or not a key: the weaker sign below decides.
+            continue
+        if public is not None and public.fingerprint == key.fingerprint:
+            return f"it holds this very key, for its node {name}"
+    try:
+        this = central_name()
+    except NodeError:
+        return None
+    named = key.comment.removeprefix("noust-central@") if key.comment else ""
+    manages = bool(names) or registered
+    if manages and this in (named, central):
+        return f"it is the central '{this}' and manages nodes"
+    return None
+
+
+def ceiling_in_force(store: NoustStore | None = None) -> FleetAccess:
+    """
+    Read this server's ceiling for a rehearsal or a report, where there may be no store yet.
+
+    Not for enforcement: :func:`noust.fleet.policy.current_access` is, and it
+    fails rather than guess.
+
+    Args:
+        store: The store; the process-wide one by default.
+
+    Returns:
+        The ceiling; the default when the store was never created (a
+        ``--dry-run`` on a fresh server does not create it).
+    """
+    from noust.core.store import StoreError
+
+    try:
+        return current_access(store)
+    except StoreError:
+        return DEFAULT_ACCESS
+
+
+# ---------------------------------------------------------------------------
+# Authorize and deauthorize
+# ---------------------------------------------------------------------------
+
+
 @dataclass
 class AuthorizeResult:
     """
@@ -713,6 +1511,14 @@ class AuthorizeResult:
         host_key_fingerprint: This server's host key fingerprint.
         key_changed: False when the exact line was already there.
         replaced_tokens: Older tokens of this central, now revoked.
+        access: This server's ceiling for its centrals, as now in force
+            (:meth:`~noust.fleet.policy.FleetAccess.to_dict`).
+        tunnel_account_created: Whether the tunnel account was created now.
+        sshd_policy: The file holding the tunnel account's ``Match`` block,
+            None for another account.
+        moved_from: Other key files this central's lines were removed from
+            (a central moving from root to the tunnel account).
+        warnings: What the operator should know and could not be done.
     """
 
     join_code: str
@@ -727,6 +1533,11 @@ class AuthorizeResult:
     host_key_fingerprint: str
     key_changed: bool
     replaced_tokens: list[str] = field(default_factory=list)
+    access: dict[str, Any] = field(default_factory=dict)
+    tunnel_account_created: bool = False
+    sshd_policy: str | None = None
+    moved_from: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -738,6 +1549,47 @@ class AuthorizeResult:
         return asdict(self)
 
 
+def _known_key_files(
+    *,
+    except_user: str | None,
+    runner: CommandRunner | None,
+    fs: FileSystem | None,
+    sshd_config: Path,
+    passwd: Callable[[str], pwd.struct_passwd],
+    keys_dir: Path,
+) -> list[AuthorizedKeys]:
+    """
+    List the key files Noust may have put a central's line in: root's, and the tunnel account's.
+
+    Args:
+        except_user: Leave this account's file out.
+        runner: The runner.
+        fs: The filesystem seam.
+        sshd_config: Read when ``sshd -T`` cannot run.
+        passwd: Account lookup.
+        keys_dir: Where the tunnel account's key file is.
+
+    Returns:
+        The editors of the files that exist.
+    """
+    files: list[AuthorizedKeys] = []
+    if except_user != TUNNEL_USER:
+        tunnel = tunnel_keys_file(TUNNEL_USER, keys_dir=keys_dir, fs=fs, runner=runner)
+        if tunnel.path.exists():
+            files.append(tunnel)
+    if except_user != "root":
+        try:
+            root = passwd("root")
+        except KeyError:
+            return files
+        editor = _authorized_keys_for(
+            root, read_sshd_settings(runner, sshd_config, user="root"), fs, runner
+        )
+        if editor.path.exists():
+            files.append(editor)
+    return files
+
+
 def authorize(
     *,
     central_key: str,
@@ -745,20 +1597,32 @@ def authorize(
     tokens: TokenManager,
     ensure_console: Callable[[], int],
     confirm_replace: Callable[[list[str]], bool],
-    ssh_user: str = "root",
+    ssh_user: str = TUNNEL_USER,
+    allow_root: bool = False,
+    access: FleetAccess | None = None,
     runner: CommandRunner | None = None,
     fs: FileSystem | None = None,
     host_key_file: Path = HOST_KEY_FILE,
     sshd_config: Path = SSHD_CONFIG,
+    sshd_dropin_dir: Path = SSHD_DROPIN_DIR,
+    tunnel_keys_dir: Path = TUNNEL_KEYS_DIR,
     passwd: Callable[[str], pwd.struct_passwd] = pwd.getpwnam,
+    store: NoustStore | None = None,
+    self_check: Callable[[PublicKey, str], str | None] | None = issued_here,
+    progress: Progress | None = None,
+    actor: str | None = None,
     dry_run: bool = False,
 ) -> AuthorizeResult:
     """
     Authorize a central on this server and build its join code.
 
-    Every check runs before anything changes; the console is enabled next,
-    then the key line, then the token. A token that cannot be issued puts
-    ``authorized_keys`` back as it was.
+    Every check runs before anything changes - the key, the name, whether
+    this is the central that issued the key, sshd's settings for the
+    account, the confirmation to replace an older token. Then: the console
+    as a loopback service, the tunnel account and its sshd restrictions, the
+    key line, the token and the ceiling. A token that cannot be issued puts
+    the key file back as it was; sshd restrictions that do not apply are put
+    back as they were.
 
     Args:
         central_key: The central's public key line for this node.
@@ -768,26 +1632,67 @@ def authorize(
             returns its port; raises when it cannot.
         confirm_replace: Asked with the names of this central's live tokens,
             when there are any; False cancels before anything changes.
-        ssh_user: The account the central logs in as.
-        runner: The runner ``sshd -T`` and ``chown`` go through.
+        ssh_user: The account the central logs in as: the tunnel account by
+            default, created when missing.
+        allow_root: Accept ``ssh_user="root"``. Its key, even restricted, can
+            create Unix sockets as root (see the module docstring).
+        access: This server's new ceiling for its centrals; None keeps the
+            one in force (admin when none was ever set).
+        runner: The runner ``sshd``, ``useradd``, ``systemctl`` and ``chown`` go through.
         fs: The filesystem seam.
         host_key_file: This server's ed25519 host key.
-        sshd_config: Read when ``sshd -T`` cannot run.
+        sshd_config: sshd's main configuration, also read when ``sshd -T``
+            cannot run.
+        sshd_dropin_dir: sshd's fragment directory.
+        tunnel_keys_dir: Where the tunnel account's key file is.
         passwd: Account lookup.
-        dry_run: Rehearse: every check still runs, but the key line is never
-            written and no token is minted or revoked. The join code carries
-            :data:`DRY_RUN_TOKEN` instead, which nothing accepts.
+        store: The store the ceiling is kept in; the process-wide one by default.
+        self_check: Says why this server is the central that issued the key
+            (:func:`issued_here`), or None to skip the check.
+        progress: Told when each step starts: ``(step, total, what)``.
+        actor: Who authorizes, recorded with the ceiling.
+        dry_run: Rehearse: every check still runs, but nothing is written,
+            no account is created, sshd is not touched and no token is minted
+            or revoked. The join code carries :data:`DRY_RUN_TOKEN` instead,
+            which nothing accepts.
 
     Returns:
         What was done (or, under a rehearsal, what would be) and the join code.
 
     Raises:
         NodeError: When any input or precondition is wrong, the operator
-            cancels, or the token cannot be issued.
+            cancels, or a step fails (what it had changed is put back).
     """
     central = validate_central_name(central)
     key = parse_public_key(central_key, what="central key")
-    account = _account(ssh_user, passwd)
+    user = validate_ssh_user(ssh_user)
+    tunnel = user == TUNNEL_USER
+    if user == "root" and not allow_root:
+        raise NodeError(
+            "Refusing to authorize a central as root without --i-understand",
+            details=(
+                f"Use the default tunnel account ({TUNNEL_USER}) instead. A key in root's "
+                "authorized_keys, even restricted, can make sshd create a Unix socket as "
+                "root anywhere (ssh -R /etc/nologin:...), because permitlisten only limits "
+                f"TCP. {TUNNEL_USER} cannot, and its sshd block refuses Unix sockets. "
+                "Pass --i-understand to authorize root anyway."
+            ),
+        )
+    runner = runner or get_runner()
+    report = progress or (lambda step, total, what: None)
+    total = 6 if tunnel else 4
+
+    reason = self_check(key, central) if self_check is not None else None
+    if reason is not None:
+        raise NodeError(
+            "This server is the central that issued this key",
+            details=(
+                f"A central does not enroll itself: {reason}. Run the command on the server "
+                f"you want to add, not here (this is {local_node_name()}). Pass --allow-self "
+                "only to test a central against itself."
+            ),
+        )
+
     try:
         host_key = parse_public_key(
             host_key_file.read_text(encoding="utf-8"), what="SSH host key of this server"
@@ -798,25 +1703,68 @@ def authorize(
             details="Generate the missing host keys with 'ssh-keygen -A', reload sshd, "
             "and authorize again.",
         ) from exc
-    settings = read_sshd_settings(runner, sshd_config)
-    blockers = sshd_blockers(settings, account.pw_name)
+
+    report(1, total, f"Checking sshd for {user}")
+    if tunnel:
+        try:
+            existing: pwd.struct_passwd | None = passwd(user)
+        except KeyError:
+            existing = None
+        groups = _groups_of(existing) if existing is not None else (user,)
+    else:
+        existing = _account(user, passwd)
+        groups = _groups_of(existing)
+    settings = read_sshd_settings(runner, sshd_config, user=user)
+    blockers = sshd_blockers(settings, user, groups, tunnel=tunnel)
     if blockers:
         raise NodeError("sshd would refuse the central's tunnel", details="\n".join(blockers))
-    keys_file = _authorized_keys_for(account, settings, fs, runner)
+    if tunnel and existing is not None:
+        # Checked again when the account is prepared; here, before anything changes.
+        _refuse_login_shell(existing)
 
     older = live_fleet_tokens(tokens, central)
     if older and not confirm_replace([str(record["name"]) for record in older]):
         raise NodeError("Cancelled: nothing was changed")
 
+    report(2, total, "Making sure the console runs on 127.0.0.1 as a service")
     console_port = ensure_console()
+
+    created = False
+    policy: SshdPolicy | None = None
+    if tunnel:
+        report(3, total, f"Preparing the tunnel account {user}")
+        account, created = ensure_tunnel_account(
+            user, runner=runner, passwd=passwd, dry_run=dry_run
+        )
+        report(4, total, f"Restricting {user} in sshd")
+        policy = apply_tunnel_policy(
+            user,
+            console_port,
+            runner=runner,
+            fs=fs or get_fs(),
+            sshd_config=sshd_config,
+            dropin_dir=sshd_dropin_dir,
+            keys_dir=tunnel_keys_dir,
+            dry_run=dry_run,
+        )
+        keys_file = tunnel_keys_file(user, keys_dir=tunnel_keys_dir, fs=fs, runner=runner)
+    else:
+        account = existing if existing is not None else _account(user, passwd)
+        keys_file = _authorized_keys_for(account, settings, fs, runner)
+
     line = authorized_key_line(central, key, console_port)
+    report(total - 1, total, f"Installing the central's key in {keys_file.path}")
+    warnings: list[str] = []
+    moved_from: list[str] = []
     if dry_run:
         # Nothing is minted or written: the console step above already
         # refused to touch the machine under a rehearsal (it threads dry_run
         # through to 'noust web enable'), and this is the token store's own
         # chokepoint for the same promise, since it has no fs/runner seam.
         changed = keys_file.would_change(line, central)
+        report(total, total, f"Issuing the token {next_token_name(tokens, central)}")
         issued = {"token": DRY_RUN_TOKEN, "name": next_token_name(tokens, central)}
+        in_force = access or ceiling_in_force(store)
     else:
         # Locked from the read this rollback would restore through the
         # write that might undo it, so a concurrent authorize/deauthorize
@@ -824,6 +1772,7 @@ def authorize(
         with _locked_for_write(keys_file.path):
             previous = keys_file.read()
             changed = keys_file.install(line, central)
+            report(total, total, f"Issuing the token {next_token_name(tokens, central)}")
             try:
                 issued = tokens.create_fleet_token(next_token_name(tokens, central))
             except SecurityError as exc:
@@ -834,6 +1783,25 @@ def authorize(
                 ) from exc
         for record in older:
             tokens.revoke_api_token(int(record["id"]))
+        in_force = set_access(access, actor=actor, store=store) if access else current_access(store)
+        # One central, one account: the line it had in another account's
+        # file (root's, before 3.1) goes, now that the new one is in place.
+        for other in _known_key_files(
+            except_user=user,
+            runner=runner,
+            fs=fs,
+            sshd_config=sshd_config,
+            passwd=passwd,
+            keys_dir=tunnel_keys_dir,
+        ):
+            try:
+                if other.remove(central):
+                    moved_from.append(str(other.path))
+            except NodeError as exc:
+                warnings.append(
+                    f"The central's old line in {other.path} could not be removed "
+                    f"({exc.message}); remove it by hand: {exc.details}"
+                )
 
     code = JoinCode(
         ssh_host_key=host_key.bare,
@@ -860,6 +1828,11 @@ def authorize(
         host_key_fingerprint=host_key.fingerprint,
         key_changed=changed,
         replaced_tokens=[str(record["name"]) for record in older],
+        access=in_force.to_dict(),
+        tunnel_account_created=created,
+        sshd_policy=str(policy.path) if policy is not None else None,
+        moved_from=moved_from,
+        warnings=warnings,
     )
 
 
@@ -870,13 +1843,13 @@ class DeauthorizeResult:
 
     Attributes:
         central: The central's name.
-        authorized_keys: The file edited.
+        authorized_keys: The key files looked at.
         removed_keys: Key lines removed.
         revoked_tokens: Token names revoked.
     """
 
     central: str
-    authorized_keys: str
+    authorized_keys: list[str]
     removed_keys: int
     revoked_tokens: list[str]
 
@@ -894,10 +1867,11 @@ def deauthorize(
     *,
     central: str,
     tokens: TokenManager,
-    ssh_user: str = "root",
+    ssh_user: str | None = None,
     runner: CommandRunner | None = None,
     fs: FileSystem | None = None,
     sshd_config: Path = SSHD_CONFIG,
+    tunnel_keys_dir: Path = TUNNEL_KEYS_DIR,
     passwd: Callable[[str], pwd.struct_passwd] = pwd.getpwnam,
     dry_run: bool = False,
 ) -> DeauthorizeResult:
@@ -905,18 +1879,21 @@ def deauthorize(
     Stop trusting a central: remove its key lines and revoke its tokens.
 
     The central's tunnel stops at its next connection, and its requests stop
-    authenticating at once.
+    authenticating at once. The tunnel account and its sshd block stay: they
+    serve every central, and hold no key once the last one is gone.
 
     Args:
         central: The central's name.
         tokens: This server's token manager.
-        ssh_user: The account the key was installed for.
+        ssh_user: Only this account's key file; None looks in every file
+            Noust writes (the tunnel account's and root's).
         runner: The runner.
         fs: The filesystem seam.
         sshd_config: Read when ``sshd -T`` cannot run.
+        tunnel_keys_dir: Where the tunnel account's key file is.
         passwd: Account lookup.
         dry_run: Rehearse: report what would be removed and revoked without
-            touching ``authorized_keys`` or the token store.
+            touching a key file or the token store.
 
     Returns:
         What was removed (or, under a rehearsal, what would be).
@@ -925,24 +1902,41 @@ def deauthorize(
         NodeError: When the name or the account is invalid.
     """
     central = validate_central_name(central)
-    account = _account(ssh_user, passwd)
-    keys_file = _authorized_keys_for(account, read_sshd_settings(runner, sshd_config), fs, runner)
+    if ssh_user is None:
+        files = _known_key_files(
+            except_user=None,
+            runner=runner,
+            fs=fs,
+            sshd_config=sshd_config,
+            passwd=passwd,
+            keys_dir=tunnel_keys_dir,
+        )
+    elif validate_ssh_user(ssh_user) == TUNNEL_USER:
+        files = [tunnel_keys_file(TUNNEL_USER, keys_dir=tunnel_keys_dir, fs=fs, runner=runner)]
+    else:
+        account = _account(ssh_user, passwd)
+        files = [
+            _authorized_keys_for(
+                account, read_sshd_settings(runner, sshd_config, user=account.pw_name), fs, runner
+            )
+        ]
     live = live_fleet_tokens(tokens, central)
+    paths = [str(editor.path) for editor in files]
     if dry_run:
         return DeauthorizeResult(
             central=central,
-            authorized_keys=str(keys_file.path),
-            removed_keys=len(keys_file.lines_of(central)),
+            authorized_keys=paths,
+            removed_keys=sum(len(editor.lines_of(central)) for editor in files),
             revoked_tokens=[str(record["name"]) for record in live],
         )
-    removed = keys_file.remove(central)
+    removed = sum(editor.remove(central) for editor in files)
     revoked: list[str] = []
     for record in live:
         tokens.revoke_api_token(int(record["id"]))
         revoked.append(str(record["name"]))
     return DeauthorizeResult(
         central=central,
-        authorized_keys=str(keys_file.path),
+        authorized_keys=paths,
         removed_keys=removed,
         revoked_tokens=revoked,
     )

@@ -27,7 +27,7 @@ from fastapi.testclient import TestClient
 
 import noust.web.server as server_module
 from noust.core.config import Config
-from noust.core.notifier import NotificationEvent
+from noust.core.notifications.model import Notification
 from noust.deployers.deploy_events import DeployEvent, DeployEventKind
 from noust.web.jobs import Job, JobStatus, JobType
 from noust.web.server import DeploymentWitness, JobNotificationSubscriber
@@ -74,7 +74,7 @@ def make_job(
 
 
 @pytest.fixture
-def sent() -> list[NotificationEvent]:
+def sent() -> list[Notification]:
     """
     Returns:
         What the subscriber delivered.
@@ -92,7 +92,7 @@ def witness() -> DeploymentWitness:
 
 
 @pytest.fixture
-def subscriber(sent: list[NotificationEvent], witness: DeploymentWitness) -> Any:
+def subscriber(sent: list[Notification], witness: DeploymentWitness) -> Any:
     """
     Args:
         sent: The capture.
@@ -137,7 +137,7 @@ def run(
 def test_a_job_that_fails_before_the_recorder_opens_is_announced_once(
     subscriber: Any,
     witness: DeploymentWitness,
-    sent: list[NotificationEvent],
+    sent: list[Notification],
     job_type: JobType,
 ) -> None:
     """Nobody else will: no deployment row, no deployment event."""
@@ -147,13 +147,14 @@ def test_a_job_that_fails_before_the_recorder_opens_is_announced_once(
     assert len(sent) == 1
     assert sent[0].kind == "deploy_failed"
     assert sent[0].domain == "example.com"
-    assert "is busy" in sent[0].body
+    assert sent[0].excerpt is not None
+    assert "Application example.com is busy: deploy (pid 42)" in sent[0].excerpt.lines
 
 
 def test_an_unrecorded_failure_is_announced_in_the_configured_language(
     subscriber: Any,
     witness: DeploymentWitness,
-    sent: list[NotificationEvent],
+    sent: list[Notification],
     config: Config,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -165,32 +166,31 @@ def test_an_unrecorded_failure_is_announced_in_the_configured_language(
     subscriber(make_job(JobStatus.FAILED, JobType.DEPLOY, error="again"))
 
     assert len(sent) == 1
-    assert sent[0].title == "No se ha podido desplegar example.com"
+    assert (sent[0].title, sent[0].subject) == ("Despliegue fallido", "example.com")
     # The tool's own words are never translated.
-    assert "is busy" in sent[0].body
+    assert sent[0].excerpt is not None
+    assert "Application example.com is busy: deploy (pid 42)" in sent[0].excerpt.lines
 
 
 def test_an_unrecorded_failure_with_no_domain_names_the_job_instead(
     subscriber: Any,
     witness: DeploymentWitness,
-    sent: list[NotificationEvent],
+    sent: list[Notification],
 ) -> None:
-    """
-    No domain in metadata: the job's own English name is the fallback, but it
-    still goes through noust.core.messages rather than a bare f-string, so a
-    Spanish operator reads a Spanish sentence around it.
-    """
+    """No domain in metadata: a message with no subject, and no link to a page that is not there."""
     run(subscriber, JobType.DEPLOY, events=[], witness=witness, domain=None)
 
     assert len(sent) == 1
     assert sent[0].domain is None
+    assert sent[0].subject == ""
     assert sent[0].title == "Deploy failed"
+    assert sent[0].links == ()
 
 
 def test_an_unrecorded_failure_with_no_domain_in_spanish(
     subscriber: Any,
     witness: DeploymentWitness,
-    sent: list[NotificationEvent],
+    sent: list[Notification],
     config: Config,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -200,11 +200,11 @@ def test_an_unrecorded_failure_with_no_domain_in_spanish(
     run(subscriber, JobType.DEPLOY, events=[], witness=witness, domain=None)
 
     assert len(sent) == 1
-    assert sent[0].title == "Deploy ha fallado"
+    assert sent[0].title == "Despliegue fallido"
 
 
 def test_a_job_whose_deployment_was_recorded_is_left_to_the_recorder(
-    subscriber: Any, witness: DeploymentWitness, sent: list[NotificationEvent]
+    subscriber: Any, witness: DeploymentWitness, sent: list[Notification]
 ) -> None:
     """The recorder announced it, by job id."""
     failed = DeployEvent(kind=DeployEventKind.FAILED, domain="example.com", job_id="job-1")
@@ -214,7 +214,7 @@ def test_a_job_whose_deployment_was_recorded_is_left_to_the_recorder(
 
 
 def test_a_rollback_is_recognised_by_its_domain(
-    subscriber: Any, witness: DeploymentWitness, sent: list[NotificationEvent]
+    subscriber: Any, witness: DeploymentWitness, sent: list[Notification]
 ) -> None:
     """A rollback's history row carries no job id; the job's domain is enough."""
     started = DeployEvent(kind=DeployEventKind.STARTED, domain="example.com", trigger="rollback")
@@ -224,7 +224,7 @@ def test_a_rollback_is_recognised_by_its_domain(
 
 
 def test_another_applications_deployment_does_not_count(
-    subscriber: Any, witness: DeploymentWitness, sent: list[NotificationEvent]
+    subscriber: Any, witness: DeploymentWitness, sent: list[Notification]
 ) -> None:
     """Only this job's own deployment silences it."""
     other = DeployEvent(kind=DeployEventKind.FAILED, domain="other.example.com")
@@ -236,7 +236,7 @@ def test_another_applications_deployment_does_not_count(
 
 @pytest.mark.parametrize("job_type", [JobType.DEPLOY, JobType.UPDATE, JobType.ROLLBACK])
 def test_a_completed_deployment_job_is_never_announced_here(
-    subscriber: Any, sent: list[NotificationEvent], job_type: JobType
+    subscriber: Any, sent: list[Notification], job_type: JobType
 ) -> None:
     """Success always went through the recorder."""
     subscriber(make_job(JobStatus.RUNNING, job_type))
@@ -245,14 +245,12 @@ def test_a_completed_deployment_job_is_never_announced_here(
     assert sent == []
 
 
-def test_a_backup_restore_is_still_announced(
-    subscriber: Any, sent: list[NotificationEvent]
-) -> None:
+def test_a_backup_restore_is_still_announced(subscriber: Any, sent: list[Notification]) -> None:
     """``restore`` is a backup restore now, and nothing else announces it."""
     subscriber(make_job(JobStatus.RUNNING, JobType.RESTORE))
     subscriber(make_job(JobStatus.COMPLETED, JobType.RESTORE))
 
-    assert [event.kind for event in sent] == ["deploy_success"]
+    assert [event.kind for event in sent] == ["restore_success"]
 
 
 def test_the_witness_forgets_finished_jobs(subscriber: Any, witness: DeploymentWitness) -> None:

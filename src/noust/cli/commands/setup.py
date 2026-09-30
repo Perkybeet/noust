@@ -830,7 +830,8 @@ def _write_config(logger: Logger, choices: dict[str, Any]) -> list[str]:
     if ssl_email:
         config.set("ssl.email", ssl_email)
     config.set("webserver", choices.get("webserver_choice", "nginx"))
-    config.set("nodejs.package_managers", choices.get("package_managers", ["npm"]))
+    # The package managers picked are installed by the wizard; nothing ever
+    # read a record of them back, so none is written (nodejs.* is obsolete).
 
     # save() reports failure by returning False, having logged the reason. An
     # unchecked call is how a wizard ends up announcing a configuration file it

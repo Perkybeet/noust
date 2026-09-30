@@ -16,9 +16,12 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 import time
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -27,12 +30,21 @@ from noust.core.config import SYSTEMD_DIR, Config
 from noust.core.exceptions import MonitorError, NoustError
 from noust.core.fs import SECRET_MODE, get_fs
 from noust.core.logger import Logger
-from noust.core.messages import Locale, message, normalize_locale, plural
-from noust.core.notifier import NotificationEvent, Notifier
+from noust.core.notifications.composers import (
+    compose_certificate,
+    compose_disk,
+    compose_disk_recovered,
+    compose_unit_failure,
+    compose_unit_recovered,
+)
+from noust.core.notifications.context import NotificationContext
+from noust.core.notifications.model import Notification
+from noust.core.notifier import Notifier
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.utils import remove_file, write_file
 from noust.managers.cert_manager import CertManager
 from noust.managers.service_manager import ServiceManager
+from noust.monitor.collector import MetricsCollector, create_collector
 from noust.monitor.email_notifier import EmailNotifier
 from noust.monitor.metrics import (
     SYSTEMCTL_TIMEOUT,
@@ -84,6 +96,10 @@ PURGE_INTERVAL_SECONDS = 3_600
 #: at debug level. Past this, a full disk is a matter of days.
 DISK_ALERT_PERCENT = 90.0
 
+#: Lines of a failed unit's journal fetched for its notification; the renderers
+#: show fewer, the console shows all.
+JOURNAL_EXCERPT_LINES = 20
+
 #: A certificate with fewer days than this left is worth an email; Let's
 #: Encrypt itself starts warning at 30 days and certbot's own renewal cron
 #: runs from 30 days out, so 14 catches a renewal that has been silently
@@ -97,13 +113,24 @@ CERT_EXPIRY_WARNING_DAYS = 14
 #: it" is the whole implementation.
 CERT_STATE_FILE_NAME = "cert-notifications.json"
 
+#: Written when an operator disables or removes the monitor, and removed when
+#: they enable it again. It is what lets a package upgrade install the monitor
+#: by default on a server that never had it, yet leave alone one whose operator
+#: turned it off: a disabled unit is visible on its own, a removed one is not.
+DECLINED_MARKER_NAME = "monitor-declined"
+
+#: The directory systemd sets up when it boots: its presence is how a program
+#: knows there is a systemd to talk to (what ``sd_booted(3)`` checks).
+SYSTEMD_RUNTIME_DIR = Path("/run/systemd/system")
+
 #: What this package will not do, in the words used to check it. The CLI and the
 #: web panel print these, and tests assert them against the package source.
 MONITOR_SCOPE: tuple[str, ...] = (
     "Never signals, terminates or restarts a process.",
     "Never deletes or modifies a file, except the systemd unit it installs.",
     "Never sends data about the machine anywhere except the configured SMTP relay.",
-    "Never inspects a process command line to decide anything.",
+    "Never inspects a process command line to decide anything about a process; the one "
+    "title it reads is a PHP-FPM worker's, to tell which application's pool it belongs to.",
 )
 
 
@@ -249,7 +276,7 @@ def _settled(health: ServiceHealth, previous_restarts: int | None) -> bool:
     )
 
 
-def _days_until_expiry(expiry: str | None, today: date) -> int | None:
+def days_until_expiry(expiry: str | None, today: date) -> int | None:
     """
     Compute how many days remain until a certificate's recorded expiry.
 
@@ -331,6 +358,8 @@ class ProcessMonitor:
         cert_manager: Any | None = None,
         cert_state_path: Path | None = None,
         service_manager: Any | None = None,
+        metrics_collector: MetricsCollector | None = None,
+        declined_path: Path | None = None,
     ) -> None:
         """
         Args:
@@ -348,6 +377,11 @@ class ProcessMonitor:
                 store; tests point it at a sandbox.
             service_manager: Where the units Noust manages are listed from.
                 Created on first use if None.
+            metrics_collector: The sampler of the metrics history this daemon
+                hosts while it runs. Created on first use if None; tests
+                inject one so nothing samples the machine.
+            declined_path: Where "the operator turned the monitor off" is
+                remembered. Defaults to a file in the state directory.
         """
         self.verbose = verbose
         self.logger = Logger(verbose=verbose)
@@ -361,6 +395,8 @@ class ProcessMonitor:
         self._cert_manager = cert_manager
         self._cert_state_path = cert_state_path
         self._service_manager = service_manager
+        self._metrics = metrics_collector
+        self._declined_path = declined_path
         self._running = False
         # Far enough in the past that the first loop iteration purges once.
         self._last_purge = float("-inf")
@@ -461,40 +497,47 @@ class ProcessMonitor:
         units = [*self._managed_units(), *self.config.watch_units]
         return list(dict.fromkeys(unit.removesuffix(".service") for unit in units if unit))
 
-    def _publish_event(self, kind: str, title: str, body: str) -> None:
+    def _publish(self, build: Callable[[NotificationContext], Notification]) -> None:
         """
-        Hand one observation to the multi-channel notifier.
+        Compose one observation and hand it to the multi-channel notifier.
 
         The daemon runs for months, so the configuration is re-read from disk
-        first: an operator enabling notifications in the panel reaches the
-        next scan without a restart. Delivery problems are the notifier's to
-        log and skip; a scan must never fail because an endpoint is down.
+        first: an operator enabling notifications in the panel, or changing
+        the language or the server's name, reaches the next scan without a
+        restart. Delivery problems are the notifier's to log and skip; a scan
+        must never fail because an endpoint is down.
 
         Args:
-            kind: One of the notifier's event kinds.
-            title: One-line summary.
-            body: The detail the operator acts on.
+            build: Composes the notification from the context (language,
+                server name, console URL); usually
+                ``lambda ctx: compose_x(..., ctx)``.
         """
         try:
             self.global_config.reload()
         except (NoustError, OSError) as exc:
             self.logger.debug(f"Configuration reload before notification failed: {exc}")
-        self.event_notifier.notify(NotificationEvent(kind=kind, title=title, body=body))
+        self.event_notifier.notify(build(NotificationContext.from_config(self.global_config)))
 
-    def _locale(self) -> Locale:
+    def _journal_of(self, unit: str) -> str | None:
         """
-        Language this daemon's own notification texts render in.
+        Read the last lines of a unit's journal for a failure notification.
 
-        Read ahead of :meth:`_publish_event`'s own reload, since the caller
-        builds ``title`` and ``body`` from :mod:`noust.core.messages` before
-        that call: a language switched in the panel takes effect from the
-        scan that happens to read it, the same lag every other monitor
-        setting already has.
+        Best effort: the excerpt is the most useful part of a unit failure
+        and never worth losing the notification over.
+
+        Args:
+            unit: The unit's name.
 
         Returns:
-            ``notifications.language``, normalised.
+            The journal text, or None when it could not be read (a unit that
+            is not Noust's own, or journalctl failing).
         """
-        return normalize_locale(self.global_config.get("notifications.language"))
+        try:
+            journal: str = self.service_manager.logs(unit, lines=JOURNAL_EXCERPT_LINES)
+        except (NoustError, OSError) as exc:
+            self.logger.debug(f"Could not read the journal of {unit} for a notification: {exc}")
+            return None
+        return journal
 
     def collect_metrics(self) -> ResourceMetrics:
         """
@@ -613,40 +656,43 @@ class ProcessMonitor:
         else:
             self.logger.debug(summary)
 
-        self._notify_full_disks(full_disks)
+        self._notify_full_disks(full_disks, metrics.disks)
 
-    def _notify_full_disks(self, full_disks: list[Any]) -> None:
+    def _notify_full_disks(
+        self, full_disks: Sequence[Any], all_disks: Sequence[Any] | None = None
+    ) -> None:
         """
-        Publish ``disk_threshold`` for disks newly over the line.
+        Publish ``disk_threshold`` for disks newly over the line, and its end.
 
         Transition-based: a filesystem already announced stays silent until
         it drops under the threshold and crosses it again, so a full disk is
-        one message, not one per scan interval.
+        one message, not one per scan interval. The drop is announced too,
+        once, so the alert closes instead of hanging open.
 
         Args:
             full_disks: The disks at or over :data:`DISK_ALERT_PERCENT`.
+            all_disks: Every disk the scan read, to tell a disk that dropped
+                back under the line from one that is no longer mounted.
         """
-        locale = self._locale()
         for disk in full_disks:
             if disk.mountpoint in self._alerted_disks:
                 continue
-            self._publish_event(
-                "disk_threshold",
-                message(
-                    "disk_threshold_title",
-                    locale,
-                    percent=f"{disk.percent:.0f}",
-                    mountpoint=disk.mountpoint,
-                ),
-                message(
-                    "disk_threshold_body",
-                    locale,
-                    mountpoint=disk.mountpoint,
-                    percent=f"{disk.percent:.1f}",
-                    threshold=f"{DISK_ALERT_PERCENT:.0f}",
-                ),
+            self._publish(
+                partial(
+                    compose_disk,
+                    disk.mountpoint,
+                    disk.percent,
+                    DISK_ALERT_PERCENT,
+                    used_bytes=disk.used_bytes,
+                    total_bytes=disk.total_bytes,
+                    free_bytes=disk.free_bytes,
+                )
             )
-        self._alerted_disks = {disk.mountpoint for disk in full_disks}
+        still_full = {disk.mountpoint for disk in full_disks}
+        for disk in all_disks if all_disks is not None else []:
+            if disk.mountpoint in self._alerted_disks and disk.mountpoint not in still_full:
+                self._publish(partial(compose_disk_recovered, disk.mountpoint, disk.percent))
+        self._alerted_disks = still_full
 
     def _cert_notification_state_path(self) -> Path:
         """
@@ -721,28 +767,23 @@ class ProcessMonitor:
         today = date.today()
         state = self._read_cert_notification_state()
         changed = False
-        locale = self._locale()
 
         for cert in certificates:
-            days_left = _days_until_expiry(cert.expiry, today)
+            days_left = days_until_expiry(cert.expiry, today)
             if days_left is None or days_left >= CERT_EXPIRY_WARNING_DAYS:
                 continue
             if state.get(cert.name) == today.isoformat():
                 continue
 
-            covers = ", ".join(cert.domains) if cert.domains else cert.name
-            self._publish_event(
-                "cert_expiring",
-                message(
-                    "cert_expiring_title",
-                    locale,
-                    name=cert.name,
-                    days=days_left,
-                    unit=plural("day", locale, days_left),
-                ),
-                message(
-                    "cert_expiring_body", locale, covers=covers, expiry=cert.expiry, name=cert.name
-                ),
+            # days_left is not None, so the certificate has an expiry date.
+            self._publish(
+                partial(
+                    compose_certificate,
+                    cert.name,
+                    cert.domains or [cert.name],
+                    cert.expiry or "",
+                    days_left,
+                )
             )
             state[cert.name] = today.isoformat()
             changed = True
@@ -761,6 +802,10 @@ class ProcessMonitor:
         that settles (:func:`_settled`) re-arms.
         """
         down: set[str] = set()
+        # Only a unit that was announced, was read this scan and is settled has
+        # recovered: one that was deleted (not-found) or not answered for is
+        # not "running again", it is just gone from the picture.
+        recovered: set[str] = set()
         restarts: dict[str, int] = {}
         for health in self.check_services():
             previous = self._restart_counts.get(health.unit)
@@ -773,25 +818,43 @@ class ProcessMonitor:
 
             failure = unit_failure(health, previous)
             if failure is None:
-                if health.unit in self._failed_units and not _settled(health, previous):
-                    down.add(health.unit)
+                if health.unit in self._failed_units:
+                    if _settled(health, previous):
+                        recovered.add(health.unit)
+                    else:
+                        down.add(health.unit)
                 continue
 
             down.add(health.unit)
             self.logger.warning(f"{failure.title}: {failure.detail}")
             if health.unit not in self._failed_units:
-                locale = self._locale()
                 # failure.title and .detail are the log's own words, always
-                # English (the CLI and every server-generated string are out
-                # of scope for 2.3). The notification is built fresh from
+                # English. The notification is composed fresh from
                 # noust.core.messages, keyed by the same failure.kind, with
-                # systemd's own reported state (failure.detail) carried
-                # through as evidence rather than retranslated.
-                self._publish_event(
-                    "unit_failed",
-                    message(f"unit_failed_title_{failure.kind}", locale, unit=health.unit),
-                    message("unit_failed_body", locale, detail=failure.detail, unit=health.unit),
+                # what systemd reported (the result, the exit status, the
+                # journal) carried through as facts and evidence rather than
+                # retranslated.
+                grew = (
+                    health.restarts - previous
+                    if health.restarts is not None and previous is not None
+                    else 0
                 )
+                journal = self._journal_of(health.unit)
+                self._publish(
+                    partial(
+                        compose_unit_failure,
+                        failure.kind,
+                        health.unit,
+                        result=health.result,
+                        exit_status=health.exec_main_status,
+                        restarts=health.restarts,
+                        restarts_grew=grew,
+                        journal=journal,
+                    )
+                )
+        for unit in sorted(recovered):
+            # It failed, was announced, and is running again: close the alert.
+            self._publish(partial(compose_unit_recovered, unit))
         self._failed_units = down
         self._restart_counts = restarts
 
@@ -805,26 +868,64 @@ class ProcessMonitor:
         self._running = True
         interval = max(MIN_SCAN_INTERVAL, self.config.scan_interval)
         self.logger.info(f"Starting process monitor (scan every {interval}s, report only)")
+        self._start_metrics()
+        # The build units a process killed mid-build left behind.
+        from noust.deployers.helpers.sandbox import sweep_at_start
 
-        while self._running:
-            try:
-                self._log_metrics()
-                self._report_services()
-                self._check_certificates()
-                self.scan_once()
-            except NoustError as exc:
-                self.logger.error(f"Scan failed: {exc}")
-            except OSError as exc:
-                self.logger.error(f"Scan failed to read the system: {exc}")
+        sweep_at_start()
+        # On a central, every node is asked whether it answers while this
+        # daemon runs, so an outage is announced with no console open.
+        from noust.fleet.probe import start_probe
 
-            self._purge_old_observations()
+        fleet_probe = start_probe(daemon=True)
 
-            for _ in range(interval):
-                if not self._running:
-                    break
-                time.sleep(1)
+        try:
+            while self._running:
+                try:
+                    self._log_metrics()
+                    self._report_services()
+                    self._check_certificates()
+                    self.scan_once()
+                except NoustError as exc:
+                    self.logger.error(f"Scan failed: {exc}")
+                except OSError as exc:
+                    self.logger.error(f"Scan failed to read the system: {exc}")
+
+                self._purge_old_observations()
+
+                for _ in range(interval):
+                    if not self._running:
+                        break
+                    time.sleep(1)
+        finally:
+            fleet_probe.stop()
+            self._stop_metrics()
 
         self.logger.info("Process monitor stopped")
+
+    def _start_metrics(self) -> None:
+        """
+        Start recording the metrics history, which this daemon hosts.
+
+        The history used to be recorded by the console, so it stopped whenever
+        the console did. It is recorded here now, in the daemon that runs for
+        as long as the server does. A failure to open the database is logged and
+        the monitor carries on: observing must not depend on charting.
+        """
+        try:
+            if self._metrics is None:
+                self._metrics = create_collector("daemon")
+            self._metrics.start()
+        except (OSError, sqlite3.Error, NoustError) as exc:
+            self.logger.error(f"Metrics history is not being recorded: {exc}")
+            self._metrics = None
+            return
+        self.logger.info("Recording the metrics history")
+
+    def _stop_metrics(self) -> None:
+        """Stop the metrics collector, handing its lease over."""
+        if self._metrics is not None:
+            self._metrics.stop()
 
     def stop(self) -> None:
         """Ask the monitor loop to finish the current interval and exit."""
@@ -895,7 +996,7 @@ class ProcessMonitor:
         """
         noust_path = self._noust_executable()
 
-        return f"""# Noust process monitor
+        return f"""# Noust process monitor and metrics recorder
 # {paths.UNIT_MARKER}. Do not edit; reinstall with: noust monitor install
 
 [Unit]
@@ -910,8 +1011,12 @@ Group=root
 ExecStart={noust_path} monitor run
 Restart=always
 RestartSec=30
+# It samples every few seconds for as long as the server runs: it must never
+# compete with the applications it is measuring.
+Nice=10
 
-# The monitor only reads the system; deny it the ability to do anything else.
+# The monitor only reads the system, and writes its own databases; deny it the
+# ability to do anything else.
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=read-only
@@ -960,6 +1065,7 @@ WantedBy=multi-user.target
                 f"Failed to write {self.unit_path}",
                 details="Installing a systemd unit requires root: run with sudo.",
             )
+        self._forget_declined()
 
         result = self.runner.run(["systemctl", "daemon-reload"], timeout=SYSTEMCTL_TIMEOUT)
         if not result.success:
@@ -1004,6 +1110,7 @@ WantedBy=multi-user.target
             MonitorError: When systemctl failed.
         """
         self._systemctl("enable", "--now", self.SERVICE_NAME, action="enable")
+        self._forget_declined()
         self.logger.success("Monitor service enabled and started")
         return True
 
@@ -1018,6 +1125,7 @@ WantedBy=multi-user.target
             MonitorError: When systemctl failed.
         """
         self._systemctl("disable", "--now", self.SERVICE_NAME, action="disable")
+        self._remember_declined()
         self.logger.success("Monitor service disabled and stopped")
         return True
 
@@ -1081,8 +1189,71 @@ WantedBy=multi-user.target
                 details=result.stderr or result.stdout,
             )
 
+        self._remember_declined()
         self.logger.success("Monitor service uninstalled")
         return True
+
+    @property
+    def declined_path(self) -> Path:
+        """Where "the operator turned the monitor off" is remembered."""
+        if self._declined_path is not None:
+            return self._declined_path
+        return paths.state_dir() / DECLINED_MARKER_NAME
+
+    def _remember_declined(self) -> None:
+        """
+        Record that an operator turned the monitor off.
+
+        A package upgrade installs the monitor by default; this is what makes
+        it leave a monitor that was removed alone, the way a disabled unit
+        already is.
+        """
+        try:
+            get_fs().write_text(self.declined_path, "turned off by an operator\n", mode=0o644)
+        except OSError as exc:
+            self.logger.warning(f"Could not record that the monitor was turned off: {exc}")
+
+    def _forget_declined(self) -> None:
+        """Forget that an operator turned the monitor off: they just turned it on."""
+        if self.declined_path.exists() and not remove_file(self.declined_path):
+            self.logger.warning(f"Could not remove {self.declined_path}")
+
+    def install_by_default(self) -> str:
+        """
+        Install and start the monitor when a package puts Noust on a server.
+
+        The metrics history is recorded by the monitor, so a server should have
+        it without the operator having to know: the package calls this on
+        install and on upgrade. It never overrides a decision:
+
+        - a monitor already installed is left as it is, enabled or disabled;
+        - one an operator disabled or removed stays off (:meth:`declined_path`);
+        - a server still on WASM's names is left to ``migrate-from-wasm``;
+        - a machine without systemd (a container, a chroot) has nothing to
+          install into.
+
+        Returns:
+            What happened: ``enabled``, ``installed`` (the unit is there),
+            ``declined``, ``legacy``, ``no_systemd`` or ``no_psutil``.
+
+        Raises:
+            MonitorError: When the unit cannot be written or started.
+        """
+        if not SYSTEMD_RUNTIME_DIR.is_dir():
+            return "no_systemd"
+        if (SYSTEMD_DIR / f"{paths.LEGACY_MONITOR_UNIT}.service").exists():
+            return "legacy"
+        if self.unit_path.exists():
+            return "installed"
+        if self.declined_path.exists():
+            return "declined"
+        try:
+            import psutil  # noqa: F401
+        except ImportError:
+            return "no_psutil"
+        self.install_service()
+        self.enable_service()
+        return "enabled"
 
     def get_service_status(self) -> dict[str, Any]:
         """

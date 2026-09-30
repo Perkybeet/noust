@@ -4,10 +4,13 @@
 """
 The ``noust db`` command group.
 
-Engine installation, databases, users, privileges, backups and the query
-console. Every command is a thin shell around
-:mod:`noust.managers.database`: this module parses, confirms and prints, and
-never speaks to an engine itself.
+Engines, databases, users and access profiles, dumps and restores, links to
+applications, the query console. Every command is a thin shell around
+:class:`~noust.managers.database.service.DatabaseService`, the same service
+the console's API calls: this module parses, confirms and prints, and never
+decides anything itself. That is what keeps ``noust db drop`` and the
+console's drop from leaving the store in two different states, which is how
+an application's backups used to break.
 
 Three things are deliberate here:
 
@@ -18,11 +21,11 @@ Three things are deliberate here:
 - **Nothing spawns a process.** The one exception is :func:`_open_client`,
   which hands the terminal to ``psql`` or ``mysql`` and is documented where it
   is defined.
-- **Read-only means one statement.** ``noust db query`` defaults to the engine's
-  read-only transaction, and :func:`_single_statement` is what stops a request
-  from carrying a second statement that closes it. Without that rule the
-  default is decoration: ``SELECT 1; COMMIT; DROP TABLE users`` commits the
-  read-only transaction and drops the table.
+- **Read-only means one statement.** ``noust db query`` defaults to the
+  engine's read-only session, and
+  :func:`~noust.managers.database.service.console_request` - the guard the
+  API applies too - is what stops a request from carrying a second statement
+  that closes it: ``SELECT 1; COMMIT; DROP TABLE users``.
 """
 
 from __future__ import annotations
@@ -39,22 +42,22 @@ import click
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.cli.panel_links import open_in_panel
 from noust.core.config import Config
-from noust.core.exceptions import DatabaseError, DatabaseQueryError
+from noust.core.exceptions import DatabaseError, DatabaseQueryError, NoustError
 from noust.core.logger import Logger
 from noust.managers.database import (
+    PROFILES,
     BaseDatabaseManager,
     DatabaseRegistry,
     get_db_manager,
 )
+from noust.managers.database.backups import DatabaseBackups
+from noust.managers.database.service import (
+    MAX_QUERY_LENGTH,
+    DatabaseService,
+    console_request,
+)
 
-#: Engines whose server enforces a read-only transaction. For anything else a
-#: read-only request cannot be honoured, so it is refused rather than granted
-#: on paper: the manager would accept the flag and run the statement anyway.
-READ_ONLY_ENGINES = frozenset({"mariadb", "mysql", "postgres", "postgresql"})
-
-#: Longest statement the console accepts. Matched to the panel's limit so the
-#: two front doors agree on what one statement is.
-MAX_QUERY_LENGTH = 20_000
+__all__ = ["MAX_QUERY_LENGTH", "PASSWORD_PLACEHOLDER", "cli", "handle_db"]
 
 #: Placeholder printed in a connection string when the operator gave no
 #: password. It is a blank to fill in, not a credential.
@@ -66,9 +69,9 @@ class EngineParamType(click.ParamType):
     A database engine name, checked against the registry as it is parsed.
 
     Resolution is the registry's, so every spelling it accepts keeps working
-    (``pg`` and ``postgres`` for PostgreSQL, ``mariadb`` for MySQL). Rejecting
-    an unknown engine here rather than three calls later means a typo costs a
-    usage error instead of a half-finished operation.
+    (``pg`` and ``postgres`` for PostgreSQL, ``mariadb`` for MySQL, ``valkey``
+    for Redis). Rejecting an unknown engine here rather than three calls later
+    means a typo costs a usage error instead of a half-finished operation.
     """
 
     name = "engine"
@@ -103,6 +106,9 @@ class EngineParamType(click.ParamType):
 #: The type every ``--engine`` option and every engine argument uses.
 ENGINE = EngineParamType()
 
+#: The type every ``--profile`` option uses.
+PROFILE = click.Choice(list(PROFILES))
+
 
 def _exit(code: int) -> NoReturn:
     """
@@ -115,6 +121,25 @@ def _exit(code: int) -> NoReturn:
         click.exceptions.Exit: Always. Click turns it into the exit status.
     """
     click.get_current_context().exit(code)
+
+
+def _service(logger: Logger) -> DatabaseService:
+    """
+    Build the service a command uses.
+
+    Engines are resolved through this module's :func:`get_db_manager`, looked
+    up at call time, so every command resolves them the one way.
+
+    Args:
+        logger: Where progress is reported.
+
+    Returns:
+        The service.
+    """
+    return DatabaseService(
+        logger=logger,
+        resolve=lambda engine: get_db_manager(engine, verbose=logger.verbose),
+    )
 
 
 def _get_manager(engine: str | None, logger: Logger) -> BaseDatabaseManager | None:
@@ -140,6 +165,21 @@ def _get_manager(engine: str | None, logger: Logger) -> BaseDatabaseManager | No
         return None
 
     return manager
+
+
+def _fail(logger: Logger, exc: NoustError) -> int:
+    """
+    Report a refused or failed operation, with its fix.
+
+    Args:
+        logger: Where to report it.
+        exc: The error.
+
+    Returns:
+        The exit code, 1.
+    """
+    logger.error(str(exc))
+    return 1
 
 
 def _confirm(question: str, *, force: bool) -> bool:
@@ -206,6 +246,16 @@ def _open_client(argv: Sequence[str]) -> NoReturn:
         ) from exc
 
 
+def _echo_json(data: Any) -> None:
+    """
+    Print data as indented JSON.
+
+    Args:
+        data: JSON-serialisable data.
+    """
+    click.echo(json.dumps(data, indent=2, default=str))
+
+
 # ==================== Engine management ====================
 
 
@@ -236,11 +286,14 @@ def _install(engine: str, *, logger: Logger) -> int:
         logger.step(2, 2, "Installation complete")
         version = manager.get_version()
         logger.success(f"{manager.DISPLAY_NAME} v{version} installed successfully")
-
+        notice = manager.support(version)
+        if notice.status in ("ending_soon", "ended"):
+            logger.warning(notice.message)
+        for warning in manager.warnings():
+            logger.warning(warning)
         return 0
     except DatabaseError as e:
-        logger.error(str(e))
-        return 1
+        return _fail(logger, e)
 
 
 def _uninstall(engine: str, *, purge: bool, force: bool, logger: Logger) -> int:
@@ -283,16 +336,15 @@ def _uninstall(engine: str, *, purge: bool, force: bool, logger: Logger) -> int:
 
         return 0
     except DatabaseError as e:
-        logger.error(str(e))
-        return 1
+        return _fail(logger, e)
 
 
 def _status(engine: str | None, *, json_output: bool, logger: Logger) -> int:
     """
-    Report whether engines are installed and running.
+    Report whether engines are installed and running, and their support.
 
     Args:
-        engine: Engine name or alias. All installed engines when omitted.
+        engine: Engine name or alias. All engines when omitted.
         json_output: Print the statuses as JSON.
         logger: Logger for errors.
 
@@ -310,7 +362,7 @@ def _status(engine: str | None, *, json_output: bool, logger: Logger) -> int:
     statuses = [manager.get_status() for manager in managers]
 
     if json_output:
-        click.echo(json.dumps(statuses, indent=2))
+        _echo_json(statuses)
         return 0
 
     for status in statuses:
@@ -324,6 +376,11 @@ def _status(engine: str | None, *, json_output: bool, logger: Logger) -> int:
             click.echo(f"  Status:    {'running' if status.get('running') else 'stopped'}")
             click.echo(f"  Port:      {status['port']}")
             click.echo(f"  Service:   {status['service']}")
+            support = status.get("support")
+            if isinstance(support, dict) and support.get("status") in ("ending_soon", "ended"):
+                click.echo(f"  Support:   {support['message']}")
+        for warning in status.get("warnings") or []:
+            click.echo(f"  Warning:   {warning}")
 
     return 0
 
@@ -357,8 +414,7 @@ def _start(engine: str, *, logger: Logger) -> int:
         logger.success(f"{manager.DISPLAY_NAME} started")
         return 0
     except DatabaseError as e:
-        logger.error(str(e))
-        return 1
+        return _fail(logger, e)
 
 
 def _stop(engine: str, *, logger: Logger) -> int:
@@ -385,8 +441,7 @@ def _stop(engine: str, *, logger: Logger) -> int:
         logger.success(f"{manager.DISPLAY_NAME} stopped")
         return 0
     except DatabaseError as e:
-        logger.error(str(e))
-        return 1
+        return _fail(logger, e)
 
 
 def _restart(engine: str, *, logger: Logger) -> int:
@@ -413,8 +468,7 @@ def _restart(engine: str, *, logger: Logger) -> int:
         logger.success(f"{manager.DISPLAY_NAME} restarted")
         return 0
     except DatabaseError as e:
-        logger.error(str(e))
-        return 1
+        return _fail(logger, e)
 
 
 def _engines(*, json_output: bool, logger: Logger) -> int:
@@ -432,29 +486,29 @@ def _engines(*, json_output: bool, logger: Logger) -> int:
     for engine in DatabaseRegistry.list_engines():
         manager = get_db_manager(engine, verbose=logger.verbose)
         if manager:
+            installed = manager.is_installed()
             engines.append(
                 {
                     "name": manager.ENGINE_NAME,
                     "display_name": manager.DISPLAY_NAME,
-                    "installed": manager.is_installed(),
-                    "version": manager.get_version() if manager.is_installed() else None,
-                    "port": manager.server_port()
-                    if manager.is_installed()
-                    else manager.DEFAULT_PORT,
+                    "installed": installed,
+                    "version": manager.get_version() if installed else None,
+                    "port": manager.server_port() if installed else manager.DEFAULT_PORT,
+                    "capabilities": sorted(manager.CAPABILITIES),
                 }
             )
 
     if json_output:
-        click.echo(json.dumps(engines, indent=2))
+        _echo_json(engines)
         return 0
 
     click.echo("\nAvailable Database Engines:")
     click.echo("-" * 50)
 
     for eng in engines:
-        installed = "*" if eng["installed"] else " "
+        marker = "*" if eng["installed"] else " "
         version = f"v{eng['version']}" if eng["version"] else "not installed"
-        click.echo(f"  [{installed}] {eng['display_name']:<20} {version:<15} (port {eng['port']})")
+        click.echo(f"  [{marker}] {eng['display_name']:<20} {version:<15} (port {eng['port']})")
 
     click.echo("")
     return 0
@@ -470,6 +524,7 @@ def _create(
     owner: str | None,
     encoding: str | None,
     logger: Logger,
+    app: str | None = None,
 ) -> int:
     """
     Create a database and record it in the store.
@@ -480,62 +535,45 @@ def _create(
         owner: User that will own the database.
         encoding: Character encoding.
         logger: Logger for progress and errors.
+        app: Application the database belongs to, so its backups include it.
 
     Returns:
         Process exit code.
     """
-    manager = _get_manager(engine, logger)
-    if not manager:
-        return 1
-
     try:
-        if not manager.is_installed():
-            logger.error(f"{manager.DISPLAY_NAME} is not installed")
-            return 1
+        view = _service(logger).create(engine, name, owner=owner, encoding=encoding, domain=app)
+    except NoustError as e:
+        return _fail(logger, e)
 
-        if not manager.is_running():
-            logger.error(f"{manager.DISPLAY_NAME} is not running")
-            logger.info(f"Start with: noust db start {manager.ENGINE_NAME}")
-            return 1
-
-        info = manager.create_database(name, owner=owner, encoding=encoding)
-
-        from noust.core.store import Database, get_store
-
-        store = get_store()
-
-        db_record = Database(
-            name=name,
-            engine=manager.ENGINE_NAME,
-            host="localhost",
-            port=manager.server_port(),
-            username=owner,
-            encoding=encoding,
-        )
-        store.create_database(db_record)
-
-        logger.success(f"Created database: {info.name}")
-
-        if info.size:
-            logger.info(f"  Size: {info.size}")
-        if info.encoding:
-            logger.info(f"  Encoding: {info.encoding}")
-
-        return 0
-    except DatabaseError as e:
-        logger.error(str(e))
-        return 1
+    logger.success(f"Created database: {view.name}")
+    if view.size:
+        logger.info(f"  Size: {view.size}")
+    if view.encoding:
+        logger.info(f"  Encoding: {view.encoding}")
+    if app:
+        logger.info(f"  Belongs to: {app}")
+    return 0
 
 
-def _drop(name: str, *, engine: str, force: bool, logger: Logger) -> int:
+def _drop(
+    name: str,
+    *,
+    engine: str,
+    force: bool,
+    logger: Logger,
+    keep_backup: bool = True,
+    unlink: bool = False,
+) -> int:
     """
-    Delete a database and forget it in the store.
+    Delete a database, after its last dump, and forget it in the store.
 
     Args:
         name: Database name.
         engine: Engine name or alias.
-        force: Do not ask for confirmation.
+        force: Do not ask for confirmation, and disconnect open sessions.
         logger: Logger for progress and errors.
+        keep_backup: Dump it before dropping it.
+        unlink: Remove its variables from the applications that use it.
 
     Returns:
         Process exit code.
@@ -544,113 +582,81 @@ def _drop(name: str, *, engine: str, force: bool, logger: Logger) -> int:
     if not manager:
         return 1
 
-    try:
-        if not manager.is_running():
-            logger.error(f"{manager.DISPLAY_NAME} is not running")
-            return 1
-
-        question = (
-            f"Drop database '{name}' from {manager.DISPLAY_NAME}, "
-            "deleting every table and row in it? This cannot be undone"
-        )
-        if not _confirm(question, force=force):
-            logger.info("Cancelled")
-            return 0
-
-        manager.drop_database(name, force=force)
-
-        from noust.core.store import get_store
-
-        store = get_store()
-        store.delete_database(name, manager.ENGINE_NAME)
-
-        logger.success(f"Dropped database: {name}")
-
+    question = (
+        f"Drop database '{name}' from {manager.DISPLAY_NAME}, "
+        "deleting every table and row in it? This cannot be undone"
+        + (" (a last dump is taken first)" if keep_backup else "")
+    )
+    if not _confirm(question, force=force):
+        logger.info("Cancelled")
         return 0
-    except DatabaseError as e:
-        logger.error(str(e))
-        return 1
+
+    try:
+        outcome = _service(logger).drop(
+            engine, name, force=force, keep_backup=keep_backup, unlink=unlink
+        )
+    except NoustError as e:
+        return _fail(logger, e)
+
+    logger.success(f"Dropped database: {name}")
+    if outcome.safety_copy:
+        logger.info(f"  Last dump: {outcome.safety_copy}")
+    if outcome.unlinked:
+        logger.info(f"  Unlinked from: {', '.join(outcome.unlinked)}")
+    return 0
 
 
 def _list(*, engine: str | None, json_output: bool, logger: Logger) -> int:
     """
-    List the databases of every running engine.
+    List the databases of every running engine, joined with the store.
 
     Args:
-        engine: Engine name or alias. Every installed engine when omitted.
+        engine: Engine name or alias. Every engine when omitted.
         json_output: Print the list as JSON.
         logger: Logger for errors.
 
     Returns:
         Process exit code.
     """
-    from noust.core.store import get_store
+    try:
+        views = _service(logger).list_databases(engine)
+    except NoustError as e:
+        return _fail(logger, e)
 
-    store = get_store()
-
-    if engine:
-        manager = _get_manager(engine, logger)
-        if manager is None:
-            return 1
-        managers = [manager]
-    else:
-        managers = DatabaseRegistry.get_installed(verbose=logger.verbose)
-
-    all_databases = []
-
-    for manager in managers:
-        if not manager.is_running():
-            continue
-
-        try:
-            databases = manager.list_databases()
-            for db in databases:
-                db_dict = db.to_dict()
-
-                # A database Noust created is marked, and so is the app it was
-                # created for, because that is the association the operator
-                # cannot get from the engine itself.
-                store_db = store.get_database(db.name, manager.ENGINE_NAME)
-                if store_db:
-                    db_dict["tracked"] = True
-                    if store_db.app_id:
-                        app = store.get_app_by_id(store_db.app_id)
-                        if app:
-                            db_dict["linked_app"] = app.domain
-                else:
-                    db_dict["tracked"] = False
-
-                all_databases.append(db_dict)
-        except Exception as e:
-            # One unreachable engine must not hide the databases of the others.
-            if logger.verbose:
-                logger.warning(f"Could not list {manager.DISPLAY_NAME} databases: {e}")
+    entries = []
+    for view in views:
+        data = view.to_dict()
+        # The 2.x JSON called the owning application linked_app; kept for scripts.
+        data["linked_app"] = view.app
+        entries.append(data)
 
     if json_output:
-        click.echo(json.dumps(all_databases, indent=2))
+        _echo_json(entries)
         return 0
 
-    if not all_databases:
+    if not entries:
         logger.info("No databases found")
         return 0
 
     by_engine: dict[str, list[dict[str, Any]]] = {}
-    for entry in all_databases:
+    for entry in entries:
         by_engine.setdefault(entry.get("engine", "unknown"), []).append(entry)
 
-    for eng, entries in by_engine.items():
+    for eng, rows in by_engine.items():
         click.echo(f"\n{eng.upper()}")
         click.echo("-" * 50)
-        for entry in entries:
+        for entry in rows:
             size = entry.get("size", "")
             tables = entry.get("tables", 0)
             tracked = "*" if entry.get("tracked") else " "
-            linked = f" -> {entry['linked_app']}" if entry.get("linked_app") else ""
+            apps = entry.get("apps") or []
+            linked = f" -> {', '.join(apps)}" if apps else ""
+            missing = " (missing from the engine)" if entry.get("missing") else ""
 
             size_str = f" ({size})" if size else ""
             tables_str = f" - {tables} tables" if tables else ""
 
-            click.echo(f"  [{tracked}] {entry['name']}{size_str}{tables_str}{linked}")
+            click.echo(f"  [{tracked}] {entry['name']}{size_str}{tables_str}{linked}{missing}")
 
     click.echo("")
     click.echo("  [*] = tracked by Noust")
@@ -659,7 +665,7 @@ def _list(*, engine: str | None, json_output: bool, logger: Logger) -> int:
 
 def _info(name: str, *, engine: str, json_output: bool, logger: Logger) -> int:
     """
-    Show what an engine knows about one database.
+    Show what the engine and Noust know about one database.
 
     Args:
         name: Database name.
@@ -670,36 +676,143 @@ def _info(name: str, *, engine: str, json_output: bool, logger: Logger) -> int:
     Returns:
         Process exit code.
     """
-    manager = _get_manager(engine, logger)
-    if not manager:
-        return 1
-
     try:
-        if not manager.is_running():
-            logger.error(f"{manager.DISPLAY_NAME} is not running")
-            return 1
+        overview = _service(logger).overview(engine, name)
+    except NoustError as e:
+        return _fail(logger, e)
 
-        info = manager.get_database_info(name)
-
-        if json_output:
-            click.echo(json.dumps(info.to_dict(), indent=2))
-            return 0
-
-        click.echo(f"\nDatabase: {info.name}")
-        click.echo(f"Engine:   {info.engine}")
-        if info.size:
-            click.echo(f"Size:     {info.size}")
-        if info.tables:
-            click.echo(f"Tables:   {info.tables}")
-        if info.owner:
-            click.echo(f"Owner:    {info.owner}")
-        if info.encoding:
-            click.echo(f"Encoding: {info.encoding}")
-
+    if json_output:
+        _echo_json(overview)
         return 0
-    except DatabaseError as e:
-        logger.error(str(e))
-        return 1
+
+    view = overview["database"]
+    click.echo(f"\nDatabase: {view['name']}")
+    click.echo(f"Engine:   {overview['display_name']} {view.get('engine_version') or ''}".rstrip())
+    for label, key in (
+        ("Size", "size"),
+        ("Tables", "tables"),
+        ("Owner", "owner"),
+        ("Encoding", "encoding"),
+        ("App", "app"),
+        ("Backup", "last_backup"),
+    ):
+        if view.get(key):
+            click.echo(f"{label + ':':<10}{view[key]}")
+    support = overview["support"]
+    if support.get("status") in ("ending_soon", "ended"):
+        click.echo(f"Support:  {support['message']}")
+    for entry in overview["access"]:
+        marker = " (internal)" if entry["internal"] else ""
+        click.echo(f"  {entry['username']}: {entry['profile']}{marker}")
+    return 0
+
+
+def _adopt(*, engine: str | None, logger: Logger) -> int:
+    """
+    Record the databases the engines hold and Noust does not track.
+
+    Args:
+        engine: Only this engine.
+        logger: Logger for progress and errors.
+
+    Returns:
+        Process exit code.
+    """
+    try:
+        adopted = _service(logger).adopt(engine)
+    except NoustError as e:
+        return _fail(logger, e)
+    if not adopted:
+        logger.info("Every database is already tracked")
+    for name in adopted:
+        logger.success(f"Now tracked: {name}")
+    return 0
+
+
+def _forget(name: str, *, engine: str, logger: Logger) -> int:
+    """
+    Forget a tracked database the engine no longer has.
+
+    Args:
+        name: Database name.
+        engine: Engine name or alias.
+        logger: Logger for progress and errors.
+
+    Returns:
+        Process exit code.
+    """
+    try:
+        removed = _service(logger).forget(engine, name)
+    except NoustError as e:
+        return _fail(logger, e)
+    if removed:
+        logger.success(f"Forgot {name}")
+    else:
+        logger.info(f"Noust did not track {name}")
+    return 0
+
+
+def _fix_owner(
+    name: str,
+    *,
+    engine: str,
+    owner: str | None,
+    apply: bool,
+    force: bool,
+    json_output: bool,
+    logger: Logger,
+) -> int:
+    """
+    Show, or apply, giving a PostgreSQL database to its application's role.
+
+    Args:
+        name: Database name.
+        engine: Engine name or alias.
+        owner: The role; the provisioned one by default.
+        apply: Run the statements.
+        force: Do not ask before applying.
+        json_output: Print the plan as JSON.
+        logger: Logger for progress and errors.
+
+    Returns:
+        Process exit code.
+    """
+    service = _service(logger)
+    try:
+        plan = service.fix_owner(engine, name, owner=owner)
+        if apply and plan.current_owner != plan.new_owner:
+            question = (
+                f"Give '{name}' and {len(plan.objects)} object(s) owned by "
+                f"{plan.current_owner} to {plan.new_owner}?"
+            )
+            if not _confirm(question, force=force):
+                logger.info("Cancelled")
+                return 0
+            plan = service.fix_owner(engine, name, owner=owner, apply=True)
+    except NoustError as e:
+        return _fail(logger, e)
+
+    if json_output:
+        _echo_json(plan.to_dict())
+        return 0
+    click.echo(f"\nDatabase:      {plan.database}")
+    click.echo(f"Current owner: {plan.current_owner}")
+    click.echo(f"New owner:     {plan.new_owner}")
+    if plan.current_owner == plan.new_owner:
+        logger.info(f"{name} already belongs to {plan.new_owner}")
+        return 0
+    click.echo("\nStatements:")
+    for statement in plan.statements:
+        click.echo(f"  {statement}")
+    if plan.applied:
+        logger.success(f"{name} now belongs to {plan.new_owner}")
+        logger.info(
+            f"Put it back with: noust db fix-owner {name} -e {engine} "
+            f"--owner {plan.current_owner} --apply"
+        )
+    else:
+        logger.info("Nothing changed. Run again with --apply to make the change.")
+    return 0
 
 
 # ==================== User management ====================
@@ -713,6 +826,7 @@ def _user_create(
     database: str | None,
     host: str,
     logger: Logger,
+    profile: str | None = None,
 ) -> int:
     """
     Create a database user, generating a password when none is given.
@@ -721,48 +835,28 @@ def _user_create(
         username: User name.
         engine: Engine name or alias.
         password: Password. Generated and printed once when omitted.
-        database: Database to grant the new user access to.
+        database: Database to give the new user access to.
         host: Host the user may connect from.
         logger: Logger for progress and errors.
+        profile: Its access profile on that database.
 
     Returns:
         Process exit code.
     """
-    manager = _get_manager(engine, logger)
-    if not manager:
-        return 1
-
     try:
-        if not manager.is_running():
-            logger.error(f"{manager.DISPLAY_NAME} is not running")
-            return 1
-
-        user_info, generated_password = manager.create_user(
-            username=username,
-            password=password,
-            host=host,
-            database=database,
+        user, secret = _service(logger).create_user(
+            engine, username, password=password, host=host, database=database, profile=profile
         )
+    except NoustError as e:
+        return _fail(logger, e)
 
-        logger.success(f"Created user: {user_info.username}")
-
-        if not password:
-            logger.info(f"  Password: {generated_password}")
-            logger.warning("  Save this password - it won't be shown again!")
-
-        if database:
-            try:
-                manager.grant_privileges(username, database, host=host)
-                logger.info(f"  Granted privileges on: {database}")
-            except Exception as e:
-                # The user exists either way; a failed grant is reported and
-                # fixed with `noust db grant`, not by rolling the user back.
-                logger.warning(f"  Could not grant privileges: {e}")
-
-        return 0
-    except DatabaseError as e:
-        logger.error(str(e))
-        return 1
+    logger.success(f"Created user: {user.username}")
+    if not password:
+        logger.info(f"  Password: {secret}")
+        logger.warning("  Save this password; 'noust db user-password' rotates it later.")
+    if database:
+        logger.info(f"  Access to {database}: {profile or 'the engine default'}")
+    return 0
 
 
 def _user_delete(username: str, *, engine: str, host: str, force: bool, logger: Logger) -> int:
@@ -783,31 +877,25 @@ def _user_delete(username: str, *, engine: str, host: str, force: bool, logger: 
     if not manager:
         return 1
 
-    try:
-        if not manager.is_running():
-            logger.error(f"{manager.DISPLAY_NAME} is not running")
-            return 1
-
-        question = (
-            f"Delete user '{username}'@'{host}' from {manager.DISPLAY_NAME}? "
-            "Anything connecting as this user will stop working"
-        )
-        if not _confirm(question, force=force):
-            logger.info("Cancelled")
-            return 0
-
-        manager.drop_user(username, host=host)
-        logger.success(f"Deleted user: {username}")
-
+    question = (
+        f"Delete user '{username}'@'{host}' from {manager.DISPLAY_NAME}? "
+        "Anything connecting as this user will stop working"
+    )
+    if not _confirm(question, force=force):
+        logger.info("Cancelled")
         return 0
-    except DatabaseError as e:
-        logger.error(str(e))
-        return 1
+
+    try:
+        _service(logger).drop_user(engine, username, host=host)
+    except NoustError as e:
+        return _fail(logger, e)
+    logger.success(f"Deleted user: {username}")
+    return 0
 
 
 def _user_list(*, engine: str, json_output: bool, logger: Logger) -> int:
     """
-    List an engine's users.
+    List an engine's users, internal ones marked.
 
     Args:
         engine: Engine name or alias.
@@ -817,42 +905,34 @@ def _user_list(*, engine: str, json_output: bool, logger: Logger) -> int:
     Returns:
         Process exit code.
     """
-    manager = _get_manager(engine, logger)
-    if not manager:
-        return 1
-
     try:
-        if not manager.is_running():
-            logger.error(f"{manager.DISPLAY_NAME} is not running")
-            return 1
+        users = _service(logger).list_users(engine)
+    except NoustError as e:
+        return _fail(logger, e)
 
-        users = manager.list_users()
-
-        if json_output:
-            click.echo(json.dumps([u.to_dict() for u in users], indent=2))
-            return 0
-
-        if not users:
-            logger.info("No users found")
-            return 0
-
-        click.echo(f"\n{manager.DISPLAY_NAME} Users:")
-        click.echo("-" * 50)
-        for user in users:
-            host_str = f"@{user.host}" if user.host != "localhost" else ""
-            privs = ", ".join(user.privileges[:3]) if user.privileges else ""
-            if len(user.privileges) > 3:
-                privs += f" (+{len(user.privileges) - 3} more)"
-
-            click.echo(f"  {user.username}{host_str}")
-            if privs:
-                click.echo(f"    Privileges: {privs}")
-
-        click.echo("")
+    if json_output:
+        _echo_json([u.to_dict() for u in users])
         return 0
-    except DatabaseError as e:
-        logger.error(str(e))
-        return 1
+
+    if not users:
+        logger.info("No users found")
+        return 0
+
+    click.echo(f"\n{engine} users:")
+    click.echo("-" * 50)
+    for user in users:
+        host_str = f"@{user.host}" if user.host != "localhost" else ""
+        internal = " (internal)" if user.extra.get("internal") else ""
+        privs = ", ".join(user.privileges[:3]) if user.privileges else ""
+        if len(user.privileges) > 3:
+            privs += f" (+{len(user.privileges) - 3} more)"
+
+        click.echo(f"  {user.username}{host_str}{internal}")
+        if privs:
+            click.echo(f"    Privileges: {privs}")
+
+    click.echo("")
+    return 0
 
 
 def _grant(
@@ -878,22 +958,14 @@ def _grant(
     Returns:
         Process exit code.
     """
-    manager = _get_manager(engine, logger)
-    if not manager:
-        return 1
-
     try:
-        manager.grant_privileges(
-            username,
-            database,
-            privileges=_privilege_list(privileges),
-            host=host,
+        _service(logger).grant(
+            engine, username, database, privileges=_privilege_list(privileges), host=host
         )
-        logger.success(f"Granted privileges on {database} to {username}")
-        return 0
-    except DatabaseError as e:
-        logger.error(str(e))
-        return 1
+    except NoustError as e:
+        return _fail(logger, e)
+    logger.success(f"Granted privileges on {database} to {username}")
+    return 0
 
 
 def _revoke(
@@ -919,22 +991,260 @@ def _revoke(
     Returns:
         Process exit code.
     """
-    manager = _get_manager(engine, logger)
-    if not manager:
-        return 1
-
     try:
-        manager.revoke_privileges(
-            username,
-            database,
-            privileges=_privilege_list(privileges),
-            host=host,
+        _service(logger).revoke(
+            engine, username, database, privileges=_privilege_list(privileges), host=host
         )
-        logger.success(f"Revoked privileges on {database} from {username}")
+    except NoustError as e:
+        return _fail(logger, e)
+    logger.success(f"Revoked privileges on {database} from {username}")
+    return 0
+
+
+def _access(
+    database: str,
+    *,
+    engine: str,
+    username: str | None,
+    profile: str | None,
+    host: str,
+    json_output: bool,
+    logger: Logger,
+) -> int:
+    """
+    List who can reach a database, or give one account a profile on it.
+
+    Args:
+        database: Database name.
+        engine: Engine name or alias.
+        username: The account to change; list when None.
+        profile: Its new profile.
+        host: Its host restriction.
+        json_output: Print the list as JSON.
+        logger: Logger for progress and errors.
+
+    Returns:
+        Process exit code.
+    """
+    service = _service(logger)
+    try:
+        if username or profile:
+            if not (username and profile):
+                logger.error("Give both --user and --profile to change an account's access")
+                return 1
+            service.set_profile(engine, database, username, profile, host=host)
+            logger.success(f"{username} now has the {profile} profile on {database}")
+            return 0
+        entries = service.access(engine, database)
+    except NoustError as e:
+        return _fail(logger, e)
+
+    if json_output:
+        _echo_json([entry.to_dict() for entry in entries])
         return 0
-    except DatabaseError as e:
-        logger.error(str(e))
-        return 1
+    if not entries:
+        logger.info(f"No account holds anything on {database}")
+        return 0
+    for entry in entries:
+        marker = " (internal)" if entry.internal else ""
+        apps = f" -> {', '.join(entry.apps)}" if entry.apps else ""
+        click.echo(f"  {entry.username}@{entry.host}: {entry.profile}{marker}{apps}")
+    return 0
+
+
+def _user_password(
+    username: str,
+    *,
+    engine: str,
+    host: str,
+    propagate: bool,
+    force: bool,
+    logger: Logger,
+) -> int:
+    """
+    Rotate an account's password and give it to the applications that use it.
+
+    Args:
+        username: The account; ``default`` for Redis's ``requirepass``.
+        engine: Engine name or alias.
+        host: Its host restriction.
+        propagate: Rewrite and restart the applications that use it.
+        force: Do not ask for confirmation.
+        logger: Logger for progress and errors.
+
+    Returns:
+        Process exit code.
+    """
+    question = f"Give '{username}' a new password" + (
+        " and restart every application that signs in as it (each behind its "
+        "health gate; a failure undoes everything)?"
+        if propagate
+        else "? Applications that sign in as it will stop connecting"
+    )
+    if not _confirm(question, force=force):
+        logger.info("Cancelled")
+        return 0
+    try:
+        outcome = _service(logger).rotate_password(engine, username, host=host, propagate=propagate)
+    except NoustError as e:
+        return _fail(logger, e)
+    logger.success(f"New password for {username}: {outcome.password}")
+    if outcome.apps:
+        logger.info(f"  Given to: {', '.join(outcome.apps)}")
+    return 0
+
+
+# ==================== Links ====================
+
+
+def _link(
+    domain: str,
+    database: str,
+    *,
+    engine: str,
+    username: str | None,
+    env_var: str | None,
+    extra_vars: bool,
+    restart: bool,
+    logger: Logger,
+) -> int:
+    """
+    Give an application a database's connection string.
+
+    Args:
+        domain: The application.
+        database: The database.
+        engine: Engine name or alias.
+        username: The account to sign in as.
+        env_var: The variable to write.
+        extra_vars: Also write the ``DB_*`` variables.
+        restart: Restart the application behind its gate.
+        logger: Logger for progress and errors.
+
+    Returns:
+        Process exit code.
+    """
+    try:
+        outcome = _service(logger).link(
+            domain,
+            engine,
+            database,
+            username=username,
+            env_var=env_var,
+            extra_vars=extra_vars,
+            restart=restart,
+        )
+    except NoustError as e:
+        return _fail(logger, e)
+    logger.success(f"{database} linked to {domain} as {', '.join(outcome.env_vars)}")
+    if not outcome.restarted and restart:
+        logger.info("  The application runs nothing to restart.")
+    return 0
+
+
+def _unlink(
+    domain: str,
+    database: str,
+    *,
+    engine: str,
+    drop: bool,
+    restart: bool,
+    force: bool,
+    logger: Logger,
+) -> int:
+    """
+    Take a database away from an application, and drop it if asked.
+
+    Args:
+        domain: The application.
+        database: The database.
+        engine: Engine name or alias.
+        drop: Drop it too, after its last dump.
+        restart: Restart the application behind its gate.
+        force: Do not ask for confirmation.
+        logger: Logger for progress and errors.
+
+    Returns:
+        Process exit code.
+    """
+    question = f"Remove {database}'s variables from {domain}" + (
+        " and drop the database (a last dump is taken first)?" if drop else "?"
+    )
+    if not _confirm(question, force=force):
+        logger.info("Cancelled")
+        return 0
+    try:
+        dropped = _service(logger).unlink(domain, engine, database, drop=drop, restart=restart)
+    except NoustError as e:
+        return _fail(logger, e)
+    logger.success(f"{database} unlinked from {domain}")
+    if dropped and dropped.safety_copy:
+        logger.info(f"  Dropped; last dump: {dropped.safety_copy}")
+    return 0
+
+
+def _links(domain: str, *, json_output: bool, logger: Logger) -> int:
+    """
+    List the databases an application uses.
+
+    Args:
+        domain: The application.
+        json_output: Print the list as JSON.
+        logger: Logger for errors.
+
+    Returns:
+        Process exit code.
+    """
+    try:
+        views = _service(logger).app_databases(domain)
+    except NoustError as e:
+        return _fail(logger, e)
+    if json_output:
+        _echo_json([view.to_dict() for view in views])
+        return 0
+    if not views:
+        logger.info(f"{domain} uses no database")
+        return 0
+    for view in views:
+        variable = view.env_var or "(variable not recorded)"
+        click.echo(f"  {view.engine}/{view.database}  {variable}  {view.url or ''}".rstrip())
+    return 0
+
+
+def _provision(
+    domain: str,
+    *,
+    engine: str,
+    name: str | None,
+    env_var: str | None,
+    extra_vars: bool,
+    restart: bool,
+    logger: Logger,
+) -> int:
+    """
+    Create a database and an account for an application, and link them.
+
+    Args:
+        domain: The application.
+        engine: Engine name or alias.
+        name: The database; derived from the application when omitted.
+        env_var: The variable to write.
+        extra_vars: Also write the ``DB_*`` variables.
+        restart: Restart the application behind its gate.
+        logger: Logger for progress and errors.
+
+    Returns:
+        Process exit code.
+    """
+    try:
+        outcome = _service(logger).provision_for_app(
+            domain, engine, name=name, env_var=env_var, extra_vars=extra_vars, restart=restart
+        )
+    except NoustError as e:
+        return _fail(logger, e)
+    verb = "Created and linked" if outcome.created_database else "Linked"
+    logger.success(f"{verb} {outcome.database} for {domain} as {', '.join(outcome.env_vars)}")
+    return 0
 
 
 # ==================== Backup and restore ====================
@@ -947,6 +1257,7 @@ def _backup(
     output: Path | None,
     compress: bool,
     logger: Logger,
+    dump_format: str | None = None,
 ) -> int:
     """
     Write a database to a backup file.
@@ -958,35 +1269,36 @@ def _backup(
             omitted.
         compress: Compress the backup with gzip.
         logger: Logger for progress and errors.
+        dump_format: PostgreSQL's dump format.
 
     Returns:
         Process exit code.
     """
-    manager = _get_manager(engine, logger)
-    if not manager:
-        return 1
-
+    logger.step(1, 2, f"Creating backup of {database}...")
+    service = _service(logger)
+    checked = ""
     try:
-        if not manager.is_running():
-            logger.error(f"{manager.DISPLAY_NAME} is not running")
-            return 1
+        if output is None:
+            # A dump in the engine's own directory is hashed, checked and recorded;
+            # one written to a path of the operator's choosing is only written.
+            view = DatabaseBackups(service).dump(
+                engine, database, compress=compress, dump_format=dump_format
+            )
+            backup_info = view.info
+            checked = (view.record.verify_detail or "") if view.record else ""
+        else:
+            backup_info = service.dump(
+                engine, database, compress=compress, dump_format=dump_format, output=output
+            )
+    except NoustError as e:
+        return _fail(logger, e)
 
-        logger.step(1, 2, f"Creating backup of {database}...")
-
-        backup_info = manager.backup(
-            database=database,
-            output_path=output,
-            compress=compress,
-        )
-
-        logger.step(2, 2, "Backup complete")
-        logger.success(f"Backup created: {backup_info.path}")
-        logger.info(f"  Size: {backup_info.to_dict()['size_human']}")
-
-        return 0
-    except DatabaseError as e:
-        logger.error(str(e))
-        return 1
+    logger.step(2, 2, "Backup complete")
+    logger.success(f"Backup created: {backup_info.path}")
+    logger.info(f"  Size: {backup_info.to_dict()['size_human']}")
+    if checked:
+        logger.info(f"  Checked: {checked}")
+    return 0
 
 
 def _restore(
@@ -997,17 +1309,22 @@ def _restore(
     drop_existing: bool,
     force: bool,
     logger: Logger,
+    new_name: str | None = None,
+    safety_backup: bool = True,
 ) -> int:
     """
-    Load a backup into a database.
+    Load a backup into a database, or into a new one beside it.
 
     Args:
-        database: Target database name.
+        database: The database the backup is of, and the target unless
+            ``new_name`` is given.
         backup_file: Backup file to read.
-        drop_existing: Drop the target database before restoring.
-        engine: Engine name or alias.
+        drop_existing: Drop the target database before restoring. A safety
+            copy is taken first, and put back if the restore fails.
         force: Do not ask for confirmation.
         logger: Logger for progress and errors.
+        new_name: Restore into a new database instead.
+        safety_backup: Dump the target first even when nothing is dropped.
 
     Returns:
         Process exit code.
@@ -1016,40 +1333,41 @@ def _restore(
     if not manager:
         return 1
 
-    try:
-        if not manager.is_running():
-            logger.error(f"{manager.DISPLAY_NAME} is not running")
-            return 1
-
-        if drop_existing:
-            question = (
-                f"Drop database '{database}' and restore it from {backup_file}? "
-                "Everything currently in it is lost"
-            )
-        else:
-            question = (
-                f"Restore database '{database}' from {backup_file}? "
-                "Existing rows may be overwritten"
-            )
-        if not _confirm(question, force=force):
-            logger.info("Cancelled")
-            return 0
-
-        logger.step(1, 2, f"Restoring {database}...")
-
-        manager.restore(
-            database=database,
-            backup_path=backup_file,
-            drop_existing=drop_existing,
+    if new_name:
+        question = f"Restore {backup_file} into a new database '{new_name}'?"
+    elif drop_existing:
+        question = (
+            f"Drop database '{database}' and restore it from {backup_file}? "
+            "A safety copy is taken first and put back if the restore fails"
         )
-
-        logger.step(2, 2, "Restore complete")
-        logger.success(f"Database {database} restored")
-
+    else:
+        question = (
+            f"Restore database '{database}' from {backup_file}? "
+            "Existing rows may be overwritten"
+            + ("; a safety copy is taken first" if safety_backup else "")
+        )
+    if not _confirm(question, force=force):
+        logger.info("Cancelled")
         return 0
-    except DatabaseError as e:
-        logger.error(str(e))
-        return 1
+
+    logger.step(1, 2, f"Restoring {new_name or database}...")
+    try:
+        outcome = DatabaseBackups(_service(logger)).restore_file(
+            engine,
+            database,
+            backup_file,
+            drop_existing,
+            safety_backup,
+            new_name,
+        )
+    except NoustError as e:
+        return _fail(logger, e)
+
+    logger.step(2, 2, "Restore complete")
+    logger.success(f"Database {outcome.database} restored")
+    if outcome.safety_copy:
+        logger.info(f"  Safety copy: {outcome.safety_copy}")
+    return 0
 
 
 def _backups(*, engine: str | None, database: str | None, json_output: bool, logger: Logger) -> int:
@@ -1057,7 +1375,7 @@ def _backups(*, engine: str | None, database: str | None, json_output: bool, log
     List the backups on this server.
 
     Args:
-        engine: Engine name or alias. Every installed engine when omitted.
+        engine: Engine name or alias. Every engine when omitted.
         database: Only list backups of this database.
         json_output: Print the list as JSON.
         logger: Logger for errors.
@@ -1065,98 +1383,40 @@ def _backups(*, engine: str | None, database: str | None, json_output: bool, log
     Returns:
         Process exit code.
     """
-    if engine:
-        manager = _get_manager(engine, logger)
-        if manager is None:
-            return 1
-        managers = [manager]
-    else:
-        managers = DatabaseRegistry.get_installed(verbose=logger.verbose)
-
-    all_backups = []
-
-    for manager in managers:
-        try:
-            for backup in manager.list_backups(database=database):
-                all_backups.append(backup.to_dict())
-        except Exception as e:
-            # An unreadable backup directory for one engine must not hide the
-            # backups of the others.
-            if logger.verbose:
-                logger.warning(f"Could not list {manager.DISPLAY_NAME} backups: {e}")
+    try:
+        # The same rows the console's table shows: who made each dump, whether it
+        # was checked, where a copy went.
+        listed = DatabaseBackups(_service(logger)).list_dumps(engine, database)
+        dumps = [dump.to_dict() for dump in listed]
+    except NoustError as e:
+        return _fail(logger, e)
 
     if json_output:
-        click.echo(json.dumps(all_backups, indent=2))
+        _echo_json(dumps)
         return 0
 
-    if not all_backups:
+    if not dumps:
         logger.info("No backups found")
         return 0
 
     click.echo("\nAvailable Backups:")
     click.echo("-" * 60)
-    for backup_dict in all_backups:
-        click.echo(f"  {backup_dict['database']} ({backup_dict['engine']})")
+    for backup_dict in dumps:
+        click.echo(
+            f"  {backup_dict['database']} ({backup_dict['engine']}, {backup_dict['format']})"
+        )
         click.echo(f"    Path:    {backup_dict['path']}")
         click.echo(f"    Size:    {backup_dict['size_human']}")
         click.echo(f"    Created: {backup_dict['created']}")
+        click.echo(f"    Checked: {backup_dict['verify_status']} ({backup_dict['kind']})")
+        for copy in backup_dict["destinations"]:
+            click.echo(f"    Copy:    {copy['destination']}")
         click.echo("")
 
     return 0
 
 
-# ==================== Query and connection ====================
-
-
-def _single_statement(query: str) -> str:
-    """
-    Reduce a request to exactly one statement.
-
-    This is what makes read-only mode mean anything. A manager wraps the text
-    it is given in the engine's own read-only transaction, so a request holding
-    two statements is handed to the engine as
-    ``START TRANSACTION READ ONLY; SELECT 1; COMMIT; DROP TABLE users``: the
-    embedded ``COMMIT`` ends the read-only transaction and everything after it
-    runs with write access. One statement in, one transaction, no escape.
-
-    Args:
-        query: The statement as it was typed.
-
-    Returns:
-        The statement, stripped, without its optional trailing semicolon.
-
-    Raises:
-        DatabaseQueryError: When the text is empty, too long, or holds more
-            than one statement.
-    """
-    statement = query.strip()
-    if not statement:
-        raise DatabaseQueryError(
-            "Empty statement",
-            details="Pass the statement to run as the second argument.",
-        )
-    if len(statement) > MAX_QUERY_LENGTH:
-        raise DatabaseQueryError(
-            f"Statement is too long: {len(statement)} characters",
-            details=(
-                f"The console accepts at most {MAX_QUERY_LENGTH} characters. "
-                "Put a longer script in a file and feed it to the engine's own client "
-                "with 'noust db connect'."
-            ),
-        )
-
-    stripped = statement.removesuffix(";").rstrip()
-    if ";" in stripped:
-        raise DatabaseQueryError(
-            "Only one statement may be sent at a time in read-only mode",
-            details=(
-                "An embedded ';' can close the read-only transaction the engine was "
-                "asked to hold, so everything after it would run with write access. "
-                "Send the statements one by one, or pass --write if you accept that "
-                "they may change data."
-            ),
-        )
-    return stripped
+# ==================== Query, connection and exposure ====================
 
 
 def _query(database: str, query: str, *, engine: str, read_only: bool, logger: Logger) -> int:
@@ -1167,7 +1427,7 @@ def _query(database: str, query: str, *, engine: str, read_only: bool, logger: L
         database: Database name.
         query: The statement.
         engine: Engine name or alias.
-        read_only: Run inside the engine's own read-only transaction.
+        read_only: Run it as the database's read-only account.
         logger: Logger for errors.
 
     Returns:
@@ -1177,38 +1437,41 @@ def _query(database: str, query: str, *, engine: str, read_only: bool, logger: L
     if not manager:
         return 1
 
-    if read_only and manager.ENGINE_NAME.lower() not in READ_ONLY_ENGINES:
+    if read_only and "read_only" not in getattr(manager, "CAPABILITIES", frozenset()):
         logger.error(f"Read-only mode is not available for {manager.DISPLAY_NAME}")
         logger.info(
-            "Noust can only hold PostgreSQL and MySQL to a read-only transaction. "
-            "Re-run with --write if you accept that the statement may change data."
+            "Noust only runs a statement read-only where the database server itself can "
+            "hold the session read-only (PostgreSQL and MySQL). Re-run with --write if you "
+            "accept that the statement may change data."
         )
         return 1
 
     try:
-        # Checked before the engine is looked at, so a rejected statement never
-        # reaches it. Only read-only mode needs the guard: --write is the
-        # operator saying the statement may change data, and a batch is then a
-        # legitimate thing to send.
-        statement = _single_statement(query) if read_only else query
+        # Checked before the engine is looked at, so a refused statement never
+        # reaches it. --write is the operator saying the statements may change
+        # data, and a batch is then a legitimate thing to send.
+        statement = console_request(query, single=read_only)
+    except DatabaseQueryError as e:
+        logger.error(str(e))
+        if read_only:
+            logger.info("Pass --write if you accept that the statements may change data.")
+        return 1
 
+    try:
         if not manager.is_running():
             logger.error(f"{manager.DISPLAY_NAME} is not running")
             return 1
 
-        # Beyond the one-statement rule the guarantee is the engine's
-        # transaction, not a keyword check here: a leading keyword does not
-        # tell you what a statement does, and
-        # WITH x AS (DELETE ... RETURNING *) SELECT * FROM x begins with WITH.
+        # Beyond the one-statement rule the guarantee is the server's: a
+        # read runs signed in as the database's read-only account, whatever
+        # its first keyword says.
         success, output = manager.execute_query(database, statement, read_only=read_only)
-
-        if output:
-            click.echo(output)
-
-        return 0 if success else 1
     except DatabaseError as e:
-        logger.error(str(e))
-        return 1
+        return _fail(logger, e)
+
+    if output:
+        click.echo(output)
+    return 0 if success else 1
 
 
 def _connect(
@@ -1298,6 +1561,80 @@ def _connection_string(
 
     click.echo(conn_string)
     return 0
+
+
+def _connect_info(
+    database: str,
+    *,
+    engine: str,
+    username: str | None,
+    server: str | None,
+    ssh_user: str | None,
+    json_output: bool,
+    logger: Logger,
+) -> int:
+    """
+    Print how to reach a database from another computer, through SSH.
+
+    Args:
+        database: Database name.
+        engine: Engine name or alias.
+        username: The account; the provisioned one by default.
+        server: This server's address as the operator reaches it.
+        ssh_user: The SSH account.
+        json_output: Print everything as JSON.
+        logger: Logger for errors.
+
+    Returns:
+        Process exit code.
+    """
+    try:
+        info = _service(logger).connection_info(
+            engine, database, username=username, server=server, ssh_user=ssh_user
+        )
+    except NoustError as e:
+        return _fail(logger, e)
+    if json_output:
+        _echo_json(info)
+        return 0
+    tunnel = info["tunnel"]
+    click.echo("\nFrom your computer, open the tunnel:")
+    click.echo(f"  {tunnel['command']}")
+    click.echo("\nthen connect to:")
+    click.echo(f"  {tunnel['url']}")
+    for client, line in tunnel["clients"].items():
+        click.echo(f"  {client}: {line}")
+    for exposed in info["exposed"]:
+        logger.warning(
+            f"Port {exposed['port']} is open on {exposed['address']}. {exposed['advice']}"
+        )
+    return 0
+
+
+def _exposure(*, json_output: bool, logger: Logger) -> int:
+    """
+    List the database ports open beyond this machine.
+
+    Args:
+        json_output: Print the list as JSON.
+        logger: Logger for the findings.
+
+    Returns:
+        Process exit code: 0 when nothing is exposed, 1 when something is,
+        so a script can alert on it.
+    """
+    found = _service(logger).exposure()
+    if json_output:
+        _echo_json([entry.to_dict() for entry in found])
+        return 1 if found else 0
+    if not found:
+        logger.success("No database port is open beyond this machine")
+        return 0
+    for entry in found:
+        where = f" (container {entry.container}, {entry.image})" if entry.container else ""
+        logger.warning(f"{entry.engine} on {entry.address}:{entry.port}{where}")
+        logger.info(f"  {entry.advice}")
+    return 1
 
 
 def _config(*, engine: str, user: str | None, password: str | None, logger: Logger) -> int:
@@ -1510,7 +1847,7 @@ class DatabaseGroup(NoustGroup):
 
 @click.group(cls=DatabaseGroup, name="db")
 def cli() -> None:
-    """Install engines, and manage databases, users and backups."""
+    """Install engines, and manage databases, users, backups and application links."""
 
 
 @cli.command()
@@ -1536,7 +1873,7 @@ def uninstall(ctx: Context, engine: str, purge: bool, force: bool) -> None:
 @json_option("Print the statuses as JSON.")
 @pass_context
 def status(ctx: Context, engine: str | None) -> None:
-    """Show which engines are installed and which are running."""
+    """Show which engines are installed and running, and their upstream support."""
     _exit(_status(engine, json_output=ctx.json_output, logger=ctx.logger))
 
 
@@ -1577,6 +1914,7 @@ def engines(ctx: Context) -> None:
 @click.option("--engine", "-e", type=ENGINE, required=True, help="Engine to create it on.")
 @click.option("--owner", "-o", help="User that will own the database.")
 @click.option("--encoding", help="Character encoding. Defaults to UTF8.")
+@click.option("--app", help="Application it belongs to, so its backups include it.")
 @pass_context
 def create(
     ctx: Context,
@@ -1584,19 +1922,33 @@ def create(
     engine: str,
     owner: str | None,
     encoding: str | None,
+    app: str | None,
 ) -> None:
     """Create a database and record it in the store."""
-    _exit(_create(name, engine=engine, owner=owner, encoding=encoding, logger=ctx.logger))
+    _exit(_create(name, engine=engine, owner=owner, encoding=encoding, logger=ctx.logger, app=app))
 
 
 @cli.command()
 @click.argument("name")
 @click.option("--engine", "-e", type=ENGINE, required=True, help="Engine the database is on.")
 @click.option("--force", "-f", "-y", is_flag=True, help="Do not ask for confirmation.")
+@click.option("--no-backup", is_flag=True, help="Do not take a last dump before dropping.")
+@click.option(
+    "--unlink", is_flag=True, help="Also remove its variables from the applications using it."
+)
 @pass_context
-def drop(ctx: Context, name: str, engine: str, force: bool) -> None:
-    """Delete a database and everything in it."""
-    _exit(_drop(name, engine=engine, force=force, logger=ctx.logger))
+def drop(ctx: Context, name: str, engine: str, force: bool, no_backup: bool, unlink: bool) -> None:
+    """Delete a database and everything in it, after a last dump."""
+    _exit(
+        _drop(
+            name,
+            engine=engine,
+            force=force,
+            logger=ctx.logger,
+            keep_backup=not no_backup,
+            unlink=unlink,
+        )
+    )
 
 
 @cli.command("list")
@@ -1623,15 +1975,66 @@ def list_databases(ctx: Context, engine: str | None, open_panel: bool) -> None:
 @json_option("Print the database's details as JSON.")
 @pass_context
 def info(ctx: Context, name: str, engine: str) -> None:
-    """Show the size, owner and encoding of a database."""
+    """Show a database's size, owner, application, support and access."""
     _exit(_info(name, engine=engine, json_output=ctx.json_output, logger=ctx.logger))
+
+
+@cli.command()
+@click.option("--engine", "-e", type=ENGINE, help="Only this engine. Defaults to all of them.")
+@pass_context
+def adopt(ctx: Context, engine: str | None) -> None:
+    """Track the databases created outside Noust, so they can be linked and backed up."""
+    _exit(_adopt(engine=engine, logger=ctx.logger))
+
+
+@cli.command()
+@click.argument("name")
+@click.option("--engine", "-e", type=ENGINE, required=True, help="Engine the database was on.")
+@pass_context
+def forget(ctx: Context, name: str, engine: str) -> None:
+    """Forget a tracked database that no longer exists on its engine."""
+    _exit(_forget(name, engine=engine, logger=ctx.logger))
+
+
+@cli.command("fix-owner")
+@click.argument("name")
+@click.option("--engine", "-e", type=ENGINE, required=True, help="Engine the database is on.")
+@click.option("--owner", help="Role that must own it. Defaults to the one Noust provisioned.")
+@click.option(
+    "--apply", "apply_changes", is_flag=True, help="Make the change; only show it without."
+)
+@click.option("--force", "-f", "-y", is_flag=True, help="Do not ask before applying.")
+@json_option("Print the plan as JSON.")
+@pass_context
+def fix_owner(
+    ctx: Context, name: str, engine: str, owner: str | None, apply_changes: bool, force: bool
+) -> None:
+    """
+    Give a PostgreSQL database, and its objects, to its application's role.
+
+    Since PostgreSQL 15 only a database's owner may create in its public
+    schema, so a database provisioned before Noust 3.1 (owned by postgres)
+    fails its application's migrations. Shows the change; --apply makes it.
+    """
+    _exit(
+        _fix_owner(
+            name,
+            engine=engine,
+            owner=owner,
+            apply=apply_changes,
+            force=force,
+            json_output=ctx.json_output,
+            logger=ctx.logger,
+        )
+    )
 
 
 @cli.command("user-create")
 @click.argument("username")
 @click.option("--engine", "-e", type=ENGINE, required=True, help="Engine to create the user on.")
 @click.option("--password", "-p", help="Password. One is generated and shown when omitted.")
-@click.option("--database", "-d", help="Database to grant the new user access to.")
+@click.option("--database", "-d", help="Database to give the new user access to.")
+@click.option("--profile", type=PROFILE, help="Access profile on that database.")
 @click.option(
     "--host", default="localhost", show_default=True, help="Host the user may connect from."
 )
@@ -1642,9 +2045,10 @@ def user_create(
     engine: str,
     password: str | None,
     database: str | None,
+    profile: str | None,
     host: str,
 ) -> None:
-    """Create a database user."""
+    """Create a database user, optionally with a profile on one database."""
     _exit(
         _user_create(
             username,
@@ -1653,6 +2057,7 @@ def user_create(
             database=database,
             host=host,
             logger=ctx.logger,
+            profile=profile,
         )
     )
 
@@ -1677,6 +2082,68 @@ def user_delete(ctx: Context, username: str, engine: str, host: str, force: bool
 def user_list(ctx: Context, engine: str) -> None:
     """List the users of an engine."""
     _exit(_user_list(engine=engine, json_output=ctx.json_output, logger=ctx.logger))
+
+
+@cli.command("user-password")
+@click.argument("username")
+@click.option("--engine", "-e", type=ENGINE, required=True, help="Engine the user is on.")
+@click.option("--host", default="localhost", show_default=True, help="Host the user connects from.")
+@click.option(
+    "--no-propagate",
+    is_flag=True,
+    help="Do not give the new password to the applications that sign in as the user.",
+)
+@click.option("--force", "-f", "-y", is_flag=True, help="Do not ask for confirmation.")
+@pass_context
+def user_password(
+    ctx: Context, username: str, engine: str, host: str, no_propagate: bool, force: bool
+) -> None:
+    """
+    Give a user a new password, and the applications that use it too.
+
+    Each application restarts behind its health gate; one that does not come
+    back undoes the whole rotation. 'default' rotates Redis's requirepass.
+    """
+    _exit(
+        _user_password(
+            username,
+            engine=engine,
+            host=host,
+            propagate=not no_propagate,
+            force=force,
+            logger=ctx.logger,
+        )
+    )
+
+
+@cli.command()
+@click.argument("database")
+@click.option("--engine", "-e", type=ENGINE, required=True, help="Engine the database is on.")
+@click.option("--user", "-u", "username", help="Account whose access to change.")
+@click.option("--profile", type=PROFILE, help="The account's new profile.")
+@click.option("--host", default="localhost", show_default=True, help="The account's host.")
+@json_option("Print the access list as JSON.")
+@pass_context
+def access(
+    ctx: Context,
+    database: str,
+    engine: str,
+    username: str | None,
+    profile: str | None,
+    host: str,
+) -> None:
+    """List who can reach a database, or give one account a profile on it."""
+    _exit(
+        _access(
+            database,
+            engine=engine,
+            username=username,
+            profile=profile,
+            host=host,
+            json_output=ctx.json_output,
+            logger=ctx.logger,
+        )
+    )
 
 
 @cli.command()
@@ -1726,6 +2193,111 @@ def revoke(
 
 
 @cli.command()
+@click.argument("domain")
+@click.argument("database")
+@click.option("--engine", "-e", type=ENGINE, required=True, help="Engine the database is on.")
+@click.option("--user", "-u", "username", help="Account to sign in as. Noust must know it.")
+@click.option("--env-var", help="Variable to write. DATABASE_URL, or REDIS_URL for Redis.")
+@click.option("--extra-vars", is_flag=True, help="Also write DB_HOST, DB_PORT, DB_NAME, ...")
+@click.option("--no-restart", is_flag=True, help="Write the variables without restarting.")
+@pass_context
+def link(
+    ctx: Context,
+    domain: str,
+    database: str,
+    engine: str,
+    username: str | None,
+    env_var: str | None,
+    extra_vars: bool,
+    no_restart: bool,
+) -> None:
+    """Give an application a database's connection string, and restart it."""
+    _exit(
+        _link(
+            domain,
+            database,
+            engine=engine,
+            username=username,
+            env_var=env_var,
+            extra_vars=extra_vars,
+            restart=not no_restart,
+            logger=ctx.logger,
+        )
+    )
+
+
+@cli.command()
+@click.argument("domain")
+@click.argument("database")
+@click.option("--engine", "-e", type=ENGINE, required=True, help="Engine the database is on.")
+@click.option("--drop", "drop_it", is_flag=True, help="Also drop the database, after a last dump.")
+@click.option("--no-restart", is_flag=True, help="Remove the variables without restarting.")
+@click.option("--force", "-f", "-y", is_flag=True, help="Do not ask for confirmation.")
+@pass_context
+def unlink(
+    ctx: Context,
+    domain: str,
+    database: str,
+    engine: str,
+    drop_it: bool,
+    no_restart: bool,
+    force: bool,
+) -> None:
+    """Take a database away from an application."""
+    _exit(
+        _unlink(
+            domain,
+            database,
+            engine=engine,
+            drop=drop_it,
+            restart=not no_restart,
+            force=force,
+            logger=ctx.logger,
+        )
+    )
+
+
+@cli.command(read_only=True)
+@click.argument("domain")
+@json_option("Print the list as JSON.")
+@pass_context
+def links(ctx: Context, domain: str) -> None:
+    """List the databases an application uses."""
+    _exit(_links(domain, json_output=ctx.json_output, logger=ctx.logger))
+
+
+@cli.command()
+@click.argument("domain")
+@click.option("--engine", "-e", type=ENGINE, required=True, help="Engine to create it on.")
+@click.option("--name", help="Database name. Derived from the application by default.")
+@click.option("--env-var", help="Variable to write. DATABASE_URL, or REDIS_URL for Redis.")
+@click.option("--extra-vars", is_flag=True, help="Also write DB_HOST, DB_PORT, DB_NAME, ...")
+@click.option("--no-restart", is_flag=True, help="Write the variables without restarting.")
+@pass_context
+def provision(
+    ctx: Context,
+    domain: str,
+    engine: str,
+    name: str | None,
+    env_var: str | None,
+    extra_vars: bool,
+    no_restart: bool,
+) -> None:
+    """Create a database and an account for an application, and link them."""
+    _exit(
+        _provision(
+            domain,
+            engine=engine,
+            name=name,
+            env_var=env_var,
+            extra_vars=extra_vars,
+            restart=not no_restart,
+            logger=ctx.logger,
+        )
+    )
+
+
+@cli.command()
 @click.argument("database")
 @click.option("--engine", "-e", type=ENGINE, required=True, help="Engine the database is on.")
 @click.option(
@@ -1735,6 +2307,12 @@ def revoke(
     help="Where to write the file. Defaults to the engine's backup directory.",
 )
 @click.option("--no-compress", is_flag=True, help="Write the dump without gzip.")
+@click.option(
+    "--format",
+    "dump_format",
+    type=click.Choice(["custom", "plain", "tar"]),
+    help="PostgreSQL's dump format. custom (pg_dump -Fc) by default.",
+)
 @pass_context
 def backup(
     ctx: Context,
@@ -1742,6 +2320,7 @@ def backup(
     engine: str,
     output: Path | None,
     no_compress: bool,
+    dump_format: str | None,
 ) -> None:
     """Write a database to a backup file."""
     _exit(
@@ -1751,6 +2330,7 @@ def backup(
             output=output,
             compress=not no_compress,
             logger=ctx.logger,
+            dump_format=dump_format,
         )
     )
 
@@ -1759,7 +2339,18 @@ def backup(
 @click.argument("database")
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, path_type=Path))
 @click.option("--engine", "-e", type=ENGINE, required=True, help="Engine the database is on.")
-@click.option("--drop", is_flag=True, help="Drop the database before restoring it.")
+@click.option(
+    "--drop",
+    is_flag=True,
+    help="Drop the database before restoring it. A safety copy is taken first and put back "
+    "if the restore fails.",
+)
+@click.option("--as-new", "new_name", help="Restore into a new database of this name instead.")
+@click.option(
+    "--no-safety-copy",
+    is_flag=True,
+    help="Do not dump the database first when nothing is dropped.",
+)
 @click.option("--force", "-f", "-y", is_flag=True, help="Do not ask for confirmation.")
 @pass_context
 def restore(
@@ -1768,9 +2359,11 @@ def restore(
     file: Path,
     engine: str,
     drop: bool,
+    new_name: str | None,
+    no_safety_copy: bool,
     force: bool,
 ) -> None:
-    """Load a backup into a database."""
+    """Load a backup into a database, never losing what it held."""
     _exit(
         _restore(
             database,
@@ -1779,6 +2372,8 @@ def restore(
             drop_existing=drop,
             force=force,
             logger=ctx.logger,
+            new_name=new_name,
+            safety_backup=not no_safety_copy,
         )
     )
 
@@ -1808,7 +2403,7 @@ def backups(ctx: Context, engine: str | None, database: str | None) -> None:
     "--write",
     is_flag=True,
     help="Allow the statement to change data. Without it the engine runs one statement "
-    "in a read-only transaction.",
+    "as the database's read-only account.",
 )
 @pass_context
 def query(ctx: Context, database: str, query: str, engine: str, write: bool) -> None:
@@ -1837,6 +2432,44 @@ def connect(ctx: Context, engine: str, database: str | None, username: str | Non
             logger=ctx.logger,
         )
     )
+
+
+@cli.command("connect-info", read_only=True)
+@click.argument("database")
+@click.option("--engine", "-e", type=ENGINE, required=True, help="Engine the database is on.")
+@click.option("--username", "-u", help="Account to connect as.")
+@click.option("--server", help="This server's address as you reach it. Detected by default.")
+@click.option("--ssh-user", help="Account to sign in to the server as. root by default.")
+@json_option("Print everything as JSON.")
+@pass_context
+def connect_info(
+    ctx: Context,
+    database: str,
+    engine: str,
+    username: str | None,
+    server: str | None,
+    ssh_user: str | None,
+) -> None:
+    """Show the SSH tunnel to reach a database from your computer."""
+    _exit(
+        _connect_info(
+            database,
+            engine=engine,
+            username=username,
+            server=server,
+            ssh_user=ssh_user,
+            json_output=ctx.json_output,
+            logger=ctx.logger,
+        )
+    )
+
+
+@cli.command(read_only=True)
+@json_option("Print the open ports as JSON.")
+@pass_context
+def exposure(ctx: Context) -> None:
+    """List database ports open beyond this machine; exits 1 when there is one."""
+    _exit(_exposure(json_output=ctx.json_output, logger=ctx.logger))
 
 
 @cli.command("connection-string")
@@ -1875,3 +2508,33 @@ def connection_string(
 def config(ctx: Context, engine: str, user: str | None, password: str | None) -> None:
     """Store the administrative credentials Noust uses for an engine."""
     _exit(_config(engine=engine, user=user, password=password, logger=ctx.logger))
+
+
+def _attach_backup_commands() -> None:
+    """
+    Add the backup policy commands (``backup-schedule``, ``backup-run``...).
+
+    They live in their own module, which does not import this one at load
+    time, so the order the two are imported in never matters.
+    """
+    from noust.cli.commands import db_backups
+
+    db_backups.register(cli)
+
+
+_attach_backup_commands()
+
+
+def _attach_data_commands() -> None:
+    """
+    Add the data explorer, console and metrics commands (``rows``, ``explain``...).
+
+    They live in :mod:`noust.cli.commands.db_data`, which imports this module
+    only at call time, like the backup commands.
+    """
+    from noust.cli.commands import db_data
+
+    db_data.register(cli)
+
+
+_attach_data_commands()

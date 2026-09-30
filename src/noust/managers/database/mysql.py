@@ -22,6 +22,7 @@ import os
 import secrets as secrets_module
 import shutil
 import tempfile
+import time
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
@@ -36,20 +37,40 @@ from noust.core.exceptions import (
 )
 from noust.core.runner import CommandResult
 from noust.managers.database.base import (
+    DEFAULT_STRUCTURED_ROW_CAP,
+    PROFILES,
     QUERY_TIMEOUT,
     TRANSFER_TIMEOUT,
+    AccessEntry,
     BackupInfo,
     BaseDatabaseManager,
     DatabaseInfo,
+    ListenAddress,
     StructuredQueryResult,
     UserInfo,
     console_statement,
     format_size,
+    listen_address,
     parse_tabular_query_output,
+    query_deadline,
     quote_identifier,
     validate_name,
 )
 from noust.managers.database.registry import DatabaseRegistry
+
+#: How long the read-only account this process provisioned is reused as it
+#: is. Provisioning sets a new password and flushes privileges; the data
+#: explorer reads several times per screen, and doing that before each read
+#: (research/3.1/databases.md, B12) doubled the processes per page. A read
+#: the server refuses (the console rotated the password meanwhile) provisions
+#: again and retries.
+_PROVISION_REUSE_SECONDS = 60.0
+
+#: The read-only account and password this process last provisioned, and when.
+_provisioned: dict[str, tuple[str, str, float]] = {}
+
+#: What the server says when an account's credentials or grants do not let it in.
+_ACCESS_DENIED = "Access denied"
 
 #: Static privileges MySQL 8 and MariaDB accept in a GRANT. Anything outside
 #: this set is rejected before a statement is built.
@@ -149,6 +170,25 @@ def escape_option_file_value(value: str) -> str:
 #: Prefix of the least-privilege account the read-only console connects as.
 _READ_ONLY_USER_PREFIX = "wasm_ro_"
 
+#: The privileges each access profile grants on one database.
+PROFILE_PRIVILEGES: dict[str, tuple[str, ...]] = {
+    "owner": ("ALL PRIVILEGES",),
+    "read_write": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "read_only": ("SELECT",),
+}
+
+#: The mysql.db columns a profile is read back from, in query order.
+_PROFILE_COLUMNS = (
+    "Select_priv",
+    "Insert_priv",
+    "Update_priv",
+    "Delete_priv",
+    "Create_priv",
+    "Drop_priv",
+    "Alter_priv",
+    "Index_priv",
+)
+
 #: MySQL and MariaDB both cap a user name at 32 characters.
 _USER_NAME_MAX_LENGTH = 32
 
@@ -236,6 +276,19 @@ class MySQLManager(BaseDatabaseManager):
     VALID_PRIVILEGES = MYSQL_PRIVILEGES
     DEFAULT_PRIVILEGES = ("ALL PRIVILEGES",)
     SUPPORTS_STRUCTURED_QUERY = True
+    CAPABILITIES = frozenset({"sql", "tables", "read_only", "users", "profiles", "dump", "metrics"})
+    EOL_FAMILY = "mysql"
+    INTERNAL_USERS = frozenset(
+        {
+            "root",
+            "mysql",
+            "mysql.sys",
+            "mysql.session",
+            "mysql.infoschema",
+            "mariadb.sys",
+            "debian-sys-maint",
+        }
+    )
 
     #: Schemas that belong to the server, not to a user.
     SYSTEM_DATABASES = frozenset({"information_schema", "mysql", "performance_schema", "sys"})
@@ -249,10 +302,11 @@ class MySQLManager(BaseDatabaseManager):
         self._detect_variant()
 
     def _detect_variant(self) -> None:
-        """Name the service after the flavour that is actually installed."""
+        """Name the service, and the lifecycle, after the flavour that is installed."""
         if self.runner.exists("mariadb") or self.runner.exists("mariadbd"):
             self.SERVICE_NAME = "mariadb"
             self.DISPLAY_NAME = "MariaDB"
+            self.EOL_FAMILY = "mariadb"
 
     def _package_sets(self) -> tuple[list[str], ...]:
         """
@@ -273,6 +327,7 @@ class MySQLManager(BaseDatabaseManager):
         if list(packages) == list(self.MARIADB_PACKAGES):
             self.SERVICE_NAME = "mariadb"
             self.DISPLAY_NAME = "MariaDB"
+            self.EOL_FAMILY = "mariadb"
 
     def _post_install(self) -> None:
         """Drop the anonymous accounts and the test database a fresh install ships."""
@@ -428,7 +483,9 @@ class MySQLManager(BaseDatabaseManager):
         return username, password
 
     @contextmanager
-    def _read_only_credentials(self, database: str) -> Iterator[tuple[list[str], dict[str, str]]]:
+    def _read_only_credentials(
+        self, database: str, account: tuple[str, str] | None = None
+    ) -> Iterator[tuple[list[str], dict[str, str]]]:
         """
         Provision and hand back the read-only console's own credentials.
 
@@ -445,6 +502,8 @@ class MySQLManager(BaseDatabaseManager):
 
         Args:
             database: The database the account is scoped to.
+            account: The user name and password of an account provisioned
+                moments ago; provisioned now when None.
 
         Yields:
             The arguments to place immediately after the program name, and
@@ -453,7 +512,7 @@ class MySQLManager(BaseDatabaseManager):
         Raises:
             DatabaseQueryError: When the account cannot be provisioned.
         """
-        username, password = self._ensure_read_only_user(database)
+        username, password = account or self._ensure_read_only_user(database)
 
         content = (
             "[client]\n"
@@ -973,51 +1032,36 @@ class MySQLManager(BaseDatabaseManager):
                 "--single-transaction",
                 "--routines",
                 "--triggers",
+                # Scheduled events are part of the schema too; without this a
+                # restored database silently stops running them.
+                "--events",
                 database,
             ]
             return self._dump_to_file(argv, destination, database=database, compress=compress)
 
-    def restore(
-        self,
-        database: str,
-        backup_path: Path,
-        drop_existing: bool = False,
-        **kwargs,
-    ) -> None:
+    def _load_backup(self, database: str, backup_path: Path, **kwargs: object) -> None:
         """
-        Restore a database from a plain or gzipped dump.
+        Load a plain or gzipped dump through the client's stdin.
 
-        The staged dump is the client's stdin, read in ``--binary-mode``. Named
-        in a ``source`` command instead, the client read it as a script, and a
-        ``system`` or ``\\!`` line in a restored dump ran a shell as root. Binary
-        mode turns off every client command except ``charset`` and ``delimiter``
-        (which mysqldump's routines and triggers need), ``source`` included,
-        which is why the file cannot be named and is handed over as stdin. The
-        SQL itself still runs with the administrative account's privileges: a
-        restore trusts the dump's SQL, which is why it needs sudo mode.
+        The staged dump is the client's stdin, read in ``--binary-mode``.
+        Named in a ``source`` command instead, the client read it as a
+        script, and a ``system`` or ``\\!`` line in a restored dump ran a
+        shell as root. Binary mode turns off every client command except
+        ``charset`` and ``delimiter`` (which mysqldump's routines and
+        triggers need), ``source`` included, which is why the file cannot be
+        named and is handed over as stdin. The SQL itself still runs with the
+        administrative account's privileges: a restore trusts the dump's
+        SQL, which is why it needs sudo mode.
 
         Args:
-            database: Target database name.
-            backup_path: Path to the backup file.
-            drop_existing: Drop and recreate the database first.
+            database: The database to load into.
+            backup_path: The dump.
             **kwargs: Unused.
 
         Raises:
-            DatabaseBackupError: When the file is missing or the restore fails.
+            DatabaseBackupError: When the client fails; the error carries its
+                output.
         """
-        self.validate_database_name(database)
-        backup_path = Path(backup_path)
-        if not backup_path.exists():
-            raise DatabaseBackupError(
-                f"Backup file not found: {backup_path}",
-                details="Run 'noust db backups' to list the backups Noust knows about.",
-            )
-
-        if drop_existing and self.database_exists(database):
-            self.drop_database(database, force=True)
-        if not self.database_exists(database):
-            self.create_database(database)
-
         staged_name = f"{self.ENGINE_NAME}-restore-{database}{self.BACKUP_SUFFIX}"
         with self._staged_backup(backup_path, staged_name) as staged:
             with self._credentials() as credentials:
@@ -1032,8 +1076,6 @@ class MySQLManager(BaseDatabaseManager):
                 f"Failed to restore database '{database}'",
                 details=result.stderr.strip() or "The dump may be truncated.",
             )
-
-        self.logger.info(f"Restored database: {database} from {backup_path}")
 
     # ==================== Query Execution ====================
 
@@ -1073,7 +1115,13 @@ class MySQLManager(BaseDatabaseManager):
         return True, result.stdout
 
     def _console_exec(
-        self, database: str, query: str, *, read_only: bool, headers: bool
+        self,
+        database: str,
+        query: str,
+        *,
+        read_only: bool,
+        headers: bool,
+        timeout_s: int | None = None,
     ) -> CommandResult:
         """
         Run an operator's console statement with client commands disabled.
@@ -1093,6 +1141,8 @@ class MySQLManager(BaseDatabaseManager):
             read_only: Run it inside a read-only transaction as the
                 least-privilege account, never as the configured one.
             headers: Keep the column header row, for the structured result.
+            timeout_s: Seconds the server may spend on the statement; the
+                server's own setting when None.
 
         Returns:
             The client's outcome.
@@ -1107,22 +1157,23 @@ class MySQLManager(BaseDatabaseManager):
         if not self.database_exists(database):
             raise DatabaseNotFoundError(f"Database '{database}' does not exist")
 
+        limit = self.statement_timeout_sql(timeout_s)
         if read_only:
             # The terminator sits on its own line: a statement ending in a
             # "-- comment" would otherwise swallow it and merge with COMMIT.
-            sql = f"START TRANSACTION READ ONLY;\n{statement}\n;\nCOMMIT;\n"
+            sql = f"{limit}START TRANSACTION READ ONLY;\n{statement}\n;\nCOMMIT;\n"
             with self._read_only_credentials(database) as (credentials, env):
                 return self._exec(
                     [*self._client_argv(credentials, database, headers=headers), "--binary-mode"],
                     input=sql,
                     env=env,
-                    timeout=QUERY_TIMEOUT,
+                    timeout=query_deadline(timeout_s),
                 )
         with self._credentials() as credentials:
             return self._exec(
                 [*self._client_argv(credentials, database, headers=headers), "--binary-mode"],
-                input=statement,
-                timeout=QUERY_TIMEOUT,
+                input=f"{limit}{statement}",
+                timeout=query_deadline(timeout_s),
             )
 
     def execute_query_structured(
@@ -1131,7 +1182,8 @@ class MySQLManager(BaseDatabaseManager):
         query: str,
         *,
         read_only: bool = False,
-        max_rows: int = 1000,
+        max_rows: int = DEFAULT_STRUCTURED_ROW_CAP,
+        timeout_s: int | None = None,
     ) -> StructuredQueryResult:
         """
         Run a statement once and parse its batch output into columns and rows.
@@ -1148,9 +1200,14 @@ class MySQLManager(BaseDatabaseManager):
                 dedicated, least-privilege account provisioned by
                 :meth:`_ensure_read_only_user`.
             max_rows: Data rows kept before the rest are dropped.
+            timeout_s: Seconds the server may spend on the statement
+                (``max_statement_time`` on MariaDB, ``max_execution_time`` on
+                MySQL, where it bounds SELECTs only).
 
         Returns:
-            The parsed result.
+            The parsed result. Batch output prints a NULL as ``NULL``, which
+            is read as None: a text value that is the four letters ``NULL``
+            reads as NULL too, which the data explorer, reading JSON, does not.
 
         Raises:
             DatabaseNotFoundError: When the database does not exist.
@@ -1158,15 +1215,20 @@ class MySQLManager(BaseDatabaseManager):
                 (see :meth:`_console_exec`) or fails, or the read-only account
                 cannot be provisioned.
         """
-        result = self._console_exec(database, query, read_only=read_only, headers=True)
+        result = self._console_exec(
+            database, query, read_only=read_only, headers=True, timeout_s=timeout_s
+        )
         if not result.success:
             raise DatabaseQueryError(
                 "Query failed", details=(result.stderr or result.stdout).strip()
             )
 
-        columns, rows, truncated = parse_tabular_query_output(
+        columns, parsed, truncated = parse_tabular_query_output(
             result.stdout, delimiter="\t", max_rows=max_rows
         )
+        rows: list[list[str | None]] = [
+            [None if cell == "NULL" else cell for cell in row] for row in parsed
+        ]
         return StructuredQueryResult(
             output=result.stdout,
             columns=columns,
@@ -1176,26 +1238,352 @@ class MySQLManager(BaseDatabaseManager):
             truncated=truncated,
         )
 
-    def get_connection_string(
-        self,
-        database: str,
-        username: str,
-        password: str,
-        host: str = "localhost",
-    ) -> str:
+    # ==================== Statements Noust builds (3.1) ====================
+
+    @property
+    def is_mariadb(self) -> bool:
+        """Whether the server is MariaDB, whose statement timeout and ANALYZE differ."""
+        return self.EOL_FAMILY == "mariadb"
+
+    def statement_timeout_sql(self, timeout_s: int | None) -> str:
         """
-        Build a MySQL URI.
+        Build the statement that bounds how long the session's statements run.
 
         Args:
-            database: Database name.
-            username: User name.
-            password: Password.
-            host: Host to connect to.
+            timeout_s: Seconds, or None for the server's own setting.
 
         Returns:
-            The connection string.
+            ``SET SESSION max_statement_time`` on MariaDB (every statement,
+            in seconds), ``SET SESSION max_execution_time`` on MySQL (SELECTs
+            only, in milliseconds), or nothing.
         """
-        return f"mysql://{username}:{password}@{host}:{self.DEFAULT_PORT}/{database}"
+        if timeout_s is None:
+            return ""
+        if self.is_mariadb:
+            return f"SET SESSION max_statement_time = {int(timeout_s)};\n"
+        return f"SET SESSION max_execution_time = {int(timeout_s) * 1000};\n"
+
+    def run_sql(
+        self,
+        database: str | None,
+        sql: str,
+        *,
+        read_only: bool,
+        timeout_s: int | None = None,
+    ) -> str:
+        """
+        Run statements Noust built - the data explorer's, the row editor's,
+        the metrics' - and return what they printed.
+
+        The text travels on stdin, off the command line, and the client
+        prints raw (``--raw``): each result row is one line with nothing
+        escaped, which is what lets a row rendered as one JSON document be
+        read back as JSON. Values reach the text only as literals
+        :mod:`noust.managers.database.dialects` built.
+
+        Args:
+            database: Database to select; None for server-wide statements.
+            sql: The statements.
+            read_only: Run as the database's read-only account inside a
+                read-only transaction, reusing an account provisioned in the
+                last :data:`_PROVISION_REUSE_SECONDS`; otherwise as the
+                configured administrative account.
+            timeout_s: Seconds the server may spend on each statement.
+
+        Returns:
+            The client's output.
+
+        Raises:
+            DatabaseQueryError: When a statement fails, with the server's own
+                message; or the read-only account cannot be provisioned.
+        """
+        limit = self.statement_timeout_sql(timeout_s)
+        if read_only and database:
+            script = f"{limit}START TRANSACTION READ ONLY;\n{sql.rstrip()}\n;\nCOMMIT;\n"
+            cached = _provisioned.get(database)
+            fresh = (
+                (cached[0], cached[1])
+                if cached and time.monotonic() - cached[2] <= _PROVISION_REUSE_SECONDS
+                else None
+            )
+            attempts: list[tuple[str, str] | None] = [fresh] if fresh else []
+            attempts.append(None)
+            for account in attempts:
+                if account is None:
+                    account = self._ensure_read_only_user(database)
+                    _provisioned[database] = (*account, time.monotonic())
+                with self._read_only_credentials(database, account=account) as (credentials, env):
+                    result = self._exec(
+                        [*self._client_argv(credentials, database), "--raw", "--binary-mode"],
+                        input=script,
+                        env=env,
+                        timeout=query_deadline(timeout_s),
+                    )
+                if result.success or _ACCESS_DENIED not in result.stderr:
+                    break
+        else:
+            with self._credentials() as credentials:
+                result = self._exec(
+                    [*self._client_argv(credentials, database), "--raw", "--binary-mode"],
+                    input=f"{limit}{sql}",
+                    timeout=query_deadline(timeout_s),
+                )
+        if not result.success:
+            raise DatabaseQueryError(
+                f"{self.DISPLAY_NAME} refused a statement"
+                + (f" on '{database}'" if database else ""),
+                details=f"{self.DISPLAY_NAME}'s own message follows.",
+                output=(result.stderr or result.stdout).strip(),
+            )
+        return result.stdout
+
+    def explain(
+        self, database: str, statement: str, *, analyze: bool = False, timeout_s: int | None = None
+    ) -> str:
+        """
+        Show how the server would run an operator's statement.
+
+        Plain EXPLAIN (``FORMAT=JSON``) runs as the read-only account inside
+        a read-only transaction, like the console's read mode. ``analyze``
+        executes the statement to time it (MariaDB's ``ANALYZE
+        FORMAT=JSON``, MySQL's ``EXPLAIN ANALYZE``, which prints a tree), so
+        it runs as the administrative account inside a transaction that is
+        rolled back. The statement is checked exactly as a console statement
+        is: one statement, no client command.
+
+        Args:
+            database: The database.
+            statement: The operator's statement.
+            analyze: Execute it and report real timings.
+            timeout_s: Seconds the server may spend on it.
+
+        Returns:
+            The plan as the server printed it: JSON, or MySQL's analyzed tree.
+
+        Raises:
+            DatabaseNotFoundError: When the database does not exist.
+            DatabaseQueryError: When the statement is refused or fails.
+        """
+        checked = console_statement(statement, read_only=True)
+        _refuse_client_commands(checked)
+        if not self.database_exists(database):
+            raise DatabaseNotFoundError(f"Database '{database}' does not exist")
+        limit = self.statement_timeout_sql(timeout_s)
+        if analyze:
+            verb = "ANALYZE FORMAT=JSON" if self.is_mariadb else "EXPLAIN ANALYZE"
+            script = f"{limit}START TRANSACTION;\n{verb} {checked}\n;\nROLLBACK;\n"
+            with self._credentials() as credentials:
+                result = self._exec(
+                    [*self._client_argv(credentials, database), "--raw", "--binary-mode"],
+                    input=script,
+                    timeout=query_deadline(timeout_s),
+                )
+        else:
+            script = (
+                f"{limit}START TRANSACTION READ ONLY;\nEXPLAIN FORMAT=JSON {checked}\n;\nCOMMIT;\n"
+            )
+            with self._read_only_credentials(database) as (credentials, env):
+                result = self._exec(
+                    [*self._client_argv(credentials, database), "--raw", "--binary-mode"],
+                    input=script,
+                    env=env,
+                    timeout=query_deadline(timeout_s),
+                )
+        if not result.success:
+            raise DatabaseQueryError(
+                "EXPLAIN failed", details=(result.stderr or result.stdout).strip()
+            )
+        return result.stdout
+
+    def server_port(self) -> int:
+        """
+        Return the port the server listens on, as it reports it.
+
+        Returns:
+            ``@@port``, or :attr:`DEFAULT_PORT` when the server cannot say.
+        """
+        cached = getattr(self, "_port", None)
+        if cached is not None:
+            return int(cached)
+        success, output = self._execute_sql("SELECT @@port;")
+        value = output.strip()
+        if success and value.isdigit() and 0 < int(value) < 65536:
+            self._port = int(value)
+            return self._port
+        return self.DEFAULT_PORT
+
+    # ==================== Passwords, profiles, exposure ====================
+
+    def _account(self, username: str, host: str) -> str:
+        """
+        Quote a ``'user'@'host'`` account.
+
+        Args:
+            username: The user, already validated.
+            host: The host, already validated.
+
+        Returns:
+            The quoted account.
+        """
+        return f"{self._escape_literal(username)}@{self._escape_literal(host)}"
+
+    def set_user_password(self, username: str, password: str, host: str = "localhost") -> None:
+        """
+        Give an account a new password, with the statement on stdin.
+
+        Args:
+            username: The user.
+            password: Its new password.
+            host: Host the account connects from.
+
+        Raises:
+            DatabaseUserError: When the account does not exist or the server
+                refuses.
+        """
+        self.validate_user_name(username)
+        self.validate_host(host)
+        if not self.user_exists(username, host):
+            raise DatabaseUserError(
+                f"User '{username}'@'{host}' does not exist",
+                details="Run 'noust db user-list --engine mysql' to see the users.",
+            )
+        success, output = self._execute_sql(
+            f"ALTER USER {self._account(username, host)} "
+            f"IDENTIFIED BY {self._escape_literal(password)};\nFLUSH PRIVILEGES;",
+            secrets=(password,),
+        )
+        if not success:
+            raise DatabaseUserError(
+                f"Failed to change the password of '{username}'@'{host}'",
+                details=output.strip(),
+            )
+        self.logger.info(f"Changed the password of: {username}@{host}")
+
+    def apply_profile(
+        self, username: str, database: str, profile: str, host: str = "localhost"
+    ) -> None:
+        """
+        Give an account exactly one access profile on a database.
+
+        ``owner`` is ALL PRIVILEGES on the database (MySQL has no owner),
+        ``read_write`` SELECT, INSERT, UPDATE and DELETE, ``read_only``
+        SELECT. What the account held on the database is revoked first; a
+        SELECT is granted before the revoke because MySQL refuses to revoke
+        from an account that holds nothing there.
+
+        Args:
+            username: The user.
+            database: The database.
+            profile: ``owner``, ``read_write`` or ``read_only``.
+            host: Host the account connects from.
+
+        Raises:
+            DatabaseUserError: When the profile is unknown or the server
+                refuses.
+        """
+        self.validate_user_name(username)
+        self.validate_database_name(database)
+        self.validate_host(host)
+        if profile not in PROFILES:
+            raise DatabaseUserError(
+                f"Unknown access profile: {profile!r}",
+                details=f"Use one of: {', '.join(PROFILES)}.",
+            )
+        account = self._account(username, host)
+        scope = f"{self._escape_identifier(database)}.*"
+        privileges = ", ".join(PROFILE_PRIVILEGES[profile])
+        success, output = self._execute_sql(
+            f"GRANT SELECT ON {scope} TO {account};\n"  # noqa: S608 - quoted identifiers
+            f"REVOKE ALL PRIVILEGES ON {scope} FROM {account};\n"
+            f"GRANT {privileges} ON {scope} TO {account};\n"
+            "FLUSH PRIVILEGES;\n"
+        )
+        if not success:
+            raise DatabaseUserError(
+                f"Failed to give '{username}'@'{host}' the {profile} profile on '{database}'",
+                details=output.strip(),
+            )
+        self.logger.info(f"{username}@{host} now has the {profile} profile on {database}")
+
+    def list_access(self, database: str) -> list[AccessEntry]:
+        """
+        List the accounts with database-level grants on a database.
+
+        One query over ``mysql.db``. Global grants (root's) and table-level
+        grants are not per-database access and are not listed.
+
+        Args:
+            database: The database.
+
+        Returns:
+            One entry per account, with the profile its grants amount to.
+
+        Raises:
+            DatabaseUserError: When the grant table cannot be read.
+        """
+        self.validate_database_name(database)
+        columns = ", ".join(_PROFILE_COLUMNS)
+        success, output = self._execute_sql(
+            f"SELECT User, Host, {columns} FROM mysql.db "  # noqa: S608 - quoted literal, not interpolated data
+            f"WHERE Db = {self._escape_literal(database)} ORDER BY User, Host;"
+        )
+        if not success:
+            raise DatabaseUserError(
+                f"Could not read who can reach '{database}'", details=output.strip()
+            )
+        entries: list[AccessEntry] = []
+        for line in output.strip().splitlines():
+            parts = line.split("\t")
+            if len(parts) < 2 + len(_PROFILE_COLUMNS):
+                continue
+            granted = {
+                column.removesuffix("_priv").upper()
+                for column, flag in zip(_PROFILE_COLUMNS, parts[2:], strict=False)
+                if flag == "Y"
+            }
+            data = {"SELECT", "INSERT", "UPDATE", "DELETE"}
+            if granted >= data | {"CREATE", "DROP", "ALTER", "INDEX"}:
+                profile = "owner"
+            elif granted == data:
+                profile = "read_write"
+            elif granted == {"SELECT"}:
+                profile = "read_only"
+            else:
+                profile = "custom"
+            entries.append(
+                AccessEntry(
+                    username=parts[0],
+                    host=parts[1],
+                    profile=profile,
+                    privileges=tuple(sorted(granted)),
+                    internal=self.is_internal_user(parts[0]),
+                )
+            )
+        return entries
+
+    def drop_read_only_account(self, database: str) -> None:
+        """
+        Drop the read-only console's account of a dropped database.
+
+        Args:
+            database: The dropped database.
+        """
+        account = self._account(_read_only_user_name(database), "localhost")
+        success, output = self._execute_sql(f"DROP USER IF EXISTS {account};")
+        if not success:
+            self.logger.warning(f"Could not drop the read-only account {account}: {output.strip()}")
+
+    def listen_addresses(self) -> ListenAddress | None:
+        """
+        Ask the server for ``bind_address``.
+
+        Returns:
+            The addresses, or None when the server cannot say.
+        """
+        success, output = self._execute_sql("SELECT @@bind_address;")
+        if not success or not output.strip():
+            return None
+        return listen_address("bind-address", output.strip(), separator=",")
 
     def get_interactive_command(
         self,

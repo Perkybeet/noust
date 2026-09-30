@@ -96,6 +96,31 @@ _COMMIT = re.compile(r"^[0-9a-f]{7,64}$")
 _MAX_NAME_ATTEMPTS = 100
 
 
+def _match_release_id(value: str) -> re.Match[str] | None:
+    """
+    Match a release id, and only an id whose stamp is a real moment.
+
+    The pattern alone accepts ``20261399-256199-aaaaaaa``, which no deploy ever
+    made and nothing can date: listing it raised, and that was a 500 for the
+    whole listing over one directory somebody made by hand. Every place that
+    decides whether a name is a release asks here, so they cannot disagree.
+
+    Args:
+        value: A candidate, such as a directory name or a path parameter.
+
+    Returns:
+        The match, or None when it is not a release id.
+    """
+    match = _RELEASE_ID.match(value)
+    if match is None:
+        return None
+    try:
+        datetime.strptime(match["stamp"], _STAMP_FORMAT)
+    except ValueError:
+        return None
+    return match
+
+
 @dataclass(frozen=True)
 class Release:
     """
@@ -188,7 +213,7 @@ def release_order_key(release_id: str) -> tuple[str, int, str]:
     Raises:
         ValueError: If it is not a release id.
     """
-    match = _RELEASE_ID.match(release_id)
+    match = _match_release_id(release_id)
     if match is None:
         raise ValueError(f"not a release id: {release_id!r}")
     return match["stamp"], int(match["sequence"] or 1), release_id
@@ -205,7 +230,7 @@ def is_release_id(value: str) -> bool:
         True for ``YYYYMMDD-HHMMSS-<commit>[-N]``. Nothing else can name a
         release, so nothing else needs to reach the disk.
     """
-    return _RELEASE_ID.match(value) is not None
+    return _match_release_id(value) is not None
 
 
 def persistent_path(raw: str) -> PurePosixPath:
@@ -844,7 +869,7 @@ class ReleaseManager:
         return [
             entry.name
             for entry in self.releases_dir.iterdir()
-            if _RELEASE_ID.match(entry.name) and entry.is_dir() and not entry.is_symlink()
+            if _match_release_id(entry.name) and entry.is_dir() and not entry.is_symlink()
         ]
 
     def _known_ids(self) -> set[str]:
@@ -892,7 +917,7 @@ class ReleaseManager:
         """
         release = Path(release)
         in_place = (
-            _RELEASE_ID.match(release.name) is not None
+            _match_release_id(release.name) is not None
             and release.parent.resolve() == self.releases_dir.resolve()
             and not release.is_symlink()
         )
@@ -943,7 +968,7 @@ class ReleaseManager:
         Returns:
             The release.
         """
-        match = _RELEASE_ID.match(release_id)
+        match = _match_release_id(release_id)
         if match is None:
             raise ValueError(f"not a release id: {release_id!r}")
         created = datetime.strptime(match["stamp"], _STAMP_FORMAT).replace(tzinfo=timezone.utc)

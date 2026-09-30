@@ -22,6 +22,8 @@ the notifier built. What is being defended:
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import io
 import ipaddress
 import json
@@ -34,6 +36,7 @@ import pytest
 
 import noust.core.notifier as notifier_module
 from noust.core.config import DEFAULT_CONFIG, Config
+from noust.core.notifications.model import Notification, State
 from noust.core.notifier import (
     CHANNELS,
     EVENT_KINDS,
@@ -163,15 +166,45 @@ class TestWebhookChannel:
         assert USER_AGENT.startswith("noust-notifier/")
         assert opener.timeouts == [NOTIFY_TIMEOUT]
 
+        assert request.get_header("X-noust-event") == "deploy_success"
         payload = json.loads(request.data)
-        assert payload == {
-            "event": "deploy_success",
-            "title": "Deployed example.com",
-            "body": "wasm-example.com is running",
-            "domain": "example.com",
-            "ts": payload["ts"],
-        }
-        assert payload["ts"]  # ISO 8601, present even when nobody set it
+        assert request.get_header("X-noust-delivery") == payload["id"]
+        assert request.get_header("X-noust-signature") is None
+        # Version 1 keeps the keys the webhook always had, with their meaning.
+        assert payload["version"] == 1
+        assert payload["event"] == "deploy_success"
+        assert payload["title"] == "Deployed example.com"
+        assert payload["domain"] == "example.com"
+        assert "wasm-example.com is running" in payload["body"]
+        assert payload["ts"].endswith("Z")  # ISO 8601, present even when nobody set it
+        assert payload["server"]
+
+    def test_a_secret_signs_the_exact_body(self, config: Config) -> None:
+        """The signature is the receiver's proof; it must cover what was sent."""
+        config.set("notifications.enabled", True)
+        config.set("notifications.channels.webhook.webhook_url", WEBHOOK_URL)
+        config.set("notifications.channels.webhook.secret", "s3cret-signing-value")
+        opener = CapturingOpener()
+
+        Notifier(config, opener=opener).notify(make_event())
+
+        request = opener.requests[0]
+        expected = hmac.new(b"s3cret-signing-value", request.data, hashlib.sha256).hexdigest()
+        assert request.get_header("X-noust-signature") == f"sha256={expected}"
+
+    def test_the_secret_never_reaches_a_log(
+        self, config: Config, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        config.set("notifications.enabled", True)
+        config.set("notifications.channels.webhook.webhook_url", WEBHOOK_URL)
+        config.set("notifications.channels.webhook.secret", "s3cret-signing-value")
+        opener = CapturingOpener()
+        opener.errors[WEBHOOK_URL] = URLError("failed near s3cret-signing-value")
+
+        with caplog.at_level(logging.WARNING, logger="noust.core.notifier"):
+            Notifier(config, opener=opener).notify(make_event())
+
+        assert "s3cret-signing-value" not in caplog.text
 
     def test_the_master_switch_gates_everything(self, config: Config) -> None:
         """A configured channel must stay silent while notifications are off."""
@@ -266,10 +299,10 @@ class TestDeliveryIsolation:
 
 
 class TestChatChannels:
-    """Slack and Discord each get their own one-key payload."""
+    """Slack gets Block Kit in an attachment, Discord one embed."""
 
-    def test_slack_payload_is_text(self, config: Config) -> None:
-        """Slack incoming webhooks require ``{"text": ...}``."""
+    def test_slack_payload_is_a_coloured_attachment(self, config: Config) -> None:
+        """The strip is the state's colour; the fallback is what a phone reads."""
         config.set("notifications.enabled", True)
         config.set("notifications.channels.slack.webhook_url", SLACK_URL)
         opener = CapturingOpener()
@@ -277,12 +310,13 @@ class TestChatChannels:
         Notifier(config, opener=opener).notify(make_event())
 
         assert [r.full_url for r in opener.requests] == [SLACK_URL]
-        assert json.loads(opener.requests[0].data) == {
-            "text": "Deployed example.com\nwasm-example.com is running"
-        }
+        payload = json.loads(opener.requests[0].data)
+        assert "text" not in payload
+        attachment = payload["attachments"][0]
+        assert attachment["fallback"] == "\u25cf Deployed example.com"
+        assert "wasm-example.com is running" in json.dumps(attachment["blocks"])
 
-    def test_discord_payload_is_content(self, config: Config) -> None:
-        """Discord webhooks require ``{"content": ...}``."""
+    def test_discord_payload_is_one_embed_that_pings_nobody(self, config: Config) -> None:
         config.set("notifications.enabled", True)
         config.set("notifications.channels.discord.webhook_url", DISCORD_URL)
         opener = CapturingOpener()
@@ -290,37 +324,33 @@ class TestChatChannels:
         Notifier(config, opener=opener).notify(make_event())
 
         assert [r.full_url for r in opener.requests] == [DISCORD_URL]
-        assert json.loads(opener.requests[0].data) == {
-            "content": "Deployed example.com\nwasm-example.com is running",
-            "allowed_mentions": {"parse": []},
-        }
+        payload = json.loads(opener.requests[0].data)
+        assert payload["allowed_mentions"] == {"parse": []}
+        embed = payload["embeds"][0]
+        assert embed["title"] == "\u25cf Deployed example.com"
+        assert "wasm-example.com is running" in embed["description"]
 
-    def test_slack_cuts_an_oversized_body_to_its_own_limit(self, config: Config) -> None:
+    def test_slack_stays_inside_its_limits_for_an_oversized_body(self, config: Config) -> None:
         """Slack rejects a message over its own limit; this must never happen."""
         config.set("notifications.enabled", True)
         config.set("notifications.channels.slack.webhook_url", SLACK_URL)
         opener = CapturingOpener()
-        event = make_event(body="x" * 50000)
 
-        Notifier(config, opener=opener).notify(event)
+        Notifier(config, opener=opener).notify(make_event(body="x" * 50000))
 
-        text = json.loads(opener.requests[0].data)["text"]
-        assert len(text) == 40000
-        assert text.startswith("Deployed example.com\n")
-        assert text.endswith("(truncated)")
+        blocks = json.loads(opener.requests[0].data)["attachments"][0]["blocks"]
+        assert all(len(b.get("text", {}).get("text", "")) <= 3000 for b in blocks)
 
-    def test_discord_cuts_an_oversized_body_to_its_own_limit(self, config: Config) -> None:
-        """Discord's 2000 character limit is far below a health gate's evidence."""
+    def test_discord_stays_inside_its_limits_for_an_oversized_body(self, config: Config) -> None:
+        """Discord's limits are far below a health gate's evidence."""
         config.set("notifications.enabled", True)
         config.set("notifications.channels.discord.webhook_url", DISCORD_URL)
         opener = CapturingOpener()
-        event = make_event(body="npm ERR!\n" * 500)
 
-        Notifier(config, opener=opener).notify(event)
+        Notifier(config, opener=opener).notify(make_event(body="npm ERR!\n" * 500))
 
-        text = json.loads(opener.requests[0].data)["content"]
-        assert len(text) == 2000
-        assert text.endswith("(truncated)")
+        embed = json.loads(opener.requests[0].data)["embeds"][0]
+        assert len(embed["description"]) <= 4096
 
     def test_a_short_body_is_sent_whole(self, config: Config) -> None:
         """The common case: nothing is cut when there is nothing to cut."""
@@ -330,9 +360,9 @@ class TestChatChannels:
 
         Notifier(config, opener=opener).notify(make_event())
 
-        text = json.loads(opener.requests[0].data)["content"]
-        assert text == "Deployed example.com\nwasm-example.com is running"
-        assert "truncated" not in text
+        description = json.loads(opener.requests[0].data)["embeds"][0]["description"]
+        assert "wasm-example.com is running" in description
+        assert "omitted" not in description
 
 
 class TestTelegramChannel:
@@ -353,22 +383,66 @@ class TestTelegramChannel:
         assert len(opener.requests) == 1
         request = opener.requests[0]
         assert request.full_url == f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-        assert json.loads(request.data) == {
-            "chat_id": "-1002003004005",
-            "text": "Deployed example.com\nwasm-example.com is running",
-        }
+        payload = json.loads(request.data)
+        assert payload["chat_id"] == "-1002003004005"
+        assert payload["parse_mode"] == "HTML"
+        assert payload["link_preview_options"] == {"is_disabled": True}
+        assert payload["text"].startswith("\u25cf <b>Deployed example.com</b>")
+        assert "wasm-example.com is running" in payload["text"]
 
-    def test_cuts_an_oversized_body_to_the_bot_apis_own_limit(self, config: Config) -> None:
+    def test_stays_inside_the_bot_apis_own_limit(self, config: Config) -> None:
         """The Bot API rejects a message over 4096 characters outright."""
         self._configure(config)
         opener = CapturingOpener()
-        event = make_event(body="journalctl output\n" * 400)
 
-        Notifier(config, opener=opener).notify(event)
+        Notifier(config, opener=opener).notify(make_event(body="journalctl output\n" * 400))
 
         text = json.loads(opener.requests[0].data)["text"]
-        assert len(text) == 4096
-        assert text.endswith("(truncated)")
+        assert len(text) <= 4096
+
+    def test_refused_markup_is_retried_once_as_plain_text(self, config: Config) -> None:
+        """An alert is never lost to a formatting quirk."""
+        self._configure(config)
+        sent: list[dict] = []
+
+        def opener(request: Request, timeout: float | None = None) -> io.BytesIO:
+            sent.append(json.loads(request.data))
+            if len(sent) == 1:
+                raise HTTPError(
+                    request.full_url,
+                    400,
+                    "Bad Request",
+                    {},
+                    io.BytesIO(
+                        b'{"ok": false, "description": "Bad Request: can\'t parse entities"}'
+                    ),
+                )
+            return io.BytesIO(b"ok")
+
+        Notifier(config, opener=opener).notify(make_event())
+
+        assert len(sent) == 2
+        assert sent[0]["parse_mode"] == "HTML"
+        assert "parse_mode" not in sent[1]
+        assert "<b>" not in sent[1]["text"]
+
+    def test_another_400_is_not_retried(self, config: Config) -> None:
+        self._configure(config)
+        sent: list[dict] = []
+
+        def opener(request: Request, timeout: float | None = None) -> io.BytesIO:
+            sent.append(json.loads(request.data))
+            raise HTTPError(
+                request.full_url,
+                400,
+                "Bad Request",
+                {},
+                io.BytesIO(b'{"ok": false, "description": "Bad Request: chat not found"}'),
+            )
+
+        Notifier(config, opener=opener).notify(make_event())
+
+        assert len(sent) == 1
 
     def test_half_a_configuration_sends_nothing(self, config: Config) -> None:
         """A token without a chat_id has nowhere to deliver to."""
@@ -531,9 +605,11 @@ class TestTestChannel:
         Notifier(config, opener=opener).test_channel("webhook")
 
         payload = json.loads(opener.requests[0].data)
-        assert payload["title"] == "Noust test notification"
+        assert payload["event"] == "test"
+        assert payload["title"] == "Test notification: Webhook"
         assert (
-            payload["body"] == "Receiving this means the webhook channel is configured correctly."
+            payload["summary"]
+            == "If you can read this, the Webhook channel is configured correctly."
         )
 
     def test_message_is_rendered_in_the_configured_language(self, config: Config) -> None:
@@ -544,8 +620,17 @@ class TestTestChannel:
         Notifier(config, opener=opener).test_channel("webhook")
 
         payload = json.loads(opener.requests[0].data)
-        assert payload["title"] == "Notificación de prueba de Noust"
-        assert payload["body"] == "Si recibes esto, el canal webhook está bien configurado."
+        assert payload["title"] == "Notificación de prueba: Webhook"
+        assert payload["summary"] == "Si ves esto, el canal Webhook está bien configurado."
+
+    def test_message_names_the_server(self, config: Config) -> None:
+        config.set("notifications.channels.webhook.webhook_url", WEBHOOK_URL)
+        config.set("server.name", "edge-3")
+        opener = CapturingOpener()
+
+        Notifier(config, opener=opener).test_channel("webhook")
+
+        assert json.loads(opener.requests[0].data)["server"] == "edge-3"
 
     def test_works_while_notifications_are_disabled(self, config: Config) -> None:
         """The button exists to try a channel before switching the feature on."""
@@ -656,8 +741,8 @@ class FakeEmailNotifier:
         self.sent: list = []
         self.is_configured = configured
 
-    def _send(self, content: object) -> bool:
-        self.sent.append(content)
+    def send_notification(self, notification: Notification) -> bool:
+        self.sent.append(notification)
         return True
 
 
@@ -674,8 +759,9 @@ class TestEmailChannel:
         Notifier(config, opener=opener, email_notifier=email).notify(make_event())
 
         assert len(email.sent) == 1
-        assert email.sent[0].subject == "[Noust] Deployed example.com"
-        assert "wasm-example.com is running" in email.sent[0].text
+        assert email.sent[0].title == "Deployed example.com"
+        assert email.sent[0].excerpt is not None
+        assert "wasm-example.com is running" in email.sent[0].excerpt.lines
         assert opener.requests == []
 
     def test_a_disabled_email_channel_is_skipped(self, config: Config) -> None:
@@ -932,3 +1018,119 @@ class TestTelegramChats:
         opener = _JsonOpener(json.dumps({"ok": True, "result": []}).encode())
 
         assert Notifier(config, opener=opener).list_telegram_chats() == []
+
+
+class _BareConfig:
+    """
+    A configuration with an events block that names nothing.
+
+    An operator's file written before a kind existed has no key for it; what
+    the notifier does then is decided by the model, not by whatever the
+    default happens to be in config.py.
+    """
+
+    def __init__(self, webhook_url: str) -> None:
+        self._values = {
+            "enabled": True,
+            "events": {},
+            "channels": {"webhook": {"webhook_url": webhook_url}},
+        }
+
+    def get(self, key: str, default: object = None) -> object:
+        return self._values if key == "notifications" else default
+
+
+class TestKindsAndDefaults:
+    """Which kinds ship on, and what a missing switch means."""
+
+    def _notification(self, kind: str) -> Notification:
+        return Notification(
+            kind=kind,
+            code=kind,
+            state=State.OK,
+            locale="en",
+            title="t",
+            subject="s",
+            summary="x",
+            server="web-1",
+        )
+
+    @pytest.mark.parametrize(
+        ("kind", "sent"),
+        [
+            ("deploy_success", True),
+            ("restore_failed", True),
+            ("node_unreachable", True),
+            ("deploy_started", False),
+            ("backup_success", False),
+        ],
+    )
+    def test_a_kind_the_file_does_not_mention_follows_its_default(
+        self, kind: str, sent: bool
+    ) -> None:
+        opener = CapturingOpener()
+        notifier = Notifier(_BareConfig(WEBHOOK_URL), opener=opener)  # type: ignore[arg-type]
+
+        notifier.notify(self._notification(kind))
+
+        assert bool(opener.requests) is sent
+
+    def test_every_kind_the_model_knows_is_a_switch_in_the_defaults(self) -> None:
+        assert set(DEFAULT_CONFIG["notifications"]["events"]) == set(EVENT_KINDS)
+        assert {"restore_success", "restore_failed", "backup_success"} <= set(EVENT_KINDS)
+        assert {"node_unreachable", "node_recovered", "node_host_key_changed"} <= set(EVENT_KINDS)
+
+    def test_the_event_kinds_the_notifier_exports_are_the_models(self) -> None:
+        from noust.core.notifications.model import EVENT_KINDS as MODEL_KINDS
+
+        assert EVENT_KINDS is MODEL_KINDS
+
+    def test_the_webhook_secret_ships_empty_and_is_redacted_on_the_way_out(self) -> None:
+        from noust.core.config import REDACTED, redact_secrets
+
+        assert DEFAULT_CONFIG["notifications"]["channels"]["webhook"]["secret"] == ""
+        shown = redact_secrets({"webhook": {"webhook_url": "x", "secret": "s3cret-value"}})
+        assert shown["webhook"]["secret"] == REDACTED
+
+    def test_server_name_ships_empty_so_the_hostname_is_used(self) -> None:
+        assert DEFAULT_CONFIG["server"]["name"] == ""
+
+
+class TestLegacyEvent:
+    """A title and a body still work: nothing builds one, but the class is public."""
+
+    def test_it_becomes_a_notification_with_the_body_as_its_excerpt(self, config: Config) -> None:
+        config.set("server.name", "web-1")
+        opener = CapturingOpener()
+        config.set("notifications.enabled", True)
+        config.set("notifications.channels.webhook.webhook_url", WEBHOOK_URL)
+
+        Notifier(config, opener=opener).notify(
+            make_event(kind="deploy_failed", body="line one\nline two")
+        )
+
+        payload = json.loads(opener.requests[0].data)
+        assert payload["state"] == "failed"
+        assert payload["excerpt"]["lines"] == ["line one", "line two"]
+        assert payload["server"] == "web-1"
+        assert payload["code"] == "legacy.deploy_failed"
+
+    @pytest.mark.parametrize(
+        ("kind", "state"),
+        [
+            ("deploy_started", "progress"),
+            ("deploy_success", "ok"),
+            ("deploy_rolled_back", "warning"),
+            ("backup_failed", "failed"),
+            ("test", "info"),
+        ],
+    )
+    def test_the_state_follows_the_kind(self, config: Config, kind: str, state: str) -> None:
+        config.set("notifications.enabled", True)
+        config.set("notifications.channels.webhook.webhook_url", WEBHOOK_URL)
+        config.set("notifications.events.deploy_started", True)
+        opener = CapturingOpener()
+
+        Notifier(config, opener=opener).notify(make_event(kind=kind))
+
+        assert json.loads(opener.requests[0].data)["state"] == state

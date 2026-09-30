@@ -374,6 +374,8 @@ def _install_psutil_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(psutil, "cpu_percent", lambda interval=None: 12.5)
     monkeypatch.setattr(psutil, "cpu_count", lambda logical=True: 4)
     monkeypatch.setattr(psutil, "getloadavg", lambda: (0.5, 0.4, 0.3))
+    # The load average is read through the shared sampler, with os.getloadavg.
+    monkeypatch.setattr("noust.monitor.sampler.os.getloadavg", lambda: (0.5, 0.4, 0.3))
     monkeypatch.setattr(
         psutil,
         "virtual_memory",
@@ -1052,9 +1054,9 @@ class TestCertificateExpiryNotifications:
 
         assert len(notifier.events) == 1
         event = notifier.events[0]
-        assert event.kind == "cert_expiring"
-        assert "example.com" in event.title
-        assert "5 day" in event.title
+        assert (event.kind, event.code) == ("cert_expiring", "cert.expiring")
+        assert event.subject == "example.com"
+        assert event.summary.startswith("Expires in 5 days")
 
     def test_a_certificate_far_from_expiry_is_left_alone(self, tmp_path: Path) -> None:
         monitor, notifier = self._monitor(
@@ -1124,9 +1126,23 @@ class TestCertificateExpiryNotifications:
         monitor, notifier = self._monitor(state_path, [expiring, healthy])
         monitor._check_certificates()
 
-        assert [event.title for event in notifier.events] == [
-            "Certificate for soon.example.com expires in 3 day(s)"
+        assert [(event.subject, event.code) for event in notifier.events] == [
+            ("soon.example.com", "cert.expiring")
         ]
+        assert notifier.events[0].summary.startswith("Expires in 3 days")
+
+    def test_a_certificate_that_already_expired_says_so(self, tmp_path: Path) -> None:
+        """It used to read "expires in -80 day(s)" and stay a warning."""
+        monitor, notifier = self._monitor(
+            tmp_path / "cert-notifications.json", [self._cert("gone.example.com", days=-80)]
+        )
+
+        monitor._check_certificates()
+
+        event = notifier.events[0]
+        assert (event.kind, event.code) == ("cert_expiring", "cert.expired")
+        assert event.summary.startswith("Expired 80 days ago")
+        assert "-80" not in event.summary + event.title
 
     def test_the_state_file_is_written_through_the_filesystem_seam(self, tmp_path: Path) -> None:
         """A DryRunFileSystem must be able to refuse this write like any other."""
@@ -1154,14 +1170,19 @@ class TestCertificateExpiryNotifications:
         monitor, notifier = self._monitor(
             tmp_path / "cert-notifications.json", [self._cert("soon.example.com", days=3)]
         )
+        monitor.global_config.reload = lambda: None  # type: ignore[method-assign]
 
         monitor._check_certificates()
 
         assert len(notifier.events) == 1
         event = notifier.events[0]
-        assert event.title == "El certificado de soon.example.com caduca en 3 días"
-        assert "caduca el" in event.body
-        assert "noust cert renew soon.example.com" in event.body
+        assert (event.title, event.subject) == (
+            "Certificado a punto de caducar",
+            "soon.example.com",
+        )
+        assert event.summary.startswith("Caduca en 3 días")
+        assert event.command is not None
+        assert event.command.value == "noust cert renew soon.example.com"
 
 
 class TestDiskThresholdNotifications:
@@ -1205,19 +1226,46 @@ class TestDiskThresholdNotifications:
 
         assert len(notifier.events) == 1
         event = notifier.events[0]
-        assert event.kind == "disk_threshold"
-        assert event.title == "Disk usage at 93% on /"
-        assert "93.4% full" in event.body
-        assert "90% alert threshold" in event.body
+        assert (event.kind, event.code) == ("disk_threshold", "disk.threshold")
+        assert (event.title, event.subject) == ("Disk almost full", "/")
+        assert {fact.key: fact.value for fact in event.facts}["used"] == "93.4% (95 B / 100 B)"
+        assert "90% alert threshold" in event.summary
+        # One precision everywhere: the old title said 93% and the body 93.4%.
+        assert "93" not in event.title + event.summary
 
     def test_a_full_disk_is_published_in_the_configured_language(self, config: Config) -> None:
         config.set("notifications.language", "es")
         monitor, notifier = self._monitor()
+        monitor.global_config.reload = lambda: None  # type: ignore[method-assign]
 
         monitor._notify_full_disks([self._disk("/", 93.4)])
 
         assert len(notifier.events) == 1
         event = notifier.events[0]
-        assert event.title == "Uso de disco al 93% en /"
-        assert "93.4% de su capacidad" in event.body
-        assert "umbral de aviso del 90%" in event.body
+        assert (event.title, event.subject) == ("Disco casi lleno", "/")
+        assert "umbral de aviso del 90%" in event.summary
+
+    def test_dropping_back_under_the_line_closes_the_alert_once(self) -> None:
+        monitor, notifier = self._monitor()
+        monitor.global_config.reload = lambda: None  # type: ignore[method-assign]
+        full = self._disk("/", 93.4)
+        fine = self._disk("/", 71.2)
+
+        monitor._notify_full_disks([full], [full])
+        monitor._notify_full_disks([full], [full])
+        monitor._notify_full_disks([], [fine])
+        monitor._notify_full_disks([], [fine])
+
+        assert [event.code for event in notifier.events] == ["disk.threshold", "disk.recovered"]
+        assert notifier.events[1].kind == "disk_threshold"
+        assert {f.key: f.value for f in notifier.events[1].facts}["used"] == "71.2%"
+
+    def test_a_disk_that_is_no_longer_mounted_is_not_announced_as_recovered(self) -> None:
+        monitor, notifier = self._monitor()
+        monitor.global_config.reload = lambda: None  # type: ignore[method-assign]
+        full = self._disk("/mnt/usb", 95.0)
+
+        monitor._notify_full_disks([full], [full])
+        monitor._notify_full_disks([], [self._disk("/", 40.0)])
+
+        assert [event.code for event in notifier.events] == ["disk.threshold"]

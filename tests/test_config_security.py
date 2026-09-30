@@ -42,7 +42,7 @@ from noust.core.config import (
     secure_directory,
     secure_write,
 )
-from noust.core.exceptions import SecurityError
+from noust.core.exceptions import ConfigError, SecurityError
 from noust.core.fs import (
     SECRET_DIR_MODE,
     SECRET_MODE,
@@ -258,13 +258,13 @@ class TestRedactSecrets:
         config = Config()
         config.set("databases.credentials.mysql.password", "hunter2")
         config.set("monitor.smtp.password", "smtp-secret")
-        config.set("monitor.openai.api_key", "sk-live")
+        config.set("notifications.channels.telegram.bot_token", "123:bot-live")
 
         result = redact_secrets(config.to_dict())
 
         assert "hunter2" not in yaml.safe_dump(result)
         assert "smtp-secret" not in yaml.safe_dump(result)
-        assert "sk-live" not in yaml.safe_dump(result)
+        assert "bot-live" not in yaml.safe_dump(result)
         assert result["webserver"] == "nginx"
 
     def test_does_not_mutate_the_input(self) -> None:
@@ -447,16 +447,30 @@ class TestDeadConfigKeys:
         assert config.get("webserver") == "apache"
         assert caplog.records == []
 
-    def test_old_openai_api_key_is_still_redacted(self, config_path: Path) -> None:
-        """A key this version no longer ships must still never print in clear."""
+    def test_the_old_openai_api_key_is_ignored_and_never_printed(self, config_path: Path) -> None:
+        """
+        The key an old AI monitor stored is not part of the configuration in
+        effect at all: no reader, no ``config show``, no API answer. It is
+        listed apart, as an obsolete secret, without its value.
+        """
         config_path.parent.mkdir(parents=True, exist_ok=True)
         config_path.write_text(yaml.safe_dump({"monitor": {"openai": {"api_key": "sk-old-live"}}}))
 
         config = Config()
 
-        assert config.get("monitor.openai.api_key") == "sk-old-live"
-        dumped = yaml.safe_dump(redact_secrets(config.to_dict()))
-        assert "sk-old-live" not in dumped
+        assert config.get("monitor.openai.api_key") is None
+        assert "openai" not in config.to_dict()["monitor"]
+        assert "sk-old-live" not in yaml.safe_dump(redact_secrets(config.to_dict()))
+        (setting,) = config.obsolete_settings()
+        assert (setting.key, setting.secret) == ("monitor.openai", True)
+        assert "sk-old-live" not in repr(setting)
+
+    def test_an_obsolete_key_cannot_be_set(self, config_path: Path) -> None:
+        """Setting a switch nothing reads is refused, not silently ignored."""
+        with pytest.raises(ConfigError, match="obsolete"):
+            Config().set("monitor.openai.api_key", "sk-new")
+        with pytest.raises(ConfigError, match="obsolete"):
+            Config().set("logging.level", "debug")
 
 
 def secret_paths(node: object, prefix: str = "") -> list[str]:
@@ -568,6 +582,7 @@ class TestSecretInventory:
             "databases.credentials.redis.password",
             "databases.credentials.mongodb.password",
             "notifications.channels.webhook.webhook_url",
+            "notifications.channels.webhook.secret",
             "notifications.channels.slack.webhook_url",
             "notifications.channels.discord.webhook_url",
             "notifications.channels.telegram.bot_token",

@@ -870,6 +870,16 @@
     ],
     "positionals": []
   },
+  "monitor autoenable": {
+    "aliases": [],
+    "options": [
+      "--dry-run",
+      "--no-color",
+      "--verbose",
+      "-v"
+    ],
+    "positionals": []
+  },
   "monitor config": {
     "aliases": [],
     "options": [

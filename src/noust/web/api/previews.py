@@ -39,8 +39,10 @@ class PreviewSettingsOut(BaseModel):
         max_previews: How many may exist at once (1 to 20).
         ttl_hours: Hours a preview lives without a push (1 to 2160).
         allow_bots: Whether pull requests from bot accounts (Dependabot,
-            Renovate) get a preview. A preview is built as root with the
-            application's secrets, so this is off unless turned on.
+            Renovate) get a preview. A preview builds in the sandbox, as
+            ``noust-build`` and without a network while it compiles, but its
+            build and its unit get a copy of the application's secrets, so
+            this is off unless turned on.
         exclude_env: Variables never copied to a preview.
     """
 
@@ -274,9 +276,11 @@ def put_preview_settings(
     Turn previews on for an application, or change their settings.
 
     Installs ``noust-previews.timer`` the first time any application turns
-    previews on. A preview is built as root, like every deployment, with a
-    copy of the application's environment minus ``exclude_env``; only pull
-    requests from people trusted with the repository get one (see
+    previews on. A preview builds in the sandbox (as ``noust-build``, in the
+    strict network profile: dependencies install with the network and without
+    the secrets, the build runs without a network), with a copy of the
+    application's environment minus ``exclude_env``; only pull requests from
+    people trusted with the repository get one (see
     :func:`noust.managers.previews.handle_pull_request`).
 
     Args:

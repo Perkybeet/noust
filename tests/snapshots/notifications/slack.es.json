@@ -1,0 +1,3388 @@
+{
+  "deploy.started": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "◐ Desplegando · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "◐ Desplegando · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Noust está construyendo la nueva versión y te avisará de cómo termina."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Commit*\na1b2c3d (main)"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Iniciado por*\nWebhook"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com/deployments/42|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "deploy.succeeded": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Desplegado · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Desplegado · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "La nueva versión ya está en servicio."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Versión*\n20260929-104449"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Commit*\na1b2c3d (main): Fix cart total"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Iniciado por*\nWebhook"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Duración*\n42 s"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com/deployments/42|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "deploy.failed": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Despliegue fallido · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Despliegue fallido · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Se ha detenido por un error antes de que la nueva versión tomara el relevo."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Versión*\n20260929-104449"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Commit*\na1b2c3d (main): Fix cart total"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Iniciado por*\nWebhook"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Duración*\n1 min 12 s"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Revísalo con:* `noust diagnose shop.example.com`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que ha informado el sistema_\n```npm run build failed\n&gt; shop@1.4.2 build\n&gt; next build\nFailed to compile.\n./app/cart/page.tsx\nType error: Property 'total' does not exist on type 'Cart'.\nnpm error Lifecycle script `build` failed with error:\nnpm error code 1```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com/deployments/42|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "deploy.rolled_back": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Revertido · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Revertido · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "La nueva versión no ha respondido a la comprobación de salud, así que la anterior vuelve a estar en servicio."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Versión*\n20260929-104449"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Commit*\na1b2c3d (main): Fix cart total"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Iniciado por*\nWebhook"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Duración*\n1 min 12 s"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Revísalo con:* `noust diagnose shop.example.com`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Últimas líneas del registro de shop-example-com_\n```Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: &gt; shop@1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: &gt; next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 17 líneas anteriores omitidas```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com/deployments/42|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "update.started": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "◐ Actualizando · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "◐ Actualizando · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Noust está descargando y construyendo el código más reciente y te avisará de cómo termina."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Commit*\na1b2c3d (main)"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Iniciado por*\nWebhook"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com/deployments/42|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "update.succeeded": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Actualizado · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Actualizado · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "La aplicación ya ejecuta la nueva versión."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Versión*\n20260929-104449"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Commit*\na1b2c3d (main): Fix cart total"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Iniciado por*\nWebhook"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Duración*\n42 s"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com/deployments/42|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "update.failed": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Actualización fallida · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Actualización fallida · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Se ha detenido por un error antes de que la nueva versión tomara el relevo."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Versión*\n20260929-104449"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Commit*\na1b2c3d (main): Fix cart total"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Iniciado por*\nWebhook"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Duración*\n1 min 12 s"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Revísalo con:* `noust diagnose shop.example.com`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que ha informado el sistema_\n```npm run build failed\n&gt; shop@1.4.2 build\n&gt; next build\nFailed to compile.\n./app/cart/page.tsx\nType error: Property 'total' does not exist on type 'Cart'.\nnpm error Lifecycle script `build` failed with error:\nnpm error code 1```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com/deployments/42|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "update.rolled_back": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Revertido · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Revertido · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "La nueva versión no ha respondido a la comprobación de salud, así que la anterior vuelve a estar en servicio."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Versión*\n20260929-104449"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Commit*\na1b2c3d (main): Fix cart total"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Iniciado por*\nWebhook"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Duración*\n1 min 12 s"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Revísalo con:* `noust diagnose shop.example.com`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Últimas líneas del registro de shop-example-com_\n```Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: &gt; shop@1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: &gt; next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 17 líneas anteriores omitidas```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com/deployments/42|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "rollback.started": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "◐ Volviendo atrás · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "◐ Volviendo atrás · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Noust está volviendo a una versión anterior y te avisará de cómo termina."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Commit*\na1b2c3d (main)"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Iniciado por*\nWebhook"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com/deployments/42|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "rollback.succeeded": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Vuelta atrás completada · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Vuelta atrás completada · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "La versión anterior vuelve a estar en servicio."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Versión*\n20260929-104449"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Commit*\na1b2c3d (main): Fix cart total"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Iniciado por*\nWebhook"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Duración*\n42 s"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com/deployments/42|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "rollback.failed": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Vuelta atrás fallida · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Vuelta atrás fallida · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "La vuelta atrás se ha detenido por un error antes de que la versión anterior tomara el relevo."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Versión*\n20260929-104449"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Commit*\na1b2c3d (main): Fix cart total"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Iniciado por*\nWebhook"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Duración*\n1 min 12 s"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Revísalo con:* `noust diagnose shop.example.com`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que ha informado el sistema_\n```rollback step failed\nsystemctl: Job for shop-example-com.service failed```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com/deployments/42|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "rollback.rolled_back": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Vuelta atrás fallida · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Vuelta atrás fallida · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "La versión anterior no ha respondido a la comprobación de salud, así que vuelve a estar en servicio la que lo estaba antes."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Versión*\n20260929-104449"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Commit*\na1b2c3d (main): Fix cart total"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Iniciado por*\nWebhook"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Duración*\n1 min 12 s"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Revísalo con:* `noust diagnose shop.example.com`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Últimas líneas del registro de shop-example-com_\n```Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: &gt; shop@1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: &gt; next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 17 líneas anteriores omitidas```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com/deployments/42|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "activate.started": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "◐ Activando versión · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "◐ Activando versión · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Noust está cambiando a la versión elegida y te avisará de cómo termina."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Commit*\na1b2c3d (main)"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Iniciado por*\nWebhook"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com/deployments/42|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "activate.succeeded": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Versión activada · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Versión activada · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "La versión elegida está en servicio."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Versión*\n20260929-104449"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Commit*\na1b2c3d (main): Fix cart total"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Iniciado por*\nWebhook"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Duración*\n42 s"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com/deployments/42|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "activate.failed": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Activación fallida · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Activación fallida · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "El cambio se ha detenido por un error antes de que la versión elegida tomara el relevo."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Versión*\n20260929-104449"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Commit*\na1b2c3d (main): Fix cart total"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Iniciado por*\nWebhook"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Duración*\n1 min 12 s"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Revísalo con:* `noust diagnose shop.example.com`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que ha informado el sistema_\n```activate step failed\nsystemctl: Job for shop-example-com.service failed```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com/deployments/42|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "activate.rolled_back": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Activación fallida · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Activación fallida · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "La versión elegida no ha respondido a la comprobación de salud, así que la anterior vuelve a estar en servicio."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Versión*\n20260929-104449"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Commit*\na1b2c3d (main): Fix cart total"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Iniciado por*\nWebhook"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Duración*\n1 min 12 s"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Revísalo con:* `noust diagnose shop.example.com`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Últimas líneas del registro de shop-example-com_\n```Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: &gt; shop@1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: &gt; next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 17 líneas anteriores omitidas```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com/deployments/42|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "migrate.started": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "◐ Migrando a versiones · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "◐ Migrando a versiones · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Noust está pasando la aplicación a versiones y te avisará de cómo termina."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Commit*\na1b2c3d (main)"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Iniciado por*\nWebhook"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com/deployments/42|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "migrate.succeeded": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Migrado a versiones · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Migrado a versiones · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Cada despliegue se construye ahora en su propia versión y volver atrás lleva segundos."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Versión*\n20260929-104449"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Commit*\na1b2c3d (main): Fix cart total"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Iniciado por*\nWebhook"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Duración*\n42 s"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com/deployments/42|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "migrate.failed": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Migración fallida · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Migración fallida · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Se ha detenido por un error; en ese caso Noust restaura la disposición anterior."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Versión*\n20260929-104449"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Commit*\na1b2c3d (main): Fix cart total"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Iniciado por*\nWebhook"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Duración*\n1 min 12 s"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Revísalo con:* `noust diagnose shop.example.com`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que ha informado el sistema_\n```migrate step failed\nsystemctl: Job for shop-example-com.service failed```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com/deployments/42|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "restore.completed": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Restaurado · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Restaurado · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Los archivos de la aplicación han vuelto a como estaban en la copia de seguridad."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Copia*\n`20260928-020000`"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/backups|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "restore.failed": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Restauración fallida · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Restauración fallida · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Se ha detenido por un error, así que los archivos de la aplicación podrían estar restaurados solo en parte."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Copia*\n`20260928-020000`"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que ha informado el sistema_\n```tar: Unexpected EOF in archive\ntar: Error is not recoverable: exiting now```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/backups|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "backup.failed": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Copia de seguridad fallida · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Copia de seguridad fallida · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "No se ha guardado ninguna copia nueva de la aplicación."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que ha informado el sistema_\n```tar: /var/www/apps/shop-example-com/shared/uploads: Cannot write: No space left on device```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/backups|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "backup.upload_failed": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Subida de la copia fallida · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Subida de la copia fallida · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "La copia se ha guardado en este servidor, pero no se ha podido subir."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Destino*\ns3-eu"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que ha informado el sistema_\n```2026/09/29 02:00:14 Failed to copy: AccessDenied: Access Denied\n    status code: 403```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/backups|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "backup.schedule_missing": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Falta la programación de la copia · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Falta la programación de la copia · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "El temporizador se ha activado, pero Noust no tiene una programación guardada para esta aplicación, así que la copia se ha hecho con los ajustes por defecto."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Guárdala de nuevo con:* `noust backup schedule update shop.example.com`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/backups|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "backup.completed": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Copia completada · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Copia completada · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Se ha guardado una copia nueva de la aplicación."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Copia*\n`20260929-020000`"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Tamaño*\n48.0 MB"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Subida a*\ns3-eu"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/backups|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "cert.expiring": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Certificado a punto de caducar · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Certificado a punto de caducar · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Caduca en 7 días (6 oct 2026)."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Cubre*\nshop.example.com, www.shop.example.com"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Renuévalo con:* `noust cert renew shop.example.com`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/domains|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "cert.expired": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Certificado caducado · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Certificado caducado · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Caducó hace 80 días (11 jul 2026)."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Cubre*\nshop.example.com, www.shop.example.com"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Renuévalo con:* `noust cert renew shop.example.com`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/domains|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "unit.failed": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Servicio fallido · shop-example-com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Servicio fallido · shop-example-com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "systemd lo ha marcado como fallido."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Revísalo con:* `journalctl -u shop-example-com -n 50`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Últimas líneas del registro de shop-example-com_\n```Sep 29 10:45:13 web-1 npm[48211]: &gt; shop@1.4.2 start\nSep 29 10:45:13 web-1 npm[48211]: &gt; next start -p 3004\nSep 29 10:45:14 web-1 npm[48227]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1.```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server/services/shop-example-com|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "unit.crash_loop": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Servicio en bucle de reinicios · shop-example-com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Servicio en bucle de reinicios · shop-example-com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "systemd lo ha reiniciado 3 veces desde la última comprobación y sigue sin arrancar."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Reinicios*\n9"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Revísalo con:* `journalctl -u shop-example-com -n 50`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Últimas líneas del registro de shop-example-com_\n```Sep 29 10:45:14 web-1 npm[48227]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1.\nSep 29 10:45:18 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:19 web-1 npm[48287]: &gt; shop@1.4.2 start\nSep 29 10:45:19 web-1 npm[48287]: &gt; next start -p 3004\nSep 29 10:45:20 web-1 npm[48303]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:24 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 2.\n… 3 líneas anteriores omitidas```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server/services/shop-example-com|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "unit.stopped_on_failure": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Servicio detenido por un fallo · shop-example-com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Servicio detenido por un fallo · shop-example-com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Se ha detenido tras una ejecución fallida y systemd no lo está reiniciando."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Resultado*\n`signal`"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Código de salida*\n9"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Revísalo con:* `journalctl -u shop-example-com -n 50`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server/services/shop-example-com|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "unit.recovered": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Servicio recuperado · shop-example-com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Servicio recuperado · shop-example-com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Vuelve a estar en marcha y no se ha reiniciado desde la última comprobación."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server/services/shop-example-com|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "disk.threshold": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Disco casi lleno · /",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Disco casi lleno · /",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Ha superado el umbral de aviso del 90%, y un disco lleno detiene los despliegues, los registros y las bases de datos de este servidor."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Usado*\n91.7% (18.3 GB / 20.0 GB)"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Libre*\n1.7 GB"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "disk.recovered": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Espacio en disco recuperado · /",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Espacio en disco recuperado · /",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "El uso vuelve a estar por debajo del umbral de aviso."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Usado*\n71.2%"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "test": {
+    "attachments": [
+      {
+        "color": "#9e9e9e",
+        "fallback": "○ Notificación de prueba · Telegram",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "○ Notificación de prueba · Telegram",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Si ves esto, el canal Telegram está bien configurado."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "node.unreachable": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Servidor inaccesible · web-2",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Servidor inaccesible · web-2",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Noust no puede alcanzar este servidor a través de su túnel."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Dirección*\n`10.0.0.2`"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Inaccesible desde*\n2026-09-29 10:30 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que ha informado el sistema_\n```ssh: connect to host 10.0.0.2 port 22: Connection timed out```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/fleet|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "node.recovered": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Servidor accesible de nuevo · web-2",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Servidor accesible de nuevo · web-2",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "El túnel vuelve a estar abierto y el servidor responde."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Estuvo inaccesible durante*\n12 min 34 s"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/n/web-2/|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "node.host_key_changed": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Clave de host cambiada · web-2",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Clave de host cambiada · web-2",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "El servidor ha presentado otra clave de host SSH, así que el túnel sigue cerrado hasta que alguien la compruebe."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Dirección*\n`10.0.0.2`"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Clave fijada*\n`SHA256:kQ3vP1xN0m0e5sYt3n2c1H0b9k2q3Wz8nq0w1d0aAbc`"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Clave presentada*\n`SHA256:Zr9LmTq7bV2d8Yh1uJ0aXc4eF6gH3iK5oP7sRtUvWxy`"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Compruébalo con:* `noust node trust web-2`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/fleet|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "report.observations": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Observaciones de procesos",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Observaciones de procesos",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "El monitor solo informa: no se ha enviado ninguna señal a ningún proceso ni se ha tocado ningún archivo. Revisa cada entrada antes de actuar."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Procesos*\n1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Avisos*\n1"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Aviso: xmrig (PID 1234)*"
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Señal*\nname-pattern"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Usuario*\nnobody"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*CPU*\n97.5%"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Detalle*\nExecutable name matches the known-malware pattern 'xmrig'."
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Comando*\n`/tmp/.x/xmrig -o pool.example.org:3333`"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "server.rebooted": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Servidor reiniciado · web-1",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Servidor reiniciado · web-1",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Nadie ha pedido este reinicio desde Noust: comprueba que todas las aplicaciones han vuelto."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*De vuelta a las*\n2026-09-29 04:02 UTC"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "server.back": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Servidor de vuelta · web-1",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Servidor de vuelta · web-1",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "El reinicio pedido desde Noust ha terminado y la consola vuelve a funcionar."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Pedido por*\nalice"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Programado para*\n2026-09-29 04:00 UTC"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Tardó*\n2 min 10 s"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*De vuelta a las*\n2026-09-29 04:02 UTC"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "approval.requested": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "◐ Aprobación solicitada · #12",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "◐ Aprobación solicitada · #12",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Un cambio que necesita a una segunda persona está esperando a que alguien lo decida."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Solicitud*\n#12"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Cambio*\n`fleet.node.add`"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Llamada*\n`POST /api/nodes`"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Pedido por*\nalice"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Motivo*\nAdding the new database server of the shop"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Decídela antes de*\n2026-09-30 10:45 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Decídela con:* `noust approval approve 12`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/settings/security|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "approval.approved": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Solicitud aprobada · #12",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Solicitud aprobada · #12",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Quien lo pidió puede hacer el cambio una vez, antes de que caduque la aprobación."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Solicitud*\n#12"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Cambio*\n`fleet.node.add`"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Llamada*\n`POST /api/nodes`"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Pedido por*\nalice"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Decidida por*\nbob"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Comentario*\nChecked with the shop's owner"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Úsala antes de*\n2026-09-29 11:15 UTC"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/settings/security|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "approval.rejected": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Solicitud rechazada · #12",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Solicitud rechazada · #12",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "El cambio no se hará; quien lo pidió puede volver a pedirlo con más contexto."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Solicitud*\n#12"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Cambio*\n`fleet.node.add`"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Llamada*\n`POST /api/nodes`"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Pedido por*\nalice"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Decidida por*\nbob"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Comentario*\nNot before the maintenance window"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/settings/security|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "database.backup.failed": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Copia de seguridad fallida · postgresql/shop",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Copia de seguridad fallida · postgresql/shop",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "No se ha guardado ninguna copia nueva de la base de datos."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que ha informado el sistema_\n```The dump was taken but failed its check\npg_restore: error: could not read input file: end of file```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/databases/postgresql/shop|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "database.backup.upload_failed": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Subida de la copia fallida · postgresql/shop",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Subida de la copia fallida · postgresql/shop",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "La copia de la base de datos se ha guardado en este servidor, pero no se ha podido subir."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Destino*\noffsite-s3"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que ha informado el sistema_\n```Failed to copy: AccessDenied: Access Denied```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/databases/postgresql/shop|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "database.backup.completed": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Copia completada · postgresql/shop",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Copia completada · postgresql/shop",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Se ha guardado una copia nueva de la base de datos."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Copia*\n`shop-20260929-104551.dump`"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Tamaño*\n48.0 MB"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Subida a*\noffsite-s3"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/databases/postgresql/shop|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "database.restore.completed": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Restaurado · postgresql/shop",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Restaurado · postgresql/shop",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "La base de datos ha vuelto a como estaba en el volcado."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Copia*\n`shop-20260929-104551.dump`"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/databases/postgresql/shop|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "database.restore.failed": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Restauración fallida · postgresql/shop",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Restauración fallida · postgresql/shop",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Se ha detenido por un error, así que la base de datos podría estar restaurada solo en parte."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Copia*\n`shop-20260929-104551.dump`"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que ha informado el sistema_\n```pg_restore: error: relation \"orders\" already exists```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/databases/postgresql/shop|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "hostile.deploy_failed": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Despliegue fallido · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Despliegue fallido · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Se ha detenido por un error antes de que la nueva versión tomara el relevo."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Versión*\n20260929-104449"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Commit*\na1b2c3d (&lt;b&gt;x&lt;/b&gt;&amp;amp;&lt;!channel&gt; @everyone `​tick`​ _​under_​ *​star*​ ~​tilde~​ [a](http://evil.example)): fixgnp.exe @here &lt;@U123&gt; &lt;#C1&gt; red emoji 🚀"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Iniciado por*\nWebhook"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Duración*\n1 min 12 s"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Revísalo con:* `noust diagnose shop.example.com`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que ha informado el sistema_\n```Release did not pass &lt;its&gt; health &amp; check\n&lt;urlopen error [Errno 111] Connection refused&gt;\n'''\n@everyone &lt;!channel&gt; &lt;@U123|admin&gt; &amp;lt;b&amp;gt;\nred *bold* _italic_ ~strike~ `code`\nnoitcnuf\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com/deployments/42|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "hostile.long_output": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Actualización fallida · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Actualización fallida · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Se ha detenido por un error antes de que la nueva versión tomara el relevo."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Versión*\n20260929-104449"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Commit*\na1b2c3d (main): Fix cart total"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Iniciado por*\nWebhook"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Duración*\n1 min 12 s"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Revísalo con:* `noust diagnose shop.example.com`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que ha informado el sistema_\n```npm run build failed\nline 495: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 496: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 497: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 498: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 499: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n… 495 líneas anteriores omitidas```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com/deployments/42|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "hostile.no_link": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Desplegado · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Desplegado · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "La nueva versión ya está en servicio."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Versión*\n20260929-104449"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Commit*\na1b2c3d (main): Fix cart total"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Iniciado por*\nWebhook"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Duración*\n42 s"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "hostile.preview": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Desplegado · pr-12.shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Desplegado · pr-12.shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "La nueva versión ya está en servicio."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Vista previa de*\nshop.example.com #12"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Versión*\n20260929-104449"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Commit*\na1b2c3d (main): Fix cart total"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Iniciado por*\nWebhook"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Duración*\n42 s"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/pr-12.shop.example.com/deployments/42|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "hostile.no_commit": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Actualizado · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Actualizado · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "La aplicación ya ejecuta la nueva versión."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Iniciado por*\nWebhook"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Duración*\n42 s"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com/deployments/42|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "hostile.huge_subject": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Copia de seguridad fallida · dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd…",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Copia de seguridad fallida · dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd…",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "No se ha guardado ninguna copia nueva de la aplicación."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que ha informado el sistema_\n```boom```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/backups|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

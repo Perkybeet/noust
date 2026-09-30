@@ -31,6 +31,7 @@ Two guarantees shape everything here:
 from __future__ import annotations
 
 import sqlite3
+import time
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from datetime import datetime
@@ -42,7 +43,12 @@ from noust.core.fs import DryRunFileSystem, FileSystem, get_fs
 from noust.core.logger import Icons, Logger
 from noust.core.redact import Scrubber, app_secret_values, scrubber_for, secret_env_values
 from noust.core.store import DeploymentStatus, NoustStore
-from noust.deployers.deploy_events import DeployEvent, DeployEventKind, publish
+from noust.deployers.deploy_events import (
+    DeployEvent,
+    DeployEventKind,
+    current_operation,
+    publish,
+)
 
 #: How many history rows, and their log files, survive per domain.
 DEFAULT_KEEP = 20
@@ -225,6 +231,7 @@ class DeploymentRecorder:
         log_root: Path | None = None,
         keep: int = DEFAULT_KEEP,
         env: EnvSource | None = None,
+        operation: str | None = None,
     ) -> None:
         """
         Initialize the recorder for one deployment attempt.
@@ -261,6 +268,11 @@ class DeploymentRecorder:
                 from ``.env.example``, and the build that follows prints from
                 the new one. The application's stored ``.env`` and Noust's own
                 credentials are scrubbed whether or not this is given.
+            operation: What this deployment is (``deploy``, ``update``,
+                ``rollback``, ``activate`` or ``migrate``), announced with every
+                event so a notification can name it. None takes what the
+                enclosing :func:`~noust.deployers.deploy_events.operation` says,
+                which is how an update names the recorder its deployer builds.
         """
         self._store = store
         self._domain = domain
@@ -282,6 +294,11 @@ class DeploymentRecorder:
         self._env_source = env
         self._scrubbed_env: Mapping[str, Any] | None = None
         self._scrubber = Scrubber()
+        self._operation = operation or current_operation()
+        self._started_at: float | None = None
+        # The failure's message and the rest of it, scrubbed apart, for the
+        # notification that tells the two apart.
+        self._failure_parts: tuple[str, str] | None = None
 
     @property
     def deployment_id(self) -> int | None:
@@ -301,6 +318,7 @@ class DeploymentRecorder:
             return
 
         self._scrubber = scrubber_for(self._domain)
+        self._started_at = time.monotonic()
         try:
             deployment_id = self._store.record_deployment_start(
                 self._domain, self._trigger, git_branch=git_branch, job_id=self._job_id
@@ -384,7 +402,26 @@ class DeploymentRecorder:
         # The row says failed either way; the announcement says whether the
         # application is still up on what served before.
         self._rolled_back = isinstance(error, RolledBackError)
+        self._failure_parts = self._split_failure(error)
         self._finish(DeploymentStatus.FAILED.value, self._scrub(str(error)))
+
+    def _split_failure(self, error: BaseException | str) -> tuple[str, str]:
+        """
+        Separate a failure's own sentence from the output it carries.
+
+        Args:
+            error: What the failing step raised.
+
+        Returns:
+            ``(message, output)``, each scrubbed. The output is the tool's own
+            words when the error carries them (``NoustError.output``) and its
+            details otherwise - the health gate's evidence lives there.
+        """
+        if isinstance(error, NoustError):
+            message, output = error.message, error.output or error.details or ""
+        else:
+            message, output = str(error), ""
+        return self._scrub(message), self._scrub(output)
 
     # Internals -------------------------------------------------------------
 
@@ -467,6 +504,8 @@ class DeploymentRecorder:
         self._finished = True
         git_commit: str | None = None
         git_branch: str | None = None
+        commit_message: str | None = None
+        release_id: str | None = None
         try:
             git_commit, git_branch = self._collect_git_info()
             commit_message = self._collect_commit_message()
@@ -489,7 +528,19 @@ class DeploymentRecorder:
             kind = DeployEventKind.ROLLED_BACK
         else:
             kind = DeployEventKind.FAILED
-        self._announce(kind, commit=git_commit, branch=git_branch, error=error)
+        duration = time.monotonic() - self._started_at if self._started_at is not None else None
+        message, output = self._failure_parts or (None, None)
+        self._announce(
+            kind,
+            commit=git_commit,
+            branch=git_branch,
+            error=error,
+            commit_message=commit_message,
+            release_id=release_id,
+            duration_s=duration,
+            error_message=message,
+            error_output=output,
+        )
 
     def _announce(
         self,
@@ -498,6 +549,11 @@ class DeploymentRecorder:
         commit: str | None = None,
         branch: str | None = None,
         error: str | None = None,
+        commit_message: str | None = None,
+        release_id: str | None = None,
+        duration_s: float | None = None,
+        error_message: str | None = None,
+        error_output: str | None = None,
     ) -> None:
         """
         Publish a deployment event for this recording.
@@ -507,6 +563,11 @@ class DeploymentRecorder:
             commit: The commit deployed, when known.
             branch: The branch deployed, when known.
             error: The scrubbed failure, when it failed.
+            commit_message: The subject of the commit deployed, when known.
+            release_id: The release built, when there is one.
+            duration_s: How long the deployment took, once it ended.
+            error_message: The failure's own sentence, scrubbed.
+            error_output: The rest of the failure, scrubbed.
         """
         publish(
             DeployEvent(
@@ -518,6 +579,12 @@ class DeploymentRecorder:
                 branch=branch,
                 error=error,
                 job_id=self._job_id,
+                operation=self._operation,
+                duration_s=duration_s,
+                commit_message=commit_message,
+                release_id=release_id,
+                error_message=error_message,
+                error_output=error_output,
             )
         )
 

@@ -150,6 +150,14 @@ LEGACY_BACKUP_DIR = Path("/var/backups/wasm")
 LOG_DIR = _LAYOUT.logs if _LAYOUT else Path("/var/log/noust")
 LEGACY_LOG_DIR = Path("/var/log/wasm")
 
+#: Per-application build caches (npm, pip, composer), owned by the account
+#: sandboxed builds run as; see noust.deployers.helpers.sandbox.
+BUILD_CACHE_DIR = Path("/var/cache/noust/build")
+
+#: Where the runner keeps a sandboxed command's environment file and result
+#: while it runs: on tmpfs, root only.
+SANDBOX_RUNTIME_DIR = Path("/run/noust/sandbox")
+
 #: The store's file name inside the state directory.
 STORE_NAME = "noust.db"
 LEGACY_STORE_NAME = "wasm.db"

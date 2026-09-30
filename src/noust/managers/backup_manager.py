@@ -56,6 +56,7 @@ from __future__ import annotations
 
 import fnmatch
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -72,10 +73,12 @@ from typing import Any, ClassVar, Protocol, runtime_checkable
 
 from noust.central import require_server_role
 from noust.core.applock import app_lock
+from noust.core.audit import record as audit_record
 from noust.core.config import DEFAULT_BACKUP_DIR as _DEFAULT_BACKUP_DIR
 from noust.core.config import Config, resolve_backup_directory
 from noust.core.exceptions import (
     BackupError,
+    ConfigError,
     DatabaseError,
     DeploymentError,
     NoustError,
@@ -92,6 +95,7 @@ from noust.core.fs import (
 )
 from noust.core.logger import Logger
 from noust.core.runner import DEFAULT_TIMEOUT, CommandResult, CommandRunner, get_runner
+from noust.core.sealing import SealError
 from noust.core.store import AppType, DeploymentStatus, DeploymentTrigger, get_store
 from noust.core.utils import domain_to_app_name
 from noust.deployers.helpers.layout import INPLACE, RELEASES, env_file_in, layout_on_disk
@@ -268,6 +272,10 @@ class BackupMetadata:
     #: :func:`server_id` of the server that took the backup; None for one
     #: taken before 2.2, which remote retention therefore never deletes.
     origin: str | None = None
+    #: HMAC-SHA256 of the sidecar under this server's key (ENS G12), and
+    #: which key: see :func:`sign_sidecar`. None for a backup from before 3.1.
+    mac: str | None = None
+    mac_key_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -300,6 +308,8 @@ class BackupMetadata:
             "last_verified_at": self.last_verified_at,
             "verified_ok": self.verified_ok,
             "origin": self.origin,
+            "mac": self.mac,
+            "mac_key_id": self.mac_key_id,
         }
 
     @classmethod
@@ -337,6 +347,8 @@ class BackupMetadata:
             last_verified_at=data.get("last_verified_at"),
             verified_ok=data.get("verified_ok"),
             origin=data.get("origin"),
+            mac=data.get("mac"),
+            mac_key_id=data.get("mac_key_id"),
         )
 
     @property
@@ -378,6 +390,144 @@ class BackupMetadata:
                 return "just now"
         except ValueError:
             return "unknown"
+
+
+#: The secret that signs every sidecar this server writes (ENS G12, mp.si.2).
+#: In the secret store, not beside the backups: whoever can write the backup
+#: directory, or the remote it is copied to, cannot forge a sidecar.
+SIDECAR_KEY_SECRET = "backups/sidecar-mac-key"  # noqa: S105 - a secret's name
+
+#: The fields a sidecar's MAC does not cover: the MAC itself.
+_MAC_FIELDS = ("mac", "mac_key_id")
+
+
+def _sidecar_key(*, create: bool) -> bytes | None:
+    """
+    Read the sidecar key, creating it when asked and missing.
+
+    Args:
+        create: Create a key when there is none.
+
+    Returns:
+        The key; None when there is none, or it cannot be read now (a sealed
+        store that is locked), in which case the reason is logged.
+    """
+    from noust.core.secrets import SecretStore
+
+    secrets_store = SecretStore()
+    try:
+        text = secrets_store.read(SIDECAR_KEY_SECRET)
+        if text is None and create:
+            text = os.urandom(32).hex()
+            secrets_store.write(SIDECAR_KEY_SECRET, text)
+    except (SealError, ConfigError, OSError) as exc:
+        Logger(verbose=False).warning(f"The key that signs backup metadata cannot be used: {exc}")
+        return None
+    if not text:
+        return None
+    try:
+        return bytes.fromhex(text.strip())
+    except ValueError:
+        Logger(verbose=False).warning(f"{SIDECAR_KEY_SECRET} does not hold a key")
+        return None
+
+
+def _key_id(key: bytes) -> str:
+    """
+    Args:
+        key: A sidecar key.
+
+    Returns:
+        A short public name for it, so a sidecar says which key signed it.
+    """
+    return hashlib.sha256(b"noust-backup-sidecar-key\0" + key).hexdigest()[:16]
+
+
+def _sidecar_mac(key: bytes, data: dict[str, Any]) -> str:
+    """
+    Args:
+        key: The sidecar key.
+        data: The sidecar's fields.
+
+    Returns:
+        HMAC-SHA256 over every field but the MAC's own, canonically encoded.
+    """
+    payload = json.dumps(
+        {name: value for name, value in data.items() if name not in _MAC_FIELDS},
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hmac.new(key, b"noust-backup-sidecar:v1\0" + payload, hashlib.sha256).hexdigest()
+
+
+def sign_sidecar(data: dict[str, Any]) -> dict[str, Any]:
+    """
+    Add the MAC to a sidecar's fields.
+
+    The MAC covers the archive's checksum, so the archive is authenticated
+    with it: a sidecar and archive replaced together on the backup storage
+    no longer verify. Without a usable key (a locked sealed store) the
+    sidecar is written unsigned rather than the backup lost; ``verify`` says
+    so.
+
+    Args:
+        data: The sidecar's fields.
+
+    Returns:
+        The fields, with ``mac`` and ``mac_key_id``.
+    """
+    key = _sidecar_key(create=True)
+    if key is None:
+        return {**data, "mac": None, "mac_key_id": None}
+    return {**data, "mac": _sidecar_mac(key, data), "mac_key_id": _key_id(key)}
+
+
+def sidecar_mac_state(data: dict[str, Any]) -> str:
+    """
+    Check a sidecar's MAC.
+
+    Args:
+        data: The sidecar as read from its file, every field.
+
+    Returns:
+        ``valid``; ``invalid`` (it was changed); ``unsigned`` (from before
+        3.1); ``other_key`` (another server signed it); ``no_key`` (the key
+        cannot be read here).
+    """
+    mac, key_id = data.get("mac"), data.get("mac_key_id")
+    if not mac:
+        return "unsigned"
+    key = _sidecar_key(create=False)
+    if key is None:
+        return "no_key"
+    if key_id != _key_id(key):
+        return "other_key"
+    return "valid" if hmac.compare_digest(_sidecar_mac(key, data), str(mac)) else "invalid"
+
+
+#: What a verification says for each MAC state that is not ``valid``.
+_MAC_FINDINGS: dict[str, tuple[bool, str]] = {
+    "invalid": (
+        True,
+        "The metadata does not match its MAC: the sidecar, or the checksum it records, was "
+        "changed after the backup was taken",
+    ),
+    "unsigned": (
+        False,
+        "This backup's metadata carries no MAC (taken before 3.1): its integrity rests on "
+        "the checksum alone",
+    ),
+    "other_key": (
+        False,
+        "This backup's metadata was signed with another server's key: its MAC cannot be "
+        "checked here",
+    ),
+    "no_key": (
+        False,
+        "The key that signs backup metadata cannot be read (a sealed store that is locked?): "
+        "the MAC was not checked",
+    ),
+}
 
 
 @dataclass
@@ -1235,9 +1385,7 @@ class BackupManager:
         )
 
         try:
-            self.fs.write_text(
-                metadata_file, json.dumps(metadata.to_dict(), indent=2), mode=SECRET_MODE
-            )
+            self.fs.write_text(metadata_file, self._sidecar_text(metadata), mode=SECRET_MODE)
         except OSError as exc:
             self.fs.remove(backup_file)
             raise BackupError(
@@ -1324,6 +1472,20 @@ class BackupManager:
         )
 
     # -- listing ----------------------------------------------------------
+
+    def _sidecar_text(self, metadata: BackupMetadata) -> str:
+        """
+        Sign a backup's metadata and render its sidecar.
+
+        Args:
+            metadata: The metadata; its ``mac`` fields are updated.
+
+        Returns:
+            The sidecar's JSON.
+        """
+        data = sign_sidecar(metadata.to_dict())
+        metadata.mac, metadata.mac_key_id = data["mac"], data["mac_key_id"]
+        return json.dumps(data, indent=2)
 
     def _read_metadata_file(self, path: Path) -> BackupMetadata | None:
         """
@@ -2946,7 +3108,39 @@ class BackupManager:
         """
         results = self._verify_impl(backup_id, deep=deep)
         self._persist_verification(backup_id, results)
+        # The evidence an auditor asks for (ENS mp.info.6.r1): every
+        # verification, from the terminal, the console or a schedule.
+        audit_record(
+            "backups.verify",
+            target=f"backup:{backup_id}",
+            outcome="ok" if results.get("valid") else "failure",
+            details={
+                "deep": deep,
+                "valid": bool(results.get("valid")),
+                "mac": results.get("mac"),
+                "checksum_ok": results.get("checksum_ok"),
+                "extractable": results.get("extractable"),
+                "errors": list(results.get("errors") or [])[:5],
+                "warnings": list(results.get("warnings") or [])[:5],
+            },
+        )
         return results
+
+    def _mac_state(self, sidecar: Path) -> str:
+        """
+        Check the MAC of a sidecar as it is on disk.
+
+        Args:
+            sidecar: The ``.json`` file.
+
+        Returns:
+            See :func:`sidecar_mac_state`; ``invalid`` when it cannot be read.
+        """
+        try:
+            data = json.loads(sidecar.read_text())
+        except (OSError, ValueError):
+            return "invalid"
+        return sidecar_mac_state(data) if isinstance(data, dict) else "invalid"
 
     def _persist_verification(self, backup_id: str, results: dict[str, Any]) -> None:
         """
@@ -2971,9 +3165,7 @@ class BackupManager:
         app_name = domain_to_app_name(metadata.domain)
         metadata_file = self._get_app_backup_dir(app_name) / f"{backup_id}.json"
         try:
-            self.fs.write_text(
-                metadata_file, json.dumps(metadata.to_dict(), indent=2), mode=SECRET_MODE
-            )
+            self.fs.write_text(metadata_file, self._sidecar_text(metadata), mode=SECRET_MODE)
         except OSError as exc:
             self.logger.warning(f"Could not record the verification result for {backup_id}: {exc}")
 
@@ -3027,6 +3219,14 @@ class BackupManager:
             results["valid"] = False
             errors.append("Backup file not found")
             return results
+
+        results["mac"] = self._mac_state(self.local_files(metadata)[1])
+        refused, finding = _MAC_FINDINGS.get(results["mac"], (False, ""))
+        if refused:
+            results["valid"] = False
+            errors.append(finding)
+        elif finding:
+            warnings.append(finding)
 
         if metadata.checksum:
             try:
@@ -3663,7 +3863,9 @@ class RollbackManager:
                     else:
                         raise BackupError(f"No backups found for: {domain}")
 
-            recorder = DeploymentRecorder(get_store(), domain, trigger, logger=self.logger)
+            recorder = DeploymentRecorder(
+                get_store(), domain, trigger, logger=self.logger, operation="rollback"
+            )
             recorder.start()
             recorder.annotate(git_commit=metadata.git_commit, git_branch=metadata.git_branch)
             self.last_deployment_id = recorder.deployment_id

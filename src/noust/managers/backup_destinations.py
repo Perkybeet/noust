@@ -70,6 +70,7 @@ __all__ = [
     "BackendField",
     "BackupDestinationManager",
     "backend_fields",
+    "decode_sidecars",
     "parse_crypt_key",
     "validate_destination_name",
 ]
@@ -509,6 +510,38 @@ def _parse_rclone_time(value: str) -> datetime:
     return datetime.fromisoformat(f"{match.group('base')}.{frac}{tz}")
 
 
+def decode_sidecars(text: str) -> list[dict[str, Any]]:
+    """
+    Split what ``rclone cat`` printed for a folder of ``.json`` sidecars.
+
+    They are concatenated, one object after another, so the stream is decoded
+    object by object rather than fetched one call per file.
+
+    Args:
+        text: The concatenated JSON objects.
+
+    Returns:
+        The objects read, in order. Everything after one that cannot be read
+        is dropped: what it described is unknown, and callers treat an
+        unknown origin as one to keep - the safe way to be wrong.
+    """
+    objects: list[dict[str, Any]] = []
+    decoder = json.JSONDecoder()
+    position = 0
+    while True:
+        while position < len(text) and text[position].isspace():
+            position += 1
+        if position >= len(text):
+            break
+        try:
+            data, position = decoder.raw_decode(text, position)
+        except json.JSONDecodeError:
+            break
+        if isinstance(data, dict):
+            objects.append(data)
+    return objects
+
+
 def _mod_time_or_min(entry: dict[str, Any]) -> datetime:
     """
     Read an entry's ``ModTime``, tolerating one rclone did not set.
@@ -670,6 +703,39 @@ class BackupDestinationManager:
                 "Noust knows about.",
             )
         return destination
+
+    def require_encrypted_upload(self, name: str) -> BackupDestinationRecord:
+        """
+        Refuse an upload to an unencrypted destination when backups must leave encrypted.
+
+        Every upload (an application's backup, a database dump) passes here
+        before rclone runs (rule 4). The requirement is the ``ens-medium``
+        profile's, or ``backup.encryption: required`` outside it
+        (:func:`noust.core.ens.profile.backup_encryption_required`, ENS mp.si.2).
+
+        Args:
+            name: Destination name.
+
+        Returns:
+            The destination's record.
+
+        Raises:
+            BackupError: No such destination, or it is not encrypted and
+                encryption is required.
+        """
+        from noust.core.ens.profile import backup_encryption_required
+
+        destination = self._require(name)
+        if destination.encrypted or not backup_encryption_required():
+            return destination
+        raise BackupError(
+            f"{name} is not encrypted, and backups leave this server only encrypted",
+            details=(
+                "The ens-medium security profile (or backup.encryption: required) refuses "
+                f"unencrypted uploads. Encrypt it: noust backup destination update {name} "
+                f"--encrypt, then keep its key safe: noust backup destination show-key {name}."
+            ),
+        )
 
     # -- fields and secrets ---------------------------------------------
 
@@ -926,10 +992,22 @@ class BackupDestinationManager:
             for schedule in self.store.list_backup_schedules()
             if any(destination.get("name") == name for destination in schedule.destinations)
         ]
-        if referencing and not force:
+        # A database's backup policy sends to destinations by name too: removing one it
+        # names would leave the policy failing its upload every night.
+        # Imported here: the databases package is not something every backup command loads.
+        from noust.managers.database.backup_records import BackupRecords
+
+        records = BackupRecords(self.store)
+        policies = [
+            policy
+            for policy in records.policies()
+            if any(destination.get("name") == name for destination in policy.destinations)
+        ]
+        used_by = sorted([*referencing, *(f"{p.engine}/{p.db_name}" for p in policies)])
+        if used_by and not force:
             raise BackupError(
-                f"Backup destination {name!r} is used by {len(referencing)} "
-                f"schedule(s): {', '.join(sorted(referencing))}",
+                f"Backup destination {name!r} is used by {len(used_by)} "
+                f"schedule(s): {', '.join(used_by)}",
                 details="Pass --force to remove it and drop the reference from those schedules.",
             )
 
@@ -943,6 +1021,13 @@ class BackupDestinationManager:
                 if destination.get("name") != name
             ]
             self.store.save_backup_schedule(schedule)
+        for policy in policies:
+            policy.destinations = [
+                destination
+                for destination in policy.destinations
+                if destination.get("name") != name
+            ]
+            records.save_policy(policy)
 
         self.store.delete_backup_destination(name)
         self.secrets.delete(_secret_namespace(name))
@@ -1330,21 +1415,8 @@ class BackupDestinationManager:
             )
 
         origins: dict[str, str | None] = {}
-        decoder = json.JSONDecoder()
-        text = result.stdout or ""
-        position = 0
-        while True:
-            while position < len(text) and text[position].isspace():
-                position += 1
-            if position >= len(text):
-                break
-            try:
-                data, position = decoder.raw_decode(text, position)
-            except json.JSONDecodeError:
-                # Everything after an unreadable sidecar is unknown, and an
-                # unknown origin is kept - the safe way to be wrong.
-                break
-            if isinstance(data, dict) and isinstance(data.get("id"), str):
+        for data in decode_sidecars(result.stdout or ""):
+            if isinstance(data.get("id"), str):
                 origin = data.get("origin")
                 origins[data["id"]] = origin if isinstance(origin, str) else None
         return origins
@@ -1456,7 +1528,7 @@ class BackupDestinationManager:
                 retention cannot be applied.
         """
         _require_rclone(self.runner)
-        self._require(destination_name)
+        self.require_encrypted_upload(destination_name)
         env = self.remote_env(destination_name)
         secrets_literal = self._secret_literals(destination_name)
 

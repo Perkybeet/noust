@@ -204,6 +204,7 @@ class StoreSpy:
         relations: What :meth:`get_app_with_relations` returns per domain.
         services: Every service row.
         deleted: Names passed to the delete methods, in call order.
+        pins: Pinned branches keyed by domain.
     """
 
     def __init__(self) -> None:
@@ -211,6 +212,7 @@ class StoreSpy:
         self.relations: dict[str, Any] = {}
         self.services: list[Any] = []
         self.deleted: list[tuple[str, str]] = []
+        self.pins: dict[str, str] = {}
 
     def list_apps(self) -> list[Any]:
         """
@@ -242,6 +244,39 @@ class StoreSpy:
             The application row, or None.
         """
         return self.apps.get(domain)
+
+    def update_app(self, app: Any) -> Any:
+        """
+        Args:
+            app: The row to store.
+
+        Returns:
+            The row.
+        """
+        self.apps[app.domain] = app
+        return app
+
+    def get_branch_pin(self, domain: str) -> str | None:
+        """
+        Args:
+            domain: Application domain.
+
+        Returns:
+            The pinned branch.
+        """
+        return self.pins.get(domain)
+
+    def set_branch_pin(self, domain: str, branch: str | None, *, by: str | None = None) -> None:
+        """
+        Args:
+            domain: Application domain.
+            branch: The branch, or None to unpin.
+            by: Who chose it.
+        """
+        if branch is None:
+            self.pins.pop(domain, None)
+        else:
+            self.pins[domain] = branch
 
     def get_app_with_relations(self, domain: str) -> Any:
         """
@@ -1302,6 +1337,9 @@ def test_update_delegates_the_rebuild_to_the_deployer(
 
     assert result.exit_code == 0, result.output
     assert pulls == [(app_path, "release")]
+    # Named by the operator: pinned, so the next update follows it too.
+    assert store.pins == {"example.com": "release"}
+    assert store.apps["example.com"].branch == "release"
     assert deployer.updated is True
     # The command reports progress; it no longer drives the steps itself.
     assert deployer.steps == ["Installing dependencies", "Building"]
@@ -1984,3 +2022,107 @@ def test_click_commands_are_real_commands() -> None:
     for name, command in webapp.cli.commands.items():
         assert isinstance(command, click.Command), name
         assert command.help, f"{name} has no help text"
+
+
+# ------------------------------------------------ create --database
+
+
+class NewAppDatabasesSpy:
+    """
+    Stands in for ``DatabaseService`` in ``noust create --database``.
+
+    Attributes:
+        calls: ``(method, argument)`` in order, shared by every instance.
+    """
+
+    calls: list[tuple[str, Any]] = []
+
+    def __init__(self, **_: Any) -> None:
+        """Accept whatever the command constructs the service with."""
+
+    def prepare_for_new_app(self, domain: str, engine: str, **kwargs: Any) -> Any:
+        from noust.managers.database.service import NewAppDatabase
+
+        NewAppDatabasesSpy.calls.append(("prepare", {"domain": domain, "engine": engine, **kwargs}))
+        return NewAppDatabase(
+            domain=domain,
+            engine="postgresql",
+            database=kwargs.get("name") or "example_com_db",
+            username="example_com_user",
+            env_var="DATABASE_URL",
+            extra_vars=False,
+            created_database=True,
+            values={"DATABASE_URL": "postgresql://example_com_user:pw@localhost:5432/shop"},
+        )
+
+    def link_new_app(self, prepared: Any) -> Any:
+        NewAppDatabasesSpy.calls.append(("link", prepared.database))
+        return SimpleNamespace(
+            database=prepared.database, engine=prepared.engine, env_vars=["DATABASE_URL"]
+        )
+
+    def keep_after_failed_deploy(self, prepared: Any, error: Any) -> None:
+        NewAppDatabasesSpy.calls.append(("keep", prepared.database))
+
+
+def test_create_with_a_database_provisions_it_before_the_first_build(
+    cli_runner: CliRunner, monkeypatch: pytest.MonkeyPatch, deployer: DeployerSpy
+) -> None:
+    """
+    ``--database postgresql:shop`` creates the database and hands its
+    connection string to the deployer, marked secret, then links it.
+
+    Args:
+        cli_runner: Click test runner.
+        monkeypatch: Patching helper.
+        deployer: Deployer spy.
+    """
+    NewAppDatabasesSpy.calls = []
+    monkeypatch.setattr(webapp, "DatabaseService", NewAppDatabasesSpy)
+
+    result = cli_runner.invoke(
+        webapp.cli.commands["create"],
+        ["-d", "example.com", "-s", ".", "-p", "3100", "--database", "postgresql:shop"],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert NewAppDatabasesSpy.calls[0] == (
+        "prepare",
+        {"domain": "example.com", "engine": "postgresql", "name": "shop", "env": {}},
+    )
+    assert NewAppDatabasesSpy.calls[1] == ("link", "shop")
+    assert deployer.configured["database_env"] == {
+        "DATABASE_URL": "postgresql://example_com_user:pw@localhost:5432/shop"
+    }
+    assert deployer.configured["env_secret_marks"] == {"DATABASE_URL": True}
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        ["-s", ".", "-t", "monorepo"],
+        ["-s", ".", "-t", "docker-compose"],
+        ["--recipe", "umami"],
+        ["-s", ".", "--database", ":shop"],
+    ],
+)
+def test_create_refuses_a_database_it_cannot_honour(
+    cli_runner: CliRunner, deployer: DeployerSpy, extra: list[str]
+) -> None:
+    """
+    A monorepo, a compose project and a recipe provision their own databases.
+
+    Args:
+        cli_runner: Click test runner.
+        deployer: Deployer spy, asserted to stay untouched.
+        extra: The rest of the command line.
+    """
+    arguments = ["-d", "example.com", "-p", "3100", *extra]
+    if "--database" not in extra:
+        arguments += ["--database", "postgresql"]
+
+    result = cli_runner.invoke(webapp.cli.commands["create"], arguments)
+
+    assert result.exit_code != 0
+    assert "--database" in result.output
+    assert deployer.deployed is False

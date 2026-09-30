@@ -1018,7 +1018,7 @@ class TestTrust:
         assert store.list_previews(PARENT) == []
         (comment,) = posted
         assert "bot account" in comment["body"] and "--allow-bots" in comment["body"]
-        assert "as root" in comment["body"]
+        assert "production secrets included" in comment["body"]
         assert "bot account" in caplog.text
 
     def test_a_bot_gets_a_preview_when_bots_are_allowed(

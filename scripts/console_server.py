@@ -84,6 +84,19 @@ CALL_HISTORY = 256
 #: keeps it out of everything that only ever runs one console_server.py.
 FLEET_NODE_APP_ENV = "NOUST_E2E_FLEET_APP"
 
+#: Set to a version ("3.0.0") by the fleet's E2E suite to make this node pretend to be an
+#: older Noust: it reports that version and does not offer OLDER_NODE_MISSING (see
+#: pretend_older_node), so a central's views say "unsupported" for it.
+OLDER_NODE_ENV = "NOUST_E2E_OLDER_NODE"
+
+#: What a 3.0 node does not offer of what a 3.1 central's fleet views ask.
+OLDER_NODE_MISSING = (
+    "/api/overview",
+    "/api/server/summary",
+    "/api/system/update",
+    "/api/auth/fleet/self",
+)
+
 #: Seconds uvicorn waits for open connections at shutdown. The event stream
 #: never ends by itself, so without a bound a Ctrl+C would wait for the tab.
 GRACEFUL_SHUTDOWN_SECONDS = 2
@@ -478,7 +491,6 @@ def write_config(
         "service_user": "www-data",
         "service_group": "www-data",
         "ssl": {"enabled": True, "provider": "certbot", "email": ssl_email},
-        "logging": {"level": "info", "file": str(sandbox.var / "log" / "noust" / "noust.log")},
         "backup": {"directory": str(sandbox.backup_dir), "max_per_app": 10},
     }
     if central_role is not None:
@@ -676,6 +688,8 @@ INSTALLED_PROGRAMS = (
     "npm",
     "psql",
     "pg_dump",
+    # A dump's check (pg_restore --list), answered from the model below.
+    "pg_restore",
     "mysql",
     "mysqldump",
     "redis-cli",
@@ -835,6 +849,732 @@ def _sql_identifier(statement: str, quote: str, *, after: str | None = None) -> 
     return match.group(1).replace(quote + quote, quote)
 
 
+# ---------------------------------------------------------------------------
+# Console: what a database's own page reads (3.1). The data browser, the row
+# editor, the metrics, the access list and the dumps run their own catalog
+# queries, answered here from a small model of example_production's tables:
+# each query is matched by a fragment only it contains, before the generic
+# listing answers of _sql.
+# ---------------------------------------------------------------------------
+
+#: The one database the model has tables for.
+_DEMO_DATABASE = "example_production"
+
+#: A column: name, type as printed, pg_type.typname, typcategory, nullable,
+#: default, generated.
+_DemoColumn = tuple[str, str, str, str, bool, str | None, bool]
+
+
+def _demo_catalog() -> dict[tuple[str, str], dict[str, Any]]:
+    """
+    Build the model's tables, with their rows.
+
+    Returns:
+        ``(schema, name)`` to the relation: its kind, columns, primary key,
+        indexes, constraints and rows (column name to Python value).
+    """
+    now = datetime(2026, 9, 29, 17, 42, 11, tzinfo=timezone.utc)
+    names = ("Maria", "Jon", "Priya", "Lucas", "Aiko", "Omar", "Sofia", "Ines", "Tomas", "Lena")
+    countries = ("ES", "PT", "FR", "DE", None, "IE", "NL")
+    customers = [
+        {
+            "id": index,
+            "email": f"{names[index % len(names)].lower()}{index}@example.com",
+            "name": f"{names[index % len(names)]} {chr(65 + index % 26)}.",
+            "country": countries[index % len(countries)],
+            "created_at": (now - timedelta(days=400 - index)).isoformat(),
+        }
+        for index in range(1, 241)
+    ]
+    statuses = ("paid", "paid", "shipped", "pending", "refunded", "paid", "shipped")
+    long_note = ("Customer asked to split the delivery. " * 70).strip()
+    orders = []
+    for index in range(1284):
+        status = statuses[index % len(statuses)]
+        receipt = None
+        if index % 9 == 0:
+            receipt = bytes.fromhex(
+                "255044462d312e370a25e2e3cfd30a312030206f626a0a3c3c2f547970652f436174"
+            )
+        orders.append(
+            {
+                "id": 1001 + index,
+                "customer_id": 1 + (index * 7) % 240,
+                "total": round(((index * 37) % 500) + 9.9, 2),
+                "status": status,
+                "paid": status in ("paid", "shipped", "refunded"),
+                "created_at": (now - timedelta(hours=3 * (1284 - index))).isoformat(),
+                "notes": long_note if index == 1280 else ("Gift wrap" if index % 13 == 0 else None),
+                "metadata": json.dumps(
+                    {
+                        "channel": "web" if index % 3 else "shop",
+                        "coupon": None if index % 5 else "AUTUMN10",
+                    }
+                ),
+                "receipt": receipt,
+            }
+        )
+    items = [
+        {
+            "order_id": 1001 + index // 3,
+            "sku": f"SKU-{(index * 11) % 97:03d}",
+            "quantity": 1 + index % 4,
+            "unit_price": round(4.5 + (index % 40) * 1.25, 2),
+        }
+        for index in range(3000)
+    ]
+    events = [
+        {
+            "at": (now - timedelta(minutes=17 * index)).isoformat(),
+            "actor": ("worker", "web", "cron")[index % 3],
+            "action": ("login", "checkout", "export", "refund")[index % 4],
+        }
+        for index in range(500)
+    ]
+    revenue = [
+        {
+            "day": (now - timedelta(days=index)).date().isoformat(),
+            "orders": 8 + (index * 5) % 17,
+            "revenue": round(420 + (index * 97) % 900 + 0.5, 2),
+        }
+        for index in range(90)
+    ]
+    bigint = ("bigint", "int8", "N")
+    text = ("text", "text", "S")
+    stamp = ("timestamp with time zone", "timestamptz", "D")
+
+    def col(
+        name: str,
+        kind: tuple[str, str, str],
+        nullable: bool = False,
+        default: str | None = None,
+        generated: bool = False,
+    ) -> _DemoColumn:
+        return (name, kind[0], kind[1], kind[2], nullable, default, generated)
+
+    return {
+        ("public", "customers"): {
+            "kind": "table",
+            "columns": [
+                col("id", bigint, generated=True),
+                col("email", text),
+                col("name", text),
+                col("country", text, True),
+                col("created_at", stamp, default="now()"),
+            ],
+            "primary_key": ["id"],
+            "indexes": [
+                ("customers_pkey", ["id"], True, True),
+                ("customers_email_key", ["email"], True, False),
+            ],
+            "constraints": [
+                ("customers_pkey", "p", "PRIMARY KEY (id)"),
+                ("customers_email_key", "u", "UNIQUE (email)"),
+            ],
+            "rows": customers,
+            "size": 90_112,
+        },
+        ("public", "orders"): {
+            "kind": "table",
+            "columns": [
+                col("id", bigint, default="nextval('orders_id_seq'::regclass)"),
+                col("customer_id", bigint),
+                col("total", ("numeric(10,2)", "numeric", "N")),
+                col("status", text, default="'pending'::text"),
+                col("paid", ("boolean", "bool", "B"), default="false"),
+                col("created_at", stamp, default="now()"),
+                col("notes", text, True),
+                col("metadata", ("jsonb", "jsonb", "U"), default="'{}'::jsonb"),
+                col("receipt", ("bytea", "bytea", "U"), True),
+            ],
+            "primary_key": ["id"],
+            "indexes": [
+                ("orders_pkey", ["id"], True, True),
+                ("orders_customer_id_idx", ["customer_id"], False, False),
+                ("orders_created_at_idx", ["created_at"], False, False),
+            ],
+            "constraints": [
+                (
+                    "orders_customer_id_fkey",
+                    "f",
+                    "FOREIGN KEY (customer_id) REFERENCES customers(id)",
+                ),
+                ("orders_pkey", "p", "PRIMARY KEY (id)"),
+                ("orders_total_check", "c", "CHECK ((total >= (0)::numeric))"),
+            ],
+            "rows": orders,
+            "size": 1_556_480,
+        },
+        ("public", "order_items"): {
+            "kind": "table",
+            "columns": [
+                col("order_id", bigint),
+                col("sku", text),
+                col("quantity", ("integer", "int4", "N"), default="1"),
+                col("unit_price", ("numeric(10,2)", "numeric", "N")),
+            ],
+            "primary_key": ["order_id", "sku"],
+            "indexes": [("order_items_pkey", ["order_id", "sku"], True, True)],
+            "constraints": [
+                ("order_items_order_id_fkey", "f", "FOREIGN KEY (order_id) REFERENCES orders(id)"),
+                ("order_items_pkey", "p", "PRIMARY KEY (order_id, sku)"),
+            ],
+            "rows": items,
+            "size": 434_176,
+        },
+        ("public", "audit_events"): {
+            "kind": "table",
+            "columns": [col("at", stamp, default="now()"), col("actor", text), col("action", text)],
+            "primary_key": [],
+            "indexes": [],
+            "constraints": [],
+            "rows": events,
+            "size": 73_728,
+        },
+        ("public", "paid_orders"): {
+            "kind": "view",
+            "columns": [
+                col("id", bigint, True),
+                col("total", ("numeric(10,2)", "numeric", "N"), True),
+                col("created_at", stamp, True),
+            ],
+            "primary_key": [],
+            "indexes": [],
+            "constraints": [],
+            "rows": [
+                {"id": row["id"], "total": row["total"], "created_at": row["created_at"]}
+                for row in orders
+                if row["paid"]
+            ],
+            "size": None,
+        },
+        ("analytics", "daily_revenue"): {
+            "kind": "table",
+            "columns": [
+                col("day", ("date", "date", "D")),
+                col("orders", ("integer", "int4", "N")),
+                col("revenue", ("numeric(12,2)", "numeric", "N")),
+            ],
+            "primary_key": ["day"],
+            "indexes": [("daily_revenue_pkey", ["day"], True, True)],
+            "constraints": [("daily_revenue_pkey", "p", "PRIMARY KEY (day)")],
+            "rows": revenue,
+            "size": 16_384,
+        },
+    }
+
+
+_DEMO_KINDS = {"N": "numeric", "B": "boolean", "D": "datetime", "S": "text", "A": "array"}
+
+
+def _demo_kind(column: _DemoColumn) -> str:
+    """How the dialect classifies a model column (PostgresDialect.kind)."""
+    if column[2] in ("json", "jsonb"):
+        return "json"
+    if column[2] == "bytea":
+        return "binary"
+    return _DEMO_KINDS.get(column[3], "other")
+
+
+def _demo_literal(text: str) -> str:
+    """The value inside a PostgreSQL literal ('...' or E'...')."""
+    body = text[1:] if text.startswith(("E'", "e'")) else text
+    body = body[1:-1] if body.startswith("'") and body.endswith("'") else body
+    value = body.replace("''", "'")
+    return value.replace("\\\\", "\\") if text.startswith(("E'", "e'")) else value
+
+
+def _demo_cell(value: Any, kind: str) -> tuple[Any, bool]:
+    """A value as the browser's SQL renders it, and whether it was cut."""
+    if value is None:
+        return None, False
+    if kind == "binary":
+        raw = value if isinstance(value, bytes) else b""
+        return {"bytes": len(raw) * 64, "hex": raw[:32].hex()}, False
+    if kind in ("numeric", "boolean"):
+        return value, False
+    text = str(value)
+    if kind in ("text", "json", "array", "other"):
+        return text[:2000], len(text) > 2000
+    return text, False
+
+
+def _demo_matches(row: dict[str, Any], condition: str, columns: dict[str, _DemoColumn]) -> bool:
+    """Whether a row satisfies one condition of PostgresDialect.condition's shapes."""
+    condition = condition.strip()
+    match = re.fullmatch(r'"(.+?)" IS (NOT )?NULL', condition)
+    if match:
+        return (row.get(match.group(1)) is None) != bool(match.group(2))
+    match = re.fullmatch(r'"(.+?)"::text (I?LIKE) (E?\'.*\')', condition)
+    if match:
+        pattern = (
+            "^"
+            + re.escape(_demo_literal(match.group(3))).replace("%", ".*").replace("_", ".")
+            + "$"
+        )
+        value = row.get(match.group(1))
+        flags = re.IGNORECASE if match.group(2) == "ILIKE" else 0
+        return value is not None and re.search(pattern, str(value), flags) is not None
+    match = re.fullmatch(r'"(.+?)" IN \((.*)\)', condition)
+    if match:
+        options = [
+            _demo_literal(item.strip()) for item in re.findall(r"E?'(?:[^']|'')*'", match.group(2))
+        ]
+        return str(row.get(match.group(1))) in options
+    match = re.fullmatch(r"\((.+?)\) ([<>]) \((.+)\)", condition)
+    if match:
+        names = re.findall(r'"(.+?)"', match.group(1))
+        wanted = [_demo_literal(item) for item in re.findall(r"E?'(?:[^']|'')*'", match.group(3))]
+        have = tuple(_demo_sortable(row.get(name), columns[name]) for name in names)
+        other = tuple(
+            _demo_sortable(_demo_typed(text, columns[name]), columns[name])
+            for name, text in zip(names, wanted, strict=False)
+        )
+        return have > other if match.group(2) == ">" else have < other
+    match = re.fullmatch(r'"(.+?)" (=|<>|<=|>=|<|>) (E?\'.*\')', condition)
+    if match:
+        name, operator = match.group(1), match.group(2)
+        column = columns.get(name)
+        if column is None:
+            return True
+        left = _demo_sortable(row.get(name), column)
+        right = _demo_sortable(_demo_typed(_demo_literal(match.group(3)), column), column)
+        if row.get(name) is None:
+            return False
+        return {
+            "=": left == right,
+            "<>": left != right,
+            "<": left < right,
+            "<=": left <= right,
+            ">": left > right,
+            ">=": left >= right,
+        }[operator]
+    return True
+
+
+def _demo_typed(text: str, column: _DemoColumn) -> Any:
+    """A literal's text as the model stores the column's values."""
+    kind = _demo_kind(column)
+    if kind == "numeric":
+        try:
+            number = float(text)
+        except ValueError:
+            return text
+        return int(number) if number.is_integer() and "." not in text else number
+    if kind == "boolean":
+        return text.lower() in ("true", "t", "1")
+    return text
+
+
+def _demo_sortable(value: Any, column: _DemoColumn) -> Any:
+    """A value made comparable with the others of its column."""
+    if value is None:
+        return (1, 0)
+    if _demo_kind(column) == "numeric":
+        try:
+            return (0, float(value))
+        except (TypeError, ValueError):
+            return (0, 0.0)
+    return (0, str(value))
+
+
+class _DemoDatabase:
+    """example_production as the data browser, the metrics and the access list read it."""
+
+    def __init__(self) -> None:
+        self.relations = _demo_catalog()
+        self.lock = threading.Lock()
+        # Roles the console created this run: a new user is looked up right after it is made.
+        self.roles: set[str] = set()
+
+    def answer(self, database: str | None, statement: str, *, csv: bool) -> str | None:
+        """
+        Answer a statement the database page sends, or None to leave it to _sql.
+
+        Args:
+            database: The database the client was pointed at (``-d``).
+            statement: The SQL.
+            csv: The structured console asked for a header row.
+
+        Returns:
+            What psql prints, or None.
+        """
+        mine = database == _DEMO_DATABASE
+        created = re.match(r'\s*CREATE (?:ROLE|USER) "?([A-Za-z0-9_]+)"?', statement)
+        if created:
+            self.roles.add(created.group(1))
+            return None
+        asked = re.match(r"\s*SELECT 1 FROM pg_roles WHERE rolname = '([^']*)'", statement)
+        if asked and asked.group(1) in self.roles:
+            return "1\n"
+        if "'schemas', coalesce((SELECT json_agg(n.nspname" in statement:
+            return json.dumps(self.catalog() if mine else {"schemas": ["public"], "relations": []})
+        if "'columns', coalesce((SELECT json_agg(json_build_object(" in statement and mine:
+            return self.describe(statement)
+        if "SELECT json_build_object('rows'" in statement and mine:
+            return self.rows(statement)
+        if "noust_row_change" in statement and mine:
+            return self.edit(statement)
+        if "'blks_hit', (SELECT sum(blks_hit) FROM pg_catalog.pg_stat_database)" in statement:
+            return json.dumps(
+                {
+                    "connections": 9,
+                    "max_connections": 100,
+                    "blks_hit": 91_827_345,
+                    "blks_read": 120_311,
+                    "databases": [
+                        {
+                            "name": "example_production",
+                            "size_bytes": 48_218_931,
+                            "connections": 6,
+                            "xact": 1_829_384,
+                            "blks_hit": 77_123_450,
+                            "blks_read": 98_765,
+                        },
+                        {
+                            "name": "example_staging",
+                            "size_bytes": 9_120_563,
+                            "connections": 1,
+                            "xact": 45_012,
+                            "blks_hit": 1_203_111,
+                            "blks_read": 9_871,
+                        },
+                    ],
+                }
+            )
+        if "'server_connections', (SELECT count(*) FROM pg_catalog.pg_stat_activity" in statement:
+            return self.database_metrics(mine)
+        if "e.extname = 'pg_stat_statements'" in statement:
+            return json.dumps({"schema": "public" if mine else None, "preloaded": mine})
+        if "pg_stat_statements p" in statement:
+            return json.dumps(
+                [
+                    {
+                        "query": "SELECT o.*, c.email FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.created_at > $1 ORDER BY o.created_at DESC",
+                        "calls": 18_422,
+                        "total_ms": 1_214_993.2,
+                        "mean_ms": 65.95,
+                        "rows": 921_100,
+                    },
+                    {
+                        "query": "UPDATE orders SET status = $1, paid = $2 WHERE id = $3",
+                        "calls": 4_102,
+                        "total_ms": 61_530.4,
+                        "mean_ms": 15.0,
+                        "rows": 4_102,
+                    },
+                    {
+                        "query": "SELECT count(*) FROM order_items WHERE order_id = ANY($1)",
+                        "calls": 9_870,
+                        "total_ms": 88_830.0,
+                        "mean_ms": 9.0,
+                        "rows": 9_870,
+                    },
+                    {
+                        "query": "INSERT INTO audit_events (actor, action) VALUES ($1, $2)",
+                        "calls": 52_004,
+                        "total_ms": 104_008.1,
+                        "mean_ms": 2.0,
+                        "rows": 52_004,
+                    },
+                ]
+            )
+        if "aclexplode(d.defaclacl)" in statement:
+            if not mine:
+                return "wasm_app|t|f|0|0|0|f|f\npostgres|f|t|0|0|0|f|f\n"
+            return (
+                "analytics_reader|f|f|5|5|0|f|f\n"
+                "example_production|f|f|5|5|5|t|t\n"
+                "postgres|f|t|5|5|5|f|f\n"
+                "wasm_app|t|f|5|5|5|f|f\n"
+                "wasm_ro_example_production|f|f|5|5|0|t|f\n"
+            )
+        if mine and re.search(r"^\s*EXPLAIN\b", statement, re.IGNORECASE | re.MULTILINE):
+            analyze = "ANALYZE" in statement.upper()
+            node: dict[str, Any] = {
+                "Node Type": "Limit",
+                "Total Cost": 12.4,
+                "Plan Rows": 20,
+                "Plans": [
+                    {
+                        "Node Type": "Index Scan Backward",
+                        "Relation Name": "orders",
+                        "Index Name": "orders_created_at_idx",
+                        "Total Cost": 88.1,
+                        "Plan Rows": 1284,
+                    }
+                ],
+            }
+            if analyze:
+                node["Actual Total Time"] = 0.412
+                node["Plans"][0]["Actual Total Time"] = 0.388
+            return json.dumps([{"Plan": node, "Planning Time": 0.11}])
+        if mine and csv and re.search(r"\bfrom\s+(public\.)?orders\b", statement, re.IGNORECASE):
+            rows = self.relations[("public", "orders")]["rows"][-20:][::-1]
+            lines = ["id,customer_id,total,status,paid,created_at"]
+            lines += [
+                f"{row['id']},{row['customer_id']},{row['total']:.2f},{row['status']},{'t' if row['paid'] else 'f'},{row['created_at']}"
+                for row in rows
+            ]
+            return "\n".join(lines) + "\n"
+        return None
+
+    def catalog(self) -> dict[str, Any]:
+        """The schemas and relations, as PostgresDialect.catalog_sql answers."""
+        return {
+            "schemas": sorted({schema for schema, _ in self.relations}),
+            "relations": [
+                {
+                    "schema": schema,
+                    "name": name,
+                    "kind": relation["kind"],
+                    "rows_estimate": len(relation["rows"]) if relation["kind"] == "table" else None,
+                    "size_bytes": relation["size"],
+                }
+                for (schema, name), relation in sorted(self.relations.items())
+            ],
+        }
+
+    def _relation(self, statement: str) -> tuple[tuple[str, str], dict[str, Any]] | None:
+        match = (
+            re.search(r'FROM "([^"]+)"\."([^"]+)"', statement)
+            or re.search(r'INTO "([^"]+)"\."([^"]+)"', statement)
+            or re.search(r'UPDATE "([^"]+)"\."([^"]+)"', statement)
+        )
+        if match is None:
+            literals = re.findall(r"n\.nspname = '([^']*)' AND r\.relname = '([^']*)'", statement)
+            if not literals:
+                return None
+            key = literals[0]
+        else:
+            key = (match.group(1), match.group(2))
+        relation = self.relations.get(key)
+        return (key, relation) if relation is not None else None
+
+    def describe(self, statement: str) -> str:
+        """A relation's structure, as PostgresDialect.describe_sql answers."""
+        found = self._relation(statement)
+        if found is None:
+            return ""
+        _, relation = found
+        return json.dumps(
+            {
+                "columns": [
+                    {
+                        "name": c[0],
+                        "type": c[1],
+                        "base": c[2],
+                        "category": c[3],
+                        "nullable": c[4],
+                        "default": c[5],
+                        "generated": c[6],
+                    }
+                    for c in relation["columns"]
+                ],
+                "primary_key": relation["primary_key"],
+                "indexes": [
+                    {
+                        "name": name,
+                        "columns": cols,
+                        "unique": unique,
+                        "primary": primary,
+                        "definition": f"CREATE {'UNIQUE ' if unique else ''}INDEX {name} ON {found[0][0]}.{found[0][1]} USING btree ({', '.join(cols)})",
+                    }
+                    for name, cols, unique, primary in relation["indexes"]
+                ],
+                "constraints": [
+                    {"name": name, "type": kind, "definition": definition}
+                    for name, kind, definition in relation["constraints"]
+                ],
+            }
+        )
+
+    def rows(self, statement: str) -> str:
+        """One page of rows, as PostgresDialect.rows_sql answers."""
+        found = self._relation(statement)
+        if found is None:
+            return json.dumps({"rows": []})
+        _, relation = found
+        columns = {column[0]: column for column in relation["columns"]}
+        inner = statement[statement.index("FROM (SELECT * FROM") :]
+        where = re.search(r" WHERE (.+?)(?: ORDER BY | LIMIT )", inner)
+        conditions = re.split(r" AND (?=[\"(])", where.group(1)) if where else []
+        with self.lock:
+            rows = [
+                row
+                for row in relation["rows"]
+                if all(_demo_matches(row, condition, columns) for condition in conditions)
+            ]
+        order = re.search(r"ORDER BY (.+?) LIMIT", inner)
+        if order:
+            for name, direction in reversed(re.findall(r'"(.+?)" (ASC|DESC)', order.group(1))):
+                if name in columns:
+                    rows.sort(
+                        key=lambda row, n=name: _demo_sortable(row.get(n), columns[n]),
+                        reverse=direction == "DESC",
+                    )
+        limit = int(re.search(r"LIMIT (\d+)", inner).group(1))  # type: ignore[union-attr]
+        offset_match = re.search(r"OFFSET (\d+)", inner)
+        offset = int(offset_match.group(1)) if offset_match else 0
+        page = rows[offset : offset + limit]
+        rendered = []
+        for row in page:
+            cells, flags = [], []
+            for column in relation["columns"]:
+                kind = _demo_kind(column)
+                cell, cut = _demo_cell(row.get(column[0]), kind)
+                cells.append(cell)
+                if kind in ("text", "json", "array", "other"):
+                    flags.append(cut)
+            rendered.append(
+                [cells, flags, [str(row.get(name)) for name in relation["primary_key"]]]
+            )
+        answer: dict[str, Any] = {"rows": rendered}
+        if "'count', (SELECT count(*)" in statement:
+            answer["count"] = len(rows)
+        return json.dumps(answer)
+
+    def edit(self, statement: str) -> str:
+        """One row inserted, updated or deleted, as PostgresDialect._edit's script answers."""
+        found = self._relation(statement)
+        if found is None:
+            return ""
+        _, relation = found
+        columns = {column[0]: column for column in relation["columns"]}
+
+        def image(row: dict[str, Any] | None) -> Any:
+            if row is None:
+                return None
+            return {
+                name: (("\\x" + value.hex()) if isinstance(value, bytes) else value)
+                for name, value in row.items()
+            }
+
+        def assigned(text: str) -> dict[str, Any]:
+            values: dict[str, Any] = {}
+            for name, literal in re.findall(r'"(\w+)" = (NULL|E?\'(?:[^\']|\'\')*\')', text):
+                values[name] = (
+                    None
+                    if literal == "NULL"
+                    else _demo_typed(_demo_literal(literal), columns[name])
+                    if name in columns
+                    else _demo_literal(literal)
+                )
+            return values
+
+        with self.lock:
+            rows: list[dict[str, Any]] = relation["rows"]
+            update = re.search(r"AS t SET (.+?) WHERE (.+?) RETURNING", statement, re.DOTALL)
+            if update:
+                key = assigned(update.group(2))
+                for row in rows:
+                    if all(str(row.get(name)) == str(value) for name, value in key.items()):
+                        before = dict(row)
+                        row.update(assigned(update.group(1)))
+                        return json.dumps({"before": image(before), "after": image(row)})
+                return json.dumps({"before": None, "after": None})
+            delete = re.search(r"DELETE FROM .+? AS t WHERE (.+?) RETURNING", statement, re.DOTALL)
+            if delete:
+                key = assigned(delete.group(1))
+                for index, row in enumerate(rows):
+                    if all(str(row.get(name)) == str(value) for name, value in key.items()):
+                        rows.pop(index)
+                        return json.dumps({"before": image(row), "after": None})
+                return json.dumps({"before": None, "after": None})
+            insert = re.search(r"AS t \((.+?)\) VALUES \((.+?)\) RETURNING", statement, re.DOTALL)
+            new: dict[str, Any] = dict.fromkeys(columns)
+            if insert:
+                names = re.findall(r'"(\w+)"', insert.group(1))
+                literals = re.findall(r"NULL|E?'(?:[^']|'')*'", insert.group(2))
+                for name, literal in zip(names, literals, strict=False):
+                    new[name] = (
+                        None
+                        if literal == "NULL"
+                        else _demo_typed(_demo_literal(literal), columns[name])
+                    )
+            for name in relation["primary_key"]:
+                if new.get(name) is None and _demo_kind(columns[name]) == "numeric":
+                    new[name] = max((int(row.get(name) or 0) for row in rows), default=0) + 1
+            if "created_at" in columns and new.get("created_at") is None:
+                new["created_at"] = datetime.now(timezone.utc).isoformat()
+            rows.append(new)
+            return json.dumps({"before": None, "after": image(new)})
+
+    def database_metrics(self, mine: bool) -> str:
+        """A database's statistics, as the metrics reader's per-database query answers."""
+        if not mine:
+            return json.dumps(
+                {
+                    "size_bytes": 9_120_563,
+                    "server_connections": 9,
+                    "max_connections": 100,
+                    "stat": {
+                        "connections": 1,
+                        "xact": 45_012,
+                        "blks_hit": 1_203_111,
+                        "blks_read": 9_871,
+                        "deadlocks": 0,
+                    },
+                    "tables": [],
+                }
+            )
+        tables = sorted(
+            (
+                {
+                    "schema": schema,
+                    "name": name,
+                    "size_bytes": relation["size"],
+                    "rows_estimate": len(relation["rows"]),
+                }
+                for (schema, name), relation in self.relations.items()
+                if relation["kind"] == "table"
+            ),
+            key=lambda table: -(table["size_bytes"] or 0),
+        )
+        return json.dumps(
+            {
+                "size_bytes": 48_218_931,
+                "server_connections": 9,
+                "max_connections": 100,
+                "stat": {
+                    "connections": 6,
+                    "xact": 1_829_384,
+                    "blks_hit": 77_123_450,
+                    "blks_read": 98_765,
+                    "deadlocks": 2,
+                },
+                "tables": tables,
+            }
+        )
+
+
+#: What pg_dump writes for the model: a custom-format archive's signature and some bytes.
+_PG_DUMP_BYTES = "PGDMP\x01\x0e\x00\x04\x08\x01\x01\x01" + "x" * 4096
+
+#: What pg_restore --list prints of it.
+_PG_RESTORE_LIST = (
+    ";\n; Archive created at 2026-09-29 02:00:04 UTC\n;     dbname: example_production\n;\n"
+    "215; 1259 16390 TABLE public customers wasm_app\n"
+    "216; 1259 16402 TABLE public orders wasm_app\n"
+    "217; 1259 16420 TABLE public order_items wasm_app\n"
+    "218; 1259 16431 TABLE public audit_events wasm_app\n"
+    "219; 1259 16440 VIEW public paid_orders wasm_app\n"
+    "220; 1259 16450 TABLE analytics daily_revenue wasm_app\n"
+    "3310; 0 16390 TABLE DATA public customers wasm_app\n"
+    "3311; 0 16402 TABLE DATA public orders wasm_app\n"
+)
+
+
+def _psql_database(args: Sequence[str]) -> str | None:
+    """The database a psql invocation is pointed at (``-d NAME`` or ``--dbname=NAME``)."""
+    for index, arg in enumerate(args):
+        if arg == "-d" and index + 1 < len(args):
+            return args[index + 1]
+        if arg.startswith("--dbname="):
+            return arg.split("=", 1)[1]
+    return None
+
+
 def make_runner(
     units: dict[str, Unit],
     ports: dict[str, int],
@@ -926,13 +1666,15 @@ def make_runner(
             self._stdin = threading.local()
             # What the modelled machine has installed. MongoDB and Docker are
             # deliberately absent, so the console shows an engine to install.
-            self.only_knows(*INSTALLED_PROGRAMS)
+            self.only_knows(*INSTALLED_PROGRAMS, *SERVER_PROGRAMS)
             # Per-instance copies: the Databases page can create and drop
             # databases, and a stateless dict would have `create_database`
             # succeed and then have its own follow-up `get_database_info`
             # report "does not exist" (PostgresManager re-checks existence).
             self._pg_databases: dict[str, tuple[str, int]] = dict(_PG_DATABASES)
             self._mysql_databases: dict[str, tuple[int, int]] = dict(_MYSQL_DATABASES)
+            # What a database's own page reads: its tables, rows, metrics, access.
+            self._demo_database = _DemoDatabase()
 
         def run(self, argv: Sequence[str], **kwargs: Any) -> CommandResult:
             # Noust's own SQL reaches the database clients on stdin; the psql
@@ -953,6 +1695,10 @@ def make_runner(
             # Answered as the command it runs: switching the account (runuser -u
             # postgres -- psql) asks the same question of the machine.
             program = args[0] if args else ""
+            # The Server area's tools first: see model_server_host.
+            server = _SERVER_HOST.answer(args) if _SERVER_HOST is not None else None
+            if server is not None:
+                return server
             with lock:
                 if program == "systemctl":
                     return self._systemctl(args)
@@ -970,6 +1716,18 @@ def make_runner(
                 )
             if "--version" in args and program in CLIENT_VERSIONS:
                 return ok(args, CLIENT_VERSIONS[program])
+            if program == "pg_dump":
+                return ok(args, _PG_DUMP_BYTES)
+            if program == "pg_restore" and "--list" in args:
+                return ok(args, _PG_RESTORE_LIST)
+            if program == "psql":
+                demo = self._demo_database.answer(
+                    _psql_database(args),
+                    getattr(self._stdin, "value", "") or _psql_console_sql(args),
+                    csv="--csv" in args,
+                )
+                if demo is not None:
+                    return ok(args, demo)
             if program in ("psql", "mysql", "redis-cli"):
                 # The structured SQL console asks for a header row: psql with
                 # `--csv`, mysql with `-B` alone (no `-N`). Every other caller
@@ -4296,6 +5054,170 @@ def model_telegram_bot_api() -> None:
 # ---------------------------------------------------------------------------
 
 
+def seed_databases(sandbox: Sandbox) -> None:
+    """
+    Give example_production what its page shows (3.1): the application that uses it, the
+    accounts Noust keeps passwords for, a backup policy with its timer, dumps of several ages
+    (checked, one test-restored, one sent offsite, one that failed its check), and a month of
+    size and connection readings for its charts.
+
+    Everything goes through the managers the API uses, over the modelled runner, so the page
+    reads exactly what a real server would have recorded.
+
+    Args:
+        sandbox: The sandbox.
+    """
+    import math
+
+    from noust.core.exceptions import NoustError
+    from noust.core.secrets import SecretStore
+    from noust.core.store import get_store
+    from noust.deployers.helpers.databases import _password_secret
+    from noust.managers.database.backup_records import BackupRecords, DumpRecord
+    from noust.managers.database.backups import DatabaseBackups
+    from noust.managers.database.base import BaseDatabaseManager
+    from noust.managers.database.records import DatabaseLink, DatabaseRecords
+    from noust.managers.database.service import DatabaseService
+    from noust.web.metrics_collector import get_metrics_store
+    from tests.panel_factory import DESTINATION_SFTP as DESTINATION_SFTP_NAME
+
+    store = get_store(sandbox.store_file)
+    app = store.get_app("example.com")
+    records = DatabaseRecords(store)
+    secrets = SecretStore()
+    if app is not None and app.id is not None:
+        records.save_link(
+            DatabaseLink(
+                app_id=app.id,
+                engine="postgresql",
+                db_name=_DEMO_DATABASE,
+                username=_DEMO_DATABASE,
+                env_var="DATABASE_URL",
+            )
+        )
+    shop = store.get_app("shop.example.net")
+    if shop is not None and shop.id is not None:
+        records.save_link(
+            DatabaseLink(
+                app_id=shop.id,
+                engine="mysql",
+                db_name="shop_wp",
+                username="shop_wp",
+                env_var="DATABASE_URL",
+                extra_vars=True,
+            )
+        )
+        secrets.write(_password_secret("mysql", "shop_wp"), "Wp-demo-7Qx2")
+    secrets.write(_password_secret("postgresql", _DEMO_DATABASE), "Pr0d-demo-k8Vw")
+    records.save_account(
+        "postgresql",
+        _DEMO_DATABASE,
+        db_name=_DEMO_DATABASE,
+        profile="read_write",
+        password_changed=True,
+    )
+    records.save_account(
+        "postgresql",
+        "analytics_reader",
+        db_name=_DEMO_DATABASE,
+        profile="read_only",
+        password_changed=True,
+    )
+    secrets.write(_password_secret("postgresql", "analytics_reader"), "An4lytics-demo")
+
+    service = DatabaseService()
+    backups = DatabaseBackups(service)
+    destinations = [{"name": DESTINATION_SFTP_NAME, "retention_count": 30, "retention_days": 90}]
+    try:
+        backups.set_policy(
+            "postgresql",
+            _DEMO_DATABASE,
+            schedule="daily",
+            retention_count=7,
+            retention_days=30,
+            destinations=destinations,
+            verify_restore=True,
+        )
+    except NoustError as exc:
+        # A destination the sandbox did not seed: the policy stays local.
+        print(f"seed_databases: {exc}", file=sys.stderr)
+        backups.set_policy(
+            "postgresql",
+            _DEMO_DATABASE,
+            schedule="daily",
+            retention_count=7,
+            retention_days=30,
+            verify_restore=True,
+        )
+
+    directory = BaseDatabaseManager.BACKUP_DIR
+    directory.mkdir(parents=True, exist_ok=True)
+    dump_records = BackupRecords(store)
+    now = datetime.now()
+    taken: list[tuple[str, str]] = []
+    for hours, origin, content in (
+        (7, "scheduled", _PG_DUMP_BYTES),
+        (31, "scheduled", _PG_DUMP_BYTES),
+        (55, "scheduled", _PG_DUMP_BYTES),
+        (80, "manual", _PG_DUMP_BYTES),
+        (130, "safety", _PG_DUMP_BYTES),
+        (200, "manual", "not a dump: the disk filled up while it was written"),
+    ):
+        moment = now - timedelta(hours=hours)
+        name = f"postgresql-{_DEMO_DATABASE}-{moment.strftime('%Y%m%d_%H%M%S')}.dump"
+        path = directory / name
+        path.write_text(content)
+        os.utime(path, (moment.timestamp(), moment.timestamp()))
+        dump_records.save_dump(
+            DumpRecord(
+                engine="postgresql",
+                file_name=name,
+                db_name=_DEMO_DATABASE,
+                origin=origin,
+                size=path.stat().st_size,
+            )
+        )
+        taken.append((name, origin))
+    for index, (name, _origin) in enumerate(taken):
+        backups.verify("postgresql", name, restore=index == 0)
+    newest = dump_records.dump("postgresql", taken[0][0])
+    if newest is not None:
+        newest.remote_copies = [
+            {
+                "destination": DESTINATION_SFTP_NAME,
+                "pushed_at": (now - timedelta(hours=6, minutes=58)).astimezone().isoformat(),
+                "verified_by": "sha256",
+                "folder": f"databases/postgresql/{_DEMO_DATABASE}",
+            }
+        ]
+        dump_records.save_dump(newest)
+    dump_records.record_run("postgresql", _DEMO_DATABASE, ok=True, error=None, dump=taken[0][0])
+
+    metrics = get_metrics_store()
+    stamp_now = int(time.time())
+    stamps = [
+        *range(stamp_now - 30 * 86_400, stamp_now - 86_400, 1_800),
+        *range(stamp_now - 86_400, stamp_now, 120),
+    ]
+    base = f"db.postgresql.{_DEMO_DATABASE}"
+    for stamp in stamps:
+        age_days = (stamp_now - stamp) / 86_400
+        daily = math.sin((stamp % 86_400) / 86_400 * 2 * math.pi - math.pi / 2)
+        metrics.record_many(
+            [
+                (
+                    f"{base}.size",
+                    48_218_931 - age_days * 310_000 + math.sin(stamp / 7_000) * 40_000,
+                ),
+                (f"{base}.connections", max(1.0, 5 + 3 * daily + math.sin(stamp / 900) * 1.5)),
+                (f"{base}.cache_hit", 99.3 + 0.4 * math.sin(stamp / 5_000)),
+                (f"{base}.tps", max(0.5, 18 + 12 * daily + math.sin(stamp / 600) * 4)),
+            ],
+            ts=stamp,
+        )
+    metrics.consolidate(now=stamp_now)
+
+
 def seed_release_22(
     sandbox: Sandbox,
     store: Any,
@@ -5363,7 +6285,9 @@ def _destinations_rclone_model(sandbox: Sandbox, remotes: Path) -> None:
             f"Description={values.get('Description', '')}\n"
             f"TimersCalendar={{ OnCalendar={calendar} ; next_elapse=n/a }}\n"
             f"LastTriggerUSec={(now - timedelta(hours=9)).strftime(shown)}\n"
-            f"NextElapseUSecRealtime={(now + timedelta(hours=15)).strftime(shown)}\n",
+            f"NextElapseUSecRealtime={(now + timedelta(hours=15)).strftime(shown)}\n"
+            # Its file is on disk, so systemd has it loaded: a database policy's view asks.
+            "LoadState=loaded\n",
             "",
         )
 
@@ -6033,8 +6957,7 @@ def use_fixed_machine_stats(
     """
     import os as os_module
 
-    import noust.web.machine as machine_module
-    import noust.web.metrics_collector as metrics_collector_module
+    import noust.monitor.sampler as sampler_module
 
     os_module.getloadavg = lambda: (load_1m, load_1m * 0.9, load_1m * 0.8)
 
@@ -6061,8 +6984,9 @@ def use_fixed_machine_stats(
         boot_time=lambda: boot_time,
         net_io_counters=net_io_counters,
     )
-    machine_module.psutil = fixed
-    metrics_collector_module.psutil = fixed
+    # The one place the machine is read: the header strip, the chart collector
+    # and the monitor's resource scan all go through the sampler.
+    sampler_module.psutil = fixed
 
 
 # ---------------------------------------------------------------------------
@@ -6150,6 +7074,45 @@ def mount_fleet_test_seam(app: Any, *, console_port: int) -> None:
             central=central,
         )
         return {"join_code": code.encode()}
+
+
+def pretend_older_node(app: Any, version: str) -> Any:
+    """
+    Make this node answer as an older Noust would: its version, and 404 for what it lacks.
+
+    Test-only (the fleet's E2E suite, through :data:`OLDER_NODE_ENV`): a central's fleet
+    views must show such a node as "unsupported", with what it does not offer, rather than
+    fail. Only the answers change; the rest of the node is the real one.
+
+    Args:
+        app: The node's ASGI application, with every route already mounted.
+        version: The version it reports.
+
+    Returns:
+        The application to serve.
+    """
+    import noust.web.api.system as system_api
+
+    system_api.__version__ = version
+    body = json.dumps({"detail": "Not Found"}).encode()
+
+    async def older(scope: dict[str, Any], receive: Any, send: Any) -> None:
+        if scope.get("type") == "http" and scope.get("path") in OLDER_NODE_MISSING:
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 404,
+                    "headers": [
+                        (b"content-type", b"application/json"),
+                        (b"content-length", str(len(body)).encode()),
+                    ],
+                }
+            )
+            await send({"type": "http.response.body", "body": body})
+            return
+        await app(scope, receive, send)
+
+    return older
 
 
 def join_fleet_node(entries: list[str], *, display_hosts: dict[str, str] | None = None) -> None:
@@ -6286,6 +7249,634 @@ def run_internal_seal(sandbox_root: Path) -> int:
     return 0
 
 
+# ---------------------------------------------------------------------------------------
+# The machine behind the Server area (/api/server): an Ubuntu 24.04 VPS with work to do.
+#
+# The server managers read files below a root (HostPaths) and ask the machine through the
+# runner; both are answered here, from a small host tree in the sandbox and canned output
+# in each tool's own format (apt-get -s, sshd -T, ss, ufw, fail2ban-client, timedatectl,
+# hostnamectl, journalctl --output=json...), so every tab renders the way it does on a real
+# server: security updates pending, a reboot due, passwords on in SSH, PostgreSQL answering
+# the internet through a forgotten rule, two addresses banned. Nothing is executed.
+
+#: Programs the modelled server has for the Server area, beside INSTALLED_PROGRAMS.
+SERVER_PROGRAMS = (
+    "apt-get",
+    "apt-mark",
+    "apt-config",
+    "dpkg",
+    "dpkg-query",
+    "needrestart",
+    "sshd",
+    "ss",
+    "ufw",
+    "fail2ban-client",
+    "hostnamectl",
+    "timedatectl",
+    "swapon",
+    "findmnt",
+    "du",
+    "ionice",
+    "nice",
+    "shutdown",
+    "systemd-detect-virt",
+)
+
+_SERVER_OS_RELEASE = """PRETTY_NAME="Ubuntu 24.04.1 LTS"
+NAME="Ubuntu"
+VERSION_ID="24.04"
+VERSION="24.04.1 LTS (Noble Numbat)"
+VERSION_CODENAME=noble
+ID=ubuntu
+ID_LIKE=debian
+HOME_URL="https://www.ubuntu.com/"
+UBUNTU_CODENAME=noble
+"""
+
+#: ``apt-get -s upgrade``: two security updates (one a kernel), five others, one kept back.
+_SERVER_APT_UPGRADE = """NOTE: This is only a simulation!
+      apt-get needs root privileges for real execution.
+Reading package lists...
+Building dependency tree...
+Reading state information...
+Calculating upgrade...
+The following packages have been kept back:
+  linux-generic
+The following packages will be upgraded:
+  curl libcurl4t64 libssl3t64 linux-image-6.8.0-47-generic nginx nginx-common openssl python3-urllib3
+8 upgraded, 1 newly installed, 0 to remove and 1 not upgraded.
+Inst libssl3t64 [3.0.13-0ubuntu3.3] (3.0.13-0ubuntu3.4 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst openssl [3.0.13-0ubuntu3.3] (3.0.13-0ubuntu3.4 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst linux-image-6.8.0-47-generic (6.8.0-47.47 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Inst curl [8.5.0-2ubuntu10.3] (8.5.0-2ubuntu10.4 Ubuntu:24.04/noble-updates [amd64])
+Inst libcurl4t64 [8.5.0-2ubuntu10.3] (8.5.0-2ubuntu10.4 Ubuntu:24.04/noble-updates [amd64])
+Inst nginx-common [1.24.0-2ubuntu7] (1.24.0-2ubuntu7.1 Ubuntu:24.04/noble-updates [all])
+Inst nginx [1.24.0-2ubuntu7] (1.24.0-2ubuntu7.1 Ubuntu:24.04/noble-updates [amd64])
+Inst python3-urllib3 [2.0.7-1] (2.0.7-1ubuntu0.1 Ubuntu:24.04/noble-updates [all])
+"""
+
+#: ``apt-get -s full-upgrade``: the same, plus what was kept back and the kernel it retires.
+_SERVER_APT_FULL = (
+    _SERVER_APT_UPGRADE.replace(
+        "The following packages have been kept back:\n  linux-generic\n", ""
+    )
+    + "Remv linux-image-6.8.0-31-generic [6.8.0-31.31]\n"
+    + "Inst linux-generic [6.8.0-45.45] (6.8.0-47.47 Ubuntu:24.04/noble-updates [amd64])\n"
+)
+
+_SERVER_SSHD_T = """port 22
+addressfamily any
+listenaddress [::]:22
+listenaddress 0.0.0.0:22
+permitrootlogin prohibit-password
+pubkeyauthentication yes
+passwordauthentication yes
+kbdinteractiveauthentication no
+permitemptypasswords no
+maxauthtries 6
+maxsessions 10
+logingracetime 120
+clientaliveinterval 0
+x11forwarding yes
+allowtcpforwarding yes
+allowagentforwarding yes
+loglevel INFO
+usepam yes
+authorizedkeysfile .ssh/authorized_keys .ssh/authorized_keys2
+"""
+
+_SERVER_UFW_STATUS = """Status: active
+Logging: on (low)
+Default: deny (incoming), allow (outgoing), disabled (routed)
+New profiles: skip
+
+To                         Action      From
+--                         ------      ----
+22/tcp                     ALLOW IN    Anywhere
+80/tcp                     ALLOW IN    Anywhere
+443/tcp                    ALLOW IN    Anywhere
+5432/tcp                   ALLOW IN    Anywhere                   # temporary: migration from the old host
+22/tcp (v6)                ALLOW IN    Anywhere (v6)
+80/tcp (v6)                ALLOW IN    Anywhere (v6)
+443/tcp (v6)               ALLOW IN    Anywhere (v6)
+"""
+
+_SERVER_UFW_ADDED = """Added user rules (see 'ufw status' for running firewall):
+ufw allow 22/tcp
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw allow 5432/tcp comment 'temporary: migration from the old host'
+"""
+
+#: What the modelled machine spends its disk on, for ``du -sx -B1``, by the end of the path
+#: (the sandbox moves Noust's own directories, not their names); the first match wins.
+_SERVER_DU = (
+    ("/var/cache/apt/archives", 642 * 1024**2),
+    ("/var/lib/postgresql", 2_400 * 1024**2),
+    ("/var/lib/mysql", 1_100 * 1024**2),
+    ("/var/tmp", 12 * 1024**2),  # noqa: S108 - a path of the modelled host, matched, never used
+    ("/tmp", 96 * 1024**2),  # noqa: S108 - a path of the modelled host, matched, never used
+    ("/log/noust", 180 * 1024**2),
+)
+
+
+def _server_key(comment: str, seed: int) -> tuple[str, str]:
+    """
+    An ed25519 public key line, in the SSH wire format, and its SHA256 fingerprint.
+
+    Args:
+        comment: The key's comment.
+        seed: Makes each key distinct.
+
+    Returns:
+        The ``authorized_keys`` line and ``SHA256:...``, as ``ssh-keygen -l`` prints it.
+    """
+    import base64
+    import hashlib
+
+    def field(data: bytes) -> bytes:
+        return len(data).to_bytes(4, "big") + data
+
+    blob = field(b"ssh-ed25519") + field(hashlib.sha256(f"noust-console-{seed}".encode()).digest())
+    fingerprint = "SHA256:" + base64.b64encode(hashlib.sha256(blob).digest()).decode().rstrip("=")
+    return f"ssh-ed25519 {base64.b64encode(blob).decode()} {comment}", fingerprint
+
+
+class ServerHost:
+    """The modelled VPS: a host tree below ``root`` and the tools' answers."""
+
+    def __init__(self, root: Path, hostname: str, units: dict[str, Unit]) -> None:
+        """
+        Args:
+            root: Where the host tree is written (HostPaths' root).
+            hostname: The name the rest of the console reports.
+            units: The runner's unit model, for ``systemctl --failed``.
+        """
+        self.root = root
+        self.hostname = hostname
+        self.units = units
+        self.boot_id = "3f1c2a4b5d6e7f8091a2b3c4d5e6f708"
+        self.operator_key, self.operator_fingerprint = _server_key("yago@laptop", 1)
+        self.deploy_key, self.deploy_fingerprint = _server_key("github-actions@deploy", 2)
+
+    # -- the host tree ----------------------------------------------------------------
+
+    def write(self, relative: str, content: str = "", *, age: timedelta | None = None) -> Path:
+        """Write a file of the host tree, dated ``age`` ago when given."""
+        path = self.root / relative.lstrip("/")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+        if age is not None:
+            moment = (datetime.now() - age).timestamp()
+            os.utime(path, (moment, moment))
+        return path
+
+    def build(self) -> None:
+        """Write the files the server managers read."""
+        self.write("/etc/os-release", _SERVER_OS_RELEASE)
+        self.write("/etc/hostname", f"{self.hostname}\n")
+        self.write("/etc/fstab", "LABEL=cloudimg-rootfs / ext4 discard,errors=remount-ro 0 1\n")
+        self.write("/proc/uptime", "1051234.56 2020000.12\n")
+        self.write("/proc/sys/kernel/random/boot_id", f"{self.boot_id}\n")
+        self.write("/proc/sys/vm/swappiness", "60\n")
+        self.write(
+            "/proc/meminfo",
+            "MemTotal:        2030612 kB\nMemFree:          210044 kB\nMemAvailable:     918332 kB\n",
+        )
+        (self.root / "run/systemd/system").mkdir(parents=True, exist_ok=True)
+        (self.root / "var/log/journal").mkdir(parents=True, exist_ok=True)
+        self.write(
+            "/var/run/reboot-required", "*** System restart required ***\n", age=timedelta(days=9)
+        )
+        self.write(
+            "/var/run/reboot-required.pkgs",
+            "linux-image-6.8.0-45-generic\nlibc6\n",
+            age=timedelta(days=9),
+        )
+        self.write("/var/lib/apt/periodic/update-success-stamp", age=timedelta(hours=3))
+        for directory in (
+            "var/lib/apt/lists",
+            "var/cache/apt/archives",
+            "var/lib/postgresql",
+            "var/lib/mysql",
+            "tmp",
+            "var/tmp",
+        ):
+            (self.root / directory).mkdir(parents=True, exist_ok=True)
+        self.write(
+            "/var/log/unattended-upgrades/unattended-upgrades.log", "", age=timedelta(hours=20)
+        )
+        self.write(
+            "/etc/apt/apt.conf.d/20auto-upgrades",
+            'APT::Periodic::Update-Package-Lists "1";\nAPT::Periodic::Unattended-Upgrade "1";\n',
+        )
+        for name in (
+            "vmlinuz-6.8.0-45-generic",
+            "initrd.img-6.8.0-45-generic",
+            "vmlinuz-6.8.0-47-generic",
+            "initrd.img-6.8.0-47-generic",
+        ):
+            self.write(f"/boot/{name}")
+        self.write(
+            "/etc/ssh/sshd_config",
+            "Include /etc/ssh/sshd_config.d/*.conf\nKbdInteractiveAuthentication no\nUsePAM yes\nX11Forwarding yes\n",
+        )
+        (self.root / "etc/ssh/sshd_config.d").mkdir(parents=True, exist_ok=True)
+        self.write(
+            "/etc/passwd",
+            "root:x:0:0:root:/root:/bin/bash\n"
+            "www-data:x:33:33:www-data:/var/www:/usr/sbin/nologin\n"
+            "deploy:x:1000:1000:Deploy,,,:/home/deploy:/bin/bash\n"
+            "postgres:x:113:120:PostgreSQL administrator,,,:/var/lib/postgresql:/bin/bash\n",
+        )
+        self.write("/etc/group", "root:x:0:\nsudo:x:27:deploy\nwww-data:x:33:\ndeploy:x:1000:\n")
+        self.write(
+            "/etc/shadow",
+            "root:!:19990:0:99999:7:::\n"
+            "deploy:$y$j9T$Zm9vYmFyYmF6$6Y1o0t9mW2m6c6c0nY2i1m3s8m5o2Q5c4J8m1v0n2s1:19990:0:99999:7:::\n"
+            "www-data:*:19990:0:99999:7:::\npostgres:*:19990:0:99999:7:::\n",
+        )
+        self.write("/etc/shells", "/bin/sh\n/bin/bash\n/usr/bin/bash\n")
+        self.write(
+            "/etc/sudoers", "Defaults env_reset\nroot ALL=(ALL:ALL) ALL\n%sudo ALL=(ALL:ALL) ALL\n"
+        )
+        self.write("/root/.ssh/authorized_keys", f"{self.operator_key}\n")
+        self.write("/home/deploy/.ssh/authorized_keys", f"{self.deploy_key}\n")
+        for path in ("root/.ssh", "home/deploy/.ssh"):
+            (self.root / path).chmod(0o700)
+        for path in ("root/.ssh/authorized_keys", "home/deploy/.ssh/authorized_keys"):
+            (self.root / path).chmod(0o600)
+
+    # -- the tools' answers ---------------------------------------------------------------
+
+    def answer(self, args: tuple[str, ...]) -> Any:
+        """
+        Answer a command of the Server area, or None to leave it to the rest of the runner.
+
+        Args:
+            args: The argv.
+
+        Returns:
+            A CommandResult, or None.
+        """
+        from noust.core.runner import CommandResult
+
+        def ok(stdout: str = "", code: int = 0) -> CommandResult:
+            return CommandResult(argv=args, exit_code=code, stdout=stdout, stderr="")
+
+        program, rest = (args[0], args[1:]) if args else ("", ())
+        if program == "systemd-detect-virt":
+            return ok("none\n", 1)
+        if program == "hostnamectl" and rest[:1] == ("--json=short",):
+            return ok(
+                json.dumps(
+                    {
+                        "Hostname": self.hostname,
+                        "StaticHostname": self.hostname,
+                        "PrettyHostname": None,
+                        "Chassis": "vm",
+                        "MachineID": "5d3e2f1a9b8c7d6e5f4a3b2c1d0e9f8a",
+                        "BootID": self.boot_id,
+                        "OperatingSystemPrettyName": "Ubuntu 24.04.1 LTS",
+                    }
+                )
+                + "\n"
+            )
+        if program == "timedatectl" and rest[:1] == ("show",):
+            now = datetime.now().astimezone()
+            return ok(
+                "Timezone=Europe/Madrid\nLocalRTC=no\nCanNTP=yes\nNTP=yes\nNTPSynchronized=yes\n"
+                f"TimeUSec={now.strftime('%a %Y-%m-%d %H:%M:%S %Z')}\n"
+            )
+        if program == "swapon":
+            return ok("")
+        if program == "systemctl" and rest[:1] == ("is-system-running",):
+            failed = any(unit.active == "failed" for unit in self.units.values())
+            return ok("degraded\n" if failed else "running\n", 1 if failed else 0)
+        if program == "systemctl" and "--failed" in rest:
+            return ok(
+                "".join(
+                    f"{name}.service loaded failed failed {name}\n"
+                    for name, unit in sorted(self.units.items())
+                    if unit.active == "failed"
+                )
+            )
+        if program == "systemctl" and rest[:1] == ("is-active",) and "fail2ban.service" in rest:
+            return ok("active\n")
+        if program == "apt-get" and "-s" in rest:
+            return ok(
+                _SERVER_APT_FULL
+                if "full-upgrade" in rest or "dist-upgrade" in rest
+                else _SERVER_APT_UPGRADE
+            )
+        if program == "apt-mark" or (program == "dpkg" and rest[:1] == ("--audit",)):
+            return ok("")
+        if program == "dpkg-query" and "unattended-upgrades" in rest:
+            return ok("ii ")
+        if program == "apt-config" and rest[:1] == ("dump",):
+            return ok(
+                'APT::Periodic::Update-Package-Lists "1";\n'
+                'APT::Periodic::Unattended-Upgrade "1";\n'
+                'Unattended-Upgrade::Allowed-Origins:: "${distro_id}:${distro_codename}";\n'
+                'Unattended-Upgrade::Allowed-Origins:: "${distro_id}:${distro_codename}-security";\n'
+                'Unattended-Upgrade::Automatic-Reboot "false";\n'
+            )
+        if program == "needrestart":
+            return ok(
+                "NEEDRESTART-VER: 3.6\nNEEDRESTART-KCUR: 6.8.0-45-generic\nNEEDRESTART-KEXP: 6.8.0-47-generic\n"
+                "NEEDRESTART-KSTA: 3\nNEEDRESTART-SVC: nginx.service\nNEEDRESTART-SVC: cron.service\n"
+                "NEEDRESTART-SVC: ssh.service\n"
+            )
+        if program == "findmnt" and "--verify" in rest:
+            return ok("Success, no errors or warnings detected\n")
+        if program == "journalctl" and "--disk-usage" in rest:
+            return ok("Archived and active journal files take up 1.2G in the file system.\n")
+        if program == "journalctl" and "--list-boots" in rest:
+            earlier = (datetime.now() - timedelta(days=12, hours=4)).strftime(
+                "%a %Y-%m-%d %H:%M:%S UTC"
+            )
+            before = (datetime.now() - timedelta(days=40)).strftime("%a %Y-%m-%d %H:%M:%S UTC")
+            latest = datetime.now().strftime("%a %Y-%m-%d %H:%M:%S UTC")
+            return ok(
+                f" -1 9a8b7c6d5e4f30211a2b3c4d5e6f7081 {before} {earlier}\n"
+                f"  0 {self.boot_id} {earlier} {latest}\n"
+            )
+        if program == "journalctl" and "--output=json" in rest:
+            return ok(self._journal_json(rest))
+        if program == "journalctl" and any(arg.startswith("_COMM=sshd") for arg in rest):
+            return ok(self._ssh_logins())
+        if program == "ionice" and "du" in args:
+            path = args[-1]
+            size = next(
+                (size for suffix, size in _SERVER_DU if path.endswith(suffix)), 48 * 1024**2
+            )
+            return ok(f"{size}\t{path}\n")
+        if program == "sshd" and rest[:1] == ("-T",):
+            return ok(_SERVER_SSHD_T)
+        if program == "sshd" and rest[:1] == ("-t",):
+            return ok("")
+        if program == "ss" and rest[:1] == ("-Hltnup",):
+            return ok(
+                'tcp LISTEN 0 4096 0.0.0.0:22 0.0.0.0:* users:(("sshd",pid=812,fd=3))\n'
+                'tcp LISTEN 0 4096 [::]:22 [::]:* users:(("sshd",pid=812,fd=4))\n'
+                'tcp LISTEN 0 511 0.0.0.0:80 0.0.0.0:* users:(("nginx",pid=1021,fd=6))\n'
+                'tcp LISTEN 0 511 0.0.0.0:443 0.0.0.0:* users:(("nginx",pid=1021,fd=7))\n'
+                'tcp LISTEN 0 244 0.0.0.0:5432 0.0.0.0:* users:(("postgres",pid=990,fd=5))\n'
+                'tcp LISTEN 0 151 127.0.0.1:3306 0.0.0.0:* users:(("mysqld",pid=1003,fd=21))\n'
+                'tcp LISTEN 0 511 127.0.0.1:6379 0.0.0.0:* users:(("redis-server",pid=977,fd=6))\n'
+                'tcp LISTEN 0 2048 127.0.0.1:8080 0.0.0.0:* users:(("python3",pid=1300,fd=9))\n'
+                'tcp LISTEN 0 511 127.0.0.1:3004 0.0.0.0:* users:(("node",pid=2204,fd=19))\n'
+                'udp UNCONN 0 0 127.0.0.53%lo:53 0.0.0.0:* users:(("systemd-resolve",pid=610,fd=13))\n'
+            )
+        if program == "ss" and "established" in rest:
+            return ok('0 0 10.0.0.5:22 203.0.113.7:51234 users:(("sshd",pid=41022,fd=4))\n')
+        if program == "ufw" and rest == ("status", "verbose"):
+            return ok(_SERVER_UFW_STATUS)
+        if program == "ufw" and rest == ("show", "added"):
+            return ok(_SERVER_UFW_ADDED)
+        if program == "fail2ban-client":
+            return ok(self._fail2ban(rest))
+        if program == "shutdown":
+            return self._shutdown(rest, ok)
+        return None
+
+    def _journal_json(self, rest: tuple[str, ...]) -> str:
+        """``journalctl --output=json``: a morning on the server, filtered as asked."""
+        unit = next((arg.split("=", 1)[1] for arg in rest if arg.startswith("--unit=")), None)
+        priority = next(
+            (int(arg.split("=", 1)[1]) for arg in rest if arg.startswith("--priority=")), 7
+        )
+        kernel = "--dmesg" in rest
+        entries = [
+            (
+                "kernel",
+                6,
+                None,
+                "Linux version 6.8.0-45-generic (buildd@lcy02-amd64-075) #45-Ubuntu SMP PREEMPT_DYNAMIC",
+            ),
+            ("systemd-journald.service", 6, 301, "Journal started"),
+            (
+                "ssh.service",
+                6,
+                41022,
+                "Accepted publickey for root from 203.0.113.7 port 51234 ssh2: ED25519 "
+                + self.operator_fingerprint,
+            ),
+            ("ssh.service", 6, 41110, "Invalid user admin from 185.220.101.4 port 40022"),
+            (
+                "ssh.service",
+                6,
+                41111,
+                "Failed password for invalid user admin from 185.220.101.4 port 40022 ssh2",
+            ),
+            ("fail2ban.service", 5, 700, "NOTICE  [sshd] Ban 185.220.101.4"),
+            (
+                "nginx.service",
+                4,
+                1021,
+                "2026/09/29 09:12:44 [warn] 1021#1021: *88 an upstream response is buffered to a temporary file",
+            ),
+            (
+                "postgresql@16-main.service",
+                6,
+                990,
+                "LOG:  checkpoint complete: wrote 412 buffers (2.5%)",
+            ),
+            (
+                "cron.service",
+                6,
+                880,
+                "(root) CMD (test -x /usr/sbin/anacron || { cd / && run-parts --report /etc/cron.daily; })",
+            ),
+            (
+                "unattended-upgrades.service",
+                6,
+                1502,
+                "Packages that will be upgraded: libssl3t64 openssl",
+            ),
+            ("noust-web.service", 6, 1300, "Console listening on 127.0.0.1:8080"),
+            (
+                "mysql.service",
+                3,
+                1003,
+                "[ERROR] [MY-012574] [InnoDB] Unable to lock ./ibdata1 error: 11",
+            ),
+            (
+                "nginx.service",
+                3,
+                1021,
+                '2026/09/29 09:40:02 [error] 1021#1021: *131 connect() failed (111: Connection refused) while connecting to upstream, upstream: "http://127.0.0.1:3007/"',
+            ),
+            (
+                "ssh.service",
+                6,
+                41200,
+                "Received disconnect from 203.0.113.7 port 51234:11: disconnected by user",
+            ),
+        ]
+        start = datetime.now(timezone.utc) - timedelta(minutes=len(entries) * 3)
+        lines = []
+        for index, (name, level, pid, message) in enumerate(entries):
+            if (
+                level > priority
+                or (kernel and name != "kernel")
+                or (
+                    unit is not None
+                    and name.removesuffix(".service") != unit.removesuffix(".service")
+                )
+            ):
+                continue
+            micros = int((start + timedelta(minutes=index * 3)).timestamp() * 1_000_000)
+            record = {
+                "__CURSOR": f"s=4b1c;i={index + 1:x};b={self.boot_id};m={micros:x}",
+                "__REALTIME_TIMESTAMP": str(micros),
+                "PRIORITY": str(level),
+                "MESSAGE": message,
+                **(
+                    {"_SYSTEMD_UNIT": name} if name != "kernel" else {"SYSLOG_IDENTIFIER": "kernel"}
+                ),
+                **({"_PID": str(pid)} if pid is not None else {}),
+            }
+            lines.append(json.dumps(record))
+        return "\n".join(lines) + ("\n" if lines else "")
+
+    def _ssh_logins(self) -> str:
+        """``journalctl _COMM=sshd -o short-unix``: the logins sshd recorded."""
+        now = time.time()
+        return (
+            f"{now - 3 * 86400:.6f} {self.hostname} sshd[39001]: Accepted publickey for deploy from 198.51.100.20 port 40210 ssh2: ED25519 {self.deploy_fingerprint}\n"
+            f"{now - 2 * 86400:.6f} {self.hostname} sshd[40012]: Accepted publickey for root from 203.0.113.7 port 50122 ssh2: ED25519 {self.operator_fingerprint}\n"
+            f"{now - 1800:.6f} {self.hostname} sshd[41022]: Accepted publickey for root from 203.0.113.7 port 51234 ssh2: ED25519 {self.operator_fingerprint}\n"
+        )
+
+    @staticmethod
+    def _fail2ban(rest: tuple[str, ...]) -> str:
+        """``fail2ban-client``: one jail, for sshd, with two addresses banned now."""
+        if rest[:1] == ("ping",):
+            return "Server replied: pong\n"
+        if rest == ("status",):
+            return "Status\n|- Number of jail:\t1\n`- Jail list:\tsshd\n"
+        if rest == ("status", "sshd"):
+            return (
+                "Status for the jail: sshd\n"
+                "|- Filter\n"
+                "|  |- Currently failed:\t3\n"
+                "|  |- Total failed:\t1284\n"
+                "|  `- Journal matches:\t_SYSTEMD_UNIT=sshd.service + _COMM=sshd\n"
+                "`- Actions\n"
+                "   |- Currently banned:\t2\n"
+                "   |- Total banned:\t97\n"
+                "   `- Banned IP list:\t185.220.101.4 45.148.10.182\n"
+            )
+        return ""
+
+    def _shutdown(self, rest: tuple[str, ...], ok: Any) -> Any:
+        """``shutdown -r +N`` leaves the schedule for logind; ``shutdown -c`` removes it."""
+        scheduled = self.root / "run/systemd/shutdown/scheduled"
+        if rest[:1] == ("-c",):
+            scheduled.unlink(missing_ok=True)
+            return ok("")
+        minutes = next(
+            (int(arg[1:]) for arg in rest if arg.startswith("+") and arg[1:].isdigit()), 1
+        )
+        mode = "reboot" if "-r" in rest else "poweroff"
+        due = int((time.time() + minutes * 60) * 1_000_000)
+        scheduled.parent.mkdir(parents=True, exist_ok=True)
+        scheduled.write_text(f"USEC={due}\nWARN_WALL=1\nMODE={mode}\n", encoding="utf-8")
+        return ok("")
+
+
+#: The modelled server, once serve() has built it; the runner asks it first.
+_SERVER_HOST: ServerHost | None = None
+
+
+def model_server_host(sandbox: Sandbox, hostname: str, units: dict[str, Unit]) -> ServerHost:
+    """
+    Build the VPS the Server area manages, and point its managers at it.
+
+    Every ``HostPaths()`` in the process resolves below the sandbox's host tree from here on,
+    the disks are the modelled VPS's rather than this machine's, and the last scan of what
+    takes space is already there, as it is on a server someone measured yesterday.
+
+    Args:
+        sandbox: The sandbox.
+        hostname: The name the rest of the console reports.
+        units: The runner's unit model.
+
+    Returns:
+        The model, which the runner consults for every command.
+    """
+    global _SERVER_HOST
+    from noust.managers.server.host import HostPaths
+    from noust.managers.server.storage import Mount, StorageManager
+
+    host = ServerHost(sandbox.root / "host", hostname, units)
+    host.build()
+    HostPaths.__init__.__defaults__ = (host.root,)
+
+    gib = 1024**3
+
+    def mounts(self: Any) -> list[Any]:
+        rows = [
+            ("/", "/dev/vda1", "ext4", 78 * gib, 55.6 * gib, 5_111_808, 4_900_112),
+            ("/srv", "/dev/vdb", "xfs", 40 * gib, 35.1 * gib, 20_971_520, 20_100_000),
+            ("/boot", "/dev/vda16", "ext4", 881 * 1024**2, 118 * 1024**2, 58_496, 58_100),
+        ]
+        found = []
+        for mount_point, device, fstype, total, used, inodes, inodes_free in rows:
+            percent = round(used / total * 100, 1)
+            inode_percent = round((inodes - inodes_free) / inodes * 100, 1)
+            found.append(
+                Mount(
+                    mount_point=mount_point,
+                    device=device,
+                    fstype=fstype,
+                    total_bytes=int(total),
+                    used_bytes=int(used),
+                    free_bytes=int(total - used),
+                    percent_used=percent,
+                    inodes_total=inodes,
+                    inodes_free=inodes_free,
+                    inodes_percent=inode_percent,
+                    readonly=False,
+                    status="critical" if percent >= 95 else "warn" if percent >= 85 else "ok",
+                )
+            )
+        return sorted(found, key=lambda mount: mount.percent_used, reverse=True)
+
+    StorageManager.mounts = mounts  # type: ignore[method-assign]
+
+    # The host tree belongs to whoever runs this script; on the modelled VPS the key files
+    # are root's, and StrictModes has nothing to say about their owner.
+    import noust.managers.server.security_keys as keys_module
+    import noust.managers.server.security_probe as probe_module
+    import noust.managers.server.security_ssh as ssh_module
+
+    strict = keys_module.strict_mode_problems
+    owner = f"belongs to uid {os.getuid()},"
+
+    def owned_by_root(paths: Any, account: Any, path: str) -> list[str]:
+        return [problem for problem in strict(paths, account, path) if owner not in problem]
+
+    for module in (keys_module, probe_module, ssh_module):
+        module.strict_mode_problems = owned_by_root  # type: ignore[attr-defined]
+    _SERVER_HOST = host
+    return host
+
+
+def seed_server_analysis() -> None:
+    """Measure the known places and run the hardening checks once, and keep both."""
+    from noust.managers.server.security import ServerSecurity
+    from noust.web.api.server.common import get_server_context
+    from noust.web.api.server.storage import ANALYSIS_KEY
+
+    context = get_server_context()
+    context.cache.put(ANALYSIS_KEY, context.storage.analyze())
+    # The hardening checks ran this morning, as they do on a server someone looks after: the
+    # Overview and the Security tab read their last run, and never probe on their own.
+    ServerSecurity(actor="console-server").checks(refresh=True)
+
+
 def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     """
     Seed the machine and serve the panel until interrupted.
@@ -6354,6 +7945,13 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     ports.update(seeded_ports)
     domains.update(seeded_domains)
     certs.extend(seeded_certs)
+    # The VPS the Server area manages (/api/server): see model_server_host.
+    model_server_host(sandbox, args.hostname or socket.gethostname(), units)
+    with contextlib.redirect_stdout(sys.stderr):
+        seed_server_analysis()
+    if args.central_role != "hub" and not args.showcase:
+        with contextlib.redirect_stdout(sys.stderr):
+            seed_databases(sandbox)
     if args.central_role != "hub" and not args.showcase:
         # Deploys tests.panel_factory's own "lanzamiento.example.org": nothing the
         # documentation screenshots need, and exactly the example.org the showcase exists
@@ -6409,6 +8007,8 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     # Inert unless a central's --fleet-node calls it: see the module comment above
     # mount_fleet_test_seam for why this - and only this - is mounted unconditionally.
     mount_fleet_test_seam(app, console_port=port)
+    older_version = os.environ.get(OLDER_NODE_ENV)
+    served: Any = pretend_older_node(app, older_version) if older_version else app
     if args.fleet_node:
         display_hosts = None
         if args.showcase:
@@ -6418,7 +8018,7 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
         join_fleet_node(args.fleet_node, display_hosts=display_hosts)
     server = uvicorn.Server(
         uvicorn.Config(
-            app,
+            served,
             log_level="warning",
             access_log=False,
             server_header=False,

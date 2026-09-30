@@ -1,0 +1,5 @@
+
+kernel.x86_64                            5.14.0-503.11.1.el9_5                baseos
+kernel-core.x86_64                       5.14.0-503.11.1.el9_5                baseos
+kernel-modules.x86_64                    5.14.0-503.11.1.el9_5                baseos
+openssl-libs.x86_64                      1:3.2.2-6.el9_5.1                    baseos

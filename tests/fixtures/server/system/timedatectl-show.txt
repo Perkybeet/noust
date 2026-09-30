@@ -1,0 +1,7 @@
+Timezone=Atlantic/Canary
+LocalRTC=no
+CanNTP=yes
+NTP=no
+NTPSynchronized=no
+TimeUSec=Tue 2026-09-29 22:33:24 WEST
+RTCTimeUSec=Tue 2026-09-29 22:33:24 WEST

@@ -36,7 +36,18 @@ from noust.web.auth import (
 from noust.web.server import _uvicorn_kwargs, create_app, get_token_manager
 
 #: Endpoints that answer without credentials, on purpose.
-PUBLIC_API_PATHS = frozenset({"/api/auth/login", "/api/auth/session"})
+PUBLIC_API_PATHS = frozenset(
+    {
+        "/api/auth/login",
+        "/api/auth/session",
+        # The invitation code is the credential; a wrong one is counted.
+        "/api/auth/invitations/open",
+        "/api/auth/invitations/accept",
+        # The passkey is the credential; a refused assertion is counted.
+        "/api/auth/passkeys/login/options",
+        "/api/auth/passkeys/login",
+    }
+)
 
 #: The bind address an operator reaches for when they want the panel "on the
 #: network". Every test that uses it expects a refusal or an explicit guard.
@@ -58,6 +69,10 @@ PUBLIC_PATHS = frozenset(
         "/health",
         "/api/auth/login",
         "/api/auth/session",
+        "/api/auth/invitations/open",
+        "/api/auth/invitations/accept",
+        "/api/auth/passkeys/login/options",
+        "/api/auth/passkeys/login",
         "/hooks/deploy/{domain}",
         # Verified with the GitHub App's own webhook secret instead.
         "/hooks/github",

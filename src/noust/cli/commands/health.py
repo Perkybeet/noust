@@ -93,6 +93,17 @@ def _print_report(logger: Logger, report: HealthReport) -> None:
     logger.info("Checking system resources...")
     _print_check(logger, report.memory)
 
+    if report.builds is not None or report.audit is not None:
+        logger.blank()
+        logger.info("Checking builds and the audit trail...")
+        _print_check(logger, report.builds)
+        _print_check(logger, report.audit)
+
+    if report.hardening is not None:
+        logger.blank()
+        logger.info("Checking security hardening...")
+        _print_check(logger, report.hardening)
+
     logger.blank()
     logger.blank()
 
@@ -156,7 +167,9 @@ def run_health_check(verbose: bool = False, *, json_output: bool = False) -> int
     Returns:
         1 when the check found issues, 0 otherwise.
     """
-    report = collect_health_report(verbose=verbose)
+    # The quick hardening checks run here, as root, where the console only
+    # reads the ones it last ran.
+    report = collect_health_report(verbose=verbose, hardening="live")
 
     if json_output:
         click.echo(json.dumps(report_as_dict(report)))

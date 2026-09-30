@@ -1,0 +1,11 @@
+{
+  "name": "noust-it-evil-postinstall",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A hostile install script, for the build sandbox scenario of the Noust harness.",
+  "main": "server.js",
+  "scripts": {
+    "postinstall": "node evil.js",
+    "start": "node server.js"
+  }
+}

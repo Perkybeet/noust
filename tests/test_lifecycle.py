@@ -19,6 +19,7 @@ import pytest
 
 from noust.core.exceptions import NoustError
 from noust.core.fs import SECRET_MODE, RealFileSystem, set_fs
+from noust.core.logger import Logger
 from noust.core.store import App, NoustStore, Service
 from noust.deployers import lifecycle
 from noust.deployers.interface import UpdateResult
@@ -52,6 +53,8 @@ class Recorder:
         self.configured: dict[str, Any] = {}
         self.service_exists = True
         self.service_active = True
+        # The branch the checkout is on, as git would answer it.
+        self.checkout_branch: str | None = None
 
 
 class FakeDeployer:
@@ -96,7 +99,7 @@ def recorder(monkeypatch: pytest.MonkeyPatch) -> Recorder:
         lifecycle,
         "SourceManager",
         lambda verbose=False: SimpleNamespace(
-            get_repo_info=lambda path: {"commit": "abc1234"},
+            get_repo_info=lambda path: {"commit": "abc1234", "branch": rec.checkout_branch},
             pull=lambda path, branch=None: rec.calls.append(("pull", path, branch)),
             fetch=lambda source, path, branch=None, force=False, clean=True: rec.calls.append(
                 ("fetch", source, path, force, clean)
@@ -156,6 +159,7 @@ def test_update_never_deletes_what_is_not_in_the_repository(
     assert upload.exists()
     assert ("deploy",) not in recorder.calls
     assert ("update",) in recorder.calls
+    # No branch pinned: the one the checkout is on, as before 3.1.
     assert ("pull", app_path, None) in recorder.calls
 
 
@@ -450,3 +454,144 @@ def test_npm_without_a_lockfile_installs_instead_of_failing(tmp_path: Path) -> N
     (tmp_path / "package-lock.json").write_text("{}")
     assert helper.get_install_command("npm", tmp_path) == ["npm", "ci"]
     assert helper.get_install_command("pnpm", tmp_path) == ["pnpm", "install", "--frozen-lockfile"]
+
+
+class WarningLogger(Logger):
+    """A logger that keeps its warnings."""
+
+    def __init__(self) -> None:
+        super().__init__(verbose=False)
+        self.warnings: list[str] = []
+
+    def warning(self, message: str) -> None:
+        self.warnings.append(message)
+
+
+class TestTheBranchAnInPlaceUpdateFollows:
+    """
+    An in-place application never changes branch unless an operator says so.
+
+    Before 3.1 an update pulled the branch the checkout was on, and
+    ``noust update --branch`` moved the checkout without recording it. Pulling
+    the recorded branch instead would have switched such an application back
+    to a branch it had left, in production, on its next plain update.
+    """
+
+    def test_a_checkout_that_moved_keeps_its_branch_and_the_store_learns_it(
+        self, store: NoustStore, recorder: Recorder, tmp_path: Path
+    ) -> None:
+        app_path = tmp_path / "apps" / "example-com"
+        make_app(store, app_path)
+        recorder.checkout_branch = "develop"
+        logger = WarningLogger()
+
+        lifecycle.update_app(DOMAIN, logger=logger)
+
+        assert ("pull", app_path, None) in recorder.calls
+        assert store.get_app(DOMAIN).branch == "develop"  # type: ignore[union-attr]
+        assert lifecycle.pinned_branch(DOMAIN) is None
+        [notice] = [w for w in logger.warnings if "develop" in w]
+        assert "keeps following develop" in notice
+        assert "main" in notice
+        assert f"noust app branch {DOMAIN} <branch>" in notice
+
+    def test_the_notice_reaches_the_console_job_log(
+        self, store: NoustStore, recorder: Recorder, tmp_path: Path
+    ) -> None:
+        make_app(store, tmp_path / "apps" / "example-com")
+        recorder.checkout_branch = "develop"
+        steps: list[str] = []
+
+        lifecycle.update_app(DOMAIN, on_step=steps.append)
+
+        assert any("keeps following develop" in step for step in steps)
+
+    def test_a_checkout_on_the_recorded_branch_changes_nothing(
+        self, store: NoustStore, recorder: Recorder, tmp_path: Path
+    ) -> None:
+        app_path = tmp_path / "apps" / "example-com"
+        make_app(store, app_path)
+        recorder.checkout_branch = "main"
+        logger = WarningLogger()
+
+        lifecycle.update_app(DOMAIN, logger=logger)
+
+        assert ("pull", app_path, None) in recorder.calls
+        assert store.get_app(DOMAIN).branch == "main"  # type: ignore[union-attr]
+        assert logger.warnings == []
+
+    def test_an_application_with_no_branch_recorded_keeps_none(
+        self, store: NoustStore, recorder: Recorder, tmp_path: Path
+    ) -> None:
+        """None is "any push deploys" to the webhook; an update must not narrow it."""
+        app = make_app(store, tmp_path / "apps" / "example-com")
+        app.branch = None
+        store.update_app(app)
+        recorder.checkout_branch = "develop"
+
+        lifecycle.update_app(DOMAIN)
+
+        assert store.get_app(DOMAIN).branch is None  # type: ignore[union-attr]
+
+    def test_a_pinned_branch_is_pulled_whatever_the_checkout_is_on(
+        self, store: NoustStore, recorder: Recorder, tmp_path: Path
+    ) -> None:
+        app_path = tmp_path / "apps" / "example-com"
+        make_app(store, app_path)
+        remote = SimpleNamespace(
+            remote_head=lambda source, branch: SimpleNamespace(commit="c0ffee")
+        )
+        lifecycle.set_branch(DOMAIN, "release", source_manager=remote)  # type: ignore[arg-type]
+        recorder.checkout_branch = "main"
+
+        lifecycle.update_app(DOMAIN)
+
+        assert ("pull", app_path, "release") in recorder.calls
+        assert store.get_app(DOMAIN).branch == "release"  # type: ignore[union-attr]
+
+    def test_update_with_a_branch_records_and_pins_it(
+        self, store: NoustStore, recorder: Recorder, tmp_path: Path
+    ) -> None:
+        app_path = tmp_path / "apps" / "example-com"
+        make_app(store, app_path)
+
+        lifecycle.update_app(DOMAIN, branch="develop")
+
+        assert ("pull", app_path, "develop") in recorder.calls
+        assert store.get_app(DOMAIN).branch == "develop"  # type: ignore[union-attr]
+        assert lifecycle.pinned_branch(DOMAIN) == "develop"
+
+        # The next plain update, and the webhook's, agree with the operator.
+        recorder.calls.clear()
+        recorder.checkout_branch = "develop"
+        lifecycle.update_app(DOMAIN)
+        assert ("pull", app_path, "develop") in recorder.calls
+
+    def test_a_failed_update_with_a_branch_records_nothing(
+        self, store: NoustStore, recorder: Recorder, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        make_app(store, tmp_path / "apps" / "example-com")
+
+        def broken(on_step: Any = None) -> UpdateResult:
+            raise NoustError("the build failed")
+
+        failing = FakeDeployer(recorder)
+        monkeypatch.setattr(failing, "update", broken)
+        monkeypatch.setattr(lifecycle, "get_deployer", lambda app_type, verbose=False: failing)
+
+        with pytest.raises(NoustError, match="the build failed"):
+            lifecycle.update_app(DOMAIN, branch="develop")
+
+        assert store.get_app(DOMAIN).branch == "main"  # type: ignore[union-attr]
+        assert lifecycle.pinned_branch(DOMAIN) is None
+
+    def test_deleting_the_application_forgets_its_pin(
+        self, store: NoustStore, recorder: Recorder, tmp_path: Path
+    ) -> None:
+        """A new application on the same domain must not inherit an old choice."""
+        make_app(store, tmp_path / "apps" / "example-com")
+        lifecycle.update_app(DOMAIN, branch="develop")
+
+        store.delete_app(DOMAIN)
+
+        assert lifecycle.pinned_branch(DOMAIN) is None

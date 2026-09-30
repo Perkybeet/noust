@@ -133,3 +133,129 @@ def test_suspended_defaults_are_not_called(monkeypatch: pytest.MonkeyPatch) -> N
     deploy_events.publish(DeployEvent(kind=DeployEventKind.STARTED, domain="a.example.com"))
 
     assert calls == []
+
+
+# -- what a notification is composed from -------------------------------------
+
+
+def _full_recorder(store: NoustStore, tmp_path: Path, **kwargs: object) -> DeploymentRecorder:
+    return DeploymentRecorder(
+        store,
+        "shop.example.com",
+        DeploymentTrigger.WEBHOOK.value,
+        logger=Logger(verbose=False),
+        log_root=tmp_path / "logs",
+        git_info=lambda: ("abc1234", "main"),
+        commit_message=lambda: "Fix cart total",
+        release_id=lambda: "20260929-104449",
+        **kwargs,  # type: ignore[arg-type]
+    )
+
+
+def test_a_deployment_is_a_deploy_unless_it_says_otherwise(
+    store: NoustStore, tmp_path: Path, events: list[DeployEvent]
+) -> None:
+    rec = _full_recorder(store, tmp_path)
+    rec.start()
+    rec.finish_success()
+
+    assert {event.operation for event in events} == {"deploy"}
+
+
+def test_the_operation_is_announced_on_every_event(
+    store: NoustStore, tmp_path: Path, events: list[DeployEvent]
+) -> None:
+    rec = _full_recorder(store, tmp_path, operation="migrate")
+    rec.start()
+    rec.finish_success()
+
+    assert [event.operation for event in events] == ["migrate", "migrate"]
+
+
+def test_an_update_in_progress_names_the_operation_of_the_recorders_built_inside_it(
+    store: NoustStore, tmp_path: Path, events: list[DeployEvent]
+) -> None:
+    with deploy_events.operation("update"):
+        rec = _full_recorder(store, tmp_path)
+    rec.start()
+    rec.finish_success()
+
+    assert {event.operation for event in events} == {"update"}
+    assert deploy_events.current_operation() == "deploy"
+
+
+def test_an_explicit_operation_beats_the_one_in_progress(
+    store: NoustStore, tmp_path: Path, events: list[DeployEvent]
+) -> None:
+    with deploy_events.operation("update"):
+        rec = _full_recorder(store, tmp_path, operation="activate")
+    rec.start()
+    rec.finish_success()
+
+    assert {event.operation for event in events} == {"activate"}
+
+
+def test_the_end_carries_what_the_notification_needs(
+    store: NoustStore, tmp_path: Path, events: list[DeployEvent]
+) -> None:
+    rec = _full_recorder(store, tmp_path)
+    rec.start()
+    rec.finish_success()
+
+    done = events[-1]
+    assert done.commit_message == "Fix cart total"
+    assert done.release_id == "20260929-104449"
+    assert done.duration_s is not None and 0 <= done.duration_s < 5
+    assert events[0].duration_s is None
+
+
+def test_a_failures_message_and_output_travel_apart(
+    store: NoustStore, tmp_path: Path, events: list[DeployEvent]
+) -> None:
+    rec = _full_recorder(store, tmp_path)
+    rec.start()
+    rec.finish_failure(DeploymentError("build failed", details="npm ERR! code 1"))
+
+    failed = events[-1]
+    assert failed.error_message == "build failed"
+    assert failed.error_output == "npm ERR! code 1"
+    # The whole failure stays what it was: GitHub's statuses read this one.
+    assert "build failed" in (failed.error or "") and "npm ERR! code 1" in (failed.error or "")
+
+
+def test_a_tools_output_wins_over_the_fix_hint(
+    store: NoustStore, tmp_path: Path, events: list[DeployEvent]
+) -> None:
+    rec = _full_recorder(store, tmp_path)
+    rec.start()
+    rec.finish_failure(
+        DeploymentError("nginx test failed", details="Fix the syntax", output="nginx: [emerg] x")
+    )
+
+    assert events[-1].error_output == "nginx: [emerg] x"
+
+
+def test_an_error_that_is_not_ours_is_all_message(
+    store: NoustStore, tmp_path: Path, events: list[DeployEvent]
+) -> None:
+    rec = _full_recorder(store, tmp_path)
+    rec.start()
+    rec.finish_failure(RuntimeError("kaboom"))
+
+    assert events[-1].error_message == "kaboom"
+    assert events[-1].error_output == ""
+
+
+def test_a_secret_never_reaches_the_message_or_the_output(
+    store: NoustStore, tmp_path: Path, events: list[DeployEvent]
+) -> None:
+    rec = _full_recorder(store, tmp_path)
+    rec.start()
+    rec._scrubber.add(["hunter2-secret-value"])
+    rec.finish_failure(
+        DeploymentError("login as hunter2-secret-value failed", details="pw=hunter2-secret-value")
+    )
+
+    failed = events[-1]
+    assert "hunter2-secret-value" not in (failed.error_message or "")
+    assert "hunter2-secret-value" not in (failed.error_output or "")

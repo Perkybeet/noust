@@ -238,7 +238,13 @@ def update_app(
     # or a second update (a webhook firing while an operator updates by hand)
     # must not interleave with it. Refused at once, naming this update.
     try:
-        with app_lock(domain, "update"):
+        with (
+            app_lock(domain, "update"),
+            # The recorder the deployer builds inside announces this as an
+            # update (or, rebuilding an earlier deployment's commit, a
+            # rollback), so its notification is named for what it is.
+            deploy_events.operation("rollback" if rollback_of is not None else "update"),
+        ):
             outcome = _update_app(
                 domain,
                 source=source,
@@ -253,6 +259,8 @@ def update_app(
                 verbose=verbose,
                 gated=rollback_of is not None,
             )
+            if branch is not None and not is_rehearsal():
+                _pin_after_update(get_store(), domain, branch)
             # A rehearsal recorded nothing, and must not rewrite real rows.
             if rollback_of is not None and not is_rehearsal():
                 _mark_replaced_rolled_back(
@@ -307,6 +315,9 @@ def _update_app(
     """
     log = logger or Logger(verbose=verbose)
     phase = on_phase or (lambda _index, _total, _message: None)
+    # Without a logger of its own (the console's job), the caller's step
+    # reporter is what the operator reads.
+    notice = on_step if logger is None and on_step is not None else log.warning
 
     store = get_store()
 
@@ -341,6 +352,7 @@ def _update_app(
             on_step=on_step,
             log=log,
             verbose=verbose,
+            notice=notice,
         )
 
     if commit is not None and not (app_path / ".git").exists():
@@ -387,7 +399,17 @@ def _update_app(
         _refetch_without_deleting(source_manager, recorded_source, app_path, branch)
     else:
         phase(2, PHASES, "Pulling latest changes")
-        source_manager.pull(app_path, branch=branch)
+        # A branch named now or pinned on purpose is pulled. Otherwise the
+        # checkout keeps the branch it is on, exactly as before 3.1: before
+        # 3.1 `update --branch` moved it without recording the choice, so the
+        # recorded branch can be one the application left, and pulling it
+        # would switch production back to it.
+        pinned = None if branch else store.get_branch_pin(domain)
+        source_manager.pull(app_path, branch=branch or pinned)
+        if branch is None and pinned is None and app is not None and app.branch:
+            info = source_manager.get_repo_info(app_path)
+            if not info.get("detached"):
+                _record_followed_branch(store, app, info.get("branch"), "checkout", notice)
 
     phase(3, PHASES, "Detecting application type")
     app_type = _resolve_type(app.app_type if app else None, app_path, verbose)
@@ -472,6 +494,7 @@ def _update_release(
     on_step: Callable[[str], None] | None,
     log: Logger,
     verbose: bool,
+    notice: Callable[[str], None] | None = None,
 ) -> AppUpdate:
     """
     Update an application on the release layout.
@@ -491,6 +514,8 @@ def _update_release(
         on_step: Called as each step of the release build begins.
         log: Logger for the details of each phase.
         verbose: Verbosity of the deployer.
+        notice: Where to tell the operator the store's branch was corrected;
+            ``log.warning`` when None.
 
     Returns:
         What was done.
@@ -524,6 +549,7 @@ def _update_release(
             details=f"Its source is {fetch_from}. Rebuild it from there: noust update {app.domain}",
         )
 
+    follow = _release_branch(app, app_path, branch, deployer, notice or log.warning)
     deployer.configure(
         domain=app.domain,
         source=fetch_from,
@@ -532,7 +558,7 @@ def _update_release(
         # with more than one application is somebody else's.
         port=app.port,
         app_path=app_path,
-        branch=branch or app.branch,
+        branch=follow,
         package_manager=package_manager,
         trigger=trigger,
         job_id=job_id,
@@ -549,7 +575,7 @@ def _update_release(
                 details=f"Update {app.domain} from its branch instead: noust update {app.domain}",
             )
         source_manager = deployer.source_manager
-        full = _resolve_in_cache(source_manager, fetch_from, app_path, branch or app.branch, commit)
+        full = _resolve_in_cache(source_manager, fetch_from, app_path, follow, commit)
         # A release that failed its health gate when it was last activated
         # is still on disk; activating it again would serve what the gate
         # refused. Its commit is built afresh instead.
@@ -579,7 +605,7 @@ def _update_release(
         deployer.adopt_release(
             stage_release(
                 fetch_from,
-                branch or app.branch,
+                follow,
                 releases=deployer.releases,
                 source_manager=source_manager,
                 logger=log,
@@ -608,6 +634,159 @@ def _update_release(
         active=True,
         deployment_id=getattr(deployer, "last_deployment_id", None),
     )
+
+
+def _release_branch(
+    app: App,
+    app_path: Path,
+    branch: str | None,
+    deployer: object,
+    notice: Callable[[str], None],
+) -> str | None:
+    """
+    Name the branch a release update builds, never switching one implicitly.
+
+    A branch named now or pinned on purpose is built. Otherwise the repository
+    cache keeps the branch it is on: a 3.0 ``noust update --branch`` moved it
+    without recording the choice, so the recorded branch can be one the
+    application left. A cache detached at a tag (a recipe's) names only a
+    guess, so the recorded name is followed then, as before.
+
+    Args:
+        app: The application's row.
+        app_path: The application directory.
+        branch: The branch the operator named for this update, if any.
+        deployer: The deployer building the release; its source manager reads
+            the cache.
+        notice: Where to tell the operator the store's branch was corrected.
+
+    Returns:
+        The branch to build; None follows the cache's (or the remote's default).
+    """
+    if branch:
+        return branch
+    store = get_store()
+    pinned = store.get_branch_pin(app.domain)
+    if pinned:
+        return pinned
+    cache = app_path / REPO_CACHE_DIR
+    if app.branch and isinstance(deployer, BaseDeployer) and (cache / ".git").is_dir():
+        info = deployer.source_manager.get_repo_info(cache)
+        if not info.get("detached"):
+            _record_followed_branch(store, app, info.get("branch"), "repository cache", notice)
+    return app.branch
+
+
+def _record_followed_branch(
+    store: NoustStore,
+    app: App,
+    actual: str | None,
+    where: str,
+    notice: Callable[[str], None],
+) -> None:
+    """
+    Correct the store when an application follows another branch than it records.
+
+    The webhook ignores pushes to any branch but the recorded one, and the
+    console shows it: both have to name the branch that is really deployed.
+    ``app.branch`` is updated in place too, for the rest of this update.
+
+    Args:
+        store: The store.
+        app: The application's row; its branch is set to ``actual``.
+        actual: The branch its checkout or cache is on; None when unknown.
+        where: What was read, for the notice: ``checkout``, ``repository cache``.
+        notice: Where to tell the operator.
+    """
+    recorded = app.branch
+    if not actual or not recorded or actual == recorded:
+        return
+    notice(
+        f"This application follows {actual} in its {where} while Noust had {recorded} "
+        f"recorded; it keeps following {actual}. Pin another branch with: "
+        f"noust app branch {app.domain} <branch>"
+    )
+    app.branch = actual
+    if is_rehearsal():
+        return
+    from noust.core import audit
+
+    fresh = store.get_app(app.domain)
+    if fresh is not None:
+        fresh.branch = actual
+        store.update_app(fresh)
+    audit.record(
+        "apps.source",
+        target=f"app:{app.domain}",
+        details={"branch": actual, "previous": recorded, "reason": f"followed in its {where}"},
+    )
+
+
+def _pin_after_update(store: NoustStore, domain: str, branch: str) -> None:
+    """
+    Pin the branch an operator named for an update that succeeded.
+
+    ``noust update --branch`` is a choice like ``noust app branch``: the next
+    plain update, and the webhook's, follow it instead of the branch recorded
+    before. A tree with no store row has nothing to record it on.
+
+    Args:
+        store: The store.
+        domain: A validated domain.
+        branch: The branch the update built.
+    """
+    from noust.core import audit
+
+    if store.get_app(domain) is None:
+        return
+    previous = _write_branch_pin(store, domain, branch)
+    if previous != branch:
+        audit.record(
+            "apps.source",
+            target=f"app:{domain}",
+            details={"branch": branch, "previous": previous, "reason": "updated from it"},
+        )
+
+
+def pinned_branch(domain: str) -> str | None:
+    """
+    Name the branch an operator pinned an application to, if one did.
+
+    Args:
+        domain: The application's domain.
+
+    Returns:
+        The pinned branch, or None when none was chosen on purpose.
+    """
+    return get_store().get_branch_pin(domain)
+
+
+def _write_branch_pin(store: NoustStore, domain: str, branch: str | None) -> str | None:
+    """
+    Record an operator's choice of branch, or forget it, with ``apps.branch``.
+
+    Args:
+        store: The store.
+        domain: The application's domain.
+        branch: The branch chosen; None unpins.
+
+    Returns:
+        The branch recorded before.
+
+    Raises:
+        NoustError: The application is unknown.
+    """
+    from noust.core.audit import current_actor
+
+    app = _known_app(store, domain)
+    previous = app.branch
+    app.branch = branch
+    store.update_app(app)
+    actor = current_actor()
+    store.set_branch_pin(
+        app.domain, branch, by=(actor.name or actor.id) if actor is not None else None
+    )
+    return previous
 
 
 def _resolve_in_cache(
@@ -1083,6 +1262,7 @@ def _activate_release(
         trigger,
         logger=log,
         git_info=lambda: (target.commit, _cache_branch(root, app.branch)),
+        operation="rollback" if went_back else "activate",
     )
     with recording(recorder, git_branch=app.branch):
         if app.zero_downtime:
@@ -1501,7 +1681,8 @@ def _ask_upstream(domain: str, branch: str | None, log: Logger) -> UpstreamState
             # the new commit is exactly what is still to be deployed.
             live = _last_good_commit(store, domain) or info.get("commit")
             source = app.source or info.get("remote")
-            follow = branch or info.get("branch") or app.branch
+            # As the update pulls: a pinned branch, else the checkout's.
+            follow = branch or store.get_branch_pin(domain) or info.get("branch") or app.branch
         if not source or not live or validate_source(source)[0] != "git":
             return None
         head = SourceManager().remote_head(source, follow, timeout=UPSTREAM_TIMEOUT)
@@ -2268,6 +2449,74 @@ def set_health_check(
     with app_lock(app.domain, "health check change"):
         store.set_app_health(app.domain, path=path, expect=expect, timeout=timeout)
     return _known_app(store, app.domain)
+
+
+@dataclass(frozen=True)
+class BranchPin:
+    """
+    The branch an application deploys from, after pinning or unpinning it.
+
+    Attributes:
+        domain: The application.
+        branch: The pinned branch; None when any push deploys.
+        commit: The branch's head on the remote when it was pinned.
+        previous: The branch it had before.
+    """
+
+    domain: str
+    branch: str | None
+    commit: str | None
+    previous: str | None
+
+
+def set_branch(
+    domain: str, branch: str | None, *, source_manager: SourceManager | None = None
+) -> BranchPin:
+    """
+    Pin the branch an application deploys from, or unpin it.
+
+    With a branch pinned, a webhook push to another branch is ignored and every
+    update builds the pinned one; unpinned, any push deploys. The branch must
+    exist on the remote: asked with ``git ls-remote`` through the
+    non-interactive git environment (``GIT_TERMINAL_PROMPT=0``), so a remote
+    that wants a password fails instead of waiting for one. Nothing is fetched
+    or rebuilt: the next update builds the branch.
+
+    Args:
+        domain: The application's domain.
+        branch: The branch to pin; None to unpin.
+        source_manager: Asks the remote; a default one when None.
+
+    Returns:
+        The branch now pinned, its head, and the one before.
+
+    Raises:
+        NoustError: The application is unknown.
+        SourceError: It was not deployed from git, the name is not a branch
+            name, the remote has no such branch, or the remote cannot be read.
+        AppBusyError: Another operation is running on the application.
+    """
+    from noust.core import audit
+    from noust.managers.source_manager import validate_git_ref
+
+    require_server_role("Applications")
+    store = get_store()
+    app = _known_app(store, validate_domain(domain))
+    commit: str | None = None
+    wanted = validate_git_ref(branch) if branch is not None else None
+    if wanted is not None:
+        head = (source_manager or SourceManager()).remote_head(app.source or "", wanted)
+        commit = head.commit
+    previous = app.branch
+    # Refused while an update runs: it read the branch it builds already.
+    with app_lock(app.domain, "branch change"):
+        _write_branch_pin(store, app.domain, wanted)
+    audit.record(
+        "apps.source",
+        target=f"app:{app.domain}",
+        details={"branch": wanted, "previous": previous, "commit": commit},
+    )
+    return BranchPin(domain=app.domain, branch=wanted, commit=commit, previous=previous)
 
 
 def _known_app(store: NoustStore, domain: str) -> App:

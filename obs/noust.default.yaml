@@ -16,42 +16,21 @@ ssl:
   provider: certbot
   email: ""
 
-# Logging configuration
-logging:
-  level: info
-  file: /var/log/wasm/wasm.log
-
-# =============================================================================
-# Node.js Configuration
-# =============================================================================
-# Configure Node.js and package managers for JavaScript applications
-
-nodejs:
-  # Default Node.js version to use
-  default_version: "20"
-  
-  # Whether to use nvm (Node Version Manager)
-  use_nvm: false
-  
-  # Package managers to use/install during setup
-  # Available: npm, pnpm, yarn, bun
-  # npm comes with Node.js by default
-  package_managers:
-    - npm
-    # - pnpm  # Uncomment to enable pnpm
-    # - yarn  # Uncomment to enable yarn
-    # - bun   # Uncomment to enable bun
-
-# =============================================================================
-# Python Configuration
-# =============================================================================
-python:
-  default_version: "3.11"
-  use_venv: true
+# Every setting, with its meaning, is in docs/CONFIG.md; 'noust config show'
+# prints what is in effect. The 'logging', 'nodejs' and 'python' sections this
+# file used to carry were never read by anything.
 
 # =============================================================================
 # Process Monitor Configuration
 # =============================================================================
+# The charts' history, recorded every 5 seconds by the noust-monitor service
+# (the package enables it; 'noust monitor status' says whether it is recording).
+# The finer tiers are fixed: 5 s for 2 hours, 1 minute for 26 hours, 10 minutes
+# for 8 days. The hourly tier is kept this many days (35 to 3650).
+
+metrics:
+  retention_days: 400
+
 # The process monitor records machine metrics, processes over a resource
 # threshold or carrying a known malware name, and the state of watched units,
 # and notifies you. It never signals a process or deletes a file.

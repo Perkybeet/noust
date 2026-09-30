@@ -14,6 +14,8 @@ recursive-include src/noust/templates *.j2
 recursive-include src/noust/recipes *.yaml
 recursive-include src/noust/recipes/assets *
 recursive-include src/noust/completions *
+# The wordmark the notification emails attach inline.
+recursive-include src/noust/core/notifications/assets *.png
 # The console's committed build (source in panel/, which is not shipped).
 recursive-include src/noust/web/static *
 

@@ -44,7 +44,7 @@ PLANTED_SECRETS = {
     "databases.credentials.redis.password": "redis-hunter2",
     "databases.credentials.mongodb.password": "mongo-hunter2",
     "monitor.smtp.password": "smtp-hunter2",
-    "monitor.openai.api_key": "sk-live-openai",
+    "notifications.channels.telegram.bot_token": "123456:telegram-live",
 }
 
 
@@ -181,7 +181,7 @@ class TestSecretsNeverLeave:
         """Secrets are replaced, not removed, so the form still renders."""
         config = client.get("/api/config").json()["config"]
 
-        assert config["monitor"]["openai"]["api_key"] == REDACTED
+        assert config["notifications"]["channels"]["telegram"]["bot_token"] == REDACTED
         assert config["databases"]["credentials"]["mysql"]["password"] == REDACTED
         assert config["databases"]["credentials"]["mysql"]["user"] == "root"
         assert config["webserver"] == "nginx"
@@ -326,8 +326,8 @@ class TestWritesPreserveSecrets:
         assert response.status_code == 200, response.text
         assert stored_value(config_path, "webserver") == "apache"
         assert (
-            stored_value(config_path, "monitor.openai.api_key")
-            == stored_secrets["monitor.openai.api_key"]
+            stored_value(config_path, "notifications.channels.telegram.bot_token")
+            == stored_secrets["notifications.channels.telegram.bot_token"]
         )
         assert (
             stored_value(config_path, "databases.credentials.mysql.password")
@@ -340,11 +340,13 @@ class TestWritesPreserveSecrets:
         """Placeholders are ignored, real values are not."""
         response = client.patch(
             "/api/config",
-            json={"path": "monitor.openai.api_key", "value": "sk-rotated"},
+            json={"path": "notifications.channels.telegram.bot_token", "value": "sk-rotated"},
         )
 
         assert response.status_code == 200, response.text
-        assert stored_value(config_path, "monitor.openai.api_key") == "sk-rotated"
+        assert (
+            stored_value(config_path, "notifications.channels.telegram.bot_token") == "sk-rotated"
+        )
 
     def test_patching_a_secret_with_the_placeholder_is_a_no_op(
         self, client: TestClient, config_path: Path, stored_secrets: dict[str, str]
@@ -367,7 +369,7 @@ class TestWritesPreserveSecrets:
         """The PATCH acknowledgement must not repeat the value back."""
         response = client.patch(
             "/api/config",
-            json={"path": "monitor.openai.api_key", "value": "sk-rotated"},
+            json={"path": "notifications.channels.telegram.bot_token", "value": "sk-rotated"},
         )
 
         assert response.status_code == 200
@@ -490,23 +492,21 @@ class TestUpdateSemantics:
         assert stored_value(config_path, "apps_directory") == "/srv/apps"
         assert stored_value(config_path, "apps") is None
 
-    def test_full_replace_folds_the_deprecated_logging_directory_alias(
+    def test_full_replace_drops_an_obsolete_section_instead_of_storing_it(
         self, client: TestClient, config_path: Path
     ) -> None:
         """
-        obs/wasm.default.yaml shipped 'logging.directory' while the code's
-        own default named the setting 'logging.file'. The alias that closes
-        that gap must fold into the nested canonical key, not a bogus
-        top-level key literally named 'logging.file'.
+        obs/wasm.default.yaml shipped a 'logging' section nothing ever read
+        (as 'logging.directory'). A stale form or file that still carries it
+        must not bring it back into the configuration.
         """
         response = client.put(
             "/api/config", json={"config": {"logging": {"directory": "/srv/logs/wasm.log"}}}
         )
 
         assert response.status_code == 200, response.text
-        assert stored_value(config_path, "logging.file") == "/srv/logs/wasm.log"
-        assert stored_value(config_path, "logging.directory") is None
-        assert isinstance(yaml.safe_load(config_path.read_text())["logging"], dict)
+        assert stored_value(config_path, "logging") is None
+        assert stored_value(config_path, "logging.file") is None
 
     def test_apps_directory_round_trip(self, client: TestClient) -> None:
         """What was written must be what is read back."""
@@ -640,7 +640,8 @@ class TestSavesAreAudited:
     ) -> None:
         """The changed key name is recorded; what it changed to is not."""
         response = client.patch(
-            "/api/config", json={"path": "monitor.openai.api_key", "value": "sk-rotated"}
+            "/api/config",
+            json={"path": "notifications.channels.telegram.bot_token", "value": "sk-rotated"},
         )
 
         assert response.status_code == 200, response.text

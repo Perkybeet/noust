@@ -93,9 +93,9 @@ def enable(
     removed when it is closed or its time-to-live runs out. An option left
     out keeps its current value.
 
-    A preview is built as root, like every deployment, with a copy of the
-    application's environment variables, production secrets included (except
-    --exclude-env), and uses its databases. So only people trusted with the
+    A preview is built in the build sandbox, not as root, and runs with a copy
+    of the application's environment variables, production secrets included
+    (except --exclude-env), and uses its databases. So only people trusted with the
     repository get one: pull requests from forks never do, on GitHub the
     author must be an owner, member or collaborator, and bots only with
     --allow-bots.
@@ -129,7 +129,7 @@ def enable(
     )
     logger.blank()
     logger.warning(
-        f"Previews are built as root and run with a copy of {stored.app_domain}'s "
+        f"Previews are built in the sandbox and run with a copy of {stored.app_domain}'s "
         "environment variables, production secrets included"
         + (" (except the ones never copied)" if stored.exclude_env else "")
         + ", and use the same databases."

@@ -13,6 +13,9 @@ Everything lives in the secret store, under ``fleet/nodes/<name>/``:
 - ``known_hosts``: one line, the node's host key under a fixed alias, taken
   from the join code. ssh is pointed at this file only, with
   ``StrictHostKeyChecking=yes``: a changed host key stops the tunnel.
+- ``next_id_ed25519`` and ``next_id_ed25519.pub``: while ``noust node rekey``
+  rotates the pair, the new one, waiting for the node to authorize it. It
+  replaces the current pair only once the node answers with it.
 
 ssh needs file paths, so these are files: 0600 in 0700 directories, written
 through the filesystem seam. The key has no passphrase because the process
@@ -45,6 +48,8 @@ TOKEN = "token"  # noqa: S105 - a file name, not a credential
 PRIVATE_KEY = "id_ed25519"
 PUBLIC_KEY = "id_ed25519.pub"
 KNOWN_HOSTS = "known_hosts"
+NEXT_PRIVATE_KEY = "next_id_ed25519"
+NEXT_PUBLIC_KEY = "next_id_ed25519.pub"
 
 #: How long ssh-keygen may take. It is instantaneous; this only bounds a hang.
 KEYGEN_TIMEOUT = 30
@@ -197,10 +202,138 @@ class NodeKeys:
         Raises:
             NodeError: When the file is there but is not a valid key.
         """
-        text = self._secrets.read(secret_name(node, PUBLIC_KEY))
-        if text is None or not self.private_key_path(node).is_file():
+        return self._public(node, PRIVATE_KEY, PUBLIC_KEY, f"central key for {node}")
+
+    def _public(self, node: str, private: str, public: str, what: str) -> PublicKey | None:
+        """
+        Read the public half of one of the node's pairs.
+
+        Args:
+            node: The node's name.
+            private: The private key's leaf name.
+            public: The public key's leaf name.
+            what: What the key is, for the messages.
+
+        Returns:
+            The key, or None when that pair does not exist.
+
+        Raises:
+            NodeError: When the file is there but is not a valid key.
+        """
+        text = self._secrets.read(secret_name(node, public))
+        if text is None or not self._secrets.path(secret_name(node, private)).is_file():
             return None
-        return parse_public_key(text, what=f"central key for {node}")
+        return parse_public_key(text, what=what)
+
+    def pending_public_key(self, node: str) -> PublicKey | None:
+        """
+        Read the public half of the pair waiting to replace the node's current one.
+
+        Args:
+            node: The node's name.
+
+        Returns:
+            The key, or None when no rotation is under way.
+
+        Raises:
+            NodeError: When the file is there but is not a valid key.
+        """
+        return self._public(node, NEXT_PRIVATE_KEY, NEXT_PUBLIC_KEY, f"new central key for {node}")
+
+    def ensure_pending_keypair(self, node: str, central: str) -> PublicKey:
+        """
+        Generate the pair that will replace the node's current one, once.
+
+        Asking again while it waits returns the same key, so the command
+        printed for the node stays valid until the rotation finishes.
+
+        Args:
+            node: The node's name.
+            central: This central's name, for the key's comment.
+
+        Returns:
+            The new public key.
+
+        Raises:
+            NodeError: When ssh-keygen fails, or did not run (a dry run).
+        """
+        existing = self.pending_public_key(node)
+        if existing is not None:
+            return existing
+        if sealing.is_sealed(self._secrets.root):
+            self._generate_sealed(node, central, private_leaf=NEXT_PRIVATE_KEY)
+        else:
+            self._generate(node, central, self._secrets.path(secret_name(node, NEXT_PRIVATE_KEY)))
+        generated = self.pending_public_key(node)
+        if generated is None:
+            raise NodeError(
+                f"No new key pair was generated for node {node}",
+                details="ssh-keygen did not run; this is expected in a dry run.",
+            )
+        return generated
+
+    def current_pair(self, node: str) -> tuple[str, str] | None:
+        """
+        Read the node's current pair, to put it back if a rotation fails.
+
+        Args:
+            node: The node's name.
+
+        Returns:
+            ``(private, public)`` text, or None when there is no pair.
+        """
+        private = self._secrets.read(secret_name(node, PRIVATE_KEY))
+        public = self._secrets.read(secret_name(node, PUBLIC_KEY))
+        if private is None or public is None:
+            return None
+        return private, public
+
+    def write_pair(self, node: str, pair: tuple[str, str]) -> None:
+        """
+        Make a pair the node's current one.
+
+        Args:
+            node: The node's name.
+            pair: ``(private, public)`` text.
+        """
+        private, public = pair
+        self._secrets.write(secret_name(node, PRIVATE_KEY), private)
+        self._secrets.write(secret_name(node, PUBLIC_KEY), public)
+
+    def promote_pending(self, node: str) -> tuple[str, str]:
+        """
+        Make the waiting pair the node's current one; the waiting files stay until discarded.
+
+        Args:
+            node: The node's name.
+
+        Returns:
+            The pair it replaced, ``(private, public)``, for :meth:`write_pair`
+            to put back.
+
+        Raises:
+            NodeError: When no pair is waiting, or the node has no current one.
+        """
+        private = self._secrets.read(secret_name(node, NEXT_PRIVATE_KEY))
+        public = self._secrets.read(secret_name(node, NEXT_PUBLIC_KEY))
+        previous = self.current_pair(node)
+        if private is None or public is None or previous is None:
+            raise NodeError(
+                f"No new key is waiting for node {node}",
+                details=f"Start the rotation with 'noust node rekey {node}'.",
+            )
+        self.write_pair(node, (private, public))
+        return previous
+
+    def discard_pending(self, node: str) -> None:
+        """
+        Forget the waiting pair.
+
+        Args:
+            node: The node's name.
+        """
+        self._secrets.delete(secret_name(node, NEXT_PRIVATE_KEY))
+        self._secrets.delete(secret_name(node, NEXT_PUBLIC_KEY))
 
     def ensure_keypair(self, node: str, central: str) -> PublicKey:
         """
@@ -232,7 +365,7 @@ class NodeKeys:
             )
         return generated
 
-    def _generate_sealed(self, node: str, central: str) -> None:
+    def _generate_sealed(self, node: str, central: str, *, private_leaf: str = PRIVATE_KEY) -> None:
         """
         Generate a key pair for a sealed store, and seal it in.
 
@@ -244,6 +377,8 @@ class NodeKeys:
         Args:
             node: The node's name.
             central: This central's name, for the key's comment.
+            private_leaf: The private key's secret name (its public half is
+                the same with ``.pub``): the current pair, or the next one.
 
         Raises:
             SecretsLockedError: When this process is locked: nothing could be
@@ -262,14 +397,14 @@ class NodeKeys:
         fs = self._secrets.fs
         copies = sealing.plaintext_copy_dir(root)
         sealing.ensure_private_dir(copies, fs)
-        private = copies / "keygen" / validate_node_name(node) / PRIVATE_KEY
+        private = copies / "keygen" / validate_node_name(node) / private_leaf
         public = Path(f"{private}.pub")
         try:
             self._generate(node, central, private)
             if not private.is_file():
                 return
-            self._secrets.write(secret_name(node, PRIVATE_KEY), _read_private(private))
-            self._secrets.write(secret_name(node, PUBLIC_KEY), _read_private(public))
+            self._secrets.write(secret_name(node, private_leaf), _read_private(private))
+            self._secrets.write(secret_name(node, f"{private_leaf}.pub"), _read_private(public))
         finally:
             fs.remove(private, missing_ok=True)
             fs.remove(public, missing_ok=True)

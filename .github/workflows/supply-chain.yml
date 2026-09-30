@@ -1,0 +1,125 @@
+name: Supply chain
+
+# What Noust ships and what it depends on (ENS G16: op.pl.3, op.exp.4, mp.sw.1):
+#
+#   SBOM        a CycloneDX document for the wheel and the console's bundled
+#               npm packages (scripts/sbom.py, standard library only), kept as
+#               an artifact of every run and attached to every GitHub release
+#   pip-audit   known vulnerabilities in the Python dependencies as resolved
+#   npm audit   known vulnerabilities in the packages the console bundles
+#
+# The audits report without blocking: an advisory published overnight must not
+# stop an unrelated fix from merging. Their findings land in the run summary,
+# where a maintainer triages them (SECURITY.md); Dependabot opens the updates.
+
+on:
+  push:
+    branches: [main, "dev/**"]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Mondays: new advisories against what already shipped.
+    - cron: "17 5 * * 1"
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  sbom:
+    name: SBOM
+    runs-on: ubuntu-latest
+    permissions:
+      # Only to attach the SBOM to a published release.
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Build the wheel and install it as a user would
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel
+          python -m pip install "$(ls dist/*.whl)[web]"
+
+      - name: Write the SBOM
+        run: |
+          version="$(python -c 'import noust; print(noust.__version__)')"
+          python scripts/sbom.py dist/*.whl --extras web -o "noust-${version}.cdx.json"
+          echo "SBOM_FILE=noust-${version}.cdx.json" >> "$GITHUB_ENV"
+          echo "### SBOM" >> "$GITHUB_STEP_SUMMARY"
+          python -c "import json,sys; d=json.load(open(sys.argv[1])); print(f\"{len(d['components'])} components in {sys.argv[1]}\")" "noust-${version}.cdx.json" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sbom
+          path: ${{ env.SBOM_FILE }}
+
+      - name: Attach it to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" "$SBOM_FILE" --clobber
+
+  pip-audit:
+    name: pip-audit
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install the project and pip-audit
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[all]" pip-audit
+
+      - name: Audit the Python dependencies
+        run: |
+          set +e
+          pip-audit --progress-spinner off --skip-editable --desc on --format markdown > pip-audit.md
+          status=$?
+          echo "### pip-audit" >> "$GITHUB_STEP_SUMMARY"
+          cat pip-audit.md >> "$GITHUB_STEP_SUMMARY"
+          exit $status
+
+  npm-audit:
+    name: npm audit
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: panel
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: panel/.nvmrc
+          cache: npm
+          cache-dependency-path: panel/package-lock.json
+
+      - name: Audit what the console bundles
+        run: |
+          set +e
+          npm audit --omit=dev --audit-level=moderate > npm-audit.txt
+          status=$?
+          {
+            echo "### npm audit (runtime packages the console bundles)"
+            echo '```'
+            cat npm-audit.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $status

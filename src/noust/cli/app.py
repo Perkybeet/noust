@@ -51,6 +51,8 @@ log = logging.getLogger(__name__)
 COMMAND_MODULES: dict[str, str] = {
     "2fa": "noust.cli.commands.twofa",
     "app": "noust.cli.commands.app",
+    "approval": "noust.cli.commands.approval",
+    "audit": "noust.cli.commands.audit",
     "backup": "noust.cli.commands.backup",
     "central": "noust.cli.commands.central",
     "cert": "noust.cli.commands.cert",
@@ -59,25 +61,30 @@ COMMAND_MODULES: dict[str, str] = {
     "db": "noust.cli.commands.db",
     "diagnose": "noust.cli.commands.diagnose",
     "domain": "noust.cli.commands.domain",
+    "ens": "noust.cli.commands.ens",
     "env": "noust.cli.commands.env",
     "fleet": "noust.cli.commands.fleet",
     "github": "noust.cli.commands.github",
     "health": "noust.cli.commands.health",
     "import": "noust.cli.commands.importer",
+    "incident": "noust.cli.commands.incident",
     "migrate-from-wasm": "noust.cli.commands.migrate_from_wasm",
     "monitor": "noust.cli.commands.monitor",
     "node": "noust.cli.commands.node",
+    "passkey": "noust.cli.commands.passkey",
     "notify": "noust.cli.commands.notify",
     "preview": "noust.cli.commands.preview",
     "recipe": "noust.cli.commands.recipe",
     "releases": "noust.cli.commands.releases",
     "rollback": "noust.cli.commands.backup",
+    "server": "noust.cli.commands.server",
     "service": "noust.cli.commands.service",
     "sessions": "noust.cli.commands.sessions",
     "setup": "noust.cli.commands.setup",
     "site": "noust.cli.commands.site",
     "store": "noust.cli.commands.store",
     "token": "noust.cli.commands.token",
+    "user": "noust.cli.commands.user",
     "web": "noust.cli.commands.web",
 }
 
@@ -121,12 +128,15 @@ class Context:
         dry_run: Rehearse without changing the machine.
         json_output: Emit machine-readable output where a command supports it.
         no_color: Never emit ANSI escapes.
+        reason: Why this change is made, recorded with the command in the
+            audit log (see :mod:`noust.cli.audit_policy`).
     """
 
     verbose: bool = False
     dry_run: bool = False
     json_output: bool = False
     no_color: bool = False
+    reason: str | None = None
     #: Set once the seams have been swapped, so a subcommand that also
     #: accepts --dry-run does not announce the rehearsal twice.
     dry_run_active: bool = False
@@ -191,6 +201,25 @@ def json_option(help_text: str = "Print machine-readable JSON.") -> Callable[[_F
     return decorate
 
 
+REASON_HELP = (
+    "Why this change is made (a change reference, a ticket). Recorded with the command in "
+    "the audit log; required by the ens-medium security profile."
+)
+
+
+def _adopt_reason(click_ctx: click.Context, _param: click.Parameter, value: str | None) -> None:
+    """
+    Fold a ``--reason`` typed after a command's name into the shared context.
+
+    Args:
+        click_ctx: The command's own Click context.
+        _param: The option that triggered this callback.
+        value: The reason given, if any.
+    """
+    if value:
+        click_ctx.ensure_object(Context).reason = value
+
+
 class NoustCommand(click.Command):
     """
     A leaf command that refuses ``--json`` unless it explicitly supports it.
@@ -209,15 +238,39 @@ class NoustCommand(click.Command):
     of something ninety call sites each have to remember to check. A command
     opts in with :func:`json_option`; anything else gets a clear refusal
     instead of a flag that does nothing.
+
+    It is also where every command is audited (:mod:`noust.cli.audit_policy`):
+    a command that changes something records its intent and its outcome, and
+    accepts ``--reason`` after its name. A command that only reads says so
+    with ``read_only=True`` (``@group.command("list", read_only=True)``) and
+    records nothing.
     """
 
+    def __init__(self, *args: Any, read_only: bool = False, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.read_only = read_only
+        declared = {opt for param in self.params for opt in getattr(param, "opts", [])}
+        if "--reason" not in declared:
+            self.params.append(
+                click.Option(
+                    ["--reason"],
+                    metavar="TEXT",
+                    expose_value=False,
+                    callback=_adopt_reason,
+                    help=REASON_HELP,
+                )
+            )
+
     def invoke(self, ctx: click.Context) -> Any:
+        from noust.cli.audit_policy import audited
+
         state = ctx.ensure_object(Context)
         if state.json_output and not self._declares_json_option():
             raise click.UsageError(
                 f"'{ctx.command_path}' has no JSON output; drop --json to run it."
             )
-        return super().invoke(ctx)
+        with audited(ctx, self):
+            return super().invoke(ctx)
 
     def _declares_json_option(self) -> bool:
         """
@@ -470,6 +523,7 @@ class LazyGroup(click.Group):
 )
 @click.option("--json", "json_output", is_flag=True, help="Emit JSON where supported.")
 @click.option("--no-color", is_flag=True, help="Never emit colour.")
+@click.option("--reason", metavar="TEXT", default=None, help=REASON_HELP)
 @click.option("--changelog", is_flag=True, help="Show what changed in this release.")
 @click.option("-i", "--interactive", is_flag=True, help="Start the interactive menu.")
 @click.pass_context
@@ -479,6 +533,7 @@ def cli(
     dry_run: bool,
     json_output: bool,
     no_color: bool,
+    reason: str | None,
     changelog: bool,
     interactive: bool,
 ) -> None:
@@ -493,6 +548,7 @@ def cli(
     state.dry_run = dry_run or state.dry_run
     state.json_output = json_output or state.json_output
     state.no_color = no_color or state.no_color
+    state.reason = reason or state.reason
 
     if state.no_color:
         set_colors_disabled(True)

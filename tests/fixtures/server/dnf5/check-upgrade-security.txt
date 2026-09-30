@@ -1,0 +1,5 @@
+Repositories loaded.
+Name                         Arch   Version               Repository        Size
+kernel                       x86_64 6.15.9-201.fc42       updates        0.0   B
+kernel-core                  x86_64 6.15.9-201.fc42       updates       18.1 MiB
+openssl-libs                 x86_64 1:3.2.4-2.fc42        updates        2.4 MiB

@@ -1,0 +1,2004 @@
+{
+  "deploy.started": {
+    "embeds": [
+      {
+        "title": "◐ Desplegando · shop.example.com",
+        "description": "Noust está construyendo la nueva versión y te avisará de cómo termina.",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main)",
+            "inline": true
+          },
+          {
+            "name": "Iniciado por",
+            "value": "Webhook",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "deploy.succeeded": {
+    "embeds": [
+      {
+        "title": "● Desplegado · shop.example.com",
+        "description": "La nueva versión ya está en servicio.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Versión",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Iniciado por",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duración",
+            "value": "42 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "deploy.failed": {
+    "embeds": [
+      {
+        "title": "✕ Despliegue fallido · shop.example.com",
+        "description": "Se ha detenido por un error antes de que la nueva versión tomara el relevo.\n\n**Revísalo con:** `noust diagnose shop.example.com`\n\n*Lo que ha informado el sistema*\n```\nnpm run build failed\n> shop@1.4.2 build\n> next build\nFailed to compile.\n./app/cart/page.tsx\nType error: Property 'total' does not exist on type 'Cart'.\nnpm error Lifecycle script `build` failed with error:\nnpm error code 1\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Versión",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Iniciado por",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duración",
+            "value": "1 min 12 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "deploy.rolled_back": {
+    "embeds": [
+      {
+        "title": "▲ Revertido · shop.example.com",
+        "description": "La nueva versión no ha respondido a la comprobación de salud, así que la anterior vuelve a estar en servicio.\n\n**Revísalo con:** `noust diagnose shop.example.com`\n\n*Últimas líneas del registro de shop-example-com*\n```\nSep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 17 líneas anteriores omitidas\n```",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Versión",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Iniciado por",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duración",
+            "value": "1 min 12 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "update.started": {
+    "embeds": [
+      {
+        "title": "◐ Actualizando · shop.example.com",
+        "description": "Noust está descargando y construyendo el código más reciente y te avisará de cómo termina.",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main)",
+            "inline": true
+          },
+          {
+            "name": "Iniciado por",
+            "value": "Webhook",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "update.succeeded": {
+    "embeds": [
+      {
+        "title": "● Actualizado · shop.example.com",
+        "description": "La aplicación ya ejecuta la nueva versión.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Versión",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Iniciado por",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duración",
+            "value": "42 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "update.failed": {
+    "embeds": [
+      {
+        "title": "✕ Actualización fallida · shop.example.com",
+        "description": "Se ha detenido por un error antes de que la nueva versión tomara el relevo.\n\n**Revísalo con:** `noust diagnose shop.example.com`\n\n*Lo que ha informado el sistema*\n```\nnpm run build failed\n> shop@1.4.2 build\n> next build\nFailed to compile.\n./app/cart/page.tsx\nType error: Property 'total' does not exist on type 'Cart'.\nnpm error Lifecycle script `build` failed with error:\nnpm error code 1\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Versión",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Iniciado por",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duración",
+            "value": "1 min 12 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "update.rolled_back": {
+    "embeds": [
+      {
+        "title": "▲ Revertido · shop.example.com",
+        "description": "La nueva versión no ha respondido a la comprobación de salud, así que la anterior vuelve a estar en servicio.\n\n**Revísalo con:** `noust diagnose shop.example.com`\n\n*Últimas líneas del registro de shop-example-com*\n```\nSep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 17 líneas anteriores omitidas\n```",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Versión",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Iniciado por",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duración",
+            "value": "1 min 12 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "rollback.started": {
+    "embeds": [
+      {
+        "title": "◐ Volviendo atrás · shop.example.com",
+        "description": "Noust está volviendo a una versión anterior y te avisará de cómo termina.",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main)",
+            "inline": true
+          },
+          {
+            "name": "Iniciado por",
+            "value": "Webhook",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "rollback.succeeded": {
+    "embeds": [
+      {
+        "title": "● Vuelta atrás completada · shop.example.com",
+        "description": "La versión anterior vuelve a estar en servicio.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Versión",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Iniciado por",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duración",
+            "value": "42 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "rollback.failed": {
+    "embeds": [
+      {
+        "title": "✕ Vuelta atrás fallida · shop.example.com",
+        "description": "La vuelta atrás se ha detenido por un error antes de que la versión anterior tomara el relevo.\n\n**Revísalo con:** `noust diagnose shop.example.com`\n\n*Lo que ha informado el sistema*\n```\nrollback step failed\nsystemctl: Job for shop-example-com.service failed\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Versión",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Iniciado por",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duración",
+            "value": "1 min 12 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "rollback.rolled_back": {
+    "embeds": [
+      {
+        "title": "▲ Vuelta atrás fallida · shop.example.com",
+        "description": "La versión anterior no ha respondido a la comprobación de salud, así que vuelve a estar en servicio la que lo estaba antes.\n\n**Revísalo con:** `noust diagnose shop.example.com`\n\n*Últimas líneas del registro de shop-example-com*\n```\nSep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 17 líneas anteriores omitidas\n```",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Versión",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Iniciado por",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duración",
+            "value": "1 min 12 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "activate.started": {
+    "embeds": [
+      {
+        "title": "◐ Activando versión · shop.example.com",
+        "description": "Noust está cambiando a la versión elegida y te avisará de cómo termina.",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main)",
+            "inline": true
+          },
+          {
+            "name": "Iniciado por",
+            "value": "Webhook",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "activate.succeeded": {
+    "embeds": [
+      {
+        "title": "● Versión activada · shop.example.com",
+        "description": "La versión elegida está en servicio.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Versión",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Iniciado por",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duración",
+            "value": "42 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "activate.failed": {
+    "embeds": [
+      {
+        "title": "✕ Activación fallida · shop.example.com",
+        "description": "El cambio se ha detenido por un error antes de que la versión elegida tomara el relevo.\n\n**Revísalo con:** `noust diagnose shop.example.com`\n\n*Lo que ha informado el sistema*\n```\nactivate step failed\nsystemctl: Job for shop-example-com.service failed\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Versión",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Iniciado por",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duración",
+            "value": "1 min 12 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "activate.rolled_back": {
+    "embeds": [
+      {
+        "title": "▲ Activación fallida · shop.example.com",
+        "description": "La versión elegida no ha respondido a la comprobación de salud, así que la anterior vuelve a estar en servicio.\n\n**Revísalo con:** `noust diagnose shop.example.com`\n\n*Últimas líneas del registro de shop-example-com*\n```\nSep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 17 líneas anteriores omitidas\n```",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Versión",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Iniciado por",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duración",
+            "value": "1 min 12 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "migrate.started": {
+    "embeds": [
+      {
+        "title": "◐ Migrando a versiones · shop.example.com",
+        "description": "Noust está pasando la aplicación a versiones y te avisará de cómo termina.",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main)",
+            "inline": true
+          },
+          {
+            "name": "Iniciado por",
+            "value": "Webhook",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "migrate.succeeded": {
+    "embeds": [
+      {
+        "title": "● Migrado a versiones · shop.example.com",
+        "description": "Cada despliegue se construye ahora en su propia versión y volver atrás lleva segundos.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Versión",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Iniciado por",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duración",
+            "value": "42 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "migrate.failed": {
+    "embeds": [
+      {
+        "title": "✕ Migración fallida · shop.example.com",
+        "description": "Se ha detenido por un error; en ese caso Noust restaura la disposición anterior.\n\n**Revísalo con:** `noust diagnose shop.example.com`\n\n*Lo que ha informado el sistema*\n```\nmigrate step failed\nsystemctl: Job for shop-example-com.service failed\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Versión",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Iniciado por",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duración",
+            "value": "1 min 12 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "restore.completed": {
+    "embeds": [
+      {
+        "title": "● Restaurado · shop.example.com",
+        "description": "Los archivos de la aplicación han vuelto a como estaban en la copia de seguridad.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Copia",
+            "value": "`20260928-020000`",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "restore.failed": {
+    "embeds": [
+      {
+        "title": "✕ Restauración fallida · shop.example.com",
+        "description": "Se ha detenido por un error, así que los archivos de la aplicación podrían estar restaurados solo en parte.\n\n*Lo que ha informado el sistema*\n```\ntar: Unexpected EOF in archive\ntar: Error is not recoverable: exiting now\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Copia",
+            "value": "`20260928-020000`",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "backup.failed": {
+    "embeds": [
+      {
+        "title": "✕ Copia de seguridad fallida · shop.example.com",
+        "description": "No se ha guardado ninguna copia nueva de la aplicación.\n\n*Lo que ha informado el sistema*\n```\ntar: /var/www/apps/shop-example-com/shared/uploads: Cannot write: No space left on device\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "backup.upload_failed": {
+    "embeds": [
+      {
+        "title": "▲ Subida de la copia fallida · shop.example.com",
+        "description": "La copia se ha guardado en este servidor, pero no se ha podido subir.\n\n*Lo que ha informado el sistema*\n```\n2026/09/29 02:00:14 Failed to copy: AccessDenied: Access Denied\n    status code: 403\n```",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Destino",
+            "value": "s3-eu",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "backup.schedule_missing": {
+    "embeds": [
+      {
+        "title": "▲ Falta la programación de la copia · shop.example.com",
+        "description": "El temporizador se ha activado, pero Noust no tiene una programación guardada para esta aplicación, así que la copia se ha hecho con los ajustes por defecto.\n\n**Guárdala de nuevo con:** `noust backup schedule update shop.example.com`",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "backup.completed": {
+    "embeds": [
+      {
+        "title": "● Copia completada · shop.example.com",
+        "description": "Se ha guardado una copia nueva de la aplicación.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Copia",
+            "value": "`20260929-020000`",
+            "inline": true
+          },
+          {
+            "name": "Tamaño",
+            "value": "48.0 MB",
+            "inline": true
+          },
+          {
+            "name": "Subida a",
+            "value": "s3-eu",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "cert.expiring": {
+    "embeds": [
+      {
+        "title": "▲ Certificado a punto de caducar · shop.example.com",
+        "description": "Caduca en 7 días (6 oct 2026).\n\n**Renuévalo con:** `noust cert renew shop.example.com`",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Cubre",
+            "value": "shop.example.com, www.shop.example.com",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "cert.expired": {
+    "embeds": [
+      {
+        "title": "✕ Certificado caducado · shop.example.com",
+        "description": "Caducó hace 80 días (11 jul 2026).\n\n**Renuévalo con:** `noust cert renew shop.example.com`",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Cubre",
+            "value": "shop.example.com, www.shop.example.com",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "unit.failed": {
+    "embeds": [
+      {
+        "title": "✕ Servicio fallido · shop-example-com",
+        "description": "systemd lo ha marcado como fallido.\n\n**Revísalo con:** `journalctl -u shop-example-com -n 50`\n\n*Últimas líneas del registro de shop-example-com*\n```\nSep 29 10:45:13 web-1 npm[48211]: > shop@1.4.2 start\nSep 29 10:45:13 web-1 npm[48211]: > next start -p 3004\nSep 29 10:45:14 web-1 npm[48227]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1.\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server/services/shop-example-com"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "unit.crash_loop": {
+    "embeds": [
+      {
+        "title": "✕ Servicio en bucle de reinicios · shop-example-com",
+        "description": "systemd lo ha reiniciado 3 veces desde la última comprobación y sigue sin arrancar.\n\n**Revísalo con:** `journalctl -u shop-example-com -n 50`\n\n*Últimas líneas del registro de shop-example-com*\n```\nSep 29 10:45:14 web-1 npm[48227]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1.\nSep 29 10:45:18 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:19 web-1 npm[48287]: > shop@1.4.2 start\nSep 29 10:45:19 web-1 npm[48287]: > next start -p 3004\nSep 29 10:45:20 web-1 npm[48303]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:24 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 2.\n… 3 líneas anteriores omitidas\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Reinicios",
+            "value": "9",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server/services/shop-example-com"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "unit.stopped_on_failure": {
+    "embeds": [
+      {
+        "title": "✕ Servicio detenido por un fallo · shop-example-com",
+        "description": "Se ha detenido tras una ejecución fallida y systemd no lo está reiniciando.\n\n**Revísalo con:** `journalctl -u shop-example-com -n 50`",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Resultado",
+            "value": "`signal`",
+            "inline": true
+          },
+          {
+            "name": "Código de salida",
+            "value": "9",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server/services/shop-example-com"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "unit.recovered": {
+    "embeds": [
+      {
+        "title": "● Servicio recuperado · shop-example-com",
+        "description": "Vuelve a estar en marcha y no se ha reiniciado desde la última comprobación.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server/services/shop-example-com"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "disk.threshold": {
+    "embeds": [
+      {
+        "title": "▲ Disco casi lleno · /",
+        "description": "Ha superado el umbral de aviso del 90%, y un disco lleno detiene los despliegues, los registros y las bases de datos de este servidor.",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Usado",
+            "value": "91.7% (18.3 GB / 20.0 GB)",
+            "inline": true
+          },
+          {
+            "name": "Libre",
+            "value": "1.7 GB",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "disk.recovered": {
+    "embeds": [
+      {
+        "title": "● Espacio en disco recuperado · /",
+        "description": "El uso vuelve a estar por debajo del umbral de aviso.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Usado",
+            "value": "71.2%",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "test": {
+    "embeds": [
+      {
+        "title": "○ Notificación de prueba · Telegram",
+        "description": "Si ves esto, el canal Telegram está bien configurado.",
+        "color": 10395294,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "node.unreachable": {
+    "embeds": [
+      {
+        "title": "✕ Servidor inaccesible · web-2",
+        "description": "Noust no puede alcanzar este servidor a través de su túnel.\n\n*Lo que ha informado el sistema*\n```\nssh: connect to host 10.0.0.2 port 22: Connection timed out\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Dirección",
+            "value": "`10.0.0.2`",
+            "inline": true
+          },
+          {
+            "name": "Inaccesible desde",
+            "value": "2026-09-29 10:30 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/fleet"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "node.recovered": {
+    "embeds": [
+      {
+        "title": "● Servidor accesible de nuevo · web-2",
+        "description": "El túnel vuelve a estar abierto y el servidor responde.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Estuvo inaccesible durante",
+            "value": "12 min 34 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/n/web-2/"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "node.host_key_changed": {
+    "embeds": [
+      {
+        "title": "✕ Clave de host cambiada · web-2",
+        "description": "El servidor ha presentado otra clave de host SSH, así que el túnel sigue cerrado hasta que alguien la compruebe.\n\n**Compruébalo con:** `noust node trust web-2`",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Dirección",
+            "value": "`10.0.0.2`",
+            "inline": true
+          },
+          {
+            "name": "Clave fijada",
+            "value": "`SHA256:kQ3vP1xN0m0e5sYt3n2c1H0b9k2q3Wz8nq0w1d0aAbc`",
+            "inline": true
+          },
+          {
+            "name": "Clave presentada",
+            "value": "`SHA256:Zr9LmTq7bV2d8Yh1uJ0aXc4eF6gH3iK5oP7sRtUvWxy`",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/fleet"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "report.observations": {
+    "embeds": [
+      {
+        "title": "▲ Observaciones de procesos",
+        "description": "El monitor solo informa: no se ha enviado ninguna señal a ningún proceso ni se ha tocado ningún archivo. Revisa cada entrada antes de actuar.\n\n**Aviso: xmrig (PID 1234)**\n**Señal:** name-pattern\n**Usuario:** nobody\n**CPU:** 97.5%\n**Detalle:** Executable name matches the known-malware pattern 'xmrig'.\n**Comando:** `/tmp/.x/xmrig -o pool.example.org:3333`",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Procesos",
+            "value": "1",
+            "inline": true
+          },
+          {
+            "name": "Avisos",
+            "value": "1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "server.rebooted": {
+    "embeds": [
+      {
+        "title": "▲ Servidor reiniciado · web-1",
+        "description": "Nadie ha pedido este reinicio desde Noust: comprueba que todas las aplicaciones han vuelto.",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "De vuelta a las",
+            "value": "2026-09-29 04:02 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "server.back": {
+    "embeds": [
+      {
+        "title": "● Servidor de vuelta · web-1",
+        "description": "El reinicio pedido desde Noust ha terminado y la consola vuelve a funcionar.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Pedido por",
+            "value": "alice",
+            "inline": true
+          },
+          {
+            "name": "Programado para",
+            "value": "2026-09-29 04:00 UTC",
+            "inline": true
+          },
+          {
+            "name": "Tardó",
+            "value": "2 min 10 s",
+            "inline": true
+          },
+          {
+            "name": "De vuelta a las",
+            "value": "2026-09-29 04:02 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "approval.requested": {
+    "embeds": [
+      {
+        "title": "◐ Aprobación solicitada · #12",
+        "description": "Un cambio que necesita a una segunda persona está esperando a que alguien lo decida.\n\n**Decídela con:** `noust approval approve 12`",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Solicitud",
+            "value": "\\#12",
+            "inline": true
+          },
+          {
+            "name": "Cambio",
+            "value": "`fleet.node.add`",
+            "inline": true
+          },
+          {
+            "name": "Llamada",
+            "value": "`POST /api/nodes`",
+            "inline": true
+          },
+          {
+            "name": "Pedido por",
+            "value": "alice",
+            "inline": true
+          },
+          {
+            "name": "Motivo",
+            "value": "Adding the new database server of the shop",
+            "inline": true
+          },
+          {
+            "name": "Decídela antes de",
+            "value": "2026-09-30 10:45 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/settings/security"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "approval.approved": {
+    "embeds": [
+      {
+        "title": "● Solicitud aprobada · #12",
+        "description": "Quien lo pidió puede hacer el cambio una vez, antes de que caduque la aprobación.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Solicitud",
+            "value": "\\#12",
+            "inline": true
+          },
+          {
+            "name": "Cambio",
+            "value": "`fleet.node.add`",
+            "inline": true
+          },
+          {
+            "name": "Llamada",
+            "value": "`POST /api/nodes`",
+            "inline": true
+          },
+          {
+            "name": "Pedido por",
+            "value": "alice",
+            "inline": true
+          },
+          {
+            "name": "Decidida por",
+            "value": "bob",
+            "inline": true
+          },
+          {
+            "name": "Comentario",
+            "value": "Checked with the shop's owner",
+            "inline": true
+          },
+          {
+            "name": "Úsala antes de",
+            "value": "2026-09-29 11:15 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/settings/security"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "approval.rejected": {
+    "embeds": [
+      {
+        "title": "▲ Solicitud rechazada · #12",
+        "description": "El cambio no se hará; quien lo pidió puede volver a pedirlo con más contexto.",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Solicitud",
+            "value": "\\#12",
+            "inline": true
+          },
+          {
+            "name": "Cambio",
+            "value": "`fleet.node.add`",
+            "inline": true
+          },
+          {
+            "name": "Llamada",
+            "value": "`POST /api/nodes`",
+            "inline": true
+          },
+          {
+            "name": "Pedido por",
+            "value": "alice",
+            "inline": true
+          },
+          {
+            "name": "Decidida por",
+            "value": "bob",
+            "inline": true
+          },
+          {
+            "name": "Comentario",
+            "value": "Not before the maintenance window",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/settings/security"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "database.backup.failed": {
+    "embeds": [
+      {
+        "title": "✕ Copia de seguridad fallida · postgresql/shop",
+        "description": "No se ha guardado ninguna copia nueva de la base de datos.\n\n*Lo que ha informado el sistema*\n```\nThe dump was taken but failed its check\npg_restore: error: could not read input file: end of file\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "database.backup.upload_failed": {
+    "embeds": [
+      {
+        "title": "▲ Subida de la copia fallida · postgresql/shop",
+        "description": "La copia de la base de datos se ha guardado en este servidor, pero no se ha podido subir.\n\n*Lo que ha informado el sistema*\n```\nFailed to copy: AccessDenied: Access Denied\n```",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Destino",
+            "value": "offsite-s3",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "database.backup.completed": {
+    "embeds": [
+      {
+        "title": "● Copia completada · postgresql/shop",
+        "description": "Se ha guardado una copia nueva de la base de datos.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Copia",
+            "value": "`shop-20260929-104551.dump`",
+            "inline": true
+          },
+          {
+            "name": "Tamaño",
+            "value": "48.0 MB",
+            "inline": true
+          },
+          {
+            "name": "Subida a",
+            "value": "offsite-s3",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "database.restore.completed": {
+    "embeds": [
+      {
+        "title": "● Restaurado · postgresql/shop",
+        "description": "La base de datos ha vuelto a como estaba en el volcado.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Copia",
+            "value": "`shop-20260929-104551.dump`",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "database.restore.failed": {
+    "embeds": [
+      {
+        "title": "✕ Restauración fallida · postgresql/shop",
+        "description": "Se ha detenido por un error, así que la base de datos podría estar restaurada solo en parte.\n\n*Lo que ha informado el sistema*\n```\npg_restore: error: relation \"orders\" already exists\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Copia",
+            "value": "`shop-20260929-104551.dump`",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "hostile.deploy_failed": {
+    "embeds": [
+      {
+        "title": "✕ Despliegue fallido · shop.example.com",
+        "description": "Se ha detenido por un error antes de que la nueva versión tomara el relevo.\n\n**Revísalo con:** `noust diagnose shop.example.com`\n\n*Lo que ha informado el sistema*\n```\nRelease did not pass <​its> health & check\n<​urlopen error [Errno 111] Connection refused>\n'''\n@​everyone <​!channel> <​@U123|admin> &lt;b&gt;\nred *bold* _italic_ ~strike~ `code`\nnoitcnuf\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+            "inline": true
+          },
+          {
+            "name": "Versión",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (<​b>x<​/b>&amp;<​!channel> @​everyone \\`tick\\` \\_under\\_ \\*star\\* \\~tilde\\~ \\[a\\](http://evil.example)): fixgnp.exe @​here <​@U123> <​#C1> red emoji 🚀",
+            "inline": true
+          },
+          {
+            "name": "Iniciado por",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duración",
+            "value": "1 min 12 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "hostile.long_output": {
+    "embeds": [
+      {
+        "title": "✕ Actualización fallida · shop.example.com",
+        "description": "Se ha detenido por un error antes de que la nueva versión tomara el relevo.\n\n**Revísalo con:** `noust diagnose shop.example.com`\n\n*Lo que ha informado el sistema*\n```\nnpm run build failed\nline 495: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 496: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 497: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 498: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 499: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n… 495 líneas anteriores omitidas\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+            "inline": true
+          },
+          {
+            "name": "Versión",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Iniciado por",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duración",
+            "value": "1 min 12 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "hostile.no_link": {
+    "embeds": [
+      {
+        "title": "● Desplegado · shop.example.com",
+        "description": "La nueva versión ya está en servicio.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Versión",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Iniciado por",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duración",
+            "value": "42 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "hostile.preview": {
+    "embeds": [
+      {
+        "title": "● Desplegado · pr-12.shop.example.com",
+        "description": "La nueva versión ya está en servicio.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+            "inline": true
+          },
+          {
+            "name": "Vista previa de",
+            "value": "shop.example.com #12",
+            "inline": true
+          },
+          {
+            "name": "Versión",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Iniciado por",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duración",
+            "value": "42 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/pr-12.shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "hostile.no_commit": {
+    "embeds": [
+      {
+        "title": "● Actualizado · shop.example.com",
+        "description": "La aplicación ya ejecuta la nueva versión.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+            "inline": true
+          },
+          {
+            "name": "Iniciado por",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duración",
+            "value": "42 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "hostile.huge_subject": {
+    "embeds": [
+      {
+        "title": "✕ Copia de seguridad fallida · dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd…",
+        "description": "No se ha guardado ninguna copia nueva de la aplicación.\n\n*Lo que ha informado el sistema*\n```\nboom\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  }
+}

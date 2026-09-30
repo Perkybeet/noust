@@ -79,6 +79,8 @@ Suggests:       python3-psutil
 # A central's proxy to its nodes (HTTP and WebSockets through each tunnel).
 Suggests:       python3-httpx
 Suggests:       python3-websockets
+# Passkeys: the signature check (imported only when a passkey is verified).
+Suggests:       python3-cryptography
 # Remote backup destinations (noust backup destination); nothing else needs it.
 Suggests:       rclone
 # No separate venv package is Required here: python3-libs, pulled in
@@ -109,6 +111,7 @@ Suggests:       python%{python3_pkgversion}-uvicorn
 Suggests:       python%{python3_pkgversion}-psutil
 Suggests:       python%{python3_pkgversion}-httpx
 Suggests:       python%{python3_pkgversion}-websockets
+Suggests:       python%{python3_pkgversion}-cryptography
 Suggests:       rclone
 %if 0%{?suse_version} < 1600
 Requires:       python311
@@ -341,6 +344,9 @@ fi
 # Add new defaults to an existing configuration (user values are kept).
 if [ -f /etc/noust/config.yaml ] || [ -f /etc/wasm/config.yaml ]; then
     /usr/bin/noust config upgrade --quiet >/dev/null 2>&1 || :
+    # Remove the settings no version reads any more (the old AI monitor's
+    # OpenAI key among them), as text and with a dated 0600 copy first.
+    /usr/bin/noust config clean --quiet >/dev/null 2>&1 || :
 fi
 
 # Rewrite the monitor unit for this version if it is enabled. Only under its
@@ -353,6 +359,16 @@ if systemctl is-enabled noust-monitor.service >/dev/null 2>&1; then
     systemctl try-restart noust-monitor.service >/dev/null 2>&1 || :
 elif systemctl is-enabled wasm-monitor.service >/dev/null 2>&1; then
     systemctl try-restart wasm-monitor.service >/dev/null 2>&1 || :
+fi
+
+# The charts' history is recorded by the monitor, so a server gets it without
+# the operator having to know: installed and enabled on a first install, and on
+# an upgrade that finds none. It never overrides a decision - a monitor that is
+# installed stays as it is, and one an operator disabled or removed stays off -
+# and it does nothing where there is no systemd. 'noust monitor autoenable'
+# makes that call in one place; it must not fail the transaction.
+if [ -d /run/systemd/system ]; then
+    /usr/bin/noust monitor autoenable >/dev/null 2>&1 || :
 fi
 
 # 'noust web enable' runs the console as a unit, and %%preun leaves it running

@@ -24,7 +24,9 @@ from __future__ import annotations
 
 import re
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -38,13 +40,20 @@ from noust.core.config import Config
 from noust.core.exceptions import BackupError, NoustError
 from noust.core.fs import FileSystem, get_fs
 from noust.core.logger import Logger
-from noust.core.messages import message, normalize_locale
-from noust.core.notifier import NotificationEvent, Notifier
+from noust.core.notifications.composers import (
+    compose_backup_completed,
+    compose_backup_failed,
+    compose_backup_schedule_missing,
+    compose_backup_upload_failed,
+)
+from noust.core.notifications.context import NotificationContext
+from noust.core.notifications.model import Notification
+from noust.core.notifier import Notifier
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import BackupScheduleRecord, get_store
 from noust.core.utils import domain_to_app_name, find_noust_executable
 from noust.managers.backup_destinations import BackupDestinationManager
-from noust.managers.backup_manager import SCHEDULED_TAG, BackupManager
+from noust.managers.backup_manager import SCHEDULED_TAG, BackupManager, BackupMetadata
 from noust.validators.domain import validate_domain
 from noust.validators.names import resolve_within, validate_app_name, validate_service_name
 
@@ -84,6 +93,12 @@ SCHEDULE_ALIASES = {
 #: description is rendered by this module's own template, so reading the
 #: domain back out of it is reading this module's own writing.
 _DESCRIPTION_PREFIX = "Noust backup timer for "
+
+#: How a database policy's timer names itself. It is a different description
+#: from an application's so :meth:`BackupScheduler.list_schedules` can tell them
+#: apart by what the unit says, not by a guess on its name: an application
+#: called ``db-postgresql-shop`` would otherwise be taken for a database.
+_DATABASE_DESCRIPTION_PREFIX = "Noust database backup timer for "
 
 #: The ``OnCalendar`` expression inside systemd's ``TimersCalendar`` property,
 #: which prints as ``{ OnCalendar=*-*-* 02:00:00 ; next_elapse=... }``.
@@ -504,6 +519,10 @@ class BackupScheduler:
                         schedule_info["on_calendar"] = match.group(1).strip()
 
                 description = properties.get("Description", "")
+                if description.startswith(_DATABASE_DESCRIPTION_PREFIX):
+                    # A database's timer (see install_database_timer): the
+                    # databases' own listing shows it, not this one.
+                    continue
                 if description.startswith(_DESCRIPTION_PREFIX):
                     schedule_info["domain"] = description[len(_DESCRIPTION_PREFIX) :]
                     domain_read = True
@@ -628,6 +647,182 @@ class BackupScheduler:
             destinations=list(record.destinations),
         )
 
+    # -- database policies ---------------------------------------------------
+
+    @staticmethod
+    def database_timer_name(engine: str, database: str) -> str:
+        """
+        Name the timer unit of a database's backup policy.
+
+        Args:
+            engine: Canonical engine name.
+            database: The database.
+
+        Returns:
+            The unit name without its suffix: ``noust-backup-db-<engine>-<database>``.
+        """
+        return f"{paths.BACKUP_UNIT_PREFIX}db-{engine}-{database}"
+
+    def _database_unit_paths(self, engine: str, database: str) -> tuple[str, Path, Path]:
+        """
+        Resolve the unit name and files of a database's timer.
+
+        Args:
+            engine: Canonical engine name.
+            database: The database.
+
+        Returns:
+            The unit name, its timer file and its service file.
+
+        Raises:
+            BackupError: When the name cannot be a unit name: it is generated
+                from these values, so they are restricted to characters that
+                cannot become a systemd directive.
+        """
+        unit = self.database_timer_name(engine, database)
+        try:
+            validate_service_name(unit)
+        except NoustError as exc:
+            raise BackupError(
+                "Cannot schedule backups for this database",
+                details=f"{exc}. A unit file is generated from the database's name, so it is "
+                "restricted to characters that cannot become a systemd directive.",
+            ) from exc
+        return unit, self._unit_path(f"{unit}.timer"), self._unit_path(f"{unit}.service")
+
+    def _is_ours(self, path: Path) -> bool:
+        """
+        Tell a database timer Noust wrote from any other unit of the same name.
+
+        Args:
+            path: A timer unit file.
+
+        Returns:
+            True when it does not exist or carries a database timer's own
+            description.
+        """
+        if not path.is_file():
+            return True
+        try:
+            return _DATABASE_DESCRIPTION_PREFIX in path.read_text(encoding="utf-8")
+        except OSError:
+            return False
+
+    def install_database_timer(self, engine: str, database: str, schedule: str) -> str:
+        """
+        Create or replace the timer that runs a database's backup policy.
+
+        The service unit runs ``noust db backup-run DATABASE --engine ENGINE``, which
+        reads everything else (retention, destinations, format) from the
+        store, so the unit carries none of it and changing a policy only
+        rewrites the calendar.
+
+        Args:
+            engine: Canonical engine name.
+            database: The database.
+            schedule: An alias of :data:`SCHEDULE_ALIASES` or a calendar expression.
+
+        Returns:
+            The timer's unit name.
+
+        Raises:
+            BackupError: When a value is unusable, the unit name belongs to
+                something that is not a database timer, a unit cannot be
+                written or the timer cannot be enabled.
+        """
+        require_server_role("Database backups")
+        calendar = validate_calendar(schedule)
+        unit, timer_path, service_path = self._database_unit_paths(engine, database)
+        if not self._is_ours(timer_path):
+            raise BackupError(
+                f"{timer_path.name} exists and is not a database backup timer",
+                details="Another timer already has this name; remove it or rename the application "
+                "that owns it before scheduling this database.",
+            )
+        target = f"{engine}/{database}"
+        self._write_unit(
+            timer_path, self._render("database-backup-timer.j2", target=target, schedule=calendar)
+        )
+        self._write_unit(
+            service_path,
+            self._render(
+                "database-backup-service.j2",
+                target=target,
+                engine=engine,
+                database=database,
+                noust=find_noust_executable() or "/usr/bin/noust",
+            ),
+        )
+        self._systemctl("daemon-reload")
+        result = self._systemctl("enable", "--now", f"{unit}.timer")
+        if not result.success:
+            raise BackupError(
+                f"Failed to enable timer: {unit}.timer",
+                details=result.stderr.strip() or "Check 'systemctl status' for details.",
+            )
+        self.logger.info(f"Created database backup schedule: {unit} ({calendar})")
+        return unit
+
+    def remove_database_timer(self, engine: str, database: str) -> bool:
+        """
+        Remove the timer of a database's backup policy.
+
+        Args:
+            engine: Canonical engine name.
+            database: The database.
+
+        Returns:
+            True when a timer was there to remove.
+
+        Raises:
+            BackupError: When the name cannot be a unit name.
+        """
+        unit, timer_path, service_path = self._database_unit_paths(engine, database)
+        if not timer_path.is_file() or not self._is_ours(timer_path):
+            return False
+        self._systemctl("stop", f"{unit}.timer")
+        self._systemctl("disable", f"{unit}.timer")
+        for path in (timer_path, service_path):
+            try:
+                self.fs.remove(path)
+            except OSError as exc:
+                self.logger.warning(f"Could not remove {path}: {exc}")
+        self._systemctl("daemon-reload")
+        self.logger.info(f"Removed database backup schedule: {unit}")
+        return True
+
+    def database_timer_state(self, engine: str, database: str) -> dict[str, Any]:
+        """
+        Ask systemd about a database's timer.
+
+        Args:
+            engine: Canonical engine name.
+            database: The database.
+
+        Returns:
+            ``installed`` (systemd has the unit loaded), ``next_run`` and
+            ``last_run`` as systemd prints them (None when it prints nothing).
+        """
+        unit, _, _ = self._database_unit_paths(engine, database)
+        result = self._systemctl(
+            "show",
+            f"{unit}.timer",
+            "--property=LoadState,NextElapseUSecRealtime,LastTriggerUSec",
+        )
+        properties: dict[str, str] = {}
+        if result.success:
+            for line in result.stdout.splitlines():
+                key, separator, value = line.partition("=")
+                if separator:
+                    properties[key] = value.strip()
+        next_run = properties.get("NextElapseUSecRealtime", "")
+        last_run = properties.get("LastTriggerUSec", "")
+        return {
+            "installed": properties.get("LoadState") == "loaded",
+            "next_run": next_run if next_run and next_run != "n/a" else None,
+            "last_run": last_run if last_run and last_run != "n/a" else None,
+        }
+
     def _render(self, template_name: str, **values: str) -> str:
         """
         Render one of the escaped systemd templates.
@@ -692,25 +887,21 @@ class BackupScheduler:
         )
 
 
-def _notify_backup_failed(config: Config, domain: str, title: str, body: str) -> None:
+def _notify_backup(config: Config, notification: Notification) -> None:
     """
-    Tell the operator a scheduled backup step failed.
+    Tell the operator what a scheduled backup did.
 
     :meth:`~noust.core.notifier.Notifier.notify` already isolates a failing
     channel and never raises, so there is nothing further to guard here.
 
     Args:
-        config: Configuration to deliver through - the caller's own, so this
-            reads ``notifications.language`` and the channel settings from
-            the same snapshot the caller built ``title`` and ``body`` from.
-        domain: Application the backup belongs to.
-        title: One-line summary.
-        body: Detail shown to the operator - rclone's own stderr, scrubbed,
-            or the manager's error text.
+        config: Configuration to deliver through - the caller's own, so the
+            channel settings and the switches are read from the same snapshot
+            the caller composed ``notification`` with.
+        notification: What happened, composed by
+            :mod:`noust.core.notifications.composers`.
     """
-    Notifier(config).notify(
-        NotificationEvent(kind="backup_failed", title=title, body=body, domain=domain)
-    )
+    Notifier(config).notify(notification)
 
 
 def _create_when_free(
@@ -752,6 +943,109 @@ def _create_when_free(
             time.sleep(_LOCK_RETRY_SECONDS)
 
 
+def _moment(value: str | None) -> datetime | None:
+    """
+    Read a sidecar's timestamp as a naive local time, as backups write them.
+
+    Args:
+        value: An ISO 8601 timestamp, or None.
+
+    Returns:
+        The moment, or None when there is none or it cannot be read.
+    """
+    if not value:
+        return None
+    try:
+        moment = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    return moment.astimezone().replace(tzinfo=None) if moment.tzinfo else moment
+
+
+def verification_due(
+    backups: Sequence[BackupMetadata], *, days: int, now: datetime | None = None
+) -> bool:
+    """
+    Report whether an application's backups need a verification now.
+
+    Args:
+        backups: Its backups.
+        days: How old the newest good verification may be.
+        now: The moment to judge at; the clock by default.
+
+    Returns:
+        True when no backup was verified good within ``days``.
+    """
+    horizon = (now or datetime.now()) - timedelta(days=days)
+    for backup in backups:
+        verified = _moment(backup.last_verified_at)
+        if backup.verified_ok and verified is not None and verified >= horizon:
+            return False
+    return True
+
+
+def verify_days(config: Config) -> int:
+    """
+    How often a schedule proves its backups restorable (ENS mp.info.6.r1).
+
+    ``backup.verify_days`` (0 turns it off), capped by the security profile's
+    value under ``ens-medium``, where it cannot be turned off.
+
+    Args:
+        config: The configuration.
+
+    Returns:
+        Days; 0 for never.
+    """
+    from noust.core.ens.profile import active_defaults
+
+    defaults = active_defaults(config)
+    try:
+        configured = int(config.get("backup.verify_days", defaults.backup_verify_days))
+    except (TypeError, ValueError):
+        configured = defaults.backup_verify_days
+    if defaults.ens:
+        return (
+            min(configured, defaults.backup_verify_days)
+            if configured > 0
+            else (defaults.backup_verify_days)
+        )
+    return max(configured, 0)
+
+
+def _verify_when_due(
+    backup_manager: BackupManager, metadata: BackupMetadata, config: Config
+) -> dict[str, Any] | None:
+    """
+    Deep-verify the backup just taken when the last good verification is too old.
+
+    The verification is the one ``noust backup verify`` runs (the archive
+    unpacked with the extractor a restore uses), recorded on the backup and
+    as a ``backups.verify`` audit event: the evidence that restoration is
+    tested regularly.
+
+    Args:
+        backup_manager: The manager that took it.
+        metadata: The backup just taken.
+        config: The configuration.
+
+    Returns:
+        The verification's result, or None when none was due.
+    """
+    days = verify_days(config)
+    # A rehearsal wrote no archive to verify.
+    if days <= 0 or backup_manager.get_backup(metadata.id) is None:
+        return None
+    others = [
+        backup
+        for backup in backup_manager.list_backups(domain=metadata.domain)
+        if backup.id != metadata.id
+    ]
+    if not verification_due(others, days=days):
+        return None
+    return backup_manager.verify(metadata.id, deep=True)
+
+
 def run_schedule(
     domain: str,
     *,
@@ -790,27 +1084,25 @@ def run_schedule(
 
     Returns:
         A summary: the local backup's id, the outcome of each destination
-        push, and ``schedule_missing`` when the row was not found.
+        push, ``verification`` (the deep verification run when the last good
+        one was older than ``backup.verify_days``, else None) and
+        ``schedule_missing`` when the row was not found.
 
     Raises:
         BackupError: When the local backup itself fails (there is nothing to
-            push without one), or at least one destination could not be sent
-            the backup - the local backup is kept either way.
+            push without one), it failed its verification (nothing is sent),
+            or at least one destination could not be sent the backup - the
+            local backup is kept either way.
         AppBusyError: Another operation held the application's lock for
             longer than a scheduled backup waits.
     """
     store = get_store()
     config = Config()
-    locale = normalize_locale(config.get("notifications.language"))
+    ctx = NotificationContext.from_config(config)
     record = store.get_backup_schedule(domain)
     schedule_missing = record is None
     if record is None:
-        _notify_backup_failed(
-            config,
-            domain,
-            message("backup_schedule_missing_title", locale, domain=domain),
-            message("backup_schedule_missing_body", locale, domain=domain),
-        )
+        _notify_backup(config, compose_backup_schedule_missing(domain, ctx))
         record = BackupScheduleRecord(
             app_domain=domain,
             schedule="unknown",
@@ -826,12 +1118,7 @@ def run_schedule(
     try:
         metadata = _create_when_free(backup_manager, domain, record)
     except NoustError as exc:
-        _notify_backup_failed(
-            config,
-            domain,
-            message("backup_scheduled_failed_title", locale, domain=domain),
-            str(exc),
-        )
+        _notify_backup(config, compose_backup_failed(domain, str(exc), ctx))
         raise
 
     result: dict[str, Any] = {
@@ -839,7 +1126,19 @@ def run_schedule(
         "backup_id": metadata.id,
         "destinations": {},
         "schedule_missing": schedule_missing,
+        "verification": _verify_when_due(backup_manager, metadata, config),
     }
+    verification = result["verification"]
+    if verification is not None and not verification.get("valid"):
+        # An archive that does not verify is not sent: remote retention would
+        # make room for it by deleting a good copy.
+        problem = "; ".join(verification.get("errors") or []) or "it did not verify"
+        message = f"backup {metadata.id} failed its verification: {problem}"
+        _notify_backup(config, compose_backup_failed(domain, message, ctx))
+        raise BackupError(
+            f"The scheduled backup of {domain} failed its verification and was not sent",
+            details=f"{problem}. Run 'noust backup verify {metadata.id}' for the whole report.",
+        )
     failures: list[tuple[str, str]] = []
     for destination in record.destinations:
         name = destination.get("name")
@@ -860,12 +1159,7 @@ def run_schedule(
             # stderr, already scrubbed of the destination's secrets.
             result["destinations"][name] = {"ok": False, "error": str(exc)}
             failures.append((name, str(exc)))
-            _notify_backup_failed(
-                config,
-                domain,
-                message("backup_upload_failed_title", locale, name=name, domain=domain),
-                str(exc),
-            )
+            _notify_backup(config, compose_backup_upload_failed(domain, name, str(exc), ctx))
 
     if failures:
         # Each destination's own error, rclone's words included: a timer run
@@ -877,4 +1171,16 @@ def run_schedule(
             + "\n".join(f"{name}: {error}" for name, error in failures),
         )
 
+    # The heartbeat: off unless the operator switched backup_success on. Only a
+    # backup that went everywhere it was meant to counts as one.
+    _notify_backup(
+        config,
+        compose_backup_completed(
+            domain,
+            metadata.id,
+            ctx,
+            size_bytes=metadata.size_bytes,
+            destinations=list(result["destinations"]),
+        ),
+    )
     return result

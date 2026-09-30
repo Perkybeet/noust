@@ -77,6 +77,12 @@ ACTOR_HEADER = "X-Noust-Actor"
 #: token to it. Must match ``noust.web.auth.FLEET_ACTOR_SCOPE_HEADER``.
 ACTOR_SCOPE_HEADER = "X-Noust-Actor-Scope"
 
+#: The role that operator's account holds on the central; a 3.1 node grants
+#: its own table's permissions for it. Must match
+#: ``noust.web.auth.FLEET_ACTOR_ROLE_HEADER``.
+ACTOR_ROLE_HEADER = "X-Noust-Actor-Role"
+ACTOR_ROLE_PATTERN = re.compile(r"[a-z][a-z_-]{0,31}")
+
 #: ``1`` when that operator is in sudo mode on the central (or is a credential
 #: sudo mode does not ask). Must match ``noust.web.auth.FLEET_ELEVATED_HEADER``.
 ELEVATED_HEADER = "X-Noust-Elevated"
@@ -241,6 +247,7 @@ class NodeClient:
         actor: str | None = None,
         *,
         actor_scope: str | None = None,
+        actor_role: str | None = None,
         elevated: bool = False,
     ) -> dict[str, str]:
         """
@@ -254,6 +261,10 @@ class NodeClient:
                 status poll) should still pass ``read`` explicitly, and one
                 acting with this central's own full authority (the CLI,
                 which already runs as local root) passes ``admin``.
+            actor_role: That operator's account role on the central; omitted
+                for a credential with no role (the master token, a token
+                issued before accounts), which the node then narrows by
+                ``actor_scope`` exactly as a 3.0 node does.
             elevated: Whether that operator is confirmed in sudo mode.
 
         Returns:
@@ -277,6 +288,10 @@ class NodeClient:
             if actor_scope not in ACTOR_SCOPES:
                 raise NodeError(f"Invalid actor scope: {actor_scope!r}")
             headers[ACTOR_SCOPE_HEADER] = actor_scope
+        if actor_role is not None:
+            if not ACTOR_ROLE_PATTERN.fullmatch(actor_role):
+                raise NodeError(f"Invalid actor role: {actor_role!r}")
+            headers[ACTOR_ROLE_HEADER] = actor_role
         if elevated:
             headers[ELEVATED_HEADER] = "1"
         return headers
@@ -290,6 +305,7 @@ class NodeClient:
         params: dict[str, Any] | None = None,
         actor: str | None = None,
         actor_scope: str | None = None,
+        actor_role: str | None = None,
         elevated: bool = False,
     ) -> httpx.Response:
         """
@@ -302,6 +318,8 @@ class NodeClient:
             params: Query parameters.
             actor: Who on the central acts.
             actor_scope: That operator's scope on the central.
+            actor_role: That operator's account role on the central; see
+                :meth:`auth_headers`.
             elevated: Whether that operator is in sudo mode on the central.
 
         Returns:
@@ -316,7 +334,9 @@ class NodeClient:
         """
         if not path.startswith("/") or path.startswith("//") or any(c in path for c in "\r\n"):
             raise NodeError(f"Not a path on the node: {path!r}")
-        headers = self.auth_headers(actor, actor_scope=actor_scope, elevated=elevated)
+        headers = self.auth_headers(
+            actor, actor_scope=actor_scope, actor_role=actor_role, elevated=elevated
+        )
         url = self.base_url() + path
         http = load_httpx()
         try:

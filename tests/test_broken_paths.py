@@ -485,6 +485,9 @@ def health_environment(monkeypatch: pytest.MonkeyPatch, fake_store: FakeStore) -
     monkeypatch.setattr(NginxManager, "is_installed", lambda self: True)
     monkeypatch.setattr(NginxManager, "get_status", lambda self: {"active": True})
     monkeypatch.setattr(ApacheManager, "is_installed", lambda self: False)
+    # The hardening checks read their own tables, which this stand-in does not
+    # have; they are tested in test_server_security_checks.py.
+    monkeypatch.setattr("noust.managers.health.run_checks", lambda **_kw: None)
     return fake_store
 
 

@@ -300,6 +300,30 @@ def split_url_credentials(url: str) -> tuple[str, dict[str, str]]:
 
 def _validate_source_keeping_credentials(source: str) -> tuple[str, str]:
     """
+    Classify a source, and refuse one from an origin this server does not allow.
+
+    Every fetch classifies its source here first, so this is where the
+    allowed origins (``security.allowed_sources``, :mod:`noust.core.ens.origins`)
+    are enforced: a deploy, an update, a preview and a webhook all meet it.
+
+    Args:
+        source: Source as given or stored.
+
+    Returns:
+        ``(source_type, normalized)``; see :func:`_classify_source`.
+
+    Raises:
+        SourceError: If the source is invalid, or from an origin not allowed.
+    """
+    from noust.core.ens.origins import check_origin
+
+    source_type, normalized = _classify_source(source)
+    check_origin(normalized, kind=source_type)
+    return source_type, normalized
+
+
+def _classify_source(source: str) -> tuple[str, str]:
+    """
     Classify a source, judging a URL by what it is without its credential.
 
     :func:`~noust.validators.source.validate_source` cannot tell the host of
@@ -2953,11 +2977,14 @@ class SourceManager(BaseManager):
             path: Repository path.
 
         Returns:
-            Dictionary with repository information.
+            Dictionary with repository information. ``detached`` is True when
+            the checkout is on a commit rather than a branch; ``branch`` then
+            names the branch it goes back to, not one it is on.
         """
         info: dict[str, Any] = {
             "is_git": False,
             "branch": None,
+            "detached": False,
             "remote": None,
             "commit": None,
             "dirty": False,
@@ -2975,6 +3002,7 @@ class SourceManager(BaseManager):
         if info["branch"] == "HEAD":
             # Detached on one commit by a rebuild: what it follows is the
             # branch the next update returns to, not the word HEAD.
+            info["detached"] = True
             info["branch"] = self._followed_branch(path)
 
         # Get remote URL

@@ -36,6 +36,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from noust.core.exceptions import BackupError
 from noust.core.store import BackupDestinationRecord
 from noust.managers.backup_destinations import (
     BACKEND_FIELDS,
@@ -375,6 +376,36 @@ def delete_destination(
     return DestinationActionResponse(success=True, message=f"Backup destination removed: {name}")
 
 
+def _unreachable(exc: BackupError) -> HTTPException:
+    """
+    Answer a destination that could not be reached as what it is: the operator's to fix.
+
+    A destination that does not answer is a wrong address, a wrong credential
+    or a missing permission, not a fault of this server, so it is a 4xx and
+    not the 500 a bare :class:`~noust.core.exceptions.BackupError` becomes.
+    What rclone said travels verbatim in ``output`` (already scrubbed of the
+    destination's secrets by the manager), under a fixed hint.
+
+    Args:
+        exc: What the manager raised.
+
+    Returns:
+        The exception to raise, in the API's error contract.
+    """
+    return HTTPException(
+        status_code=400,
+        detail={
+            "error": "destination_unreachable",
+            "detail": exc.message,
+            "hint": (
+                "Check the destination's address, credentials and permissions; "
+                "the output below is rclone's own."
+            ),
+            "output": exc.details or None,
+        },
+    )
+
+
 @router.post("/{name}/test", response_model=TestDestinationResponse)
 def test_destination(
     name: str, session: Annotated[dict, Depends(get_current_session)]
@@ -388,8 +419,15 @@ def test_destination(
 
     Returns:
         The top-level entries found there.
+
+    Raises:
+        HTTPException: 400 ``destination_unreachable`` when it cannot be
+            reached, with rclone's own words in ``output``.
     """
-    result = BackupDestinationManager().test(name)
+    try:
+        result = BackupDestinationManager().test(name)
+    except BackupError as exc:
+        raise _unreachable(exc) from exc
     return TestDestinationResponse(ok=bool(result["ok"]), entries=list(result["entries"]))
 
 
@@ -435,8 +473,15 @@ def list_remote_backups(
 
     Returns:
         The applications found, or that application's backups, newest first.
+
+    Raises:
+        HTTPException: 400 ``destination_unreachable`` when it cannot be
+            reached, with rclone's own words in ``output``.
     """
-    result = BackupDestinationManager().remote_list(name, app)
+    try:
+        result = BackupDestinationManager().remote_list(name, app)
+    except BackupError as exc:
+        raise _unreachable(exc) from exc
     return RemoteBackupsResponse(
         apps=list(result.get("apps", [])),
         backups=[RemoteBackupInfo(**entry) for entry in result.get("backups", [])],

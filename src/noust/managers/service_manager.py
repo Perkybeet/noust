@@ -116,6 +116,64 @@ UNIT_FILE_MODE = 0o644
 #: ExecStart binary; both are fast, but a deadline is still mandatory.
 VERIFY_TIMEOUT = 15
 
+#: A unit name as systemd and the restart probes print one.
+_UNIT_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9:_.@-]*\.service$")
+
+#: Units never restarted because an update replaced their libraries, each with
+#: why: restarting them ends sessions, drops the network, stops every container
+#: or virtual machine, or is systemd's own plumbing. The list needrestart keeps
+#: for itself (its ``override_rc``), and what a server with clients' containers
+#: adds. A reboot is how these take the new libraries.
+NEVER_RESTARTED: tuple[tuple[re.Pattern[str], str], ...] = tuple(
+    (re.compile(pattern), reason)
+    for pattern, reason in (
+        (r"^dbus(-broker)?\.service$", "restarting D-Bus breaks systemd and every session"),
+        (r"^systemd-logind\.service$", "restarting logind ends every login session"),
+        (
+            r"^(serial-|console-|container-)?getty@.*\.service$",
+            "restarting a getty ends a console login",
+        ),
+        (r"^user@\d+\.service$", "restarting it ends a user's session"),
+        (r"^user-runtime-dir@\d+\.service$", "restarting it ends a user's session"),
+        (r"^(emergency|rescue)\.service$", "it is a recovery shell"),
+        (
+            r"^(systemd-networkd|systemd-resolved|NetworkManager|networking|network"
+            r"|wpa_supplicant|wicked|systemd-udevd)\.service$",
+            "restarting it drops the network, and the connection to this page with it",
+        ),
+        (
+            r"^(docker|containerd|podman|crio|snapd)\.service$",
+            "restarting it stops every container on this server",
+        ),
+        (
+            r"^(libvirtd|virtqemud|qemu-kvm|xen.*|lxc|lxd)\.service$",
+            "restarting it stops every virtual machine on this server",
+        ),
+        (
+            r"^(gdm|gdm3|lightdm|sddm|xdm|kdm|lxdm|slim)\.service$",
+            "restarting it ends the graphical session",
+        ),
+        (r"^(open-)?iscsid\.service$", "restarting it can drop the disks it serves"),
+        (r"^multipathd\.service$", "restarting it can drop the disks it serves"),
+    )
+)
+
+
+def outdated_restart_refusal(unit: str) -> str | None:
+    """
+    Say why a unit running replaced libraries is not restarted from Noust.
+
+    Args:
+        unit: The unit, with its ``.service`` suffix.
+
+    Returns:
+        The reason, or None when it may be restarted.
+    """
+    for pattern, reason in NEVER_RESTARTED:
+        if pattern.match(unit):
+            return reason
+    return None
+
 
 #: The smallest memory limit accepted. Below it a Node or Python process is
 #: killed by the OOM killer while it is still loading, which looks like a
@@ -1475,7 +1533,9 @@ class ServiceManager(BaseManager):
         ]
         return sorted(rows, key=lambda row: str(row["name"]))
 
-    def describe_units(self, names: list[str]) -> dict[str, dict[str, str]]:
+    def describe_units(
+        self, names: list[str], fields: Sequence[str] = DESCRIBE_PROPERTIES
+    ) -> dict[str, dict[str, str]]:
         """
         Read systemd's properties for several units in one call.
 
@@ -1487,10 +1547,14 @@ class ServiceManager(BaseManager):
         Args:
             names: Unit names without the ``.service`` suffix, as systemd or
                 :meth:`managed_units` wrote them.
+            fields: The properties to read. ``Id`` must be among them: it is
+                what the answer is keyed by. The metrics plan asks for the
+                control group and the accounting flags instead.
 
         Returns:
-            Unit name to its :data:`DESCRIBE_PROPERTIES`. A unit systemd did
-            not answer for is missing.
+            Unit name to its properties (by default
+            :data:`DESCRIBE_PROPERTIES`). A unit systemd did not answer for is
+            missing.
         """
         if not names:
             return {}
@@ -1500,7 +1564,7 @@ class ServiceManager(BaseManager):
                 "show",
                 "--no-pager",
                 "-p",
-                ",".join(DESCRIBE_PROPERTIES),
+                ",".join(fields),
                 "--",
                 *(f"{name}.service" for name in names),
             ]
@@ -2292,6 +2356,51 @@ class ServiceManager(BaseManager):
             )
 
         self._update_stored_status(info.unit, "active")
+
+    def restart_outdated(
+        self, name: str, *, outdated: Collection[str], no_block: bool = False
+    ) -> None:
+        """
+        Restart a unit an update left running on replaced libraries, Noust's or not.
+
+        The one way a unit that is not Noust's is restarted from Noust, so its
+        guard is here: the unit must be one the restart probe reported
+        (``outdated``: needrestart, ``dnf needs-restarting -s``, ``zypper ps``),
+        and none of :data:`NEVER_RESTARTED`.
+
+        Args:
+            name: The unit, with its ``.service`` suffix.
+            outdated: The units the probe reported.
+            no_block: Queue the restart and return at once: the console's own
+                unit, which a waiting restart would kill mid-request.
+
+        Raises:
+            ServiceError: The unit is not a unit name, was not reported, is
+                never restarted from here, or systemd refused (with its words).
+        """
+        unit = str(name).strip()
+        if not _UNIT_NAME.match(unit):
+            raise ServiceError(
+                f"Not a unit name: {name!r}",
+                details="Name a unit the update check listed, such as nginx.service.",
+            )
+        if unit not in {str(entry).strip() for entry in outdated}:
+            raise ServiceError(
+                f"{unit} does not run replaced libraries",
+                details="Only the units the update check lists are restarted from here. "
+                "Check again: noust server updates list",
+            )
+        refusal = outdated_restart_refusal(unit)
+        if refusal is not None:
+            raise ServiceError(
+                f"{unit} is not restarted from Noust: {refusal}",
+                details="Reboot the server when it suits you: the reboot restarts it with "
+                "the new libraries.",
+            )
+        argv = ["systemctl", "restart", *(["--no-block"] if no_block else []), unit]
+        result = self._exec(argv, timeout=_LIFECYCLE_TIMEOUT)
+        if not result.success:
+            raise ServiceError(f"Failed to restart service: {unit}", details=result.stderr)
 
     def enable(self, name: str) -> bool:
         """

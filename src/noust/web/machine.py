@@ -26,21 +26,15 @@ place that does either.
 from __future__ import annotations
 
 import logging
-import os
 import socket
 import sqlite3
-import time
 from collections import deque
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
 from noust.core.exceptions import NoustError
-
-try:
-    import psutil
-except ImportError:  # pragma: no cover - psutil is an optional extra
-    psutil = None  # type: ignore[assignment]
+from noust.monitor import sampler
 
 log = logging.getLogger(__name__)
 
@@ -49,9 +43,6 @@ log = logging.getLogger(__name__)
 #: still worth reacting to. The console draws its own sparkline from these;
 #: rendering one here was this module's job when the strip was HTML.
 LOAD_HISTORY = 24
-
-#: Where the disk meter reports on when nothing more specific is asked for.
-DEFAULT_APPS_ROOT = "/var/www/apps"
 
 _load_history: deque[float] = deque(maxlen=LOAD_HISTORY)
 
@@ -212,11 +203,22 @@ def _count_units(services: list[dict[str, Any]]) -> UnitTally:
     return UnitTally(running=running, failed=failed, stopped=stopped)
 
 
-def _count_apps(services: list[dict[str, Any]]) -> AppTally:
-    """
-    Tally applications by state, from the unit list the unit tally also reads.
+#: The states :func:`classify_apps` sorts an application into.
+APP_RUNNING = "running"
+APP_FAILED = "failed"
+APP_STOPPED = "stopped"
+APP_STATIC = "static"
+#: A crash loop or a start in progress: neither up nor down, which the tally
+#: below folds into ``stopped`` (the JSON has no fourth bucket) and the
+#: Overview's attention list shows on its own.
+APP_RESTARTING = "restarting"
 
-    A PHP application is counted by its pool (the file, and whether its
+
+def classify_apps(services: list[dict[str, Any]]) -> dict[str, str]:
+    """
+    Sort every deployed application into a state, from the unit list.
+
+    A PHP application is classified by its pool (the file, and whether its
     socket accepts a connection: no systemctl call per application). Any
     other application either has no unit at all - it is static, served
     directly by the web server, and asking systemd about it would always say
@@ -226,14 +228,15 @@ def _count_apps(services: list[dict[str, Any]]) -> AppTally:
     legacy prefix, a monorepo's workspaces and Compose are resolved there,
     once). An application with several units is as healthy as its worst one:
     failed when any failed, running only when all run. An application in
-    zero-downtime mode is counted by the instance that serves
+    zero-downtime mode is classified by the instance that serves
     (:meth:`~noust.managers.service_manager.ServiceManager.serving_units`).
 
     Args:
         services: What :func:`fetch_service_states` returned.
 
     Returns:
-        How many applications are running, failed, stopped or static.
+        Domain to ``running``, ``failed``, ``stopped``, ``static`` or
+        ``restarting``. Empty when the store cannot be read.
     """
     from noust.core.store import get_store
 
@@ -241,7 +244,7 @@ def _count_apps(services: list[dict[str, Any]]) -> AppTally:
         apps = get_store().list_apps()
     except (NoustError, sqlite3.Error) as exc:
         log.warning("Could not read applications for the machine snapshot: %s", exc)
-        return AppTally(running=0, failed=0, stopped=0, static=0)
+        return {}
 
     by_app: dict[str, dict[str, str]] = {}
     for service in services:
@@ -255,19 +258,21 @@ def _count_apps(services: list[dict[str, Any]]) -> AppTally:
     from noust.managers.service_manager import ServiceManager
 
     manager: ServiceManager | None = None
-    running = failed = stopped = static = 0
+    states: dict[str, str] = {}
     for app in apps:
         if is_php_fpm(app):
-            # Stored as static, but its pool runs it: counted by the pool.
+            # Stored as static, but its pool runs it: classified by the pool.
             from noust.deployers.php_fpm import pool_serving
 
             bucket = pool_serving(app)
-            running += bucket == "active"
-            failed += bucket == "failed"
-            stopped += bucket == "stopped"
+            states[app.domain] = {
+                "active": APP_RUNNING,
+                "failed": APP_FAILED,
+                "stopped": APP_STOPPED,
+            }.get(bucket, APP_STOPPED)
             continue
         if app.is_static:
-            static += 1
+            states[app.domain] = APP_STATIC
             continue
 
         units = by_app.get(app.domain, {})
@@ -280,42 +285,39 @@ def _count_apps(services: list[dict[str, Any]]) -> AppTally:
             units = {name: bucket for name, bucket in units.items() if name in serving}
         buckets = list(units.values())
         if "failed" in buckets:
-            failed += 1
+            states[app.domain] = APP_FAILED
         elif buckets and all(bucket == "active" for bucket in buckets):
-            running += 1
+            states[app.domain] = APP_RUNNING
+        elif "busy" in buckets:
+            states[app.domain] = APP_RESTARTING
         else:
-            stopped += 1
+            states[app.domain] = APP_STOPPED
+    return states
 
-    return AppTally(running=running, failed=failed, stopped=stopped, static=static)
 
-
-def _resolve_apps_root(apps_root: str | None) -> str:
+def _count_apps(services: list[dict[str, Any]]) -> AppTally:
     """
-    Work out which filesystem the disk meter reports on.
+    Tally applications by state, from the unit list the unit tally also reads.
 
     Args:
-        apps_root: An explicit override, or None to read the configured
-            ``apps_directory`` - the same flat key every deployer reads, so
-            the meter reports on the filesystem applications are actually
-            deployed to.
+        services: What :func:`fetch_service_states` returned.
 
     Returns:
-        A directory path. Falls back to :data:`DEFAULT_APPS_ROOT` when no
-        override was given and the configuration cannot be read - the same
-        default the applications directory itself has.
+        How many applications are running, failed, stopped or static; one
+        restarting counts as stopped.
     """
-    if apps_root is not None:
-        return apps_root
+    states = classify_apps(services)
+    return AppTally(
+        running=sum(state == APP_RUNNING for state in states.values()),
+        failed=sum(state == APP_FAILED for state in states.values()),
+        stopped=sum(state in (APP_STOPPED, APP_RESTARTING) for state in states.values()),
+        static=sum(state == APP_STATIC for state in states.values()),
+    )
 
-    from noust.core.config import Config
 
-    try:
-        return str(Config().get("apps_directory", DEFAULT_APPS_ROOT))
-    except (NoustError, OSError) as exc:
-        log.warning(
-            "Could not read apps_directory from the configuration, using the default: %s", exc
-        )
-        return DEFAULT_APPS_ROOT
+#: The one implementation of "which filesystem is the disk meter about" lives in
+#: the sampler, where the chart collector reads it too.
+_resolve_apps_root = sampler.resolve_apps_root
 
 
 def read_machine(apps_root: str | None = None) -> MachineState:
@@ -331,24 +333,20 @@ def read_machine(apps_root: str | None = None) -> MachineState:
     Returns:
         A snapshot ready for ``dataclasses.asdict`` and ``MachineOut``.
     """
-    apps_root = _resolve_apps_root(apps_root)
+    apps_root = sampler.resolve_apps_root(apps_root)
     hostname = socket.gethostname()
 
-    try:
-        load = os.getloadavg()
-    except OSError:  # pragma: no cover - not available on every platform
-        load = (0.0, 0.0, 0.0)
+    load = sampler.read_load()
     _load_history.append(load[0])
 
-    if psutil is not None:
-        memory = psutil.virtual_memory()
-        target = apps_root if os.path.isdir(apps_root) else "/"
-        disk = psutil.disk_usage(target)
-        uptime_seconds = time.time() - psutil.boot_time()
+    if sampler.available():
+        memory = sampler.read_memory()
+        disk = sampler.read_disk(apps_root)
+        uptime_seconds = sampler.read_uptime()
         # A short blocking sample: both callers of this function - the REST
         # handler and the SSE tick - already run off the event loop, in
         # FastAPI's threadpool or events.py's run_in_threadpool respectively.
-        cpu_percent = psutil.cpu_percent(interval=0.1)
+        cpu_percent = sampler.read_cpu_percent(interval=0.1)
         memory_snapshot = MemorySnapshot(
             used=memory.used, total=memory.total, percent=memory.percent
         )

@@ -7,26 +7,25 @@ Record fleet actions taken at a terminal in the same audit log the console write
 Authorizing a central hands it a credential to this server; adding or
 removing a node changes what a central can reach. Each is recorded next to
 the console's own entries, so one log answers "who gave access to whom".
+
+The entry goes through :mod:`noust.core.audit` like every other event, as the
+operating system identity of whoever ran the command (the login uid the
+kernel keeps through ``sudo``), linked to the command's own ``cli.command``
+events by its correlation id.
 """
 
 from __future__ import annotations
 
-import getpass
-import logging
-
-from noust.core.exceptions import SecurityError
-
-logger = logging.getLogger(__name__)
+from noust.core import audit as audit_trail
 
 
 def audit(
     action: str, result: str, *, resource: str | None = None, detail: str | None = None
 ) -> None:
     """
-    Append one entry to the console's audit log, as the operator at this terminal.
+    Append one entry to the audit log, as the operator at this terminal.
 
-    Never pass a credential in ``detail``. A server without the console's
-    dependencies has no audit log; the entry goes to the process log instead.
+    Never pass a credential in ``detail``.
 
     Args:
         action: Such as ``fleet.authorize``.
@@ -34,35 +33,10 @@ def audit(
         resource: What was acted on, such as ``central:nas``.
         detail: One sentence of context.
     """
-    try:
-        user = getpass.getuser()
-    except (KeyError, OSError):
-        user = "unknown"
-    try:
-        from noust.web.auth import AuditLogger, SecurityConfig
-    except ImportError:
-        logger.warning(
-            "Audit (no console installed): %s %s %s %s", action, result, resource, detail
-        )
-        return
-    config = SecurityConfig()
-    try:
-        auditor = AuditLogger(
-            config.audit_log,
-            enabled=config.audit_enabled,
-            max_bytes=config.audit_max_bytes,
-            backups=config.audit_backups,
-        )
-    except SecurityError as exc:
-        logger.warning(
-            "Cannot open the audit log (%s): %s %s %s", exc.message, action, result, detail
-        )
-        return
-    auditor.record(
-        action=action,
-        result=result,
-        client_ip="local",
-        actor=f"cli:{user}",
-        resource=resource,
+    audit_trail.get_log().append(
+        action,
+        actor=audit_trail.cli_actor(),
+        target=resource,
+        outcome=result,
         detail=detail,
     )

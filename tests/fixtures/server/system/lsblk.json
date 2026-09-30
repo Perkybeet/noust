@@ -1,0 +1,61 @@
+{
+   "blockdevices": [
+      {
+         "name": "loop0",
+         "size": 839634944,
+         "type": "loop",
+         "fstype": "iso9660",
+         "mountpoint": "/mnt/wsl/docker-desktop/cli-tools",
+         "ro": true
+      },{
+         "name": "loop1",
+         "size": 759314432,
+         "type": "loop",
+         "fstype": "iso9660",
+         "mountpoint": null,
+         "ro": true
+      },{
+         "name": "sda",
+         "size": 407490560,
+         "type": "disk",
+         "fstype": "ext4",
+         "mountpoint": null,
+         "ro": true
+      },{
+         "name": "sdb",
+         "size": 195080192,
+         "type": "disk",
+         "fstype": "ext4",
+         "mountpoint": null,
+         "ro": true
+      },{
+         "name": "sdc",
+         "size": 8589938688,
+         "type": "disk",
+         "fstype": "swap",
+         "mountpoint": "[SWAP]",
+         "ro": false
+      },{
+         "name": "sdd",
+         "size": 158334976,
+         "type": "disk",
+         "fstype": "ext4",
+         "mountpoint": "/mnt/wsl/docker-desktop/docker-desktop-user-distro",
+         "ro": false
+      },{
+         "name": "sde",
+         "size": 1099511627776,
+         "type": "disk",
+         "fstype": "ext4",
+         "mountpoint": null,
+         "ro": false
+      },{
+         "name": "sdf",
+         "size": 1099511627776,
+         "type": "disk",
+         "fstype": "ext4",
+         "mountpoint": "/mnt/wslg/distro",
+         "ro": false
+      }
+   ]
+}

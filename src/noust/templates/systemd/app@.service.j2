@@ -47,6 +47,10 @@ StandardError=journal
 SyslogIdentifier={{ esc.line(name) }}@%i
 
 # Resource limits, for each instance
+# The metrics tab reads memory.current and cpu.stat, which exist only while
+# systemd counts; a distribution may ship with that off.
+MemoryAccounting=yes
+CPUAccounting=yes
 LimitNOFILE=65535
 {% for directive in resource_limits | default([]) %}
 {{ esc.line(directive) }}

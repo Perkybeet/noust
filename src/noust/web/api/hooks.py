@@ -32,6 +32,12 @@ neither carries a ``ref`` - queued an update of production. A delivery that
 names no event at all is still read as a push, which is what every forge sent
 this endpoint until then.
 
+Besides the audit log, every delivery of an application that has a secret is
+kept in :mod:`noust.core.webhook_deliveries` (ping, push that deployed, push to
+another branch, wrong signature...): that is what the console's guided setup
+shows the operator to prove the forge reaches Noust. A domain without a secret
+records nothing, for the same reason it answers a generic 404.
+
 The routers here are mounted in :mod:`noust.web.server`, not in
 :mod:`noust.web.api.router`: the hook must not inherit the ``/api`` prefix and
 its conventions, and the secret-management endpoints live under ``/api/apps``
@@ -43,20 +49,23 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
-import secrets
 import threading
 import time
 from collections import OrderedDict
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
+from noust.core import webhook_deliveries as deliveries_log
 from noust.core.exceptions import DeploymentError, DomainError
 from noust.core.forge_events import parse_pull_request
-from noust.core.store import DeploymentRecord, DeploymentTrigger, StoreError, get_store
+from noust.core.store import App, DeploymentRecord, DeploymentTrigger, StoreError, get_store
+from noust.core.webhook_deliveries import WebhookDelivery
+from noust.integrations import webhook as webhook_service
+from noust.integrations.webhook import mint_secret as mint_webhook_secret
 from noust.managers.previews import handle_pull_request
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
@@ -168,31 +177,6 @@ class WebhookDisabledResponse(BaseModel):
 
     domain: str
     enabled: bool = False
-
-
-def mint_webhook_secret(domain: str) -> str:
-    """
-    Generate, store and return a fresh webhook secret for an application.
-
-    The caller shows it once; regenerating replaces the old secret in the same
-    motion, so revocation and rotation are the same operation.
-
-    Args:
-        domain: Application domain, already validated.
-
-    Returns:
-        The secret in clear.
-
-    Raises:
-        DeploymentError: When no application is deployed at the domain.
-    """
-    secret = secrets.token_urlsafe(32)
-    if not get_store().set_webhook_secret(domain, secret):
-        raise DeploymentError(
-            f"Application not found: {domain}",
-            details="Deploy it first, or check 'noust list' for the exact domain.",
-        )
-    return secret
 
 
 def webhook_update_job(domain: str, job_context: JobContext | None = None) -> dict[str, Any]:
@@ -390,6 +374,44 @@ def _record(request: Request, domain: str, result: str, detail: str) -> None:
         )
 
 
+def _log(
+    app: App | None,
+    outcome: str,
+    *,
+    provider: str | None = None,
+    event: str | None = None,
+    branch: str | None = None,
+    detail: str | None = None,
+    job_id: str | None = None,
+    delivery: str | None = None,
+) -> None:
+    """
+    Keep one delivery in the application's own log.
+
+    Args:
+        app: The application the webhook belongs to.
+        outcome: One of :data:`noust.core.webhook_deliveries.OUTCOMES`.
+        provider: The forge whose credential verified, if any.
+        event: The forge's name for the event.
+        branch: The branch a push named.
+        detail: One short line; never a secret or a signature.
+        job_id: The job the delivery queued.
+        delivery: The forge's id for the delivery.
+    """
+    if app is None or app.id is None:
+        return
+    deliveries_log.record_delivery(
+        app.id,
+        outcome,
+        provider=provider,
+        event=event,
+        branch=branch,
+        detail=detail,
+        job_id=job_id,
+        delivery_id=delivery,
+    )
+
+
 @router.post("/deploy/{domain}")
 async def deliver(domain: str, request: Request) -> JSONResponse:
     """
@@ -427,6 +449,10 @@ async def deliver(domain: str, request: Request) -> JSONResponse:
         _record(request, validated, "denied", "unknown domain or webhooks not configured")
         raise HTTPException(status_code=404, detail="Not found")
 
+    # The application is known: a secret is one of its columns. Read once, for
+    # the delivery log and the branch check below.
+    app = get_store().get_app(validated)
+
     # Checked only once a secret exists, so this answers nothing about an
     # application the 404 above would not already have: failures are only
     # ever counted against a domain that has a webhook.
@@ -434,6 +460,7 @@ async def deliver(domain: str, request: Request) -> JSONResponse:
     if failures.is_locked(validated):
         remaining = failures.get_lockout_remaining(validated)
         _record(request, validated, "locked", f"refused for {remaining} more seconds")
+        _log(app, deliveries_log.LOCKED, detail=f"refused for {remaining} more seconds")
         return JSONResponse(
             status_code=429,
             content={
@@ -448,6 +475,7 @@ async def deliver(domain: str, request: Request) -> JSONResponse:
     provider = _verify_provider(secret, body, request)
     if provider is None:
         _record(request, validated, "denied", "signature verification failed")
+        _log(app, deliveries_log.BAD_SIGNATURE, detail="signature verification failed")
         # A wrong signature is a guess at this application's secret, and is
         # counted against this application. Not against the address: see
         # the module docstring for why that cut off whole forges.
@@ -457,22 +485,39 @@ async def deliver(domain: str, request: Request) -> JSONResponse:
     delivery = _delivery_id(request)
     if delivery and _deliveries.seen(f"{validated}:{delivery}"):
         _record(request, validated, "ignored", f"duplicate delivery {delivery} ({provider})")
+        _log(
+            app,
+            deliveries_log.DUPLICATE,
+            provider=provider,
+            detail="the forge's retry of a delivery already handled",
+            delivery=delivery,
+        )
         return JSONResponse(status_code=200, content={"status": "ignored", "reason": "duplicate"})
 
     payload = _payload(body)
     kind = _event_kind(provider, request, payload)
     if kind == PING:
         _record(request, validated, "ignored", f"ping ({provider})")
+        _log(app, deliveries_log.PING, provider=provider, event=PING, delivery=delivery)
         return JSONResponse(status_code=200, content={"status": "ok", "event": PING})
     if kind == PULL_REQUEST:
-        return await _deliver_pull_request(request, validated, provider, payload)
+        return await _deliver_pull_request(
+            request, validated, provider, payload, app=app, delivery=delivery
+        )
     if kind is not None and kind != PUSH:
         _record(request, validated, "ignored", f"{kind} event ({provider})")
+        _log(
+            app,
+            deliveries_log.IGNORED_EVENT,
+            provider=provider,
+            event=kind,
+            detail=f"{kind} events are not acted on",
+            delivery=delivery,
+        )
         return JSONResponse(
             status_code=202, content={"status": "ignored", "reason": "event", "event": kind}
         )
 
-    app = get_store().get_app(validated)
     branch = _pushed_branch(payload)
     if app is not None and app.branch and branch != app.branch:
         _record(
@@ -480,6 +525,15 @@ async def deliver(domain: str, request: Request) -> JSONResponse:
             validated,
             "ignored",
             f"push to {branch or 'no branch'}, app tracks {app.branch} ({provider})",
+        )
+        _log(
+            app,
+            deliveries_log.IGNORED_BRANCH,
+            provider=provider,
+            event=PUSH,
+            branch=branch,
+            detail=f"push to {branch or 'no branch'}; this application deploys {app.branch}",
+            delivery=delivery,
         )
         return JSONResponse(status_code=200, content={"status": "ignored", "reason": "branch"})
 
@@ -505,11 +559,27 @@ async def deliver(domain: str, request: Request) -> JSONResponse:
         "accepted",
         f"queued job {job.id} ({provider}, branch {branch or 'any'})",
     )
+    _log(
+        app,
+        deliveries_log.DEPLOY_STARTED,
+        provider=provider,
+        event=PUSH,
+        branch=branch,
+        detail=f"queued the update ({branch or 'no branch named'})",
+        job_id=job.id,
+        delivery=delivery,
+    )
     return JSONResponse(status_code=202, content={"job_id": job.id, "status": job.status.value})
 
 
 async def _deliver_pull_request(
-    request: Request, domain: str, provider: str, payload: dict[str, Any]
+    request: Request,
+    domain: str,
+    provider: str,
+    payload: dict[str, Any],
+    *,
+    app: App | None = None,
+    delivery: str | None = None,
 ) -> JSONResponse:
     """
     Hand a verified pull request delivery to the previews of this application.
@@ -521,6 +591,8 @@ async def _deliver_pull_request(
         domain: The application the webhook belongs to.
         provider: The forge that sent it.
         payload: Its parsed body.
+        app: The application the webhook belongs to, for its delivery log.
+        delivery: The forge's id for the delivery.
 
     Returns:
         202 with the queued job ids; 200 when nothing was queued (an action
@@ -529,6 +601,14 @@ async def _deliver_pull_request(
     event = parse_pull_request(provider, payload)
     if event is None:
         _record(request, domain, "ignored", f"pull request action not acted on ({provider})")
+        _log(
+            app,
+            deliveries_log.IGNORED_PULL_REQUEST,
+            provider=provider,
+            event=PULL_REQUEST,
+            detail="this pull request action does not change a preview",
+            delivery=delivery,
+        )
         return JSONResponse(status_code=200, content={"status": "ignored", "reason": "action"})
 
     # In a worker thread: the previews manager reads the store and may post a
@@ -537,8 +617,25 @@ async def _deliver_pull_request(
     summary = f"pull request #{event.number} {event.action.value} ({provider})"
     if not job_ids:
         _record(request, domain, "ignored", f"{summary}: no preview queued")
+        _log(
+            app,
+            deliveries_log.IGNORED_PULL_REQUEST,
+            provider=provider,
+            event=PULL_REQUEST,
+            detail=f"{summary}: no preview queued (previews off, a fork, or the limit)",
+            delivery=delivery,
+        )
         return JSONResponse(status_code=200, content={"status": "ignored", "reason": "no_preview"})
     _record(request, domain, "accepted", f"{summary}: queued {', '.join(job_ids)}")
+    _log(
+        app,
+        deliveries_log.PREVIEW_STARTED,
+        provider=provider,
+        event=PULL_REQUEST,
+        detail=summary,
+        job_id=job_ids[0],
+        delivery=delivery,
+    )
     return JSONResponse(status_code=202, content={"job_ids": job_ids, "status": "pending"})
 
 
@@ -652,7 +749,7 @@ def delete_webhook_secret(
         HTTPException: 404 when the application is unknown.
     """
     validated = _known_app_domain(domain)
-    get_store().set_webhook_secret(validated, None)
+    webhook_service.disable_secret(validated)
 
     audit = get_audit_logger()
     if audit:
@@ -749,3 +846,341 @@ def webhook_deliveries(
         if record.triggered_by == DeploymentTrigger.WEBHOOK.value
     ]
     return WebhookDeliveriesResponse(items=items, total=len(items))
+
+
+class WebhookHooksOut(BaseModel):
+    """
+    Where the forge delivers.
+
+    Attributes:
+        exposed: Whether ``noust web expose-hooks`` published ``/hooks/``.
+        base_url: The public base of ``/hooks``, None until exposed.
+        hook_url: The exact payload URL of this application: the public one
+            when exposed, else the address the console was opened at (which
+            a forge usually cannot reach).
+        hook_url_public: Whether ``hook_url`` is one a forge can reach.
+        content_type: What the forge must send.
+        events: The events to enable at the forge.
+    """
+
+    exposed: bool
+    base_url: str | None = None
+    hook_url: str | None = None
+    hook_url_public: bool
+    content_type: str
+    events: list[str]
+
+
+class WebhookBranchOut(BaseModel):
+    """
+    Which pushes deploy.
+
+    Attributes:
+        tracked: The branch the application deploys, None when none is pinned.
+        pinned: Whether one is.
+        any_push_deploys: True when none is pinned: a push to any branch then
+            deploys the application.
+    """
+
+    tracked: str | None = None
+    pinned: bool
+    any_push_deploys: bool
+
+
+class WebhookForgeOut(BaseModel):
+    """
+    The forge side of the setup.
+
+    Attributes:
+        forge: ``github``, ``gitlab`` or ``gitea``; None for another host.
+        host: The forge's host name; never a credential.
+        repository: ``owner/repo``.
+        settings_url: Where to add the webhook, when the forge is known.
+    """
+
+    forge: str | None = None
+    host: str | None = None
+    repository: str | None = None
+    settings_url: str | None = None
+
+
+class WebhookGitHubAppOut(BaseModel):
+    """
+    Whether this server's GitHub App already deploys the repository.
+
+    Attributes:
+        configured: Whether this server has an App.
+        hooks_active: Whether the App's webhook points at this server.
+        covers_repository: Whether a push reaches the application through the
+            App, so a webhook of its own would deploy twice.
+        account: The account of the covering installation.
+        repository_selection: ``all`` or ``selected``.
+        settings_url: Where to change the installation's repositories.
+    """
+
+    configured: bool
+    hooks_active: bool
+    covers_repository: bool
+    account: str | None = None
+    repository_selection: str | None = None
+    settings_url: str | None = None
+
+
+class WebhookReceivedOut(BaseModel):
+    """
+    One delivery the forge sent.
+
+    Attributes:
+        id: Row id; larger is newer.
+        received_at: When it arrived (the last of a burst, for a folded row),
+            with a UTC offset.
+        provider: ``github``, ``gitea``, ``gitlab`` or ``github-app``; None
+            when no credential verified.
+        event: The forge's name for the event.
+        outcome: ``deploy_started``, ``preview_started``, ``ping``,
+            ``ignored_branch``, ``ignored_event``, ``ignored_pull_request``,
+            ``duplicate``, ``bad_signature`` or ``locked``.
+        branch: The branch a push named.
+        detail: One short line of context.
+        job_id: The job it queued, to follow in the console's jobs.
+        delivery_id: The forge's id for the delivery.
+        count: How many identical refusals the row stands for.
+    """
+
+    id: int
+    received_at: str
+    provider: str | None = None
+    event: str | None = None
+    outcome: str
+    branch: str | None = None
+    detail: str | None = None
+    job_id: str | None = None
+    delivery_id: str | None = None
+    count: int
+
+    _iso_timestamps = iso_offset_validator("received_at")
+
+
+class WebhookDeliveriesSummaryOut(BaseModel):
+    """
+    What the forge has been sending.
+
+    Attributes:
+        total: Deliveries kept.
+        refused_since_last_verified: Wrong signatures and lockouts since the
+            last delivery that verified.
+        last: The newest delivery.
+        last_verified_at: When the newest delivery that verified arrived.
+        last_push_at: When the newest push that deployed arrived.
+    """
+
+    total: int
+    refused_since_last_verified: int
+    last: WebhookReceivedOut | None = None
+    last_verified_at: str | None = None
+    last_push_at: str | None = None
+
+    _iso_timestamps = iso_offset_validator("last_verified_at", "last_push_at")
+
+
+class WebhookStatusResponse(BaseModel):
+    """
+    Everything the guided webhook setup shows about one application.
+
+    Attributes:
+        domain: The application.
+        enabled: Whether a secret exists. The secret is never in this answer:
+            ``POST .../webhook/reveal`` (sudo mode) returns it.
+        state: ``disabled``, ``waiting`` (a secret and no delivery yet),
+            ``connected`` or ``problem`` (the last delivery was refused).
+        layout: ``releases`` or ``inplace``.
+        inplace_warning: True when an in-place application deploys on push.
+        hooks: Where the forge delivers.
+        branch: Which pushes deploy.
+        forge: The forge side.
+        github_app: Whether the GitHub App already covers the repository.
+        deliveries: What the forge has been sending.
+    """
+
+    domain: str
+    enabled: bool
+    state: str
+    layout: str
+    inplace_warning: bool
+    hooks: WebhookHooksOut
+    branch: WebhookBranchOut
+    forge: WebhookForgeOut
+    github_app: WebhookGitHubAppOut
+    deliveries: WebhookDeliveriesSummaryOut
+
+
+class WebhookReceivedResponse(BaseModel):
+    """
+    The deliveries an application's webhook received, newest first.
+
+    Attributes:
+        domain: The application.
+        items: The deliveries.
+        total: How many are listed.
+    """
+
+    domain: str
+    items: list[WebhookReceivedOut]
+    total: int
+
+
+def _received_out(delivery: WebhookDelivery) -> WebhookReceivedOut:
+    """
+    Args:
+        delivery: A stored delivery.
+
+    Returns:
+        Its API shape.
+    """
+    return WebhookReceivedOut(
+        id=delivery.id,
+        received_at=delivery.received_at,
+        provider=delivery.provider,
+        event=delivery.event,
+        outcome=delivery.outcome,
+        branch=delivery.branch,
+        detail=delivery.detail,
+        job_id=delivery.job_id,
+        delivery_id=delivery.delivery_id,
+        count=delivery.count,
+    )
+
+
+@admin_router.get("/{domain}/webhook", response_model=WebhookStatusResponse)
+def webhook_state(
+    domain: str, request: Request, session: Annotated[dict, Depends(get_current_session)]
+) -> WebhookStatusResponse:
+    """
+    Report the state of an application's deploy webhook.
+
+    Everything the guided setup needs in one answer: whether the public hooks
+    URL exists and the exact payload URL, the content type and events to
+    enable at the forge, whether a secret exists (never the secret), which
+    branch deploys and whether any push does when none is pinned, whether an
+    in-place application deploys on push, whether the GitHub App already
+    covers the repository, and what the forge has been sending.
+
+    Args:
+        domain: Domain of the application.
+        request: The incoming request; its own address is the payload URL's
+            fallback when the hooks were not exposed.
+        session: The authenticated session.
+
+    Returns:
+        The state.
+
+    Raises:
+        HTTPException: 404 when the application is unknown.
+    """
+    validated = _known_app_domain(domain)
+    app = get_store().get_app(validated)
+    if app is None:  # deleted between the check and the read
+        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
+    fallback = f"{str(request.base_url).rstrip('/')}/hooks"
+    state = webhook_service.status(app, fallback_base=fallback)
+    last = state.deliveries.last
+    return WebhookStatusResponse(
+        domain=state.domain,
+        enabled=state.enabled,
+        state=state.state,
+        layout=state.layout,
+        inplace_warning=state.inplace_warning,
+        hooks=WebhookHooksOut(**vars(state.hooks)),
+        branch=WebhookBranchOut(**vars(state.branch)),
+        forge=WebhookForgeOut(**vars(state.forge)),
+        github_app=WebhookGitHubAppOut(**vars(state.github_app)),
+        deliveries=WebhookDeliveriesSummaryOut(
+            total=state.deliveries.total,
+            refused_since_last_verified=state.deliveries.refused_since_last_verified,
+            last=_received_out(last) if last is not None else None,
+            last_verified_at=state.deliveries.last_verified_at,
+            last_push_at=state.deliveries.last_push_at,
+        ),
+    )
+
+
+@admin_router.get("/{domain}/webhook/received", response_model=WebhookReceivedResponse)
+def webhook_received(
+    domain: str,
+    session: Annotated[dict, Depends(get_current_session)],
+    limit: Annotated[int, Query(ge=1, le=deliveries_log.KEEP_PER_APP)] = 50,
+) -> WebhookReceivedResponse:
+    """
+    List what an application's webhook received, whatever became of it.
+
+    Unlike ``GET .../webhook/deliveries`` (the deployments a webhook queued),
+    this is every delivery the forge sent: a ping, a push that deployed, a
+    push to another branch, a repeat, a wrong signature. A burst of wrong
+    signatures is one entry with a ``count``.
+
+    Args:
+        domain: Domain of the application.
+        session: The authenticated session.
+        limit: Most deliveries to return.
+
+    Returns:
+        The deliveries, newest first.
+
+    Raises:
+        HTTPException: 404 when the application is unknown.
+    """
+    validated = _known_app_domain(domain)
+    app = get_store().get_app(validated)
+    if app is None or app.id is None:
+        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
+    items = [_received_out(row) for row in deliveries_log.list_deliveries(app.id, limit=limit)]
+    return WebhookReceivedResponse(domain=validated, items=items, total=len(items))
+
+
+@admin_router.post("/{domain}/webhook/reveal", response_model=WebhookSecretResponse)
+def reveal_webhook_secret(
+    domain: str,
+    request: Request,
+    session: Annotated[dict, Depends(require_elevated)],
+) -> WebhookSecretResponse:
+    """
+    Show an application's webhook secret again.
+
+    The forge's settings page needs it pasted in, and the guided setup can be
+    reopened after the secret was created; rotating it just to read it would
+    break a webhook that works. A secret is a credential, so this is sudo
+    mode, needs the permission to reveal secrets, and is audited.
+
+    Args:
+        domain: Domain of the application.
+        request: The incoming request, for the audit record and the hook URL.
+        session: An elevated session.
+
+    Returns:
+        The secret in clear and the URL to configure at the forge.
+
+    Raises:
+        HTTPException: 404 when the application is unknown or has no secret.
+    """
+    validated = _known_app_domain(domain)
+    try:
+        secret = webhook_service.reveal_secret(validated)
+    except DeploymentError as exc:
+        raise HTTPException(status_code=404, detail=f"{exc.message}. {exc.details}") from exc
+
+    audit = get_audit_logger()
+    if audit:
+        audit.record(
+            action="hooks.secret.reveal",
+            result="success",
+            client_ip=get_client_ip(request),
+            actor=actor_label(session),
+            resource=f"/api/apps/{validated}/webhook/reveal",
+            detail="webhook secret shown",
+        )
+
+    return WebhookSecretResponse(
+        domain=validated,
+        secret=secret,
+        hook_url=f"{_hooks_base(request)}/deploy/{validated}",
+    )

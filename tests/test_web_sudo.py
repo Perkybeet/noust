@@ -228,8 +228,11 @@ def test_session_info_answers_before_login(anon_client: TestClient) -> None:
     assert body["authenticated"] is False
     assert body["scope"] is None
     assert body["elevated_until"] is None
-    assert body["hostname"]
-    assert body["version"]
+    # 3.1 (G10): nothing about the server before sign-in - no hostname, no
+    # version, not whether a second factor is on.
+    assert body["hostname"] == ""
+    assert body["version"] == ""
+    assert body["totp_enabled"] is False
     assert body["csrf_header"] == CSRF_HEADER_NAME
 
 

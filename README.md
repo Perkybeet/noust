@@ -507,6 +507,9 @@ Deploy on push: in the console (application > Settings > Webhook) or with
 `POST /api/apps/{domain}/webhook-secret`, create a secret, and point a GitHub, Gitea or
 GitLab webhook at `https://<console>/hooks/deploy/<domain>`, which the forge must be able to
 reach. Signatures are verified; only pushes to the followed branch update the application.
+`noust app webhook show|rotate|disable|deliveries DOMAIN` does the same from the terminal: how
+far the setup is (public URL, secret, branch, GitHub App), the secret, and every delivery the
+forge sent, including the ones that were ignored or had a wrong signature.
 
 ---
 
@@ -538,14 +541,15 @@ itself.
 ```bash
 noust node key vps1                                                    # on the central
 noust fleet authorize --central-key 'ssh-ed25519 AAAA...' --name nas   # on vps1, as root
-noust node add vps1 --ssh root@vps1.example.com --join-code -          # on the central
+noust node add vps1 --ssh vps1.example.com --join-code -               # on the central
 noust fleet status                                                     # every node it manages
 ```
 
 Enrollment is inverted: the central never logs in to a server with your credentials. You
 authorize it **on the server**, where you are already root: `noust fleet authorize` installs
-the central's key restricted to forwarding that server's console port only - it opens no shell
-and runs nothing else - and prints a join code, which you paste into the central
+the central's key for an unprivileged `noust-tunnel` account that sshd restricts to forwarding
+that server's console port only - it opens no shell and runs nothing else - and prints a join
+code, which you paste into the central
 (`noust node add`) to finish. The central pins the server's SSH host key from that code; a
 change closes the tunnel rather than being accepted.
 

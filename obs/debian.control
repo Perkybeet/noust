@@ -53,6 +53,9 @@ Depends: ${python3:Depends},
 # it gated never worked on those distributions. Prompts use questionary, which
 # is packaged from Debian 13 and Ubuntu 24.04 onwards.
 #
+# python3-cryptography verifies passkey signatures (noust.core.accounts.webauthn,
+# imported only then). certbot already pulls it in on Debian and Ubuntu.
+#
 # questionary is a Recommends rather than a Depends because it is absent from
 # Debian 12 and Ubuntu 22.04, where a Depends built a package apt then refused
 # to install. On those two it is not even recommended (debian/rules decides,
@@ -67,6 +70,7 @@ Recommends: python3-fastapi,
             python3-psutil,
             python3-httpx,
             python3-websockets,
+            python3-cryptography,
             ${noust:Recommends}
 Suggests: git,
           nodejs,

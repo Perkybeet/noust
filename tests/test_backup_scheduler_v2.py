@@ -22,7 +22,7 @@ import pytest
 
 from noust.core.config import Config
 from noust.core.exceptions import BackupError
-from noust.core.notifier import NotificationEvent
+from noust.core.notifications.model import Notification
 from noust.core.runner import FakeRunner
 from noust.core.store import BackupScheduleRecord, NoustStore, get_store
 from noust.managers.backup_destinations import BackupDestinationManager
@@ -316,6 +316,73 @@ class TestRunSchedule:
         assert result["destinations"]["nas"]["ok"] is True
         assert result["destinations"]["s3"]["ok"] is True
 
+    def test_a_backup_that_went_everywhere_is_the_optional_heartbeat(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        get_store().save_backup_schedule(
+            BackupScheduleRecord(
+                app_domain="shop.example.com",
+                schedule="daily",
+                destinations=[{"name": "nas", "retention_count": None, "retention_days": None}],
+            )
+        )
+        monkeypatch.setattr(
+            BackupManager,
+            "create",
+            lambda self, **kwargs: _metadata(
+                "shop-example-com_20260101_000000", "shop.example.com"
+            ),
+        )
+        monkeypatch.setattr(
+            BackupDestinationManager,
+            "push",
+            lambda self, backup, name, **kwargs: {"destination": name, "uploaded": []},
+        )
+        notified: list[Notification] = []
+        monkeypatch.setattr(
+            "noust.core.notifier.Notifier.notify", lambda self, event: notified.append(event)
+        )
+
+        run_schedule("shop.example.com")
+
+        assert [(n.kind, n.code) for n in notified] == [("backup_success", "backup.completed")]
+        assert {fact.key: fact.value for fact in notified[0].facts}["destinations"] == "nas"
+
+    def test_the_heartbeat_is_switched_off_by_default(
+        self, monkeypatch: pytest.MonkeyPatch, config: Config
+    ) -> None:
+        """Through the real notifier: backup_success ships off, so nothing is sent."""
+        from noust.core.notifier import Notifier
+        from tests.test_notifier import CapturingOpener
+
+        config.set("notifications.enabled", True)
+        config.set("notifications.channels.webhook.webhook_url", "https://hooks.example.test/x")
+        get_store().save_backup_schedule(
+            BackupScheduleRecord(app_domain="shop.example.com", schedule="daily")
+        )
+        monkeypatch.setattr(
+            BackupManager,
+            "create",
+            lambda self, **kwargs: _metadata(
+                "shop-example-com_20260101_000000", "shop.example.com"
+            ),
+        )
+        monkeypatch.setattr("noust.core.notifier._resolve_host", lambda host: ("93.184.216.34",))
+        opener = CapturingOpener()
+        real = Notifier
+
+        def notifier(cfg: Config) -> Notifier:
+            return real(cfg, opener=opener)
+
+        monkeypatch.setattr("noust.managers.backup_scheduler.Notifier", notifier)
+
+        run_schedule("shop.example.com")
+        assert opener.requests == []
+
+        config.set("notifications.events.backup_success", True)
+        run_schedule("shop.example.com")
+        assert len(opener.requests) == 1
+
     def test_a_failed_destination_still_lets_the_others_run_and_notifies(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -347,7 +414,7 @@ class TestRunSchedule:
 
         monkeypatch.setattr(BackupDestinationManager, "push", fake_push)
 
-        notified: list[NotificationEvent] = []
+        notified: list[Notification] = []
         monkeypatch.setattr(
             "noust.core.notifier.Notifier.notify", lambda self, event: notified.append(event)
         )
@@ -356,7 +423,9 @@ class TestRunSchedule:
             run_schedule("shop.example.com")
 
         assert any(
-            event.kind == "backup_failed" and "permission denied for user wasm" in event.body
+            event.code == "backup.upload_failed"
+            and event.excerpt is not None
+            and "rclone: permission denied for user wasm" in event.excerpt.lines
             for event in notified
         )
         # With no notification channel, the timer's journal has only this.
@@ -384,7 +453,7 @@ class TestRunSchedule:
             BackupDestinationManager, "push", lambda self, *a, **k: pushed.append(1)
         )
 
-        notified: list[NotificationEvent] = []
+        notified: list[Notification] = []
         monkeypatch.setattr(
             "noust.core.notifier.Notifier.notify", lambda self, event: notified.append(event)
         )
@@ -422,7 +491,7 @@ class TestRunSchedule:
 
         monkeypatch.setattr(BackupDestinationManager, "push", fake_push)
 
-        notified: list[NotificationEvent] = []
+        notified: list[Notification] = []
         monkeypatch.setattr(
             "noust.core.notifier.Notifier.notify", lambda self, event: notified.append(event)
         )
@@ -431,17 +500,20 @@ class TestRunSchedule:
             run_schedule("shop.example.com")
 
         assert len(notified) == 1
-        assert (
-            notified[0].title
-            == "No se ha podido subir la copia de seguridad de shop.example.com a broken"
+        assert (notified[0].kind, notified[0].code) == ("backup_failed", "backup.upload_failed")
+        assert (notified[0].title, notified[0].subject) == (
+            "Subida de la copia fallida",
+            "shop.example.com",
         )
-        assert "permission denied for user wasm" in notified[0].body
+        assert {fact.key: fact.value for fact in notified[0].facts}["destination"] == "broken"
+        assert notified[0].excerpt is not None
+        assert "rclone: permission denied for user wasm" in notified[0].excerpt.lines
 
     def test_the_missing_schedule_notice_is_rendered_in_the_configured_language(
         self, config: Config, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         config.set("notifications.language", "es")
-        notified: list[NotificationEvent] = []
+        notified: list[Notification] = []
         monkeypatch.setattr(
             "noust.core.notifier.Notifier.notify", lambda self, event: notified.append(event)
         )
@@ -450,6 +522,7 @@ class TestRunSchedule:
             run_schedule("nowhere.example.com")
 
         assert notified
-        assert notified[0].title == (
-            "Faltan los ajustes de la copia de seguridad programada: nowhere.example.com"
-        )
+        assert (notified[0].kind, notified[0].code) == ("backup_failed", "backup.schedule_missing")
+        assert notified[0].title == "Falta la programación de la copia"
+        assert notified[0].command is not None
+        assert notified[0].command.value == "noust backup schedule update nowhere.example.com"

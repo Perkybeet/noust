@@ -48,6 +48,17 @@ def _event(title: str, body: str = "") -> NotificationEvent:
     return NotificationEvent(kind="deploy_success", title=title, body=body, domain="a.example.com")
 
 
+def _strings(value: Any) -> list[str]:
+    """Every string in a JSON value."""
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        return [text for item in value.values() for text in _strings(item)]
+    if isinstance(value, list):
+        return [text for item in value for text in _strings(item)]
+    return []
+
+
 def test_slack_control_sequences_are_escaped(config: Config) -> None:
     payload = _sent(
         config,
@@ -56,9 +67,15 @@ def test_slack_control_sequences_are_escaped(config: Config) -> None:
         _event("a.example.com deployed abc (<!channel>)", "Commit: x (<@U123> & <!here>)"),
     )
 
-    text = payload["text"]
-    assert "<" not in text and ">" not in text
-    assert "&lt;!channel&gt;" in text
+    strings = _strings(payload)
+    text = "\n".join(strings)
+    # No control sequence survives as written anywhere - not in the mrkdwn
+    # (entities), not in the header or the notification fallback (defused).
+    for sequence in ("<!channel>", "<@U123>", "<!here>"):
+        assert sequence not in text
+    header = payload["attachments"][0]["blocks"][0]["text"]["text"]
+    assert "<\u200b!channel>" in header
+    assert "<\u200b!channel>" in payload["attachments"][0]["fallback"]
     assert "&lt;@U123&gt; &amp; &lt;!here&gt;" in text
 
 
@@ -70,9 +87,9 @@ def test_discord_mass_mentions_are_neutralised(config: Config) -> None:
         _event("a.example.com deployed abc (@everyone)", "Commit: x (@here)"),
     )
 
-    content = payload["content"]
-    assert "@everyone" not in content and "@here" not in content
-    assert "everyone" in content and "here" in content
+    text = "\n".join(_strings(payload["embeds"]))
+    assert "@everyone" not in text and "@here" not in text
+    assert "everyone" in text and "here" in text
     assert payload["allowed_mentions"] == {"parse": []}
 
 

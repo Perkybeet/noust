@@ -137,8 +137,15 @@ def list_command(ctx: Context) -> None:
     default=None,
     help="Lifetime in hours. Omitted: the token only dies by revocation.",
 )
+@click.option(
+    "--owner",
+    default=None,
+    help="Account the token acts for, with at most its role. Required under the ENS profile.",
+)
 @pass_context
-def create_command(ctx: Context, name: str, scope: str, expires_hours: int | None) -> None:
+def create_command(
+    ctx: Context, name: str, scope: str, expires_hours: int | None, owner: str | None
+) -> None:
     """
     Issue a named, scoped API token. NAME must be unique across every token
     ever issued, live or revoked.
@@ -147,7 +154,11 @@ def create_command(ctx: Context, name: str, scope: str, expires_hours: int | Non
     keeps a salted hash of it, the same as the master token, so it cannot be
     shown again.
     """
-    issued: dict[str, Any] = token_manager().create_api_token(name, scope, expires_hours)
+    manager = token_manager()
+    account = manager.accounts.require(owner) if owner else None
+    issued: dict[str, Any] = manager.create_api_token(
+        name, scope, expires_hours, owner=account, created_by="cli"
+    )
 
     logger = ctx.logger
     logger.success(f"API token issued: {issued['name']} (scope: {issued['scope']})")

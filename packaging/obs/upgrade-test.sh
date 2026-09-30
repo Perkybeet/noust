@@ -182,7 +182,7 @@ case "$kind" in
         dnf install -y wasm-cli || skip "cannot install wasm-cli from $old"
         # The console's stack, as an operator who runs it installs it (the
         # spec only suggests it).
-        dnf install -y python3-fastapi python3-starlette python3-pydantic python3-uvicorn python3-psutil python3-httpx python3-websockets || true
+        dnf install -y python3-fastapi python3-starlette python3-pydantic python3-uvicorn python3-psutil python3-httpx python3-websockets python3-cryptography || true
 
         installed=$(rpm -q --qf '%{VERSION}' wasm-cli)
         case "$installed" in

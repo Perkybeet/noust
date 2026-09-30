@@ -1,0 +1,15 @@
+Reading package lists...
+Building dependency tree...
+Reading state information...
+Calculating upgrade...
+The following packages will be REMOVED:
+  libfoo1t64 python3-oldthing
+The following packages will be upgraded:
+  libbar2 openssl
+2 upgraded, 0 newly installed, 2 to remove and 0 not upgraded.
+Remv libfoo1t64 [1.2.3-1]
+Remv python3-oldthing [0.9-2ubuntu1]
+Inst libbar2 [2.0-1] (2.1-1 Ubuntu:24.04/noble-updates [amd64])
+Inst openssl [3.0.13-0ubuntu3.4] (3.0.13-0ubuntu3.15 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])
+Conf libbar2 (2.1-1 Ubuntu:24.04/noble-updates [amd64])
+Conf openssl (3.0.13-0ubuntu3.15 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])

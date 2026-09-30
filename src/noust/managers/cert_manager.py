@@ -90,10 +90,18 @@ _CHALLENGE_FAILURE_MARKERS = (
 #: accessor the CLI and the health check still read certificates through.
 _TextField = Literal["name", "expiry", "expiry_full", "cert_path", "key_path", "issuer"]
 
-#: Validity of a certificate Noust mints for itself. Long on purpose: it is
-#: self-signed, so an early expiry adds no security and only breaks a restart
-#: years later, when nobody remembers where the pair came from.
-_SELF_SIGNED_DAYS = 3650
+#: Validity of a certificate Noust mints for itself: the longest a browser
+#: accepts from a certificate the user trusted (Apple's limit; Chrome's 398 days
+#: is for public CAs). It used to be ten years, on the argument that an early
+#: expiry adds no security to a self-signed certificate; the console now says
+#: when it expires (``noust central status``) and an expired one is reminted
+#: on the next start, so a shorter life costs nothing and a stolen key stops
+#: being useful sooner.
+_SELF_SIGNED_DAYS = 825
+
+#: One name in a ``subjectAltName`` this module was handed: ``DNS:host`` or
+#: ``IP:address``, nothing that could add an extension of its own.
+_ALT_NAME = re.compile(r"^(?:DNS|IP):[A-Za-z0-9.:-]+$")
 
 #: Seconds of remaining validity below which a minted pair is replaced rather
 #: than reused.
@@ -1072,21 +1080,34 @@ class CertManager(BaseManager):
 
     # -- Self-signed material ------------------------------------------------
 
-    def generate_self_signed(self, hostname: str, cert_path: Path, key_path: Path) -> bool:
+    def generate_self_signed(
+        self,
+        hostname: str,
+        cert_path: Path,
+        key_path: Path,
+        alt_names: Sequence[str] | None = None,
+    ) -> bool:
         """
         Mint a self-signed certificate for a host, or keep a valid one.
 
         This exists for the panel: TLS is mandatory beyond loopback, and a
         machine without a public domain still needs something to serve. The
-        pair is written owner-only through the filesystem seam, and a pair
-        already on disk and still valid is left alone, because reminting on
+        certificate is ECDSA P-256 with ``subjectAltName`` (browsers ignore
+        the common name) for the host, the machine's own names and addresses
+        and whatever ``NOUST_TLS_NAMES`` adds. The pair is written owner-only
+        through the filesystem seam, and a pair already on disk that is still
+        valid, ECDSA and carries names is left alone, because reminting on
         every start would churn the fingerprint the operator's browser has
-        already stored an exception for.
+        already stored an exception for. A pair from before 3.1 (RSA, no
+        names) is replaced once.
 
         Args:
             hostname: Name or address the certificate is issued to.
             cert_path: Destination for the certificate, created 0600.
             key_path: Destination for the private key, created 0600.
+            alt_names: ``DNS:name`` and ``IP:address`` entries for
+                ``subjectAltName``; the machine's own by default
+                (:func:`noust.central.setup.certificate_names`).
 
         Returns:
             True when a new pair was written, False when the existing pair was
@@ -1110,6 +1131,26 @@ class CertManager(BaseManager):
             self.logger.debug(f"Reusing the self-signed certificate at {cert_path}")
             return False
 
+        if alt_names is None:
+            from noust.central.setup import certificate_names
+
+            alt_names = certificate_names(name)
+        names = list(alt_names)
+        for entry in names:
+            # The entries are joined into one -addext argument: one that is
+            # not exactly DNS:name or IP:address could add extensions.
+            if not _ALT_NAME.match(entry):
+                raise CertificateError(
+                    f"Invalid name for a self-signed certificate: {entry!r}",
+                    details="Names are DNS:host.example.com or IP:192.0.2.10.",
+                )
+        if not names:
+            raise CertificateError(
+                f"A self-signed certificate for {name} needs at least one name",
+                details="Pass DNS:host.example.com or IP:192.0.2.10 entries, or none for the "
+                "machine's own.",
+            )
+
         # The key is asked for on stdout instead of letting openssl write the
         # files itself: that is what lets both files be created 0600 through
         # the filesystem seam, with no window at another mode and no stray
@@ -1122,13 +1163,26 @@ class CertManager(BaseManager):
                 "req",
                 "-x509",
                 "-newkey",
-                "rsa:2048",
+                "ec",
+                "-pkeyopt",
+                "ec_paramgen_curve:P-256",
                 "-sha256",
                 "-days",
                 str(_SELF_SIGNED_DAYS),
                 "-nodes",
                 "-subj",
                 f"/CN={name}",
+                "-addext",
+                f"subjectAltName={','.join(names)}",
+                # A leaf that serves TLS and signs nothing else: without
+                # CA:FALSE a certificate trusted by hand would be a root that
+                # can vouch for any name.
+                "-addext",
+                "basicConstraints=critical,CA:FALSE",
+                "-addext",
+                "keyUsage=critical,digitalSignature",
+                "-addext",
+                "extendedKeyUsage=serverAuth",
                 "-keyout",
                 "/dev/stdout",
             ],
@@ -1162,19 +1216,23 @@ class CertManager(BaseManager):
         """
         Report whether an existing minted pair can keep serving.
 
-        Only expiry is checked, not the subject: a self-signed certificate is
-        trusted by its fingerprint, so replacing it whenever the panel is
-        started with a different ``--host`` would invalidate that trust for no
-        gain in return.
+        Expiry and kind are checked, not the subject: a self-signed
+        certificate is trusted by its fingerprint, so replacing it whenever
+        the panel is started with a different ``--host`` would invalidate that
+        trust for no gain in return. The kind is what 3.1 changed: a pair from
+        before it (RSA, no ``subjectAltName``) is not one a browser can trust
+        by any means, so it is replaced once, and the operator's browser asks
+        about the new fingerprint once.
 
         Args:
             cert_path: Certificate the pair would serve.
             key_path: Private key belonging to it.
 
         Returns:
-            True when both files exist and the certificate is not about to
-            expire. A certificate openssl cannot read answers False, so a
-            corrupt pair is reminted instead of served.
+            True when both files exist, the certificate is not about to expire,
+            is ECDSA and carries ``subjectAltName``. A certificate openssl
+            cannot read answers False, so a corrupt pair is reminted instead
+            of served.
         """
         if not cert_path.exists() or not key_path.exists():
             return False
@@ -1185,11 +1243,17 @@ class CertManager(BaseManager):
                 "-in",
                 str(cert_path),
                 "-noout",
+                "-text",
                 "-checkend",
                 str(_SELF_SIGNED_MIN_VALIDITY),
             ],
         )
-        return result.success
+        if not result.success:
+            return False
+        if "id-ecPublicKey" not in result.stdout or "Subject Alternative Name" not in result.stdout:
+            self.logger.debug(f"Replacing {cert_path}: not ECDSA or without names (pre-3.1)")
+            return False
+        return True
 
     # -- Renewal and removal -----------------------------------------------
 

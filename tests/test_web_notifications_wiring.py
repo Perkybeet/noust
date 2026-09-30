@@ -5,7 +5,7 @@
 Tests for the job-to-notifier wiring in :mod:`noust.web.server`.
 
 The subscriber sits on the job manager's ``subscribe_all`` for the life of
-the server and turns terminal job transitions into notification events - but
+the server and turns terminal job transitions into notifications - but
 only for the ones that do not already announce themselves. A deploy, an
 update and a rollback are recorded by
 :mod:`noust.deployers.deploy_events`'s ``DeploymentRecorder`` in every
@@ -15,9 +15,9 @@ their way, or the console's own deploys would be announced twice. A backup
 restore is not a deployment and is not recorded there, so it is still
 reported from here; so is a failed backup. What is defended:
 
-- **A finished restore, or a failed backup, becomes exactly one event of the
-  right kind**, carrying the domain and, for a failure, the tool's own error
-  verbatim.
+- **A finished restore, or a failed backup, becomes exactly one notification
+  of the right kind** (a restore has its own: it is not a deploy), carrying
+  the domain and, for a failure, the tool's own error verbatim in its excerpt.
 - **A deploy or an update job never does**, whatever its outcome: the
   deployment recorder already announced it.
 - **Nothing else does either.** Progress updates, cancellations and job types
@@ -43,7 +43,8 @@ import pytest
 
 import noust.web.server as server_module
 from noust.core.config import Config
-from noust.core.notifier import NotificationEvent, Notifier
+from noust.core.notifications.model import Notification, State
+from noust.core.notifier import Notifier
 from noust.web.jobs import Job, JobStatus, JobType
 from noust.web.server import DEPLOY_JOB_TYPES, JobNotificationSubscriber, deployment_notification
 from tests.test_notifier import (  # noqa: F401  (pytest resolves fixtures by name)
@@ -109,48 +110,53 @@ class TestDeployJobTypes:
 
 
 class TestDeploymentNotification:
-    """The translation from a job transition to an event, or to silence."""
+    """The translation from a job transition to a notification, or to silence."""
 
-    def test_a_failed_restore_becomes_deploy_failed_with_the_domain(self) -> None:
-        """The event carries the domain and the tool's own words."""
+    def test_a_failed_restore_is_restore_failed_with_the_domain(self) -> None:
+        """A restore is not a deploy: it has its own kind, and the tool's words."""
         job = make_job(JobStatus.FAILED, error="rclone: object not found")
 
         event = deployment_notification(job)
 
         assert event is not None
-        assert event.kind == "deploy_failed"
+        assert (event.kind, event.code, event.state) == (
+            "restore_failed",
+            "restore.failed",
+            State.FAILED,
+        )
         assert event.domain == "example.com"
-        assert "rclone: object not found" in event.body
-        assert "failed" in event.title
+        assert event.subject == "example.com"
+        assert event.excerpt is not None
+        assert "rclone: object not found" in event.excerpt.lines
+        assert event.title == "Restore failed"
 
-    def test_a_completed_restore_becomes_deploy_success(self) -> None:
+    def test_a_completed_restore_is_restore_success(self) -> None:
         """Success is announced under its own kind."""
         event = deployment_notification(make_job(JobStatus.COMPLETED))
 
         assert event is not None
-        assert event.kind == "deploy_success"
+        assert (event.kind, event.code, event.state) == (
+            "restore_success",
+            "restore.completed",
+            State.OK,
+        )
         assert event.domain == "example.com"
 
-    def test_a_completed_restore_body_carries_the_backup_id(self) -> None:
-        """
-        v2.2.1 put the backup id in job.description, reused as the body; 2.3
-        builds the title fresh from noust.core.messages instead (job.description
-        is untranslated console text), so the id must still reach the body
-        through the catalog rather than being silently dropped.
-        """
+    def test_a_completed_restore_carries_the_backup_id_as_a_fact(self) -> None:
+        """The id travels as a fact of its own, not as a sentence."""
         event = deployment_notification(
             make_job(JobStatus.COMPLETED, backup_id="backup-2026-01-01-0000")
         )
 
         assert event is not None
-        assert event.body == "Restored from backup backup-2026-01-01-0000."
+        assert {fact.key: fact.value for fact in event.facts}["backup"] == "backup-2026-01-01-0000"
 
-    def test_a_completed_restore_without_a_backup_id_has_an_empty_body(self) -> None:
+    def test_a_completed_restore_without_a_backup_id_has_no_backup_fact(self) -> None:
         """A job whose metadata never carried the id must not format 'None'."""
         event = deployment_notification(make_job(JobStatus.COMPLETED))
 
         assert event is not None
-        assert event.body == ""
+        assert "backup" not in {fact.key for fact in event.facts}
 
     def test_a_deploy_or_an_update_job_is_never_announced_here(self) -> None:
         """The deployment recorder already announced it; this would be twice."""
@@ -167,10 +173,12 @@ class TestDeploymentNotification:
         )
 
         assert event is not None
-        assert event.kind == "backup_failed"
+        assert (event.kind, event.code) == ("backup_failed", "backup.failed")
+        assert event.excerpt is not None
+        assert "tar: disk full" in event.excerpt.lines
 
     def test_a_completed_backup_is_not_announced(self) -> None:
-        """There is no backup_success kind, and none is invented."""
+        """A manual backup the operator asked for needs no message; the scheduled one has its own."""
         assert deployment_notification(make_job(JobStatus.COMPLETED, JobType.BACKUP)) is None
 
     def test_non_terminal_and_cancelled_transitions_are_silent(self) -> None:
@@ -198,17 +206,18 @@ class TestDeploymentNotification:
 
         assert event is not None
         assert event.domain is None
+        assert event.subject == ""
 
     def test_a_job_about_nothing_still_gets_a_title(self) -> None:
-        """No domain to name must not crash the noust.core.messages lookup."""
+        """No domain to name is a message with no subject, not a crash."""
         event = deployment_notification(make_job(JobStatus.FAILED, domain=None, error="boom"))
 
         assert event is not None
-        assert "failed" in event.title.lower()
+        assert event.title == "Restore failed"
 
 
 class TestDeploymentNotificationInSpanish:
-    """notifications.language: es translates the title; the tool's error stays verbatim."""
+    """notifications.language: es translates Noust's words; the tool's error stays verbatim."""
 
     def _wired(self, config: Config, monkeypatch: pytest.MonkeyPatch) -> None:
         """
@@ -231,8 +240,13 @@ class TestDeploymentNotificationInSpanish:
         event = deployment_notification(job)
 
         assert event is not None
-        assert event.title == "No se ha podido restaurar example.com"
-        assert "rclone: object not found" in event.body
+        assert (event.locale, event.title, event.subject) == (
+            "es",
+            "Restauración fallida",
+            "example.com",
+        )
+        assert event.excerpt is not None
+        assert "rclone: object not found" in event.excerpt.lines
 
     def test_a_completed_restore(self, config: Config, monkeypatch: pytest.MonkeyPatch) -> None:
         self._wired(config, monkeypatch)
@@ -240,9 +254,9 @@ class TestDeploymentNotificationInSpanish:
         event = deployment_notification(make_job(JobStatus.COMPLETED))
 
         assert event is not None
-        assert event.title == "Se ha restaurado example.com"
+        assert event.title == "Restaurado"
 
-    def test_a_completed_restore_body_carries_the_backup_id(
+    def test_a_completed_restore_backup_fact_is_labelled_in_spanish(
         self, config: Config, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         self._wired(config, monkeypatch)
@@ -252,7 +266,8 @@ class TestDeploymentNotificationInSpanish:
         )
 
         assert event is not None
-        assert event.body == "Restaurado a partir de la copia de seguridad backup-2026-01-01-0000."
+        backup = next(fact for fact in event.facts if fact.key == "backup")
+        assert (backup.label, backup.value) == ("Copia", "backup-2026-01-01-0000")
 
     def test_a_failed_backup(self, config: Config, monkeypatch: pytest.MonkeyPatch) -> None:
         self._wired(config, monkeypatch)
@@ -261,8 +276,9 @@ class TestDeploymentNotificationInSpanish:
         event = deployment_notification(job)
 
         assert event is not None
-        assert event.title == "La copia de seguridad de example.com ha fallado"
-        assert "tar: disk full" in event.body
+        assert event.title == "Copia de seguridad fallida"
+        assert event.excerpt is not None
+        assert "tar: disk full" in event.excerpt.lines
 
     def test_a_job_about_nothing_still_gets_a_spanish_title(
         self, config: Config, monkeypatch: pytest.MonkeyPatch
@@ -272,7 +288,7 @@ class TestDeploymentNotificationInSpanish:
         event = deployment_notification(make_job(JobStatus.FAILED, domain=None, error="boom"))
 
         assert event is not None
-        assert event.title == "No se ha podido completar la restauración"
+        assert event.title == "Restauración fallida"
 
 
 class TestSubscriber:
@@ -280,29 +296,29 @@ class TestSubscriber:
 
     def test_a_failed_restore_is_delivered_once(self) -> None:
         """The same terminal job notified twice must not announce twice."""
-        events: list[NotificationEvent] = []
+        events: list[Notification] = []
         subscriber = JobNotificationSubscriber(deliver=events.append)
         job = make_job(JobStatus.FAILED, error="rclone exited 1")
 
         subscriber(job)
         subscriber(job)
 
-        assert [event.kind for event in events] == ["deploy_failed"]
+        assert [event.kind for event in events] == ["restore_failed"]
         assert events[0].domain == "example.com"
 
     def test_success_and_failure_are_distinct_events(self) -> None:
         """Two jobs, two kinds, in order."""
-        events: list[NotificationEvent] = []
+        events: list[Notification] = []
         subscriber = JobNotificationSubscriber(deliver=events.append)
 
         subscriber(make_job(JobStatus.COMPLETED, job_id="job-ok"))
         subscriber(make_job(JobStatus.FAILED, job_id="job-bad", error="boom"))
 
-        assert [event.kind for event in events] == ["deploy_success", "deploy_failed"]
+        assert [event.kind for event in events] == ["restore_success", "restore_failed"]
 
     def test_progress_updates_deliver_nothing(self) -> None:
         """Every log line notifies subscribers; none of them is an event."""
-        events: list[NotificationEvent] = []
+        events: list[Notification] = []
         subscriber = JobNotificationSubscriber(deliver=events.append)
 
         subscriber(make_job(JobStatus.RUNNING))
@@ -312,7 +328,7 @@ class TestSubscriber:
 
     def test_a_deploy_job_delivers_nothing(self) -> None:
         """The console's own deploy jobs must not duplicate the recorder."""
-        events: list[NotificationEvent] = []
+        events: list[Notification] = []
         subscriber = JobNotificationSubscriber(deliver=events.append)
 
         subscriber(make_job(JobStatus.COMPLETED, JobType.DEPLOY, job_id="job-deploy"))
@@ -337,10 +353,10 @@ class TestOperatorSwitchesHold:
         return JobNotificationSubscriber(deliver=notifier.notify)
 
     def test_a_disabled_kind_sends_nothing(self, config: Config) -> None:
-        """deploy_success switched off stays off; deploy_failed still lands."""
+        """restore_success switched off stays off; restore_failed still lands."""
         config.set("notifications.enabled", True)
         config.set("notifications.channels.webhook.webhook_url", WEBHOOK_URL)
-        config.set("notifications.events.deploy_success", False)
+        config.set("notifications.events.restore_success", False)
         opener = CapturingOpener()
         subscriber = self._wire(config, opener)
 
@@ -348,8 +364,23 @@ class TestOperatorSwitchesHold:
         subscriber(make_job(JobStatus.FAILED, job_id="job-bad", error="boom"))
 
         payloads = [json.loads(request.data) for request in opener.requests]
-        assert [payload["event"] for payload in payloads] == ["deploy_failed"]
+        assert [payload["event"] for payload in payloads] == ["restore_failed"]
         assert payloads[0]["domain"] == "example.com"
+
+    def test_muting_deploys_no_longer_mutes_restores(self, config: Config) -> None:
+        """A restore used to travel as deploy_success/deploy_failed and vanish with them."""
+        config.set("notifications.enabled", True)
+        config.set("notifications.channels.webhook.webhook_url", WEBHOOK_URL)
+        config.set("notifications.events.deploy_success", False)
+        config.set("notifications.events.deploy_failed", False)
+        opener = CapturingOpener()
+        subscriber = self._wire(config, opener)
+
+        subscriber(make_job(JobStatus.COMPLETED, job_id="job-ok"))
+        subscriber(make_job(JobStatus.FAILED, job_id="job-bad", error="boom"))
+
+        events = [json.loads(request.data)["event"] for request in opener.requests]
+        assert events == ["restore_success", "restore_failed"]
 
     def test_the_master_switch_gates_the_wiring(self, config: Config) -> None:
         """A configured channel stays silent while notifications are off."""

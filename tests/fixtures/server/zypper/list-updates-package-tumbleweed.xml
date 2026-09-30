@@ -1,0 +1,8 @@
+<?xml version='1.0'?>
+<stream>
+<update-status version="0.6">
+<update-list>
+<update name="bash" edition="5.3.3-1.1" edition-old="5.2.37-1.1" arch="x86_64" kind="package"><source url="http://download.opensuse.org/tumbleweed/repo/oss" alias="repo-oss"/></update>
+</update-list>
+</update-status>
+</stream>

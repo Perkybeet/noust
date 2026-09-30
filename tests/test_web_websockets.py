@@ -173,7 +173,16 @@ def test_unauthenticated_handshake_is_refused_on_every_websocket_route(sandbox: 
 
 
 def test_rejected_handshakes_cannot_fill_the_disk(sandbox: Path) -> None:
-    """The audit log is bounded: a flood of denials rotates instead of growing."""
+    """
+    A flood of anonymous denials is counted, not written line by line.
+
+    3.0 rotated the log by size, which bounded the disk by letting a flood
+    erase the history (finding H3). Since 3.1 nothing inside the retention
+    period is deleted; the flood guard bounds the flood instead, and its
+    size is still on record.
+    """
+    import json
+
     path = sandbox / "audit.log"
     audit = AuditLogger(path, enabled=True, max_bytes=2048, backups=1)
 
@@ -185,14 +194,20 @@ def test_rejected_handshakes_cannot_fill_the_disk(sandbox: Path) -> None:
             resource="/ws/events",
             detail="no valid credential",
         )
+    audit.log.flush_flood(force=True)
 
-    files = list(sandbox.glob("audit.log*"))
-    total = sum(item.stat().st_size for item in files)
+    entries = [
+        json.loads(line)
+        for item in audit.log.files_oldest_first()
+        for line in item.read_text().splitlines()
+    ]
+    denials = [entry for entry in entries if entry["action"] == "ws.connect"]
+    (summary,) = [entry for entry in entries if entry["action"] == "audit.coalesced"]
 
-    assert len(files) <= 2, [item.name for item in files]
-    assert total <= 2048 * 3, total
-    # The most recent events survive the rotation.
-    assert "10.0.0." in path.read_text()
+    assert len(denials) <= 100
+    assert len(denials) + summary["details"]["count"] == 500
+    assert summary["resource"] == "/ws/events"
+    assert audit.log.verify().ok
 
 
 def test_forwarded_header_from_a_trusted_proxy_reaches_the_websocket(sandbox: Path) -> None:

@@ -432,7 +432,12 @@ turns it off.
 | `/etc/noust/web-totp` | `0600` | TOTP secret and backup code hashes |
 | `/etc/noust/web-sessions.db` | `0600` | Sessions, API token hashes, WebSocket tickets |
 | `/etc/noust/web-audit.log` | `0600` | Audit trail |
-| The store, under `/var/lib/noust/` (`noust store path` names the file) | `0600` | The store: applications, deployments, jobs, webhook secrets |
+| The store, under `/var/lib/noust/` (`noust store path` names the file) | `0600` | The store: applications, deployments, jobs, webhook secrets, accounts (TOTP secrets encrypted) |
+| `totp.key` beside the store | `0600` | Key the accounts' TOTP secrets are encrypted under; never in the store itself |
+| `secrets/backups/sidecar-mac-key` beside the store | `0600` | Key that signs every backup's metadata sidecar |
+| `incidents/` beside the store | `0700`, files `0600` | Evidence packages of `noust incident freeze` |
+| `incident-lockdown.json` beside the store | `0600` | Present while the console is locked down for an incident |
+| `ens-reports/` beside the store | `0700`, files `0600` | Evidence bundles of `noust ens report` |
 | `/var/lib/noust/job-logs/` | `0700`, files `0600` | Output of console jobs |
 | `/var/lib/noust/deploy-logs/` | `0750`, files `0640` | Build logs, readable by an admin group |
 | `.env`, `shared/.env` | `0600` | Application environment, owned by the service account |
@@ -470,6 +475,53 @@ The file is opened append-only and rotated at 5 MB, keeping three old files, so 
 can only push out the oldest entries rather than fill the disk. Read it with an admin
 credential from the console's Activity page or `GET /api/audit`.
 
+## Backups
+
+A backup holds the application's `.env` and its database dumps, so it is a secret wherever it
+goes (ENS mp.si.2, mp.info.6):
+
+- **Integrity.** Each backup's metadata sidecar (`<id>.json`) carries an HMAC-SHA256 under a key
+  kept in the secret store, not beside the backups. The MAC covers the archive's SHA-256, so an
+  archive and a sidecar replaced together on the backup storage or on a remote are caught by
+  `noust backup verify`, which also says when a backup predates the MAC or was signed by
+  another server.
+- **Encryption on the way out.** Under `security.profile: ens-medium`, or with
+  `backup.encryption: required`, no backup or database dump is uploaded to a destination that is
+  not encrypted: the refusal comes before rclone runs, at the one place every upload passes.
+  Encrypt a destination with `noust backup destination update <name> --encrypt` and keep its key
+  (`show-key`) apart from the server.
+- **Proven restorable.** A scheduled backup deep-verifies what it took (the archive unpacked with
+  the extractor a restore uses) whenever the last good verification is older than
+  `backup.verify_days` (7; the ENS profile never allows longer), and sends nothing that fails.
+  Every verification, from any caller, is a `backups.verify` audit event.
+- **The central itself.** `noust central backup` writes the configuration, the store (a
+  consistent SQLite snapshot taken while it runs), the secrets and the keys into one file,
+  encrypted and authenticated under a passphrase that is typed and never stored (scrypt,
+  AES-256-CBC by openssl, HMAC-SHA256, the construction of sealed secrets). `--verify` proves a
+  copy against its manifest; `--decrypt` gives the archive back for a restore.
+
+## Incidents
+
+`noust incident freeze --reason "<incident reference>"` takes an owner-only evidence package
+(the audit log and its verification, journal excerpts, the configuration without secrets, a store
+snapshot, running units, listening sockets, the console's sessions and tokens without hashes),
+writes a `MANIFEST.sha256` of it (`sha256sum -c` checks it) and records that manifest's hash in
+the audit log, which is shipped off the machine. It then locks the console down: every new
+session of an account is refused where sessions are made, and only the master token - the
+break-glass way in - still signs in. `--revoke-sessions` also ends the sessions open now;
+`noust incident unfreeze --reason ...` lifts the lockdown.
+
+## Compliance (ENS)
+
+`security.profile: ens-medium` fixes the values Spain's Esquema Nacional de Seguridad, category
+MEDIUM, expects (sessions, lockout, passwords, token lifetimes, audit retention, approvals,
+`--reason`, backup encryption, the console's certificate), stated once in
+`noust.core.ens.profile` and read by every area. `noust ens check` compares the server with it
+(exit 0, 1 or 2), `noust ens report` writes the evidence bundle, and the console shows both under
+Settings > Security > Compliance. Code can be restricted to named origins with
+`security.allowed_sources`. The full mapping to the RD 311/2022 measures, and what stays the
+organisation's, is in [ENS.md](ENS.md).
+
 ## The monitor
 
 `noust monitor` reports what it sees and does nothing else: it never signals or kills a
@@ -478,6 +530,6 @@ from a process's command line. See [MONITOR.md](MONITOR.md).
 
 ## Reporting a vulnerability
 
-Please report security issues privately, by email to yago.lopez.adeje@gmail.com, rather
-than in a public GitHub issue. Include the Noust version (`noust --version`), the
-distribution, and the steps to reproduce.
+Please report security issues privately, through a GitHub private advisory or by email to
+yago.lopez.adeje@gmail.com, rather than in a public issue. The process, the timeline and what
+is in scope are in [SECURITY.md](../SECURITY.md).

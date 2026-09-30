@@ -29,9 +29,10 @@ exactly as it was.
 
 from __future__ import annotations
 
+import contextlib
 import sqlite3
 from abc import abstractmethod
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -52,7 +53,7 @@ from noust.core.exceptions import (
 )
 from noust.core.fs import SECRET_MODE, DryRunFileSystem, FileSystem
 from noust.core.logger import Icons
-from noust.core.runner import CommandResult, CommandRunner, get_runner
+from noust.core.runner import CommandResult, CommandRunner, SandboxSpec, get_runner
 from noust.core.store import (
     DEFAULT_KEEP_RELEASES,
     App,
@@ -73,6 +74,7 @@ from noust.deployers.helpers import (
     PrismaHelper,
     preflight,
 )
+from noust.deployers.helpers import sandbox as build_sandbox
 from noust.deployers.helpers.health import failure_output, wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
 from noust.deployers.helpers.layout import RELEASES, choose_layout, env_file_in
@@ -87,6 +89,7 @@ from noust.deployers.helpers.release_build import (
     stage_release,
     stamp_installed_dependencies,
 )
+from noust.deployers.helpers.sandbox import BuildPhase, SandboxState
 from noust.deployers.helpers.summary import print_deployment_summary
 from noust.deployers.helpers.target import claim_deploy_target
 from noust.deployers.interface import AppDeployer, StepReporter, UpdateResult
@@ -161,6 +164,13 @@ class BaseDeployer(AppDeployer):
     _app_record: App | None = None
     _replace_existing: bool = False
     _gate_in_place: bool = False
+    #: The build sandbox, per deployment (see _execution). Class-level too, for
+    #: the instances tests assemble without __init__.
+    _phases: tuple[BuildPhase, ...] = ()
+    _sandbox_forced: bool = False
+    _sandbox_regime: SandboxState | bool | None = False
+    _sandbox_cache: Path | None = None
+    _sandbox_tree: Path | None = None
 
     def __init__(
         self,
@@ -215,6 +225,8 @@ class BaseDeployer(AppDeployer):
         self.include_www: bool = False
         self.branch: str | None = None
         self.env_vars: dict[str, str] = {}
+        #: A first deploy's database variables; see ``configure``.
+        self._database_env: dict[str, str] = {}
         self.trigger: str = DeploymentTrigger.CLI.value
         #: The background job that started this deployment, when one did.
         #: None for the CLI and for a webhook, which run with nothing queuing
@@ -264,6 +276,15 @@ class BaseDeployer(AppDeployer):
 
         # Env manager
         self._env_manager = EnvManager(verbose=verbose)
+
+        # The build sandbox: the phase commands run in, the regime this
+        # deployment builds under (False until decided), and what was
+        # prepared for it once.
+        self._phases = ()
+        self._sandbox_forced = False
+        self._sandbox_regime = False
+        self._sandbox_cache = None
+        self._sandbox_tree = None
 
     @property
     def runner(self) -> CommandRunner:
@@ -410,7 +431,12 @@ class BaseDeployer(AppDeployer):
             **options: ``replace_existing`` deploys into a directory that
                 already holds files (``noust create --force``): in place they
                 are replaced, on releases a release is added beside them.
-                Anything else is accepted and ignored, so a caller can pass
+                ``database_env`` holds the variables of a database created
+                for this first deploy (``DatabaseService.prepare_for_new_app``),
+                written with ``env_vars`` before the build; kept apart from
+                them because they are not the operator's, and a
+                ``.env.example`` is still filled in when the operator gave
+                none. Anything else is accepted and ignored, so a caller can pass
                 the union of every deployer's settings without knowing which
                 one it got.
         """
@@ -442,6 +468,7 @@ class BaseDeployer(AppDeployer):
         # Deploying over a directory that already holds files is refused
         # unless asked for (noust create --force); see claim_deploy_target.
         self._replace_existing = bool(options.get("replace_existing", False))
+        self._database_env = dict(options.get("database_env") or {})
         # An in-place update that must restart behind the health gate itself
         # (going back to a deployment), rather than leave the restart to the
         # caller; see _update_in_place.
@@ -550,9 +577,16 @@ class BaseDeployer(AppDeployer):
         timeout: int = COMMAND_TIMEOUT,
         *,
         stream: bool = False,
+        phase: BuildPhase | None = None,
     ) -> CommandResult:
         """
-        Execute a command in the application directory.
+        Execute a command in the application directory, where its phase says it runs.
+
+        The one chokepoint for the code a deployment runs from the repository
+        (rule 4): an install or a build of an application in the sandbox runs
+        in it, as ``noust-build`` (see :mod:`noust.deployers.helpers.sandbox`);
+        a migration runs as the application; anything else as this process,
+        with a clean environment unless it is explicitly ``privileged``.
 
         Args:
             command: Program and arguments.
@@ -561,15 +595,39 @@ class BaseDeployer(AppDeployer):
             timeout: Deadline in seconds.
             stream: Print output line by line while the command runs. Used for
                 installs and builds, which otherwise look frozen for minutes.
+            phase: What the command does. Defaults to the phase the caller is
+                in (:meth:`_in_phase`), and to ``build`` outside one.
 
         Returns:
             The command outcome.
+
+        Raises:
+            BuildError: The application builds in the sandbox and the sandbox
+                does not hold on this server; it never falls back to root.
         """
         self.logger.debug(f"Running: {' '.join(command)}")
+        effective = phase or (self._phases[-1] if self._phases else BuildPhase.BUILD)
 
         run_env = dict(self.env_vars)
         if env:
             run_env.update(env)
+
+        sandbox = self._execution(effective)
+        options: dict[str, Any] = {}
+        if sandbox is not None:
+            options["sandbox"] = sandbox
+            if effective is not BuildPhase.RELEASE and isinstance(
+                self._sandbox_regime, SandboxState
+            ):
+                run_env = build_sandbox.command_environment(
+                    self._sandbox_regime,
+                    effective,
+                    configured=run_env,
+                    given=env,
+                    cache=self._sandbox_cache or build_sandbox.cache_dir_for(self.app_name),
+                )
+        elif effective is not BuildPhase.PRIVILEGED:
+            options["clean_env"] = True
 
         if stream:
             result = self.runner.stream(
@@ -578,6 +636,7 @@ class BaseDeployer(AppDeployer):
                 cwd=cwd or self.build_path,
                 env=run_env or None,
                 timeout=timeout,
+                **options,
             )
         else:
             result = self.runner.run(
@@ -585,9 +644,181 @@ class BaseDeployer(AppDeployer):
                 cwd=cwd or self.build_path,
                 env=run_env or None,
                 timeout=timeout,
+                **options,
             )
             self.logger.command_output(result.stdout, result.stderr)
         return result
+
+    @contextlib.contextmanager
+    def _in_phase(self, phase: BuildPhase) -> Iterator[None]:
+        """
+        Run the commands of a block as the given phase, whoever issues them.
+
+        A deployer's hooks (the Python one creates its virtualenv in
+        ``pre_install``, PHP overrides ``install_dependencies``) call
+        :meth:`_run` without a phase; the step around them decides it.
+
+        Args:
+            phase: The phase.
+
+        Yields:
+            Nothing.
+        """
+        self._phases = (*self._phases, phase)
+        try:
+            yield
+        finally:
+            self._phases = self._phases[:-1]
+
+    def _phased(self, phase: BuildPhase, step: Callable[[], object]) -> Callable[[], None]:
+        """
+        Wrap a pipeline step so its commands run as a phase.
+
+        Args:
+            phase: The phase.
+            step: The step.
+
+        Returns:
+            The wrapped step.
+        """
+
+        def run() -> None:
+            with self._in_phase(phase):
+                step()
+
+        return run
+
+    def _build_regime(self) -> SandboxState | None:
+        """
+        Decide, once per deployment, whether this build runs in the sandbox.
+
+        Returns:
+            The application's regime when its builds are sandboxed; None when
+            they run as this process: its regime says root (with a warning in
+            the log), or this process is not root and has no privilege to
+            take away.
+        """
+        if self._sandbox_regime is not False:
+            return self._sandbox_regime if isinstance(self._sandbox_regime, SandboxState) else None
+        regime = build_sandbox.decide_regime(
+            self.domain, store=self.store, logger=self.logger, forced=self._sandbox_forced
+        )
+        self._sandbox_regime = regime
+        return regime
+
+    def _build_account(self) -> tuple[str, str]:
+        """
+        Name the account a sandboxed build of this application runs as.
+
+        Returns:
+            ``noust-build`` on releases, whose release the service does not
+            use while it is built; the service account in place, whose tree
+            the service runs from.
+        """
+        if self.uses_releases:
+            return build_sandbox.BUILD_USER, build_sandbox.BUILD_GROUP
+        return self.config.service_user, self.config.service_group
+
+    def _existing_env_file(self) -> Path | None:
+        """
+        Return this application's ``.env`` when there is one.
+
+        Returns:
+            The file, or None.
+        """
+        env_file = self._env_file()
+        return env_file if env_file.is_file() else None
+
+    def _execution(self, phase: BuildPhase) -> SandboxSpec | None:
+        """
+        Return the sandbox a command of this phase runs in.
+
+        The first sandboxed command of a deployment creates the build account
+        and proves the sandbox holds (failing closed when it does not), makes
+        the application's cache, and hands the tree being built to the build
+        account.
+
+        Args:
+            phase: The command's phase.
+
+        Returns:
+            The spec, or None to run as this process.
+
+        Raises:
+            BuildError: The sandbox does not hold here.
+        """
+        if phase is BuildPhase.PRIVILEGED:
+            return None
+        state = self._build_regime()
+        if state is None:
+            return None
+        user, group = self._build_account()
+        if self._sandbox_cache is None:
+            build_sandbox.require_working_sandbox(self.runner, self.domain, self.fs)
+            self._sandbox_cache = build_sandbox.ensure_cache_dir(
+                self.app_name, user=user, group=group, runner=self.runner, fs=self.fs
+            )
+        if self._sandbox_tree != self.build_path:
+            hand_over_tree(
+                self.build_path,
+                user=user,
+                group=group,
+                runner=self.runner,
+                fs=self.fs,
+                logger=self.logger,
+                env_files=_dotenv_files(self.build_path)
+                if self.uses_releases
+                else self._env_files(),
+            )
+            self._sandbox_tree = self.build_path
+        if phase is BuildPhase.RELEASE:
+            return build_sandbox.release_spec(
+                app_name=self.app_name,
+                user=self.config.service_user,
+                group=self.config.service_group,
+                build_path=self.build_path,
+                env_file=self._existing_env_file(),
+            )
+        app = self._app_row()
+        preview = app is not None and app.preview_parent is not None
+        return build_sandbox.build_spec(
+            app=app,
+            app_name=self.app_name,
+            phase=phase,
+            state=state,
+            user=user,
+            group=group,
+            build_path=self.build_path,
+            apps_dir=self.config.apps_directory,
+            cache=self._sandbox_cache,
+            env_file=self._existing_env_file(),
+            shared=self.releases.shared_dir if self.uses_releases else None,
+            memory_max_mb=build_sandbox.PREVIEW_BUILD_MEMORY_MB if preview else None,
+            cpu_quota_percent=build_sandbox.PREVIEW_BUILD_CPU_PERCENT if preview else None,
+            tasks_max=build_sandbox.BUILD_TASKS_MAX,
+        )
+
+    def sandbox_trial(self, staged: StagedRelease) -> None:
+        """
+        Install and build a tree in the sandbox, activating and recording nothing.
+
+        What ``noust app sandbox test`` runs: the current commit, exported to a
+        scratch directory, built the way an enabled sandbox would build it.
+
+        Args:
+            staged: The exported tree.
+
+        Raises:
+            NoustError: The install or the build failed, with its output.
+        """
+        self.adopt_release(staged)
+        self.resolve_layout()
+        self._sandbox_forced = True
+        self._sandbox_regime = False
+        with self._in_phase(BuildPhase.INSTALL):
+            self.install_dependencies()
+        with self._in_phase(BuildPhase.BUILD):
+            self.build()
 
     def _detect_package_manager(self) -> str:
         """
@@ -713,7 +944,16 @@ class BaseDeployer(AppDeployer):
             self.logger.debug("No Prisma migrations found")
             return True
 
-        return self._ensure_prisma_helper().migrate(self.build_path, deploy=deploy)
+        # A migration is not a build: it runs with the application's own
+        # identity and secrets (the release phase), never as noust-build.
+        migrator = PrismaHelper(
+            logger=self.logger,
+            run_command=lambda *args, **kwargs: self._run(
+                *args, phase=BuildPhase.RELEASE, **kwargs
+            ),
+            get_exec_command=self._get_pm_exec_command,
+        )
+        return migrator.migrate(self.build_path, deploy=deploy)
 
     @abstractmethod
     def detect(self, path: Path) -> bool:
@@ -912,7 +1152,7 @@ class BaseDeployer(AppDeployer):
                 has an unusable name or a control character in its value,
                 before anything is written.
         """
-        given = validate_environment(self.env_vars)
+        given = validate_environment({**self.env_vars, **self._database_env})
         generated = self._generated_env() if self._should_configure_env() else {}
         if not (given or generated):
             return
@@ -1327,6 +1567,17 @@ class BaseDeployer(AppDeployer):
 
             if not result.success:
                 error_output = failure_output(result)
+                if result.out_of_memory:
+                    raise OutOfMemoryError(
+                        "Dependency installation ran out of memory and was killed",
+                        details=error_output,
+                    )
+                if result.timed_out:
+                    raise DeploymentError(
+                        f"Dependency installation did not finish within {INSTALL_TIMEOUT}s "
+                        "and was stopped",
+                        details=error_output,
+                    )
                 raise DeploymentError(
                     "Dependency installation failed",
                     details=error_output
@@ -1359,11 +1610,18 @@ class BaseDeployer(AppDeployer):
         if not result.success:
             error_output = failure_output(result)
 
-            # Check for OOM killer (exit code 137 = 128 + SIGKILL)
-            if result.exit_code == 137:
+            # Check for OOM killer (exit code 137 = 128 + SIGKILL). In the
+            # sandbox the unit's own Result says so, since systemd-run
+            # itself exits 1 for it.
+            if result.exit_code == 137 or result.out_of_memory:
                 raise OutOfMemoryError(
                     "Build killed due to insufficient memory (exit code 137)",
                     details=error_output or "Process was killed by the OOM killer.",
+                )
+            if result.timed_out:
+                raise BuildError(
+                    f"Build did not finish within {BUILD_TIMEOUT}s and was stopped",
+                    details=error_output or "No error output captured.",
                 )
 
             raise BuildError(
@@ -1766,12 +2024,12 @@ class BaseDeployer(AppDeployer):
             DeployStep(
                 title="Installing dependencies",
                 icon=Icons.PACKAGE,
-                run=self.install_dependencies,
+                run=self._phased(BuildPhase.INSTALL, self.install_dependencies),
             ),
             DeployStep(
                 title="Building application",
                 icon=Icons.BUILD,
-                run=self.build,
+                run=self._phased(BuildPhase.BUILD, self.build),
             ),
             DeployStep(
                 title="Setting permissions",
@@ -1846,12 +2104,12 @@ class BaseDeployer(AppDeployer):
                 DeployStep(
                     title="Installing dependencies",
                     icon=Icons.PACKAGE,
-                    run=self._install_release_dependencies,
+                    run=self._phased(BuildPhase.INSTALL, self._install_release_dependencies),
                 ),
                 DeployStep(
                     title="Building application",
                     icon=Icons.BUILD,
-                    run=self.build,
+                    run=self._phased(BuildPhase.BUILD, self.build),
                 ),
             ]
         )
@@ -2512,15 +2770,19 @@ class BaseDeployer(AppDeployer):
             What was done.
         """
         report("Inspecting the project")
-        self.pre_install()
+        with self._in_phase(BuildPhase.INSTALL):
+            self.pre_install()
 
         report("Installing dependencies")
-        self.install_dependencies()
+        with self._in_phase(BuildPhase.INSTALL):
+            self.install_dependencies()
 
-        prisma_updated = self._update_prisma(report)
+        with self._in_phase(BuildPhase.INSTALL):
+            prisma_updated = self._update_prisma(report)
 
         report("Building")
-        self.build()
+        with self._in_phase(BuildPhase.BUILD):
+            self.build()
 
         # The pull, the install and the build all ran as root, and the
         # service writes into what they produced: Next.js creates
@@ -2557,12 +2819,15 @@ class BaseDeployer(AppDeployer):
         self._step_fetch_release()
 
         report("Installing dependencies")
-        self._install_release_dependencies()
+        with self._in_phase(BuildPhase.INSTALL):
+            self._install_release_dependencies()
 
-        prisma_updated = self._update_prisma(report)
+        with self._in_phase(BuildPhase.INSTALL):
+            prisma_updated = self._update_prisma(report)
 
         report("Building")
-        self.build()
+        with self._in_phase(BuildPhase.BUILD):
+            self.build()
 
         self._set_permissions()
 
@@ -2676,6 +2941,13 @@ class BaseDeployer(AppDeployer):
         self.pre_flight_check()
 
         self._app_record = self._register_app_in_store(AppStatus.DEPLOYING.value)
+        if is_new_deployment:
+            # Created from 3.1: it builds in the sandbox from its first build,
+            # and a preview in the strict network profile. The row goes with
+            # the application's if this deployment is undone.
+            build_sandbox.adopt_new_app(
+                self.domain, preview=self._preview_parent is not None, store=self.store
+            )
 
         steps = self.build_pipeline()
         if self._leftover_unit():

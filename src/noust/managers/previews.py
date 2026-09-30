@@ -23,12 +23,17 @@ Two things a preview inherits from its parent are deliberate and said out
 loud wherever a preview is announced: its environment variables are a copy
 of the parent's, production secrets included (minus the ones the settings
 exclude), and so it talks to the parent's databases (2.2 does not provision
-one per preview). And its build runs as root, like every deployment's. That
-is why only people trusted with the repository get a preview: a pull request
-whose branch lives in a fork never does, on GitHub its author must be an
-owner, member or collaborator, and a bot's (Dependabot, Renovate) only when
-the settings allow bots. Building previews as the service user instead of
-root is not done in 2.2.
+one per preview). That is why only people trusted with the repository get a
+preview: a pull request whose branch lives in a fork never does, on GitHub
+its author must be an owner, member or collaborator, and a bot's (Dependabot,
+Renovate) only when the settings allow bots.
+
+Since 3.1 a preview is built in the build sandbox, as the unprivileged
+``noust-build`` account (:mod:`noust.deployers.helpers.sandbox`), in the strict
+network profile: its dependencies install with the network and without the
+parent's variables, and its build runs with them and without a network. The
+deployment marks it so when it creates the preview's application
+(``preview_parent``); nothing here has to.
 """
 
 from __future__ import annotations
@@ -1172,9 +1177,9 @@ def handle_pull_request(event: PullRequestEvent, *, app_domain: str | None = Non
 
     Opened and updated pull requests get a preview built or rebuilt (a job
     each, in the console's job list, queued by ``webhook``); closed ones get
-    theirs removed. A preview's build runs as root with the parent's
-    production secrets, so it is only built for people trusted with the
-    repository: a pull request from a fork is refused, on GitHub so is one
+    theirs removed. A preview runs with the parent's production secrets (its
+    build is sandboxed, but the running preview has them), so it is only
+    built for people trusted with the repository: a pull request from a fork is refused, on GitHub so is one
     whose author is not an owner, member or collaborator, and one opened or
     pushed to by a bot unless the settings allow bots.
 
@@ -1259,8 +1264,7 @@ def _refuse(parent: App, event: PullRequestEvent, reason: str, explanation: str)
         explanation: Why, for the pull request.
     """
     _log.warning(
-        "Refused a preview of %s for %s#%d: %s. A preview is built as root and runs with "
-        "%s's production secrets",
+        "Refused a preview of %s for %s#%d: %s. A preview runs with %s's production secrets",
         parent.domain,
         event.repository,
         event.number,
@@ -1274,10 +1278,10 @@ def _refuse(parent: App, event: PullRequestEvent, reason: str, explanation: str)
             event.repository,
             event.number,
             f"**Noust preview** of `{parent.domain}`\n\n"
-            f"No preview for this pull request: {explanation} A preview is built on the "
-            f"server as root and runs with a copy of `{parent.domain}`'s environment "
-            "variables, production secrets included, so only pull requests from people "
-            "trusted with this repository get one.",
+            f"No preview for this pull request: {explanation} A preview runs on the "
+            f"server with a copy of `{parent.domain}`'s environment variables, production "
+            "secrets included, so only pull requests from people trusted with this "
+            "repository get one.",
         )
 
 

@@ -20,7 +20,9 @@ files. All of that is gone. The flags `--force-ai` and `--all` on `noust monitor
 still accepted, ignored with a warning; the settings `monitor.auto_terminate`,
 `monitor.terminate_malicious_only` and `monitor.dry_run` are pinned to their safe values
 whatever the file says; `monitor.use_ai`, `monitor.ai_interval` and `monitor.openai.*` have no
-effect.
+effect and are ignored on load. `noust config show` lists them apart as obsolete, and `noust
+config clean` removes them from `config.yaml` (comments kept, dated copy first), deleting the
+OpenAI API key an old file may still hold. See [the configuration reference](CONFIG.md).
 
 ## Commands
 
@@ -29,6 +31,7 @@ noust monitor scan          # look at the machine once and print what stands out
 noust monitor run           # scan on a loop in this terminal, until Ctrl+C
 noust monitor install       # write the systemd unit, without starting it
 noust monitor enable        # start it now and at every boot, installing it if needed
+noust monitor autoenable    # what the package runs: enable it unless it was turned off
 noust monitor disable       # stop it and keep it from starting at boot
 noust monitor uninstall     # remove the unit; recorded observations stay
 noust monitor status        # whether it runs, and what it watches
@@ -39,6 +42,12 @@ noust monitor test-email    # send one email to the recipients, to prove the set
 The unit is `noust-monitor.service`. It runs `noust monitor run` as root, restarts on failure,
 and is sandboxed (`NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome=read-only`,
 `PrivateDevices`). The console's Server page has the same controls.
+
+The package installs and enables the monitor on install, and on an upgrade that finds none,
+because the charts' history is recorded here (see [Metrics history](#metrics-history)). It
+never overrides a decision: a monitor that is installed stays as it is, and one you disabled or
+removed stays off until you run `noust monitor enable`. Where there is no systemd (a container)
+nothing is installed, and the console records the history while it runs.
 
 ## What it watches
 
@@ -61,6 +70,45 @@ process.
 
 Certificate and disk checks, and the certificate expiry notifications, only happen while the
 monitor runs.
+
+## Metrics history
+
+The monitor also records the history behind the console's charts: CPU, memory, swap, disk,
+network and load of the machine, and CPU and memory of every application, every 5 seconds.
+Until 3.1 the console recorded it, so it existed only while a console was running.
+
+| Tier | Step | Kept for | Answers |
+|---|---|---|---|
+| raw | 5 s | 2 hours | the last hour |
+| 1m | 1 minute | 26 hours | the last day |
+| 10m | 10 minutes | 8 days | the last week |
+| 1h | 1 hour | `metrics.retention_days` (400) | a month and beyond |
+
+Every tier keeps the mean **and the maximum** of each bucket, so a five-minute spike is still
+there in the month view. The history lives in `/var/lib/noust/metrics.db`. The whole of it
+takes about 60 MB for twenty applications with the default retention (measured with 49
+series), most of it the hourly tier: 24 rows per series per day, so `metrics.retention_days`
+scales it directly.
+
+Only one collector writes at a time: the monitor takes a lease in the database, and the console
+samples only while no monitor does. `noust monitor status` says whether the history is being
+recorded and, when it is not, why and what to run.
+
+What is measured per application depends on how it runs:
+
+| Application | CPU and memory | When there is nothing |
+|---|---|---|
+| Node, Python, Go... (in place, releases, legacy `wasm-*` units) | its unit's cgroup, located by systemd (`ControlGroup`) | stopped, unit missing, accounting off |
+| Zero-downtime | both instances, summed | as above |
+| Monorepo | every workspace's unit, summed | as above |
+| Docker Compose | the cgroup of each container of the project | no docker, no containers |
+| PHP-FPM | the worker processes of its pool | the FPM service is stopped |
+| Static site | none: there is no process | its requests and 5xx per minute come from the web server's access log |
+
+Memory is the working set (`memory.current` less reclaimable page cache), CPU is a percentage
+of one CPU. To tell the workers of one PHP-FPM pool from another's, the monitor reads the title
+FPM gives each worker (`php-fpm: pool <name>`): the only process title it reads, and nothing
+is decided from it.
 
 ## Email
 
@@ -102,6 +150,7 @@ enabled, or an address that is not `name@domain` are refused with the reason, wh
 | `monitor.memory_threshold` | `80.0` | Memory percent above which a process is recorded |
 | `monitor.watch_units` | `[]` | Units watched in addition to every unit Noust manages |
 | `monitor.notify` | `false` | Mail new observations |
+| `metrics.retention_days` | `400` | Days the hourly tier of the metrics history is kept (35 to 3650) |
 | `monitor.retention_days` | `30` | Days observations are kept |
 | `monitor.max_observations` | `5000` | Observations kept at most |
 | `monitor.email_recipients` | `[]` | Who receives the mail |

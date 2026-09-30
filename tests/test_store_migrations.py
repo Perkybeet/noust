@@ -518,7 +518,10 @@ class TestSchemaV11Migration:
         assert _raw_max_version(db_path) == SCHEMA_VERSION
         assert store.get_app("v8.example.com") is not None
         assert store.list_nodes() == []
-        assert _raw_columns(db_path, "nodes") == self.NODE_COLUMNS
+        # The climb goes on to the current version, and v12 adds its own
+        # columns to nodes (the fleet fragment of noust.core.schema_v12).
+        v12_node_columns = {c for t, c, _ in store_module.schema_v12._columns() if t == "nodes"}
+        assert _raw_columns(db_path, "nodes") == self.NODE_COLUMNS | v12_node_columns
 
     def test_the_fresh_schema_and_the_migration_agree(self, fresh, tmp_path):
         db_path = tmp_path / "migrated.db"
@@ -557,7 +560,6 @@ class TestSchemaV11Migration:
         assert "nodes" not in _raw_tables(db_path)
 
 
-
 class TestSchemaV12Migration:
     """Schema v12: everything Noust 3.1 stores, one fragment per area."""
 
@@ -591,6 +593,7 @@ class TestSchemaV12Migration:
             store._migrate_v11_to_v12(cursor)
 
         assert {table: _raw_columns(db_path, table) for table in _raw_tables(db_path)} == before
+
 
 def _node(name: str, **overrides) -> "store_module.NodeRecord":
     """

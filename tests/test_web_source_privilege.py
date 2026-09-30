@@ -192,7 +192,8 @@ def test_a_deploy_token_cannot_create_or_inspect_an_application(
     )
 
     assert created.status_code == 403, created.text
-    assert "admin" in created.json()["detail"]
+    # 3.1: the refusal names the permission ("admin" was the 3.0 scope).
+    assert "apps.manage" in created.json()["detail"]
     assert inspect.status_code == 403, inspect.text
     assert queued == []
     assert inspected == []

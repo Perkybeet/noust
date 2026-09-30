@@ -3333,6 +3333,252 @@ class UpgradeApp:
         return self.app_name
 
 
+#: The build sandbox scenario: its repository (tests/integration/fixtures/
+#: evil-postinstall, whose postinstall attacks the server), its two
+#: applications, and what the postinstall tries to leave on the host.
+SANDBOX_REPO = "/root/fixtures/evil-postinstall"
+SANDBOX_URL = "git://127.0.0.1/evil-postinstall"
+SANDBOX_DOMAIN = "evil.test"
+SANDBOX_ROOT = "/var/www/apps/evil-test"
+SANDBOX_CONTROL_DOMAIN = "evil-root.test"
+SANDBOX_CONTROL_ROOT = "/var/www/apps/evil-root-test"
+SANDBOX_TRACES = ("/root/pwned", "/etc/cron.d/noust-evil", "/usr/local/bin/noust-evil")
+
+#: What the postinstall must not manage in the sandbox, and does manage without it.
+SANDBOX_FORBIDDEN = (
+    "write_root",
+    "read_config",
+    "read_decoy",
+    "read_store",
+    "read_other_env",
+    "write_cron",
+    "write_usr_local",
+)
+
+
+def sandbox_report(sc: Scenario, root: str, label: str) -> dict[str, Any]:
+    """Read what the hostile postinstall of an application managed."""
+    proc = sc.run(f"cat {root}/current/sandbox-report.json", timeout=15, label=label)
+    report = json_of(proc, label)
+    if not isinstance(report, dict):
+        raise AssertionError(f"{label}: not a report: {report!r}")
+    return report
+
+
+def host_traces(sc: Scenario, label: str) -> list[str]:
+    """List what the postinstall left on the host, outside any application."""
+    proc = sc.run(
+        "; ".join(f"test -e {path} && echo {path}" for path in SANDBOX_TRACES) + "; true",
+        timeout=15,
+        label=label,
+    )
+    return proc.stdout.split()
+
+
+@scenario("build_sandbox_blocks_a_hostile_postinstall")
+def scenario_build_sandbox(sc: Scenario) -> None:
+    """A postinstall that attacks the server fails in the sandbox, and succeeds without it.
+
+    The repository's postinstall tries to write /root/pwned, /etc/cron.d and
+    /usr/local/bin, and to read /etc/noust (config.yaml, and a decoy there that
+    is world-readable, so only the sandbox can refuse it), the store and
+    another application's .env (world-readable too); it leaves a daemon
+    behind. A new application builds in the sandbox: every attempt must fail,
+    the build itself must succeed, and nothing may survive the build. Then the
+    negative control, without which the first half proves nothing: the same
+    postinstall, in an application whose sandbox an operator turned off, must
+    manage exactly what the sandbox stopped.
+    """
+    sc.run(
+        f"rm -f {' '.join(SANDBOX_TRACES)} && cd {SANDBOX_REPO} && rm -rf .git && "
+        f"git init -q -b main && {GIT_IDENTITY} && "
+        "npm install --package-lock-only --ignore-scripts && "
+        "git add -A && git commit -q -m 'a hostile postinstall'",
+        timeout=60,
+        label=f"(fixture repo) {SANDBOX_REPO}, served at {SANDBOX_URL}",
+    )
+    # Readable by everyone: only the sandbox stands between a build and them.
+    sc.run(
+        "mkdir -p /etc/noust /var/www/apps/decoy-test/shared && "
+        "echo decoy > /etc/noust/sandbox-decoy && chmod 644 /etc/noust/sandbox-decoy && "
+        "echo OTHER_APP_SECRET=1 > /var/www/apps/decoy-test/shared/.env && "
+        "chmod 644 /var/www/apps/decoy-test/shared/.env && "
+        "(test -f /etc/noust/config.yaml || noust config show >/dev/null 2>&1 || true)",
+        timeout=30,
+        label="(decoys) /etc/noust/sandbox-decoy and another application's .env, mode 644",
+    )
+
+    selftest = json_of(
+        sc.run(
+            "noust app sandbox self-test --json",
+            timeout=120,
+            check=False,
+            label="noust app sandbox self-test --json",
+        ),
+        "self-test",
+    )
+    sc.check(selftest.get("passed") is True, f"the sandbox does not hold here: {selftest}")
+
+    create = (
+        f"NOUST_SECRET_SENTINEL=leaked noust create -d {SANDBOX_DOMAIN} -s {SANDBOX_URL} "
+        "-t nodejs --no-ssl --layout releases"
+    )
+    sc.run(create, timeout=DEPLOY_TIMEOUT, label=create)
+
+    status = json_of(
+        sc.run(
+            f"noust app sandbox status {SANDBOX_DOMAIN} --json",
+            timeout=30,
+            label=f"noust app sandbox status {SANDBOX_DOMAIN} --json",
+        ),
+        "sandbox status",
+    )
+    sc.check(status.get("mode") == "on", f"a new application is not sandboxed: {status}")
+
+    report = sandbox_report(sc, SANDBOX_ROOT, "what the postinstall managed in the sandbox")
+    for action in SANDBOX_FORBIDDEN:
+        sc.check(
+            report[action]["ok"] is False,
+            f"{action} succeeded in the sandbox: {report[action]}",
+        )
+    sc.check(
+        report["write_release"]["ok"] is True, f"the build could not write its release: {report}"
+    )
+    sc.check(
+        report["interfaces"]["ok"] is True,
+        f"os.networkInterfaces() failed (AF_NETLINK): {report['interfaces']}",
+    )
+    sc.check(report["sentinel"] is None, "the build inherited the CLI's environment")
+    build_uid = sc.run("id -u noust-build", timeout=15, label="id -u noust-build").stdout.strip()
+    sc.check(str(report["uid"]) == build_uid, f"the build ran as uid {report['uid']}")
+    sc.check(
+        host_traces(sc, "what the sandboxed postinstall left on the host") == [],
+        "the sandboxed postinstall left traces on the host",
+    )
+    survivors = sc.run(
+        "pgrep -u noust-build -a || echo none",
+        timeout=15,
+        label="pgrep -u noust-build (after the build)",
+    )
+    sc.check(survivors.stdout.strip() == "none", f"a build process survived: {survivors.stdout!r}")
+    owner = sc.run(
+        f"stat -c %U {SANDBOX_ROOT}/current/built.txt",
+        timeout=15,
+        label="stat -c %U current/built.txt",
+    )
+    sc.check(owner.stdout.strip() == "www-data", f"the release is {owner.stdout.strip()}'s")
+    page = sc.run(
+        f"curl -sS -H 'Host: {SANDBOX_DOMAIN}' http://127.0.0.1/",
+        timeout=30,
+        label=f"curl -H 'Host: {SANDBOX_DOMAIN}' http://127.0.0.1/",
+    )
+    sc.check('"write_release"' in page.stdout, f"the application does not serve: {page.stdout!r}")
+
+    # The negative control: the same postinstall, built as root on purpose.
+    control = (
+        f"noust create -d {SANDBOX_CONTROL_DOMAIN} -s {SANDBOX_URL} -t nodejs --no-ssl "
+        "--layout releases"
+    )
+    sc.run(control, timeout=DEPLOY_TIMEOUT, label=control)
+    sc.check(
+        host_traces(sc, "traces after the control's first, sandboxed, build") == [],
+        "the control's first build was not sandboxed",
+    )
+    sc.run(
+        f"noust app sandbox disable {SANDBOX_CONTROL_DOMAIN} --reason 'negative control' --yes",
+        timeout=30,
+        label=f"noust app sandbox disable {SANDBOX_CONTROL_DOMAIN} --reason ... --yes",
+    )
+    # A new lockfile, so the update installs afresh and the postinstall runs.
+    commit_to(
+        sc,
+        SANDBOX_REPO,
+        "npm pkg set version=1.0.1 && npm install --package-lock-only --ignore-scripts",
+        "a new lockfile",
+    )
+    update = f"noust update {SANDBOX_CONTROL_DOMAIN}"
+    sc.run(update, timeout=DEPLOY_TIMEOUT, label=update)
+    as_root = sandbox_report(sc, SANDBOX_CONTROL_ROOT, "what the postinstall managed as root")
+    try:
+        sc.check(as_root["uid"] == 0, f"the control did not build as root: {as_root}")
+        for action in ("write_root", "read_decoy", "read_other_env", "write_cron"):
+            sc.check(
+                as_root[action]["ok"] is True,
+                f"{action} failed without the sandbox too, so the scenario proves nothing: "
+                f"{as_root[action]}",
+            )
+        sc.check(
+            "/root/pwned" in host_traces(sc, "what the control left on the host"),
+            "/root/pwned was not written without the sandbox",
+        )
+    finally:
+        sc.run(
+            f"rm -f {' '.join(SANDBOX_TRACES)}; pkill -f '^sleep 777$' || true",
+            timeout=15,
+            check=False,
+            label="(cleanup) remove the control's traces and its daemon",
+        )
+
+
+#: Run inside the container by the installed Noust: the runner's sandbox
+#: against the real systemd, reporting how each command ended, as JSON.
+SANDBOX_RUNNER_PROBE = r"""
+import json, subprocess
+from noust.core.runner import SandboxSpec, SubprocessRunner
+
+runner = SubprocessRunner()
+spec = SandboxSpec(user="noust-build", name="it-runner")
+out = {}
+failed = runner.run(["sh", "-c", "echo no >&2; exit 3"], sandbox=spec, timeout=60)
+out["exit"] = [failed.exit_code, failed.sandbox_result, failed.stderr.strip()]
+echoed = runner.run(["echo", "$HOME", "${X}", "%h"], sandbox=spec, timeout=60)
+out["echo"] = echoed.stdout.strip()
+late = runner.stream(["sleep", "120"], on_line=lambda _l: None, sandbox=spec, timeout=3)
+state = subprocess.run(
+    ["systemctl", "is-active", f"{late.sandbox_unit}.service"], capture_output=True, text=True
+)
+out["deadline"] = [late.timed_out, late.stderr, state.stdout.strip()]
+swap = subprocess.run(["swapon", "--show", "--noheadings"], capture_output=True, text=True)
+if swap.stdout.strip():
+    out["memory"] = "skipped: swap is on, so a memory limit swaps instead of killing"
+else:
+    hungry = runner.run(
+        ["python3", "-c", "b = bytearray(512 * 1024 * 1024); print(len(b))"],
+        sandbox=SandboxSpec(user="noust-build", name="it-oom", memory_max_mb=64),
+        timeout=120,
+    )
+    out["memory"] = [hungry.exit_code, hungry.out_of_memory, hungry.stderr.strip()]
+print(json.dumps(out))
+"""
+
+
+@scenario("build_sandbox_says_how_a_command_ended")
+def scenario_sandbox_runner(sc: Scenario) -> None:
+    """The runner's sandbox, against systemd as PID 1: exit codes, $ and the limits.
+
+    systemd-run exits 1 both for a deadline and for the memory limit; the
+    runner learns which from the result marker its unit's ExecStopPost leaves,
+    and a deadline stops the unit, which killing systemd-run alone does not.
+    """
+    probe = sc.run(
+        f"/opt/noust/bin/python - <<'PY'\n{SANDBOX_RUNNER_PROBE}\nPY",
+        timeout=300,
+        label="the runner's sandbox against systemd (exit 3, $HOME, a 3 s deadline, 64M)",
+    )
+    ended = json_of(probe, "sandbox runner probe")
+    sc.check(ended["exit"][:2] == [3, "exit-code"], f"exit 3 came back as {ended['exit']}")
+    sc.check(ended["exit"][2] == "no", f"stderr came back as {ended['exit'][2]!r}")
+    sc.check(ended["echo"] == "$HOME ${X} %h", f"$ or % were interpreted: {ended['echo']!r}")
+    timed_out, why, unit_state = ended["deadline"]
+    sc.check(timed_out is True, f"the deadline was not reported: {ended['deadline']}")
+    sc.check("deadline" in why, f"the deadline is not named: {why!r}")
+    sc.check(unit_state != "active", f"the unit outlived its deadline: {unit_state!r}")
+    if isinstance(ended["memory"], list):
+        code, oom, words = ended["memory"]
+        sc.check(code == 137 and oom is True, f"the memory kill came back as {ended['memory']}")
+        sc.check("MemoryMax=64M" in words, f"the memory kill is not named: {words!r}")
+
+
 def _app_tree_checksums(sc: Scenario, root: str, label: str) -> str:
     """Sorted sha256sum of every regular file under root, node_modules and .git excluded."""
     return sc.run(

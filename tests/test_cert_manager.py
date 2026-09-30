@@ -323,6 +323,38 @@ SELF_SIGNED_STDOUT = (
 )
 
 
+#: What ``openssl x509 -text`` says about a certificate minted by 3.1: an
+#: ECDSA key and the names it is valid for. Only what the reuse check reads.
+MODERN_CERTIFICATE_TEXT = (
+    "Certificate:\n    Data:\n        Subject Public Key Info:\n"
+    "            Public Key Algorithm: id-ecPublicKey\n"
+    "        X509v3 extensions:\n            X509v3 Subject Alternative Name:\n"
+    "                DNS:panel.internal\nCertificate will not expire\n"
+)
+
+#: The same for a certificate 3.0 minted: RSA, no names.
+LEGACY_CERTIFICATE_TEXT = (
+    "Certificate:\n    Data:\n        Subject Public Key Info:\n"
+    "            Public Key Algorithm: rsaEncryption\n"
+    "        X509v3 extensions:\n            X509v3 Basic Constraints: critical\n"
+    "Certificate will not expire\n"
+)
+
+
+@pytest.fixture(autouse=True)
+def _known_names(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Give the certificate the same names whatever machine the tests run on.
+
+    Args:
+        monkeypatch: Patching helper, scoped to the test.
+    """
+    monkeypatch.setattr(
+        "noust.central.setup.certificate_names",
+        lambda hostname, environ=None: [f"DNS:{hostname}", "DNS:localhost", "IP:127.0.0.1"],
+    )
+
+
 def _tls_paths(tmp_path: Path) -> tuple[Path, Path]:
     """
     Build the destination paths a panel certificate would be written to.
@@ -352,13 +384,23 @@ def test_minting_builds_the_exact_openssl_argv(
             "req",
             "-x509",
             "-newkey",
-            "rsa:2048",
+            "ec",
+            "-pkeyopt",
+            "ec_paramgen_curve:P-256",
             "-sha256",
             "-days",
-            "3650",
+            "825",
             "-nodes",
             "-subj",
             "/CN=panel.internal",
+            "-addext",
+            "subjectAltName=DNS:panel.internal,DNS:localhost,IP:127.0.0.1",
+            "-addext",
+            "basicConstraints=critical,CA:FALSE",
+            "-addext",
+            "keyUsage=critical,digitalSignature",
+            "-addext",
+            "extendedKeyUsage=serverAuth",
             "-keyout",
             "/dev/stdout",
         )
@@ -405,12 +447,71 @@ def test_a_pair_still_valid_is_reused_not_reminted(
     cert_path.parent.mkdir(parents=True)
     cert_path.write_text("cert")
     key_path.write_text("key")
+    runner.script(["openssl", "x509"], stdout=MODERN_CERTIFICATE_TEXT)
 
     assert certs.generate_self_signed("panel.internal", cert_path, key_path) is False
     assert runner.calls == [
-        ("openssl", "x509", "-in", str(cert_path), "-noout", "-checkend", "86400")
+        ("openssl", "x509", "-in", str(cert_path), "-noout", "-text", "-checkend", "86400")
     ]
     assert cert_path.read_text() == "cert"
+
+
+def test_a_pair_from_before_3_1_is_replaced_once_because_no_browser_can_trust_it(
+    certs: CertManager, runner: FakeRunner, tmp_path: Path
+) -> None:
+    """
+    RSA and no ``subjectAltName``: every current browser ignores the common
+    name, so this pair cannot be trusted by any means (and WebAuthn is refused
+    on it). Still valid is not enough to keep it.
+    """
+    cert_path, key_path = _tls_paths(tmp_path)
+    cert_path.parent.mkdir(parents=True)
+    cert_path.write_text("legacy cert")
+    key_path.write_text("legacy key")
+    runner.script(["openssl", "x509"], stdout=LEGACY_CERTIFICATE_TEXT)
+    runner.script(["openssl", "req"], stdout=SELF_SIGNED_STDOUT)
+
+    assert certs.generate_self_signed("panel.internal", cert_path, key_path) is True
+    assert cert_path.read_text().startswith("-----BEGIN CERTIFICATE-----")
+
+
+def test_the_names_are_the_machines_own_unless_the_caller_gives_them(
+    certs: CertManager, runner: FakeRunner, tmp_path: Path
+) -> None:
+    cert_path, key_path = _tls_paths(tmp_path)
+    runner.script(["openssl", "req"], stdout=SELF_SIGNED_STDOUT)
+
+    certs.generate_self_signed(
+        "panel.internal", cert_path, key_path, alt_names=["DNS:central.example.com", "IP:10.0.0.5"]
+    )
+
+    argv = runner.calls[-1]
+    assert "subjectAltName=DNS:central.example.com,IP:10.0.0.5" in argv
+
+
+@pytest.mark.parametrize(
+    "hostile", ["DNS:a,DNS:b", "DNS:a;b", "otherName:1.2.3;UTF8:x", "DNS:a b", "a.example.com", ""]
+)
+def test_a_name_that_could_add_an_extension_never_reaches_openssl(
+    certs: CertManager, runner: FakeRunner, tmp_path: Path, hostile: str
+) -> None:
+    cert_path, key_path = _tls_paths(tmp_path)
+
+    with pytest.raises(CertificateError):
+        certs.generate_self_signed("panel.internal", cert_path, key_path, alt_names=[hostile])
+
+    assert runner.calls == []
+
+
+def test_a_certificate_with_no_names_is_refused(
+    certs: CertManager, runner: FakeRunner, tmp_path: Path
+) -> None:
+    cert_path, key_path = _tls_paths(tmp_path)
+
+    with pytest.raises(CertificateError, match="at least one name"):
+        certs.generate_self_signed("panel.internal", cert_path, key_path, alt_names=[])
+
+    assert runner.calls == []
 
 
 def test_an_expiring_pair_is_reminted(

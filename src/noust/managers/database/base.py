@@ -19,6 +19,12 @@ Three rules are enforced in this module and must not be relaxed by subclasses:
   ``ps`` to every account on the machine.
 - **No unvalidated SQL fragments.** Privileges come from a per-engine whitelist
   and identifiers are quoted with the engine's own mechanism.
+
+A fourth rule came with 3.1: **a restore never destroys without a safety
+copy.** :meth:`BaseDatabaseManager.restore` is the template every engine's
+restore runs through; it dumps what the target holds before anything is
+dropped or overwritten, and puts it back when the restore fails. An engine
+only says how its dumps are checked and loaded.
 """
 
 from __future__ import annotations
@@ -36,7 +42,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from noust.central import require_server_role
 from noust.core import paths
@@ -51,6 +57,43 @@ from noust.core.fs import SECRET_MODE
 from noust.core.runner import CommandResult, CommandRunner, get_runner
 from noust.deployers.helpers.permissions import hand_over_file
 from noust.managers.base_manager import BaseManager
+from noust.managers.database.eol import support_notice
+from noust.managers.database.urls import connection_url
+
+#: What an engine can do, as the console decides which tabs to draw. The
+#: console reads these from ``GET /api/databases/engines`` instead of testing
+#: engine names: ``sql`` a SQL console, ``tables`` a table browser, ``keys`` a
+#: key browser, ``documents`` a collection browser, ``read_only`` a session
+#: the server itself holds read-only, ``users`` accounts, ``profiles`` the
+#: owner / read-write / read-only access profiles, ``dump`` dumps and
+#: restores, ``metrics`` engine statistics, ``pitr`` point-in-time recovery.
+CAPABILITY_NAMES = frozenset(
+    {
+        "sql",
+        "tables",
+        "keys",
+        "documents",
+        "read_only",
+        "users",
+        "profiles",
+        "dump",
+        "metrics",
+        "pitr",
+    }
+)
+
+#: Access profiles a user can be given on one database.
+Profile = Literal["owner", "read_write", "read_only"]
+
+#: Every profile, in order of decreasing privilege.
+PROFILES: tuple[Profile, ...] = ("owner", "read_write", "read_only")
+
+#: Prefix of the least-privilege account the read-only console signs in as.
+#: A legacy name kept through 3.x: servers already hold roles called this.
+READ_ONLY_ACCOUNT_PREFIX = "wasm_ro_"
+
+#: Where apt is found. Engines are only installed through it; see install().
+APT_GET = "apt-get"
 
 #: Deadline for a query or any other short-lived client invocation.
 QUERY_TIMEOUT = 120
@@ -59,6 +102,32 @@ QUERY_TIMEOUT = 120
 #: The SQL console renders these into a table; an unbounded result would turn
 #: one accidental ``SELECT *`` into megabytes of JSON in a browser tab.
 DEFAULT_STRUCTURED_ROW_CAP = 1000
+
+#: The statement timeouts, in seconds, the console and the explorer offer.
+#: The longest stays well under the 300 seconds a central's proxy gives a
+#: request, so a slow statement is cancelled by the server, not cut by a proxy.
+STATEMENT_TIMEOUTS: tuple[int, ...] = (5, 30, 120)
+
+
+def query_deadline(timeout_s: int | None) -> int:
+    """
+    Give a client invocation its deadline when the server has one of its own.
+
+    The server cancels the statement at ``timeout_s``; the process gets a
+    margin beyond it for the connection and the answer, so what the operator
+    sees is the server's own "canceling statement due to statement timeout",
+    not a killed client.
+
+    Args:
+        timeout_s: The statement timeout, or None for none.
+
+    Returns:
+        Seconds the client process may run.
+    """
+    if timeout_s is None:
+        return QUERY_TIMEOUT
+    return max(QUERY_TIMEOUT, timeout_s + 15)
+
 
 #: Deadline for a systemctl verb. Stopping a busy engine can take a while.
 SERVICE_TIMEOUT = 120
@@ -272,6 +341,30 @@ class UserInfo:
         }
 
 
+def backup_format(path: Path) -> str:
+    """
+    Name a dump's format from its file name.
+
+    Args:
+        path: The dump.
+
+    Returns:
+        ``custom`` (``pg_dump -Fc``), ``plain`` (SQL text), ``tar``, ``rdb``,
+        ``aof``, ``archive`` (a mongodump tarball) or ``unknown``.
+    """
+    name = path.name.removesuffix(".gz")
+    for suffix, kind in (
+        (".dump", "custom"),
+        (".sql", "plain"),
+        (".tar", "archive" if path.name.endswith(".tar.gz") else "tar"),
+        (".rdb", "rdb"),
+        (".aof", "aof"),
+    ):
+        if name.endswith(suffix):
+            return kind
+    return "unknown"
+
+
 @dataclass
 class BackupInfo:
     """Information about a database backup."""
@@ -292,13 +385,143 @@ class BackupInfo:
         """
         return {
             "path": str(self.path),
+            "name": self.path.name,
             "database": self.database,
             "engine": self.engine,
             "size": self.size,
             "size_human": format_size(self.size),
             "created": self.created.isoformat(),
             "compressed": self.compressed,
+            "format": backup_format(self.path),
         }
+
+
+@dataclass(frozen=True)
+class RestoreOutcome:
+    """
+    What :meth:`BaseDatabaseManager.restore` did.
+
+    Attributes:
+        database: The database restored into.
+        source: The dump that was loaded.
+        safety_copy: The dump of what the database held before, or None when
+            it did not exist (nothing to lose) or the caller waived the copy
+            of a restore that overwrote nothing.
+        replaced: Whether the database was dropped and recreated first.
+    """
+
+    database: str
+    source: Path
+    safety_copy: Path | None
+    replaced: bool
+
+
+@dataclass(frozen=True)
+class AccessEntry:
+    """
+    One account's access to one database, as the engine reports it.
+
+    Attributes:
+        username: The account.
+        host: Where it may connect from (MySQL); ``localhost`` elsewhere.
+        profile: ``owner``, ``read_write``, ``read_only``, or ``custom`` for
+            grants that match none of the three.
+        privileges: The grants behind the profile, in the engine's words.
+        internal: The account belongs to the engine or to Noust itself (the
+            read-only console's ``wasm_ro_`` account, the superuser).
+    """
+
+    username: str
+    host: str = "localhost"
+    profile: str = "custom"
+    privileges: tuple[str, ...] = ()
+    internal: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Render the entry as plain data.
+
+        Returns:
+            A JSON-serialisable dictionary.
+        """
+        return {
+            "username": self.username,
+            "host": self.host,
+            "profile": self.profile,
+            "privileges": list(self.privileges),
+            "internal": self.internal,
+        }
+
+
+@dataclass(frozen=True)
+class ListenAddress:
+    """
+    Where an engine's server says it listens.
+
+    Attributes:
+        setting: The engine's own name for the setting (``listen_addresses``,
+            ``bind-address``, ``bind``, ``net.bindIp``).
+        addresses: The addresses it holds, as configured.
+        loopback_only: Whether every address is a loopback one.
+    """
+
+    setting: str
+    addresses: tuple[str, ...]
+    loopback_only: bool
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Render the addresses as plain data.
+
+        Returns:
+            A JSON-serialisable dictionary.
+        """
+        return {
+            "setting": self.setting,
+            "addresses": list(self.addresses),
+            "loopback_only": self.loopback_only,
+        }
+
+
+#: Addresses that only accept connections from this machine.
+LOOPBACK_ADDRESSES = frozenset({"127.0.0.1", "::1", "localhost", "[::1]"})
+
+
+def is_loopback(address: str) -> bool:
+    """
+    Tell whether a listen address only accepts local connections.
+
+    Args:
+        address: An address as an engine or ``ss`` prints it.
+
+    Returns:
+        True for ``127.0.0.0/8``, ``::1`` and ``localhost``.
+    """
+    value = address.strip().strip("[]").lower()
+    return value in LOOPBACK_ADDRESSES or value.startswith("127.")
+
+
+def listen_address(setting: str, raw: str, *, separator: str | None = None) -> ListenAddress:
+    """
+    Build a :class:`ListenAddress` from a setting's raw value.
+
+    Args:
+        setting: The engine's name for the setting.
+        raw: Its value, such as ``localhost`` or ``127.0.0.1 -::1``.
+        separator: What separates addresses; whitespace when None.
+
+    Returns:
+        The parsed addresses. ``*``, ``0.0.0.0`` and ``::`` are kept as they
+        are, and are not loopback.
+    """
+    parts = raw.split(separator) if separator else raw.split()
+    # Redis prefixes an address with '-' to say "skip it when unavailable".
+    addresses = tuple(part.strip().lstrip("-") for part in parts if part.strip())
+    return ListenAddress(
+        setting=setting,
+        addresses=addresses,
+        loopback_only=bool(addresses) and all(is_loopback(a) for a in addresses),
+    )
 
 
 def format_size(size: float) -> str:
@@ -329,9 +552,10 @@ class StructuredQueryResult:
             console field has always shown.
         columns: Column names, in order. Empty when the engine has no tabular
             client output to parse (see the method's own docstring).
-        rows: Data rows, each cell already a string exactly as the client
-            printed it - no type coercion, so a NULL and an empty string stay
-            distinguishable to whoever reads the raw client output too.
+        rows: Data rows, each cell a string exactly as the client printed
+            it - no type coercion - or None for a NULL where the client tells
+            one from an empty string (psql does; MySQL's batch output prints
+            ``NULL``, which is read as NULL).
         row_count: Number of rows in ``rows``, after any truncation.
         duration_ms: Wall-clock time the client invocation took.
         truncated: Whether rows beyond :data:`DEFAULT_STRUCTURED_ROW_CAP` (or
@@ -340,7 +564,7 @@ class StructuredQueryResult:
 
     output: str = ""
     columns: list[str] = field(default_factory=list)
-    rows: list[list[str]] = field(default_factory=list)
+    rows: list[list[str | None]] = field(default_factory=list)
     row_count: int = 0
     duration_ms: float = 0.0
     truncated: bool = False
@@ -469,6 +693,16 @@ class BaseDatabaseManager(BaseManager):
     #: Whether execute_query_structured() has been overridden with a real
     #: parser for this engine's client output, rather than the base fallback.
     SUPPORTS_STRUCTURED_QUERY: bool = False
+    #: What the engine can do; see :data:`CAPABILITY_NAMES`.
+    CAPABILITIES: frozenset[str] = frozenset()
+    #: Units the engine may run as, preferred first. Empty means
+    #: :attr:`SERVICE_NAME` alone; see :meth:`service_unit`.
+    SERVICE_CANDIDATES: tuple[str, ...] = ()
+    #: Family the end-of-life dates are published for. The engine name when
+    #: empty; MariaDB and MySQL share a manager and not a lifecycle.
+    EOL_FAMILY: str = ""
+    #: Accounts that belong to the engine, which Noust never alters or drops.
+    INTERNAL_USERS: frozenset[str] = frozenset()
 
     #: Where backups are written when the caller gives no path.
     BACKUP_DIR = paths.backup_dir() / "databases"
@@ -536,25 +770,29 @@ class BaseDatabaseManager(BaseManager):
     # ==================== Passwords ====================
 
     @staticmethod
-    def generate_password(length: int = 24) -> str:
+    def generate_password(length: int = 32) -> str:
         """
-        Generate a secure random password.
+        Generate a secure random password that is safe inside a URL.
+
+        Letters and digits only. The symbols this used to mix in (``@``,
+        ``#``, ``%``, ``&``) are what a connection string splits on, and a
+        password is generated to end up in one; 32 alphanumeric characters
+        carry about 190 bits, more than the 24 characters with symbols did.
 
         Args:
-            length: Password length.
+            length: Password length, at least 3.
 
         Returns:
-            A password containing at least one lower case letter, one upper case
-            letter, one digit and one symbol.
+            A password containing at least one lower case letter, one upper
+            case letter and one digit.
         """
-        alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+        alphabet = string.ascii_letters + string.digits
         password = [
             secrets.choice(string.ascii_lowercase),
             secrets.choice(string.ascii_uppercase),
             secrets.choice(string.digits),
-            secrets.choice("!@#$%^&*"),
         ]
-        password += [secrets.choice(alphabet) for _ in range(length - 4)]
+        password += [secrets.choice(alphabet) for _ in range(max(length, 3) - 3)]
         secrets.SystemRandom().shuffle(password)
         return "".join(password)
 
@@ -689,9 +927,24 @@ class BaseDatabaseManager(BaseManager):
         """
         Install the engine, enable its unit and start it.
 
+        Only through apt, the one package manager whose package names and
+        post-install behaviour this module knows. On a dnf or zypper system
+        the refusal comes first and says what to do, instead of an
+        ``apt-get: command not found`` halfway through: Noust manages an
+        engine installed with the distribution's own tool just the same.
+
         Raises:
-            DatabaseEngineError: When apt or the unit fails.
+            DatabaseEngineError: When apt is absent, or apt or the unit fails.
         """
+        if not self.runner.exists(APT_GET):
+            raise DatabaseEngineError(
+                f"Noust installs {self.DISPLAY_NAME} with apt, which this system does not have",
+                details=(
+                    f"Install {self.DISPLAY_NAME} with your distribution's package manager "
+                    "(dnf or zypper), enable and start its service, then run "
+                    f"'noust db status {self.ENGINE_NAME}': Noust manages it from there."
+                ),
+            )
         self.logger.info(f"Installing {self.DISPLAY_NAME}...")
 
         self._pre_install()
@@ -762,6 +1015,34 @@ class BaseDatabaseManager(BaseManager):
             for path in self.PURGE_PATHS:
                 self._exec(["rm", "-rf", path], timeout=SERVICE_TIMEOUT)
 
+    def service_unit(self) -> str:
+        """
+        Name the systemd unit this engine runs as on this server.
+
+        Engines whose unit is named differently by different packages (Redis
+        is ``redis-server`` on Debian, ``redis`` on Fedora, and Valkey's
+        ``valkey-server`` or ``valkey``) list the candidates in
+        :attr:`SERVICE_CANDIDATES`; the first one systemd has loaded wins,
+        and is remembered on the instance. When none is, the default stays:
+        the engine is not installed yet, and that is the unit its package
+        will bring.
+
+        Returns:
+            The unit name.
+        """
+        if len(self.SERVICE_CANDIDATES) < 2 or getattr(self, "_unit_detected", False):
+            return self.SERVICE_NAME
+        for candidate in self.SERVICE_CANDIDATES:
+            result = self._exec(
+                ["systemctl", "show", "--property=LoadState", "--value", candidate],
+                timeout=SERVICE_TIMEOUT,
+            )
+            if result.success and result.stdout.strip() == "loaded":
+                self.SERVICE_NAME = candidate
+                break
+        self._unit_detected = True
+        return self.SERVICE_NAME
+
     def _systemctl(self, action: str) -> CommandResult:
         """
         Apply a systemd verb to the engine's unit.
@@ -772,7 +1053,7 @@ class BaseDatabaseManager(BaseManager):
         Returns:
             The command outcome.
         """
-        return self._exec(["systemctl", action, self.SERVICE_NAME], timeout=SERVICE_TIMEOUT)
+        return self._exec(["systemctl", action, self.service_unit()], timeout=SERVICE_TIMEOUT)
 
     def _service_action(self, action: str) -> None:
         """
@@ -790,7 +1071,7 @@ class BaseDatabaseManager(BaseManager):
                 f"Failed to {action} {self.DISPLAY_NAME}",
                 details=(
                     f"{result.stderr.strip()}\n"
-                    f"Inspect the unit with: journalctl -u {self.SERVICE_NAME} -n 50"
+                    f"Inspect the unit with: journalctl -u {self.service_unit()} -n 50"
                 ).strip(),
             )
 
@@ -853,18 +1134,50 @@ class BaseDatabaseManager(BaseManager):
         Summarise the engine's state.
 
         Returns:
-            A dictionary describing installation, version and service state.
+            A dictionary describing installation, version, service state,
+            capabilities, upstream support and anything the operator must
+            know about the installation (``warnings``).
         """
         installed = self.is_installed()
+        version = self.get_version() if installed else None
+        running = self.is_running() if installed else False
         return {
             "engine": self.ENGINE_NAME,
             "display_name": self.DISPLAY_NAME,
             "installed": installed,
-            "version": self.get_version() if installed else None,
-            "running": self.is_running() if installed else False,
+            "version": version,
+            "running": running,
             "port": self.DEFAULT_PORT,
-            "service": self.SERVICE_NAME,
+            "service": self.service_unit(),
+            "capabilities": sorted(self.CAPABILITIES),
+            "support": self.support(version).to_dict() if installed else None,
+            "warnings": self.warnings() if running else [],
         }
+
+    def support(self, version: str | None = None) -> Any:
+        """
+        Say where the installed version stands in its upstream support.
+
+        Args:
+            version: The version, when the caller already asked for it.
+
+        Returns:
+            A :class:`~noust.managers.database.eol.SupportNotice`.
+        """
+        return support_notice(
+            self.EOL_FAMILY or self.ENGINE_NAME,
+            version if version is not None else self.get_version(),
+        )
+
+    def warnings(self) -> list[str]:
+        """
+        List what an operator must know about this installation.
+
+        Returns:
+            Sentences in English, empty when there is nothing to say. The
+            base has nothing; MongoDB warns when authorization is off.
+        """
+        return []
 
     # ==================== Database Management ====================
 
@@ -1048,6 +1361,116 @@ class BaseDatabaseManager(BaseManager):
             DatabaseUserError: When a privilege is not whitelisted or the revoke
                 fails.
         """
+
+    def set_user_password(self, username: str, password: str, host: str = "localhost") -> None:
+        """
+        Give an existing account a new password.
+
+        Every engine keeps the password off argv: PostgreSQL receives a
+        SCRAM verifier on stdin, MySQL an ``ALTER USER`` on stdin, Redis a
+        SHA-256 digest, MongoDB a script on stdin.
+
+        Args:
+            username: The account.
+            password: Its new password.
+            host: Host restriction, for engines that have one.
+
+        Raises:
+            DatabaseUserError: When the engine cannot change it, the account
+                does not exist, or the engine refuses.
+        """
+        raise DatabaseUserError(
+            f"{self.DISPLAY_NAME} passwords cannot be changed by Noust",
+            details="Change it with the engine's own client ('noust db connect').",
+        )
+
+    def is_internal_user(self, username: str) -> bool:
+        """
+        Tell whether an account belongs to the engine or to Noust itself.
+
+        Such an account is listed but never altered or dropped through Noust:
+        the superuser, the engine's maintenance accounts, and the read-only
+        console's ``wasm_ro_`` accounts, which Noust re-provisions on its own.
+
+        Args:
+            username: The account.
+
+        Returns:
+            True for an internal account.
+        """
+        return username in self.INTERNAL_USERS or username.startswith(READ_ONLY_ACCOUNT_PREFIX)
+
+    def apply_profile(
+        self, username: str, database: str, profile: str, host: str = "localhost"
+    ) -> None:
+        """
+        Give an account exactly one access profile on a database.
+
+        Profiles replace grants rather than add to them, so moving an account
+        from read-write to read-only takes the writes away.
+
+        Args:
+            username: The account.
+            database: The database.
+            profile: ``owner``, ``read_write`` or ``read_only``.
+            host: Host restriction, for engines that have one.
+
+        Raises:
+            DatabaseUserError: When the engine has no profiles, the profile is
+                unknown, or the engine refuses.
+        """
+        raise DatabaseUserError(
+            f"{self.DISPLAY_NAME} has no per-database access profiles",
+            details="Use 'noust db grant' with the engine's own privileges instead.",
+        )
+
+    def list_access(self, database: str) -> list[AccessEntry]:
+        """
+        List who can reach a database, and with which profile.
+
+        The base answers from :meth:`list_users`: every account whose listing
+        names the database, with the grants it holds and no profile inferred.
+        Engines with profiles compute the effective one from the grants.
+
+        Args:
+            database: The database.
+
+        Returns:
+            One entry per account.
+        """
+        return [
+            AccessEntry(
+                username=user.username,
+                host=user.host,
+                profile="custom",
+                privileges=tuple(user.privileges),
+                internal=self.is_internal_user(user.username),
+            )
+            for user in self.list_users()
+            if database in user.databases
+        ]
+
+    def drop_read_only_account(self, database: str) -> None:
+        """
+        Remove the read-only console's account of a database that is gone.
+
+        PostgreSQL roles and MySQL accounts are cluster-wide: dropping the
+        database leaves ``wasm_ro_<database>`` behind, and a database created
+        later under the same name would inherit it. Engines without such an
+        account have nothing to do.
+
+        Args:
+            database: The dropped database.
+        """
+
+    def listen_addresses(self) -> ListenAddress | None:
+        """
+        Ask the running server where it listens.
+
+        Returns:
+            The configured addresses, or None when the engine cannot say.
+        """
+        return None
 
     # ==================== Backup & Restore ====================
 
@@ -1353,25 +1776,178 @@ class BaseDatabaseManager(BaseManager):
             DatabaseBackupError: When the backup fails.
         """
 
-    @abstractmethod
     def restore(
         self,
         database: str,
         backup_path: Path,
         drop_existing: bool = False,
+        *,
+        safety_backup: bool = True,
         **kwargs,
-    ) -> None:
+    ) -> RestoreOutcome:
         """
-        Restore a database from a backup.
+        Restore a database from a backup, never losing what it held.
+
+        The order is what makes it safe:
+
+        1. The dump is checked (:meth:`_check_backup`) before anything is
+           touched, so a refused dump costs nothing.
+        2. When the database exists, what it holds is dumped first: the
+           safety copy. It is mandatory when ``drop_existing`` asks to
+           replace the database, and taken by default otherwise too, since
+           loading a dump over live data overwrites rows as surely.
+        3. The database is dropped and recreated (with its owner) when asked,
+           then the dump is loaded (:meth:`_load_backup`).
+        4. When loading fails and there is a safety copy, the database is
+           dropped, recreated and loaded from the safety copy, and the error
+           carries both tools' own words. The copy is kept either way.
+
+        The previous version dropped the database and then loaded the dump,
+        so a truncated file left an empty database and no way back.
 
         Args:
             database: Target database name.
             backup_path: Path to the backup file.
-            drop_existing: Drop the target database first.
-            **kwargs: Engine-specific options.
+            drop_existing: Drop and recreate the database before loading.
+            safety_backup: Take the safety copy when nothing is dropped. A
+                replace always takes it, whatever this says.
+            **kwargs: Engine-specific options, handed to the checks and the
+                loader (``format`` for PostgreSQL).
+
+        Returns:
+            What was done, the safety copy included.
 
         Raises:
-            DatabaseBackupError: When the restore fails.
+            DatabaseBackupError: When the file is missing or refused, the
+                safety copy cannot be taken, or the restore fails (the
+                previous contents are back when the error says so).
+        """
+        self.validate_database_name(database)
+        backup_path = Path(backup_path)
+        if not backup_path.exists():
+            raise DatabaseBackupError(
+                f"Backup file not found: {backup_path}",
+                details="Run 'noust db backups' to list the backups Noust knows about.",
+            )
+        self._check_backup(backup_path, **kwargs)
+
+        exists = self.database_exists(database)
+        safety: Path | None = None
+        owner: str | None = None
+        if exists and (safety_backup or drop_existing):
+            owner = self._database_owner(database)
+            safety = self.backup(database).path
+            self.logger.info(f"Safety copy of '{database}' taken before the restore: {safety}")
+
+        replaced = exists and drop_existing
+        if replaced:
+            self.drop_database(database, force=True)
+        if replaced or not exists:
+            self._create_for_restore(database, owner)
+
+        try:
+            self._load_backup(database, backup_path, **kwargs)
+        except DatabaseBackupError as exc:
+            if safety is None:
+                raise
+            raise self._put_back(database, safety, owner, exc) from exc
+
+        self.logger.info(f"Restored database: {database} from {backup_path}")
+        return RestoreOutcome(
+            database=database, source=backup_path, safety_copy=safety, replaced=replaced
+        )
+
+    def _put_back(
+        self, database: str, safety: Path, owner: str | None, failure: DatabaseBackupError
+    ) -> DatabaseBackupError:
+        """
+        Load the safety copy back after a failed restore.
+
+        Args:
+            database: The database the restore failed on.
+            safety: The safety copy taken before it.
+            owner: The owner the database had, to recreate it with.
+            failure: What the failed restore raised.
+
+        Returns:
+            The error to raise, which says whether the previous contents are
+            back and carries every tool's own output.
+        """
+        said = failure.details or str(failure)
+        try:
+            self.drop_database(database, force=True)
+            self._create_for_restore(database, owner)
+            self._load_backup(database, safety)
+        except DatabaseError as again:
+            return DatabaseBackupError(
+                f"Restoring '{database}' failed, and putting its previous contents back failed too",
+                details=(
+                    f"The restore said:\n{said}\n\nLoading the safety copy said:\n"
+                    f"{again.details or again}\n\nThe safety copy is kept at {safety}. "
+                    f"Load it by hand with: noust db restore {database} {safety} "
+                    f"--engine {self.ENGINE_NAME} --drop"
+                ),
+            )
+        return DatabaseBackupError(
+            f"Restoring '{database}' failed; its previous contents were put back",
+            details=f"{said}\n\nThe safety copy it was put back from is kept at {safety}.",
+        )
+
+    def _check_backup(self, backup_path: Path, **kwargs: Any) -> None:
+        """
+        Refuse a dump before the database is touched.
+
+        Args:
+            backup_path: The dump.
+            **kwargs: The restore's engine-specific options.
+
+        Raises:
+            DatabaseBackupError: When the dump must not be loaded.
+        """
+
+    def _database_owner(self, database: str) -> str | None:
+        """
+        Name the owner a recreated database must get back.
+
+        Args:
+            database: An existing database.
+
+        Returns:
+            The owning account, as :meth:`get_database_info` reports it, or
+            None for an engine with no such concept.
+        """
+        try:
+            return self.get_database_info(database).owner
+        except DatabaseError as exc:
+            self.logger.warning(f"Could not read the owner of '{database}': {exc}")
+            return None
+
+    def _create_for_restore(self, database: str, owner: str | None) -> None:
+        """
+        Create the empty database a dump is loaded into.
+
+        Args:
+            database: The database.
+            owner: The owner it had before, if any.
+
+        Raises:
+            DatabaseError: When it cannot be created.
+        """
+        self.create_database(database, owner=owner)
+
+    @abstractmethod
+    def _load_backup(self, database: str, backup_path: Path, **kwargs: Any) -> None:
+        """
+        Load a dump into a database that exists.
+
+        Args:
+            database: The database.
+            backup_path: The dump, plain or gzipped.
+            **kwargs: The restore's engine-specific options.
+
+        Raises:
+            DatabaseBackupError: When the engine's loader fails; the error
+                carries its output verbatim.
         """
 
     def list_backups(self, database: str | None = None) -> list[BackupInfo]:
@@ -1450,6 +2026,7 @@ class BaseDatabaseManager(BaseManager):
         *,
         read_only: bool = False,
         max_rows: int = DEFAULT_STRUCTURED_ROW_CAP,
+        timeout_s: int | None = None,
     ) -> StructuredQueryResult:
         """
         Execute a statement and, where the engine's client supports it, parse
@@ -1469,6 +2046,8 @@ class BaseDatabaseManager(BaseManager):
             read_only: Whether the statement must be refused if it writes.
             max_rows: Most rows kept in ``rows`` before truncation. Unused
                 here: the fallback has no rows to cap.
+            timeout_s: Seconds the server may spend on the statement. Unused
+                here: an engine with no statement timeout has none to set.
 
         Returns:
             The plain output wrapped in :class:`StructuredQueryResult`, timed
@@ -1482,7 +2061,56 @@ class BaseDatabaseManager(BaseManager):
         duration_ms = (time.perf_counter() - start) * 1000
         return StructuredQueryResult(output=output, duration_ms=duration_ms)
 
-    @abstractmethod
+    def run_sql(
+        self, database: str, sql: str, *, read_only: bool, timeout_s: int | None = None
+    ) -> str:
+        """
+        Run a statement Noust built (the data explorer's, the row editor's).
+
+        Only the SQL engines have one; see their overrides.
+
+        Args:
+            database: The database.
+            sql: The statement.
+            read_only: Run it as the database's read-only account.
+            timeout_s: Seconds the server may spend on it.
+
+        Returns:
+            What the engine printed.
+
+        Raises:
+            DatabaseQueryError: Always, here: the engine has no tables.
+        """
+        raise DatabaseQueryError(
+            f"{self.DISPLAY_NAME} has no tables to browse",
+            details="The data explorer and the row editor work on PostgreSQL and MySQL/MariaDB.",
+        )
+
+    def explain(
+        self, database: str, statement: str, *, analyze: bool = False, timeout_s: int | None = None
+    ) -> str:
+        """
+        Show how the engine would run a statement.
+
+        Only the SQL engines have one; see their overrides.
+
+        Args:
+            database: The database.
+            statement: The operator's statement.
+            analyze: Execute it and report real timings.
+            timeout_s: Seconds the server may spend on it.
+
+        Returns:
+            The plan.
+
+        Raises:
+            DatabaseQueryError: Always, here: the engine has no planner to ask.
+        """
+        raise DatabaseQueryError(
+            f"EXPLAIN is not available for {self.DISPLAY_NAME}",
+            details="EXPLAIN works on PostgreSQL and MySQL/MariaDB.",
+        )
+
     def get_connection_string(
         self,
         database: str,
@@ -1493,6 +2121,9 @@ class BaseDatabaseManager(BaseManager):
         """
         Build a connection string for an application.
 
+        Every engine builds it the one way (:func:`connection_url`): user and
+        password percent-encoded, on the port the server really listens on.
+
         Args:
             database: Database name.
             username: User name.
@@ -1502,6 +2133,27 @@ class BaseDatabaseManager(BaseManager):
         Returns:
             The connection string.
         """
+        return connection_url(
+            self.ENGINE_NAME,
+            database=database,
+            user=username,
+            password=password,
+            host=host,
+            port=self.server_port(),
+            options=self._url_options(username),
+        )
+
+    def _url_options(self, username: str) -> dict[str, str] | None:
+        """
+        Add engine-specific parameters to a connection string.
+
+        Args:
+            username: The user the string is for.
+
+        Returns:
+            Query parameters, or None.
+        """
+        return None
 
     def get_interactive_command(
         self,

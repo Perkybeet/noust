@@ -1,0 +1,1390 @@
+### deploy.started
+Subject: [Noust] Desplegando: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_started
+X-Noust-Code: deploy.started
+X-Noust-Server: web-1
+
+◐ Desplegando · shop.example.com
+Noust está construyendo la nueva versión y te avisará de cómo termina.
+
+Servidor: web-1
+Commit: a1b2c3d (main)
+Iniciado por: Webhook
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### deploy.succeeded
+Subject: [Noust] Desplegado: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_success
+X-Noust-Code: deploy.succeeded
+X-Noust-Server: web-1
+
+● Desplegado · shop.example.com
+La nueva versión ya está en servicio.
+
+Servidor: web-1
+Versión: 20260929-104449
+Commit: a1b2c3d (main): Fix cart total
+Iniciado por: Webhook
+Duración: 42 s
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### deploy.failed
+Subject: [Noust] Despliegue fallido: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_failed
+X-Noust-Code: deploy.failed
+X-Noust-Server: web-1
+
+✕ Despliegue fallido · shop.example.com
+Se ha detenido por un error antes de que la nueva versión tomara el relevo.
+
+Servidor: web-1
+Versión: 20260929-104449
+Commit: a1b2c3d (main): Fix cart total
+Iniciado por: Webhook
+Duración: 1 min 12 s
+Revísalo con: noust diagnose shop.example.com
+
+Lo que ha informado el sistema:
+  npm run build failed
+  > shop@1.4.2 build
+  > next build
+  Failed to compile.
+  ./app/cart/page.tsx
+  Type error: Property 'total' does not exist on type 'Cart'.
+  npm error Lifecycle script `build` failed with error:
+  npm error code 1
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### deploy.rolled_back
+Subject: [Noust] Revertido: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_rolled_back
+X-Noust-Code: deploy.rolled_back
+X-Noust-Server: web-1
+
+▲ Revertido · shop.example.com
+La nueva versión no ha respondido a la comprobación de salud, así que la anterior vuelve a estar en servicio.
+
+Servidor: web-1
+Versión: 20260929-104449
+Commit: a1b2c3d (main): Fix cart total
+Iniciado por: Webhook
+Duración: 1 min 12 s
+Revísalo con: noust diagnose shop.example.com
+
+Últimas líneas del registro de shop-example-com:
+  Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.
+  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE
+  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.
+  Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.
+  Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).
+  Sep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start
+  Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004
+  Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.
+  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE
+  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.
+  Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.
+  17 líneas anteriores omitidas
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### update.started
+Subject: [Noust] Actualizando: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_started
+X-Noust-Code: update.started
+X-Noust-Server: web-1
+
+◐ Actualizando · shop.example.com
+Noust está descargando y construyendo el código más reciente y te avisará de cómo termina.
+
+Servidor: web-1
+Commit: a1b2c3d (main)
+Iniciado por: Webhook
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### update.succeeded
+Subject: [Noust] Actualizado: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_success
+X-Noust-Code: update.succeeded
+X-Noust-Server: web-1
+
+● Actualizado · shop.example.com
+La aplicación ya ejecuta la nueva versión.
+
+Servidor: web-1
+Versión: 20260929-104449
+Commit: a1b2c3d (main): Fix cart total
+Iniciado por: Webhook
+Duración: 42 s
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### update.failed
+Subject: [Noust] Actualización fallida: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_failed
+X-Noust-Code: update.failed
+X-Noust-Server: web-1
+
+✕ Actualización fallida · shop.example.com
+Se ha detenido por un error antes de que la nueva versión tomara el relevo.
+
+Servidor: web-1
+Versión: 20260929-104449
+Commit: a1b2c3d (main): Fix cart total
+Iniciado por: Webhook
+Duración: 1 min 12 s
+Revísalo con: noust diagnose shop.example.com
+
+Lo que ha informado el sistema:
+  npm run build failed
+  > shop@1.4.2 build
+  > next build
+  Failed to compile.
+  ./app/cart/page.tsx
+  Type error: Property 'total' does not exist on type 'Cart'.
+  npm error Lifecycle script `build` failed with error:
+  npm error code 1
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### update.rolled_back
+Subject: [Noust] Revertido: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_rolled_back
+X-Noust-Code: update.rolled_back
+X-Noust-Server: web-1
+
+▲ Revertido · shop.example.com
+La nueva versión no ha respondido a la comprobación de salud, así que la anterior vuelve a estar en servicio.
+
+Servidor: web-1
+Versión: 20260929-104449
+Commit: a1b2c3d (main): Fix cart total
+Iniciado por: Webhook
+Duración: 1 min 12 s
+Revísalo con: noust diagnose shop.example.com
+
+Últimas líneas del registro de shop-example-com:
+  Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.
+  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE
+  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.
+  Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.
+  Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).
+  Sep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start
+  Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004
+  Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.
+  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE
+  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.
+  Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.
+  17 líneas anteriores omitidas
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### rollback.started
+Subject: [Noust] Volviendo atrás: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_started
+X-Noust-Code: rollback.started
+X-Noust-Server: web-1
+
+◐ Volviendo atrás · shop.example.com
+Noust está volviendo a una versión anterior y te avisará de cómo termina.
+
+Servidor: web-1
+Commit: a1b2c3d (main)
+Iniciado por: Webhook
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### rollback.succeeded
+Subject: [Noust] Vuelta atrás completada: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_success
+X-Noust-Code: rollback.succeeded
+X-Noust-Server: web-1
+
+● Vuelta atrás completada · shop.example.com
+La versión anterior vuelve a estar en servicio.
+
+Servidor: web-1
+Versión: 20260929-104449
+Commit: a1b2c3d (main): Fix cart total
+Iniciado por: Webhook
+Duración: 42 s
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### rollback.failed
+Subject: [Noust] Vuelta atrás fallida: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_failed
+X-Noust-Code: rollback.failed
+X-Noust-Server: web-1
+
+✕ Vuelta atrás fallida · shop.example.com
+La vuelta atrás se ha detenido por un error antes de que la versión anterior tomara el relevo.
+
+Servidor: web-1
+Versión: 20260929-104449
+Commit: a1b2c3d (main): Fix cart total
+Iniciado por: Webhook
+Duración: 1 min 12 s
+Revísalo con: noust diagnose shop.example.com
+
+Lo que ha informado el sistema:
+  rollback step failed
+  systemctl: Job for shop-example-com.service failed
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### rollback.rolled_back
+Subject: [Noust] Vuelta atrás fallida: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_rolled_back
+X-Noust-Code: rollback.rolled_back
+X-Noust-Server: web-1
+
+▲ Vuelta atrás fallida · shop.example.com
+La versión anterior no ha respondido a la comprobación de salud, así que vuelve a estar en servicio la que lo estaba antes.
+
+Servidor: web-1
+Versión: 20260929-104449
+Commit: a1b2c3d (main): Fix cart total
+Iniciado por: Webhook
+Duración: 1 min 12 s
+Revísalo con: noust diagnose shop.example.com
+
+Últimas líneas del registro de shop-example-com:
+  Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.
+  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE
+  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.
+  Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.
+  Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).
+  Sep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start
+  Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004
+  Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.
+  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE
+  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.
+  Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.
+  17 líneas anteriores omitidas
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### activate.started
+Subject: [Noust] Activando versión: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_started
+X-Noust-Code: activate.started
+X-Noust-Server: web-1
+
+◐ Activando versión · shop.example.com
+Noust está cambiando a la versión elegida y te avisará de cómo termina.
+
+Servidor: web-1
+Commit: a1b2c3d (main)
+Iniciado por: Webhook
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### activate.succeeded
+Subject: [Noust] Versión activada: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_success
+X-Noust-Code: activate.succeeded
+X-Noust-Server: web-1
+
+● Versión activada · shop.example.com
+La versión elegida está en servicio.
+
+Servidor: web-1
+Versión: 20260929-104449
+Commit: a1b2c3d (main): Fix cart total
+Iniciado por: Webhook
+Duración: 42 s
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### activate.failed
+Subject: [Noust] Activación fallida: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_failed
+X-Noust-Code: activate.failed
+X-Noust-Server: web-1
+
+✕ Activación fallida · shop.example.com
+El cambio se ha detenido por un error antes de que la versión elegida tomara el relevo.
+
+Servidor: web-1
+Versión: 20260929-104449
+Commit: a1b2c3d (main): Fix cart total
+Iniciado por: Webhook
+Duración: 1 min 12 s
+Revísalo con: noust diagnose shop.example.com
+
+Lo que ha informado el sistema:
+  activate step failed
+  systemctl: Job for shop-example-com.service failed
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### activate.rolled_back
+Subject: [Noust] Activación fallida: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_rolled_back
+X-Noust-Code: activate.rolled_back
+X-Noust-Server: web-1
+
+▲ Activación fallida · shop.example.com
+La versión elegida no ha respondido a la comprobación de salud, así que la anterior vuelve a estar en servicio.
+
+Servidor: web-1
+Versión: 20260929-104449
+Commit: a1b2c3d (main): Fix cart total
+Iniciado por: Webhook
+Duración: 1 min 12 s
+Revísalo con: noust diagnose shop.example.com
+
+Últimas líneas del registro de shop-example-com:
+  Sep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.
+  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE
+  Sep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.
+  Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.
+  Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).
+  Sep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start
+  Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004
+  Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.
+  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE
+  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.
+  Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.
+  17 líneas anteriores omitidas
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### migrate.started
+Subject: [Noust] Migrando a versiones: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_started
+X-Noust-Code: migrate.started
+X-Noust-Server: web-1
+
+◐ Migrando a versiones · shop.example.com
+Noust está pasando la aplicación a versiones y te avisará de cómo termina.
+
+Servidor: web-1
+Commit: a1b2c3d (main)
+Iniciado por: Webhook
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### migrate.succeeded
+Subject: [Noust] Migrado a versiones: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_success
+X-Noust-Code: migrate.succeeded
+X-Noust-Server: web-1
+
+● Migrado a versiones · shop.example.com
+Cada despliegue se construye ahora en su propia versión y volver atrás lleva segundos.
+
+Servidor: web-1
+Versión: 20260929-104449
+Commit: a1b2c3d (main): Fix cart total
+Iniciado por: Webhook
+Duración: 42 s
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### migrate.failed
+Subject: [Noust] Migración fallida: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_failed
+X-Noust-Code: migrate.failed
+X-Noust-Server: web-1
+
+✕ Migración fallida · shop.example.com
+Se ha detenido por un error; en ese caso Noust restaura la disposición anterior.
+
+Servidor: web-1
+Versión: 20260929-104449
+Commit: a1b2c3d (main): Fix cart total
+Iniciado por: Webhook
+Duración: 1 min 12 s
+Revísalo con: noust diagnose shop.example.com
+
+Lo que ha informado el sistema:
+  migrate step failed
+  systemctl: Job for shop-example-com.service failed
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### restore.completed
+Subject: [Noust] Restaurado: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: restore_success
+X-Noust-Code: restore.completed
+X-Noust-Server: web-1
+
+● Restaurado · shop.example.com
+Los archivos de la aplicación han vuelto a como estaban en la copia de seguridad.
+
+Servidor: web-1
+Copia: 20260928-020000
+
+Abrir en la consola: https://console.example.com/n/web-1/backups
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### restore.failed
+Subject: [Noust] Restauración fallida: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: restore_failed
+X-Noust-Code: restore.failed
+X-Noust-Server: web-1
+
+✕ Restauración fallida · shop.example.com
+Se ha detenido por un error, así que los archivos de la aplicación podrían estar restaurados solo en parte.
+
+Servidor: web-1
+Copia: 20260928-020000
+
+Lo que ha informado el sistema:
+  tar: Unexpected EOF in archive
+  tar: Error is not recoverable: exiting now
+
+Abrir en la consola: https://console.example.com/n/web-1/backups
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### backup.failed
+Subject: [Noust] Copia de seguridad fallida: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_failed
+X-Noust-Code: backup.failed
+X-Noust-Server: web-1
+
+✕ Copia de seguridad fallida · shop.example.com
+No se ha guardado ninguna copia nueva de la aplicación.
+
+Servidor: web-1
+
+Lo que ha informado el sistema:
+  tar: /var/www/apps/shop-example-com/shared/uploads: Cannot write: No space left on device
+
+Abrir en la consola: https://console.example.com/n/web-1/backups
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### backup.upload_failed
+Subject: [Noust] Subida de la copia fallida: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_failed
+X-Noust-Code: backup.upload_failed
+X-Noust-Server: web-1
+
+▲ Subida de la copia fallida · shop.example.com
+La copia se ha guardado en este servidor, pero no se ha podido subir.
+
+Servidor: web-1
+Destino: s3-eu
+
+Lo que ha informado el sistema:
+  2026/09/29 02:00:14 Failed to copy: AccessDenied: Access Denied
+      status code: 403
+
+Abrir en la consola: https://console.example.com/n/web-1/backups
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### backup.schedule_missing
+Subject: [Noust] Falta la programación de la copia: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_failed
+X-Noust-Code: backup.schedule_missing
+X-Noust-Server: web-1
+
+▲ Falta la programación de la copia · shop.example.com
+El temporizador se ha activado, pero Noust no tiene una programación guardada para esta aplicación, así que la copia se ha hecho con los ajustes por defecto.
+
+Servidor: web-1
+Guárdala de nuevo con: noust backup schedule update shop.example.com
+
+Abrir en la consola: https://console.example.com/n/web-1/backups
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### backup.completed
+Subject: [Noust] Copia completada: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_success
+X-Noust-Code: backup.completed
+X-Noust-Server: web-1
+
+● Copia completada · shop.example.com
+Se ha guardado una copia nueva de la aplicación.
+
+Servidor: web-1
+Copia: 20260929-020000
+Tamaño: 48.0 MB
+Subida a: s3-eu
+
+Abrir en la consola: https://console.example.com/n/web-1/backups
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### cert.expiring
+Subject: [Noust] Certificado a punto de caducar: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: cert_expiring
+X-Noust-Code: cert.expiring
+X-Noust-Server: web-1
+
+▲ Certificado a punto de caducar · shop.example.com
+Caduca en 7 días (6 oct 2026).
+
+Servidor: web-1
+Cubre: shop.example.com, www.shop.example.com
+Renuévalo con: noust cert renew shop.example.com
+
+Abrir en la consola: https://console.example.com/n/web-1/domains
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### cert.expired
+Subject: [Noust] Certificado caducado: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: cert_expiring
+X-Noust-Code: cert.expired
+X-Noust-Server: web-1
+
+✕ Certificado caducado · shop.example.com
+Caducó hace 80 días (11 jul 2026).
+
+Servidor: web-1
+Cubre: shop.example.com, www.shop.example.com
+Renuévalo con: noust cert renew shop.example.com
+
+Abrir en la consola: https://console.example.com/n/web-1/domains
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### unit.failed
+Subject: [Noust] Servicio fallido: shop-example-com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: unit_failed
+X-Noust-Code: unit.failed
+X-Noust-Server: web-1
+
+✕ Servicio fallido · shop-example-com
+systemd lo ha marcado como fallido.
+
+Servidor: web-1
+Revísalo con: journalctl -u shop-example-com -n 50
+
+Últimas líneas del registro de shop-example-com:
+  Sep 29 10:45:13 web-1 npm[48211]: > shop@1.4.2 start
+  Sep 29 10:45:13 web-1 npm[48211]: > next start -p 3004
+  Sep 29 10:45:14 web-1 npm[48227]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.
+  Sep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE
+  Sep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.
+  Sep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1.
+
+Abrir en la consola: https://console.example.com/n/web-1/server/services/shop-example-com
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### unit.crash_loop
+Subject: [Noust] Servicio en bucle de reinicios: shop-example-com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: unit_failed
+X-Noust-Code: unit.crash_loop
+X-Noust-Server: web-1
+
+✕ Servicio en bucle de reinicios · shop-example-com
+systemd lo ha reiniciado 3 veces desde la última comprobación y sigue sin arrancar.
+
+Servidor: web-1
+Reinicios: 9
+Revísalo con: journalctl -u shop-example-com -n 50
+
+Últimas líneas del registro de shop-example-com:
+  Sep 29 10:45:14 web-1 npm[48227]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.
+  Sep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE
+  Sep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.
+  Sep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1.
+  Sep 29 10:45:18 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).
+  Sep 29 10:45:19 web-1 npm[48287]: > shop@1.4.2 start
+  Sep 29 10:45:19 web-1 npm[48287]: > next start -p 3004
+  Sep 29 10:45:20 web-1 npm[48303]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.
+  Sep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE
+  Sep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.
+  Sep 29 10:45:24 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 2.
+  3 líneas anteriores omitidas
+
+Abrir en la consola: https://console.example.com/n/web-1/server/services/shop-example-com
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### unit.stopped_on_failure
+Subject: [Noust] Servicio detenido por un fallo: shop-example-com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: unit_failed
+X-Noust-Code: unit.stopped_on_failure
+X-Noust-Server: web-1
+
+✕ Servicio detenido por un fallo · shop-example-com
+Se ha detenido tras una ejecución fallida y systemd no lo está reiniciando.
+
+Servidor: web-1
+Resultado: signal
+Código de salida: 9
+Revísalo con: journalctl -u shop-example-com -n 50
+
+Abrir en la consola: https://console.example.com/n/web-1/server/services/shop-example-com
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### unit.recovered
+Subject: [Noust] Servicio recuperado: shop-example-com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: unit_failed
+X-Noust-Code: unit.recovered
+X-Noust-Server: web-1
+
+● Servicio recuperado · shop-example-com
+Vuelve a estar en marcha y no se ha reiniciado desde la última comprobación.
+
+Servidor: web-1
+
+Abrir en la consola: https://console.example.com/n/web-1/server/services/shop-example-com
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### disk.threshold
+Subject: [Noust] Disco casi lleno: / (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: disk_threshold
+X-Noust-Code: disk.threshold
+X-Noust-Server: web-1
+
+▲ Disco casi lleno · /
+Ha superado el umbral de aviso del 90%, y un disco lleno detiene los despliegues, los registros y las bases de datos de este servidor.
+
+Servidor: web-1
+Usado: 91.7% (18.3 GB / 20.0 GB)
+Libre: 1.7 GB
+
+Abrir en la consola: https://console.example.com/n/web-1/server
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### disk.recovered
+Subject: [Noust] Espacio en disco recuperado: / (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: disk_threshold
+X-Noust-Code: disk.recovered
+X-Noust-Server: web-1
+
+● Espacio en disco recuperado · /
+El uso vuelve a estar por debajo del umbral de aviso.
+
+Servidor: web-1
+Usado: 71.2%
+
+Abrir en la consola: https://console.example.com/n/web-1/server
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### test
+Subject: [Noust] Notificación de prueba: Telegram (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: test
+X-Noust-Code: test
+X-Noust-Server: web-1
+
+○ Notificación de prueba · Telegram
+Si ves esto, el canal Telegram está bien configurado.
+
+Servidor: web-1
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### node.unreachable
+Subject: [Noust] Servidor inaccesible: web-2 (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: node_unreachable
+X-Noust-Code: node.unreachable
+X-Noust-Server: web-1
+
+✕ Servidor inaccesible · web-2
+Noust no puede alcanzar este servidor a través de su túnel.
+
+Servidor: web-1
+Dirección: 10.0.0.2
+Inaccesible desde: 2026-09-29 10:30 UTC
+
+Lo que ha informado el sistema:
+  ssh: connect to host 10.0.0.2 port 22: Connection timed out
+
+Abrir en la consola: https://console.example.com/n/web-1/fleet
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### node.recovered
+Subject: [Noust] Servidor accesible de nuevo: web-2 (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: node_recovered
+X-Noust-Code: node.recovered
+X-Noust-Server: web-1
+
+● Servidor accesible de nuevo · web-2
+El túnel vuelve a estar abierto y el servidor responde.
+
+Servidor: web-1
+Estuvo inaccesible durante: 12 min 34 s
+
+Abrir en la consola: https://console.example.com/n/web-1/n/web-2/
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### node.host_key_changed
+Subject: [Noust] Clave de host cambiada: web-2 (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: node_host_key_changed
+X-Noust-Code: node.host_key_changed
+X-Noust-Server: web-1
+
+✕ Clave de host cambiada · web-2
+El servidor ha presentado otra clave de host SSH, así que el túnel sigue cerrado hasta que alguien la compruebe.
+
+Servidor: web-1
+Dirección: 10.0.0.2
+Clave fijada: SHA256:kQ3vP1xN0m0e5sYt3n2c1H0b9k2q3Wz8nq0w1d0aAbc
+Clave presentada: SHA256:Zr9LmTq7bV2d8Yh1uJ0aXc4eF6gH3iK5oP7sRtUvWxy
+Compruébalo con: noust node trust web-2
+
+Abrir en la consola: https://console.example.com/n/web-1/fleet
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### report.observations
+Subject: [Noust] Observaciones de procesos (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: report
+X-Noust-Code: report.observations
+X-Noust-Server: web-1
+
+▲ Observaciones de procesos
+El monitor solo informa: no se ha enviado ninguna señal a ningún proceso ni se ha tocado ningún archivo. Revisa cada entrada antes de actuar.
+
+Servidor: web-1
+Procesos: 1
+Avisos: 1
+
+Aviso: xmrig (PID 1234)
+  Señal: name-pattern
+  Usuario: nobody
+  CPU: 97.5%
+  Detalle: Executable name matches the known-malware pattern 'xmrig'.
+  Comando: /tmp/.x/xmrig -o pool.example.org:3333
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### server.rebooted
+Subject: [Noust] Servidor reiniciado: web-1 (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: server_rebooted
+X-Noust-Code: server.rebooted
+X-Noust-Server: web-1
+
+▲ Servidor reiniciado · web-1
+Nadie ha pedido este reinicio desde Noust: comprueba que todas las aplicaciones han vuelto.
+
+Servidor: web-1
+De vuelta a las: 2026-09-29 04:02 UTC
+
+Abrir en la consola: https://console.example.com/n/web-1/server
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### server.back
+Subject: [Noust] Servidor de vuelta: web-1 (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: server_back
+X-Noust-Code: server.back
+X-Noust-Server: web-1
+
+● Servidor de vuelta · web-1
+El reinicio pedido desde Noust ha terminado y la consola vuelve a funcionar.
+
+Servidor: web-1
+Pedido por: alice
+Programado para: 2026-09-29 04:00 UTC
+Tardó: 2 min 10 s
+De vuelta a las: 2026-09-29 04:02 UTC
+
+Abrir en la consola: https://console.example.com/n/web-1/server
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### approval.requested
+Subject: [Noust] Aprobación solicitada: #12 (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: approval_requested
+X-Noust-Code: approval.requested
+X-Noust-Server: web-1
+
+◐ Aprobación solicitada · #12
+Un cambio que necesita a una segunda persona está esperando a que alguien lo decida.
+
+Servidor: web-1
+Solicitud: #12
+Cambio: fleet.node.add
+Llamada: POST /api/nodes
+Pedido por: alice
+Motivo: Adding the new database server of the shop
+Decídela antes de: 2026-09-30 10:45 UTC
+Decídela con: noust approval approve 12
+
+Abrir en la consola: https://console.example.com/n/web-1/settings/security
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### approval.approved
+Subject: [Noust] Solicitud aprobada: #12 (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: approval_decided
+X-Noust-Code: approval.approved
+X-Noust-Server: web-1
+
+● Solicitud aprobada · #12
+Quien lo pidió puede hacer el cambio una vez, antes de que caduque la aprobación.
+
+Servidor: web-1
+Solicitud: #12
+Cambio: fleet.node.add
+Llamada: POST /api/nodes
+Pedido por: alice
+Decidida por: bob
+Comentario: Checked with the shop's owner
+Úsala antes de: 2026-09-29 11:15 UTC
+
+Abrir en la consola: https://console.example.com/n/web-1/settings/security
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### approval.rejected
+Subject: [Noust] Solicitud rechazada: #12 (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: approval_decided
+X-Noust-Code: approval.rejected
+X-Noust-Server: web-1
+
+▲ Solicitud rechazada · #12
+El cambio no se hará; quien lo pidió puede volver a pedirlo con más contexto.
+
+Servidor: web-1
+Solicitud: #12
+Cambio: fleet.node.add
+Llamada: POST /api/nodes
+Pedido por: alice
+Decidida por: bob
+Comentario: Not before the maintenance window
+
+Abrir en la consola: https://console.example.com/n/web-1/settings/security
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### database.backup.failed
+Subject: [Noust] Copia de seguridad fallida: postgresql/shop (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_failed
+X-Noust-Code: database.backup.failed
+X-Noust-Server: web-1
+
+✕ Copia de seguridad fallida · postgresql/shop
+No se ha guardado ninguna copia nueva de la base de datos.
+
+Servidor: web-1
+
+Lo que ha informado el sistema:
+  The dump was taken but failed its check
+  pg_restore: error: could not read input file: end of file
+
+Abrir en la consola: https://console.example.com/n/web-1/databases/postgresql/shop
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### database.backup.upload_failed
+Subject: [Noust] Subida de la copia fallida: postgresql/shop (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_failed
+X-Noust-Code: database.backup.upload_failed
+X-Noust-Server: web-1
+
+▲ Subida de la copia fallida · postgresql/shop
+La copia de la base de datos se ha guardado en este servidor, pero no se ha podido subir.
+
+Servidor: web-1
+Destino: offsite-s3
+
+Lo que ha informado el sistema:
+  Failed to copy: AccessDenied: Access Denied
+
+Abrir en la consola: https://console.example.com/n/web-1/databases/postgresql/shop
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### database.backup.completed
+Subject: [Noust] Copia completada: postgresql/shop (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_success
+X-Noust-Code: database.backup.completed
+X-Noust-Server: web-1
+
+● Copia completada · postgresql/shop
+Se ha guardado una copia nueva de la base de datos.
+
+Servidor: web-1
+Copia: shop-20260929-104551.dump
+Tamaño: 48.0 MB
+Subida a: offsite-s3
+
+Abrir en la consola: https://console.example.com/n/web-1/databases/postgresql/shop
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### database.restore.completed
+Subject: [Noust] Restaurado: postgresql/shop (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: restore_success
+X-Noust-Code: database.restore.completed
+X-Noust-Server: web-1
+
+● Restaurado · postgresql/shop
+La base de datos ha vuelto a como estaba en el volcado.
+
+Servidor: web-1
+Copia: shop-20260929-104551.dump
+
+Abrir en la consola: https://console.example.com/n/web-1/databases/postgresql/shop
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### database.restore.failed
+Subject: [Noust] Restauración fallida: postgresql/shop (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: restore_failed
+X-Noust-Code: database.restore.failed
+X-Noust-Server: web-1
+
+✕ Restauración fallida · postgresql/shop
+Se ha detenido por un error, así que la base de datos podría estar restaurada solo en parte.
+
+Servidor: web-1
+Copia: shop-20260929-104551.dump
+
+Lo que ha informado el sistema:
+  pg_restore: error: relation "orders" already exists
+
+Abrir en la consola: https://console.example.com/n/web-1/databases/postgresql/shop
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### hostile.deploy_failed
+Subject: [Noust] Despliegue fallido: shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_failed
+X-Noust-Code: deploy.failed
+X-Noust-Server: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww
+
+✕ Despliegue fallido · shop.example.com
+Se ha detenido por un error antes de que la nueva versión tomara el relevo.
+
+Servidor: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww
+Versión: 20260929-104449
+Commit: a1b2c3d (<b>x</b>&amp;<!channel> @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here <@U123> <#C1> red emoji 🚀
+Iniciado por: Webhook
+Duración: 1 min 12 s
+Revísalo con: noust diagnose shop.example.com
+
+Lo que ha informado el sistema:
+  Release did not pass <its> health & check
+  <urlopen error [Errno 111] Connection refused>
+  ```
+  @everyone <!channel> <@U123|admin> &lt;b&gt;
+  red *bold* _italic_ ~strike~ `code`
+  noitcnuf
+  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42
+
+-- 
+Enviado por Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### hostile.long_output
+Subject: [Noust] Actualización fallida: shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_failed
+X-Noust-Code: update.failed
+X-Noust-Server: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww
+
+✕ Actualización fallida · shop.example.com
+Se ha detenido por un error antes de que la nueva versión tomara el relevo.
+
+Servidor: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww
+Versión: 20260929-104449
+Commit: a1b2c3d (main): Fix cart total
+Iniciado por: Webhook
+Duración: 1 min 12 s
+Revísalo con: noust diagnose shop.example.com
+
+Lo que ha informado el sistema:
+  npm run build failed
+  line 495: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…
+  line 496: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…
+  line 497: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…
+  line 498: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…
+  line 499: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…
+  495 líneas anteriores omitidas
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42
+
+-- 
+Enviado por Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### hostile.no_link
+Subject: [Noust] Desplegado: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_success
+X-Noust-Code: deploy.succeeded
+X-Noust-Server: web-1
+
+● Desplegado · shop.example.com
+La nueva versión ya está en servicio.
+
+Servidor: web-1
+Versión: 20260929-104449
+Commit: a1b2c3d (main): Fix cart total
+Iniciado por: Webhook
+Duración: 42 s
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### hostile.preview
+Subject: [Noust] Desplegado: pr-12.shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_success
+X-Noust-Code: deploy.succeeded
+X-Noust-Server: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww
+
+● Desplegado · pr-12.shop.example.com
+La nueva versión ya está en servicio.
+
+Servidor: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww
+Vista previa de: shop.example.com #12
+Versión: 20260929-104449
+Commit: a1b2c3d (main): Fix cart total
+Iniciado por: Webhook
+Duración: 42 s
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/pr-12.shop.example.com/deployments/42
+
+-- 
+Enviado por Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### hostile.no_commit
+Subject: [Noust] Actualizado: shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_success
+X-Noust-Code: update.succeeded
+X-Noust-Server: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww
+
+● Actualizado · shop.example.com
+La aplicación ya ejecuta la nueva versión.
+
+Servidor: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww
+Iniciado por: Webhook
+Duración: 42 s
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42
+
+-- 
+Enviado por Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### hostile.huge_subject
+Subject: [Noust] Copia de seguridad fallida: ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd…
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_failed
+X-Noust-Code: backup.failed
+X-Noust-Server: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww
+
+✕ Copia de seguridad fallida · dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd.example.com
+No se ha guardado ninguna copia nueva de la aplicación.
+
+Servidor: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww
+
+Lo que ha informado el sistema:
+  boom
+
+Abrir en la consola: https://console.example.com/n/web-1/backups
+
+-- 
+Enviado por Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones

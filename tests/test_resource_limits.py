@@ -84,6 +84,10 @@ StandardError=journal
 SyslogIdentifier=shop-example-com
 
 # Resource limits
+# The metrics tab reads memory.current and cpu.stat, which exist only while
+# systemd counts; a distribution may ship with that off.
+MemoryAccounting=yes
+CPUAccounting=yes
 LimitNOFILE=65535
 MemoryMax=512M
 CPUQuota=50%

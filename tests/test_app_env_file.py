@@ -171,6 +171,29 @@ def test_generated_values_from_env_example_stay_out_of_the_unit(
     assert unit["environment"] == {"PORT": "3000", "NODE_ENV": "production"}
 
 
+def test_a_first_deploys_database_is_written_before_the_build_beside_the_example(
+    tmp_path: Path,
+    store: NoustStore,  # noqa: F811
+) -> None:
+    """
+    The variables of a database created for the first deploy reach the env
+    file before the build, over the example's placeholder, and do not count
+    as the operator's own: the example's other variables are still filled in.
+    """
+    deployer = _deployer(tmp_path)
+    deployer._database_env = {"DATABASE_URL": SECRET_URL}
+    app_dir = tmp_path / "app"
+    app_dir.mkdir()
+    (app_dir / ".env.example").write_text("SESSION_SECRET=\nDATABASE_URL=postgres://localhost/x\n")
+
+    deployer._step_fetch()
+
+    written = EnvManager().read_env_file(_env_file(tmp_path))
+    assert written["DATABASE_URL"] == SECRET_URL
+    assert written["SESSION_SECRET"], "the example is still filled in"
+    assert deployer.env_vars["DATABASE_URL"] == SECRET_URL, "the build sees it too"
+
+
 def test_releases_keep_create_time_variables_in_shared(
     tmp_path: Path,
     store: NoustStore,  # noqa: F811

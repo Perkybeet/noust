@@ -22,6 +22,13 @@ keeps ``.git`` so the next update pulls normally, and leaves every untracked
 file - ``.env`` files, uploads - where it is. A tree that is not a git
 checkout has no commit to go back to; the update says so and names the
 backup as the way back.
+
+Installs and builds run where :mod:`noust.deployers.helpers.sandbox` says,
+through the same policy as every other application type: a monorepo created
+from 3.1 builds in the sandbox, as its units' account (a monorepo is always in
+place, and its units run from the tree it builds); one from before builds as
+root, with a clean environment and a warning, until it is tested and enabled.
+Migrations run with the application's identity, never as a build.
 """
 
 import json
@@ -34,7 +41,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from noust.central import require_server_role
 from noust.core import paths
@@ -50,7 +57,7 @@ from noust.core.exceptions import (
 )
 from noust.core.fs import DryRunFileSystem, FileSystem
 from noust.core.logger import Icons
-from noust.core.runner import CommandResult, CommandRunner, get_runner
+from noust.core.runner import CommandResult, CommandRunner, SandboxSpec, get_runner
 from noust.core.store import (
     App,
     AppStatus,
@@ -69,12 +76,14 @@ from noust.deployers.helpers import (
     TurboHelper,
     WorkspaceHelper,
 )
+from noust.deployers.helpers import sandbox as build_sandbox
 from noust.deployers.helpers.databases import provision_database
 from noust.deployers.helpers.health import wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
 from noust.deployers.helpers.permissions import hand_over_tree
 from noust.deployers.helpers.preflight import repository_unreachable
 from noust.deployers.helpers.registration import StoreRegistrar
+from noust.deployers.helpers.sandbox import BuildPhase, SandboxState
 from noust.deployers.helpers.target import claim_deploy_target
 from noust.deployers.interface import AppDeployer, StepReporter, UpdateResult
 from noust.deployers.recorder import (
@@ -91,7 +100,11 @@ from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.managers.source_manager import SourceManager
+from noust.managers.webserver import hsts_header
 from noust.validators.environment import validate_environment
+
+if TYPE_CHECKING:
+    from noust.deployers.helpers.release_build import StagedRelease
 
 #: Installs and builds in a monorepo touch every workspace; they need minutes,
 #: but they still need a deadline.
@@ -243,10 +256,23 @@ class MonorepoDeployer(AppDeployer):
         # puts the previous commit back, so its history row names what failed.
         self._attempted_git: tuple[str | None, str | None] | None = None
 
+        # The build sandbox, decided on the first command of a deployment
+        # (see _execution). False: not decided yet; None: builds as root.
+        self._sandbox_forced = False
+        self._sandbox_regime: SandboxState | bool | None = False
+        self._sandbox_cache: Path | None = None
+        # A trial build's scratch tree; the application directory otherwise.
+        self._build_root: Path | None = None
+
     @property
     def runner(self) -> CommandRunner:
         """The command runner this deployer executes through."""
         return self._runner if self._runner is not None else get_runner()
+
+    @property
+    def build_path(self) -> Path:
+        """The tree installs and builds run in: the application's, or a trial's scratch copy."""
+        return self._build_root if self._build_root is not None else self.app_path
 
     @property
     def source_manager(self) -> SourceManager:
@@ -423,20 +449,32 @@ class MonorepoDeployer(AppDeployer):
         timeout: int = COMMAND_TIMEOUT,
         *,
         stream: bool = False,
+        phase: BuildPhase = BuildPhase.BUILD,
     ) -> CommandResult:
         """
-        Execute a command inside the monorepo.
+        Execute a command inside the monorepo, where its phase says it runs.
+
+        The monorepo's chokepoint for the code a deployment runs from the
+        repository (rule 4), with BaseDeployer's policy: an install or a build
+        of a monorepo in the sandbox runs in it; a migration runs as the
+        application; anything else as this process, with a clean environment.
 
         Args:
             command: Program and arguments.
-            cwd: Working directory. Defaults to the monorepo root.
+            cwd: Working directory. Defaults to the tree being built.
             env: Extra environment, merged over the configured env_vars.
             timeout: Deadline in seconds.
             stream: Report output line by line while it runs, for installs and
                 builds that would otherwise look frozen for minutes.
+            phase: What the command does: ``install``, ``build`` (the
+                default) or ``release`` for a migration.
 
         Returns:
             The command outcome.
+
+        Raises:
+            BuildError: The monorepo builds in the sandbox and the sandbox does
+                not hold on this server; it never falls back to root.
         """
         self.logger.debug(f"Running: {' '.join(command)}")
 
@@ -444,23 +482,135 @@ class MonorepoDeployer(AppDeployer):
         if env:
             run_env.update(env)
 
+        sandbox = self._execution(phase)
+        options: dict[str, Any] = {}
+        if sandbox is not None:
+            options["sandbox"] = sandbox
+            if phase is not BuildPhase.RELEASE and isinstance(self._sandbox_regime, SandboxState):
+                run_env = build_sandbox.command_environment(
+                    self._sandbox_regime,
+                    phase,
+                    configured=run_env,
+                    given=env,
+                    cache=self._sandbox_cache or build_sandbox.cache_dir_for(self.app_name),
+                )
+        elif phase is not BuildPhase.PRIVILEGED:
+            options["clean_env"] = True
+
         if stream:
             return self.runner.stream(
                 command,
                 on_line=self.logger.debug,
-                cwd=cwd or self.app_path,
+                cwd=cwd or self.build_path,
                 env=run_env or None,
                 timeout=timeout,
+                **options,
             )
         result = self.runner.run(
             command,
-            cwd=cwd or self.app_path,
+            cwd=cwd or self.build_path,
             env=run_env or None,
             timeout=timeout,
+            **options,
         )
         # Printed only with --verbose, captured into the deployment log always.
         self.logger.command_output(result.stdout, result.stderr)
         return result
+
+    def _execution(self, phase: BuildPhase) -> SandboxSpec | None:
+        """
+        Return the sandbox a command of this phase runs in.
+
+        The first sandboxed command of a deployment creates the build account
+        and proves the sandbox holds (failing closed when it does not), makes
+        the application's cache, and hands the tree to the account that builds
+        it: the units' own, since a monorepo builds in the tree they run from.
+
+        Args:
+            phase: The command's phase.
+
+        Returns:
+            The spec, or None to run as this process.
+
+        Raises:
+            BuildError: The sandbox does not hold here.
+        """
+        if phase is BuildPhase.PRIVILEGED:
+            return None
+        if self._sandbox_regime is False:
+            self._sandbox_regime = build_sandbox.decide_regime(
+                self.domain, store=self.store, logger=self.logger, forced=self._sandbox_forced
+            )
+        state = self._sandbox_regime
+        if not isinstance(state, SandboxState):
+            return None
+        user, group = self.config.service_user, self.config.service_group
+        if self._sandbox_cache is None:
+            build_sandbox.require_working_sandbox(self.runner, self.domain, self.fs)
+            self._sandbox_cache = build_sandbox.ensure_cache_dir(
+                self.app_name, user=user, group=group, runner=self.runner, fs=self.fs
+            )
+            hand_over_tree(
+                self.build_path,
+                user=user,
+                group=group,
+                runner=self.runner,
+                fs=self.fs,
+                logger=self.logger,
+                env_files=self._env_files(self.build_path),
+            )
+        root_env = self.app_path / ".env"
+        env_file = root_env if root_env.is_file() else None
+        if phase is BuildPhase.RELEASE:
+            return build_sandbox.release_spec(
+                app_name=self.app_name,
+                user=user,
+                group=group,
+                build_path=self.build_path,
+                env_file=env_file,
+            )
+        return build_sandbox.build_spec(
+            app=self.store.get_app(self.domain),
+            app_name=self.app_name,
+            phase=phase,
+            state=state,
+            user=user,
+            group=group,
+            build_path=self.build_path,
+            apps_dir=self.config.apps_directory,
+            cache=self._sandbox_cache,
+            env_file=env_file,
+            shared=None,
+            tasks_max=build_sandbox.BUILD_TASKS_MAX,
+        )
+
+    def sandbox_trial(self, staged: "StagedRelease") -> None:
+        """
+        Install and build a tree in the sandbox, activating and recording nothing.
+
+        What ``noust app sandbox test`` runs for a monorepo: the current commit,
+        exported to a scratch directory, built the way an enabled sandbox would
+        build it. Migrations are left alone: a trial must not touch the data.
+
+        Args:
+            staged: The exported tree.
+
+        Raises:
+            NoustError: The install or the build failed, with its output.
+        """
+        self._build_root = staged.path
+        self._sandbox_forced = True
+        self._sandbox_regime = False
+        self._sandbox_cache = None
+        if not self.workspaces:
+            try:
+                self._discover_workspaces()
+            except DeploymentError as e:
+                # Only the build timeout estimate depends on the count.
+                self.logger.debug(f"Could not enumerate workspaces: {e}")
+        self._install_dependencies()
+        self._run_prisma_migrations(migrate=False)
+        self._build_all()
 
     def _generate_password(self, length: int = 32) -> str:
         """Generate a secure random password."""
@@ -511,6 +661,10 @@ class MonorepoDeployer(AppDeployer):
 
         # Register app in store
         app = self._register_app_in_store(AppStatus.DEPLOYING.value)
+        if self._is_new_deployment:
+            # Created from 3.1: it builds in the sandbox from its first build.
+            # The row goes with the application's if this deployment is undone.
+            build_sandbox.adopt_new_app(self.domain, preview=False, store=self.store)
 
         with recording(self._recorder(), git_branch=self.branch) as recorder:
             result = self._deploy_steps(app, total_steps)
@@ -563,8 +717,8 @@ class MonorepoDeployer(AppDeployer):
             self.logger.step(7, total_steps, "Building applications", Icons.BUILD)
             self._build_all()
 
-            # Only now: the build runs as root too, and handing over before it
-            # left every workspace's build output unwritable by its service.
+            # After the build too: one that runs as root (a monorepo from
+            # before 3.1) leaves its output root's, unwritable by the units.
             self._set_permissions()
 
             # Step 8: Create sites (without SSL initially)
@@ -1168,6 +1322,7 @@ class MonorepoDeployer(AppDeployer):
         result = self._run(
             ["pnpm", "install", "--frozen-lockfile"],
             timeout=600,
+            phase=BuildPhase.INSTALL,
         )
 
         if not result.success:
@@ -1188,7 +1343,7 @@ class MonorepoDeployer(AppDeployer):
             update can report whether the database was touched.
         """
         # Check for project scripts first (preferred method)
-        package_json = self.app_path / "package.json"
+        package_json = self.build_path / "package.json"
         has_db_scripts = False
 
         if package_json.exists():
@@ -1211,7 +1366,9 @@ class MonorepoDeployer(AppDeployer):
 
             if migrate and "db:migrate" in scripts:
                 self.logger.substep("Running Prisma migrations (pnpm db:migrate)")
-                result = self._run(["pnpm", "db:migrate"], timeout=120)
+                # A migration is not a build: the application's identity
+                # and secrets, never the build account's.
+                result = self._run(["pnpm", "db:migrate"], timeout=120, phase=BuildPhase.RELEASE)
                 if not result.success:
                     self.logger.warning(f"Prisma migrate failed: {result.stderr}")
 
@@ -1219,15 +1376,15 @@ class MonorepoDeployer(AppDeployer):
 
         # Fallback: Check for Prisma schema directly
         prisma_dirs = [
-            self.app_path / "packages" / "database" / "prisma",
-            self.app_path / "prisma",
+            self.build_path / "packages" / "database" / "prisma",
+            self.build_path / "prisma",
         ]
 
         for prisma_dir in prisma_dirs:
             schema_file = prisma_dir / "schema.prisma"
             if schema_file.exists():
                 self.logger.substep(
-                    f"Found Prisma schema: {schema_file.relative_to(self.app_path)}"
+                    f"Found Prisma schema: {schema_file.relative_to(self.build_path)}"
                 )
 
                 # Generate client
@@ -1254,6 +1411,7 @@ class MonorepoDeployer(AppDeployer):
                             "--schema",
                             str(schema_file),
                         ],
+                        phase=BuildPhase.RELEASE,
                     )
                     if not result.success:
                         self.logger.warning(f"Prisma migrate failed: {result.stderr}")
@@ -1283,21 +1441,25 @@ class MonorepoDeployer(AppDeployer):
             env_files=self._env_files(),
         )
 
-    def _env_files(self) -> list[Path]:
+    def _env_files(self, root: Path | None = None) -> list[Path]:
         """
         List the environment files this deployment writes.
+
+        Args:
+            root: The tree to list them in; the application directory by default.
 
         Returns:
             The per-workspace files, and the root one Prisma reads.
         """
-        files = [self.app_path / ws.path / ".env.production" for ws in self.workspaces]
-        files.append(self.app_path / ".env")
+        base = root or self.app_path
+        files = [base / ws.path / ".env.production" for ws in self.workspaces]
+        files.append(base / ".env")
         return files
 
     def _build_all(self) -> None:
         """Build all applications using Turborepo."""
         build_timeout = self._turbo_helper.estimate_build_timeout(
-            self.app_path, len(self.workspaces)
+            self.build_path, len(self.workspaces)
         )
 
         self.logger.substep(f"Building {len(self.workspaces)} workspace(s)")
@@ -1367,6 +1529,7 @@ class MonorepoDeployer(AppDeployer):
             "workspaces": self.workspaces,
             "ssl": with_ssl,
             "primary_subdomain": self.workspaces[0].subdomain if self.workspaces else "app",
+            "hsts": hsts_header(Config()),
         }
 
         config_content = template.render(**context)

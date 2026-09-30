@@ -19,6 +19,7 @@ What is defended:
 
 from __future__ import annotations
 
+import re
 import string
 
 import pytest
@@ -57,14 +58,67 @@ class TestCatalogShape:
 
     def test_the_spanish_text_actually_differs_from_english(self) -> None:
         """A key present in both locales that says the same thing was never translated."""
-        untranslated = [
+        untranslated = {
             key
             for key, catalog in MESSAGES.items()
             if catalog["en"].strip().lower() == catalog["es"].strip().lower()
-        ]
-        # "Commit: {commit}" is deliberately identical: "commit" is used
-        # untranslated in Spanish technical writing.
-        assert untranslated == ["deploy_commit"]
+        }
+        # Names that are the same word in both languages: "commit" and "CPU"
+        # are used untranslated in Spanish technical writing, and a product
+        # or a value is not a word to translate.
+        assert untranslated == {
+            "fact.commit",
+            "fact.cpu",
+            "trigger.cli",
+            "trigger.webhook",
+            "channel.webhook",
+            "channel.slack",
+            "channel.discord",
+            "channel.telegram",
+        }
+
+    #: English function words that no Spanish sentence contains. A hurried
+    #: translation leaves one behind; this is how a key that only looks
+    #: translated is caught.
+    ENGLISH_WORDS = frozenset(
+        {"the", "did", "not", "is", "was", "and", "with", "from", "have", "been", "of", "failed"}
+    )
+
+    def test_no_spanish_sentence_keeps_an_english_word(self) -> None:
+        leaks = {}
+        for key, catalog in MESSAGES.items():
+            words = set(re.findall(r"[a-zA-Z']+", re.sub(r"\{[^}]*\}", "", catalog["es"]).lower()))
+            found = words & self.ENGLISH_WORDS
+            if found:
+                leaks[key] = sorted(found)
+        assert leaks == {}
+
+    def test_every_key_belongs_to_a_known_group(self) -> None:
+        groups = {key.split(".", 1)[0] for key in MESSAGES}
+        assert groups == {
+            "title",
+            "summary",
+            "fact",
+            "trigger",
+            "channel",
+            "severity",
+            "ui",
+            "excerpt",
+        }
+
+    def test_every_title_has_a_summary(self) -> None:
+        titles = {key.split(".", 1)[1] for key in MESSAGES if key.startswith("title.")}
+        summaries = {key.split(".", 1)[1] for key in MESSAGES if key.startswith("summary.")}
+
+        assert titles <= summaries
+        # The one summary that is a variant of another's title.
+        assert summaries - titles == {"cert.expiring_today"}
+
+    def test_a_title_never_carries_a_placeholder(self) -> None:
+        """The subject and the facts live elsewhere; a title is a state and nothing else."""
+        for key, catalog in MESSAGES.items():
+            if key.startswith("title."):
+                assert _placeholders(catalog["en"]) == set(), key
 
 
 class TestMessage:
@@ -72,13 +126,14 @@ class TestMessage:
 
     def test_renders_english_by_default_locale(self) -> None:
         assert DEFAULT_LOCALE == "en"
-        assert message("deploy_started_title", "en", domain="shop.example.com") == (
-            "Deploying shop.example.com"
-        )
+        assert message("title.deploy.started", "en") == "Deploying"
 
     def test_renders_spanish(self) -> None:
-        assert message("deploy_started_title", "es", domain="shop.example.com") == (
-            "Desplegando shop.example.com"
+        assert message("title.deploy.started", "es") == "Desplegando"
+
+    def test_renders_placeholders(self) -> None:
+        assert message("summary.test", "es", channel="Telegram") == (
+            "Si ves esto, el canal Telegram está bien configurado."
         )
 
     def test_unknown_key_raises_key_error(self) -> None:
@@ -86,8 +141,8 @@ class TestMessage:
             message("not-a-real-key", "en")
 
     def test_missing_placeholder_raises_value_error(self) -> None:
-        with pytest.raises(ValueError, match="deploy_started_title"):
-            message("deploy_started_title", "en")
+        with pytest.raises(ValueError, match=r"summary\.test"):
+            message("summary.test", "en")
 
 
 class TestNormalizeLocale:
@@ -103,26 +158,32 @@ class TestNormalizeLocale:
 
 
 class TestPlural:
-    """
-    The one/other rule both locales share.
-
-    English's own "day(s)" predates 2.3 and is a byte-for-byte contract
-    tests/test_monitor_safety.py asserts on, so it does not vary with count;
-    Spanish gets the real singular and plural.
-    """
-
-    @pytest.mark.parametrize("locale,word", [("en", "day(s)"), ("es", "día")])
-    def test_one(self, locale: str, word: str) -> None:
-        assert plural("day", locale, 1) == word  # type: ignore[arg-type]
+    """The one/other rule both locales share."""
 
     @pytest.mark.parametrize(
-        ("count", "locale", "word"),
+        ("key", "locale", "word"),
         [
-            (0, "en", "day(s)"),
-            (2, "en", "day(s)"),
-            (0, "es", "días"),
-            (14, "es", "días"),
+            ("day", "en", "day"),
+            ("day", "es", "día"),
+            ("time", "en", "time"),
+            ("time", "es", "vez"),
+            ("process", "en", "process"),
+            ("process", "es", "proceso"),
         ],
     )
-    def test_everything_else(self, count: int, locale: str, word: str) -> None:
-        assert plural("day", locale, count) == word  # type: ignore[arg-type]
+    def test_one(self, key: str, locale: str, word: str) -> None:
+        assert plural(key, locale, 1) == word  # type: ignore[arg-type]
+
+    @pytest.mark.parametrize(
+        ("key", "count", "locale", "word"),
+        [
+            ("day", 0, "en", "days"),
+            ("day", 2, "en", "days"),
+            ("day", 0, "es", "días"),
+            ("day", 14, "es", "días"),
+            ("time", 3, "es", "veces"),
+            ("process", 2, "en", "processes"),
+        ],
+    )
+    def test_everything_else(self, key: str, count: int, locale: str, word: str) -> None:
+        assert plural(key, locale, count) == word  # type: ignore[arg-type]

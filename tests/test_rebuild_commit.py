@@ -400,6 +400,7 @@ def inplace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, inplace_store: Nous
         lambda verbose=False: SimpleNamespace(
             pull=lambda path, branch=None: rec.calls.append(("pull", path, branch)),
             checkout_commit=checkout_commit,
+            get_repo_info=lambda path: {"commit": None, "branch": None},
         ),
     )
     monkeypatch.setattr(

@@ -18,6 +18,7 @@ from typing import Any
 from noust.core.exceptions import MonitorError
 from noust.core.runner import CommandRunner, get_runner
 from noust.managers.service_manager import ServiceManager
+from noust.monitor import sampler
 from noust.monitor.models import DiskUsage, ProcessInfo, ResourceMetrics, ServiceHealth
 
 try:
@@ -263,6 +264,12 @@ def collect_resource_metrics() -> ResourceMetrics:
     """
     Read CPU, memory, disk and network counters for the machine.
 
+    CPU, memory, swap, load, network and uptime come from
+    :mod:`noust.monitor.sampler`, the one place the machine is read (the chart
+    collector and the console's header strip read it there too); what is added
+    here is what only this report needs: every real filesystem, not just the
+    one the applications live on, and the number of processes.
+
     Returns:
         A single point-in-time reading.
 
@@ -271,39 +278,33 @@ def collect_resource_metrics() -> ResourceMetrics:
     """
     ps = _require_psutil()
 
-    memory = ps.virtual_memory()
-    swap = ps.swap_memory()
+    memory = sampler.read_memory()
+    swap = sampler.read_swap()
+    load_average = sampler.read_load()
 
     try:
-        load_average = tuple(float(v) for v in ps.getloadavg())
+        counters = sampler.read_net_counters()
     except (OSError, AttributeError):
-        load_average = (0.0, 0.0, 0.0)
-
-    try:
-        net = ps.net_io_counters()
-        net_sent, net_recv = int(net.bytes_sent), int(net.bytes_recv)
-    except (OSError, AttributeError):
-        net_sent, net_recv = 0, 0
-
-    boot_time = float(ps.boot_time())
+        counters = None
+    net_recv, net_sent = counters if counters is not None else (0, 0)
 
     return ResourceMetrics(
         collected_at=datetime.now(),
-        cpu_percent=float(ps.cpu_percent(interval=None)),
+        cpu_percent=sampler.read_cpu_percent(),
         cpu_count=int(ps.cpu_count() or 1),
-        load_average=(load_average[0], load_average[1], load_average[2]),
-        memory_total_bytes=int(memory.total),
-        memory_used_bytes=int(memory.used),
-        memory_available_bytes=int(getattr(memory, "available", 0)),
-        memory_percent=float(memory.percent),
-        swap_total_bytes=int(swap.total),
-        swap_used_bytes=int(swap.used),
-        swap_percent=float(swap.percent),
+        load_average=load_average,
+        memory_total_bytes=memory.total,
+        memory_used_bytes=memory.used,
+        memory_available_bytes=memory.available,
+        memory_percent=memory.percent,
+        swap_total_bytes=swap.total,
+        swap_used_bytes=swap.used,
+        swap_percent=swap.percent,
         disks=_collect_disks(ps),
         net_bytes_sent=net_sent,
         net_bytes_recv=net_recv,
         process_count=len(ps.pids()),
-        uptime_seconds=max(0.0, time.time() - boot_time),
+        uptime_seconds=sampler.read_uptime(),
     )
 
 

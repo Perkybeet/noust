@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import signal
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from types import FrameType
 from typing import Any
@@ -169,6 +170,9 @@ def _run(ctx: Context, host: str, port: int) -> None:
     fingerprint = setup.certificate_fingerprint(Path(cert_path))
     if fingerprint:
         logger.info(f"Certificate SHA-256 fingerprint: {fingerprint}")
+    expires = _expiry_text(setup.certificate_expiry(Path(cert_path)))
+    if expires:
+        logger.info(f"Certificate expires: {expires}")
     logger.info(f"Only these clients may connect: {', '.join(allowed)}")
 
     root = secrets_dir()
@@ -272,6 +276,26 @@ def _certificate() -> Path:
     return Path(pair[0]) if pair else PANEL_TLS_CERT
 
 
+def _expiry_text(expiry: datetime | None) -> str | None:
+    """
+    Say when the console's certificate expires, and how soon that is.
+
+    Args:
+        expiry: The certificate's expiry, or None without one.
+
+    Returns:
+        ``2028-09-29 (in 730 days)`` or, past due or within a month,
+        ``2026-10-05 (in 6 days: renew it)``; None when there is no expiry.
+    """
+    if expiry is None:
+        return None
+    days = (expiry - datetime.now(timezone.utc)).days
+    if days < 0:
+        return f"{expiry:%Y-%m-%d} (expired {-days} days ago: renew it)"
+    hint = ": renew it" if days < 30 else ""
+    return f"{expiry:%Y-%m-%d} (in {days} days{hint})"
+
+
 def _status() -> dict[str, Any]:
     """
     Gather what ``noust central status`` reports.
@@ -290,6 +314,7 @@ def _status() -> dict[str, Any]:
         "state_dir": str(paths.state_dir()),
         "certificate": str(certificate),
         "fingerprint": setup.certificate_fingerprint(certificate),
+        "certificate_expires": _expiry_text(setup.certificate_expiry(certificate)),
         "allowed_clients": setup.allowlist(),
         **_seal_state(secrets_dir()),
         "nodes": setup.count_nodes(get_store().db_path),
@@ -326,6 +351,7 @@ def status_command(ctx: Context) -> None:
     logger.key_value("State", status["state_dir"])
     logger.key_value("Certificate", status["certificate"])
     logger.key_value("Fingerprint", status["fingerprint"] or "no certificate yet")
+    logger.key_value("Expires", status["certificate_expires"] or "no certificate yet")
     logger.key_value("Allowed clients", ", ".join(status["allowed_clients"]))
     logger.key_value("Secrets", seal)
     logger.key_value("Servers", "none yet" if not nodes else str(nodes))
@@ -415,3 +441,103 @@ def unlock_command(ctx: Context) -> None:
             details=str(reply.get("details") or ""),
         )
     ctx.logger.success("Unlocked. The central can reach its servers again.")
+
+
+# -- backup (ENS G12) ----------------------------------------------------------------
+
+
+@cli.command("backup")
+@click.option(
+    "--output",
+    "output_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    help="Directory to write the backup to (default: central/ under the backups directory).",
+)
+@click.option(
+    "--verify",
+    "verify_file",
+    type=click.Path(dir_okay=False, exists=True, path_type=Path),
+    help="Check an existing backup instead: it opens, and every file matches its manifest.",
+)
+@click.option(
+    "--decrypt",
+    "decrypt_file",
+    type=click.Path(dir_okay=False, exists=True, path_type=Path),
+    help="Decrypt an existing backup to its .tar.gz (give the file with --to), to restore it.",
+)
+@click.option(
+    "--to",
+    "decrypt_to",
+    type=click.Path(dir_okay=False, path_type=Path),
+    help="Where --decrypt writes the archive (created 0600).",
+)
+@json_option("Print the result as JSON.")
+@pass_context
+def backup_command(
+    ctx: Context,
+    output_dir: Path | None,
+    verify_file: Path | None,
+    decrypt_file: Path | None,
+    decrypt_to: Path | None,
+) -> None:
+    """
+    Back up the central's store, secrets and keys into one encrypted file.
+
+    Every file of the configuration and state directories, the databases as
+    consistent snapshots taken while the central runs, a SHA-256 manifest,
+    all sealed under a passphrase you type (AES-256 and HMAC-SHA256; nothing
+    stores it). Keep the file off this machine and the passphrase apart from
+    it: without the passphrase nobody, Noust included, can restore it.
+    """
+    from noust.central.backup import (
+        create_central_backup,
+        decrypt_central_backup,
+        default_output_dir,
+        verify_central_backup,
+    )
+
+    if verify_file and decrypt_file:
+        raise click.UsageError("Give --verify or --decrypt, not both.")
+    if decrypt_file and not decrypt_to:
+        raise click.UsageError("--decrypt needs --to <file> for the archive.")
+    logger = ctx.logger
+    if verify_file:
+        report = verify_central_backup(verify_file, _read_passphrase(confirm=False))
+        if ctx.json_output:
+            click.echo(json.dumps(report, indent=2))
+        elif report["ok"]:
+            logger.success(
+                f"{verify_file.name} opens and its {report['files']} file(s) match the manifest "
+                f"(taken {report['created_at']} on {report['host']})."
+            )
+        else:
+            for problem in report["problems"]:
+                logger.error(problem)
+        if not report["ok"]:
+            raise click.exceptions.Exit(1)
+        return
+    if decrypt_file and decrypt_to:
+        if ctx.dry_run:
+            logger.info(f"would decrypt {decrypt_file} to {decrypt_to}")
+            return
+        decrypt_central_backup(decrypt_file, _read_passphrase(confirm=False), decrypt_to)
+        logger.success(
+            f"Decrypted to {decrypt_to}. It holds every secret: delete it once restored."
+        )
+        return
+    target = output_dir or default_output_dir()
+    if ctx.dry_run:
+        logger.info(f"would write an encrypted backup of the central to {target}")
+        return
+    made = create_central_backup(_read_passphrase(confirm=True), output_dir=output_dir)
+    if ctx.json_output:
+        click.echo(json.dumps(made.to_dict(), indent=2))
+        return
+    logger.success(f"Central backed up: {made.path}")
+    logger.key_value("Files", str(len(made.manifest["files"])))
+    logger.key_value("Size", f"{made.size // 1024} KiB")
+    logger.key_value("SHA-256", made.sha256)
+    logger.info(
+        "Copy it off this machine, and keep the passphrase somewhere else: it cannot be "
+        f"recovered. Check a copy any time with: noust central backup --verify {made.path.name}"
+    )

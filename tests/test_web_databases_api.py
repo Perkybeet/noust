@@ -20,7 +20,12 @@ actually talks to now. What is defended:
 - **A new user's password is printed exactly once**, in the creation response,
   never in a listing.
 - **The console is read-only unless the caller opts in**, and a write from a
-  cookie session needs a recent sudo confirmation.
+  cookie session needs a recent sudo confirmation. Read mode is the server's
+  to enforce (the database's read-only account); no keyword list refuses a
+  statement before it gets there.
+- **Dumps, restores and drops are jobs** (3.1): a central's proxy cuts a
+  request at 300 seconds, and a restore or a drop never destroys without a
+  safety copy.
 
 The connection-string page test is not ported: unlike the page, which always
 masked the password, ``POST /api/databases/connection-string`` builds the
@@ -39,7 +44,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from noust.managers.database.base import BackupInfo, BaseDatabaseManager, DatabaseInfo, UserInfo
+from noust.managers.database.base import (
+    BackupInfo,
+    BaseDatabaseManager,
+    DatabaseInfo,
+    RestoreOutcome,
+    UserInfo,
+)
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app, get_token_manager
 
@@ -86,6 +97,7 @@ def make_engine(
         CLIENT_BINARY = "fake-client"
         VALID_PRIVILEGES = frozenset({"ALL PRIVILEGES", "DELETE", "INSERT", "SELECT", "UPDATE"})
         DEFAULT_PRIVILEGES = ("ALL PRIVILEGES",)
+        CAPABILITIES = frozenset({"sql", "read_only", "users", "dump"})
         BACKUP_DIR = backup_dir
 
         state = {"installed": installed, "running": running}
@@ -193,6 +205,11 @@ def make_engine(
         def backup(self, database, output_path=None, compress=True, **kwargs):
             cls = type(self)
             cls.calls.append(("backup", database))
+            # A real dump is a file: the dump job hashes and checks it.
+            cls.BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+            (cls.BACKUP_DIR / f"{cls.ENGINE_NAME}-{database}-20260101_120000.sql.gz").write_bytes(
+                b"gzipped dump"
+            )
             return BackupInfo(
                 path=cls.BACKUP_DIR / f"{cls.ENGINE_NAME}-{database}-20260101_120000.sql.gz",
                 database=database,
@@ -204,6 +221,15 @@ def make_engine(
 
         def restore(self, database, backup_path, drop_existing=False, **kwargs):
             type(self).calls.append(("restore", database, Path(backup_path).name, drop_existing))
+            return RestoreOutcome(
+                database=database,
+                source=Path(backup_path),
+                safety_copy=None,
+                replaced=drop_existing,
+            )
+
+        def _load_backup(self, database, backup_path, **kwargs):
+            type(self).calls.append(("load", database, Path(backup_path).name))
 
         def execute_query(self, database, query, **kwargs):
             type(self).calls.append(("query", database, query, kwargs.get("read_only")))
@@ -218,13 +244,13 @@ def make_engine(
 
 def wire(monkeypatch: pytest.MonkeyPatch, engine_classes: list[type]) -> None:
     """
-    Stand the fake engines in front of the databases API module.
+    Stand the fake engines in front of the database service the API calls.
 
     Args:
         monkeypatch: Patching helper, scoped to the test.
         engine_classes: The fake manager classes to expose.
     """
-    import noust.web.api.databases as db_api
+    import noust.managers.database.service as db_service
 
     by_name = {cls.ENGINE_NAME: cls for cls in engine_classes}
 
@@ -241,8 +267,8 @@ def wire(monkeypatch: pytest.MonkeyPatch, engine_classes: list[type]) -> None:
         def get_installed(verbose: bool = False) -> list[Any]:
             return [cls() for cls in by_name.values() if cls.state["installed"]]
 
-    monkeypatch.setattr(db_api, "get_db_manager", fake_get)
-    monkeypatch.setattr(db_api, "DatabaseRegistry", FakeRegistry)
+    monkeypatch.setattr(db_service, "get_db_manager", fake_get)
+    monkeypatch.setattr(db_service, "DatabaseRegistry", FakeRegistry)
 
 
 @pytest.fixture
@@ -379,7 +405,7 @@ def test_installing_queues_a_job(
     client: TestClient, engines, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Install runs the distribution package manager, so it is a queued job."""
-    import noust.web.api.databases as db_api
+    import noust.web.api.databases.common as db_api
 
     created: list[dict[str, Any]] = []
 
@@ -419,7 +445,7 @@ def _capture_queued_jobs(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]
         The keyword arguments of every job the endpoint tried to queue - empty
         when a request never got past the elevation gate.
     """
-    import noust.web.api.databases as db_api
+    import noust.web.api.databases.common as db_api
 
     created: list[dict[str, Any]] = []
 
@@ -502,14 +528,22 @@ def test_dropping_a_database_requires_elevation(client: TestClient, db) -> None:
     assert not [call for call in db.calls if call[0] == "drop_database"]
 
 
-def test_dropping_a_database_drops_it_once_elevated(client: TestClient, db) -> None:
-    """The DELETE actually removes it, once the caller has confirmed sudo mode."""
+def test_dropping_a_database_drops_it_once_elevated(
+    client: TestClient, db, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The DELETE queues the drop, which takes a last dump and then drops it."""
+    created = _capture_queued_jobs(monkeypatch)
     elevate(client)
 
     response = client.delete("/api/databases/databases/postgresql/appdb")
 
-    assert response.status_code == 200, response.text
+    assert response.status_code == 202, response.text
+    job = created[0]
+    assert job["kwargs"]["keep_backup"] is True
+    job["func"](**job["kwargs"])
+    assert ("backup", "appdb") in db.calls
     assert ("drop_database", "appdb") in db.calls
+    assert db.calls.index(("backup", "appdb")) < db.calls.index(("drop_database", "appdb"))
     assert "appdb" not in db.dbs
 
 
@@ -528,17 +562,45 @@ def test_the_console_is_read_only_by_default(client: TestClient, db) -> None:
     assert "42" in response.json()["output"]
 
 
-def test_a_write_statement_in_read_mode_is_refused(client: TestClient, db) -> None:
-    """A write statement in read mode is refused before it reaches the engine."""
+def test_a_write_statement_in_read_mode_runs_read_only(client: TestClient, db) -> None:
+    """
+    No keyword list: the statement reaches the engine in read mode, where the
+    database's read-only account refuses the write. The list it replaced
+    refused legitimate reads and was never the guarantee.
+    """
     response = client.post(
         "/api/databases/query",
         json={"database": "appdb", "engine": "postgresql", "query": "DELETE FROM t"},
     )
 
-    assert response.status_code >= 400, response.text
-    assert not [call for call in db.calls if call[0] == "query"], (
-        "a refused statement must never reach the engine"
+    assert response.status_code == 200, response.text
+    assert ("query", "appdb", "DELETE FROM t", True) in db.calls
+
+
+def test_a_second_statement_is_refused_before_the_engine(client: TestClient, db) -> None:
+    """One statement per request: a SELECT cannot carry a DROP."""
+    response = client.post(
+        "/api/databases/query",
+        json={"database": "appdb", "engine": "postgresql", "query": "SELECT 1; DROP TABLE t"},
     )
+
+    assert response.status_code >= 400, response.text
+    assert not [call for call in db.calls if call[0] == "query"]
+
+
+def test_read_mode_is_refused_where_the_server_cannot_enforce_it(
+    client: TestClient, db, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An engine without the read_only capability does not pretend."""
+    monkeypatch.setattr(db, "CAPABILITIES", frozenset({"keys"}))
+
+    response = client.post(
+        "/api/databases/query",
+        json={"database": "appdb", "engine": "postgresql", "query": "GET key"},
+    )
+
+    assert response.status_code >= 400, response.text
+    assert "read-only mode is not available" in response.text.lower()
 
 
 def test_a_write_statement_needs_elevation(client: TestClient, db) -> None:
@@ -599,7 +661,9 @@ def test_an_engine_with_no_structured_client_answers_with_empty_columns(
 def test_a_structured_engine_returns_columns_and_rows(client: TestClient, db) -> None:
     """An engine that parses its own client output exposes it structured."""
 
-    def execute_query_structured(self, database, query, *, read_only=False, max_rows=1000):
+    def execute_query_structured(
+        self, database, query, *, read_only=False, max_rows=1000, timeout_s=None
+    ):
         from noust.managers.database.base import StructuredQueryResult
 
         type(self).calls.append(("query_structured", database, query, read_only))
@@ -715,15 +779,26 @@ def test_grant_and_revoke_pass_the_selected_privilege(client: TestClient, db) ->
 # ------------------------------------------------------------------- backups
 
 
-def test_backing_up_a_database_reports_the_dump(client: TestClient, db) -> None:
-    """The dump goes through the manager and names the file it wrote."""
+def test_backing_up_a_database_is_a_job_that_reports_the_dump(
+    client: TestClient, db, monkeypatch: pytest.MonkeyPatch, runner
+) -> None:
+    """A dump is a job; its result names the file it wrote, and says it was checked."""
+    created = _capture_queued_jobs(monkeypatch)
+    runner.script(
+        ("gzip", "-dc"),
+        stdout="-- PostgreSQL database dump\nSELECT 1;\n-- PostgreSQL database dump complete\n",
+    )
+
     response = client.post(
         "/api/databases/backups", json={"database": "appdb", "engine": "postgresql"}
     )
 
-    assert response.status_code == 200, response.text
+    assert response.status_code == 202, response.text
+    job = created[0]
+    result = job["func"](**job["kwargs"])
     assert ("backup", "appdb") in db.calls
-    assert response.json()["path"].endswith("postgresql-appdb-20260101_120000.sql.gz")
+    assert result["path"].endswith("postgresql-appdb-20260101_120000.sql.gz")
+    assert result["verify_status"] == "ok"
 
 
 def test_restoring_requires_elevation(client: TestClient, db) -> None:
@@ -759,8 +834,11 @@ def test_restoring_needs_a_backup_that_actually_exists(client: TestClient, db) -
     assert not [call for call in db.calls if call[0] == "restore"]
 
 
-def test_restoring_an_existing_backup_reaches_the_manager(client: TestClient, db) -> None:
-    """The named dump, once it is really on disk, is restored through the manager."""
+def test_restoring_an_existing_backup_reaches_the_manager(
+    client: TestClient, db, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The named dump, once it is really on disk, is restored by a job, safety copy asked."""
+    created = _capture_queued_jobs(monkeypatch)
     elevate(client)
     db.BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     dump = "postgresql-appdb-20260101_120000.sql.gz"
@@ -771,12 +849,18 @@ def test_restoring_an_existing_backup_reaches_the_manager(client: TestClient, db
         json={"database": "appdb", "engine": "postgresql", "backup_name": dump},
     )
 
-    assert response.status_code == 200, response.text
+    assert response.status_code == 202, response.text
+    job = created[0]
+    assert job["kwargs"]["safety_backup"] is True
+    job["func"](**job["kwargs"])
     assert ("restore", "appdb", dump, False) in db.calls
 
 
-def test_restoring_with_the_master_token_is_exempt(app: FastAPI, db) -> None:
+def test_restoring_with_the_master_token_is_exempt(
+    app: FastAPI, db, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Automation presenting the master token needs no elevation either."""
+    created = _capture_queued_jobs(monkeypatch)
     db.BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     dump = "postgresql-appdb-20260101_120000.sql.gz"
     (db.BACKUP_DIR / dump).write_bytes(b"not really a dump")
@@ -789,5 +873,227 @@ def test_restoring_with_the_master_token_is_exempt(app: FastAPI, db) -> None:
         headers={"Authorization": f"Bearer {token}"},
     )
 
+    assert response.status_code == 202, response.text
+    assert created
+
+
+# ================================================================ 3.1: one service
+
+
+def _capture(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
+    """
+    Record the jobs the databases routers queue.
+
+    Args:
+        monkeypatch: Patching helper, scoped to the test.
+
+    Returns:
+        The keyword arguments of every queued job.
+    """
+    return _capture_queued_jobs(monkeypatch)
+
+
+@pytest.fixture
+def deployed_app(tmp_path: Path) -> Any:
+    """
+    Register an application, so its Database tab has something to show.
+
+    Args:
+        tmp_path: Per-test temporary directory.
+
+    Returns:
+        The application row.
+    """
+    from noust.core.store import App, get_store
+
+    app_path = tmp_path / "apps" / "shop-example-com"
+    app_path.mkdir(parents=True)
+    return get_store().create_app(App(domain="shop.example.com", app_path=str(app_path)))
+
+
+def test_engines_carry_capabilities_support_and_warnings(client: TestClient, engines) -> None:
+    """The console draws tabs from capabilities, never from engine names."""
+    body = client.get("/api/databases/engines").json()
+    postgres = next(entry for entry in body["engines"] if entry["name"] == "postgresql")
+
+    assert set(postgres["capabilities"]) == {"sql", "read_only", "users", "dump"}
+    assert postgres["support"]["status"] == "supported"
+    assert postgres["warnings"] == []
+
+
+def test_a_database_created_here_is_tracked_like_one_the_cli_created(
+    client: TestClient, db, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """
+    The parity the service exists for: the console and ``noust db`` leave the
+    store in the same state, and so does a drop through either.
+    """
+    from click.testing import CliRunner
+
+    from noust.cli import app as cli_app
+    from noust.cli.commands import db as db_cli
+    from noust.core.store import get_store
+
+    monkeypatch.setattr(db_cli, "get_db_manager", lambda engine, verbose=False: db())
+
+    assert (
+        client.post(
+            "/api/databases/databases", json={"name": "from_api", "engine": "postgresql"}
+        ).status_code
+        == 200
+    )
+    cli = CliRunner().invoke(cli_app.cli, ["db", "create", "from_cli", "-e", "postgresql"])
+    assert cli.exit_code == 0, cli.output
+
+    store = get_store()
+    rows = {name: store.get_database(name, "postgresql") for name in ("from_api", "from_cli")}
+    assert all(rows.values())
+    shape = {
+        name: (row.engine, row.host, row.port, row.username, row.app_id)
+        for name, row in rows.items()
+        if row
+    }
+    assert shape["from_api"] == shape["from_cli"]
+    listed = {
+        entry["name"]: entry for entry in client.get("/api/databases/databases").json()["databases"]
+    }
+    assert listed["from_api"]["tracked"] and listed["from_cli"]["tracked"]
+
+    created = _capture(monkeypatch)
+    elevate(client)
+    assert client.delete("/api/databases/databases/postgresql/from_api").status_code == 202
+    created[0]["func"](**created[0]["kwargs"])
+    cli = CliRunner().invoke(cli_app.cli, ["db", "drop", "from_cli", "-e", "postgresql", "-f"])
+    assert cli.exit_code == 0, cli.output
+    assert store.get_database("from_api", "postgresql") is None
+    assert store.get_database("from_cli", "postgresql") is None
+
+
+def test_the_user_listing_marks_internal_accounts(client: TestClient, db) -> None:
+    """The console hides or locks what Noust will not change."""
+    db.users["postgres"] = {"databases": [], "privileges": []}
+    db.users["wasm_ro_appdb"] = {"databases": ["appdb"], "privileges": ["SELECT"]}
+
+    users = {
+        u["username"]: u for u in client.get("/api/databases/users/postgresql").json()["users"]
+    }
+
+    assert users["wasm_ro_appdb"]["internal"] is True
+    assert users["app"]["internal"] is False
+
+
+def test_an_internal_account_is_refused_whatever_the_request(client: TestClient, db) -> None:
+    """The guard lives in the service, so an elevated request is refused too."""
+    db.users["wasm_ro_appdb"] = {"databases": ["appdb"], "privileges": ["SELECT"]}
+    elevate(client)
+
+    response = client.delete("/api/databases/users/postgresql/wasm_ro_appdb")
+
+    assert response.status_code >= 400, response.text
+    assert "wasm_ro_appdb" in db.users
+
+
+def test_rotating_a_password_needs_sudo_mode_and_never_returns_it(
+    client: TestClient, db, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The new password is read through the elevated reveal, never a job result."""
+    created = _capture(monkeypatch)
+    db.set_user_password = lambda self, username, password, host="localhost": None
+
+    refused = client.post("/api/databases/users/postgresql/app/password", json={})
+    assert refused.status_code == 403, refused.text
+
+    elevate(client)
+    accepted = client.post("/api/databases/users/postgresql/app/password", json={})
+    assert accepted.status_code == 202, accepted.text
+    result = created[0]["func"](**created[0]["kwargs"])
+    assert "password" not in result and result["password_stored"] is True
+
+    revealed = client.post("/api/databases/users/postgresql/app/password/reveal")
+    assert revealed.status_code == 200, revealed.text
+    assert len(revealed.json()["password"]) >= 24
+
+
+def test_the_application_tab_and_its_actions(
+    client: TestClient, db, deployed_app, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Listing is open; linking queues a job; dropping and showing need sudo mode."""
+    created = _capture(monkeypatch)
+
+    listing = client.get("/api/apps/shop.example.com/databases")
+    assert listing.status_code == 200, listing.text
+    assert listing.json() == {"domain": "shop.example.com", "databases": []}
+
+    linked = client.post(
+        "/api/apps/shop.example.com/databases/link",
+        json={"engine": "postgresql", "database": "appdb"},
+    )
+    assert linked.status_code == 202, linked.text
+    assert created[-1]["kwargs"]["database"] == "appdb"
+    assert created[-1]["metadata"]["domain"] == "shop.example.com"
+
+    assert (
+        client.delete("/api/apps/shop.example.com/databases/postgresql/appdb?drop=true").status_code
+        == 403
+    )
+    assert (
+        client.post("/api/apps/shop.example.com/databases/postgresql/appdb/url").status_code == 403
+    )
+
+    unlinked = client.delete("/api/apps/shop.example.com/databases/postgresql/appdb")
+    assert unlinked.status_code == 202, unlinked.text
+
+    provisioned = client.post("/api/apps/shop.example.com/databases", json={"engine": "postgresql"})
+    assert provisioned.status_code == 202, provisioned.text
+
+
+def test_the_wizard_plan_writes_nothing(client: TestClient, db) -> None:
+    """What the New-application wizard shows before the application exists."""
+    response = client.get(
+        "/api/databases/provisioning/plan",
+        params={"domain": "new.example.com", "engine": "postgresql"},
+    )
+
     assert response.status_code == 200, response.text
-    assert ("restore", "appdb", dump, False) in db.calls
+    body = response.json()
+    assert body["database"] == "new_example_com_db"
+    assert body["env_vars"] == ["DATABASE_URL"]
+    assert "********" in body["url"]
+    assert not [call for call in db.calls if call[0] == "create_database"]
+
+
+def test_exposure_reports_a_database_port_open_to_the_network(
+    client: TestClient, db, runner
+) -> None:
+    """The kernel's view, not the configuration's: ss says who listens where."""
+    runner.script(
+        ["ss", "-ltnpH"],
+        stdout=(
+            'LISTEN 0 244 0.0.0.0:5432 0.0.0.0:* users:(("postgres",pid=812,fd=6))\n'
+            'LISTEN 0 511 127.0.0.1:6379 0.0.0.0:* users:(("redis-server",pid=9,fd=6))\n'
+        ),
+    )
+    runner.only_knows("psql")
+
+    body = client.get("/api/databases/exposure").json()
+
+    assert [(e["engine"], e["port"], e["address"]) for e in body["exposed"]] == [
+        ("postgresql", 5432, "0.0.0.0")  # noqa: S104 - an address in ss output
+    ]
+    assert "listen_addresses" in body["exposed"][0]["advice"]
+
+
+def test_every_new_route_has_a_permission(app: FastAPI) -> None:
+    """A route missing from the permission map would be refused, or worse, open."""
+    from noust.web.api.openapi import api_routes
+    from noust.web.permissions.registry import route_map
+
+    mapped = route_map()
+    missing = [
+        (method, route.path)
+        for route in api_routes(app.routes)
+        if "/databases" in route.path
+        for method in route.methods or ()
+        if (method, route.path) not in mapped
+    ]
+    assert missing == []

@@ -21,9 +21,10 @@ import pytest
 from noust.core.runner import FakeRunner
 from noust.core.store import NoustStore
 from noust.managers.nginx_manager import NginxManager
+from noust.monitor.collector import MetricsCollector
+from noust.monitor.plan import PlanBuilder, unit_cgroup_path
 from noust.monitor.timeseries import MetricsStore
 from noust.web.machine import AppTally, read_machine
-from noust.web.metrics_collector import MetricsCollector, unit_cgroup_path
 from tests.test_bluegreen_units import (
     BASE,
     DOMAIN,
@@ -107,9 +108,11 @@ def test_both_instances_of_a_blue_green_app_are_sampled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The serving one, and the old one while it drains: the application is their sum."""
-    monkeypatch.setattr("noust.web.metrics_collector.psutil", None)
-    cgroups = tmp_path / "cgroup"
-    slice_dir = cgroups / "system-bg\\x2dexample\\x2dcom.slice"
+    monkeypatch.setattr("noust.monitor.sampler.psutil", None)
+    mount = tmp_path / "cgroup"
+    (mount / "cgroup.controllers").parent.mkdir(parents=True)
+    (mount / "cgroup.controllers").write_text("cpu memory\n")
+    slice_dir = mount / "system.slice" / "system-bg\\x2dexample\\x2dcom.slice"
     for color, memory in (("green", 3000), ("blue", 1000)):
         unit = slice_dir / f"{BASE}@{color}.service"
         unit.mkdir(parents=True)
@@ -121,15 +124,16 @@ def test_both_instances_of_a_blue_green_app_are_sampled(
     ticks = iter(float(n) for n in range(100))
     collector = MetricsCollector(
         metrics,
-        cgroup_root=cgroups,
+        planner=PlanBuilder(runner=runner, cgroup_mount=mount),
+        apps_source=lambda: [app],
         clock=lambda: next(ticks),
-        units_for=lambda row: [f"{BASE}@green", f"{BASE}@blue"],
     )
 
     snapshot: dict[str, Any] = collector.sample_once()
 
     assert app.domain == DOMAIN
     assert snapshot[f"app.{DOMAIN}.mem.bytes"] == 4000
+    assert collector.plans[DOMAIN].kind == "blue_green"
 
 
 # ---------------------------------------------------------------------------

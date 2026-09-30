@@ -2,468 +2,51 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The sampling thread behind the panel's charts and its live metrics feed.
+The web process's handle on the metrics history.
 
-One daemon thread in the web process reads the machine through psutil and every
-application unit through its cgroup, every couple of seconds. Each tick is
-persisted to the RRD-style :class:`~noust.monitor.timeseries.MetricsStore` for
-the history the charts load, and kept as an in-memory snapshot for the ``/events``
-stream to push to open pages.
+The sampler itself lives in :mod:`noust.monitor.collector` and runs inside the
+``noust-monitor`` daemon, so history is recorded whether or not a console is
+open. This module is what the web application wires up around it:
 
-Per-application readings come from cgroup v2, read straight off the
-filesystem: systemd already accounts CPU time and resident memory for
-``wasm-{domain}.service`` in ``cpu.stat`` and ``memory.current``, so asking
-systemctl - a subprocess per app per tick - would be paying process spawns for
-numbers the kernel publishes as two files. On a host without a unified cgroup
-hierarchy (a container, cgroup v1, a stopped unit) the files are simply absent
-and that application's metrics are skipped for the tick. A Docker Compose
-stack is never sampled: its unit is a oneshot and its containers are accounted
-in Docker's cgroups, so its unit's numbers would be a chart that lies
-(:func:`metrics_unavailable_reason` says so for every surface).
+- the process-wide :class:`~noust.monitor.timeseries.MetricsStore` the API
+  reads;
+- a collector of kind ``console`` that samples **only while no daemon does**: it
+  takes the store's collector lease when nobody holds it (a container, a server
+  that never enabled the monitor), and gives it up the moment the daemon starts.
+  It is the same collector class, the same plans and the same code path, only
+  started from here; the lease is what keeps it from ever running twice.
 
-The collector does not raise for anything a running machine can do to it. It
-runs unattended for the life of the web process, and a panel whose metrics
-thread died at 3am to a transient read error is a panel whose charts silently
-end at 3am. Every operational failure - an unreadable /proc, a locked
-database, a cgroup that vanished mid-read - is logged at debug and the next
-tick tries again. The catches are the specific errors those sources produce,
-not ``except Exception``: a programming error in this module must stay loud,
-which is the project's whole position on error handling.
+When the daemon is the one sampling, :meth:`MetricsCollector.latest` reads the
+newest values from the store, so the console's live feed keeps working.
 """
 
 from __future__ import annotations
 
 import logging
-import os
 import sqlite3
 import threading
 import time
-from collections.abc import Callable
-from pathlib import Path
 from typing import Any
 
-from noust.core.exceptions import NoustError
-from noust.monitor.timeseries import MetricsStore, default_metrics_db_path
-
-try:
-    import psutil
-except ImportError:  # pragma: no cover - psutil is an optional extra
-    psutil = None  # type: ignore[assignment]
+from noust.monitor.collector import (
+    MetricsCollector,
+    RecordingStatus,
+    monitor_service_probe,
+    open_store,
+    recording_status,
+)
+from noust.monitor.timeseries import MetricsStore
 
 log = logging.getLogger(__name__)
 
-#: What a psutil reading can raise in practice: its own error family for
-#: processes and platforms, and OSError for the /proc and statvfs reads
-#: underneath. Named specifically rather than catching Exception, so a bug in
-#: this module stays loud instead of becoming a debug line.
-_SAMPLING_ERRORS: tuple[type[Exception], ...] = (
-    (psutil.Error, OSError, ValueError) if psutil is not None else (OSError, ValueError)
-)
-
-#: What reading or writing the SQLite store can raise.
-_STORE_ERRORS: tuple[type[Exception], ...] = (sqlite3.Error, OSError, ValueError, NoustError)
-
-#: Where systemd parents the cgroups of the units Noust writes.
-CGROUP_ROOT = Path("/sys/fs/cgroup/system.slice")
-
-#: Seconds between samples. Matches the raw tier of the metrics store.
-DEFAULT_INTERVAL_SECONDS = 2.0
-
-#: How long the list of application domains is trusted before the store is
-#: asked again. A deploy mid-window shows up in its metrics half a minute
-#: late, which is cheaper than a SQLite read per tick.
-APPS_REFRESH_SECONDS = 30.0
-
-#: Seconds between store consolidations. Consolidation is a no-op until whole
-#: buckets have expired, so running it on this timer keeps the database small
-#: without a scheduler.
-CONSOLIDATE_SECONDS = 300.0
-
-#: cpu.stat counts in microseconds.
-USEC_PER_SECOND = 1_000_000
-
-#: Why a Docker Compose stack has no CPU or memory series. Its unit is a
-#: oneshot that runs ``docker compose up`` and exits, and its containers are
-#: accounted in Docker's own cgroups, not under the unit: the unit's numbers
-#: are near zero whatever the stack does.
-COMPOSE_METRICS_UNAVAILABLE = (
-    "Not available for Docker Compose applications: their containers run in Docker's own "
-    "cgroups, not under the application's unit. Use 'docker stats' for their usage."
-)
-
-
-def metrics_unavailable_reason(app: Any) -> str | None:
-    """
-    Say why an application has no CPU and memory series, when it has none by design.
-
-    The one answer for the collector, which skips such an application, and
-    for whatever shows its charts, which should say this instead of drawing
-    an empty or misleading one.
-
-    Args:
-        app: The application's row (anything with ``app_type``).
-
-    Returns:
-        The reason, or None when it is sampled like any other.
-    """
-    if getattr(app, "app_type", None) == "docker-compose":
-        return COMPOSE_METRICS_UNAVAILABLE
-    return None
-
-
-class MetricsCollector:
-    """
-    Samples the machine and every application unit on a timer.
-
-    The public surface is deliberately small: :meth:`start` and :meth:`stop`
-    bracket the thread, :meth:`latest` hands the newest snapshot to the SSE
-    stream, and :meth:`sample_once` is one tick, exposed so tests can drive
-    the sampling deterministically without a thread or a wall clock.
-    """
-
-    def __init__(
-        self,
-        store: MetricsStore,
-        *,
-        interval_s: float = DEFAULT_INTERVAL_SECONDS,
-        cgroup_root: Path = CGROUP_ROOT,
-        clock: Callable[[], float] = time.monotonic,
-        units_for: Callable[[Any], list[str]] | None = None,
-    ) -> None:
-        """
-        Args:
-            store: Where samples are persisted.
-            interval_s: Seconds between ticks.
-            cgroup_root: Directory holding the unit cgroups. Injected so tests
-                can point it at a fake tree.
-            clock: Monotonic time source for rate deltas. Injected so tests
-                never depend on real elapsed time.
-            units_for: Names the units an application runs as. Defaults to
-                :meth:`ServiceManager.app_units`, the one mapping; injected so
-                tests need no systemd.
-        """
-        self.store = store
-        self.interval_s = float(interval_s)
-        self.cgroup_root = Path(cgroup_root)
-        self._clock = clock
-        self._stop = threading.Event()
-        self._thread: threading.Thread | None = None
-        self._snapshot: dict[str, float] = {}
-        self._snapshot_lock = threading.Lock()
-        self._last_tick: float | None = None
-        self._last_net: tuple[int, int] | None = None
-        self._last_cpu_usec: dict[str, int] = {}
-        self._units: dict[str, list[str]] = {}
-        self._units_for = units_for or _app_units
-        self._domains_read_at: float | None = None
-        self._consolidated_at = self._clock()
-
-    def start(self) -> None:
-        """Start the sampling thread. Starting twice is a no-op."""
-        if self._thread is not None and self._thread.is_alive():
-            return
-        self._stop.clear()
-        self._thread = threading.Thread(
-            target=self._run, name="wasm-metrics-collector", daemon=True
-        )
-        self._thread.start()
-
-    def stop(self) -> None:
-        """Stop the sampling thread and wait for it to finish its tick."""
-        self._stop.set()
-        thread = self._thread
-        if thread is not None and thread.is_alive():
-            thread.join(timeout=self.interval_s + 5.0)
-        self._thread = None
-
-    def latest(self) -> dict[str, float]:
-        """
-        Return the newest complete snapshot.
-
-        Returns:
-            Metric name to value, copied so the caller can hold it while the
-            collector keeps ticking. Empty until the first tick lands.
-        """
-        with self._snapshot_lock:
-            return dict(self._snapshot)
-
-    def _run(self) -> None:
-        """Tick until asked to stop. The first sample is taken immediately."""
-        self.sample_once()
-        while not self._stop.wait(self.interval_s):
-            self.sample_once()
-
-    def sample_once(self) -> dict[str, float]:
-        """
-        Take one sample of everything and persist it.
-
-        Operational failures are logged at debug and skipped rather than
-        raised, because this runs on an unattended thread whose death would
-        silently end the panel's metrics.
-
-        Returns:
-            The snapshot this tick produced.
-        """
-        now = self._clock()
-        elapsed = now - self._last_tick if self._last_tick is not None else None
-        self._last_tick = now
-
-        pairs: list[tuple[str, float]] = []
-        try:
-            pairs.extend(self._system_pairs(elapsed))
-        except _SAMPLING_ERRORS:
-            log.debug("system metrics could not be sampled", exc_info=True)
-        pairs.extend(self._app_pairs(now, elapsed))
-
-        try:
-            self.store.record_many(pairs)
-        except _STORE_ERRORS:
-            log.debug("a metrics tick could not be persisted", exc_info=True)
-
-        try:
-            if now - self._consolidated_at >= CONSOLIDATE_SECONDS:
-                self.store.consolidate()
-                self._consolidated_at = now
-        except _STORE_ERRORS:
-            log.debug("metrics consolidation failed", exc_info=True)
-
-        snapshot = dict(pairs)
-        with self._snapshot_lock:
-            self._snapshot = snapshot
-        return snapshot
-
-    def _system_pairs(self, elapsed: float | None) -> list[tuple[str, float]]:
-        """
-        Sample the whole machine through psutil.
-
-        Args:
-            elapsed: Seconds since the previous tick, or None on the first.
-
-        Returns:
-            ``(metric, value)`` pairs. Empty when psutil is not installed.
-        """
-        if psutil is None:
-            return []
-
-        pairs: list[tuple[str, float]] = [
-            ("cpu.percent", float(psutil.cpu_percent(interval=None))),
-        ]
-
-        memory = psutil.virtual_memory()
-        # The total barely changes after boot, but recording it beside the
-        # used figure keeps a chart's ceiling in the same query as its line.
-        pairs.append(("mem.used_bytes", float(memory.used)))
-        pairs.append(("mem.total_bytes", float(memory.total)))
-        pairs.append(("swap.used_bytes", float(psutil.swap_memory().used)))
-
-        disk = psutil.disk_usage("/")
-        pairs.append(("disk.used_bytes", float(disk.used)))
-        pairs.append(("disk.total_bytes", float(disk.total)))
-
-        net = psutil.net_io_counters()
-        if net is not None:
-            previous = self._last_net
-            self._last_net = (int(net.bytes_recv), int(net.bytes_sent))
-            if previous is not None and elapsed is not None and elapsed > 0:
-                rx = (net.bytes_recv - previous[0]) / elapsed
-                tx = (net.bytes_sent - previous[1]) / elapsed
-                # A negative delta means the kernel counters reset (an
-                # interface bounced); a rate invented from that would be a
-                # spike on the chart that never happened.
-                if rx >= 0 and tx >= 0:
-                    pairs.append(("net.rx_bytes_s", rx))
-                    pairs.append(("net.tx_bytes_s", tx))
-
-        try:
-            pairs.append(("load.1m", float(os.getloadavg()[0])))
-        except OSError:  # pragma: no cover - not available on every platform
-            pass
-
-        return pairs
-
-    def _app_pairs(self, now: float, elapsed: float | None) -> list[tuple[str, float]]:
-        """
-        Sample every application unit through its cgroup.
-
-        Args:
-            now: The current monotonic time.
-            elapsed: Seconds since the previous tick, or None on the first.
-
-        Returns:
-            ``(metric, value)`` pairs for every unit whose cgroup exists. A
-            unit without one - stopped, cgroup v1, a container - contributes
-            nothing and costs nothing.
-        """
-        pairs: list[tuple[str, float]] = []
-        for domain, units in self._app_units(now).items():
-            memory_total: int | None = None
-            cpu_total: float | None = None
-            for unit in units:
-                unit_dir = unit_cgroup_path(self.cgroup_root, unit)
-                try:
-                    memory = int((unit_dir / "memory.current").read_text())
-                except (OSError, ValueError):
-                    log.debug("no readable memory cgroup for %s", unit)
-                else:
-                    memory_total = (memory_total or 0) + memory
-
-                usec = _read_cpu_usec(unit_dir / "cpu.stat")
-                if usec is None:
-                    # Forget the counter so a unit that comes back does not have
-                    # its first delta measured against a life it no longer lives.
-                    self._last_cpu_usec.pop(unit, None)
-                    continue
-                previous = self._last_cpu_usec.get(unit)
-                self._last_cpu_usec[unit] = usec
-                if previous is None or elapsed is None or elapsed <= 0:
-                    continue
-                delta = usec - previous
-                if delta < 0:
-                    # The unit restarted between ticks and its counter began
-                    # again at zero.
-                    continue
-                cpu_total = (cpu_total or 0.0) + delta / (elapsed * USEC_PER_SECOND) * 100
-
-            # A monorepo runs as several units: the application is their sum.
-            if memory_total is not None:
-                pairs.append((f"app.{domain}.mem.bytes", float(memory_total)))
-            if cpu_total is not None:
-                pairs.append((f"app.{domain}.cpu.percent", cpu_total))
-
-        return pairs
-
-    def _app_units(self, now: float) -> dict[str, list[str]]:
-        """
-        Name the applications worth sampling and their units, refreshed on a slow timer.
-
-        Args:
-            now: The current monotonic time.
-
-        Returns:
-            Each application's domain with the units it runs as. On a store
-            error the previous answer is kept: a transient read failure must not
-            blank every app's chart for a tick.
-        """
-        if self._domains_read_at is not None and now - self._domains_read_at < APPS_REFRESH_SECONDS:
-            return self._units
-
-        try:
-            from noust.core.store import get_store
-
-            apps = [app for app in get_store().list_apps() if app.domain]
-        except _STORE_ERRORS:
-            log.debug("the application list could not be refreshed", exc_info=True)
-        else:
-            units: dict[str, list[str]] = {}
-            for app in apps:
-                if metrics_unavailable_reason(app) is not None:
-                    continue
-                try:
-                    units[app.domain] = self._units_for(app)
-                except NoustError as exc:
-                    log.debug("could not name the units of %s: %s", app.domain, exc)
-            self._units = units
-            # Deleted applications must not keep a CPU counter alive forever.
-            live = {unit for names in units.values() for unit in names}
-            for stale in set(self._last_cpu_usec) - live:
-                del self._last_cpu_usec[stale]
-        self._domains_read_at = now
-        return self._units
-
-
-def _app_units(app: Any) -> list[str]:
-    """
-    Name the units an application runs as, through the one mapping.
-
-    Args:
-        app: The application.
-
-    Returns:
-        Its unit names, without the ``.service`` suffix.
-    """
-    from noust.managers.service_manager import ServiceManager
-
-    return ServiceManager(verbose=False).app_units(app)
-
-
-def unit_cgroup_path(cgroup_root: Path, unit: str) -> Path:
-    """
-    Say where systemd accounts a unit's processes.
-
-    A unit sits directly in ``system.slice``. An instance of a template, such
-    as the ``<name>@blue`` and ``<name>@green`` of an application in
-    zero-downtime mode, sits in the slice systemd makes for the template:
-    ``system-<prefix>.slice``, the prefix escaped as a unit name (a dash is
-    ``\\x2d``, a slash a dash).
-
-    Args:
-        cgroup_root: ``system.slice``'s directory.
-        unit: The unit, without ``.service``.
-
-    Returns:
-        Its cgroup directory.
-    """
-    prefix, at, _instance = unit.partition("@")
-    if not at:
-        return cgroup_root / f"{unit}.service"
-    return cgroup_root / f"system-{_escape_unit_name(prefix)}.slice" / f"{unit}.service"
-
-
-def _escape_unit_name(text: str) -> str:
-    """
-    Escape a string the way ``systemd-escape`` does for a unit name.
-
-    Args:
-        text: The string.
-
-    Returns:
-        ASCII letters, digits, ``:``, ``_`` and ``.`` (not leading) as they
-        are, ``/`` as ``-``, everything else as ``\\xNN`` per byte.
-    """
-    out: list[str] = []
-    for index, byte in enumerate(text.encode("utf-8")):
-        char = chr(byte)
-        if char == "/":
-            out.append("-")
-        elif byte < 128 and (char.isalnum() or char in ":_" or (char == "." and index > 0)):
-            out.append(char)
-        else:
-            out.append(f"\\x{byte:02x}")
-    return "".join(out)
-
-
-def _read_cpu_usec(cpu_stat: Path) -> int | None:
-    """
-    Read the cumulative CPU time out of a cgroup v2 ``cpu.stat`` file.
-
-    Args:
-        cpu_stat: Path to the file.
-
-    Returns:
-        The ``usage_usec`` counter, or None when the file is missing or does
-        not carry one.
-    """
-    try:
-        text = cpu_stat.read_text()
-    except OSError:
-        return None
-    for line in text.splitlines():
-        name, _, value = line.partition(" ")
-        if name == "usage_usec":
-            try:
-                return int(value)
-            except ValueError:
-                return None
-    return None
-
-
-# ---------------------------------------------------------------------------
-# The process-wide instances the web application wires up
-# ---------------------------------------------------------------------------
+#: How long what systemd said about the monitor unit is trusted: asking costs a
+#: few processes, and it only matters while nothing is being recorded.
+MONITOR_PROBE_TTL_SECONDS = 30.0
 
 _lock = threading.RLock()
 _store: MetricsStore | None = None
 _collector: MetricsCollector | None = None
+_probe: tuple[float, dict[str, Any] | None] | None = None
 
 
 def get_metrics_store() -> MetricsStore:
@@ -476,13 +59,13 @@ def get_metrics_store() -> MetricsStore:
     global _store
     with _lock:
         if _store is None:
-            _store = MetricsStore(default_metrics_db_path())
+            _store = open_store()
         return _store
 
 
 def get_metrics_collector() -> MetricsCollector | None:
     """
-    Return the running collector, if the application started one.
+    Return the collector this process started, if it started one.
 
     Returns:
         The collector, or None outside the web application's lifespan.
@@ -492,20 +75,21 @@ def get_metrics_collector() -> MetricsCollector | None:
 
 def start_metrics_collector() -> MetricsCollector | None:
     """
-    Create and start the process-wide collector.
+    Create and start the console's collector.
 
-    Called from the web application's lifespan. A panel that cannot write its
-    metrics database must still serve, so failure to open the store is logged
-    and reported as None rather than raised.
+    Called from the web application's lifespan. A console that cannot write
+    its metrics database must still serve, so failure to open the store is
+    logged and reported as None rather than raised. The collector samples only
+    while it holds the store's lease, which the monitor daemon takes from it.
 
     Returns:
-        The running collector, or None when the store could not be opened.
+        The collector, or None when the store could not be opened.
     """
     global _collector
     with _lock:
         if _collector is None:
             try:
-                _collector = MetricsCollector(get_metrics_store())
+                _collector = MetricsCollector(get_metrics_store(), kind="console")
             except (OSError, sqlite3.Error) as exc:
                 log.warning("Metrics are disabled: the store could not be opened: %s", exc)
                 return None
@@ -514,10 +98,36 @@ def start_metrics_collector() -> MetricsCollector | None:
 
 
 def stop_metrics_collector() -> None:
-    """Stop and discard the process-wide collector, if one is running."""
+    """Stop and discard the console's collector, if one is running."""
     global _collector
     with _lock:
         collector = _collector
         _collector = None
     if collector is not None:
         collector.stop()
+
+
+def cached_monitor_probe() -> dict[str, Any] | None:
+    """
+    Ask systemd about the monitor unit, at most once every thirty seconds.
+
+    Returns:
+        ``installed``, ``enabled`` and ``active``, or None when systemd cannot
+        be asked.
+    """
+    global _probe
+    with _lock:
+        now = time.monotonic()
+        if _probe is None or now - _probe[0] >= MONITOR_PROBE_TTL_SECONDS:
+            _probe = (now, monitor_service_probe())
+        return _probe[1]
+
+
+def history_status() -> RecordingStatus:
+    """
+    Say whether the metrics history is being recorded, and if not, why.
+
+    Returns:
+        The status the API hands the console next to every history it serves.
+    """
+    return recording_status(get_metrics_store(), monitor=cached_monitor_probe)

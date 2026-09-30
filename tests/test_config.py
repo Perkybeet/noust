@@ -92,10 +92,11 @@ def test_a_config_file_written_by_the_old_packaged_default_still_loads(
     config_path: Path,
 ) -> None:
     """
-    obs/wasm.default.yaml used to ship 'logging.directory' while the code's
-    own default named the setting 'logging.file'. An installed config.yaml
-    from that packaging is not rewritten on upgrade, so it must keep loading
-    without error, and every other setting in it must still read back.
+    obs/wasm.default.yaml used to ship a 'logging' section nothing ever read
+    (under the wrong name, 'logging.directory', besides). An installed
+    config.yaml from that packaging is not rewritten on upgrade, so it must
+    keep loading without error, every other setting in it must still read
+    back, and the dead section is ignored rather than shown as a setting.
     """
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(
@@ -105,5 +106,6 @@ def test_a_config_file_written_by_the_old_packaged_default_still_loads(
 
     config = Config()
 
-    assert config.get("logging.level") == "info"
     assert config.get("apps_directory") == "/var/www/apps"
+    assert "logging" not in config.to_dict()
+    assert [setting.key for setting in config.obsolete_settings()] == ["logging"]

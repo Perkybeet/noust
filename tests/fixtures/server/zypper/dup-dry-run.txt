@@ -1,0 +1,13 @@
+Loading repository data...
+Reading installed packages...
+Computing distribution upgrade...
+
+The following 2 packages are going to be REMOVED:
+  libfoo1 python311-oldthing
+
+The following 3 packages are going to be upgraded:
+  bash glibc openssl-3
+
+3 packages to upgrade, 2 to remove.
+Overall download size: 12.3 MiB. Already cached: 0 B. After the operation, 4.1 MiB will be freed.
+Continue? [y/n/v/...? shows all options] (y): y

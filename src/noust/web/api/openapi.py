@@ -30,6 +30,7 @@ from fastapi.routing import APIRoute
 
 from noust.web.api.deps import NoustErrorRoute, require_elevated
 from noust.web.auth import require_auth
+from noust.web.permissions.enforce import annotate_permissions
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -39,6 +40,12 @@ router = APIRouter(route_class=NoustErrorRoute)
 #: destructive, and a central that is older or newer than the node still asks
 #: for exactly what that node asks for.
 ELEVATION_EXTENSION = "x-noust-requires-elevation"
+
+#: Marks an operation a four-eyes approval rule covers, with the rule's
+#: ``action``, ``kind`` and ``when`` (``always`` or the condition on the body).
+#: Published whether or not approvals are on here: ``GET /api/approvals/policy``
+#: says whether they apply; this says in advance which calls they would hold.
+APPROVAL_EXTENSION = "x-noust-requires-approval"
 
 
 def _dependency_calls(dependant: Dependant) -> Iterator[Callable[..., Any] | None]:
@@ -124,9 +131,38 @@ def annotate_elevation(schema: dict[str, Any], routes: list[Any]) -> dict[str, A
     return schema
 
 
+def annotate_approval(schema: dict[str, Any], routes: list[Any]) -> dict[str, Any]:
+    """
+    Mark every operation a second person would have to approve.
+
+    Args:
+        schema: The OpenAPI document. Modified in place.
+        routes: The application's routes.
+
+    Returns:
+        The same document.
+    """
+    from noust.core.accounts.approvals import route_requirement
+    from noust.web.permissions.registry import permission_for_route
+
+    paths: dict[str, Any] = schema.get("paths", {})
+    for route in api_routes(routes):
+        if not route.include_in_schema:
+            continue
+        operations = paths.get(route.path_format, {})
+        for method in route.methods or ():
+            template = str(route.path_format)
+            permission = permission_for_route(method, template)
+            requirement = route_requirement(method, template, [permission] if permission else [])
+            operation = operations.get(method.lower())
+            if requirement is not None and isinstance(operation, dict):
+                operation[APPROVAL_EXTENSION] = requirement
+    return schema
+
+
 def install_openapi(app: FastAPI) -> None:
     """
-    Make ``app.openapi()`` carry the elevation extension.
+    Make ``app.openapi()`` carry the elevation, permission and approval extensions.
 
     Wrapped rather than rebuilt so the document stays FastAPI's own, cached
     exactly as FastAPI caches it, whoever asks: this route, the export
@@ -142,7 +178,10 @@ def install_openapi(app: FastAPI) -> None:
         Returns:
             The application's OpenAPI document, annotated.
         """
-        return annotate_elevation(build(), app.routes)
+        return annotate_approval(
+            annotate_permissions(annotate_elevation(build(), app.routes), app.routes),
+            app.routes,
+        )
 
     # FastAPI documents overriding app.openapi as the way to customise the
     # schema; mypy objects to assigning to a method, hence setattr.

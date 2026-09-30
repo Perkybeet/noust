@@ -10,12 +10,16 @@ scan. A unit that fails or crash-loops is announced as ``unit_failed``; one
 stopped on purpose is not.
 
 **How often.** Once every ``monitor.scan_interval`` seconds, at least
-:data:`MIN_SCAN_INTERVAL`, 60 by default. Resource metrics are read live and
-never stored; only observations are persisted.
+:data:`MIN_SCAN_INTERVAL`, 60 by default, for the scan of processes and units.
+Separately, every 5 seconds, the daemon samples the machine and every
+application for the console's charts (:mod:`noust.monitor.collector`), and keeps
+that history in ``metrics.db``: four tiers, from 5-second samples for two hours to
+hourly means and maxima for 400 days. Observations are persisted as before.
 
-**Where it keeps it.** One SQLite file, ``/var/lib/noust/observations.db``
-(``~/.local/share/noust/observations.db`` for an unprivileged run). It is
-bounded three ways: repeats inside an hour collapse into one row, rows past
+**Where it keeps it.** Observations in one SQLite file,
+``/var/lib/noust/observations.db`` (``~/.local/share/noust/observations.db`` for
+an unprivileged run); the metrics history beside it in ``metrics.db``. The
+observations are bounded three ways: repeats inside an hour collapse into one row, rows past
 ``monitor.retention_days`` are deleted, and the row count is capped at
 :data:`DEFAULT_MAX_OBSERVATIONS`.
 

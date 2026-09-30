@@ -10,6 +10,14 @@ than call it. The checking logic - disk space, the web servers, every
 deployed application, certificates close to expiry, memory pressure - moved
 here unchanged; :mod:`noust.cli.commands.health` now only formats and prints
 :class:`HealthReport`, and the endpoint serialises the same object to JSON.
+
+Since 3.1 the report also counts the server's hardening findings, from the one
+list of checks (:mod:`noust.managers.server.security_checks`). They arrive as
+warnings, never as issues: a server without a firewall is exposed, not broken,
+and ``noust health``'s exit code - which monitoring scripts read - still means
+"something is down". The console never probes for them on this path; it reads
+the checks it last ran (``hardening="cached"``), while ``noust health`` runs
+the quick ones itself (``hardening="live"``).
 """
 
 from __future__ import annotations
@@ -18,6 +26,7 @@ import shutil
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Literal
 
 from noust.core.app_state import RUNNING, STATIC, resolve_states
 from noust.core.config import Config
@@ -26,6 +35,12 @@ from noust.core.store import WebServer, get_store
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.cert_manager import CertificateInfo, CertManager
 from noust.managers.nginx_manager import NginxManager
+from noust.managers.server.security_checks import (
+    CheckReport,
+    cached_report,
+    run_checks,
+    summarize,
+)
 from noust.managers.service_manager import ServiceManager
 
 #: A certificate this close to expiry is an incident, not a reminder.
@@ -33,6 +48,10 @@ CERT_CRITICAL_DAYS = 7
 
 #: A certificate this close to expiry deserves a warning.
 CERT_WARNING_DAYS = 30
+
+#: Where the hardening count comes from: run the quick checks now (the CLI),
+#: the last checks this process ran (the console), or not at all.
+HardeningMode = Literal["live", "cached", "off"]
 
 
 @dataclass(frozen=True)
@@ -68,6 +87,10 @@ class HealthReport:
         memory: Memory pressure check.
         issues: Problems serious enough to fail the check.
         warnings: Problems worth an operator's attention that do not.
+        hardening: The count of hardening findings, or None when they were
+            not asked for.
+        builds: Whether every application builds in the sandbox (backlog 44).
+        audit: Whether the audit trail records (ENS G05).
     """
 
     disk: HealthCheck | None
@@ -78,6 +101,9 @@ class HealthReport:
     memory: HealthCheck
     issues: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    hardening: HealthCheck | None = None
+    builds: HealthCheck | None = None
+    audit: HealthCheck | None = None
 
     @property
     def checks(self) -> list[HealthCheck]:
@@ -91,6 +117,9 @@ class HealthReport:
                 self.applications,
                 self.certificates,
                 self.memory,
+                self.builds,
+                self.audit,
+                self.hardening,
             )
             if check is not None
         ]
@@ -407,16 +436,115 @@ def _check_memory(issues: list[str], warnings: list[str]) -> HealthCheck:
         return HealthCheck("Memory", f"Could not check: {exc}", "warning")
 
 
-def collect_health_report(*, verbose: bool = False) -> HealthReport:
+def _check_builds(warnings: list[str]) -> HealthCheck:
+    """
+    Report the applications whose builds or containers have root's access.
+
+    Args:
+        warnings: Warning list to append each application's sentence to.
+
+    Returns:
+        The build sandbox check.
+    """
+    from noust.deployers.helpers import sandbox as build_sandbox
+
+    try:
+        found = build_sandbox.sandbox_warnings()
+    except (NoustError, OSError, sqlite3.Error) as exc:
+        return HealthCheck("Build sandbox", f"Could not check: {exc}", "warning")
+    if not found:
+        return HealthCheck("Build sandbox", "Every build runs in the sandbox", "ok")
+    warnings.extend(found.values())
+    return HealthCheck(
+        "Build sandbox", f"{len(found)} application(s) build or run with root's access", "warning"
+    )
+
+
+def _check_audit(issues: list[str], warnings: list[str]) -> HealthCheck:
+    """
+    Report whether the audit trail records, from :func:`noust.core.audit.health`.
+
+    A trail that cannot write is an issue: under the ENS profile an action
+    that leaves no record is a failure of its own.
+
+    Args:
+        issues: Issue list to append to.
+        warnings: Warning list to append to.
+
+    Returns:
+        The audit trail check.
+    """
+    from noust.core import audit
+
+    try:
+        report = audit.health()
+    except (NoustError, OSError, sqlite3.Error) as exc:
+        return HealthCheck("Audit trail", f"Could not check: {exc}", "warning")
+    problems = [f"Audit: {problem}" for problem in report.problems]
+    if report.status == "error":
+        issues.extend(problems)
+        return HealthCheck("Audit trail", f"{len(problems)} problem(s)", "error")
+    if report.status == "warning":
+        warnings.extend(problems)
+        return HealthCheck("Audit trail", f"{len(problems)} warning(s)", "warning")
+    return HealthCheck("Audit trail", "Recording", "ok")
+
+
+def _check_hardening(mode: HardeningMode, warnings: list[str]) -> HealthCheck | None:
+    """
+    Count the server's hardening findings.
+
+    Args:
+        mode: ``live`` runs the quick checks now (sshd, the firewall,
+            fail2ban, accounts; not the package manager); ``cached`` reads the
+            last checks this process ran and probes nothing; ``off`` skips it.
+        warnings: Warning list to append each finding to.
+
+    Returns:
+        The check, or None for ``off``.
+    """
+    if mode == "off":
+        return None
+    report: CheckReport | None
+    if mode == "live":
+        try:
+            report = run_checks(host_checks=False)
+        except (NoustError, OSError, sqlite3.Error) as exc:
+            return HealthCheck("Security hardening", f"Could not check: {exc}", "warning")
+    else:
+        report = cached_report()
+    summary = summarize(report)
+    if summary.checked_at is None:
+        return HealthCheck(
+            "Security hardening",
+            "Not checked yet: run 'noust server security checks'",
+            "info",
+        )
+    warnings.extend(f"Security (critical): {title}" for title in summary.critical)
+    warnings.extend(f"Security: {title}" for title in summary.warnings)
+    value = f"{len(summary.critical)} critical, {len(summary.warnings)} warning(s)"
+    if summary.accepted:
+        value += f", {summary.accepted} accepted"
+    status = "warning" if summary.critical or summary.warnings else "ok"
+    return HealthCheck("Security hardening", value, status)
+
+
+def collect_health_report(
+    *, verbose: bool = False, hardening: HardeningMode = "cached"
+) -> HealthReport:
     """
     Run every check and return the structured report.
 
     The one implementation ``noust health`` and ``GET /api/system/health``
     both call: disk space, the web servers, every deployed application,
-    certificates close to expiry and memory pressure.
+    certificates close to expiry, memory pressure, the build sandbox, the
+    audit trail and the hardening count.
 
     Args:
         verbose: Passed through to the managers this instantiates.
+        hardening: Where the hardening count comes from; see
+            :func:`_check_hardening`. The console's endpoint keeps the
+            default, which never probes on a request.
 
     Returns:
         Every check, plus the issues and warnings that decide the verdict.
@@ -430,6 +558,9 @@ def collect_health_report(*, verbose: bool = False) -> HealthReport:
     applications = _check_applications(verbose, warnings)
     certificates = _check_certificates(verbose, issues, warnings)
     memory = _check_memory(issues, warnings)
+    builds = _check_builds(warnings)
+    audit_check = _check_audit(issues, warnings)
+    hardening_check = _check_hardening(hardening, warnings)
 
     return HealthReport(
         disk=disk,
@@ -440,4 +571,7 @@ def collect_health_report(*, verbose: bool = False) -> HealthReport:
         memory=memory,
         issues=issues,
         warnings=warnings,
+        hardening=hardening_check,
+        builds=builds,
+        audit=audit_check,
     )

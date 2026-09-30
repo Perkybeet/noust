@@ -26,7 +26,9 @@ stream and the two WebSockets, the same surface a script uses.
 from __future__ import annotations
 
 import asyncio
+import functools
 import inspect
+import ipaddress
 import logging
 import threading
 from collections import OrderedDict
@@ -46,12 +48,23 @@ from starlette.requests import HTTPConnection
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from noust import __version__
+from noust.core.audit import bind as bind_audit_context
+from noust.core.audit.context import request_correlation_id
+from noust.core.config import Config
 from noust.core.exceptions import FleetUnavailableError, SecurityError
-from noust.core.messages import Locale, message, normalize_locale
 from noust.core.net import host_addresses, is_loopback_host, local_address, loopback_access_lines
-from noust.core.notifier import NotificationEvent, fresh_config, notify_in_background
+from noust.core.notifications.composers import (
+    compose_backup_failed,
+    compose_deploy,
+    compose_restore,
+)
+from noust.core.notifications.context import NotificationContext
+from noust.core.notifications.model import Notification
+from noust.core.notifier import fresh_config, notify_in_background
+from noust.core.tls_policy import TLS12_CIPHERS, harden_server_context
 from noust.deployers import deploy_events
-from noust.deployers.deploy_events import DeployEvent
+from noust.deployers.deploy_events import DeployEvent, DeployEventKind
+from noust.managers.database.backup_notifications import database_job_notification
 from noust.web.auth import (
     SAFE_METHODS,
     SESSION_COOKIE_NAME,
@@ -335,7 +348,18 @@ def rate_bucket(connection: HTTPConnection, client_ip: str, path: str) -> RateBu
 #: counted per application by :func:`get_webhook_failures`, not per address:
 #: a forge's deliveries share a few egress addresses, and refusing one of
 #: them would refuse every genuine delivery behind it.
-AUTH_PATHS = frozenset({"/api/auth/login", "/api/auth/elevate", "/api/auth/2fa/disable"})
+AUTH_PATHS = frozenset(
+    {
+        "/api/auth/login",
+        "/api/auth/elevate",
+        "/api/auth/2fa/disable",
+        "/api/auth/password",
+        "/api/auth/invitations/open",
+        "/api/auth/invitations/accept",
+        "/api/auth/passkeys/login",
+        "/api/auth/passkeys/elevate",
+    }
+)
 
 _token_manager: TokenManager | None = None
 _rate_limiter: RateLimiter | None = None
@@ -484,9 +508,6 @@ RECORDED_JOB_TYPES = frozenset({"deploy", "update", "rollback"})
 #: Statuses a job ends in.
 _FINISHED_STATUSES = frozenset({"completed", "failed", "cancelled"})
 
-#: Terminal job status to the notification kind it publishes as.
-_TERMINAL_KINDS = {"completed": "deploy_success", "failed": "deploy_failed"}
-
 #: Most recently announced job ids remembered by a subscriber. Jobs reach a
 #: terminal state exactly once today; the memory is insurance against a
 #: subscriber being notified twice for the same finished job ever becoming a
@@ -494,37 +515,17 @@ _TERMINAL_KINDS = {"completed": "deploy_success", "failed": "deploy_failed"}
 _SEEN_JOBS_LIMIT = 512
 
 
-def _optional_domain_title(key: str, no_domain_key: str, locale: Locale, domain: str | None) -> str:
+def deployment_notification(job: Any) -> Notification | None:
     """
-    Render a notification title that names a domain when the job carries one.
-
-    A job's ``metadata`` is a plain dict a caller builds by hand; nothing
-    guarantees ``domain`` is set, and a catalog key with a ``{domain}``
-    placeholder must not be asked to format ``None``.
-
-    Args:
-        key: Catalog key expecting a ``{domain}`` placeholder.
-        no_domain_key: Catalog key with no placeholders, for when there is
-            none.
-        locale: Language to render Noust's own words in.
-        domain: The job's domain, already stringified, or None.
-
-    Returns:
-        The rendered title.
-    """
-    return message(key, locale, domain=domain) if domain else message(no_domain_key, locale)
-
-
-def deployment_notification(job: Any) -> NotificationEvent | None:
-    """
-    Translate a job transition into the event the notifier carries, or None.
+    Translate a job transition into the notification it deserves, or None.
 
     Args:
         job: The job that changed, as the job manager reports it.
 
     Returns:
-        The event for a finished backup restore, or a failed backup, which
-        has a kind of its own - or None for everything else: non-terminal
+        The notification for a finished backup restore (``restore_success`` or
+        ``restore_failed``, its own kinds: a restore is not a deploy), or for a
+        failed backup job - or None for everything else: non-terminal
         transitions, cancellations, a deploy or an update (announced by
         noust.core.deploy_notifications instead), and job types with their
         own reporting surface.
@@ -534,44 +535,31 @@ def deployment_notification(job: Any) -> NotificationEvent | None:
     domain = job.metadata.get("domain")
     domain_str = str(domain) if domain else None
 
-    if job_type in DEPLOY_JOB_TYPES and status in _TERMINAL_KINDS:
-        kind = _TERMINAL_KINDS[status]
-    elif job_type == "backup" and status == "failed":
-        kind = "backup_failed"
-    else:
+    restore = job_type in DEPLOY_JOB_TYPES and status in ("completed", "failed")
+    backup = job_type == "backup" and status == "failed"
+    if not restore and not backup:
         return None
 
     # The job's own name and description are console text, out of scope for
-    # 2.3 (docs/superpowers/specs/2026-09-28-wasm-2.3-design.md S1): this
-    # title is built fresh from noust.core.messages instead of reusing them,
-    # so a Spanish operator reads a Spanish notification even though the
-    # job list itself still reads in English.
-    locale = normalize_locale(fresh_config().get("notifications.language"))
-
-    if kind == "backup_failed":
-        title = _optional_domain_title(
-            "backup_job_failed_title", "backup_job_failed_title_no_domain", locale, domain_str
-        )
-        # The tool's own words, never paraphrased: this is what the operator
-        # will search for.
-        body = job.error or ""
-    elif status == "failed":
-        title = _optional_domain_title(
-            "restore_failed_title", "restore_failed_title_no_domain", locale, domain_str
-        )
-        body = job.error or ""
-    else:
-        title = _optional_domain_title(
-            "restore_succeeded_title", "restore_succeeded_title_no_domain", locale, domain_str
-        )
-        # v2.2.1 carried the backup id in the job's own description, reused
-        # verbatim as the body; that text is out of scope for translation
-        # (see noust.core.messages), so the id travels through the catalog
-        # instead of being dropped.
-        backup_id = job.metadata.get("backup_id")
-        body = message("restore_succeeded_body", locale, backup_id=backup_id) if backup_id else ""
-
-    return NotificationEvent(kind=kind, title=title, body=body, domain=domain_str)
+    # translation: the notification is composed fresh from noust.core.messages,
+    # so a Spanish operator reads a Spanish notification even though the job
+    # list itself still reads in English. What the tool said (job.error, its
+    # own words) reaches the excerpt untouched.
+    ctx = NotificationContext.from_config(fresh_config())
+    if job.metadata.get("kind") == "database":
+        # A dump or a restore of a database: the database is the subject, not an
+        # application, and its page is the link.
+        return database_job_notification(job, ctx)
+    if backup:
+        return compose_backup_failed(domain_str, job.error, ctx)
+    backup_id = job.metadata.get("backup_id")
+    return compose_restore(
+        ok=status == "completed",
+        domain=domain_str,
+        backup_id=str(backup_id) if backup_id else None,
+        error=job.error,
+        ctx=ctx,
+    )
 
 
 def _job_type(job: Any) -> str:
@@ -693,7 +681,7 @@ class JobNotificationSubscriber:
         self._seen: OrderedDict[str, None] = OrderedDict()
         self._lock = threading.Lock()
 
-    def _unrecorded_failure(self, job: Any) -> NotificationEvent | None:
+    def _unrecorded_failure(self, job: Any) -> Notification | None:
         """
         Announce a deployment job that failed before the recorder opened.
 
@@ -713,26 +701,19 @@ class JobNotificationSubscriber:
         if self._witness.announced(job) or status != "failed":
             return None
         domain = job.metadata.get("domain")
-        domain_str = str(domain) if domain else None
-        # The same title noust.core.deploy_notifications gives a recorded
-        # deploy failure - this is the same event, just from a run the
-        # recorder never opened for. A domain is always set for these job
-        # types in practice; the job's own English name is the fallback for
-        # the one that is not, rather than a catalog call that would raise
-        # on a missing placeholder.
-        locale = normalize_locale(fresh_config().get("notifications.language"))
-        title = (
-            message("deploy_failed_title", locale, domain=domain_str)
-            if domain_str
-            else message("deploy_failed_title_no_domain", locale, name=job.name)
+        # The same notification noust.core.deploy_notifications gives a
+        # recorded deploy failure - this is the same event, just from a run
+        # the recorder never opened for - so it is composed by the same
+        # composer, from an event carrying only what the job knows. The job's
+        # error is the tool's own words, never paraphrased.
+        event = DeployEvent(
+            kind=DeployEventKind.FAILED,
+            domain=str(domain) if domain else "",
+            operation=_job_type(job),
+            error=job.error or "",
+            job_id=getattr(job, "id", None),
         )
-        return NotificationEvent(
-            kind="deploy_failed",
-            title=title,
-            # The tool's own words, never paraphrased.
-            body=job.error or "",
-            domain=domain_str,
-        )
+        return compose_deploy(event, NotificationContext.from_config(fresh_config()))
 
     def __call__(self, job: Any) -> None:
         """
@@ -782,6 +763,10 @@ async def lifespan(app: FastAPI):
 
     manager = get_token_manager()
     manager.purge_expired_sessions()
+    # ENS G22: accounts' TOTP secrets an earlier build stored in clear.
+    from noust.core.accounts.manager import seal_totp_secrets_at_start
+
+    await asyncio.to_thread(seal_totp_secrets_at_start)
     # What a console killed mid-inspection could not remove itself.
     remove_stale_checkouts()
     jobs = get_job_manager()
@@ -793,7 +778,34 @@ async def lifespan(app: FastAPI):
     # application's state once per change and the event hub fans it out.
     app_states = AppStatePublisher()
     jobs.subscribe_all(app_states)
+    # A job that ends changes what the Overview shows: its cached answer goes.
+    # Imported here: the API package imports this module.
+    from noust.web.api.overview import invalidate_after_job
+
+    jobs.subscribe_all(invalidate_after_job)
+    # Audit housekeeping (shipping, checkpoints, retention) and the host
+    # action ledger live as long as the console does.
+    from noust.core.audit.worker import start_worker as start_audit_worker
+    from noust.core.audit.worker import stop_worker as stop_audit_worker
+
+    start_audit_worker()
     start_metrics_collector()
+    # The fleet's reachability, while a console has the event stream open; the
+    # monitor daemon probes instead whenever it runs (noust.fleet.probe).
+    from noust.fleet.probe import start_probe
+    from noust.web.events import hub as event_hub
+
+    fleet_probe = start_probe(daemon=False, active=lambda: event_hub.listening)
+    # What the server did while the console was not running: a reboot, or an
+    # update that kept going in its own systemd unit.
+    from noust.web.api.server.lifecycle import on_console_start
+
+    await asyncio.to_thread(on_console_start)
+    # The build units a process killed mid-build left behind, and their
+    # environment files.
+    from noust.deployers.helpers.sandbox import sweep_at_start
+
+    await asyncio.to_thread(sweep_at_start)
     try:
         yield
     except asyncio.CancelledError:
@@ -804,12 +816,15 @@ async def lifespan(app: FastAPI):
         if not shutting_down():
             raise
     finally:
+        fleet_probe.stop()
         stop_metrics_collector()
+        jobs.unsubscribe_all(invalidate_after_job)
         jobs.unsubscribe_all(app_states)
         jobs.unsubscribe_all(notify_jobs)
         stop_witnessing()
         close_fleet_tunnels()
         manager.purge_expired_sessions()
+        stop_audit_worker()
 
 
 def close_fleet_tunnels() -> None:
@@ -1089,6 +1104,139 @@ async def _quiet_at_shutdown(call: Any) -> None:
             raise
 
 
+def request_host(header: str | None) -> str:
+    """
+    Read the host out of a ``Host`` header value.
+
+    Args:
+        header: The header as received, ``name``, ``name:port`` or ``[v6]:port``.
+
+    Returns:
+        The host, lowercased, without port, brackets or a trailing dot; empty
+        when there is no header or it is not one a host can be read from.
+    """
+    value = (header or "").strip().lower()
+    if value.startswith("["):
+        end = value.find("]")
+        return value[1:end] if end > 0 else ""
+    if value.count(":") == 1:
+        value = value.split(":", 1)[0]
+    return value.rstrip(".")
+
+
+def _is_loopback_name(host: str) -> bool:
+    """
+    Tell whether a host names this machine, without asking the network.
+
+    :func:`~noust.core.net.is_loopback_host` resolves names, which a Host
+    header the client chose must never trigger: this is the same answer for
+    the spellings that are loopback by definition.
+
+    Args:
+        host: A host as :func:`request_host` returns it.
+
+    Returns:
+        True for ``localhost`` (and any ``*.localhost``) and a loopback address.
+    """
+    if host == "localhost" or host.endswith(".localhost"):
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def _url_host(url: object) -> str:
+    """
+    Take the host of a configured URL.
+
+    Args:
+        url: A ``web.public_url`` or ``web.hooks_url`` value, possibly unset.
+
+    Returns:
+        Its host, lowercased; empty when unset or not a URL.
+    """
+    from urllib.parse import urlparse
+
+    if not isinstance(url, str) or not url.strip():
+        return ""
+    try:
+        return (urlparse(url.strip()).hostname or "").lower().rstrip(".")
+    except ValueError:
+        return ""
+
+
+def host_is_allowed(
+    header: str | None, allowed: list[str], public: list[str] | None = None
+) -> bool:
+    """
+    Decide whether a request's ``Host`` is one this console answers to.
+
+    The check exists for the console that sits behind a name: a request for
+    any other name is a stranger's (a DNS rebinding page, a scan by address, a
+    proxy that forgot its ``Host``). Loopback and the hosts of the console's
+    own public URLs are always allowed, so the SSH tunnels of a central and the
+    operator at the machine are never locked out by a list they wrote.
+
+    Args:
+        header: The ``Host`` header value.
+        allowed: ``web.allowed_hosts``: names, addresses and ``*.domain``
+            patterns. Empty allows any host.
+        public: The hosts of ``web.public_url`` and ``web.hooks_url``.
+
+    Returns:
+        True when the request may go on.
+    """
+    if not allowed:
+        return True
+    host = request_host(header)
+    if not host:
+        return False
+    if _is_loopback_name(host) or host in (public or []):
+        return True
+    for pattern in allowed:
+        if pattern.startswith("*."):
+            suffix = pattern[1:]
+            if host.endswith(suffix) and len(host) > len(suffix):
+                return True
+        elif host == pattern:
+            return True
+    return False
+
+
+def _host_refusal(connection: HTTPConnection) -> str | None:
+    """
+    Check a connection's ``Host`` against ``web.allowed_hosts``.
+
+    The setting is read from the configuration on every request, so a change
+    saved through the console applies at once and one made by hand applies at
+    the next start, like every other ``web.*`` setting.
+
+    Args:
+        connection: A view over the request or handshake.
+
+    Returns:
+        The Host that was refused, or None when the request may go on.
+    """
+    config = Config()
+    configured = config.get("web.allowed_hosts") or []
+    if not isinstance(configured, list) or not configured:
+        return None
+    allowed = [str(entry).strip().lower() for entry in configured if str(entry).strip()]
+    public = [
+        host
+        for host in (
+            _url_host(config.get("web.public_url")),
+            _url_host(config.get("web.hooks_url")),
+        )
+        if host
+    ]
+    header = connection.headers.get("host")
+    if host_is_allowed(header, allowed, public):
+        return None
+    return (header or "")[:100]
+
+
 class SecurityMiddleware:
     """
     Connection-level security for every scope the panel serves.
@@ -1131,7 +1279,10 @@ class SecurityMiddleware:
         # the request is over, unless an endpoint counted it first.
         ledger = open_credential_ledger(client_ip, path)
         try:
-            await self._serve(scope, receive, send, connection, client_ip, path)
+            # One correlation id per request: every audit event and host
+            # action it causes (noust.core.audit.ledger) is linked by it.
+            with bind_audit_context(correlation_id=request_correlation_id(scope)):
+                await self._serve(scope, receive, send, connection, client_ip, path)
         finally:
             settle_credential_failures(ledger)
 
@@ -1176,6 +1327,33 @@ class SecurityMiddleware:
                 ws_code=WS_CLOSE_FORBIDDEN,
                 detail="Access denied: IP not whitelisted",
                 error="forbidden",
+            )
+            return
+
+        refused_host = _host_refusal(connection)
+        if refused_host is not None:
+            if audit:
+                audit.record(
+                    action=f"{scope['type']}.request",
+                    result="denied",
+                    client_ip=client_ip,
+                    resource=path,
+                    detail="Host not allowed",
+                )
+            await self._deny(
+                scope,
+                receive,
+                send,
+                connection,
+                status_code=400,
+                ws_code=WS_CLOSE_FORBIDDEN,
+                detail=f"This console does not answer to the host {refused_host!r}.",
+                error="host_not_allowed",
+                hint=(
+                    "Open it at its public URL, or add this name to web.allowed_hosts "
+                    "(noust config set web.allowed_hosts NAME1,NAME2; loopback and the hosts of "
+                    "web.public_url are always allowed)."
+                ),
             )
             return
 
@@ -1509,6 +1687,16 @@ class SecurityMiddleware:
                 # passes, so no endpoint under /api/apps/{domain} can forget
                 # to tell the open consoles.
                 announce_app_mutation(
+                    str(scope.get("method", "GET")),
+                    str(scope.get("path", "")),
+                    int(message["status"]),
+                )
+                # The same question again: a write that went through makes the
+                # Overview's cached answer stale. Imported here: the API
+                # package imports this module.
+                from noust.web.api.overview import invalidate_after_mutation
+
+                invalidate_after_mutation(
                     str(scope.get("method", "GET")),
                     str(scope.get("path", "")),
                     int(message["status"]),
@@ -1847,6 +2035,10 @@ def _uvicorn_kwargs(
         "access_log": True,
         "ssl_certfile": ssl_certfile,
         "ssl_keyfile": ssl_keyfile,
+        # uvicorn's own default is "TLSv1", whatever the installed OpenSSL
+        # takes that to mean. ConsoleConfig applies the rest of the floor
+        # (version, compression, ordering) to the context it builds.
+        "ssl_ciphers": TLS12_CIPHERS,
         # uvicorn's default "Server: uvicorn" response header announces the
         # exact software running behind the panel to anyone, unauthenticated.
         # That is a fingerprint an attacker probes for before picking an
@@ -1882,6 +2074,35 @@ def _graceful_shutdown_kwargs() -> dict[str, Any]:
     return {}
 
 
+@functools.cache
+def console_config_class() -> type[Any]:
+    """
+    Build the ``uvicorn.Config`` the console runs under.
+
+    A function and not a module-level class: uvicorn is imported when the
+    console is about to be served (a missing one is reported before a token is
+    issued), not when this module is.
+
+    Returns:
+        A ``uvicorn.Config`` subclass whose TLS context, once uvicorn has built
+        it from the certificate and key, gets :mod:`noust.core.tls_policy`
+        applied: TLS 1.2 at the least and only AEAD suites. uvicorn cannot be
+        handed a context (older versions have no such argument), so the one it
+        built is hardened in place.
+    """
+    import uvicorn
+
+    class ConsoleConfig(uvicorn.Config):
+        """uvicorn's configuration, with the console's TLS floor."""
+
+        def load(self) -> None:
+            super().load()
+            if self.ssl is not None:
+                harden_server_context(self.ssl)
+
+    return ConsoleConfig
+
+
 def _serve(kwargs: dict[str, Any]) -> None:
     """
     Run uvicorn until it is told to stop, ending the open streams when it is.
@@ -1911,7 +2132,7 @@ def _serve(kwargs: dict[str, Any]) -> None:
                 self.loop.call_soon_threadsafe(begin_shutdown)
             super().handle_exit(sig, frame)
 
-    ConsoleServer(uvicorn.Config(**kwargs)).run()
+    ConsoleServer(console_config_class()(**kwargs)).run()
 
 
 def run_server(

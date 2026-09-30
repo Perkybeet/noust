@@ -1120,10 +1120,10 @@ def test_install_and_build_are_streamed_with_finite_timeouts(
     streamed: list[tuple[tuple[str, ...], int]] = []
 
     class StreamingRunner(FakeRunner):
-        def stream(self, argv, *, on_line, cwd=None, env=None, timeout=60, user=None, secrets=()):  # type: ignore[no-untyped-def]
+        def stream(self, argv, *, on_line, cwd=None, env=None, timeout=60, **kwargs):  # type: ignore[no-untyped-def]
             streamed.append((tuple(argv), timeout))
             return super().stream(
-                argv, on_line=on_line, cwd=cwd, env=env, timeout=timeout, secrets=secrets
+                argv, on_line=on_line, cwd=cwd, env=env, timeout=timeout, **kwargs
             )
 
     runner = StreamingRunner()

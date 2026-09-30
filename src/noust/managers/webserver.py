@@ -87,6 +87,30 @@ _CONTROL_TIMEOUT = 30
 #: Port a proxy site targets when the caller does not say otherwise.
 DEFAULT_PROXY_PORT = 3000
 
+#: What ``Strict-Transport-Security`` says on the sites that opted in
+#: (``ssl.hsts``). A year, without ``includeSubDomains`` or ``preload``: those
+#: bind every subdomain of the domain, which an operator hosting other sites
+#: under it did not ask for.
+HSTS_VALUE = "max-age=31536000"
+
+
+def hsts_header(config: Any) -> str:
+    """
+    Say what ``Strict-Transport-Security`` the sites Noust writes should send.
+
+    The one place that turns the ``ssl.hsts`` flag into the header's value, so
+    the templates only ask whether there is one.
+
+    Args:
+        config: The configuration to read ``ssl.hsts`` from.
+
+    Returns:
+        :data:`HSTS_VALUE` when the flag is on, else an empty string, which a
+        template reads as "send nothing".
+    """
+    return HSTS_VALUE if config.get("ssl.hsts", False) else ""
+
+
 #: Mode of a virtual host file. World readable, like the rest of the web server
 #: configuration; the secrets live in the environment file, not here.
 _CONFIG_MODE = 0o644
@@ -689,6 +713,7 @@ class WebServerManager(BaseManager):
             "ssl": False,
             "ssl_certificate": f"/etc/letsencrypt/live/{domain}/fullchain.pem",
             "ssl_certificate_key": f"/etc/letsencrypt/live/{domain}/privkey.pem",
+            "hsts": hsts_header(self.config),
         }
         if context:
             ctx.update(context)

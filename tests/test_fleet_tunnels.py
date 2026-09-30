@@ -13,9 +13,10 @@ from pathlib import Path
 import pytest
 
 from noust.core.exceptions import NodeError, NodeRefusedError, NodeUnreachableError
+from noust.core.runner import FakeRunner
 from noust.core.store import NodeRecord
 from noust.fleet.keys import host_key_alias, known_hosts_line
-from noust.fleet.tunnels import BACKOFF_MAX, explain_ssh_failure, ssh_argv
+from noust.fleet.tunnels import BACKOFF_MAX, explain_ssh_failure, ssh_algorithms, ssh_argv
 from tests.fleet_support import HOST_KEY, build_fleet
 
 
@@ -148,7 +149,58 @@ class TestSSHArgv:
             "ForwardX11=no",
             "PermitLocalCommand=no",
             "LogLevel=ERROR",
+            "HostKeyAlgorithms=ssh-ed25519",
+            "KexAlgorithms=sntrup761x25519-sha512@openssh.com,curve25519-sha256",
+            "Ciphers=chacha20-poly1305@openssh.com,aes256-gcm@openssh.com",
+            "MACs=hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com",
         ]
+
+
+class TestPinnedAlgorithms:
+    def test_what_the_client_lacks_is_dropped(self):
+        runner = FakeRunner()
+        runner.script(
+            ["ssh", "-Q", "kex"], stdout="curve25519-sha256\ndiffie-hellman-group14-sha256\n"
+        )
+        runner.script(["ssh", "-Q", "cipher"], stdout="aes256-gcm@openssh.com\naes128-ctr\n")
+
+        chosen = ssh_algorithms(runner)
+
+        assert chosen["KexAlgorithms"] == "curve25519-sha256"
+        assert chosen["Ciphers"] == "aes256-gcm@openssh.com"
+        # ssh said nothing about these: the pinned list goes as it is.
+        assert chosen["HostKeyAlgorithms"] == "ssh-ed25519"
+        assert runner.calls[:2] == [("ssh", "-Q", "key"), ("ssh", "-Q", "kex")]
+
+    def test_a_client_with_none_of_them_is_an_error(self):
+        runner = FakeRunner()
+        runner.script(["ssh", "-Q", "cipher"], stdout="aes128-cbc\n3des-cbc\n")
+
+        with pytest.raises(NodeError) as caught:
+            ssh_algorithms(runner)
+        assert "Ciphers" in caught.value.message
+        assert "Upgrade the OpenSSH client" in caught.value.details
+
+    def test_asked_once_per_manager(self, fleet):
+        _register(fleet)
+        fleet.runner.script(["ssh", "-Q", "kex"], stdout="curve25519-sha256\n")
+
+        fleet.tunnels.endpoint("web-2")
+        fleet.tunnels.close("web-2")
+        fleet.tunnels.endpoint("web-2")
+
+        assert fleet.runner.calls.count(("ssh", "-Q", "kex")) == 1
+        argv = fleet.runner.processes[-1].argv
+        assert "KexAlgorithms=curve25519-sha256" in argv
+
+    def test_an_algorithm_mismatch_is_named(self, fleet):
+        record = _register(fleet)
+        sentence = explain_ssh_failure(
+            "Unable to negotiate with 10.0.0.2 port 22: no matching key exchange method found.",
+            record,
+            255,
+        )
+        assert "none of the algorithms this central pins" in sentence
 
 
 class TestTunnels:

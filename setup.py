@@ -35,6 +35,7 @@ setup(
                     "psutil>=5.9.0",
             "httpx>=0.25.0",
             "websockets>=10.4",
+            "cryptography>=3.4",
         ],
         "monitor": [
             "psutil>=5.9.0",
@@ -48,6 +49,7 @@ setup(
             "pydantic>=2.0",
             "uvicorn[standard]>=0.27.0",
             "websockets>=10.4",
+            "cryptography>=3.4",
                 ],
     },
     entry_points={

@@ -1,0 +1,35 @@
+# Dependency updates (ENS G16, op.exp.4): Dependabot opens a pull request for
+# each, which CI tests like any other change. Weekly, grouped, so the updates
+# arrive as a reviewable batch rather than a stream.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      python:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /panel
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      console-runtime:
+        dependency-type: production
+      console-tooling:
+        dependency-type: development
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ["*"]

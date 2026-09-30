@@ -22,7 +22,9 @@ from __future__ import annotations
 import importlib
 import logging
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -57,6 +59,18 @@ class DeployEvent:
             or rolled back.
         job_id: The console job running it, when there is one.
         ts: When it happened, UTC.
+        operation: What kind of deployment it is: ``deploy``, ``update``,
+            ``rollback`` (going back to an earlier release), ``activate``
+            (switching to a chosen one) or ``migrate``. Notifications name the
+            event for what it is; the ``kind`` above says only how far it got.
+        duration_s: How long it took, in seconds; None while it runs.
+        commit_message: The subject of the commit deployed, when known.
+        release_id: The release built, on the releases layout.
+        error_message: The failing step's own one-line message, scrubbed;
+            ``error`` is this and the rest in one string.
+        error_output: The rest of the failure - the tool's own output or the
+            health gate's evidence - scrubbed, apart from the message so a
+            notification can show one without the other.
     """
 
     kind: DeployEventKind
@@ -68,9 +82,52 @@ class DeployEvent:
     error: str | None = None
     job_id: str | None = None
     ts: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    operation: str = "deploy"
+    duration_s: float | None = None
+    commit_message: str | None = None
+    release_id: str | None = None
+    error_message: str | None = None
+    error_output: str | None = None
 
 
 Subscriber = Callable[[DeployEvent], None]
+
+# What kind of deployment the code running now is part of. An update is many
+# frames above the recorder that will announce it, and every deployer builds
+# its recorder in one shared place; setting this once, where the update
+# starts, is what lets that recorder say "update" without every deployer
+# passing a word down. A context variable, so two updates in two threads never
+# see each other's.
+_current_operation: ContextVar[str] = ContextVar("noust_deploy_operation", default="deploy")
+
+
+@contextmanager
+def operation(name: str) -> Iterator[None]:
+    """
+    Say what the deployments recorded inside the block are.
+
+    Args:
+        name: ``update`` or ``rollback``; ``deploy`` is what nothing says.
+            :attr:`DeployEvent.operation` documents them all.
+
+    Yields:
+        Nothing; recorders built inside the block announce ``name``.
+    """
+    token = _current_operation.set(name)
+    try:
+        yield
+    finally:
+        _current_operation.reset(token)
+
+
+def current_operation() -> str:
+    """
+    Returns:
+        What the deployment being recorded here is: the innermost
+        :func:`operation`, or ``deploy``.
+    """
+    return _current_operation.get()
+
 
 # Modules whose ``on_deploy_event`` function listens to every deployment in
 # every process. Imported on first publication rather than at import time:

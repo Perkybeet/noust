@@ -53,9 +53,10 @@ from starlette.websockets import WebSocketDisconnect
 from noust.core.exceptions import NodeError, NodeRefusedError
 from noust.core.sealing import SealError
 from noust.core.store import NodeRecord
+from noust.fleet import expected as expected_outages
 from noust.fleet.client import load_httpx
 from noust.web.api import nodes as nodes_api
-from noust.web.api.deps import ELEVATION_EXEMPT_TYPES, NoustErrorRoute, ensure_elevated
+from noust.web.api.deps import NoustErrorRoute, elevation_satisfied, ensure_elevated
 from noust.web.api.openapi import ELEVATION_EXTENSION
 from noust.web.auth import (
     SAFE_METHODS,
@@ -68,10 +69,10 @@ from noust.web.auth import (
     fleet_refusal,
     get_audit_logger,
     get_client_ip,
-    is_elevated,
     require_auth,
 )
 from noust.web.events import CREDENTIAL_RECHECK_SECONDS, HEARTBEAT_SECONDS, shutting_down
+from noust.web.permissions.roles import ROLE_PERMISSIONS
 
 if TYPE_CHECKING:
     import httpx
@@ -201,7 +202,36 @@ def central_elevated(session: dict[str, Any]) -> bool:
     Returns:
         True when the central would let this credential run an elevated action.
     """
-    return session.get("type") in ELEVATION_EXEMPT_TYPES or is_elevated(session)
+    return elevation_satisfied(session)
+
+
+def forwarded_identity(session: dict[str, Any]) -> dict[str, Any]:
+    """
+    Say who a call to a node acts for, as every call from this central says it.
+
+    The one derivation behind the proxy and the fleet views and actions
+    (:mod:`noust.web.api.fleet`), so a node reads the same operator, scope,
+    role and sudo mode whichever of them forwards the call.
+
+    Args:
+        session: The central's authenticated payload.
+
+    Returns:
+        ``actor``, ``actor_scope``, ``actor_role`` and ``elevated``: the
+        keyword arguments of :meth:`noust.fleet.client.NodeClient.auth_headers`.
+    """
+    from noust.fleet.client import actor_label as fleet_actor
+
+    scope = str(session.get("scope") or "read")
+    role = session.get("role")
+    return {
+        "actor": fleet_actor(actor_label(session)),
+        "actor_scope": scope if scope in SCOPE_RANK else "read",
+        # A person's role, so the node grants its own table's permissions for
+        # it; the master token and pre-account tokens keep the 3.0 scope rule.
+        "actor_role": str(role) if role in ROLE_PERMISSIONS else None,
+        "elevated": central_elevated(session),
+    }
 
 
 def open_upstream(node: NodeRecord, session: dict[str, Any], *, hold: bool = False) -> Upstream:
@@ -225,15 +255,8 @@ def open_upstream(node: NodeRecord, session: dict[str, Any], *, hold: bool = Fal
             not presented again until ``noust node test``.
         SecretsLockedError: When this central is sealed and locked.
     """
-    from noust.fleet.client import actor_label as fleet_actor
-
     client = nodes_api.node_client(node)
-    scope = str(session.get("scope") or "read")
-    headers = client.auth_headers(
-        actor=fleet_actor(actor_label(session)),
-        actor_scope=scope if scope in SCOPE_RANK else "read",
-        elevated=central_elevated(session),
-    )
+    headers = client.auth_headers(**forwarded_identity(session))
     if not hold:
         return Upstream(base_url=client.base_url().rstrip("/"), headers=dict(headers))
     (host, port), release = client.tunnels.hold(node.name)
@@ -637,15 +660,32 @@ def _forwarded_headers(request: Request, upstream: Upstream) -> dict[str, str]:
     Returns:
         The allowed request headers, plus the fleet's; the body's own
         encoding is identity, so the raw bytes relayed back are what the
-        ``content-type`` says they are.
+        ``content-type`` says they are. A call this central's approval guard
+        let through carries the approval (``X-Noust-Approval``,
+        ``X-Noust-Approved-By``), and a reason (``X-Noust-Reason``) goes as given.
     """
+    from noust.web.api.approvals import (
+        REASON_HEADER,
+        central_approval_headers,
+        forwardable_reason,
+    )
+
     headers = {
         name: value
         for name in FORWARDED_REQUEST_HEADERS
         if (value := request.headers.get(name)) is not None
     }
     headers["accept-encoding"] = "identity"
+    reason = forwardable_reason(request.headers.get(REASON_HEADER))
+    if reason is not None:
+        headers[REASON_HEADER] = reason
     headers.update(upstream.headers)
+    # The central vouches for a second person's approval the way it vouches
+    # for sudo mode: from the approval its own guard consumed for this call,
+    # never from a header the browser sent (those are not forwarded at all).
+    consumed = getattr(request.state, "noust_approval", None)
+    if consumed is not None:
+        headers.update(central_approval_headers(consumed))
     return headers
 
 
@@ -790,6 +830,28 @@ async def proxy_api(
         body = (await response.aread()).decode("utf-8", "replace")[:_MAX_ERROR_BODY]
         await _close(response, client)
         raise await refused_by(record, body)
+
+    if expected_outages.watches(method, target):
+        # A reboot asked of the node, or cancelled: the fleet must expect its
+        # silence (or stop expecting it), not announce it as an outage. The
+        # answer is a few bytes of JSON, read whole to learn when it is due.
+        answer = await response.aread()
+        await _close(response, client)
+        await run_in_threadpool(
+            lambda: expected_outages.observe(
+                record.name,
+                method,
+                target,
+                response.status_code,
+                answer,
+                actor=actor_label(session),
+            )
+        )
+        return Response(
+            content=answer,
+            status_code=response.status_code,
+            headers=_returned_headers(response, record, upstream),
+        )
 
     return StreamingResponse(
         _relay(response, record),

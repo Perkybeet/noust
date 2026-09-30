@@ -899,6 +899,12 @@ class NodeRecord:
             for now: the central never has a shell on a node).
         created_at: When the node was registered.
         updated_at: When the row last changed.
+        access_level: The access ceiling the node last published (schema
+            v12): ``read``, ``deploy`` or ``admin``; None until it answered
+            (a 3.0 node never does). The node enforces it; the central shows
+            and respects it.
+        host_access: Whether that ceiling includes host access; None when unknown.
+        access_read_at: When the ceiling was last read, ISO 8601 UTC.
     """
 
     name: str
@@ -913,12 +919,17 @@ class NodeRecord:
     allow_shell: bool = False
     created_at: str | None = None
     updated_at: str | None = None
+    access_level: str | None = None
+    host_access: bool | None = None
+    access_read_at: str | None = None
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> "NodeRecord":
         """Create from database row."""
         data = dict(row)
         data["allow_shell"] = bool(data.get("allow_shell"))
+        if data.get("host_access") is not None:
+            data["host_access"] = bool(data["host_access"])
         return cls(**data)
 
     def to_dict(self) -> dict[str, Any]:
@@ -2190,7 +2201,49 @@ class NoustStore:
         """
         with self._transaction() as cursor:
             cursor.execute("DELETE FROM apps WHERE domain = ?", (domain,))
-            return cursor.rowcount > 0
+            deleted = cursor.rowcount > 0
+            # Keyed by domain, not by row: a new application on the domain
+            # must not inherit the branch an operator chose for the old one.
+            cursor.execute("DELETE FROM app_branch_pins WHERE domain = ?", (domain,))
+            return deleted
+
+    def get_branch_pin(self, domain: str) -> str | None:
+        """
+        Name the branch an operator pinned an application to.
+
+        Args:
+            domain: Application domain.
+
+        Returns:
+            The branch, or None when none was chosen on purpose.
+        """
+        with self._transaction() as cursor:
+            cursor.execute("SELECT branch FROM app_branch_pins WHERE domain = ?", (domain,))
+            row = cursor.fetchone()
+        return str(row[0]) if row is not None and row[0] else None
+
+    def set_branch_pin(self, domain: str, branch: str | None, *, by: str | None = None) -> None:
+        """
+        Record, or forget, the branch an operator pinned an application to.
+
+        Only the pin: ``apps.branch`` is the caller's to set with it.
+
+        Args:
+            domain: Application domain.
+            branch: The branch chosen; None unpins.
+            by: Who chose it.
+        """
+        with self._transaction() as cursor:
+            if branch is None:
+                cursor.execute("DELETE FROM app_branch_pins WHERE domain = ?", (domain,))
+                return
+            cursor.execute(
+                "INSERT INTO app_branch_pins (domain, branch, pinned_at, pinned_by) "
+                "VALUES (?, ?, ?, ?) ON CONFLICT(domain) DO UPDATE SET "
+                "branch = excluded.branch, pinned_at = excluded.pinned_at, "
+                "pinned_by = excluded.pinned_by",
+                (domain, branch, datetime.now().isoformat(), by),
+            )
 
     def app_exists(self, domain: str) -> bool:
         """Check if an application exists."""
@@ -3301,6 +3354,30 @@ class NoustStore:
             cursor.execute(query, params)
             return [DeploymentRecord.from_row(row) for row in cursor.fetchall()]
 
+    def count_deployments_since(self, since: str) -> dict[str, int]:
+        """
+        Count the deployments that started at or after a moment, by outcome.
+
+        The Overview's "deploys today" is a count, and a count over a fixed
+        window of rows is wrong as soon as there are more of them than the
+        window (a client asking for the last 200 and counting them undercounts
+        a busy day), so the store counts.
+
+        Args:
+            since: An ISO 8601 timestamp in the form ``started_at`` is written
+                in (naive local time): ``datetime.now().replace(hour=0, ...)``.
+
+        Returns:
+            Status to number of deployments, only for statuses that occur.
+        """
+        with self._transaction() as cursor:
+            cursor.execute(
+                "SELECT status, COUNT(*) AS n FROM deployments WHERE started_at >= ? "
+                "GROUP BY status",
+                (since,),
+            )
+            return {row["status"]: int(row["n"]) for row in cursor.fetchall()}
+
     def get_latest_deployments(self, domains: Iterable[str]) -> dict[str, DeploymentRecord]:
         """
         Read the most recent deployment of each of several domains, one query.
@@ -3364,6 +3441,30 @@ class NoustStore:
                 (domain, domain, keep),
             )
             return cursor.rowcount
+
+    def prune_deployments_before(self, started_before: str) -> tuple[int, list[str]]:
+        """
+        Delete finished deployment rows that started before a cutoff (ENS G19).
+
+        Args:
+            started_before: ``started_at`` cutoff, in the format rows use
+                (local ISO 8601).
+
+        Returns:
+            How many rows were deleted, and their build log paths for the
+            caller to delete.
+        """
+        finished = "status != 'running'"
+        with self._transaction() as cursor:
+            cursor.execute(
+                f"SELECT log_path FROM deployments WHERE {finished} AND started_at < ?",
+                (started_before,),
+            )
+            logs = [str(row["log_path"]) for row in cursor.fetchall() if row["log_path"]]
+            cursor.execute(
+                f"DELETE FROM deployments WHERE {finished} AND started_at < ?", (started_before,)
+            )
+            return cursor.rowcount, logs
 
     # =========================================================================
     # Releases
@@ -3771,6 +3872,30 @@ class NoustStore:
                 (reason, now),
             )
             return cursor.rowcount
+
+    def prune_finished_jobs(self, finished_before: str) -> tuple[int, list[str]]:
+        """
+        Delete finished job rows older than a cutoff (ENS G19).
+
+        Args:
+            finished_before: ``finished_at`` cutoff, in the format rows use
+                (local ISO 8601).
+
+        Returns:
+            How many rows were deleted, and their log paths for the caller to
+            delete.
+        """
+        finished = "status IN ('completed', 'failed', 'cancelled') AND finished_at IS NOT NULL"
+        with self._transaction() as cursor:
+            cursor.execute(
+                f"SELECT log_path FROM jobs WHERE {finished} AND finished_at < ?",
+                (finished_before,),
+            )
+            logs = [str(row["log_path"]) for row in cursor.fetchall() if row["log_path"]]
+            cursor.execute(
+                f"DELETE FROM jobs WHERE {finished} AND finished_at < ?", (finished_before,)
+            )
+            return cursor.rowcount, logs
 
     # =========================================================================
     # Utility methods
@@ -4619,6 +4744,81 @@ class NoustStore:
                 (status, now, version, status, now, name),
             )
             return cursor.rowcount > 0
+
+    # =========================================================================
+    # Fleet access ceilings (schema v12)
+    # =========================================================================
+
+    def set_node_access(self, name: str, level: str | None, host_access: bool | None) -> bool:
+        """
+        Record the access ceiling a node published (on a central).
+
+        Args:
+            name: The node's name.
+            level: ``read``, ``deploy`` or ``admin``; None when the node did
+                not say (a 3.0 node), which forgets what was known.
+            host_access: Whether the ceiling includes host access; None when unknown.
+
+        Returns:
+            True if the node exists.
+        """
+        with self._transaction() as cursor:
+            cursor.execute(
+                "UPDATE nodes SET access_level = ?, host_access = ?, access_read_at = ? "
+                "WHERE name = ?",
+                (
+                    level,
+                    None if host_access is None else int(host_access),
+                    _utc_now(),
+                    name,
+                ),
+            )
+            return cursor.rowcount > 0
+
+    def get_fleet_access(self) -> dict[str, Any] | None:
+        """
+        Read this server's own access ceiling for its centrals (on a node).
+
+        Returns:
+            ``level``, ``host_access``, ``updated_at`` and ``updated_by``, or
+            None when it was never set.
+        """
+        row = (
+            self._get_connection()
+            .execute(
+                "SELECT level, host_access, updated_at, updated_by FROM fleet_access WHERE id = 1"
+            )
+            .fetchone()
+        )
+        return dict(row) if row else None
+
+    def set_fleet_access(
+        self, level: str, host_access: bool, *, updated_by: str | None = None
+    ) -> None:
+        """
+        Set this server's own access ceiling for its centrals (on a node).
+
+        Args:
+            level: ``read``, ``deploy`` or ``admin``.
+            host_access: Whether a central may change how this server is reached.
+            updated_by: Who set it.
+
+        Raises:
+            ValidationError: The level is not one of the three.
+        """
+        if level not in ("read", "deploy", "admin"):
+            raise ValidationError(
+                f"Unknown fleet access level: {level!r}",
+                details="Use one of: read, deploy, admin.",
+            )
+        with self._transaction() as cursor:
+            cursor.execute(
+                "INSERT INTO fleet_access (id, level, host_access, updated_at, updated_by) "
+                "VALUES (1, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET level = excluded.level, "
+                "host_access = excluded.host_access, updated_at = excluded.updated_at, "
+                "updated_by = excluded.updated_by",
+                (level, int(host_access), _utc_now(), updated_by),
+            )
 
     def get_app_with_relations(self, domain: str) -> dict[str, Any] | None:
         """

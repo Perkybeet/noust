@@ -1,0 +1,10 @@
+<?xml version='1.0'?>
+<stream>
+<update-status version="0.6">
+<update-list>
+<update name="openSUSE-SLE-15.6-2025-3115" edition="1" arch="noarch" kind="patch" category="security" severity="important" pkgmanager="false" restart="false" interactive="false"><summary>Security update for openssl-3</summary><source url="https://download.opensuse.org/update/leap/15.6/sle/" alias="repo-sle-update"/></update>
+<update name="openSUSE-SLE-15.6-2025-3120" edition="1" arch="noarch" kind="patch" category="security" severity="important" pkgmanager="false" restart="true" interactive="false"><summary>Security update for the Linux Kernel</summary><source url="https://download.opensuse.org/update/leap/15.6/sle/" alias="repo-sle-update"/></update>
+<update name="openSUSE-SLE-15.6-2025-3001" edition="1" arch="noarch" kind="patch" category="recommended" severity="moderate" pkgmanager="false" restart="false" interactive="false"><summary>Recommended update for bash</summary><source url="https://download.opensuse.org/update/leap/15.6/sle/" alias="repo-sle-update"/></update>
+</update-list>
+</update-status>
+</stream>

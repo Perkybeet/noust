@@ -177,6 +177,35 @@ def isolated_store_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 @pytest.fixture(autouse=True)
+def isolated_audit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """
+    Keep the audit trail inside the test's own directory and off the host's journal.
+
+    A CLI command under test records ``cli.command``; without this it would
+    write to ``/etc/noust`` (or fail to, and flag the audit trail as broken
+    for the next test) and send a datagram to the developer's own journald.
+    ``NOUST_WEB_STATE_DIR``, when a test sets it, still decides the location,
+    exactly as it does for the console.
+
+    Yields:
+        Nothing; the process-wide audit state is forgotten on the way out.
+    """
+    from noust.core import audit, paths
+    from noust.core.audit import ledger, sinks
+
+    def default_log_path() -> Path:
+        state = paths.getenv("WEB_STATE_DIR")
+        return Path(state) / audit.LOG_NAME if state else tmp_path / "audit-state" / audit.LOG_NAME
+
+    monkeypatch.setattr(sinks, "JOURNALD_SOCKET", tmp_path / "no-journald.socket")
+    monkeypatch.setattr(audit, "default_log_path", default_log_path)
+    audit.reset()
+    yield
+    ledger.uninstall_ledger()
+    audit.reset()
+
+
+@pytest.fixture(autouse=True)
 def quiet_deploy_events() -> Iterator[None]:
     """
     Keep the default deployment listeners (notifications, GitHub) out of tests.

@@ -105,6 +105,9 @@ STATE_UNSEALING = "unsealing"
 _STATES = (STATE_SEALED, STATE_SEALING, STATE_UNSEALING)
 
 _CIPHER = ("-aes-256-cbc", "-pbkdf2", "-iter", "1", "-md", "sha256")
+#: The cipher arguments, for the file envelopes of noust.core.ens.envelope,
+#: which use this construction for whole files (one definition, rule 3).
+CIPHER_ARGS: tuple[str, ...] = _CIPHER
 
 
 class SealError(NoustError):

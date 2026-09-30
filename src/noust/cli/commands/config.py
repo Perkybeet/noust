@@ -2,11 +2,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Commands for reading, upgrading and editing Noust's configuration file.
+Commands for reading, upgrading, cleaning and editing Noust's configuration file.
 
-``upgrade``, ``show`` and ``path`` write nothing: bulk editing ``config.yaml``,
-which holds the MySQL root password and the SMTP account, belongs in an
-editor, on a file the operator can review before saving.
+``show`` and ``path`` write nothing: bulk editing ``config.yaml``, which holds
+the MySQL root password and the SMTP account, belongs in an editor, on a file
+the operator can review before saving. ``upgrade`` only appends the sections a
+newer Noust introduced, and ``clean`` only removes the settings that no
+version reads any more (:data:`~noust.core.config.OBSOLETE_KEYS`), as text and
+with a copy first, so the operator's comments and layout are never touched.
 
 ``get`` and ``set`` are the exception, addressed one dotted key at a time -
 the same shape the panel's own settings page tells an operator to use, for
@@ -37,6 +40,7 @@ from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_c
 from noust.core.config import (
     DEFAULT_CONFIG_PATH,
     NO_DEFAULT,
+    OBSOLETE_KEYS,
     Config,
     coerce_config_value,
     is_secret_key,
@@ -127,14 +131,83 @@ def _run_show(logger: Logger, *, json_output: bool = False) -> int:
     Returns:
         Exit code.
     """
-    redacted = redact_secrets(Config().to_dict())
+    config = Config()
+    redacted = redact_secrets(config.to_dict())
+    # Listed apart, by name and reason and never with a value: they are not
+    # settings, so they are not in the tree above, but an operator who sees
+    # the file still holding them should be told what they are.
+    obsolete = config.obsolete_settings()
 
     if json_output:
-        click.echo(json.dumps({"config": redacted, "path": str(DEFAULT_CONFIG_PATH)}))
+        click.echo(
+            json.dumps(
+                {
+                    "config": redacted,
+                    "path": str(DEFAULT_CONFIG_PATH),
+                    "obsolete": [
+                        {"key": item.key, "reason": item.reason, "secret": item.secret}
+                        for item in obsolete
+                    ],
+                }
+            )
+        )
         return 0
 
     logger.header("Current Configuration")
     click.echo(yaml.dump(redacted, default_flow_style=False, sort_keys=False))
+    if obsolete:
+        logger.warning(
+            f"{len(obsolete)} obsolete setting(s) in {DEFAULT_CONFIG_PATH}, ignored "
+            "(values not shown; 'noust config clean' removes them):"
+        )
+        for item in obsolete:
+            secret = " It holds a credential." if item.secret else ""
+            logger.list_item(f"{item.key}: {item.reason}{secret}")
+    return 0
+
+
+def _run_clean(logger: Logger, *, quiet: bool, dry_run: bool = False) -> int:
+    """
+    Remove the obsolete settings from the configuration file.
+
+    Args:
+        logger: Logger used to report progress.
+        quiet: Say nothing unless it fails; for the package upgrade.
+        dry_run: Report what would be removed. Nothing is written either way
+            under ``--dry-run``: the filesystem seam refuses the write.
+
+    Returns:
+        Exit code.
+    """
+    result = Config().clean()
+
+    if "error" in result:
+        # Reported even when quiet: a script that ignored a failed cleanup
+        # would go on believing the file is clean.
+        logger.error(f"Could not clean {DEFAULT_CONFIG_PATH}: {result['error']}")
+        return 1
+    if quiet:
+        return 0
+
+    removed: list[str] = result["removed"]
+    if not removed:
+        logger.success("No obsolete settings in the configuration file")
+        return 0
+
+    verb = "Would remove" if dry_run else "Removed"
+    logger.success(f"{verb} {len(removed)} obsolete setting(s) from {DEFAULT_CONFIG_PATH}:")
+    for key in removed:
+        logger.list_item(
+            f"- {key}: {OBSOLETE_KEYS.get(key, 'A safety switch of the old monitor.')}"
+        )
+    secrets: list[str] = result["secrets_deleted"]
+    if secrets:
+        logger.warning(
+            f"Deleted the value of {', '.join(secrets)}: a credential of a feature that no "
+            "longer exists. It is not kept in the backup either."
+        )
+    if result["backup"]:
+        logger.key_value("Backup", str(result["backup"]))
     return 0
 
 
@@ -316,6 +389,16 @@ def _secrets_in_value(key: str, raw_value: str) -> list[str]:
     return found
 
 
+def _at_a_terminal() -> bool:
+    """
+    Tell whether a person is at the other end of both standard streams.
+
+    Returns:
+        True when standard input and output are a terminal.
+    """
+    return sys.stdin.isatty() and sys.stdout.isatty()
+
+
 def _warn_if_secret_typed_in_argv(key: str, logger: Logger, raw_value: str) -> None:
     """
     Nudge an operator typing a secret on the command line towards ``--stdin``.
@@ -333,7 +416,7 @@ def _warn_if_secret_typed_in_argv(key: str, logger: Logger, raw_value: str) -> N
     secrets = _secrets_in_value(key, raw_value)
     if not secrets:
         return
-    if not (sys.stdin.isatty() and sys.stdout.isatty()):
+    if not _at_a_terminal():
         return
     what = (
         f"{key} looks like a secret" if secrets == [key] else f"{key} carries {', '.join(secrets)}"
@@ -409,6 +492,8 @@ def handle_config(args: Namespace) -> int:
 
     if action == "upgrade":
         return _run_upgrade(logger, quiet=getattr(args, "quiet", False))
+    if action == "clean":
+        return _run_clean(logger, quiet=getattr(args, "quiet", False))
     if action == "show":
         return _run_show(logger)
     if action == "path":
@@ -418,6 +503,7 @@ def handle_config(args: Namespace) -> int:
     logger.blank()
     logger.info("Commands:")
     logger.info("  upgrade    Add the options a newer Noust expects")
+    logger.info("  clean      Remove the settings no version reads any more")
     logger.info("  show       Show the configuration in effect")
     logger.info("  path       Show where the configuration file lives")
     logger.info("  get        Print one configuration value")
@@ -428,7 +514,7 @@ def handle_config(args: Namespace) -> int:
 @click.group("config", cls=NoustGroup)
 @global_flags
 def cli() -> None:
-    """Read and upgrade Noust's configuration file."""
+    """Read, upgrade, clean and edit Noust's configuration file."""
 
 
 @cli.command("upgrade")
@@ -447,6 +533,30 @@ def upgrade(ctx: Context, quiet: bool) -> None:
     Values already set are kept exactly as they are.
     """
     _exit(_run_upgrade(ctx.logger, quiet=quiet))
+
+
+@cli.command("clean")
+@click.option(
+    "-q",
+    "--quiet",
+    is_flag=True,
+    help="Say nothing unless it fails. Use this in provisioning scripts.",
+)
+@global_flags
+@pass_context
+def clean(ctx: Context, quiet: bool) -> None:
+    """
+    Remove the settings that no version of Noust reads any more.
+
+    They are removed from config.yaml as text: every comment and the rest of
+    the file stay as they are. A copy with the date in its name is written
+    next to it first, owner-only, except that the credential of a removed
+    feature (the OpenAI API key of the old AI monitor) is deleted from the
+    file and is not kept in the copy either. 'noust config show' lists what
+    would go; the package upgrade runs this after 'config upgrade'. Use
+    --dry-run to see what would be removed.
+    """
+    _exit(_run_clean(ctx.logger, quiet=quiet, dry_run=ctx.dry_run))
 
 
 @cli.command("show")
@@ -545,6 +655,10 @@ def set_(
     or list instead - true, false, null, a number, or a JSON array - and
     falls back to a plain string when VALUE is not valid JSON.
 
+    A key that holds a secret (monitor.smtp.password, a bot token, a database
+    password) needs no flag at a terminal: given without VALUE it asks for it
+    hidden. A script pipes it in with --stdin.
+
     VALUE typed here lands in this shell's history file and, for as long as
     the command runs, is visible to every local user through 'ps' - fine for
     apps_directory, not for monitor.smtp.password. '--stdin' reads VALUE from
@@ -556,6 +670,18 @@ def set_(
     as monitor.smtp '{"password": ...}', prints a warning suggesting one of
     the two.
     """
+    if (
+        value is None
+        and not (from_stdin or from_prompt)
+        and is_secret_key(key.rsplit(".", 1)[-1])
+        and _at_a_terminal()
+    ):
+        # A secret is never asked for on the command line: without a VALUE, a
+        # terminal gets the hidden prompt, so 'noust config set
+        # monitor.smtp.password' does the safe thing by itself. A pipe is not
+        # read without --stdin: an empty one would blank the credential.
+        from_prompt = True
+
     sources = (value is not None, from_stdin, from_prompt)
     if sources.count(True) != 1:
         raise click.UsageError("Give VALUE, or exactly one of --stdin / --prompt, not a mix.")

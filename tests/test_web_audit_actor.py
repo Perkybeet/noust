@@ -27,6 +27,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from noust.core.audit import get_log
 from noust.core.runner import FakeRunner
 from noust.core.store import NoustStore
 from noust.managers.backup_scheduler import BackupScheduler
@@ -198,16 +199,19 @@ def test_a_sql_query_names_the_cookie_session_actor(
     wire(monkeypatch, [make_engine(tmp_path / "dumps")])
     sid = current_sid(client)
 
-    with caplog.at_level(logging.INFO, logger="noust.audit"):
-        response = client.post(
-            "/api/databases/query",
-            json={"database": "appdb", "engine": "postgresql", "query": "SELECT 1"},
-        )
+    response = client.post(
+        "/api/databases/query",
+        json={"database": "appdb", "engine": "postgresql", "query": "SELECT 1"},
+    )
 
     assert response.status_code == 200, response.text
-    line = audit_line(caplog, "query engine=")
-    assert f"session={sid[:12]}" in line
-    assert "session=unknown" not in line
+    # 3.1: the console records through noust.core.audit.record, under the
+    # actor the request bound, as a sensitive read.
+    [event] = get_log().read(action="db.query.read", limit=5)
+    # The session's principal: signed in with the master token, it is the
+    # master's; what must never appear is an unnamed actor.
+    assert event["actor"] in (sid[:12], "master")
+    assert event["actor"] not in ("unknown", "anonymous", "system")
 
 
 def test_a_sql_query_names_the_master_token_actor(
@@ -221,17 +225,15 @@ def test_a_sql_query_names_the_master_token_actor(
     token = get_token_manager().generate_master_token()
     anon = TestClient(app, client=("testclient", 50000), follow_redirects=False)
 
-    with caplog.at_level(logging.INFO, logger="noust.audit"):
-        response = anon.post(
-            "/api/databases/query",
-            json={"database": "appdb", "engine": "postgresql", "query": "SELECT 1"},
-            headers={"Authorization": f"Bearer {token}"},
-        )
+    response = anon.post(
+        "/api/databases/query",
+        json={"database": "appdb", "engine": "postgresql", "query": "SELECT 1"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
 
     assert response.status_code == 200, response.text
-    line = audit_line(caplog, "query engine=")
-    assert "session=master" in line
-    assert "session=unknown" not in line
+    [event] = get_log().read(action="db.query.read", limit=5)
+    assert event["actor"] == "master"
 
 
 def test_deleting_a_cron_job_names_the_cookie_session_actor(

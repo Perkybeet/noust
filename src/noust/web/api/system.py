@@ -28,7 +28,7 @@ from noust import __version__
 from noust.core.exceptions import DependencyError
 from noust.managers.health import collect_health_report
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute
+from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated
 from noust.web.auth import sees_command_lines
 from noust.web.machine import read_machine
 
@@ -655,4 +655,198 @@ def get_system_health(session: Annotated[dict, Depends(get_current_session)]) ->
         ],
         issues=report.issues,
         warnings=report.warnings,
+    )
+
+
+# ------------------------------------------------------------ self-update
+
+
+class SelfUpdateOut(BaseModel):
+    """
+    What this server can do about its own Noust, and how the last update went.
+
+    Attributes:
+        current_version: The Noust answering.
+        method: How it was installed: ``apt``, ``dnf``, ``yum``, ``zypper``,
+            ``pip``, ``pipx``, ``source`` or ``unknown``.
+        supported: Whether ``POST /api/system/update`` can update it.
+        code: Why not, for a machine: ``unsupported_installation`` or
+            ``container_image``.
+        reason: Why not, in a sentence.
+        hint: What to run instead.
+        command: The command an update runs, exactly.
+        last_run: The last update's record (``id``, ``status``:
+            ``running``/``installed``/``succeeded``/``failed``,
+            ``from_version``, ``to_version``, ``tail``, ``job_id``...).
+    """
+
+    current_version: str
+    method: str
+    supported: bool
+    code: str | None = None
+    reason: str | None = None
+    hint: str | None = None
+    command: list[str] | None = None
+    last_run: dict[str, Any] | None = None
+
+
+def _self_update_refused(refusal: Any) -> Any:
+    """
+    Turn a refusal into the API's error, with the command to run instead.
+
+    Args:
+        refusal: A :class:`~noust.managers.self_update.SelfUpdateRefused`.
+
+    Returns:
+        The ``HTTPException`` to raise: 409 for a run in progress, 501 for an
+        installation that is not updated from here.
+    """
+    from fastapi import HTTPException
+
+    return HTTPException(
+        status_code=409 if refusal.code in ("already_running", "refresh_failed") else 501,
+        detail={
+            "error": refusal.code,
+            "detail": refusal.message,
+            "hint": refusal.hint,
+            "fields": None,
+            "output": refusal.output,
+        },
+    )
+
+
+def self_update_job(actor: str | None = None, job_context: Any = None) -> dict[str, Any]:
+    """
+    Update this server's Noust, as a job that follows its transient unit.
+
+    When the package restarts the console, this job dies with it and is
+    marked interrupted; the update's record, settled by the new console, is
+    the account of how it ended (``GET /api/system/update``).
+
+    Args:
+        actor: Who asked.
+        job_context: Injected by the job manager.
+
+    Returns:
+        The update's record.
+
+    Raises:
+        NoustError: The update was refused or failed, with its words.
+    """
+    from noust.core.exceptions import NoustError
+    from noust.core.update_checker import UpdateChecker, UpdateCheckInProgress
+    from noust.managers.self_update import SelfUpdate, SelfUpdateRefused
+
+    context = job_context
+    target: str | None = None
+    try:
+        target = UpdateChecker.check().installable
+    except UpdateCheckInProgress:
+        target = None
+    manager = SelfUpdate()
+    context.update(f"Refreshing and installing Noust through {manager.method()}", 10)
+    try:
+        record = manager.start(
+            target_version=target,
+            job_id=context.job_id,
+            actor=actor,
+            on_line=lambda line: context.log(line),
+        )
+    except SelfUpdateRefused as exc:
+        raise NoustError(exc.message, details=exc.hint, output=exc.output) from exc
+    context.update(f"Installing in {record.unit or 'this process'}", 30)
+    record = manager.follow(record, lambda line: context.log(line))
+    if record.status == "failed":
+        raise NoustError(
+            record.error or "The update failed",
+            details="Read the installation's words below.",
+            output="\n".join(record.tail) or None,
+        )
+    context.update(
+        "Installed; the console restarts on the new version"
+        if record.status in ("installed", "running")
+        else f"Noust {record.to_version} is running",
+        100,
+    )
+    return record.to_dict()
+
+
+@router.get("/update", response_model=SelfUpdateOut)
+def self_update_status(session: Annotated[dict, Depends(get_current_session)]) -> SelfUpdateOut:
+    """
+    Say whether this server can update its own Noust, and how the last update ended.
+
+    A central polls this while a node updates: the record outlives the
+    console's restart, and is settled by the console that comes back.
+
+    Args:
+        session: The authenticated session.
+
+    Returns:
+        The installation method, what an update runs and the last update.
+    """
+    from noust.managers.self_update import SelfUpdate
+
+    return SelfUpdateOut(**SelfUpdate().status())
+
+
+@router.post("/update", response_model=JobAcceptedResponse, status_code=202)
+def start_self_update(
+    session: Annotated[dict, Depends(require_elevated)],
+) -> JobAcceptedResponse:
+    """
+    Update this server's Noust to what its package source offers.
+
+    Runs the one command of this installation's method, in its own systemd
+    unit, as a job. Nothing in the request chooses what runs. Needs sudo mode.
+
+    Args:
+        session: The elevated session.
+
+    Returns:
+        The queued job.
+
+    Raises:
+        HTTPException: 501 for an installation Noust does not update itself
+            (a source checkout, a container image), 409 while an update runs.
+    """
+    from noust.core.audit import record as record_audit
+    from noust.managers.self_update import SelfUpdate, SelfUpdateRefused
+    from noust.web.auth import actor_label
+    from noust.web.jobs import JobType, get_job_manager
+
+    manager = SelfUpdate()
+    refusal = manager.refusal()
+    if refusal is None:
+        last = manager.read()
+        if last is not None and manager.settle(last).status == "running":
+            refusal = SelfUpdateRefused(
+                "already_running",
+                "Noust is already being updated on this server",
+                f"Follow it with: journalctl -fu {last.unit}.service"
+                if last.unit
+                else "Wait for it to finish.",
+            )
+    if refusal is not None:
+        raise _self_update_refused(refusal)
+    actor = actor_label(session)
+    job = get_job_manager().create_job(
+        job_type=JobType.SELF_UPDATE,
+        name="Update Noust",
+        description=f"Updating Noust {__version__} through {manager.method()}",
+        func=self_update_job,
+        kwargs={"actor": actor},
+        metadata={"method": manager.method(), "from_version": __version__},
+        actor=actor,
+    )
+    record_audit(
+        "system.update",
+        target="noust",
+        details={"method": manager.method(), "from_version": __version__, "job": job.id},
+    )
+    return JobAcceptedResponse(
+        job_id=job.id,
+        status=job.status.value,
+        message="Update queued: it runs in its own unit and survives the console restarting",
+        job=job.to_dict(),
     )

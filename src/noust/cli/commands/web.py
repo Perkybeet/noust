@@ -80,7 +80,7 @@ from noust.core.net import (
     normalize_host,
     strip_brackets,
 )
-from noust.core.runner import get_runner
+from noust.core.runner import CommandRunner, get_runner
 from noust.core.utils import find_noust_executable
 
 if TYPE_CHECKING:
@@ -207,6 +207,10 @@ class StartOptions:
             is the journal; write no PID file, since systemd tracks the
             process; and do not refuse to start because the service is up,
             since this is the service.
+        keep_token: With ``daemon``, serve the access token already issued
+            instead of issuing one: how ``noust fleet authorize`` puts back a
+            background console it could not turn into a service, without
+            retiring the token its operator holds.
     """
 
     host: str = "127.0.0.1"
@@ -220,6 +224,7 @@ class StartOptions:
     allow_ip: tuple[str, ...] = ()
     trusted_proxy: tuple[str, ...] = ()
     under_systemd: bool = False
+    keep_token: bool = False
 
 
 def _option_argv(options: StartOptions, *, explicit: bool = True) -> list[str]:
@@ -1300,7 +1305,13 @@ def _start(options: StartOptions, verbose: bool, *, dry_run: bool = False) -> in
         return 0
 
     if options.daemon:
-        return _start_daemon(config, verbose, insecure_http=options.insecure_http, options=options)
+        return _start_daemon(
+            config,
+            verbose,
+            insecure_http=options.insecure_http,
+            options=options,
+            issue_token=not options.keep_token,
+        )
     return _start_foreground(config, insecure_http=options.insecure_http, options=options)
 
 
@@ -1385,6 +1396,7 @@ def _start_daemon(
     *,
     insecure_http: bool = False,
     options: StartOptions | None = None,
+    issue_token: bool = True,
 ) -> int:
     """
     Start the web server as a daemon, printing the access token it serves.
@@ -1400,6 +1412,8 @@ def _start_daemon(
             many words, forwarded to :func:`noust.web.server.run_server`.
         options: The options it was started with, for the ``noust web enable``
             line the banner suggests.
+        issue_token: Issue and print a new token. False serves the one on
+            disk and prints none (``--keep-token``).
 
     Returns:
         Exit code.
@@ -1409,12 +1423,18 @@ def _start_daemon(
     # Issued here, before the fork, because the parent is the only process
     # still attached to the terminal. The child serves this token and issues
     # none of its own (show_token=False below).
-    token = _issue_token(config)
+    token = _issue_token(config) if issue_token else None
 
     pid = os.fork()
 
     if pid > 0:
-        _report_daemon_started(config, pid, token, logger, options=options)
+        if token is not None:
+            _report_daemon_started(config, pid, token, logger, options=options)
+        else:
+            logger.success(
+                f"Web server started in background (PID: {pid}), serving the access "
+                "token it already had"
+            )
         return 0
 
     # Child process
@@ -1783,6 +1803,356 @@ def _wait_until_serving(manager: Any, host: str, port: int) -> None:
         time.sleep(SERVICE_POLL_INTERVAL)
 
 
+@dataclass(frozen=True)
+class ConsoleService:
+    """
+    The console just started as ``noust-web.service``.
+
+    Attributes:
+        unit: The unit file.
+        token: The access token issued for it, or None when the one already
+            on disk is kept (it is served whatever started the console).
+        port: The loopback or public port it listens on.
+    """
+
+    unit: Path
+    token: str | None
+    port: int
+
+
+def _install_and_start(
+    options: StartOptions,
+    config: SecurityConfig,
+    verbose: bool,
+    logger: Logger,
+    *,
+    dry_run: bool = False,
+    issue_token: bool = True,
+) -> ConsoleService | None:
+    """
+    Write the console's unit, enable it and restart it until it serves.
+
+    The part of ``noust web enable`` that ``noust fleet authorize`` shares; the
+    checks before it (dependencies, a background console, a taken port) are
+    each caller's, because they answer them differently.
+
+    Args:
+        options: The exposure, already validated into ``config``.
+        config: The security configuration.
+        verbose: Whether to log verbosely.
+        logger: For what a rehearsal would do.
+        dry_run: Report instead of acting.
+        issue_token: Issue a new access token (retiring the one in use).
+            False keeps the one on disk, which the service serves.
+
+    Returns:
+        The service, or None under a rehearsal.
+
+    Raises:
+        ServiceError: When the unit is not Noust's to write, noust is not on
+            PATH, or the service does not come up (the journal in the details).
+    """
+    host = config.host
+    exec_start = _service_exec_start(options)
+
+    if options.self_signed:
+        if dry_run:
+            logger.info(f"would mint or reuse a self-signed certificate under {PANEL_TLS_DIR}")
+        else:
+            # Minted now, so a failure is shown here rather than in the journal.
+            _ensure_self_signed(host, logger, verbose)
+
+    manager = _service_manager(verbose)
+    path = manager.install_unit(WEB_UNIT, WEB_UNIT_TEMPLATE, {"exec_start": exec_start})
+
+    if dry_run:
+        # Nothing was written, so ServiceManager would find no unit to enable.
+        logger.info(f"would enable and start {WEB_UNIT_FILE}")
+        if issue_token:
+            logger.info("would issue a new access token and print it here")
+        return None
+
+    manager.enable(WEB_UNIT)
+    # The hash is written before the restart: every console verifies against
+    # the file on each request, so the token being replaced stops working now
+    # rather than after the wait - or never, when the wait fails. The service
+    # serves whatever hash is on disk and issues none of its own.
+    token = _issue_token(config) if issue_token else None
+    try:
+        manager.restart(WEB_UNIT)
+        _wait_until_serving(manager, host, config.port)
+    except ServiceError as exc:
+        if token is not None:
+            retired = (
+                "The previous access token no longer works. Once the console serves, "
+                "the next 'noust web enable' prints a new one (or 'noust web token --new')."
+            )
+            exc.details = f"{retired}\n{exc.details}" if exc.details else retired
+        raise
+    return ConsoleService(unit=Path(path), token=token, port=config.port)
+
+
+def master_token_exists(config: SecurityConfig) -> bool:
+    """
+    Report whether a master access token was ever issued on this server.
+
+    Args:
+        config: The security configuration naming the token file.
+
+    Returns:
+        True when its hash is on disk: someone holds a token that works.
+    """
+    try:
+        return config.token_file.is_file() and bool(config.token_file.read_text().strip())
+    except OSError:
+        return False
+
+
+def enable_loopback_service(
+    port: int,
+    verbose: bool,
+    *,
+    dry_run: bool = False,
+    issue_token: bool = False,
+    port_just_freed: bool = False,
+) -> ConsoleService | None:
+    """
+    Run the console as ``noust-web.service`` on 127.0.0.1, quietly: what a fleet node needs.
+
+    Unlike ``noust web enable`` it prints no banner and keeps the access
+    token already issued (``noust fleet authorize`` must not retire the one
+    the operator holds); a token is issued only when none ever was, and is
+    returned for the caller to show.
+
+    Args:
+        port: The port.
+        verbose: Whether to log verbosely.
+        dry_run: Report instead of acting.
+        issue_token: Issue a token even when one exists.
+        port_just_freed: The caller just stopped the console that held the
+            port. Its connections linger in TIME_WAIT for a minute, which the
+            taken-port check counts as taken (on purpose, for a forgotten
+            console) and the service's own bind does not; the check is skipped,
+            and anything else holding the port fails the start instead.
+
+    Returns:
+        The service, or None under a rehearsal.
+
+    Raises:
+        ServiceError: When the console's dependencies are missing, it still
+            runs as WASM's unit, a background console holds the port or
+            something else does, or the service does not come up.
+    """
+    options = StartOptions(host="127.0.0.1", port=port)
+    all_installed, missing_apt, _ = _check_dependencies()
+    if not all_installed:
+        raise ServiceError(
+            "The console's packages are not installed",
+            details=f"Missing: {', '.join(missing_apt)}. Run 'noust web install', then again.",
+        )
+    if _installed_web_unit() == LEGACY_WEB_UNIT:
+        raise ServiceError(
+            f"The console still runs as WASM's {LEGACY_WEB_UNIT}.service",
+            details="Move this server onto Noust's names first: noust migrate-from-wasm. "
+            "It renames the unit and keeps the console running; then run this again.",
+        )
+    config = _build_security_config(options)
+    running = _running_daemon_pid()
+    if running is not None:
+        raise ServiceError(
+            f"A console already runs in the background (PID: {running})",
+            details="Stop it first, so the service can take its port: noust web stop",
+        )
+    previous = _service_status(verbose)
+    was_active = previous is not None and bool(previous["active"])
+    if not dry_run and not was_active and not port_just_freed and _port_in_use(config.host, port):
+        free = _first_free_port(config.host, port)
+        raise ServiceError(
+            f"Something is already listening on {config.host}:{port}",
+            details=(
+                f"See what holds it: ss -ltnp 'sport = :{port}'. Stop it, or use another "
+                "port for the console"
+                + (f" ({free} is free right now)" if free is not None else "")
+                + ", then run this again."
+            ),
+        )
+    return _install_and_start(
+        options,
+        config,
+        verbose,
+        Logger(verbose=verbose, stream=sys.stderr),
+        dry_run=dry_run,
+        issue_token=issue_token or not master_token_exists(config),
+    )
+
+
+#: How long a background console may take to exit after SIGTERM.
+DAEMON_STOP_TIMEOUT = 15.0
+
+
+@dataclass(frozen=True)
+class DaemonConsole:
+    """
+    A console running in the background (``noust web start -d``).
+
+    Attributes:
+        pid: Its process.
+        options: How it was started, read from its command line.
+    """
+
+    pid: int
+    options: StartOptions
+
+    def exposure_changes(self) -> list[str]:
+        """
+        Say what a loopback service on the same port would no longer do.
+
+        Returns:
+            One sentence per difference; empty when the service is the same console.
+        """
+        changes: list[str] = []
+        options = self.options
+        if not is_loopback_host(options.host):
+            changes.append(f"it listens on {options.host}; the service listens on 127.0.0.1 only")
+        if options.self_signed or options.tls_cert or options.require_https:
+            changes.append("it serves TLS; the service serves plain HTTP on loopback")
+        if options.allow_ip:
+            changes.append(f"it only answers {', '.join(options.allow_ip)}")
+        if options.trusted_proxy:
+            changes.append(f"it trusts forwarding headers from {', '.join(options.trusted_proxy)}")
+        return changes
+
+
+def _argv_value(argv: list[str], *flags: str) -> list[str]:
+    """
+    Read every value given to a flag in an argv, as ``--flag value`` or ``--flag=value``.
+
+    Args:
+        argv: The argv.
+        flags: The flag's spellings, such as ``-p`` and ``--port``.
+
+    Returns:
+        The values, in order.
+    """
+    values: list[str] = []
+    for index, arg in enumerate(argv):
+        if arg in flags and index + 1 < len(argv):
+            values.append(argv[index + 1])
+            continue
+        for flag in flags:
+            if flag.startswith("--") and arg.startswith(f"{flag}="):
+                values.append(arg.split("=", 1)[1])
+    return values
+
+
+def options_from_argv(argv: list[str]) -> StartOptions:
+    """
+    Read the exposure a ``noust web start`` command line asked for.
+
+    Args:
+        argv: The process's command line.
+
+    Returns:
+        The options; the defaults for what it does not say.
+    """
+    defaults = StartOptions()
+    hosts = _argv_value(argv, "-H", "--host")
+    ports = _argv_value(argv, "-p", "--port")
+    port = int(ports[-1]) if ports and ports[-1].isdigit() else defaults.port
+    certs = _argv_value(argv, "--tls-cert")
+    keys = _argv_value(argv, "--tls-key")
+    return StartOptions(
+        host=hosts[-1] if hosts else defaults.host,
+        port=port,
+        daemon=True,
+        require_https="--require-https" in argv,
+        tls_cert=certs[-1] if certs else None,
+        tls_key=keys[-1] if keys else None,
+        self_signed="--self-signed" in argv,
+        insecure_http="--insecure-http" in argv,
+        allow_ip=tuple(_argv_value(argv, "--allow-ip")),
+        trusted_proxy=tuple(_argv_value(argv, "--trusted-proxy")),
+    )
+
+
+def running_daemon(proc: Path = Path("/proc")) -> DaemonConsole | None:
+    """
+    Find the background console, and how it was started.
+
+    Args:
+        proc: Where the process table is.
+
+    Returns:
+        The console, or None when none runs.
+    """
+    pid = _running_daemon_pid()
+    if pid is None:
+        return None
+    try:
+        raw = (proc / str(pid) / "cmdline").read_bytes()
+    except OSError:
+        raw = b""
+    argv = [part.decode("utf-8", "replace") for part in raw.split(b"\0") if part]
+    return DaemonConsole(pid=pid, options=options_from_argv(argv))
+
+
+def stop_daemon(pid: int, *, timeout: float = DAEMON_STOP_TIMEOUT) -> None:
+    """
+    Stop the background console and wait until it is gone and its port is free.
+
+    Args:
+        pid: Its process.
+        timeout: How long it may take.
+
+    Raises:
+        ServiceError: When it is still running after the timeout.
+    """
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            get_fs().remove(get_pid_file(), missing_ok=True)
+            return
+        time.sleep(SERVICE_POLL_INTERVAL)
+    raise ServiceError(
+        f"The background console (PID {pid}) did not stop within {timeout:.0f}s",
+        details=f"Stop it yourself (kill {pid}), then run this again.",
+    )
+
+
+def restart_daemon(options: StartOptions, runner: CommandRunner | None = None) -> None:
+    """
+    Start a background console again, with its options and the token it already served.
+
+    Args:
+        options: How it ran.
+        runner: The runner; the process-wide one by default.
+
+    Raises:
+        ServiceError: When it does not start. The details carry its output.
+    """
+    argv = [
+        _noust_executable(),
+        "web",
+        "start",
+        "--daemon",
+        "--keep-token",
+        *_option_argv(options),
+    ]
+    result = (runner or get_runner()).run(argv, timeout=SERVICE_START_TIMEOUT)
+    if not result.success:
+        raise ServiceError(
+            "The background console could not be started again",
+            details=f"Start it yourself: {shlex.join(['noust', *argv[1:]])}",
+            output=(result.stderr or result.stdout).strip(),
+        )
+
+
 def _enable(options: StartOptions, verbose: bool, *, dry_run: bool = False) -> int:
     """
     Run the console as ``noust-web.service``: started now, and at every boot.
@@ -1840,40 +2210,12 @@ def _enable(options: StartOptions, verbose: bool, *, dry_run: bool = False) -> i
         _report_taken_port(host, config.port, logger)
         return 1
 
-    exec_start = _service_exec_start(options)
-
-    if options.self_signed:
-        if dry_run:
-            logger.info(f"would mint or reuse a self-signed certificate under {PANEL_TLS_DIR}")
-        else:
-            # Minted now, so a failure is shown here rather than in the journal.
-            _ensure_self_signed(host, logger, verbose)
-
-    manager = _service_manager(verbose)
-    path = manager.install_unit(WEB_UNIT, WEB_UNIT_TEMPLATE, {"exec_start": exec_start})
-
-    if dry_run:
-        # Nothing was written, so ServiceManager would find no unit to enable.
-        logger.info(f"would enable and start {WEB_UNIT_FILE}")
-        logger.info("would issue a new access token and print it here")
+    service = _install_and_start(options, config, verbose, logger, dry_run=dry_run)
+    if service is None:
         return 0
-
-    manager.enable(WEB_UNIT)
-    # The hash is written before the restart: every console verifies against
-    # the file on each request, so the token being replaced stops working now
-    # rather than after the wait - or never, when the wait fails. The service
-    # serves whatever hash is on disk and issues none of its own.
-    token = _issue_token(config)
-    try:
-        manager.restart(WEB_UNIT)
-        _wait_until_serving(manager, host, config.port)
-    except ServiceError as exc:
-        retired = (
-            "The previous access token no longer works. Once the console serves, "
-            "the next 'noust web enable' prints a new one (or 'noust web token --new')."
-        )
-        exc.details = f"{retired}\n{exc.details}" if exc.details else retired
-        raise
+    path, token = service.unit, service.token
+    if token is None:  # pragma: no cover - issue_token defaults to True
+        return 0
 
     _print_banner(
         config,
@@ -2294,6 +2636,13 @@ def cli() -> None:
     help="Run as noust-web.service does: print no token, write no PID file. "
     "Written into the unit by 'noust web enable'; not for interactive use.",
 )
+@click.option(
+    "--keep-token",
+    is_flag=True,
+    hidden=True,
+    help="With --daemon: serve the access token already issued and print none. "
+    "How 'noust fleet authorize' puts a background console back; not for interactive use.",
+)
 @global_flags
 @pass_context
 def start_command(
@@ -2309,6 +2658,7 @@ def start_command(
     allow_ip: tuple[str, ...],
     trusted_proxy: tuple[str, ...],
     under_systemd: bool,
+    keep_token: bool,
 ) -> NoReturn:
     """
     Start the panel and print an access token.
@@ -2321,6 +2671,8 @@ def start_command(
         raise click.UsageError(
             "--under-systemd runs the console in the foreground for systemd; drop --daemon."
         )
+    if keep_token and not daemon:
+        raise click.UsageError("--keep-token only applies to a background start (--daemon).")
     options = StartOptions(
         host=host,
         port=port,
@@ -2333,6 +2685,7 @@ def start_command(
         allow_ip=tuple(allow_ip),
         trusted_proxy=tuple(trusted_proxy),
         under_systemd=under_systemd,
+        keep_token=keep_token,
     )
     _exit(_start(options, ctx.verbose, dry_run=ctx.dry_run))
 

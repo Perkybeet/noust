@@ -92,6 +92,10 @@ web = [
     # side is imported directly, so it is declared.
     "httpx>=0.25.0",
     "websockets>=10.4",
+    # Passkeys: the signature check of a WebAuthn assertion (the protocol is
+    # Noust's own). Imported only when a passkey is verified; 3.4 is Ubuntu
+    # 22.04's, the oldest a target packages.
+    "cryptography>=3.4",
 ]
 all = [
     "psutil>=5.9.0",
@@ -101,6 +105,7 @@ all = [
     "pydantic>=2.0",
     "uvicorn[standard]>=0.27.0",
     "websockets>=10.4",
+    "cryptography>=3.4",
 ]
 
 [project.scripts]
@@ -135,6 +140,8 @@ noust = [
     # of it has to ship, because OBS never runs Node and the console fetches
     # nothing from the network.
     "web/static/**/*",
+    # The email's wordmark, a PNG attached inline (core/notifications/render/email.py).
+    "core/notifications/assets/*.png",
     "py.typed",
 ]
 

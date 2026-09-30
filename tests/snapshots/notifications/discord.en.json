@@ -1,0 +1,2004 @@
+{
+  "deploy.started": {
+    "embeds": [
+      {
+        "title": "◐ Deploying · shop.example.com",
+        "description": "Noust is building the new version and will tell you how it ends.",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main)",
+            "inline": true
+          },
+          {
+            "name": "Started by",
+            "value": "Webhook",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "deploy.succeeded": {
+    "embeds": [
+      {
+        "title": "● Deployed · shop.example.com",
+        "description": "The new version is live.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Release",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Started by",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duration",
+            "value": "42 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "deploy.failed": {
+    "embeds": [
+      {
+        "title": "✕ Deploy failed · shop.example.com",
+        "description": "It stopped at an error before the new version could take over.\n\n**Inspect with:** `noust diagnose shop.example.com`\n\n*What the system reported*\n```\nnpm run build failed\n> shop@1.4.2 build\n> next build\nFailed to compile.\n./app/cart/page.tsx\nType error: Property 'total' does not exist on type 'Cart'.\nnpm error Lifecycle script `build` failed with error:\nnpm error code 1\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Release",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Started by",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duration",
+            "value": "1 min 12 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "deploy.rolled_back": {
+    "embeds": [
+      {
+        "title": "▲ Rolled back · shop.example.com",
+        "description": "The new version did not answer its health check, so the previous one is serving again.\n\n**Inspect with:** `noust diagnose shop.example.com`\n\n*Last lines of the journal of shop-example-com*\n```\nSep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 17 earlier lines omitted\n```",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Release",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Started by",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duration",
+            "value": "1 min 12 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "update.started": {
+    "embeds": [
+      {
+        "title": "◐ Updating · shop.example.com",
+        "description": "Noust is fetching and building the latest code and will tell you how it ends.",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main)",
+            "inline": true
+          },
+          {
+            "name": "Started by",
+            "value": "Webhook",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "update.succeeded": {
+    "embeds": [
+      {
+        "title": "● Updated · shop.example.com",
+        "description": "The application runs the new version.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Release",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Started by",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duration",
+            "value": "42 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "update.failed": {
+    "embeds": [
+      {
+        "title": "✕ Update failed · shop.example.com",
+        "description": "It stopped at an error before the new version could take over.\n\n**Inspect with:** `noust diagnose shop.example.com`\n\n*What the system reported*\n```\nnpm run build failed\n> shop@1.4.2 build\n> next build\nFailed to compile.\n./app/cart/page.tsx\nType error: Property 'total' does not exist on type 'Cart'.\nnpm error Lifecycle script `build` failed with error:\nnpm error code 1\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Release",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Started by",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duration",
+            "value": "1 min 12 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "update.rolled_back": {
+    "embeds": [
+      {
+        "title": "▲ Rolled back · shop.example.com",
+        "description": "The new version did not answer its health check, so the previous one is serving again.\n\n**Inspect with:** `noust diagnose shop.example.com`\n\n*Last lines of the journal of shop-example-com*\n```\nSep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 17 earlier lines omitted\n```",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Release",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Started by",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duration",
+            "value": "1 min 12 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "rollback.started": {
+    "embeds": [
+      {
+        "title": "◐ Reverting · shop.example.com",
+        "description": "Noust is putting an earlier version back and will tell you how it ends.",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main)",
+            "inline": true
+          },
+          {
+            "name": "Started by",
+            "value": "Webhook",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "rollback.succeeded": {
+    "embeds": [
+      {
+        "title": "● Reverted · shop.example.com",
+        "description": "The earlier version is serving again.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Release",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Started by",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duration",
+            "value": "42 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "rollback.failed": {
+    "embeds": [
+      {
+        "title": "✕ Revert failed · shop.example.com",
+        "description": "Going back stopped at an error before the earlier version could take over.\n\n**Inspect with:** `noust diagnose shop.example.com`\n\n*What the system reported*\n```\nrollback step failed\nsystemctl: Job for shop-example-com.service failed\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Release",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Started by",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duration",
+            "value": "1 min 12 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "rollback.rolled_back": {
+    "embeds": [
+      {
+        "title": "▲ Revert failed · shop.example.com",
+        "description": "The earlier version did not answer its health check, so the one serving before is serving again.\n\n**Inspect with:** `noust diagnose shop.example.com`\n\n*Last lines of the journal of shop-example-com*\n```\nSep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 17 earlier lines omitted\n```",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Release",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Started by",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duration",
+            "value": "1 min 12 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "activate.started": {
+    "embeds": [
+      {
+        "title": "◐ Activating release · shop.example.com",
+        "description": "Noust is switching to the chosen release and will tell you how it ends.",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main)",
+            "inline": true
+          },
+          {
+            "name": "Started by",
+            "value": "Webhook",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "activate.succeeded": {
+    "embeds": [
+      {
+        "title": "● Release activated · shop.example.com",
+        "description": "The chosen release is serving.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Release",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Started by",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duration",
+            "value": "42 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "activate.failed": {
+    "embeds": [
+      {
+        "title": "✕ Activation failed · shop.example.com",
+        "description": "Switching stopped at an error before the chosen release could take over.\n\n**Inspect with:** `noust diagnose shop.example.com`\n\n*What the system reported*\n```\nactivate step failed\nsystemctl: Job for shop-example-com.service failed\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Release",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Started by",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duration",
+            "value": "1 min 12 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "activate.rolled_back": {
+    "embeds": [
+      {
+        "title": "▲ Activation failed · shop.example.com",
+        "description": "The chosen release did not answer its health check, so the previous one is serving again.\n\n**Inspect with:** `noust diagnose shop.example.com`\n\n*Last lines of the journal of shop-example-com*\n```\nSep 29 10:45:26 web-1 npm[48379]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:27 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\nSep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\nSep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\nSep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n… 17 earlier lines omitted\n```",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Release",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Started by",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duration",
+            "value": "1 min 12 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "migrate.started": {
+    "embeds": [
+      {
+        "title": "◐ Migrating to releases · shop.example.com",
+        "description": "Noust is moving the application to releases and will tell you how it ends.",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main)",
+            "inline": true
+          },
+          {
+            "name": "Started by",
+            "value": "Webhook",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "migrate.succeeded": {
+    "embeds": [
+      {
+        "title": "● Migrated to releases · shop.example.com",
+        "description": "Every deploy now builds in its own release, and going back takes seconds.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Release",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Started by",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duration",
+            "value": "42 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "migrate.failed": {
+    "embeds": [
+      {
+        "title": "✕ Migration failed · shop.example.com",
+        "description": "It stopped at an error; Noust puts the in-place layout back when that happens.\n\n**Inspect with:** `noust diagnose shop.example.com`\n\n*What the system reported*\n```\nmigrate step failed\nsystemctl: Job for shop-example-com.service failed\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Release",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Started by",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duration",
+            "value": "1 min 12 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "restore.completed": {
+    "embeds": [
+      {
+        "title": "● Restored · shop.example.com",
+        "description": "The application's files are back as the backup had them.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Backup",
+            "value": "`20260928-020000`",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "restore.failed": {
+    "embeds": [
+      {
+        "title": "✕ Restore failed · shop.example.com",
+        "description": "It stopped at an error, so the application's files may be only partly restored.\n\n*What the system reported*\n```\ntar: Unexpected EOF in archive\ntar: Error is not recoverable: exiting now\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Backup",
+            "value": "`20260928-020000`",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "backup.failed": {
+    "embeds": [
+      {
+        "title": "✕ Backup failed · shop.example.com",
+        "description": "No new copy of the application was saved.\n\n*What the system reported*\n```\ntar: /var/www/apps/shop-example-com/shared/uploads: Cannot write: No space left on device\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "backup.upload_failed": {
+    "embeds": [
+      {
+        "title": "▲ Backup upload failed · shop.example.com",
+        "description": "The copy was kept on this server but could not be uploaded.\n\n*What the system reported*\n```\n2026/09/29 02:00:14 Failed to copy: AccessDenied: Access Denied\n    status code: 403\n```",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Destination",
+            "value": "s3-eu",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "backup.schedule_missing": {
+    "embeds": [
+      {
+        "title": "▲ Backup schedule missing · shop.example.com",
+        "description": "The timer fired but Noust has no schedule stored for this application, so the backup ran with the default settings.\n\n**Save it again with:** `noust backup schedule update shop.example.com`",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "backup.completed": {
+    "embeds": [
+      {
+        "title": "● Backup completed · shop.example.com",
+        "description": "A new copy of the application was saved.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Backup",
+            "value": "`20260929-020000`",
+            "inline": true
+          },
+          {
+            "name": "Size",
+            "value": "48.0 MB",
+            "inline": true
+          },
+          {
+            "name": "Uploaded to",
+            "value": "s3-eu",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "cert.expiring": {
+    "embeds": [
+      {
+        "title": "▲ Certificate expiring · shop.example.com",
+        "description": "Expires in 7 days (6 Oct 2026).\n\n**Renew with:** `noust cert renew shop.example.com`",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Covers",
+            "value": "shop.example.com, www.shop.example.com",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "cert.expired": {
+    "embeds": [
+      {
+        "title": "✕ Certificate expired · shop.example.com",
+        "description": "Expired 80 days ago (11 Jul 2026).\n\n**Renew with:** `noust cert renew shop.example.com`",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Covers",
+            "value": "shop.example.com, www.shop.example.com",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "unit.failed": {
+    "embeds": [
+      {
+        "title": "✕ Service failed · shop-example-com",
+        "description": "systemd marked it as failed.\n\n**Inspect with:** `journalctl -u shop-example-com -n 50`\n\n*Last lines of the journal of shop-example-com*\n```\nSep 29 10:45:13 web-1 npm[48211]: > shop@1.4.2 start\nSep 29 10:45:13 web-1 npm[48211]: > next start -p 3004\nSep 29 10:45:14 web-1 npm[48227]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1.\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server/services/shop-example-com"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "unit.crash_loop": {
+    "embeds": [
+      {
+        "title": "✕ Service crash-looping · shop-example-com",
+        "description": "systemd restarted it 3 times since the last check and it still does not stay up.\n\n**Inspect with:** `journalctl -u shop-example-com -n 50`\n\n*Last lines of the journal of shop-example-com*\n```\nSep 29 10:45:14 web-1 npm[48227]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:15 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:18 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 1.\nSep 29 10:45:18 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\nSep 29 10:45:19 web-1 npm[48287]: > shop@1.4.2 start\nSep 29 10:45:19 web-1 npm[48287]: > next start -p 3004\nSep 29 10:45:20 web-1 npm[48303]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\nSep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\nSep 29 10:45:21 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\nSep 29 10:45:24 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 2.\n… 3 earlier lines omitted\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Restarts",
+            "value": "9",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server/services/shop-example-com"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "unit.stopped_on_failure": {
+    "embeds": [
+      {
+        "title": "✕ Service stopped on a failure · shop-example-com",
+        "description": "It stopped after a run that failed, and systemd is not restarting it.\n\n**Inspect with:** `journalctl -u shop-example-com -n 50`",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Result",
+            "value": "`signal`",
+            "inline": true
+          },
+          {
+            "name": "Exit status",
+            "value": "9",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server/services/shop-example-com"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "unit.recovered": {
+    "embeds": [
+      {
+        "title": "● Service recovered · shop-example-com",
+        "description": "It is running again and has not restarted since the last check.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server/services/shop-example-com"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "disk.threshold": {
+    "embeds": [
+      {
+        "title": "▲ Disk almost full · /",
+        "description": "It is past the 90% alert threshold, and a full disk stops deployments, logs and databases on this server.",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Used",
+            "value": "91.7% (18.3 GB / 20.0 GB)",
+            "inline": true
+          },
+          {
+            "name": "Free",
+            "value": "1.7 GB",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "disk.recovered": {
+    "embeds": [
+      {
+        "title": "● Disk space recovered · /",
+        "description": "Usage is back under the alert threshold.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Used",
+            "value": "71.2%",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "test": {
+    "embeds": [
+      {
+        "title": "○ Test notification · Telegram",
+        "description": "If you can read this, the Telegram channel is configured correctly.",
+        "color": 10395294,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "node.unreachable": {
+    "embeds": [
+      {
+        "title": "✕ Server unreachable · web-2",
+        "description": "Noust cannot reach this server through its tunnel.\n\n*What the system reported*\n```\nssh: connect to host 10.0.0.2 port 22: Connection timed out\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Address",
+            "value": "`10.0.0.2`",
+            "inline": true
+          },
+          {
+            "name": "Unreachable since",
+            "value": "2026-09-29 10:30 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/fleet"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "node.recovered": {
+    "embeds": [
+      {
+        "title": "● Server reachable again · web-2",
+        "description": "The tunnel is open again and the server answers.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Was unreachable for",
+            "value": "12 min 34 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/n/web-2/"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "node.host_key_changed": {
+    "embeds": [
+      {
+        "title": "✕ Host key changed · web-2",
+        "description": "The server presented a different SSH host key, so the tunnel stays closed until someone checks it.\n\n**Check it with:** `noust node trust web-2`",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Address",
+            "value": "`10.0.0.2`",
+            "inline": true
+          },
+          {
+            "name": "Pinned key",
+            "value": "`SHA256:kQ3vP1xN0m0e5sYt3n2c1H0b9k2q3Wz8nq0w1d0aAbc`",
+            "inline": true
+          },
+          {
+            "name": "Presented key",
+            "value": "`SHA256:Zr9LmTq7bV2d8Yh1uJ0aXc4eF6gH3iK5oP7sRtUvWxy`",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/fleet"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "report.observations": {
+    "embeds": [
+      {
+        "title": "▲ Process observations",
+        "description": "The monitor only reports: no process was signalled and no file was touched. Review each entry before acting.\n\n**Warning: xmrig (PID 1234)**\n**Signal:** name-pattern\n**User:** nobody\n**CPU:** 97.5%\n**Detail:** Executable name matches the known-malware pattern 'xmrig'.\n**Command:** `/tmp/.x/xmrig -o pool.example.org:3333`",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Processes",
+            "value": "1",
+            "inline": true
+          },
+          {
+            "name": "Warnings",
+            "value": "1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "server.rebooted": {
+    "embeds": [
+      {
+        "title": "▲ Server restarted · web-1",
+        "description": "Nobody asked for this restart from Noust: check that every application came back.",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Back at",
+            "value": "2026-09-29 04:02 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "server.back": {
+    "embeds": [
+      {
+        "title": "● Server back · web-1",
+        "description": "The restart asked from Noust is done and the console is running again.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Asked by",
+            "value": "alice",
+            "inline": true
+          },
+          {
+            "name": "Scheduled for",
+            "value": "2026-09-29 04:00 UTC",
+            "inline": true
+          },
+          {
+            "name": "Took",
+            "value": "2 min 10 s",
+            "inline": true
+          },
+          {
+            "name": "Back at",
+            "value": "2026-09-29 04:02 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "approval.requested": {
+    "embeds": [
+      {
+        "title": "◐ Approval requested · #12",
+        "description": "A change that needs a second person is waiting for someone to decide it.\n\n**Decide with:** `noust approval approve 12`",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Request",
+            "value": "\\#12",
+            "inline": true
+          },
+          {
+            "name": "Change",
+            "value": "`fleet.node.add`",
+            "inline": true
+          },
+          {
+            "name": "Call",
+            "value": "`POST /api/nodes`",
+            "inline": true
+          },
+          {
+            "name": "Asked by",
+            "value": "alice",
+            "inline": true
+          },
+          {
+            "name": "Reason",
+            "value": "Adding the new database server of the shop",
+            "inline": true
+          },
+          {
+            "name": "Decide before",
+            "value": "2026-09-30 10:45 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/settings/security"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "approval.approved": {
+    "embeds": [
+      {
+        "title": "● Request approved · #12",
+        "description": "The person who asked can make the change once, before the approval runs out.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Request",
+            "value": "\\#12",
+            "inline": true
+          },
+          {
+            "name": "Change",
+            "value": "`fleet.node.add`",
+            "inline": true
+          },
+          {
+            "name": "Call",
+            "value": "`POST /api/nodes`",
+            "inline": true
+          },
+          {
+            "name": "Asked by",
+            "value": "alice",
+            "inline": true
+          },
+          {
+            "name": "Decided by",
+            "value": "bob",
+            "inline": true
+          },
+          {
+            "name": "Comment",
+            "value": "Checked with the shop's owner",
+            "inline": true
+          },
+          {
+            "name": "Use it before",
+            "value": "2026-09-29 11:15 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/settings/security"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "approval.rejected": {
+    "embeds": [
+      {
+        "title": "▲ Request rejected · #12",
+        "description": "The change will not be made; whoever asked can ask again with more context.",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Request",
+            "value": "\\#12",
+            "inline": true
+          },
+          {
+            "name": "Change",
+            "value": "`fleet.node.add`",
+            "inline": true
+          },
+          {
+            "name": "Call",
+            "value": "`POST /api/nodes`",
+            "inline": true
+          },
+          {
+            "name": "Asked by",
+            "value": "alice",
+            "inline": true
+          },
+          {
+            "name": "Decided by",
+            "value": "bob",
+            "inline": true
+          },
+          {
+            "name": "Comment",
+            "value": "Not before the maintenance window",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/settings/security"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "database.backup.failed": {
+    "embeds": [
+      {
+        "title": "✕ Backup failed · postgresql/shop",
+        "description": "No new copy of the database was saved.\n\n*What the system reported*\n```\nThe dump was taken but failed its check\npg_restore: error: could not read input file: end of file\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "database.backup.upload_failed": {
+    "embeds": [
+      {
+        "title": "▲ Backup upload failed · postgresql/shop",
+        "description": "The copy of the database was kept on this server but could not be uploaded.\n\n*What the system reported*\n```\nFailed to copy: AccessDenied: Access Denied\n```",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Destination",
+            "value": "offsite-s3",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "database.backup.completed": {
+    "embeds": [
+      {
+        "title": "● Backup completed · postgresql/shop",
+        "description": "A new copy of the database was saved.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Backup",
+            "value": "`shop-20260929-104551.dump`",
+            "inline": true
+          },
+          {
+            "name": "Size",
+            "value": "48.0 MB",
+            "inline": true
+          },
+          {
+            "name": "Uploaded to",
+            "value": "offsite-s3",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "database.restore.completed": {
+    "embeds": [
+      {
+        "title": "● Restored · postgresql/shop",
+        "description": "The database is back as the dump had it.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Backup",
+            "value": "`shop-20260929-104551.dump`",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "database.restore.failed": {
+    "embeds": [
+      {
+        "title": "✕ Restore failed · postgresql/shop",
+        "description": "It stopped at an error, so the database may be only partly restored.\n\n*What the system reported*\n```\npg_restore: error: relation \"orders\" already exists\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Backup",
+            "value": "`shop-20260929-104551.dump`",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "hostile.deploy_failed": {
+    "embeds": [
+      {
+        "title": "✕ Deploy failed · shop.example.com",
+        "description": "It stopped at an error before the new version could take over.\n\n**Inspect with:** `noust diagnose shop.example.com`\n\n*What the system reported*\n```\nRelease did not pass <​its> health & check\n<​urlopen error [Errno 111] Connection refused>\n'''\n@​everyone <​!channel> <​@U123|admin> &lt;b&gt;\nred *bold* _italic_ ~strike~ `code`\nnoitcnuf\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+            "inline": true
+          },
+          {
+            "name": "Release",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (<​b>x<​/b>&amp;<​!channel> @​everyone \\`tick\\` \\_under\\_ \\*star\\* \\~tilde\\~ \\[a\\](http://evil.example)): fixgnp.exe @​here <​@U123> <​#C1> red emoji 🚀",
+            "inline": true
+          },
+          {
+            "name": "Started by",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duration",
+            "value": "1 min 12 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "hostile.long_output": {
+    "embeds": [
+      {
+        "title": "✕ Update failed · shop.example.com",
+        "description": "It stopped at an error before the new version could take over.\n\n**Inspect with:** `noust diagnose shop.example.com`\n\n*What the system reported*\n```\nnpm run build failed\nline 495: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 496: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 497: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 498: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\nline 499: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word…\n… 495 earlier lines omitted\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+            "inline": true
+          },
+          {
+            "name": "Release",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Started by",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duration",
+            "value": "1 min 12 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "hostile.no_link": {
+    "embeds": [
+      {
+        "title": "● Deployed · shop.example.com",
+        "description": "The new version is live.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Release",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Started by",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duration",
+            "value": "42 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "hostile.preview": {
+    "embeds": [
+      {
+        "title": "● Deployed · pr-12.shop.example.com",
+        "description": "The new version is live.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+            "inline": true
+          },
+          {
+            "name": "Preview of",
+            "value": "shop.example.com #12",
+            "inline": true
+          },
+          {
+            "name": "Release",
+            "value": "20260929-104449",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "a1b2c3d (main): Fix cart total",
+            "inline": true
+          },
+          {
+            "name": "Started by",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duration",
+            "value": "42 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/pr-12.shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "hostile.no_commit": {
+    "embeds": [
+      {
+        "title": "● Updated · shop.example.com",
+        "description": "The application runs the new version.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+            "inline": true
+          },
+          {
+            "name": "Started by",
+            "value": "Webhook",
+            "inline": true
+          },
+          {
+            "name": "Duration",
+            "value": "42 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
+  "hostile.huge_subject": {
+    "embeds": [
+      {
+        "title": "✕ Backup failed · ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd…",
+        "description": "No new copy of the application was saved.\n\n*What the system reported*\n```\nboom\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  }
+}

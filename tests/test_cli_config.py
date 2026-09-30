@@ -170,6 +170,15 @@ def fake_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict[str, An
             """
             return dict(state["values"])
 
+        def obsolete_settings(self) -> list[Any]:
+            """
+            Report the obsolete settings the file is scripted to hold.
+
+            Returns:
+                None of them, unless a test scripted some.
+            """
+            return list(state.get("obsolete", []))
+
     monkeypatch.setattr(config_cmd, "Config", _FakeConfig)
     monkeypatch.setattr(config_cmd, "DEFAULT_CONFIG_PATH", tmp_path / "etc/wasm/config.yaml")
     return state
@@ -784,33 +793,17 @@ def test_the_deprecated_apps_directory_alias_reads_the_canonical_key(
     assert result.output.strip() == "/srv/apps"
 
 
-def test_the_deprecated_logging_directory_alias_writes_the_canonical_key(
-    wasm: Wasm, real_config_path: Path
-) -> None:
+def test_set_refuses_a_key_nothing_reads_any_more(wasm: Wasm, real_config_path: Path) -> None:
     """
-    obs/wasm.default.yaml shipped 'logging.directory' while DEFAULT_CONFIG
-    named the setting 'logging.file'; a packaged install and the code
-    disagreed about which key held the log location. It is now a deprecated
-    alias, normalised to 'logging.file' on write.
+    'logging.file' (and 'logging.directory' before it) were never read by
+    anything: 'set' says so instead of storing a switch that does nothing.
     """
-    result = wasm("config", "set", "logging.directory", "/var/log/wasm/wasm.log")
+    result = wasm("config", "set", "logging.level", "debug")
 
-    assert result.exit_code == 0, result.output
-    stored = yaml.safe_load(real_config_path.read_text())
-    assert stored["logging"]["file"] == "/var/log/wasm/wasm.log"
-    assert "directory" not in stored["logging"], "the alias must not leave a second setting behind"
-
-
-def test_the_deprecated_logging_directory_alias_reads_the_canonical_key(
-    wasm: Wasm, real_config_path: Path
-) -> None:
-    """Reading the alias must answer with what the canonical key holds."""
-    assert wasm("config", "set", "logging.file", "/srv/logs/wasm.log").exit_code == 0
-
-    result = wasm("config", "get", "logging.directory")
-
-    assert result.exit_code == 0, result.output
-    assert result.output.strip() == "/srv/logs/wasm.log"
+    assert result.exit_code == 1
+    assert "obsolete" in result.output
+    assert "noust config clean" in result.output
+    assert not real_config_path.exists()
 
 
 def test_the_panel_documented_smtp_host_command_works(wasm: Wasm, real_config_path: Path) -> None:

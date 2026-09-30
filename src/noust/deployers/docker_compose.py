@@ -942,6 +942,7 @@ class DockerComposeDeployer(AppDeployer):
 
         if not data or "services" not in data:
             raise DeploymentError("No services defined in compose file")
+        self._check_host_privileges(data)
 
         self.services = []
         for svc_name, svc_data in data.get("services", {}).items():
@@ -984,6 +985,68 @@ class DockerComposeDeployer(AppDeployer):
         for svc in self.services:
             port_info = f" (ports: {', '.join(svc.ports)})" if svc.ports else ""
             self.logger.substep(f"  - {svc.name}{port_info}")
+
+    def _load_compose_document(self) -> Any:
+        """
+        Read the compose file, for a look that must not fail the operation.
+
+        Returns:
+            The parsed document, or None when it cannot be read.
+        """
+        try:
+            return yaml.safe_load(self._compose_file_path().read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
+            self.logger.debug(f"Compose file not inspected: {exc}")
+            return None
+
+    def _check_host_privileges(self, document: Any, *, existing: bool = False) -> None:
+        """
+        Refuse, or warn about, what in the compose file is root on this server.
+
+        ``privileged`` and a mount of the Docker socket are refused for a new
+        stack unless an operator recorded an exception for its domain (see
+        :mod:`noust.deployers.helpers.compose_guard`). A stack that already
+        runs is warned about and never stopped.
+
+        Args:
+            document: The parsed compose file.
+            existing: The stack exists (an update), whatever the store says.
+
+        Raises:
+            DeploymentError: A new stack asks for root without an exception.
+        """
+        from noust.deployers.helpers import sandbox as build_sandbox
+        from noust.deployers.helpers.compose_guard import inspect_compose
+
+        findings = inspect_compose(document, self.app_path)
+        for warning in findings.warned:
+            self.logger.warning(f"Compose: {warning}")
+        if not findings.refused:
+            return
+        exception = build_sandbox.get_compose_exception(self.domain, store=self.store)
+        if exception is not None:
+            for problem in findings.refused:
+                self.logger.warning(
+                    f"Compose: {problem}; allowed for {self.domain} by "
+                    f"{exception.allowed_by} ({exception.reason})"
+                )
+            return
+        if existing or not self._is_new_deployment:
+            for problem in findings.refused:
+                self.logger.warning(
+                    f"Compose: {problem}. A new stack is refused this without an exception; "
+                    f"record why this one needs it: noust app sandbox compose-exception "
+                    f"{self.domain} --reason '...'"
+                )
+            return
+        raise DeploymentError(
+            f"{self.domain}'s compose file asks for root on this server",
+            details="\n".join(f"- {problem}" for problem in findings.refused)
+            + "\n\nA privileged container or the Docker socket is root on the host, and the "
+            "compose file comes from the repository. Remove them, or record why this stack "
+            f"needs them and deploy again: noust app sandbox compose-exception {self.domain} "
+            "--reason '...'",
+        )
 
     def _configure_environment(self) -> None:
         """Configure environment variables using EnvManager."""
@@ -1455,6 +1518,7 @@ class DockerComposeDeployer(AppDeployer):
         """
         if self.compose_path is None:
             self._discover_compose_file()
+        self._check_host_privileges(self._load_compose_document(), existing=True)
 
         report("Recording what is serving")
         serving = self._record_serving()

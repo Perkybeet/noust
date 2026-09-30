@@ -1,0 +1,26 @@
+{
+  "deploy.rolled_back": {
+    "chat_id": "-1001234567890",
+    "text": "▲ Rolled back · shop.example.com\nThe new version did not answer its health check, so the previous one is serving again.\n\nServer: web-1\nRelease: 20260929-104449\nCommit: a1b2c3d (main): Fix cart total\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nLast lines of the journal of shop-example-com:\n  Sep 29 10:45:30 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 3.\n  Sep 29 10:45:30 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nextjs).\n  Sep 29 10:45:31 web-1 npm[48439]: > shop@1.4.2 start\n  Sep 29 10:45:31 web-1 npm[48439]: > next start -p 3004\n  Sep 29 10:45:32 web-1 npm[48455]: Error: Could not find a production build in the '.next' directory. Try building your app with 'next build' before starting the production server.\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE\n  Sep 29 10:45:33 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.\n  Sep 29 10:45:36 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 4.\n  20 earlier lines omitted\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false
+  },
+  "cert.expired": {
+    "chat_id": "-1001234567890",
+    "text": "✕ Certificate expired · shop.example.com\nExpired 80 days ago (11 Jul 2026).\n\nServer: web-1\nCovers: shop.example.com, www.shop.example.com\nRenew with: noust cert renew shop.example.com\n\nOpen in the console: https://console.example.com/n/web-1/domains",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false
+  },
+  "test": {
+    "chat_id": "-1001234567890",
+    "text": "○ Test notification · Telegram\nIf you can read this, the Telegram channel is configured correctly.\n\nServer: web-1",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true
+  }
+}

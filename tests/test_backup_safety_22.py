@@ -26,7 +26,7 @@ import pytest
 
 from noust.core.applock import AppBusyError
 from noust.core.exceptions import BackupError, ConfigError
-from noust.core.notifier import NotificationEvent
+from noust.core.notifications.model import Notification
 from noust.core.runner import FakeRunner
 from noust.core.secrets import SecretStore
 from noust.core.store import BackupScheduleRecord, DeploymentStatus, NoustStore, get_store
@@ -379,7 +379,7 @@ class TestRunScheduleWithoutARow:
         monkeypatch.setattr(BackupManager, "create", fake_create)
         pushed: list[str] = []
         monkeypatch.setattr(BackupDestinationManager, "push", lambda *a, **k: pushed.append("push"))
-        notified: list[NotificationEvent] = []
+        notified: list[Notification] = []
         monkeypatch.setattr(
             "noust.core.notifier.Notifier.notify", lambda self, event: notified.append(event)
         )

@@ -36,6 +36,40 @@ SECRET_MODE = 0o600
 #: Mode for a directory that holds secrets.
 SECRET_DIR_MODE = 0o700
 
+#: Called after each change :class:`RealFileSystem` makes, with the operation
+#: (``write``, ``mkdir``, ``remove``...), the path and, for a move, a copy or a
+#: link, the other path. The host action ledger (noust.core.audit.ledger)
+#: listens here; a rehearsal changes nothing and so reports nothing.
+_change_listeners: list[Callable[[str, Path, Path | None], None]] = []
+
+
+def add_change_listener(listener: Callable[[str, Path, Path | None], None]) -> None:
+    """
+    Be told of every change the real filesystem makes.
+
+    Args:
+        listener: Called after each change. It must not raise: the change has
+            already happened.
+    """
+    if listener not in _change_listeners:
+        _change_listeners.append(listener)
+
+
+def remove_change_listener(listener: Callable[[str, Path, Path | None], None]) -> None:
+    """
+    Stop telling a listener about changes.
+
+    Args:
+        listener: One passed to :func:`add_change_listener`.
+    """
+    if listener in _change_listeners:
+        _change_listeners.remove(listener)
+
+
+def _changed(operation: str, path: Path, destination: Path | None = None) -> None:
+    for listener in tuple(_change_listeners):
+        listener(operation, path, destination)
+
 
 class FileSystem(ABC):
     """Changes the filesystem. The only thing in the codebase that may."""
@@ -192,12 +226,14 @@ class RealFileSystem(FileSystem):
         except BaseException:
             temporary.unlink(missing_ok=True)
             raise
+        _changed("write", path)
 
     def make_dir(
         self, path: Path, *, mode: int = 0o755, parents: bool = True, exist_ok: bool = True
     ) -> None:
         if not parents:
             path.mkdir(mode=mode, exist_ok=exist_ok)
+            _changed("mkdir", path)
             return
         # pathlib applies the mode only to the leaf and creates the parents
         # with the process umask, which is how a 0700 secrets directory ends up
@@ -214,27 +250,35 @@ class RealFileSystem(FileSystem):
         # both callers believing the directory is theirs.
         for directory in reversed(missing):
             directory.mkdir(mode=mode)
+        if missing:
+            _changed("mkdir", path)
 
     def remove(self, path: Path, *, missing_ok: bool = True) -> None:
         path.unlink(missing_ok=missing_ok)
+        _changed("remove", path)
 
     def remove_tree(self, path: Path) -> None:
         shutil.rmtree(path)
+        _changed("remove_tree", path)
 
     def move(self, source: Path, destination: Path) -> None:
         shutil.move(str(source), str(destination))
+        _changed("move", source, destination)
 
     def rename(self, source: Path, destination: Path) -> None:
         os.rename(source, destination)
+        _changed("rename", source, destination)
 
     def copy_tree(self, source: Path, destination: Path) -> None:
         # symlinks=True: a link in the source tree is copied as a link rather
         # than followed, so a source containing a link to /etc/passwd does not
         # deposit its contents inside the deployment.
         shutil.copytree(source, destination, symlinks=True, dirs_exist_ok=True)
+        _changed("copy_tree", source, destination)
 
     def chmod(self, path: Path, mode: int) -> None:
         path.chmod(mode)
+        _changed("chmod", path)
 
     def symlink(self, target: Path, link: Path) -> None:
         # rename(2) replaces the destination in one step, so the new link is
@@ -253,6 +297,7 @@ class RealFileSystem(FileSystem):
             # only ever removes a link that failed to take its place.
             if os.path.lexists(temporary):
                 temporary.unlink()
+        _changed("symlink", link, target)
 
 
 class DryRunFileSystem(FileSystem):

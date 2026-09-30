@@ -327,6 +327,30 @@ def test_a_push_updates_exactly_the_applications_that_follow_it(
     assert job["func"] is github_hooks.webhook_update_job
 
 
+def test_a_push_through_the_app_is_kept_in_each_applications_delivery_log(
+    client: TestClient, github_configured: NoustStore, queued: list[dict[str, Any]]
+) -> None:
+    """The webhook setup page of an application shows the App deploying it."""
+    from noust.core import webhook_deliveries
+
+    store = github_configured
+    main = store.create_app(App(domain="main.example.com", source="github:you/app", branch="main"))
+    dev = store.create_app(App(domain="dev.example.com", source="github:you/app", branch="dev"))
+    assert main.id is not None and dev.id is not None
+
+    deliver(client, "push", push_payload(), delivery="delivery-7")
+
+    (row,) = webhook_deliveries.list_deliveries(main.id)
+    assert (row.outcome, row.provider, row.event, row.branch) == (
+        "deploy_started",
+        "github-app",
+        "push",
+        "main",
+    )
+    assert (row.job_id, row.delivery_id) == ("job-1", "delivery-7")
+    assert webhook_deliveries.list_deliveries(dev.id) == []
+
+
 def test_a_push_nobody_follows_is_ignored(
     client: TestClient, github_configured: NoustStore, queued: list[dict[str, Any]]
 ) -> None:

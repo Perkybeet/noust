@@ -32,6 +32,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, TextIO
 
+from noust.core.audit import Actor
+from noust.core.audit import bind as bind_audit_context
+from noust.core.audit import record as record_audit
 from noust.core.exceptions import (
     BackupError,
     DeploymentError,
@@ -123,6 +126,21 @@ class JobType(str, Enum):
     DELETE = "delete"
     MIGRATE = "migrate"
     ZERO_DOWNTIME = "zero_downtime"
+    # A trial build of an application in the build sandbox (backlog 44).
+    SANDBOX_TEST = "sandbox_test"
+    # The server itself (backlog 29): package lists, updates, cleanup, swap.
+    OS_REFRESH = "os_refresh"
+    OS_UPDATE = "os_update"
+    CLEANUP = "cleanup"
+    SWAP = "swap"
+    DISK_SCAN = "disk_scan"
+    SERVER_ACTION = "server_action"
+    SERVER_SECURITY = "server_security"
+    DATABASE = "database"
+    # A central's bulk action over several nodes (noust.web.fleet_jobs).
+    FLEET = "fleet"
+    # Noust updating itself (noust.managers.self_update).
+    SELF_UPDATE = "self_update"
     CUSTOM = "custom"
 
 
@@ -310,6 +328,33 @@ class JobContext:
         self._job.add_log(message, level)
         self._notify(self._job)
 
+    def add_secret_env(self, env: Mapping[str, str]) -> None:
+        """
+        Scrub the secrets of these variables from every later line of the log.
+
+        For variables the job itself makes (a new database's connection
+        string), which neither its arguments nor its application's files held
+        when it started. The one classifier decides what is secret: a URL's
+        password, a variable whose name says so.
+
+        Args:
+            env: Variable name to value.
+        """
+        self._job.scrubber.add(secret_env_values(env))
+
+    def set_result(self, value: Any) -> None:
+        """
+        Publish the job's result so far, before it returns.
+
+        For a job whose result is its progress (a fleet job's state per node):
+        every client watching, and the store, see it as it changes.
+
+        Args:
+            value: JSON-serialisable value; what the job returns replaces it.
+        """
+        self._job.result = value
+        self._notify(self._job)
+
     def set_metadata(self, key: str, value: Any) -> None:
         """
         Attach context to the job.
@@ -471,7 +516,14 @@ class JobManager:
         try:
             call_kwargs = dict(kwargs)
             call_kwargs["job_context"] = JobContext(job, self._notify_subscribers)
-            job.result = func(*args, **call_kwargs)
+            # A job runs on a worker thread, outside the request that queued
+            # it: its host actions are linked by the job's own id instead,
+            # which job.queue ties back to the request.
+            with bind_audit_context(
+                actor=Actor.from_label(job.actor) if job.actor else Actor.system("jobs"),
+                correlation_id=f"job-{job.id}",
+            ):
+                job.result = func(*args, **call_kwargs)
             job.status = JobStatus.COMPLETED
             job.progress = job.total_steps
             job.add_log("Job completed successfully", "success")
@@ -562,6 +614,12 @@ class JobManager:
 
         self._jobs[job_id] = job
         self._open_log(job_id)
+        record_audit(
+            "job.queue",
+            actor=Actor.from_label(actor) if actor else None,
+            target=f"job:{job_id}",
+            details={"type": job_type.value, "name": name, "correlation": f"job-{job_id}"},
+        )
         self._job_queue.put((job_id, func, args, kwargs or {}))
         self._notify_subscribers(job)
 
@@ -959,6 +1017,7 @@ def deploy_app_job(
     health_path: str | None = None,
     health_expect: str | None = None,
     health_timeout: int | None = None,
+    database: dict[str, Any] | None = None,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
     """
@@ -1014,12 +1073,22 @@ def deploy_app_job(
             gives the source, type, variables (``env_vars`` over them),
             layout, persistent paths and settings; ``source``, ``app_type``,
             ``branch``, ``layout`` and ``persistent_paths`` are not used.
+        health_path: Path the first health gate probes.
+        health_expect: Statuses the first health gate accepts.
+        health_timeout: Seconds the first health gate waits.
+        database: A database to create before the first build: ``engine``,
+            ``name``, ``env_var`` and ``extra_vars``, as
+            :meth:`~noust.managers.database.service.DatabaseService.prepare_for_new_app`
+            takes them. Its variables are written, marked secret, with
+            ``env_vars``; it is linked once the application exists, and kept
+            (the error says how to drop it) when the deploy fails.
         job_context: Injected by the job manager.
 
     Returns:
         Summary of the deployment, including ``deployment_id``: the history
         row this run wrote, or None if recording it failed. A recipe adds
-        ``recipe`` and ``notes``: what to tell the operator next.
+        ``recipe`` and ``notes``: what to tell the operator next; a
+        ``database`` adds what was created and linked, as ``database``.
 
     Raises:
         DeploymentError: When the deployer reports failure.
@@ -1061,6 +1130,28 @@ def deploy_app_job(
         # release is judged by it, whatever the type.
         settings = plan.configure_arguments(health=(health_path, health_expect, health_timeout))
 
+    databases = None
+    new_database = None
+    database_options: dict[str, Any] = {"env_secret_marks": env_secret_marks}
+    if database is not None:
+        from noust.deployers.recorder import CapturingLogger
+        from noust.managers.database.service import DatabaseService
+
+        context.update(f"Creating the {database['engine']} database", 8)
+        logger = CapturingLogger(verbose=False)
+        logger.attach_sink(context.log)
+        databases = DatabaseService(logger=logger)
+        new_database = databases.prepare_for_new_app(
+            domain,
+            database["engine"],
+            name=database.get("name"),
+            env_var=database.get("env_var"),
+            extra_vars=bool(database.get("extra_vars")),
+            env=settings["env_vars"],
+        )
+        context.add_secret_env(new_database.values)
+        database_options = new_database.configure_options(env_secret_marks)
+
     deployer = get_deployer(app_type, verbose=False)
     deployer.configure(
         domain=domain,
@@ -1082,16 +1173,26 @@ def deploy_app_job(
         resource_limits_given=True,
         package_manager=package_manager or "auto",
         preview_parent=preview_parent,
-        env_secret_marks=env_secret_marks,
+        **database_options,
     )
 
     context.update("Deploying", 10)
-    if not deployer.deploy():
-        raise DeploymentError(
-            f"Deployment failed for {domain}",
-            details="Check the job log and the application's unit "
-            "(journalctl -u <unit>; 'noust service list' names it) for the failing step.",
-        )
+    try:
+        if not deployer.deploy():
+            raise DeploymentError(
+                f"Deployment failed for {domain}",
+                details="Check the job log and the application's unit "
+                "(journalctl -u <unit>; 'noust service list' names it) for the failing step.",
+            )
+    except NoustError as exc:
+        if databases is not None and new_database is not None:
+            databases.keep_after_failed_deploy(new_database, exc)
+        raise
+    linked = (
+        databases.link_new_app(new_database)
+        if databases is not None and new_database is not None
+        else None
+    )
     if github_installation_id is not None:
         get_store().set_github_installation(domain, github_installation_id)
 
@@ -1105,6 +1206,8 @@ def deploy_app_job(
         # attribute just to be deployable.
         "deployment_id": getattr(deployer, "last_deployment_id", None),
     }
+    if linked is not None:
+        result["database"] = linked.to_dict()
     if plan is not None:
         from noust.core.logger import Logger
         from noust.recipes.deploy import finish_recipe

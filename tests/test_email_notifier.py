@@ -2,17 +2,16 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Tests for :mod:`noust.monitor.email_notifier`'s own Noust-authored text.
+Tests for :mod:`noust.monitor.email_notifier`: one email path.
 
-:class:`~noust.monitor.email_notifier.EmailNotifier` renders its subjects and
-bodies directly into an :class:`~noust.monitor.email_notifier.EmailContent`,
-a second path from :mod:`noust.core.notifier`'s multi-channel one, which
-already builds every event from :mod:`noust.core.messages`. That is why this
-one used to ignore ``notifications.language`` entirely: nothing here ever
-called into the catalog. These tests pin that the process-observation report
-and the test email now render in the configured locale, while the evidence
-they carry - a process's command line, its detail - stays exactly what the
-kernel or the scan itself reported, never a catalog value.
+The process-observation report, the "send a test" message and every event the
+notifier's email channel delivers go through one renderer and one transport.
+These tests pin that the report and the test email render in the configured
+language with the same layout as any notification, that the evidence they carry
+- a process's command line, its detail - stays exactly what the kernel or the
+scan reported, and that what reaches the SMTP server is a well-formed message:
+``multipart/alternative`` (text, then HTML with the wordmark inline), with
+``Date``, ``Message-ID`` and ``Auto-Submitted``.
 
 :meth:`EmailNotifier.__init__` reloads the shared :class:`Config` singleton
 from disk, so ``notifications.language`` is set on it *after* a notifier is
@@ -22,6 +21,8 @@ cached notifier reads whatever the singleton currently holds at send time.
 
 from __future__ import annotations
 
+import email as email_lib
+from email import policy
 from typing import Any
 
 import pytest
@@ -78,13 +79,11 @@ class TestRenderObservations:
     """The process-observation report, in the configured language."""
 
     def test_english_subject_and_heading(self, config: Config) -> None:
-        notifier = _notifier()
+        content = _notifier().render_observations([_observation()])
 
-        content = notifier.render_observations([_observation()])
-
-        assert content.subject == f"[Noust] 1 process observation(s) on {notifier._hostname()}"
-        assert "Noust monitor - process observations" in content.text
-        assert "<h2>Noust monitor - process observations</h2>" in content.html
+        assert content.subject.startswith("[Noust] Process observations (")
+        assert "Process observations" in content.text
+        assert "Process observations" in content.html
 
     def test_spanish_subject_and_heading(self, config: Config) -> None:
         notifier = _notifier()
@@ -92,9 +91,19 @@ class TestRenderObservations:
 
         content = notifier.render_observations([_observation()])
 
-        assert content.subject == f"[Noust] 1 observación(es) de proceso en {notifier._hostname()}"
-        assert "Noust monitor - observaciones de procesos" in content.text
-        assert "<h2>Noust monitor - observaciones de procesos</h2>" in content.html
+        assert content.subject.startswith("[Noust] Observaciones de procesos (")
+        assert "Observaciones de procesos" in content.text
+        assert 'lang="es"' in content.html
+
+    def test_the_server_is_named_by_server_name(self, config: Config) -> None:
+        notifier = _notifier()
+        config.set("server.name", "edge-3")
+
+        content = notifier.render_observations([_observation()])
+
+        assert content.subject == "[Noust] Process observations (edge-3)"
+        assert "Server: edge-3" in content.text
+        assert content.headers["X-Noust-Server"] == "edge-3"
 
     def test_spanish_counts_and_disclaimer(self, config: Config) -> None:
         notifier = _notifier()
@@ -104,17 +113,28 @@ class TestRenderObservations:
             [_observation(), _observation(severity=SEVERITY_WARNING)]
         )
 
-        assert "Detectados: 2 proceso(s), 2 de ellos marcados como aviso" in content.text
-        assert "El monitor solo informa." in content.text
-        assert "El monitor solo informa." in content.html
+        assert "Procesos: 2" in content.text
+        assert "Avisos: 2" in content.text
+        assert "El monitor solo informa" in content.text
+        assert "El monitor solo informa" in content.html
+
+    def test_the_labels_of_a_process_are_translated_too(self, config: Config) -> None:
+        """The table headings used to stay English in a Spanish report."""
+        notifier = _notifier()
+        config.set("notifications.language", "es")
+
+        content = notifier.render_observations([_observation()])
+
+        assert "Señal: name-pattern" in content.text
+        assert "Usuario: nobody" in content.text
+        assert "Aviso: xmrig (PID 1234)" in content.text
 
     def test_the_evidence_itself_is_never_translated(self, config: Config) -> None:
         """A process's own detail is not a catalog value, in either locale."""
-        notifier = _notifier()
         config.set("notifications.language", "es")
         observation = _observation(detail="Executable name matches the known-malware pattern")
 
-        content = notifier.render_observations([observation])
+        content = _notifier().render_observations([observation])
 
         assert "Executable name matches the known-malware pattern" in content.text
         assert "Executable name matches the known-malware pattern" in content.html
@@ -128,6 +148,13 @@ class TestRenderObservations:
 
         assert "<script>alert(1)</script>" not in content.html
         assert "&lt;script&gt;" in content.html
+
+    def test_it_is_the_same_layout_as_every_notification(self, config: Config) -> None:
+        content = _notifier().render_observations([_observation()])
+
+        assert content.headers["Auto-Submitted"] == "auto-generated"
+        assert "cid:noust-wordmark" in content.html
+        assert len(content.images) == 1
 
 
 class TestSendTestEmail:
@@ -149,26 +176,124 @@ class TestSendTestEmail:
 
     def test_english(self, config: Config, monkeypatch: pytest.MonkeyPatch) -> None:
         notifier = _notifier()
+        config.set("server.name", "web-1")
 
         content = self._captured(notifier, monkeypatch)
 
-        assert content.subject == f"[Noust] Test email - {notifier._hostname()}"
-        assert "Noust monitor - test email" in content.text
-        assert "Receiving this means monitor notifications are configured correctly." in (
-            content.text
-        )
-        assert "<h2>Noust monitor - test email</h2>" in content.html
+        assert content.subject == "[Noust] Test notification: Email (web-1)"
+        assert "If you can read this, the Email channel is configured correctly." in content.text
+        assert "If you can read this, the Email channel is configured correctly." in content.html
 
     def test_spanish(self, config: Config, monkeypatch: pytest.MonkeyPatch) -> None:
         notifier = _notifier()
         config.set("notifications.language", "es")
+        config.set("server.name", "web-1")
 
         content = self._captured(notifier, monkeypatch)
 
-        assert content.subject == f"[Noust] Correo de prueba - {notifier._hostname()}"
-        assert "Noust monitor - correo de prueba" in content.text
-        assert (
-            "Si recibes esto, las notificaciones del monitor están bien configuradas."
-            in content.text
+        assert content.subject == "[Noust] Notificación de prueba: Correo electrónico (web-1)"
+        assert "Si ves esto, el canal Correo electrónico está bien configurado." in content.text
+
+
+class _Server:
+    """An SMTP server that keeps what it was given."""
+
+    def __init__(self) -> None:
+        self.sent: list[tuple[str, list[str], bytes]] = []
+
+    def sendmail(self, sender: str, recipients: list[str], message: bytes) -> None:
+        self.sent.append((sender, recipients, message))
+
+    def quit(self) -> None:
+        return None
+
+
+class TestWhatReachesTheServer:
+    """The MIME message: structure, headers, inline wordmark."""
+
+    def _delivered(  # type: ignore[no-untyped-def]
+        self,
+        config: Config,
+        monkeypatch: pytest.MonkeyPatch,
+        settings: dict[str, str] | None = None,
+    ):
+        notifier = EmailNotifier(
+            smtp_config=SMTPConfig(
+                host="smtp.example.com",
+                port=465,
+                username="alerts@example.com",
+                use_ssl=True,
+            ),
+            recipients=["ops@example.com", "dev@example.com"],
         )
-        assert "<h2>Noust monitor - correo de prueba</h2>" in content.html
+        for key, value in (settings or {}).items():
+            config.set(key, value)
+        server = _Server()
+        monkeypatch.setattr(notifier, "_create_connection", lambda: server)
+        notifier.send_test_email()
+        sender, recipients, raw = server.sent[0]
+        return sender, recipients, email_lib.message_from_bytes(raw, policy=policy.default)
+
+    def test_the_envelope_and_the_recipients(
+        self, config: Config, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sender, recipients, mail = self._delivered(config, monkeypatch)
+
+        assert sender == "alerts@example.com"
+        assert recipients == ["ops@example.com", "dev@example.com"]
+        assert mail["To"] == "ops@example.com, dev@example.com"
+
+    def test_the_sender_has_a_name(self, config: Config, monkeypatch: pytest.MonkeyPatch) -> None:
+        _, _, mail = self._delivered(config, monkeypatch, {"server.name": "web-1"})
+
+        assert mail["From"].addresses[0].display_name == "Noust (web-1)"
+        assert mail["From"].addresses[0].addr_spec == "alerts@example.com"
+
+    def test_it_carries_the_headers_an_automatic_message_should(
+        self, config: Config, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _, _, mail = self._delivered(config, monkeypatch)
+
+        assert mail["Date"] is not None
+        assert mail["Date"].datetime.tzinfo is not None
+        assert mail["Message-ID"].endswith("@example.com>")
+        assert mail["Auto-Submitted"] == "auto-generated"
+        assert mail["X-Auto-Response-Suppress"] == "All"
+        assert mail["X-Noust-Event"] == "test"
+
+    def test_the_structure_is_text_then_html_with_the_wordmark_inline(
+        self, config: Config, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _, _, mail = self._delivered(config, monkeypatch)
+
+        assert mail.get_content_type() == "multipart/alternative"
+        text, related = mail.get_payload()
+        assert text.get_content_type() == "text/plain"
+        assert related.get_content_type() == "multipart/related"
+        html, image = related.get_payload()
+        assert html.get_content_type() == "text/html"
+        assert image.get_content_type() == "image/png"
+        assert image["Content-ID"] == "<noust-wordmark>"
+        assert image.get_content_disposition() == "inline"
+        assert image.get_content().startswith(b"\x89PNG")
+
+    def test_non_ascii_survives_the_trip(
+        self, config: Config, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _, _, mail = self._delivered(config, monkeypatch, {"notifications.language": "es"})
+
+        assert mail["Subject"].startswith("[Noust] Notificación de prueba")
+        body = mail.get_body(preferencelist=("plain",))
+        assert body is not None
+        assert "Si ves esto" in body.get_content()
+        html_body = mail.get_body(preferencelist=("html",))
+        assert html_body is not None
+        assert "está bien configurado" in html_body.get_content()
+
+    def test_a_subject_cannot_smuggle_a_header(self) -> None:
+        notifier = _notifier()
+        content = EmailContent(subject="x", text="t", html="h")
+        content.subject = "line one\r\nBcc: attacker@example.com"
+
+        with pytest.raises(ValueError, match="linefeed"):
+            notifier._build_message(content)

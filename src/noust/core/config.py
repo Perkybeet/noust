@@ -5,9 +5,9 @@
 Global configuration management for Noust.
 
 The configuration file holds credentials (MySQL root password, SMTP account,
-and, in a file an older version wrote, an OpenAI API key that is no longer a
-default but is still redacted on sight if present), so this module owns four
-security guarantees:
+and, in a file an older version wrote, an OpenAI API key that nothing reads
+now: :data:`OBSOLETE_KEYS`, ignored on load and deleted by ``noust config
+clean``), so this module owns four security guarantees:
 
 * every file it writes is created with :data:`SECRET_FILE_MODE` at ``open``
   time, never with a ``chmod`` afterwards, which would leave a window where the
@@ -35,6 +35,7 @@ rehearsal at all: the operator has already been told nothing would change.
 from __future__ import annotations
 
 import copy
+import ipaddress
 import json
 import logging
 import os
@@ -42,6 +43,8 @@ import re
 import stat
 import threading
 from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -49,6 +52,7 @@ from urllib.parse import urlparse
 import yaml  # type: ignore[import-untyped]
 
 from noust.core import paths
+from noust.core.config_text import CannotEditText, remove_keys
 from noust.core.exceptions import ConfigError, SecurityError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
 from noust.validators.domain import is_valid_domain
@@ -86,6 +90,12 @@ SYSTEMD_DIR = Path("/etc/systemd/system")
 
 # Default configuration values
 DEFAULT_CONFIG: dict[str, Any] = {
+    "server": {
+        # The name this server goes by in every notification and, on a central,
+        # in the fleet. Empty means the machine's short hostname, read when a
+        # message is built (noust.core.notifications.context.server_name).
+        "name": "",
+    },
     "apps_directory": str(DEFAULT_APPS_DIR),
     "webserver": "nginx",
     "service_user": "www-data",
@@ -94,19 +104,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "enabled": True,
         "provider": "certbot",
         "email": "",
-    },
-    "logging": {
-        "level": "info",
-        "file": str(DEFAULT_LOG_DIR / "noust.log"),
-    },
-    "nodejs": {
-        "default_version": "20",
-        "use_nvm": False,
-        "package_managers": ["npm"],  # Available: npm, pnpm, yarn, bun
-    },
-    "python": {
-        "default_version": "3.11",
-        "use_venv": True,
+        # Whether the nginx and Apache sites Noust writes send
+        # Strict-Transport-Security on their HTTPS side. Off until asked for:
+        # browsers remember it for a year, so it is not something to turn on
+        # for a domain that may still need plain HTTP. See noust.managers.webserver.
+        "hsts": False,
     },
     "deploy": {
         # Layout of applications created from now on: "releases" builds each
@@ -125,6 +127,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # background thread with a short timeout, behind a cache - it just
         # means the request stops being made at all.
         "check": True,
+    },
+    "metrics": {
+        # Days the hourly tier of the charts' history is kept (35-3650). The
+        # finer tiers are fixed: 5 s for 2 hours, 1 min for 26 hours, 10 min
+        # for 8 days. noust.monitor.timeseries owns the tiers.
+        "retention_days": 400,
     },
     "monitor": {
         "enabled": False,
@@ -166,17 +174,36 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "deploy_success": True,
             "deploy_failed": True,
             "deploy_rolled_back": True,
+            "restore_success": True,
+            "restore_failed": True,
             "cert_expiring": True,
             "unit_failed": True,
             "disk_threshold": True,
             "backup_failed": True,
+            # A heartbeat, not a problem: an operator who wants a message for
+            # every successful scheduled backup turns it on.
+            "backup_success": False,
+            # A central's own events about the servers it manages.
+            "node_unreachable": True,
+            "node_recovered": True,
+            "node_host_key_changed": True,
+            # The server itself: back from a reboot it was asked for, or
+            # restarted when nobody asked from Noust.
+            "server_rebooted": True,
+            "server_back": True,
+            # Four-eyes approvals: a request waiting for a decision, and the
+            # decision, for the person who asked.
+            "approval_requested": True,
+            "approval_decided": True,
         },
         "channels": {
             # A webhook URL is a capability: Slack and Discord embed the
             # secret in the path. Every one of them is named "webhook_url",
             # the generic endpoint included, so the "webhook" redaction
             # marker covers them all by name.
-            "webhook": {"webhook_url": ""},
+            # "secret" signs every delivery (HMAC-SHA256 in X-Noust-Signature)
+            # when set; the receiver verifies it with the same value.
+            "webhook": {"webhook_url": "", "secret": ""},
             "slack": {"webhook_url": ""},
             "discord": {"webhook_url": ""},
             "telegram": {"bot_token": "", "chat_id": ""},
@@ -213,6 +240,67 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "lockout_duration": 900,
         "token_expiration_hours": 12,
         "ip_whitelist": [],
+        # Host header values the console answers to, checked on every request
+        # by noust.web.server.SecurityMiddleware. Names, or "*.example.com" for
+        # every subdomain; the loopback names and the host of web.public_url
+        # (and web.hooks_url) are always allowed. Empty allows any Host, as
+        # every earlier version did - see _validate_allowed_hosts.
+        "allowed_hosts": [],
+    },
+    "security": {
+        # "standard", or "ens-medium" for Spain's ENS category MEDIUM: it
+        # caps the auth settings below at the profile's values and keeps the
+        # master token to account recovery. See noust.core.accounts.policy.
+        "profile": "standard",
+    },
+    "auth": {
+        # Accounts' sign-in policy (noust.core.accounts.policy): a session
+        # unused for idle_minutes, or older than absolute_hours, is over.
+        "session": {"idle_minutes": 30, "absolute_hours": 12},
+        "lockout": {"threshold": 5, "minutes": 15},
+        "password": {"min_length": 12},
+        # Longest life of an API token under the ENS profile, and its default.
+        "tokens": {"max_days": 90},
+        # Rights and obligations shown after sign-in and accepted on record;
+        # empty for none. Editing it asks everybody to accept it again.
+        "notice": {"text": ""},
+        # Shown on the sign-in page instead of the hostname, which is not
+        # shown before sign-in; empty shows nothing.
+        "login_label": "",
+    },
+    "audit": {
+        # The audit trail (noust.core.audit; read and checked by
+        # noust.core.audit.settings, where each key is described). Events
+        # are kept by age, never deleted within retention_days nor before
+        # every destination received them; 90 is the least accepted.
+        "retention_days": 365,
+        "max_total_mb": 2048,
+        "rotate_mb": 64,
+        # What the host action ledger records: off, mutations or all.
+        "host_activity": "mutations",
+        "flood_window_seconds": 60,
+        "flood_burst": 10,
+        # auto: journald when its socket exists; stdout inside the
+        # central's container.
+        "journald": "auto",
+        "stdout": "auto",
+        # RFC 5424 receivers: {transport: unix|udp|tcp|tls, address,
+        # facility, ca, client_cert, client_key, pin_sha256, server_name,
+        # backfill}. Local root can rewrite the local chain; a receiver that
+        # got the events as they happened cannot.
+        "syslog": [],
+        # IANA Private Enterprise Number of the structured data ID
+        # noust@<id>. 32473 is the documentation number: set your own.
+        "enterprise_id": 32473,
+        "checkpoint_minutes": 5,
+        "sink_lag_minutes": 15,
+    },
+    "retention": {
+        # How long Noust keeps its own records (ENS G19); the monitor's
+        # observations follow monitor.retention_days.
+        "jobs_days": 90,
+        "deployments_days": 365,
+        "sessions_days": 30,
     },
     "central": {
         # What this Noust is for. "server" is the Noust every release has
@@ -225,10 +313,6 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "role": "server",
     },
     "databases": {
-        "default_encoding": {
-            "mysql": "utf8mb4",
-            "postgresql": "UTF8",
-        },
         "credentials": {
             "mysql": {
                 "user": "root",
@@ -246,8 +330,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
                 "password": "",
             },
         },
-        "auto_start": True,  # Start engine on install
-        "auto_enable": True,  # Enable on boot on install
+        # The copies a restore takes of a database before loading over it,
+        # kept per database; older ones go after each restore. The newest
+        # is never deleted, whatever this says.
+        "safety_copies_kept": 5,
     },
 }
 
@@ -260,6 +346,143 @@ REMOVED_KEYS: dict[str, Any] = {
     "monitor.terminate_malicious_only": False,
     "monitor.dry_run": True,
 }
+
+#: Settings that older versions wrote or shipped as defaults and that nothing
+#: reads any more, each with the reason, in the words ``noust config show``
+#: prints. A section is listed by its name and covers everything under it.
+#: They are ignored on load, never shown as settings, refused by ``set`` and
+#: left in the file until ``noust config clean`` removes them, which is the
+#: one explicit step (the package upgrade runs it) that touches them.
+#: :data:`REMOVED_KEYS` are obsolete too and are cleaned with these.
+OBSOLETE_KEYS: dict[str, str] = {
+    "monitor.use_ai": "The AI analysis of processes was removed in 1.0.",
+    "monitor.ai_interval": "The AI analysis of processes was removed in 1.0.",
+    "monitor.openai": (
+        "The AI analysis was removed in 1.0: nothing sends data to OpenAI, and the API key "
+        "stored here is deleted by 'noust config clean'."
+    ),
+    "databases.backup_dir": "Backups go where backup.directory says.",
+    "databases.default_encoding": (
+        "A database is created with the character set of its own command or request "
+        "(utf8mb4 for MySQL, UTF8 for PostgreSQL)."
+    ),
+    "databases.auto_start": "'noust db install' always starts the engine it installs.",
+    "databases.auto_enable": "'noust db install' always enables the engine it installs at boot.",
+    "logging": "Noust writes its logs to journald and to files it names itself.",
+    "nodejs": "Noust uses the Node.js installed on the machine; these were never consulted.",
+    "python": "Noust uses the Python installed on the machine; these were never consulted.",
+}
+
+
+@dataclass(frozen=True)
+class ObsoleteSetting:
+    """
+    A setting found in ``config.yaml`` that no version reads any more.
+
+    Attributes:
+        key: Dotted key, or the name of a section covering everything under it.
+        reason: Why it is obsolete, in a sentence.
+        secret: Whether it holds a credential; its value is never printed,
+            and ``noust config clean`` does not keep it in the backup either.
+    """
+
+    key: str
+    reason: str
+    secret: bool = False
+
+
+def _obsolete_owner(key: str) -> str | None:
+    """
+    Find the obsolete key or section a dotted key is, or lies under.
+
+    Args:
+        key: Fully resolved dotted key.
+
+    Returns:
+        The entry of :data:`OBSOLETE_KEYS` covering it, or None.
+    """
+    for dotted in OBSOLETE_KEYS:
+        if key == dotted or key.startswith(f"{dotted}."):
+            return dotted
+    return None
+
+
+def _node_at(tree: Any, dotted: str) -> Any:
+    """
+    Read the value at a dotted path of a nested mapping.
+
+    Args:
+        tree: The mapping to look in.
+        dotted: Dotted path.
+
+    Returns:
+        The value, or :data:`NO_DEFAULT` when the path is not there.
+    """
+    node = tree
+    for part in dotted.split("."):
+        if not isinstance(node, dict) or part not in node:
+            return NO_DEFAULT
+        node = node[part]
+    return node
+
+
+def _secret_paths_under(node: Any, prefix: str) -> list[str]:
+    """
+    List the dotted paths of the credentials inside a value.
+
+    Args:
+        node: The value at ``prefix``.
+        prefix: Its dotted path.
+
+    Returns:
+        ``prefix`` itself when it is a non-empty secret leaf, and every
+        non-empty secret leaf below it otherwise.
+    """
+    if isinstance(node, dict):
+        found: list[str] = []
+        for name, child in node.items():
+            found.extend(_secret_paths_under(child, f"{prefix}.{name}"))
+        return found
+    if isinstance(node, list):
+        return []
+    leaf = prefix.rsplit(".", 1)[-1]
+    if node not in ("", None) and _is_secret_key(leaf):
+        return [prefix]
+    return []
+
+
+def find_obsolete(tree: Any) -> list[ObsoleteSetting]:
+    """
+    Find the obsolete settings a parsed ``config.yaml`` still holds.
+
+    Args:
+        tree: The file as :func:`yaml.safe_load` parsed it.
+
+    Returns:
+        One entry per obsolete key or section present, in
+        :data:`OBSOLETE_KEYS` then :data:`REMOVED_KEYS` order; nothing when
+        ``tree`` is not a mapping.
+    """
+    if not isinstance(tree, dict):
+        return []
+    found: list[ObsoleteSetting] = []
+    reasons = {
+        **OBSOLETE_KEYS,
+        **dict.fromkeys(
+            REMOVED_KEYS, "A safety switch of the old monitor; it is pinned to its safe value."
+        ),
+    }
+    for dotted, reason in reasons.items():
+        node = _node_at(tree, dotted)
+        if node is NO_DEFAULT:
+            continue
+        found.append(
+            ObsoleteSetting(
+                key=dotted, reason=reason, secret=bool(_secret_paths_under(node, dotted))
+            )
+        )
+    return found
+
 
 # Web servers Noust can actually front a site with. noust.web.api.config keeps
 # its own copy for its dedicated /config/webserver endpoint; this is the one
@@ -642,6 +865,33 @@ def _validate_notification_language(value: Any) -> str:
     return text
 
 
+def _validate_server_name(value: Any) -> str:
+    """
+    Accept the name this server goes by in notifications, or leave it unset.
+
+    It is printed in every message and in the subject line of every email, so
+    it is one short line of printable text; an empty value means "use the
+    machine's hostname".
+
+    Args:
+        value: The candidate value, from either front end.
+
+    Returns:
+        The name, trimmed, or ``""`` when unset.
+
+    Raises:
+        ConfigError: When it is longer than 64 characters or is not one line
+            of printable text.
+    """
+    text = "" if value is None else str(value).strip()
+    if len(text) > 64 or not text.isprintable():
+        raise ConfigError(
+            "server.name must be one short line of text (64 characters at most)",
+            details=f"Got {text[:70]!r}.",
+        )
+    return text
+
+
 def _validate_public_url(value: Any) -> str:
     """
     Accept the console's public URL, or leave it unset.
@@ -705,6 +955,66 @@ def _validate_hooks_url(value: Any) -> str:
     return text.rstrip("/")
 
 
+def _validate_allowed_hosts(value: Any) -> list[str]:
+    """
+    Accept the Host header values the console answers to.
+
+    Each entry is a host name, an IP address, or ``*.example.com`` for every
+    subdomain of a domain. No scheme, no port and no path: the check compares
+    the host part of the Host header only, so an entry with more than that
+    could never match and would look like protection that is not there.
+
+    Accepts a comma-separated string too, which is all ``noust config set``
+    can hand over without ``--list``.
+
+    Args:
+        value: The candidate list, from either front end.
+
+    Returns:
+        The entries, lowercased and without a trailing dot; empty entries and
+        repeats are dropped.
+
+    Raises:
+        ConfigError: When the value is not a list of host names, or an entry
+            is not a host name, an address or a ``*.`` pattern.
+    """
+    if isinstance(value, str):
+        raw = value.split(",")
+    elif isinstance(value, (list, tuple)):
+        raw = [str(item) for item in value]
+    else:
+        raise ConfigError(
+            "web.allowed_hosts must be a list of host names",
+            details=f"Got {value!r}. Use names such as console.example.com or *.example.com.",
+        )
+
+    hosts: list[str] = []
+    for item in raw:
+        entry = item.strip().lower().rstrip(".")
+        if not entry:
+            continue
+        name = entry[2:] if entry.startswith("*.") else entry
+        try:
+            ipaddress.ip_address(entry)
+            is_address = True
+        except ValueError:
+            is_address = False
+        if not is_address:
+            valid, reason = is_valid_domain(name)
+            if not valid or "*" in name or ":" in name or "/" in name:
+                raise ConfigError(
+                    f"web.allowed_hosts: {item.strip()!r} is not a host name",
+                    details=(
+                        f"{reason or 'Only the host is compared'}. Write the name alone, "
+                        "without scheme, port or path: console.example.com, or "
+                        "*.example.com for every subdomain."
+                    ),
+                )
+        if entry not in hosts:
+            hosts.append(entry)
+    return hosts
+
+
 #: What ``central.role`` may be. Mirrored by noust.central.ROLES, which this
 #: module cannot import (the central package reads its settings from here).
 CENTRAL_ROLES = ("server", "hub")
@@ -743,6 +1053,7 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "web.session_timeout": _int_range_validator("web.session_timeout", 300, 86400),
     "web.public_url": _validate_public_url,
     "web.hooks_url": _validate_hooks_url,
+    "web.allowed_hosts": _validate_allowed_hosts,
     # The one key every deployer, noust.core.config.Config.apps_directory and
     # the panel's disk usage meter read. "apps.directory" is a deprecated
     # dotted alias, resolved to this key by _canonical_key() before a
@@ -757,6 +1068,7 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "monitor.email_recipients": _validate_email_list("monitor.email_recipients"),
     "notifications.channels.telegram.chat_id": _validate_telegram_chat_id,
     "notifications.language": _validate_notification_language,
+    "server.name": _validate_server_name,
 }
 
 # Rules spanning more than one key of the same container - monitor.smtp's
@@ -861,14 +1173,11 @@ def _validate_known_sections_in(tree: dict[str, Any]) -> None:
 # doing anything else, so there is exactly one setting on disk and every
 # reader agrees on it, whichever spelling wrote it.
 #
-# "logging.directory" is the same defect in miniature: obs/noust.default.yaml
-# shipped it while DEFAULT_CONFIG named the setting "logging.file", so a
-# packaged install and the code disagreed about which key held the log
-# location. A config.yaml written by that packaging keeps loading - and
-# keeps meaning what it said - because it resolves here too.
+# The other spelling this used to fold, "logging.directory" into "logging.file",
+# went with the whole "logging" section: nothing ever read either (see
+# OBSOLETE_KEYS).
 KEY_ALIASES: dict[str, str] = {
     "apps.directory": "apps_directory",
-    "logging.directory": "logging.file",
 }
 
 
@@ -1073,8 +1382,9 @@ SECRET_KEY_MARKERS: frozenset[str] = frozenset(
 
 # Settings whose name contains a marker word but which hold no credential. The
 # list is explicit and short on purpose: everything not named here that looks
-# like a secret is treated as one.
-NON_SECRET_KEYS: frozenset[str] = frozenset({"token_expiration_hours"})
+# like a secret is treated as one. "node_host_key_changed" is the switch of the
+# event about a server's SSH host key, a boolean, not a key of any kind.
+NON_SECRET_KEYS: frozenset[str] = frozenset({"token_expiration_hours", "node_host_key_changed"})
 
 REDACTED = "***"
 
@@ -1257,7 +1567,13 @@ def _strip_removed_under(prefix: str, value: Any) -> Any:
     if not isinstance(value, dict):
         return value
 
-    for relative in _removed_keys_under(prefix):
+    head = f"{prefix}." if prefix else ""
+    obsolete_below = [
+        dotted[len(head) :]
+        for dotted in OBSOLETE_KEYS
+        if dotted.startswith(head) and dotted != prefix
+    ]
+    for relative in (*_removed_keys_under(prefix), *obsolete_below):
         *parents, leaf = relative.split(".")
         node: Any = value
         for parent in parents:
@@ -1427,9 +1743,11 @@ def _strip_removed_keys(config: dict[str, Any]) -> dict[str, Any]:
             version.
 
     Returns:
-        The same mapping, without the keys listed in :data:`REMOVED_KEYS`.
+        The same mapping, without the keys listed in :data:`REMOVED_KEYS` or
+        :data:`OBSOLETE_KEYS`. What the file holds of them stays in the file
+        until ``noust config clean``; it is only never read.
     """
-    for dotted_key in REMOVED_KEYS:
+    for dotted_key in (*REMOVED_KEYS, *OBSOLETE_KEYS):
         *parents, leaf = dotted_key.split(".")
         node: Any = config
         for parent in parents:
@@ -1438,7 +1756,7 @@ def _strip_removed_keys(config: dict[str, Any]) -> dict[str, Any]:
                 break
         if isinstance(node, dict) and leaf in node:
             del node[leaf]
-            logger.debug("Ignoring removed configuration key %s", dotted_key)
+            logger.debug("Ignoring removed or obsolete configuration key %s", dotted_key)
     return config
 
 
@@ -1676,6 +1994,16 @@ class Config:
         if key in REMOVED_KEYS:
             logger.debug("Ignoring write to removed configuration key %s", key)
             return
+
+        obsolete = _obsolete_owner(key)
+        if obsolete is not None:
+            # Refused, not ignored: an operator who sets a switch that does
+            # nothing is told so, instead of finding out later that it never did.
+            raise ConfigError(
+                f"{key} is obsolete: {OBSOLETE_KEYS[obsolete]}",
+                details="Nothing reads it, so setting it would change nothing. "
+                "'noust config clean' removes what is left of it in the file.",
+            )
 
         value = _validate_known_value(key, value)
         if isinstance(value, dict):
@@ -1936,3 +2264,164 @@ class Config:
 
         self._config = self._deep_merge(DEFAULT_CONFIG, user_config)
         return {"added_keys": list(missing), "upgraded": True}
+
+    def obsolete_settings(self, path: Path | None = None) -> list[ObsoleteSetting]:
+        """
+        List the obsolete settings the configuration file still holds.
+
+        They are never part of the configuration in effect (:meth:`to_dict`
+        does not carry them); this is how ``noust config show`` lists them
+        apart, without their values.
+
+        Args:
+            path: Optional path to config file. Defaults to global config path.
+
+        Returns:
+            The obsolete settings present, empty when there are none or the
+            file cannot be read (loading already warned about that).
+        """
+        config_path = path or DEFAULT_CONFIG_PATH
+        if not config_path.exists():
+            return []
+        try:
+            loaded = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
+            logger.warning("Cannot look for obsolete settings in %s: %s", config_path, exc)
+            return []
+        return find_obsolete(loaded)
+
+    def clean(self, path: Path | None = None) -> dict[str, Any]:
+        """
+        Remove the obsolete settings from the configuration file, as text.
+
+        The one explicit, one-time cleanup (``noust config clean``, which the
+        package upgrade runs too): every line of every obsolete setting goes
+        and the rest of the file is kept byte for byte, comments included. A
+        timestamped copy of the file made first (owner-only, next to it) is
+        the way back, except that it does not keep a credential belonging to a
+        removed feature: the OpenAI key an old AI monitor stored is deleted
+        from the file and is not in the copy either.
+
+        Nothing is written when the result would differ from the file minus
+        those settings in any other way - a layout this cannot edit as text
+        (a multi-line flow mapping) is reported for the operator to edit.
+
+        Args:
+            path: Optional path to config file. Defaults to global config path.
+
+        Returns:
+            Dictionary with the results:
+            - removed: The obsolete settings found, in dot notation.
+            - secrets_deleted: The credentials among them.
+            - cleaned: Whether the file was changed.
+            - backup: Path of the copy, when one was made.
+            - error: Why nothing was written, when something went wrong.
+        """
+        config_path = path or DEFAULT_CONFIG_PATH
+        if not config_path.exists():
+            return {"removed": [], "secrets_deleted": [], "cleaned": False, "backup": None}
+
+        def failed(message: str, removed: list[str] | None = None) -> dict[str, Any]:
+            logger.error("Not cleaning %s: %s", config_path, message)
+            return {
+                "removed": removed or [],
+                "secrets_deleted": [],
+                "cleaned": False,
+                "backup": None,
+                "error": message,
+            }
+
+        try:
+            text = config_path.read_text(encoding="utf-8")
+            loaded = yaml.safe_load(text)
+        except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
+            return failed(str(exc))
+        if loaded is None:
+            loaded = {}
+        if not isinstance(loaded, dict):
+            return failed(f"{config_path} is not a mapping of settings")
+
+        found = find_obsolete(loaded)
+        if not found:
+            return {"removed": [], "secrets_deleted": [], "cleaned": False, "backup": None}
+        keys = [setting.key for setting in found]
+        secrets = [
+            path_
+            for setting in found
+            if setting.secret
+            for path_ in _secret_paths_under(_node_at(loaded, setting.key), setting.key)
+        ]
+
+        try:
+            cleaned_text = remove_keys(text, keys)
+            backup_text = remove_keys(text, secrets)
+        except CannotEditText as exc:
+            return failed(f"{exc}. Edit {config_path} by hand and remove: {', '.join(keys)}", keys)
+
+        try:
+            outcome = yaml.safe_load(cleaned_text) or {}
+        except yaml.YAMLError as exc:
+            return failed(f"removing them would leave a file YAML cannot read ({exc})", keys)
+        if outcome != _without_keys(loaded, keys):
+            return failed(
+                "removing them as text would change more than they are. "
+                f"Edit {config_path} by hand and remove: {', '.join(keys)}",
+                keys,
+            )
+
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+        backup = config_path.with_name(f"{config_path.name}.bak-{stamp}")
+        counter = 0
+        while backup.exists() or backup.is_symlink():
+            counter += 1
+            backup = config_path.with_name(f"{config_path.name}.bak-{stamp}-{counter}")
+        try:
+            secure_write(backup, backup_text, fs=self.fs)
+            secure_write(config_path, cleaned_text, fs=self.fs)
+        except (OSError, SecurityError) as exc:
+            return failed(str(exc), keys)
+
+        return {
+            "removed": keys,
+            "secrets_deleted": secrets,
+            "cleaned": True,
+            "backup": str(backup),
+        }
+
+
+def _without_keys(tree: dict[str, Any], dotted_keys: list[str]) -> dict[str, Any]:
+    """
+    Remove dotted keys from a parsed file, and any parent that empties.
+
+    The parsed counterpart of :func:`noust.core.config_text.remove_keys`: what
+    the file must parse to after the text edit, which is how :meth:`Config.clean`
+    knows the edit did not touch anything else.
+
+    Args:
+        tree: The parsed file. Not modified.
+        dotted_keys: Dotted paths to remove.
+
+    Returns:
+        A copy without them.
+    """
+    result = copy.deepcopy(tree)
+    for dotted in dotted_keys:
+        *parents, leaf = dotted.split(".")
+        chain: list[dict[str, Any]] = [result]
+        node: Any = result
+        for parent in parents:
+            node = node.get(parent) if isinstance(node, dict) else None
+            if not isinstance(node, dict):
+                break
+            chain.append(node)
+        else:
+            if leaf not in node:
+                continue
+            del node[leaf]
+            # A parent left with nothing is removed too, as the text edit does.
+            names = [*parents]
+            for depth in range(len(chain) - 1, 0, -1):
+                if chain[depth]:
+                    break
+                del chain[depth - 1][names[depth - 1]]
+    return result
