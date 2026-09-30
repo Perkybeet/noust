@@ -126,6 +126,27 @@ describe("the activity timeline", () => {
     expect(screen.getByRole("radio", { name: "Operations" })).toBeChecked();
   });
 
+  it("asks the server for the view's categories, so a page of sign-ins never hides the jobs", async () => {
+    // A log whose newest page is all sign-ins, with more behind it: read unfiltered, the
+    // Operations view would show nothing of it, and every job older than the page would wait
+    // behind "Load more". Asked for its own categories, the page is the view's.
+    const asked: string[][] = [];
+    const { table } = await activityAt(
+      {
+        "GET /api/audit": ({ search }: RecordedCall) => {
+          const categories = search.getAll("categories");
+          asked.push(categories);
+          if (categories.length > 0) return json(200, { items: [], next_before: null });
+          return json(200, { items: [AUDIT_ENTRIES[0]], next_before: AUDIT_ENTRIES[0]?.timestamp });
+        },
+      },
+      "/activity",
+    );
+    await within(table).findByText("shop.example.com");
+    expect(within(table).getByText("admin.example.com")).toBeInTheDocument();
+    expect(asked).toContainEqual(["change", "config", "account"]);
+  });
+
   it("names what an action was done to, not the API path", async () => {
     const { table } = await activityAt();
     await within(table).findByText("shop.example.com");

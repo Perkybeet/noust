@@ -2566,7 +2566,7 @@
         "type": "object"
       },
       "AuditEntry": {
-        "description": "One audit event.\n\nAttributes:\n    timestamp: When it was recorded, with its UTC offset.\n    action: The event, for example ``apps.delete``.\n    result: Outcome, for example ``ok``, ``success`` or ``denied``.\n    actor: Label of who acted: an account, ``token:<name>``, ``master``,\n        ``cli:<login>`` or ``anonymous``.\n    client_ip: Address the request came from.\n    resource: Target of the action.\n    detail: One line of context. Never a credential.\n    seq: Position in the chain; None for a line written before 3.1.\n    id: Unique id of the event.\n    category: The catalog category (``access``, ``change``, ``read``...).\n    severity: Syslog severity it is shipped with.\n    correlation_id: Links the events and host actions of one request,\n        command or job.\n    who: The structured actor.\n    details: Structured context, secrets already removed.\n    sensitive: The event records a sensitive read.",
+        "description": "One audit event.\n\nAttributes:\n    timestamp: When it was recorded, with its UTC offset.\n    action: The event, for example ``apps.delete``.\n    result: Outcome, for example ``ok``, ``success`` or ``denied``.\n    actor: Label of who acted: an account, ``token:<name>``, ``master``,\n        ``cli:<login>`` or ``anonymous``.\n    client_ip: Address the request came from.\n    resource: Target of the action.\n    detail: One line of context. Never a credential.\n    seq: Position in the chain; None for a line written before 3.1.\n    id: Unique id of the event.\n    category: The catalog category (``access``, ``change``, ``read``...);\n        for a line written before 3.1, the one it is filed under.\n    severity: Syslog severity it is shipped with.\n    correlation_id: Links the events and host actions of one request,\n        command or job.\n    who: The structured actor.\n    details: Structured context, secrets already removed.\n    sensitive: The event records a sensitive read.",
         "properties": {
           "action": {
             "title": "Action",
@@ -26970,7 +26970,7 @@
     },
     "/api/audit": {
       "get": {
-        "description": "List audit entries, newest first, with keyset pagination.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    limit: Maximum entries to return.\n    before: Cursor from a previous page's ``next_before``.\n    action: Only entries with this exact action.\n    result: Only entries with this exact result.\n    actor: Only entries with this exact actor.\n    category: Only entries of this catalog category.\n    correlation_id: Only entries with this correlation id.\n    target: Only entries on this exact target.\n\nReturns:\n    The matching entries and the cursor for the next page.",
+        "description": "List audit entries, newest first, with keyset pagination.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    limit: Maximum entries to return.\n    before: Cursor from a previous page's ``next_before``.\n    action: Only entries with this exact action.\n    result: Only entries with this exact result.\n    actor: Only entries with this exact actor.\n    category: Only entries of this catalog category.\n    categories: Only entries of one of these categories, request lines\n        described by their own request's events left out.\n    correlation_id: Only entries with this correlation id.\n    target: Only entries on this exact target.\n\nReturns:\n    The matching entries and the cursor for the next page.",
         "operationId": "list_audit_entries_api_audit_get",
         "parameters": [
           {
@@ -27073,6 +27073,27 @@
               ],
               "description": "Filter by catalog category",
               "title": "Category"
+            }
+          },
+          {
+            "description": "Only entries of one of these categories, as a view of the console reads them: a request's generic line is left out when its request recorded an event of its own",
+            "in": "query",
+            "name": "categories",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only entries of one of these categories, as a view of the console reads them: a request's generic line is left out when its request recorded an event of its own",
+              "title": "Categories"
             }
           },
           {

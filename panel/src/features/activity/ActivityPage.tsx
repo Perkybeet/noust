@@ -18,7 +18,7 @@ import { Select } from "../../components/ui/Select";
 import { useT } from "../../i18n";
 import { ActivityTable } from "./ActivityTable";
 import { JobLogDrawer } from "./JobLogDrawer";
-import { AUDIT_RESULTS, JOB_STATUSES, actionWords, actorWords, inKind, isFiltered, matchesText, mergeActivity, resultOptions, resultValidFor } from "./data";
+import { AUDIT_RESULTS, JOB_STATUSES, actionWords, actorWords, auditCategoriesFor, inKind, isFiltered, matchesText, mergeActivity, resultOptions, resultValidFor } from "./data";
 import type { ActivityJob, ActivitySearch } from "./data";
 
 const ALL = "all";
@@ -59,6 +59,7 @@ export function ActivityPage({ search, onSearchChange }: ActivityPageProps) {
   const includeAuditQuery = resultAppliesToAudit;
   const jobStatus = includeJobsQuery && search.result !== undefined ? search.result : undefined;
   const auditResultFilter = includeAuditQuery && search.result !== undefined ? search.result : undefined;
+  const auditCategories = auditCategoriesFor(search.kind);
 
   // A filter that changes what jobs mean starts "Load more" over; the audit log's own
   // infinite query already restarts on a query-key change, jobs' flat limit does not. Reset
@@ -75,7 +76,11 @@ export function ActivityPage({ search, onSearchChange }: ActivityPageProps) {
     enabled: includeJobsQuery,
   });
   const audit = useInfiniteQuery({
-    ...auditPagesQuery({ limit: AUDIT_PAGE, ...(auditResultFilter !== undefined ? { result: auditResultFilter } : {}) }),
+    ...auditPagesQuery({
+      limit: AUDIT_PAGE,
+      ...(auditCategories !== undefined ? { categories: auditCategories } : {}),
+      ...(auditResultFilter !== undefined ? { result: auditResultFilter } : {}),
+    }),
     enabled: includeAuditQuery,
   });
   const active = useQuery(activeJobsQuery());

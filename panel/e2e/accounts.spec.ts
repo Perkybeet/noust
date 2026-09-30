@@ -250,7 +250,16 @@ serial("a passkey is added, signs in with no name or password, and confirms it's
   await stillness(page);
   await expectNoA11yViolations(page, "security with a passkey");
 
-  // Signed out, the passkey alone signs in again.
+  // Signed out, the passkey alone signs in again, from the button. The login page also offers
+  // the passkey in the username field's autofill (conditional mediation), and Chrome's virtual
+  // authenticator answers that request the moment it is made, where a person would have to
+  // pick the passkey from the list. That raced this click: whenever the autofill answer won,
+  // the page signed in on its own and navigated away under the pointer, and the click waited
+  // out the test. So this page is a browser without autofill for passkeys, where the button is
+  // the one way in, and the one this step proves.
+  await page.addInitScript(() => {
+    Object.defineProperty(PublicKeyCredential, "isConditionalMediationAvailable", { value: () => Promise.resolve(false) });
+  });
   await context.clearCookies();
   await page.goto("/login?next=%2Fsettings%2Fsecurity");
   await page.getByRole("button", { name: "Sign in with a passkey" }).click();

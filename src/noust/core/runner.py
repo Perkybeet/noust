@@ -81,7 +81,7 @@ from pathlib import Path
 from typing import IO, Any, Literal
 
 from noust.core import paths
-from noust.core.exceptions import NoustError
+from noust.core.exceptions import ConfigError, NoustError
 
 _log = logging.getLogger(__name__)
 
@@ -828,6 +828,21 @@ _ACCOUNT = re.compile(r"^[a-z_][a-z0-9_-]*[$]?$")
 #: A variable name an environment file can hold.
 _ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
+
+def is_account_name(name: str) -> bool:
+    """
+    Tell whether a name is one systemd accepts as ``User=`` or ``Group=``.
+
+    Args:
+        name: The candidate.
+
+    Returns:
+        True for an account name; False for anything else, the empty string
+        included.
+    """
+    return bool(_ACCOUNT.match(name))
+
+
 Network = Literal["full", "none"]
 
 
@@ -941,12 +956,22 @@ class SandboxSpec:
         Refuse a spec that cannot be expressed as unit properties.
 
         Raises:
-            ValueError: An account, a network mode or a path systemd would
-                misread.
+            ConfigError: An account that is not an account name.
+            ValueError: A network mode or a path systemd would misread.
         """
         for account in (self.user, self.group):
-            if account is not None and not _ACCOUNT.match(account):
-                raise ValueError(f"The sandbox cannot run as {account!r}: not an account name")
+            if account is not None and not is_account_name(account):
+                # An account comes from the configuration (or a constant), never
+                # from code building paths, so it is the operator's to fix.
+                raise ConfigError(
+                    f"The sandbox cannot run as {account!r}: not an account name",
+                    details=(
+                        "A command is sandboxed as the account Noust builds with or the one "
+                        "applications run as (service_user and service_group in "
+                        f"{paths.config_dir() / 'config.yaml'}). Set it to an existing account, "
+                        "or set service_group to '' to use the user's primary group."
+                    ),
+                )
         if self.network not in ("full", "none"):
             raise ValueError(f"Unknown sandbox network {self.network!r}: use 'full' or 'none'")
         for what, group in (

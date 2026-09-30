@@ -43,16 +43,23 @@ test("filtering by result narrows the timeline to one source", async ({ page, co
   await signIn(page, consoleServer, "/activity");
   const table = page.getByRole("region", { name: /^Activity/ });
   const rows = () => table.getByRole("row").filter({ hasNot: page.getByRole("columnheader") });
-  // count() does not wait like toBeVisible() does; without this the merged list is still
-  // loading and the count below reads as 0.
+  // count() does not wait like toBeVisible() does, and a first row is no proof of a loaded
+  // list: while a query is pending the table draws placeholder rows, real <tr>s, marked only
+  // by the table's aria-busy. Counted then, the placeholders (or the rows of the previous
+  // filter) were read as the result, and a later nth() found nothing.
+  const loaded = () => expect(table.getByRole("table")).not.toHaveAttribute("aria-busy", "true");
   await expect(rows().first()).toBeVisible();
+  await loaded();
   const before = await rows().count();
   expect(before).toBeGreaterThan(0);
 
   await page.getByRole("combobox", { name: "Result" }).click();
   await page.getByRole("option", { name: "Job: Failed", exact: true }).click();
   await expect(page).toHaveURL(/\/activity\?result=failed$/);
+  // Only the filtered list has no row without "Failed": placeholders and the unfiltered rows do.
+  await expect(rows().filter({ hasNot: page.getByText("Failed", { exact: true }) })).toHaveCount(0);
   await expect(rows().first()).toBeVisible();
+  await loaded();
   const count = await rows().count();
   expect(count).toBeLessThanOrEqual(before);
   for (let i = 0; i < count; i += 1) {

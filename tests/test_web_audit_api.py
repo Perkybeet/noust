@@ -352,3 +352,109 @@ def test_the_events_of_one_request_share_its_correlation_id(
     actions = {item["action"] for item in linked}
     assert {"audit.review", "api.post", "host.fs"} <= actions
     assert any(item["resource"] == str(marker) for item in linked)
+
+
+# -- 3.1.1: the console's views, read at the source -----------------------------
+
+OPERATIONS = "categories=change&categories=config&categories=account"
+
+
+def test_a_view_is_a_full_page_however_many_sign_ins_came_after(sandbox: Path) -> None:
+    """
+    The console's Operations view asks for its categories, not for everything.
+
+    Filtered after reading, a page of the newest entries could be all sign-ins
+    and leave the view with nothing, and the jobs merged with it held back
+    behind "Load more" (e2e/activity.spec.ts found it: a worker's own
+    sign-ins pushed the seeded job off the page).
+    """
+    from noust.core.audit import Actor, record
+
+    client = build_client(sandbox)
+    login_admin(client)
+    record("apps.delete", actor=Actor.system(), target="app:old.example.com")
+    for index in range(12):
+        record("auth.login", actor=Actor.system(), target=f"account:u{index}")
+
+    page = client.get(f"/api/audit?limit=5&{OPERATIONS}").json()
+
+    assert "app:old.example.com" in [item["resource"] for item in page["items"]]
+    assert {item["category"] for item in page["items"]} <= {"change", "config", "account"}
+
+
+def test_a_request_line_goes_with_the_event_its_request_recorded(sandbox: Path) -> None:
+    """A sign-in's generic ``api.post`` is not an operation; an undescribed request is."""
+    from noust.core.audit import Actor, record
+
+    client = build_client(sandbox)
+    login_admin(client)
+    who = Actor.system()
+    # Written in the order the console writes them: the endpoint's own event,
+    # the host actions it caused, then the middleware's generic line.
+    record("auth.login", actor=who, target="/api/auth/login", correlation_id="sign-in")
+    record("api.post", actor=who, target="/api/auth/login", correlation_id="sign-in")
+    record("host.exec", actor=who, target="systemctl", correlation_id="restart")
+    record("api.post", actor=who, target="/api/services/x/restart", correlation_id="restart")
+    record("api.post", actor=who, target="/api/cron/y", correlation_id="plain")
+
+    view = client.get(f"/api/audit?limit=50&{OPERATIONS}").json()["items"]
+    requests = {item["correlation_id"] for item in view if item["action"] == "api.post"}
+    everything = client.get("/api/audit?limit=50&action=api.post").json()["items"]
+
+    assert "sign-in" not in requests
+    assert {"restart", "plain"} <= requests
+    # login_admin's own sign-in, through the real endpoint and middleware.
+    assert "/api/auth/login" not in {item["resource"] for item in view}
+    assert "/api/auth/login" in {item["resource"] for item in everything}
+    # Unfiltered, every line is there: nothing is removed from the log itself.
+    assert "sign-in" in {item["correlation_id"] for item in everything}
+
+
+def test_a_view_pages_through_the_log_exactly_once(sandbox: Path) -> None:
+    """Leaving request lines out never shortens a page that is not the last."""
+    from noust.core.audit import Actor, record
+
+    client = build_client(sandbox)
+    login_admin(client)
+    who = Actor.system()
+    for index in range(7):
+        record("auth.login", actor=who, target="/api/auth/login", correlation_id=f"s{index}")
+        record("api.post", actor=who, target="/api/auth/login", correlation_id=f"s{index}")
+        record("apps.delete", actor=who, target=f"app:{index}.example.com")
+
+    seen: list[str] = []
+    cursor = ""
+    while True:
+        page = client.get(f"/api/audit?limit=3&action=apps.delete&{OPERATIONS}{cursor}").json()
+        seen += [item["resource"] for item in page["items"]]
+        if page["next_before"] is None:
+            break
+        assert len(page["items"]) == 3
+        cursor = f"&before={page['next_before']}"
+    assert seen == [f"app:{index}.example.com" for index in reversed(range(7))]
+    mixed = client.get(f"/api/audit?limit=3&{OPERATIONS}").json()
+    assert len(mixed["items"]) == 3
+    assert all(item["action"] != "api.post" for item in mixed["items"])
+
+
+def test_a_line_from_before_the_catalog_is_filed_by_its_action(sandbox: Path) -> None:
+    """3.0 lines have no category: the sign-in family is access, the rest a change."""
+    import json
+
+    from noust.core.audit import get_log
+
+    client = build_client(sandbox)
+    login_admin(client)
+    with open(get_log().path, "a", encoding="utf-8") as handle:
+        for action in ("auth.login", "apps.delete"):
+            line = {"ts": "2099-01-01T00:00:00+00:00", "action": action, "result": "success"}
+            handle.write(json.dumps({**line, "actor": "legacy"}) + "\n")
+
+    legacy = client.get("/api/audit?actor=legacy").json()["items"]
+    operations = client.get(f"/api/audit?actor=legacy&{OPERATIONS}").json()["items"]
+
+    assert {item["action"]: item["category"] for item in legacy} == {
+        "auth.login": "access",
+        "apps.delete": "change",
+    }
+    assert [item["action"] for item in operations] == ["apps.delete"]

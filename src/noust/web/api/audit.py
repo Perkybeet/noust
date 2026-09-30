@@ -33,6 +33,7 @@ from pydantic import BaseModel, Field
 from noust.core.audit import Actor, get_log, health, record
 from noust.core.audit.catalog import CATEGORIES, EVENTS
 from noust.core.audit.chain import LIMITATION
+from noust.core.audit.log import category_of
 from noust.core.exceptions import ValidationError
 from noust.web.api.deps import NoustErrorRoute
 from noust.web.auth import get_audit_logger, get_client_ip, require_auth
@@ -127,7 +128,8 @@ class AuditEntry(BaseModel):
         detail: One line of context. Never a credential.
         seq: Position in the chain; None for a line written before 3.1.
         id: Unique id of the event.
-        category: The catalog category (``access``, ``change``, ``read``...).
+        category: The catalog category (``access``, ``change``, ``read``...);
+            for a line written before 3.1, the one it is filed under.
         severity: Syslog severity it is shipped with.
         correlation_id: Links the events and host actions of one request,
             command or job.
@@ -202,7 +204,7 @@ def _to_entry(raw: dict[str, Any]) -> AuditEntry:
         detail=_detail_of(raw),
         seq=raw.get("seq") if isinstance(raw.get("seq"), int) else None,
         id=raw.get("id"),
-        category=raw.get("cat"),
+        category=category_of(raw),
         severity=raw.get("sev") if isinstance(raw.get("sev"), int) else None,
         correlation_id=raw.get("corr"),
         who=AuditActor(**who) if isinstance(who, dict) and who.get("kind") else None,
@@ -221,6 +223,16 @@ def list_audit_entries(
     result: Annotated[str | None, Query(description="Filter by exact result")] = None,
     actor: Annotated[str | None, Query(description="Filter by exact actor")] = None,
     category: Annotated[str | None, Query(description="Filter by catalog category")] = None,
+    categories: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Only entries of one of these categories, as a view of the console reads"
+                " them: a request's generic line is left out when its request recorded"
+                " an event of its own"
+            )
+        ),
+    ] = None,
     correlation_id: Annotated[
         str | None, Query(description="Only the events of one request, command or job")
     ] = None,
@@ -238,6 +250,8 @@ def list_audit_entries(
         result: Only entries with this exact result.
         actor: Only entries with this exact actor.
         category: Only entries of this catalog category.
+        categories: Only entries of one of these categories, request lines
+            described by their own request's events left out.
         correlation_id: Only entries with this correlation id.
         target: Only entries on this exact target.
 
@@ -254,6 +268,7 @@ def list_audit_entries(
         result=result,
         actor=actor,
         category=category,
+        categories=categories,
         correlation_id=correlation_id,
         target=target,
     )

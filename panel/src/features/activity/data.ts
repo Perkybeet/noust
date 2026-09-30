@@ -403,13 +403,28 @@ const OPERATION_CATEGORIES: ReadonlySet<string> = new Set(["change", "config", "
 const ACCESS_CATEGORIES: ReadonlySet<string> = new Set(["access", "denial", "read"]);
 
 /**
- * An audit entry's category: the catalog's own since 3.1; before it, the sign-in family is
- * recognised by its action (every `auth.*` and socket event), and the rest changed something.
+ * An audit entry's category: the catalog's own since 3.1, which the server also fills in for
+ * older lines since 3.1.1 (`category_of` in `noust.core.audit.log`); from a node older than
+ * that, a line with none is filed the same way here: the sign-in family (every `auth.*` and
+ * socket event) is access, the rest changed something.
  */
 export function auditCategory(entry: AuditEntry): string {
   if (entry.category !== null && entry.category !== undefined && entry.category !== "") return entry.category;
   if (entry.action.startsWith("auth.") || entry.action.startsWith("ws.")) return "access";
   return "change";
+}
+
+/**
+ * The audit categories a view reads, asked of the server (`GET /api/audit?categories=`) so a
+ * page of the log is a page of the view: filtered here after reading, the newest page could be
+ * all sign-ins, leaving the view empty and every job older than them behind "Load more". The
+ * server also leaves out a request's generic line when its request recorded an event of its
+ * own, filed in its own view. Undefined for everything. A node older than 3.1.1 ignores the
+ * parameter, which is why `inKind` still narrows what is shown.
+ */
+export function auditCategoriesFor(kind: ActivitySearch["kind"]): string[] | undefined {
+  if (kind === "all") return undefined;
+  return [...(kind === "access" ? ACCESS_CATEGORIES : OPERATION_CATEGORIES)];
 }
 
 /** Whether a row belongs to a view: jobs are operations; audit entries go by their category. */

@@ -1953,6 +1953,8 @@ export interface paths {
          *         result: Only entries with this exact result.
          *         actor: Only entries with this exact actor.
          *         category: Only entries of this catalog category.
+         *         categories: Only entries of one of these categories, request lines
+         *             described by their own request's events left out.
          *         correlation_id: Only entries with this correlation id.
          *         target: Only entries on this exact target.
          *
@@ -13085,7 +13087,8 @@ export interface components {
          *         detail: One line of context. Never a credential.
          *         seq: Position in the chain; None for a line written before 3.1.
          *         id: Unique id of the event.
-         *         category: The catalog category (``access``, ``change``, ``read``...).
+         *         category: The catalog category (``access``, ``change``, ``read``...);
+         *             for a line written before 3.1, the one it is filed under.
          *         severity: Syslog severity it is shipped with.
          *         correlation_id: Links the events and host actions of one request,
          *             command or job.
@@ -26080,6 +26083,8 @@ export interface operations {
                 actor?: string | null;
                 /** @description Filter by catalog category */
                 category?: string | null;
+                /** @description Only entries of one of these categories, as a view of the console reads them: a request's generic line is left out when its request recorded an event of its own */
+                categories?: string[] | null;
                 /** @description Only the events of one request, command or job */
                 correlation_id?: string | null;
                 /** @description Filter by exact target */

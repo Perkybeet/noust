@@ -35,10 +35,12 @@ rehearsal at all: the operator has already been told nothing would change.
 from __future__ import annotations
 
 import copy
+import grp
 import ipaddress
 import json
 import logging
 import os
+import pwd
 import re
 import stat
 import threading
@@ -76,6 +78,8 @@ DEFAULT_LOG_DIR = paths.LOG_DIR
 #: not in the backup manager, so the config chokepoint and every reader resolve
 #: an empty value to the same place.
 DEFAULT_BACKUP_DIR = paths.backup_dir()
+#: The account applications run as when ``service_user`` is unset or empty.
+DEFAULT_SERVICE_USER = "www-data"
 
 # Nginx paths
 NGINX_SITES_AVAILABLE = Path("/etc/nginx/sites-available")
@@ -98,7 +102,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
     "apps_directory": str(DEFAULT_APPS_DIR),
     "webserver": "nginx",
-    "service_user": "www-data",
+    "service_user": DEFAULT_SERVICE_USER,
     "service_group": "www-data",
     "ssl": {
         "enabled": True,
@@ -583,6 +587,49 @@ def resolve_backup_directory(value: Any, default: Path = DEFAULT_BACKUP_DIR) -> 
             ),
         )
     return path
+
+
+def resolve_service_user(value: Any) -> str:
+    """
+    Turn a stored ``service_user`` into the account applications run as.
+
+    Args:
+        value: The stored value; None, empty or whitespace mean "not set".
+
+    Returns:
+        The account name: :data:`DEFAULT_SERVICE_USER` when not set.
+    """
+    text = "" if value is None else str(value).strip()
+    return text or DEFAULT_SERVICE_USER
+
+
+def resolve_service_group(value: Any, user: str) -> str:
+    """
+    Turn a stored ``service_group`` into the group applications run as.
+
+    This is the only interpretation of the setting. ``service_group: ''`` is
+    what systemd reads as ``Group=`` unset, the user's primary group, so
+    applications ran fine with it; but chown, a PHP-FPM pool and a build
+    sandbox need a name, and the empty string reached the sandbox as one. So
+    empty means the user's primary group, looked up by name here.
+
+    Args:
+        value: The stored value; None, empty or whitespace mean "not set".
+        user: The resolved ``service_user``.
+
+    Returns:
+        The group name. When not set, the user's primary group, or the user's
+        own name when the account database does not know it (what
+        ``useradd --user-group`` would call it; nothing runs as an account that
+        does not exist, and the sandbox says so).
+    """
+    text = "" if value is None else str(value).strip()
+    if text:
+        return text
+    try:
+        return grp.getgrgid(pwd.getpwnam(user).pw_gid).gr_name
+    except KeyError:
+        return user
 
 
 def _validate_backup_directory(value: Any) -> str:
@@ -2134,13 +2181,24 @@ class Config:
 
     @property
     def service_user(self) -> str:
-        """Get the default service user."""
-        return str(self.get("service_user", "www-data"))
+        """
+        Get the account applications run as.
+
+        Returns:
+            The account; the default when the setting is empty.
+        """
+        return resolve_service_user(self.get("service_user"))
 
     @property
     def service_group(self) -> str:
-        """Get the default service group."""
-        return str(self.get("service_group", "www-data"))
+        """
+        Get the group applications run as.
+
+        Returns:
+            The group; the service user's primary group when the setting is
+            empty (see :func:`resolve_service_group`).
+        """
+        return resolve_service_group(self.get("service_group"), self.service_user)
 
     @property
     def ssl_enabled(self) -> bool:

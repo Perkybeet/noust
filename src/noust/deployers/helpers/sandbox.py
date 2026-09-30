@@ -85,10 +85,10 @@ from pathlib import Path
 from typing import Any
 
 from noust.core import paths
-from noust.core.exceptions import BuildError, NoustError, ValidationError
+from noust.core.exceptions import BuildError, ConfigError, NoustError, ValidationError
 from noust.core.fs import FileSystem, get_fs, is_rehearsal
 from noust.core.logger import Logger
-from noust.core.runner import SANDBOX_UNIT_PREFIX, CommandRunner, SandboxSpec
+from noust.core.runner import SANDBOX_UNIT_PREFIX, CommandRunner, SandboxSpec, is_account_name
 from noust.core.store import App, NoustStore, get_store
 
 #: The account every sandboxed build runs as.
@@ -887,6 +887,63 @@ def ensure_build_account(runner: CommandRunner) -> None:
     )
 
 
+def require_usable_account(user: str, group: str) -> None:
+    """
+    Refuse an account a sandboxed command could not run as, naming the setting.
+
+    Every sandbox spec and the build cache's ownership go through here, so a
+    ``service_user`` or ``service_group`` that systemd would refuse stops the
+    build before anything changes hands, with what to set instead, rather than
+    as a traceback or a unit that fails with status 216/GROUP.
+
+    Args:
+        user: The account: :data:`BUILD_USER`, or the configured service user.
+        group: Its group.
+
+    Raises:
+        ConfigError: A name that is not an account name, or a group the
+            account database does not know while the user it goes with exists.
+    """
+    config_file = paths.config_dir() / "config.yaml"
+    if user == BUILD_USER and group == BUILD_GROUP:
+        how = (
+            f"Noust creates {BUILD_USER} and its group itself; if they were removed or "
+            f"half-created, remove what is left (userdel {BUILD_USER}; groupdel "
+            f"{BUILD_GROUP}) and build again."
+        )
+    else:
+        how = ""
+    for key, value in (("service_user", user), ("service_group", group)):
+        if not is_account_name(value):
+            raise ConfigError(
+                f"Builds cannot run as {key} {value!r}: it is not an account name",
+                details=how
+                or (
+                    f"Set {key} in {config_file} to an existing account, for example: "
+                    f"noust config set {key} www-data"
+                    + (" (or '' for the user's primary group)" if key == "service_group" else "")
+                ),
+            )
+    try:
+        pwd.getpwnam(user)
+    except KeyError:
+        # Not created yet (the build account before its first build, a
+        # rehearsal): there is no database entry to hold the group against.
+        return
+    try:
+        grp.getgrnam(group)
+    except KeyError:
+        raise ConfigError(
+            f"The group {group!r} in service_group does not exist on this server",
+            details=how
+            or (
+                f"Create it (groupadd {group}), or set service_group in {config_file} to an "
+                f"existing group, or to '' for {user}'s primary group: "
+                "noust config set service_group ''"
+            ),
+        ) from None
+
+
 def _owner_ids(user: str, group: str) -> tuple[int, int] | None:
     """
     Look an account and a group up.
@@ -943,7 +1000,11 @@ def ensure_cache_dir(
 
     Returns:
         The cache directory.
+
+    Raises:
+        ConfigError: The account or its group is unusable.
     """
+    require_usable_account(user, group)
     fs = fs or get_fs()
     fs.make_dir(paths.BUILD_CACHE_DIR, mode=0o755)
     cache = cache_dir_for(app_name)
@@ -1263,7 +1324,11 @@ def build_spec(
 
     Returns:
         The spec.
+
+    Raises:
+        ConfigError: The account or its group is unusable.
     """
+    require_usable_account(user, group)
     strict = state.network == NetworkProfile.STRICT.value
     read_only = (shared,) if shared is not None else ()
     writable = (build_path, cache)
@@ -1319,7 +1384,11 @@ def release_spec(
 
     Returns:
         The spec: its unit's own regime, not a build's.
+
+    Raises:
+        ConfigError: The account or its group is unusable.
     """
+    require_usable_account(user, group)
     return SandboxSpec(
         user=user,
         group=group,

@@ -24,6 +24,7 @@ import pytest
 
 from noust.core import paths
 from noust.core import runner as runner_module
+from noust.core.exceptions import ConfigError
 from noust.core.runner import (
     EXIT_NOT_FOUND,
     EXIT_SANDBOX_FAILED,
@@ -383,7 +384,7 @@ class TestSandboxArgv:
             build_spec(writable_paths=(Path(path),))
 
     def test_an_account_or_network_it_cannot_express_is_refused(self) -> None:
-        with pytest.raises(ValueError, match="account"):
+        with pytest.raises(ConfigError, match="account"):
             SandboxSpec(user="root; rm")
         with pytest.raises(ValueError, match="network"):
             SandboxSpec(user="noust-build", network="host")  # type: ignore[arg-type]

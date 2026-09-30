@@ -34,7 +34,7 @@ import socket
 import threading
 import time
 import uuid
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -751,6 +751,7 @@ class AuditLog:
         result: str | None = None,
         actor: str | None = None,
         category: str | None = None,
+        categories: Collection[str] | None = None,
         correlation_id: str | None = None,
         target: str | None = None,
         since: str | None = None,
@@ -765,7 +766,13 @@ class AuditLog:
             action: Only this exact event.
             result: Only this exact outcome.
             actor: Only this exact actor label.
-            category: Only this catalog category.
+            category: Only this catalog category (see :func:`category_of`).
+            categories: Only events of one of these categories, the way the
+                console's views read the log: a request's generic line
+                (``api.post``...) is then left out when its request recorded
+                an event of its own, which is filed where it belongs. Without
+                that, a sign-in's generic line, a ``change``, would stand in
+                for the sign-in in a view that leaves sign-ins out.
             correlation_id: Only events of this request, command or job.
             target: Only events on this exact target.
             since: Only events at or after this ``ts``; reading stops there.
@@ -773,29 +780,75 @@ class AuditLog:
         Returns:
             Up to ``limit`` events.
         """
+        wanted = frozenset(categories) if categories is not None else None
         matched: list[dict[str, Any]] = []
+        # Request lines still waiting to learn whether their request described
+        # itself: the endpoint's own events are written before the generic
+        # line, so they are found further down the log. Keyed by correlation id.
+        pending: dict[str, tuple[dict[str, Any], datetime | None]] = {}
+        described: set[int] = set()
         for entry in self.iter_newest_first():
             timestamp = str(entry.get("ts", ""))
             if since is not None and timestamp < since:
                 break
             if before is not None and not timestamp < before:
                 continue
+            if pending:
+                self._settle_requests(entry, pending, described)
             if action is not None and entry.get("action") != action:
                 continue
             if result is not None and entry.get("result") != result:
                 continue
             if actor is not None and entry.get("actor") != actor:
                 continue
-            if category is not None and entry.get("cat") != category:
+            if category is not None and category_of(entry) != category:
+                continue
+            if wanted is not None and category_of(entry) not in wanted:
                 continue
             if correlation_id is not None and entry.get("corr") != correlation_id:
                 continue
             if target is not None and entry.get("resource") != target:
                 continue
             matched.append(entry)
-            if len(matched) >= limit:
+            correlation = entry.get("corr")
+            if wanted is not None and _is_request_line(entry) and isinstance(correlation, str):
+                pending[correlation] = (entry, _parse_ts(entry.get("ts")))
+            if _page_settled(matched, described, pending, limit):
                 break
-        return matched
+        return [entry for entry in matched if id(entry) not in described][:limit]
+
+    @staticmethod
+    def _settle_requests(
+        entry: dict[str, Any],
+        pending: dict[str, tuple[dict[str, Any], datetime | None]],
+        described: set[int],
+    ) -> None:
+        """
+        Settle the request lines an older event decides.
+
+        Args:
+            entry: The event just read, older than every pending line.
+            pending: Request lines not settled yet, by correlation id; the
+                settled ones are removed.
+            described: ``id()`` of the request lines to leave out; grows.
+        """
+        correlation = entry.get("corr")
+        if (
+            isinstance(correlation, str)
+            and correlation in pending
+            and not _is_request_line(entry)
+            # A host action the request caused is a consequence, not a
+            # description of it: a request with only those stays itself.
+            and category_of(entry) != "host"
+        ):
+            line, _ = pending.pop(correlation)
+            described.add(id(line))
+        moment = _parse_ts(entry.get("ts"))
+        if moment is None:
+            return
+        for key, (_, written) in list(pending.items()):
+            if written is None or written - moment > REQUEST_WINDOW:
+                del pending[key]
 
     def find(self, key: str) -> dict[str, Any] | None:
         """
@@ -892,6 +945,71 @@ class AuditLog:
             for path in doomed:
                 fs.remove(path)
         return report
+
+
+# -- reading ----------------------------------------------------------------
+
+#: How far below a request's generic line the events its endpoint recorded
+#: are looked for. A request the console answers takes seconds; this bounds
+#: how much of the log past a page is read to settle one.
+REQUEST_WINDOW = timedelta(minutes=1)
+
+
+def category_of(entry: dict[str, Any]) -> str:
+    """
+    The category an event is filed under.
+
+    Args:
+        entry: An event as the log stores it, 3.0 or 3.1.
+
+    Returns:
+        Its catalog category (``cat``). A 3.0 line has none: the sign-in
+        family (``auth.*``, ``ws.*``) is ``access``, the rest ``change``.
+    """
+    category = entry.get("cat")
+    if isinstance(category, str) and category:
+        return category
+    action = str(entry.get("action", ""))
+    return "access" if action.startswith(("auth.", "ws.")) else "change"
+
+
+def _is_request_line(entry: dict[str, Any]) -> bool:
+    """Whether an event is the console's generic record of a mutating request."""
+    return str(entry.get("action", "")).startswith("api.")
+
+
+def _page_settled(
+    matched: list[dict[str, Any]],
+    described: set[int],
+    pending: dict[str, tuple[dict[str, Any], datetime | None]],
+    limit: int,
+) -> bool:
+    """
+    Whether the first ``limit`` events kept are final.
+
+    Args:
+        matched: The events matched so far, newest first.
+        described: ``id()`` of the request lines left out.
+        pending: Request lines not settled yet.
+        limit: The page size.
+
+    Returns:
+        True once a page's worth is kept and none of it may still be left
+        out; a pending line past the page cannot change it.
+    """
+    if len(matched) - len(described) < limit:
+        return False
+    unsettled = {id(line) for line, _ in pending.values()}
+    kept = 0
+    for entry in matched:
+        if id(entry) in described:
+            continue
+        if id(entry) in unsettled:
+            return False
+        kept += 1
+        if kept >= limit:
+            return True
+    return False
 
 
 # -- file helpers -----------------------------------------------------------
