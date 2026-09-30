@@ -2,7 +2,7 @@ Format: 1.0
 Source: noust
 Binary: noust
 Architecture: all
-Version: 3.1.4-1
+Version: 3.1.5-1
 Maintainer: Yago López Prado <yago.lopez.adeje@gmail.com>
 Homepage: https://github.com/Perkybeet/noust
 Standards-Version: 4.6.0
@@ -10,4 +10,4 @@ Build-Depends: debhelper-compat (= 13), dh-python, pybuild-plugin-pyproject, pyt
 Package-List:
  noust deb admin optional arch=all
 Files:
- 00000000000000000000000000000000 0 noust-3.1.4.tar.gz
+ 00000000000000000000000000000000 0 noust-3.1.5.tar.gz

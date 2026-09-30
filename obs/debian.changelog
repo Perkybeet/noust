@@ -1,3 +1,13 @@
+noust (3.1.5-1) unstable; urgency=medium
+
+  * The Docker firewall check no longer counts a DOCKER-USER rule that names the host port with --dport: Docker has already translated it, so it filtered nothing where host and container ports differ; --ctorigdstport and --ctdir are read
+  * IPv6 publications on a server without an IPv6 default route are not reported as exposed
+  * Static sites no longer count as building as root in ENS-BLD-01
+  * The sandbox trial reads the commit of an in-place tree owned by the service's user (git's dubious ownership)
+  * app sandbox status, user list, user exception list, notify telegram-chats and github installations (without --sync) need no --reason under ens-medium
+
+ -- Yago Lopez Prado <yago.lopez.adeje@gmail.com>  Wed, 30 Sep 2026 19:41:37 +0000
+
 noust (3.1.4-1) unstable; urgency=medium
 
   * Sign in in two steps, with username or email; the lockout no longer locks everyone behind an SSH tunnel
