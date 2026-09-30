@@ -196,6 +196,8 @@ MONITOR_UNIT = f"{UNIT_PREFIX}monitor"
 PREVIEWS_UNIT = f"{UNIT_PREFIX}previews"
 CRON_UNIT_PREFIX = f"{UNIT_PREFIX}cron-"
 BACKUP_UNIT_PREFIX = f"{UNIT_PREFIX}backup-"
+#: The transient unit noust-monitor has systemd run the hardening checks in.
+SECURITY_CHECKS_UNIT = f"{UNIT_PREFIX}security-checks"
 
 LEGACY_WEB_UNIT = f"{LEGACY_UNIT_PREFIX}web"
 LEGACY_MONITOR_UNIT = f"{LEGACY_UNIT_PREFIX}monitor"

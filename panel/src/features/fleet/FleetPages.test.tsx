@@ -147,6 +147,8 @@ describe("the fleet's views", () => {
     const updates = await rows("Updates of every server");
     expect(within(await rowOf(updates, "web-2")).getByText("3 for security")).toBeInTheDocument();
     expect(within(await rowOf(updates, "db-1")).getByText("Update available")).toBeInTheDocument();
+    expect(within(await rowOf(updates, "old-1")).getByText("Package index behind")).toBeInTheDocument();
+    expect(within(await rowOf(updates, "old-1")).getByText("1.8.0 → 2.1.0")).toBeInTheDocument();
 
     await act(() => router.navigate({ to: "/fleet/activity" }));
     const activity = await rows("What happened lately on every server");

@@ -1,5 +1,5 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
@@ -107,6 +107,21 @@ describe("an application's page", () => {
     await waitFor(() => {
       expect(location().pathname).toBe(`/apps/${DOMAIN}/diagnose`);
     });
+  });
+
+  it("switches sections where the operator is: the page does not jump to the top", async () => {
+    const { user, location } = await appAt();
+    const tabs = await screen.findByRole("navigation", { name: "Application sections" });
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    try {
+      await user.click(within(tabs).getByRole("link", { name: "Deployments" }));
+      await waitFor(() => {
+        expect(location().pathname).toBe(`/apps/${DOMAIN}/deployments`);
+      });
+      expect(scrollTo).not.toHaveBeenCalled();
+    } finally {
+      scrollTo.mockRestore();
+    }
   });
 
   it("keeps Update in view on a phone and moves Restart into the menu", async () => {

@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { inPlace } from "../../../app/searchNavigation";
 import { ServersSettings } from "../../../features/settings/servers/ServersSettings";
 
 interface ServersSearch {
@@ -23,7 +24,7 @@ function ServersRoute() {
   return (
     <ServersSettings
       adding={add === true}
-      onAddingChange={(adding) => void navigate({ search: adding ? { add: true } : {}, replace: true })}
+      onAddingChange={(adding) => void navigate({ search: adding ? { add: true } : {}, ...inPlace({ replace: true }) })}
     />
   );
 }

@@ -80,7 +80,8 @@ function AccountForm({ accountRole, submitLabel, onCreated }: AccountFormProps) 
         <Input
           ref={usernameRef}
           mono
-          autoComplete="off"
+          // With the new password below, a password manager saves what this account signs in with.
+          autoComplete="username"
           autoCapitalize="off"
           spellCheck={false}
           maxLength={64}

@@ -120,6 +120,7 @@ export const server = {
     updatesChecked: "Checked {when}",
     security: "Security",
     notChecked: "Not checked yet",
+    checking: "Checking",
     noFindings: "No findings",
     findings: { one: "{count} finding", other: "{count} findings" },
     findingsDetail: "{critical} critical · {warning} warnings · {passed} passed",
@@ -316,7 +317,9 @@ export const server = {
   security: {
     summary: "{critical} critical, {warning} warnings, {passed} passed",
     checked: "checked {when}",
-    notChecked: "The checks have not run yet.",
+    checking: "Checking the server's security",
+    checkingAgain: "Checking again",
+    notChecked: "The checks could not run. Run them again to see why.",
     summaryFailed: "Could not read the last checks.",
     runChecks: "Run the checks again",
     viewsLabel: "Security view",

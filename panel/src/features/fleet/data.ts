@@ -240,7 +240,17 @@ export function countsOf(row: FleetRow, key: "apps" | "units"): Counts | null {
   return { running: read("running"), failed: read("failed"), stopped: read("stopped"), static: read("static") };
 }
 
-export type NoustUpdateState = "up_to_date" | "update_available" | "on_the_way" | "unknown";
+export type NoustUpdateState = "up_to_date" | "update_available" | "index_behind" | "on_the_way" | "unknown";
+
+const NOUST_STATES: ReadonlySet<string> = new Set<NoustUpdateState>(["up_to_date", "update_available", "index_behind", "on_the_way"]);
+
+/**
+ * Whether a server's Noust can be updated from the fleet: its index lists a newer one, or has not
+ * seen one yet (the update refreshes the index before it installs).
+ */
+export function noustUpdatable(state: NoustUpdateState): boolean {
+  return state === "update_available" || state === "index_behind";
+}
 
 export interface NoustVersion {
   current: string | null;
@@ -257,7 +267,7 @@ export function noustOf(row: FleetRow): NoustVersion {
   return {
     current: text(noust["current_version"]) ?? text(row["version"]),
     latest: text(noust["latest_version"]) ?? text(noust["published_version"]),
-    state: state === "up_to_date" || state === "update_available" || state === "on_the_way" ? state : "unknown",
+    state: typeof state === "string" && NOUST_STATES.has(state) ? (state as NoustUpdateState) : "unknown",
     command: text(noust["update_command"]),
     method: text(noust["method"]),
   };

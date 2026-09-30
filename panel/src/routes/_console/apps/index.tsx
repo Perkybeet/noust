@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { inPlace } from "../../../app/searchNavigation";
 import { AppsPage } from "../../../features/apps/AppsPage";
 import { validateAppsSearch } from "../../../features/apps/filters";
 
@@ -13,6 +14,6 @@ function ApplicationsRoute() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   return (
-    <AppsPage search={search} onSearchChange={(next, options) => void navigate({ search: next, replace: options?.replace ?? false })} />
+    <AppsPage search={search} onSearchChange={(next, options) => void navigate({ search: next, ...inPlace(options) })} />
   );
 }

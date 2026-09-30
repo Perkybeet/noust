@@ -71,10 +71,10 @@ export const accounts: Catalog<typeof en> = {
   },
   fields: {
     username: "Usuario",
-    usernameHint: "Minúsculas, dígitos, puntos, guiones y guiones bajos. No se puede cambiar.",
+    usernameHint: "Lo que la persona escribe para iniciar sesión: minúsculas, dígitos, puntos, guiones y guiones bajos. No se puede cambiar.",
     displayName: "Nombre",
     person: "Correo",
-    personHint: "De quién es la cuenta: dos cuentas de una misma persona no pueden tener roles que se contradicen.",
+    personHint: "Identifica a la persona, para distinguir las cuentas de una misma persona. También sirve para iniciar sesión mientras solo una cuenta lo tenga.",
     role: "Rol",
   },
   invite: {

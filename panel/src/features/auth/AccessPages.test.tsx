@@ -113,7 +113,13 @@ describe("the first accounts", () => {
     const { user, container, location } = renderConsole("/setup?next=%2Fbackups");
     await screen.findByRole("heading", { level: 1, name: "Create the first account" });
     await expectNoAxeViolations(container, { page: true });
-    await user.type(screen.getByLabelText(/^Username/), "ana");
+    // What each field is for, where it is typed: the username signs in, the email is the person.
+    const username = screen.getByLabelText(/^Username/);
+    expect(username).toHaveAccessibleDescription(/^What you type to sign in/);
+    expect(username).toHaveAttribute("autocomplete", "username");
+    expect(screen.getByLabelText(/^Email/)).toHaveAccessibleDescription(/^Identifies the person, to keep one person's accounts apart\./);
+    expect(screen.getByLabelText(/^Password/)).toHaveAttribute("autocomplete", "new-password");
+    await user.type(username, "ana");
     await user.type(screen.getByLabelText(/^Email/), "ana@example.com");
     await user.type(screen.getByLabelText(/^Password/), "a long passphrase here");
     await user.click(screen.getByRole("button", { name: "Create administrator" }));
@@ -163,6 +169,10 @@ describe("an invitation", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Set up your account" })).toBeInTheDocument();
     expect(screen.getByText("Noust:fer@web-01")).toBeInTheDocument();
     await expectNoAxeViolations(container, { page: true });
+    // The new password is saved under the name it signs in with, not whatever the manager guesses.
+    expect(container.querySelector('input[autocomplete="username"]')).toHaveValue("fer");
+    expect(screen.getByLabelText(/^Password$/)).toHaveAttribute("autocomplete", "new-password");
+    expect(screen.getByLabelText("Authentication code")).toHaveAttribute("autocomplete", "one-time-code");
     await user.type(screen.getByLabelText(/^Password$/), "a long passphrase here");
     await user.type(screen.getByLabelText("Password again"), "a different one");
     await user.type(screen.getByLabelText("Authentication code"), "123456");

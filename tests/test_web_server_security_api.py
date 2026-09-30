@@ -71,6 +71,7 @@ def fresh() -> None:
     host_module.reset_platform_cache()
     security_checks.forget_report()
     yield
+    security_checks.wait_for_refresh(timeout=30)
     host_module.reset_platform_cache()
     security_checks.forget_report()
 
@@ -158,10 +159,15 @@ class TestReads:
         check = next(item for item in body["checks"] if item["id"] == "ssh.password_auth")
         assert check["status"] == "warn" and check["fix"]["kind"] == "guided"
 
-    def test_the_overview_before_any_run_says_so(self, client):
+    def test_the_overview_before_any_run_starts_them_and_says_so(self, client):
         body = client.get(PREFIX).json()
 
         assert body["checked_at"] is None and body["pending"] == []
+        assert body["checking"] is True
+        assert security_checks.wait_for_refresh(timeout=30)
+        after = client.get(PREFIX).json()
+        assert after["checking"] is False
+        assert after["checked_at"] is not None and after["counts"] is not None
 
     def test_an_unknown_fix_is_404(self, client):
         assert client.get(f"{PREFIX}/ssh/fixes/open-sesame").status_code == 404

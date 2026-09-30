@@ -377,6 +377,44 @@ class TestRefreshAndRepair:
         assert lines[0].startswith("Err:3")
         assert "Could not resolve host" in (raised.value.output or "")
 
+    def test_a_refresh_makes_the_noust_update_check_look_again(
+        self, host, fs, records, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        A fresh index may list the Noust the cached check said it had not seen:
+        the CLI's `noust server updates refresh` and the console's refresh both
+        land here, so both are followed by a new look.
+        """
+        from noust.core.update_checker import UpdateChecker
+
+        forgotten: list[bool] = []
+        monkeypatch.setattr(
+            UpdateChecker, "forget", classmethod(lambda cls: forgotten.append(True))
+        )
+        runner = FakeRunner()
+        runner.script(["apt-get", "update"], stdout="Hit:1 http://mirror.example.com noble\n")
+
+        _manager(runner, host, fs, records).refresh(lambda line: None)
+
+        assert forgotten == [True]
+
+    def test_a_failed_refresh_keeps_the_noust_update_check(
+        self, host, fs, records, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from noust.core.update_checker import UpdateChecker
+
+        forgotten: list[bool] = []
+        monkeypatch.setattr(
+            UpdateChecker, "forget", classmethod(lambda cls: forgotten.append(True))
+        )
+        runner = FakeRunner()
+        runner.script(["apt-get", "update"], stdout="Err:3", exit_code=100)
+
+        with pytest.raises(ServerError):
+            _manager(runner, host, fs, records).refresh(lambda line: None)
+
+        assert forgotten == []
+
     def test_repair_runs_dpkg_then_apt_and_reports_what_ran(self, host, fs, records) -> None:
         runner = FakeRunner()
         manager = _manager(runner, host, fs, records)

@@ -57,8 +57,9 @@ jobs:
       - name: Install project
         run: pip install -e ".[all,dev]"
 
+      # One worker per vCPU; see the test job in ci.yml for why not `auto`.
       - name: Run tests
-        run: pytest
+        run: pytest -n logical
 
       # A tag whose version does not match the files is a release nobody can
       # reproduce, and the distribution packages would carry the wrong number.

@@ -23,6 +23,7 @@ import json
 import os
 import shutil
 import sys
+import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -658,6 +659,85 @@ def test_a_rehearsed_enable_writes_nothing_and_issues_no_token(
     assert not runner.ran("systemctl", "restart")
 
 
+def _configured_web() -> tuple[Any, Any]:
+    """
+    Read ``web.host`` and ``web.port`` back from config.yaml, as another process would.
+
+    Returns:
+        The two values.
+    """
+    from noust.core.config import Config
+
+    Config.reset_instance()
+    config = Config()
+    return config.get("web.host"), config.get("web.port")
+
+
+def test_enable_records_where_the_console_listens_in_the_configuration(
+    cli_runner: CliRunner,
+    systemd_up: FakeRunner,
+    listening: dict[str, Any],
+) -> None:
+    """
+    From the owner's server: Docker held 8080, the console was enabled on 8081,
+    config.yaml still said 8080, and the security check blamed the console for
+    Docker's port. What enable writes into the unit is what the file says.
+    """
+    result = cli_runner.invoke(web.cli, ["enable", "--port", "8081"])
+
+    assert result.exit_code == 0, result.output
+    assert _configured_web() == ("127.0.0.1", 8081)
+
+
+def test_a_rehearsed_enable_leaves_the_configuration_alone(
+    cli_runner: CliRunner,
+    runner: FakeRunner,
+    listening: dict[str, Any],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A rehearsal records nothing, the port included."""
+    monkeypatch.setattr("noust.cli.app.SubprocessRunner", lambda: runner)
+
+    result = cli_runner.invoke(web.cli, ["enable", "--port", "8081", "--dry-run"])
+
+    assert result.exit_code == 0, result.output
+    assert not (tmp_path / "config.yaml").exists()
+
+
+def test_the_service_start_records_its_host_and_port(
+    cli_runner: CliRunner,
+    systemd_up: FakeRunner,
+    unit_dirs: dict[str, Path],
+    served: dict[str, Any],
+) -> None:
+    """
+    A unit written before enable recorded anything corrects the file the next
+    time it starts: the options it runs with are the truth.
+    """
+    _installed_unit(unit_dirs)
+
+    result = cli_runner.invoke(
+        web.cli, ["start", "--under-systemd", "--host", "127.0.0.1", "--port", "8081"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert _configured_web() == ("127.0.0.1", 8081)
+
+
+def test_a_foreground_start_does_not_rewrite_the_configuration(
+    cli_runner: CliRunner,
+    runner: FakeRunner,
+    served: dict[str, Any],
+    tmp_path: Path,
+) -> None:
+    """A console started by hand for a while is not where the service listens."""
+    result = cli_runner.invoke(web.cli, ["start", "--port", "9000"])
+
+    assert result.exit_code == 0, result.output
+    assert not (tmp_path / "config.yaml").exists()
+
+
 # ---------------------------------------------------------------------------
 # noust web disable
 # ---------------------------------------------------------------------------
@@ -1032,3 +1112,208 @@ def test_install_unit_still_rewrites_its_own_unit_when_no_application_claims_it(
         assert "/bin/false" in path.read_text()
     finally:
         NoustStore.reset_instance()
+
+
+# ---------------------------------------------------------------------------
+# A restart that finds the port busy
+# ---------------------------------------------------------------------------
+
+
+def _free_loopback_port() -> int:
+    """
+    Ask the kernel for a loopback port nothing uses.
+
+    Returns:
+        The port.
+    """
+    import socket
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.bind(("127.0.0.1", 0))
+        return int(probe.getsockname()[1])
+
+
+@pytest.mark.allow_sockets
+def test_the_port_probe_sees_a_listener() -> None:
+    import socket
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listener.bind(("127.0.0.1", 0))
+        listener.listen()
+        port = listener.getsockname()[1]
+
+        assert web._port_in_use("127.0.0.1", port) is True
+
+
+@pytest.mark.allow_sockets
+def test_the_port_probe_ignores_connections_the_previous_console_closed() -> None:
+    """
+    The production defect: after a restart the port had no listener, only the
+    connections the old console closed, in TIME_WAIT for a minute. uvicorn
+    binds with SO_REUSEADDR and would have served; the probe said "something
+    is already listening" five times in a row and systemd gave up.
+    """
+    import socket
+
+    port = _free_loopback_port()
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    listener.bind(("127.0.0.1", port))
+    listener.listen()
+    client = socket.create_connection(("127.0.0.1", port))
+    accepted, _ = listener.accept()
+    # The server closes first, as uvicorn does at shutdown: its end waits.
+    accepted.close()
+    time.sleep(0.1)
+    client.close()
+    listener.close()
+
+    plain = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        plain.bind(("127.0.0.1", port))
+    except OSError:
+        pass
+    else:
+        pytest.skip("this kernel left no TIME_WAIT behind to test against")
+    finally:
+        plain.close()
+
+    assert web._port_in_use("127.0.0.1", port) is False
+
+
+@pytest.mark.allow_sockets
+def test_the_port_probe_finds_a_free_port_free() -> None:
+    assert web._port_in_use("127.0.0.1", _free_loopback_port()) is False
+
+
+def test_the_unit_rides_out_a_busy_port_and_still_gives_up_on_a_hopeless_start(
+    cli_runner: CliRunner,
+    systemd_up: FakeRunner,
+    listening: dict[str, Any],
+    unit_dirs: dict[str, Path],
+) -> None:
+    """
+    Five tries five seconds apart spanned 25 seconds, less than the minute a
+    closed connection holds its port: an upgrade left the console down. The
+    retries now span more than that, and still end inside the interval.
+    """
+    cli_runner.invoke(web.cli, ["enable"])
+    unit = (unit_dirs["managed"] / "noust-web.service").read_text()
+    directives = {
+        line.split("=", 1)[0]: line.split("=", 1)[1]
+        for line in unit.splitlines()
+        if "=" in line and not line.startswith("#")
+    }
+
+    restart_sec = int(directives["RestartSec"])
+    burst = int(directives["StartLimitBurst"])
+    interval = int(directives["StartLimitIntervalSec"])
+    assert directives["Restart"] == "on-failure"
+    assert restart_sec * (burst - 1) >= 90
+    assert restart_sec * burst < interval, "a hopeless start must still end in failed"
+
+
+def test_the_service_start_waits_for_its_previous_instance_to_let_go(
+    cli_runner: CliRunner,
+    systemd_up: FakeRunner,
+    unit_dirs: dict[str, Path],
+    served: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    answers = iter([True, True, True, False])
+    monkeypatch.setattr(web, "_port_in_use", lambda host, port: next(answers, False))
+    monkeypatch.setattr(web, "_console_holds_port", lambda host, port: True)
+    _installed_unit(unit_dirs)
+
+    result = cli_runner.invoke(
+        web.cli, ["start", "--under-systemd", "--host", "127.0.0.1", "--port", "8081"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert served["port"] == 8081
+
+
+def test_the_service_start_does_not_wait_for_something_else(
+    cli_runner: CliRunner,
+    systemd_up: FakeRunner,
+    unit_dirs: dict[str, Path],
+    served: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    asked: list[int] = []
+
+    def in_use(host: str, port: int) -> bool:
+        asked.append(port)
+        return port == 8081
+
+    monkeypatch.setattr(web, "_port_in_use", in_use)
+    monkeypatch.setattr(web, "_console_holds_port", lambda host, port: False)
+    _installed_unit(unit_dirs)
+
+    result = cli_runner.invoke(
+        web.cli, ["start", "--under-systemd", "--host", "127.0.0.1", "--port", "8081"]
+    )
+
+    assert result.exit_code == 1
+    assert "Something is already listening on 127.0.0.1:8081" in result.output
+    assert asked.count(8081) <= 3, "it looked once more, it did not wait"
+    assert served == {}
+
+
+def test_the_service_start_stops_waiting_for_a_console_that_never_lets_go(
+    cli_runner: CliRunner,
+    systemd_up: FakeRunner,
+    unit_dirs: dict[str, Path],
+    served: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(web, "PORT_RELEASE_WAIT", 0.2)
+    monkeypatch.setattr(web, "_port_in_use", lambda host, port: port == 8081)
+    monkeypatch.setattr(web, "_console_holds_port", lambda host, port: True)
+    _installed_unit(unit_dirs)
+
+    result = cli_runner.invoke(
+        web.cli, ["start", "--under-systemd", "--host", "127.0.0.1", "--port", "8081"]
+    )
+
+    assert result.exit_code == 1
+    assert "Something is already listening on 127.0.0.1:8081" in result.output
+    assert served == {}
+
+
+def test_a_foreground_start_does_not_wait_for_the_port(
+    cli_runner: CliRunner,
+    runner: FakeRunner,
+    served: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An operator at a terminal is told at once; only the service rides it out."""
+    holds: list[int] = []
+    monkeypatch.setattr(web, "_port_in_use", lambda host, port: port == 9000)
+    monkeypatch.setattr(web, "_console_holds_port", lambda host, port: holds.append(port) or True)
+
+    result = cli_runner.invoke(web.cli, ["start", "--port", "9000"])
+
+    assert result.exit_code == 1
+    assert holds == []
+    assert served == {}
+
+
+@pytest.mark.parametrize(
+    ("cmdline", "cgroup", "expected"),
+    [
+        (["/usr/bin/python3", "/usr/bin/noust", "web", "start", "--under-systemd"], "", True),
+        (["/usr/bin/wasm", "web", "start", "-d"], "", True),
+        (["/usr/bin/sshd", "-D"], "0::/system.slice/noust-web.service\n", True),
+        (["/usr/bin/ssh", "-N"], "0::/system.slice/wasm-web.service\n", True),
+        (["/usr/sbin/nginx"], "0::/system.slice/nginx.service\n", False),
+        (["/usr/bin/noust", "web", "status"], "", False),
+        (["/usr/bin/python3", "-m", "http.server", "8081"], "", False),
+        ([], "", False),
+    ],
+)
+def test_a_holder_is_the_console_by_its_command_or_its_unit(
+    cmdline: list[str], cgroup: str, expected: bool
+) -> None:
+    assert web._is_console_process(cmdline, cgroup) is expected

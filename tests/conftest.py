@@ -146,6 +146,43 @@ def ports(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> Po
 
 
 @pytest.fixture(autouse=True)
+def isolated_home(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> Path:
+    """
+    Give every test a home directory of its own, empty and outside ``tmp_path``.
+
+    The observation store, the metrics database, the per-user store, cache and
+    state directories all default to ``Path.home()`` when they are asked. With
+    one shared home a test run wrote into the developer's real
+    ``~/.local/share/noust``, and under ``pytest -n`` the workers opened the
+    same ``metrics.db`` and saw each other's rows. It is a sibling of
+    ``tmp_path`` rather than a child so tests that list ``tmp_path`` still
+    find only what they wrote; the ``sandbox`` fixture still points ``HOME``
+    at ``tmp_path`` for the tests that want that.
+
+    Args:
+        tmp_path_factory: Session temporary directory factory.
+        monkeypatch: Patching helper, scoped to the test.
+
+    Returns:
+        The home directory.
+    """
+    home = tmp_path_factory.mktemp("home")
+    monkeypatch.setenv("HOME", str(home))
+    for variable in ("XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_STATE_HOME"):
+        monkeypatch.delenv(variable, raising=False)
+    # Resolved when the class was defined, so it still names the real home:
+    # a package-index refresh under test forgets the check by removing it.
+    from noust.core.update_checker import UpdateChecker
+
+    monkeypatch.setattr(
+        UpdateChecker, "CACHE_FILE", home / ".cache" / "noust" / "version_check.json"
+    )
+    return home
+
+
+@pytest.fixture(autouse=True)
 def isolated_store_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """
     Point the store's default locations inside the test's own directory.

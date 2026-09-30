@@ -16,6 +16,7 @@ from noust.web.permissions import PUBLIC, Permission
 
 ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/auth/login"): PUBLIC,
+    ("POST", "/api/auth/login/second-factor"): PUBLIC,
     ("GET", "/api/auth/session"): PUBLIC,
     ("POST", "/api/auth/invitations/open"): PUBLIC,
     ("POST", "/api/auth/invitations/accept"): PUBLIC,

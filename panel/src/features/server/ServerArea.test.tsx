@@ -15,6 +15,7 @@ import type { RouteHandler } from "../../test/fakes";
 import {
   PLAN,
   POWER,
+  SECURITY,
   SUMMARY,
   onDesktop,
   pendingChange,
@@ -495,6 +496,32 @@ describe("the Security tab", () => {
         "noust fleet access --level admin --host-access on",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("runs the checks nobody ran yet, says so while they run, then shows how long ago", async () => {
+    let reads = 0;
+    server("/server/security", {
+      // The first read finds no report and starts the checks; the next finds them done.
+      "GET /api/server/security": () => {
+        reads += 1;
+        return reads === 1
+          ? json(200, { checked_at: null, counts: null, attention: [], pending: [], checking: true })
+          : json(200, SECURITY);
+      },
+    });
+    expect(await screen.findByText("Checking the server's security")).toBeInTheDocument();
+    expect(screen.queryByText(/could not run/)).not.toBeInTheDocument();
+    expect(await screen.findByText("2 critical, 1 warnings, 22 passed", { exact: false }, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.queryByText("Checking the server's security")).not.toBeInTheDocument();
+    expect(screen.getByText(/checked/)).toBeInTheDocument();
+  });
+
+  it("keeps the last counts on screen while the checks run again", async () => {
+    server("/server/security", {
+      "GET /api/server/security": () => json(200, { ...SECURITY, checking: true }),
+    });
+    expect(await screen.findByText("Checking again")).toBeInTheDocument();
+    expect(screen.getByText("2 critical, 1 warnings, 22 passed", { exact: false })).toBeInTheDocument();
   });
 
   it("has no accessibility violations in any view", async () => {

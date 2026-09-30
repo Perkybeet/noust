@@ -26,6 +26,7 @@ else and cannot confirm with a factor it does not have yet.
 
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime, timezone
 from typing import Any
 
@@ -42,8 +43,14 @@ from noust.core.accounts.passkeys import (
     resolve_relying_party,
 )
 from noust.core.accounts.webauthn import WebAuthnError
-from noust.web.api.auth import ElevateResponse, LoginResponse, set_session_cookies
-from noust.web.api.auth_accounts import AccountInfo
+from noust.web.api.auth import (
+    SIGN_IN_EXPIRED,
+    ElevateResponse,
+    LoginResponse,
+    account_signed_in,
+    login_failure,
+    set_session_cookies,
+)
 from noust.web.api.deps import NoustErrorRoute, ensure_elevated
 from noust.web.auth import (
     audit_event,
@@ -192,9 +199,13 @@ class LoginOptionsRequest(BaseModel):
 
     Attributes:
         conditional: For the autofill (conditional UI) flavour.
+        challenge: The second step a right password opened
+            (``second_factor.challenge``): the options then offer that
+            account's passkeys only, and the sign-in they start finishes it.
     """
 
     conditional: bool = False
+    challenge: str | None = Field(default=None, max_length=128)
 
 
 class CredentialBody(BaseModel):
@@ -215,9 +226,13 @@ class PasskeyLoginRequest(CredentialBody):
     Attributes:
         bearer: Also return the session token in the body, for clients
             without a cookie jar.
+        challenge: The second step the options were asked for, when this
+            finishes a sign-in whose password was right: only that account's
+            passkey is accepted then, and the step is spent.
     """
 
     bearer: bool = False
+    challenge: str | None = Field(default=None, max_length=128)
 
 
 class PasskeyRegistrationRequest(CredentialBody):
@@ -709,7 +724,10 @@ def login_options(request: Request, body: LoginOptionsRequest) -> CeremonyOption
     Start a sign-in with a passkey. Anonymous, and writes nothing.
 
     The options list no credential: the passkey says whose it is, so nobody
-    types a name and nobody can ask which names have passkeys.
+    types a name and nobody can ask which names have passkeys. The second
+    step of a sign-in whose password was right is the exception: the options
+    list that account's passkeys, which only the person who knows its
+    password learns.
 
     Args:
         request: The request.
@@ -720,10 +738,16 @@ def login_options(request: Request, body: LoginOptionsRequest) -> CeremonyOption
 
     Raises:
         HTTPException: ``passkeys_<reason>`` when passkeys cannot work from
-            this page.
+            this page; 401 ``sign_in_expired`` for a second step no longer open.
     """
     rp = _party(request)
-    options = passkeys().authentication_options(rp, purpose="login", binding="", any_owner=True)
+    if body.challenge is None:
+        options = passkeys().authentication_options(rp, purpose="login", binding="", any_owner=True)
+    else:
+        account_id = _second_step_account(request, body.challenge)
+        options = passkeys().authentication_options(
+            rp, purpose="login", binding=_second_step_binding(body.challenge), account_id=account_id
+        )
     return CeremonyOptions(
         public_key=options,
         mediation="conditional" if body.conditional else "optional",
@@ -760,10 +784,26 @@ def login_with_passkey(
     token_manager = get_token_manager()
     client_ip = get_client_ip(request)
     manager = passkeys()
+    step_account = None if body.challenge is None else _second_step_account(request, body.challenge)
     try:
-        passkey = manager.authenticate(
-            rp, body.credential, purpose="login", binding="", client_ip=client_ip, any_owner=True
-        )
+        if body.challenge is None:
+            passkey = manager.authenticate(
+                rp,
+                body.credential,
+                purpose="login",
+                binding="",
+                client_ip=client_ip,
+                any_owner=True,
+            )
+        else:
+            passkey = manager.authenticate(
+                rp,
+                body.credential,
+                purpose="login",
+                binding=_second_step_binding(body.challenge),
+                client_ip=client_ip,
+                account_id=step_account,
+            )
     except WebAuthnError as exc:
         _count_refusal(exc, client_ip, LOGIN_PATH, manager)
         _note_clone(exc, client_ip, None)
@@ -793,33 +833,57 @@ def login_with_passkey(
         )
         raise _refused(WebAuthnError("account", "The account cannot sign in"))
 
-    record = accounts.record_login(account.id, client_ip)
-    get_brute_force().record_success(client_ip)
-    session = token_manager.create_session(client_ip, account_id=account.id, auth_method="passkey")
-    set_session_cookies(response, session, secure=is_secure_request(request))
-    fields = token_manager.account_fields(record.account)
-    audit_event(
-        "auth.passkey.login",
-        "success",
-        client_ip=client_ip,
-        session=fields,
-        target=f"account:{account.username}",
-        detail=f"signed in with the passkey '{passkey.name}'",
+    if body.challenge is not None and not token_manager.spend_login_challenge(body.challenge):
+        # Another request finished this step first: one step, one session.
+        raise login_failure("sign_in_expired", SIGN_IN_EXPIRED)
+    return account_signed_in(
+        request,
+        response,
+        account,
+        bearer=body.bearer,
+        auth_method="passkey",
+        event="auth.passkey.login",
+        detail=f"signed in with the passkey '{passkey.name}'"
+        + (" after the password" if body.challenge is not None else ""),
+        lockout_key=client_ip,
     )
-    return LoginResponse(
-        success=True,
-        expires_in=session.max_age,
-        csrf_token=session.csrf_token,
-        session_token=session.token if body.bearer else None,
-        account=AccountInfo.of(record.account),
-        previous_login_at=_iso(record.previous_login_at),
-        previous_login_ip=record.previous_login_ip,
-        failures_since=record.failures_since,
-        last_failure_at=_iso(record.last_failed_at),
-        last_failure_ip=record.last_failed_ip,
-        mfa_required=bool(fields["mfa_pending"]),
-        notice_pending=bool(fields["notice_pending"]),
-    )
+
+
+def _second_step_account(request: Request, challenge: str) -> int:
+    """
+    Read the account a sign-in's second step belongs to.
+
+    Args:
+        request: The request presenting it.
+        challenge: ``second_factor.challenge``.
+
+    Returns:
+        The account's id.
+
+    Raises:
+        HTTPException: 401 ``sign_in_expired`` when the step is spent,
+            expired or from another address.
+    """
+    account_id = get_token_manager().login_challenge_account(challenge, get_client_ip(request))
+    if account_id is None:
+        raise login_failure("sign_in_expired", SIGN_IN_EXPIRED)
+    return account_id
+
+
+def _second_step_binding(challenge: str) -> str:
+    """
+    Tie a passkey ceremony to the second step it finishes.
+
+    The ceremony's own challenge is signed with this, so options asked for one
+    sign-in cannot finish another, nor an anonymous passkey sign-in.
+
+    Args:
+        challenge: ``second_factor.challenge``.
+
+    Returns:
+        The binding: a digest of the step, never the step itself.
+    """
+    return "sign-in:" + hashlib.sha256(challenge.encode()).hexdigest()
 
 
 def _count_refusal(exc: WebAuthnError, client_ip: str, path: str, manager: PasskeyManager) -> None:

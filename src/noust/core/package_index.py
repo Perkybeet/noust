@@ -116,6 +116,34 @@ FETCH_ERRORS: tuple[type[Exception], ...] = (
 )
 
 
+#: The installation methods whose package manager installs from a local index
+#: the operating system refreshes on its own schedule (apt's lists, dnf's and
+#: zypper's metadata cache): a release reaches the repository before it.
+INDEXED_METHODS: frozenset[str] = frozenset({"apt", "dnf", "yum", "zypper"})
+
+
+@dataclass(frozen=True)
+class Offer:
+    """
+    What the source an installation upgrades from offers.
+
+    Attributes:
+        repository: The newest version the repository itself serves, read from
+            it now; None when it could not be read.
+        index: The newest version this server's package index lists, which is
+            what the package manager installs until the index is refreshed;
+            None where there is no index (pip, a checkout) or it did not answer.
+    """
+
+    repository: str | None = None
+    index: str | None = None
+
+    @property
+    def installable(self) -> str | None:
+        """What an upgrade that refreshes first installs: the repository's, else the index's."""
+        return self.repository if self.repository is not None else self.index
+
+
 # -- versions ---------------------------------------------------------------
 
 
@@ -691,6 +719,22 @@ def apt_latest(runner: CommandRunner, *, sources: Sequence[AptSource] | None = N
         The version, from the repositories themselves when they can be read,
         from ``apt-cache policy`` otherwise; None when neither answers.
     """
+    return apt_offer(runner, sources=sources).installable
+
+
+def apt_offer(runner: CommandRunner, *, sources: Sequence[AptSource] | None = None) -> Offer:
+    """
+    Read what the apt repositories serve and what this server's lists say.
+
+    Args:
+        runner: The :class:`~noust.core.runner.CommandRunner` for the local probes.
+        sources: The apt sources; read from ``/etc/apt`` when omitted.
+
+    Returns:
+        The repositories' newest ``noust`` (None when none could be read) and
+        ``apt-cache policy``'s candidate, which is what ``apt install``
+        installs until the next ``apt update``.
+    """
     policy = runner.run(["apt-cache", "policy", DEB_PACKAGE], timeout=5)
     candidate, table = parse_apt_policy(policy.stdout) if policy.success else (None, "")
     if sources is None:
@@ -714,10 +758,7 @@ def apt_latest(runner: CommandRunner, *, sources: Sequence[AptSource] | None = N
                     logger.debug("Could not read %s: %s", url, exc)
                     continue
                 break
-    online = newest(found)
-    if online is not None:
-        return online
-    return candidate
+    return Offer(repository=newest(found), index=candidate)
 
 
 # -- dnf, yum, zypper -------------------------------------------------------
@@ -870,8 +911,44 @@ def rpm_latest(
     online = newest(rpm_index_latest(url) for url in repositories)
     if online is not None:
         return online
-    # Cache only: a refresh is slow and changes the machine's state, and this
-    # runs on the way to whatever command the operator asked for.
+    return _rpm_cached(runner, manager)
+
+
+def rpm_offer(
+    runner: CommandRunner, manager: str, *, repositories: Sequence[str] | None = None
+) -> Offer:
+    """
+    Read what the rpm repositories serve and what this server's metadata says.
+
+    Args:
+        runner: The :class:`~noust.core.runner.CommandRunner` for the cache probe.
+        manager: ``dnf``, ``yum`` or ``zypper``.
+        repositories: Base URLs; read from the ``*.repo`` files when omitted.
+
+    Returns:
+        The repositories' newest ``noust`` (None when none could be read) and
+        the one the package manager's cached metadata lists.
+    """
+    if repositories is None:
+        repositories = rpm_repositories()
+    online = newest(rpm_index_latest(url) for url in repositories)
+    return Offer(repository=online, index=_rpm_cached(runner, manager))
+
+
+def _rpm_cached(runner: CommandRunner, manager: str) -> str | None:
+    """
+    Read the newest ``noust`` the package manager's cached metadata lists.
+
+    Cache only: a refresh is slow and changes the machine's state, and this
+    runs on the way to whatever command the operator asked for.
+
+    Args:
+        runner: The :class:`~noust.core.runner.CommandRunner` for the probe.
+        manager: ``dnf``, ``yum`` or ``zypper``.
+
+    Returns:
+        The version, or None when the manager is another or does not answer.
+    """
     argv = {
         "dnf": ["dnf", "--cacheonly", "info", "--available", RPM_PACKAGE],
         "yum": ["yum", "--cacheonly", "info", "available", RPM_PACKAGE],
@@ -886,6 +963,30 @@ def rpm_latest(
 # -- dispatch ---------------------------------------------------------------
 
 
+def offer(method: str, runner: CommandRunner) -> Offer:
+    """
+    Read what the source this installation upgrades from offers.
+
+    Args:
+        method: The installation method (see
+            :meth:`~noust.core.update_checker.UpdateChecker._detect_installation_method`).
+        runner: The :class:`~noust.core.runner.CommandRunner` for local probes.
+
+    Returns:
+        What the repository serves and, for a package manager, what this
+        server's index lists.
+    """
+    if method == "apt":
+        return apt_offer(runner)
+    if method in INDEXED_METHODS:
+        return rpm_offer(runner, method)
+    if method == "source":
+        return Offer(repository=github_latest())
+    # pip, pipx, and an installation nothing else claims: what the suggested
+    # `pip install --upgrade noust` would install.
+    return Offer(repository=pypi_latest())
+
+
 def installable_version(method: str, runner: CommandRunner) -> str | None:
     """
     Read the newest version the source this installation upgrades from offers.
@@ -898,12 +999,4 @@ def installable_version(method: str, runner: CommandRunner) -> str | None:
     Returns:
         The version, or None when it cannot be determined.
     """
-    if method == "apt":
-        return apt_latest(runner)
-    if method in ("dnf", "yum", "zypper"):
-        return rpm_latest(runner, method)
-    if method == "source":
-        return github_latest()
-    # pip, pipx, and an installation nothing else claims: what the suggested
-    # `pip install --upgrade noust` would install.
-    return pypi_latest()
+    return offer(method, runner).installable

@@ -488,17 +488,35 @@ _live_processes: set[_SubprocessHandle] = set()
 _live_lock = threading.Lock()
 
 
-def terminate_all_processes() -> None:
+def terminate_all_processes(timeout: float = TERMINATE_TIMEOUT) -> None:
     """
     Stop every long-lived process this interpreter started and still owns.
 
+    Every group is sent SIGTERM at once and given one shared deadline, then
+    whatever is left is killed: one deadline per process would let a console
+    with a dozen tunnels outlast systemd's stop timeout and be killed with
+    its children still running.
+
     Registered with :mod:`atexit`; also safe to call from a server's shutdown
     hook, and more than once.
+
+    Args:
+        timeout: Seconds every process together gets to exit after SIGTERM.
     """
     with _live_lock:
         handles = list(_live_processes)
     for handle in handles:
-        handle.terminate()
+        handle.signal_group(signal.SIGTERM)
+    deadline = time.monotonic() + timeout
+    for handle in handles:
+        handle.wait_until(deadline)
+    for handle in handles:
+        if handle.exit_code is None:
+            handle.signal_group(signal.SIGKILL)
+    for handle in handles:
+        # Reaps, drains standard error and forgets it; quick for every process
+        # that has been sent SIGKILL.
+        handle.terminate(timeout=timeout)
 
 
 atexit.register(terminate_all_processes)
@@ -548,6 +566,27 @@ class _SubprocessHandle(ProcessHandle):
             with _live_lock:
                 _live_processes.discard(self)
         return alive
+
+    def signal_group(self, number: int) -> None:
+        """
+        Send a signal to the process's group while its leader runs.
+
+        Args:
+            number: The signal.
+        """
+        if self._process.poll() is None:
+            with contextlib.suppress(ProcessLookupError, PermissionError):
+                os.killpg(self._process.pid, number)
+
+    def wait_until(self, deadline: float) -> None:
+        """
+        Wait for the process to exit, at most until a monotonic deadline.
+
+        Args:
+            deadline: ``time.monotonic()`` value to give up at.
+        """
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            self._process.wait(timeout=max(0.0, deadline - time.monotonic()))
 
     def stderr_tail(self) -> str:
         if self._process.poll() is not None:
@@ -2327,6 +2366,11 @@ class SubprocessRunner(CommandRunner):
                 # Ctrl+C meant for the CLI in front of it does not reach it
                 # half-way through a request the owner is still making.
                 start_new_session=True,
+                # Nothing of the parent's but the three pipes, whatever a
+                # descriptor's inheritable flag says: a tunnel that kept the
+                # console's listening socket would hold its port after the
+                # console exited. Spelled out because it is load-bearing.
+                close_fds=True,
             )
         except FileNotFoundError:
             return _EndedProcess(redacted, EXIT_NOT_FOUND, f"Command not found: {args[0]}")

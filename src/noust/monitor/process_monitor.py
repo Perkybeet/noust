@@ -94,6 +94,12 @@ DEFAULT_RETENTION_DAYS = 30
 #: an hour instead of once a minute keeps the scan loop to reads.
 PURGE_INTERVAL_SECONDS = 3_600
 
+#: After starting a run of the security checks, how long the monitor leaves it
+#: to finish before starting another: a run takes seconds to a minute (the
+#: package simulation), and a report that could not be kept is not retried
+#: every scan.
+SECURITY_RETRY_SECONDS = 300
+
 #: Filesystem usage from which a disk is called out in the log rather than left
 #: at debug level. Past this, a full disk is a matter of days.
 DISK_ALERT_PERCENT = 90.0
@@ -402,6 +408,8 @@ class ProcessMonitor:
         self._running = False
         # Far enough in the past that the first loop iteration purges once.
         self._last_purge = float("-inf")
+        # When this daemon last had systemd run the security checks.
+        self._security_started = float("-inf")
         # Transition memory for the notifier: a disk over the threshold or a
         # unit down is one event when it crosses, not one per scan, or a
         # sixty second interval becomes a message a minute to every channel.
@@ -887,6 +895,7 @@ class ProcessMonitor:
                     self._log_metrics()
                     self._report_services()
                     self._check_certificates()
+                    self._refresh_security_report()
                     self.scan_once()
                 except NoustError as exc:
                     self.logger.error(f"Scan failed: {exc}")
@@ -932,6 +941,32 @@ class ProcessMonitor:
     def stop(self) -> None:
         """Ask the monitor loop to finish the current interval and exit."""
         self._running = False
+
+    def _refresh_security_report(self) -> None:
+        """
+        Have the hardening checks run when their report is missing, stale or old.
+
+        So the Security tab has a report nobody had to ask for: hourly, and
+        within a scan of a change made to sshd or the firewall. The checks run
+        in a transient unit of their own (see
+        :func:`~noust.managers.server.security_checks.refresh_command`): this
+        daemon's sandbox is read-only for the tools they run.
+        """
+        from noust.managers.server import security_checks
+
+        now = time.time()
+        if now - self._security_started < SECURITY_RETRY_SECONDS:
+            return
+        report = security_checks.cached_report()
+        if report is not None and not report.due(now):
+            return
+        self._security_started = now
+        result = self.runner.run(security_checks.refresh_command(), timeout=60)
+        if not result.success:
+            self.logger.warning(
+                "Could not start the security checks: "
+                + ((result.stderr or result.stdout).strip() or f"exit {result.exit_code}")
+            )
 
     def _purge_old_observations(self) -> None:
         """

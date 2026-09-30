@@ -16,7 +16,7 @@ import { useT } from "../../i18n";
 import type { PlainKey, T } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { useFleetActions } from "./BulkActionDialog";
-import { noustOf, originOf, osUpdatesOf } from "./data";
+import { noustOf, noustUpdatable, originOf, osUpdatesOf } from "./data";
 import type { FleetRow, NodeOutcome, NoustUpdateState } from "./data";
 import { isFiltered, matchesQuery, patchSearch } from "./filters";
 import type { FleetSearch, FleetSearchPatch } from "./filters";
@@ -25,6 +25,7 @@ import { PartialNotice, ServerCell, StateFilter, useFleetView } from "./parts";
 const NOUST_VIEW: Readonly<Record<NoustUpdateState, { state: Status; label: PlainKey }>> = {
   up_to_date: { state: "running", label: "fleet.updates.noust.upToDate" },
   update_available: { state: "warning", label: "fleet.updates.noust.available" },
+  index_behind: { state: "warning", label: "fleet.updates.noust.indexBehind" },
   on_the_way: { state: "queued", label: "fleet.updates.noust.onTheWay" },
   unknown: { state: "unknown", label: "fleet.updates.noust.unknown" },
 };
@@ -32,7 +33,7 @@ const NOUST_VIEW: Readonly<Record<NoustUpdateState, { state: Status; label: Plai
 const UPDATE_STATES = ["noust", "os", "reboot"] as const;
 
 function needs(row: FleetRow, what: (typeof UPDATE_STATES)[number]): boolean {
-  if (what === "noust") return noustOf(row).state === "update_available";
+  if (what === "noust") return noustUpdatable(noustOf(row).state);
   const os = osUpdatesOf(row);
   if (what === "os") return (os?.pending ?? 0) > 0;
   return os?.reboot === true;
@@ -59,7 +60,7 @@ function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>): Column<Fleet
             <StatusPill state={view.state} label={t(view.label)} appearance="inline" size="sm" />
             {noust.current !== null ? (
               <Mono tone="muted" className="text-12">
-                {noust.state === "update_available" && noust.latest !== null
+                {noustUpdatable(noust.state) && noust.latest !== null
                   ? t("fleet.updates.noust.fromTo", { current: noust.current, latest: noust.latest })
                   : noust.current}
               </Mono>

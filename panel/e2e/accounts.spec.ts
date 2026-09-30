@@ -2,8 +2,10 @@
  * Accounts against the real backend, on a server of this file's own that starts with none:
  *
  * - the first accounts are created from the console after signing in with the access token,
- *   and the new administrator signs in, enrols an authenticator before anything else, and gets
- *   in with the backup codes shown once;
+ *   and the new administrator signs in (by the email of the person, which names one account),
+ *   enrols an authenticator before anything else, and gets in with the backup codes shown once;
+ * - a person with a second factor signs in in two steps: the password, then the code, or the
+ *   passkey of that account;
  * - a security officer's role change becomes a request that a second officer approves from the
  *   inbox, and the first one runs it once approved - both people in their own browsers;
  * - passkeys, for real, through a CDP virtual authenticator on http://localhost: added behind
@@ -86,13 +88,22 @@ async function createPerson(server: ConsoleServer, admin: APIRequestContext, use
   return made;
 }
 
+/** The first step of the sign-in page: the name and the password. */
+async function passwordStep(page: Page, who: Person, name = who.username): Promise<void> {
+  await page.getByLabel("Username or email").fill(name);
+  await page.getByLabel("Password").fill(who.password);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.getByText(`Password accepted for ${name}.`)).toBeVisible();
+}
+
 /** Signs a person in through the sign-in page, with a backup code as the second factor. */
 async function signInAs(page: Page, who: Person, next = "/"): Promise<void> {
   await page.goto(`/login?next=${encodeURIComponent(next)}`);
-  await page.getByLabel("Username").fill(who.username);
-  await page.getByLabel("Password").fill(who.password);
-  await page.getByLabel(/Two-factor code/).fill(spare(who));
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await passwordStep(page, who);
+  const code = page.getByLabel("Two-factor code");
+  await expect(code).toBeFocused();
+  await code.fill(spare(who));
+  await page.getByRole("button", { name: "Verify" }).click();
   await expect(page).not.toHaveURL(/\/login/);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 }
@@ -119,6 +130,9 @@ serial("the first accounts are made from the console, and the new administrator 
   await expect(page.getByRole("heading", { level: 1, name: "Create the first account" })).toBeVisible();
   await stillness(page);
   await expectNoA11yViolations(page, "the first account");
+  // Which field signs in and which one names the person, said where each is typed.
+  await expect(page.getByLabel(/^Username/)).toHaveAccessibleDescription(/^What you type to sign in/);
+  await expect(page.getByLabel(/^Email/)).toHaveAccessibleDescription(/^Identifies the person/);
   await page.getByLabel(/^Username/).fill("ana");
   await page.getByLabel(/^Email/).fill("ana@example.com");
   await page.getByLabel(/^Password/).fill("violet harbor lantern 91");
@@ -135,9 +149,11 @@ serial("the first accounts are made from the console, and the new administrator 
   await expect(page.getByRole("heading", { level: 1, name: "Accounts created" })).toBeVisible();
   await page.getByRole("button", { name: "Sign in as ana" }).click();
 
-  // The administrator's first sign-in: a password, then a second factor before anything else.
+  // The administrator's first sign-in, by the email of the person (it names one account): no
+  // code is asked for a factor the account does not have yet; setting one up comes first.
   await expect(page).toHaveURL(/\/login/);
-  await page.getByLabel("Username").fill("ana");
+  await expect(page.getByLabel(/Two-factor code/)).toHaveCount(0);
+  await page.getByLabel("Username or email").fill("ana@example.com");
   await page.getByLabel("Password").fill("violet harbor lantern 91");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Set up a second factor" })).toBeVisible();
@@ -272,5 +288,14 @@ serial("a passkey is added, signs in with no name or password, and confirms it's
   const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
   await confirm.getByRole("button", { name: "Confirm with a passkey" }).click();
   await expect(page.getByRole("dialog", { name: "Save your backup codes" })).toBeVisible();
+
+  // After the password, the second step offers this account's passkey as well as the code.
+  await context.clearCookies();
+  await page.goto("/login?next=%2Fsettings%2Fsecurity");
+  await passwordStep(page, ana);
+  await stillness(page);
+  await expectNoA11yViolations(page, "the second step of a sign-in");
+  await page.getByRole("button", { name: "Use your passkey" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
   await context.close();
 });

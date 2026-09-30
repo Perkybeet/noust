@@ -130,6 +130,7 @@ export const server: Catalog<typeof en> = {
     updatesChecked: "Comprobado {when}",
     security: "Seguridad",
     notChecked: "Sin comprobar todavía",
+    checking: "Comprobando",
     noFindings: "Sin hallazgos",
     findings: { one: "{count} hallazgo", other: "{count} hallazgos" },
     findingsDetail: "{critical} críticos · {warning} avisos · {passed} correctas",
@@ -329,7 +330,9 @@ export const server: Catalog<typeof en> = {
   security: {
     summary: "{critical} críticos, {warning} avisos, {passed} correctas",
     checked: "comprobado {when}",
-    notChecked: "Las comprobaciones todavía no se han ejecutado.",
+    checking: "Comprobando la seguridad del servidor",
+    checkingAgain: "Comprobando de nuevo",
+    notChecked: "Las comprobaciones no se pudieron ejecutar. Vuelve a comprobar para ver por qué.",
     summaryFailed: "No se pudieron leer las últimas comprobaciones.",
     runChecks: "Volver a comprobar",
     viewsLabel: "Vista de seguridad",

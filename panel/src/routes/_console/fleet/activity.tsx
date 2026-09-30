@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { inPlace } from "../../../app/searchNavigation";
 import { validateFleetSearch } from "../../../features/fleet/filters";
 import { ActivityTab } from "../../../features/fleet/ActivityTab";
 
@@ -15,7 +16,7 @@ function FleetView() {
   return (
     <ActivityTab
       search={{ ...(search.q !== undefined ? { q: search.q } : {}), ...(search.server !== undefined ? { server: search.server } : {}), ...(search.state !== undefined ? { state: search.state } : {}) }}
-      onSearchChange={(next, options) => void navigate({ search: next, replace: options?.replace ?? false })}
+      onSearchChange={(next, options) => void navigate({ search: next, ...inPlace(options) })}
     />
   );
 }

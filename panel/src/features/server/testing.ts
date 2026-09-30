@@ -91,6 +91,7 @@ export const SECURITY: SecurityOverview = {
   counts: { critical: 2, warning: 1, accepted: 0, unknown: 0, passed: 22, not_applicable: 2 },
   attention: [DOCKER_BYPASS, SECURITY_PENDING, PASSWORDS],
   pending: [],
+  checking: false,
 };
 
 export const CHECKS: Checks = {

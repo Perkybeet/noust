@@ -49,32 +49,53 @@ function tokenBackend() {
   return backend;
 }
 
-/** An account's sign-in: one step, and one answer to every refusal. */
-function accountBackend(answer: Record<string, unknown> = {}) {
+const CHALLENGE = "step-2-challenge";
+
+/**
+ * An account's sign-in in two steps: the name (or the person's email) and the password, then
+ * the second factor the account has. One answer to every refusal of the first step.
+ */
+function accountBackend(answer: Record<string, unknown> = {}, methods: string[] = ["totp", "backup_code"]) {
   let signedIn = false;
+  const signedInAnswer = () => {
+    signedIn = true;
+    return json(200, {
+      success: true,
+      expires_in: 28_800,
+      csrf_token: "c",
+      session_token: null,
+      account: ACCOUNT,
+      previous_login_at: "2026-09-29T08:15:00+00:00",
+      previous_login_ip: "203.0.113.7",
+      failures_since: 0,
+      ...answer,
+    });
+  };
   const backend = fakeBackend({
     ...signedInRoutes(ANA),
     "GET /api/auth/session": () => json(200, signedIn ? ANA : SIGNED_OUT),
     "POST /api/auth/login": (call: RecordedCall) => {
       const body = call.body as { username?: string; password?: string; totp_code?: string };
-      if (body.username !== "ana" || body.password !== "correct horse battery" || body.totp_code !== CODE) {
+      if (!["ana", "ana@example.com"].includes(body.username ?? "") || body.password !== "correct horse battery") {
         return problem(401, "invalid_credentials", "Invalid credentials.");
       }
-      signedIn = true;
-      return json(200, {
-        success: true,
-        expires_in: 28_800,
-        csrf_token: "c",
-        session_token: null,
-        account: ACCOUNT,
-        previous_login_at: "2026-09-29T08:15:00+00:00",
-        previous_login_ip: "203.0.113.7",
-        failures_since: 0,
-        ...answer,
-      });
+      return json(200, { success: false, expires_in: 0, csrf_token: "", second_factor: { challenge: CHALLENGE, expires_in: 300, methods } });
+    },
+    "POST /api/auth/login/second-factor": (call: RecordedCall) => {
+      const body = call.body as { challenge: string; code: string };
+      if (body.challenge !== CHALLENGE) return problem(401, "sign_in_expired", "This sign-in has expired. Start again with your username and password.");
+      if (body.code !== CODE) return problem(401, "invalid_totp", "Invalid two-factor code.");
+      return signedInAnswer();
     },
   });
   return backend;
+}
+
+/** Types the first step and sends it. */
+async function passwordStep(user: ReturnType<typeof renderConsole>["user"], name = "ana"): Promise<void> {
+  await user.type(await screen.findByLabelText("Username or email"), name);
+  await user.type(screen.getByLabelText("Password"), "correct horse battery");
+  await user.click(screen.getByRole("button", { name: "Sign in" }));
 }
 
 async function useEmergencyAccess(user: ReturnType<typeof renderConsole>["user"]): Promise<void> {
@@ -87,32 +108,106 @@ afterEach(() => {
 });
 
 describe("sign-in with an account", () => {
-  it("signs in with a username, a password and a code in one step, then opens the page asked for", async () => {
+  it("asks for the password first and the code after it, then opens the page asked for", async () => {
     const backend = accountBackend();
     const { user, location } = renderConsole("/login?next=%2Fapps%2Fshop.example.com%2Flogs");
-    await user.type(await screen.findByLabelText("Username"), "ana");
-    await user.type(screen.getByLabelText("Password"), "correct horse battery");
-    await user.type(screen.getByLabelText(/Two-factor code/), CODE);
-    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    await screen.findByLabelText("Username or email");
+    // Nothing to type for a factor the account may not have: the server says whether it does.
+    expect(screen.queryByLabelText(/Two-factor code/)).toBeNull();
+    await passwordStep(user);
+
+    expect(await screen.findByText("Password accepted for ana.")).toBeInTheDocument();
+    const code = screen.getByLabelText("Two-factor code");
+    await waitFor(() => {
+      expect(code).toHaveFocus();
+    });
+    expect(code).toHaveAttribute("autocomplete", "one-time-code");
+    expect(screen.queryByLabelText("Password")).toBeNull();
+    await user.type(code, CODE);
+    await user.click(screen.getByRole("button", { name: "Verify" }));
 
     await screen.findByRole("heading", { level: 1, name: "shop.example.com" });
     expect(location().pathname).toBe("/apps/shop.example.com/logs");
-    expect(backend.callsTo("POST /api/auth/login").map((call) => call.body)).toEqual([
-      { username: "ana", password: "correct horse battery", bearer: false, totp_code: CODE },
-    ]);
+    expect(backend.callsTo("POST /api/auth/login").map((call) => call.body)).toEqual([{ username: "ana", password: "correct horse battery", bearer: false }]);
+    expect(backend.callsTo("POST /api/auth/login/second-factor").map((call) => call.body)).toEqual([{ challenge: CHALLENGE, code: CODE, bearer: false }]);
     // Once, right after signing in: when and where the last sign-in came from.
     const notes = within(await screen.findByRole("region", { name: "Notifications" }));
     expect(await notes.findByText("Signed in as Ana García")).toBeInTheDocument();
     expect(notes.getByText(/Your last sign-in was .* from 203\.0\.113\.7\./)).toBeInTheDocument();
   });
 
+  it("signs in with the email of the person when it names one account", async () => {
+    const backend = accountBackend();
+    const { user } = renderConsole("/login");
+    await passwordStep(user, "ana@example.com");
+    await screen.findByText("Password accepted for ana@example.com.");
+    expect(backend.callsTo("POST /api/auth/login")[0]?.body).toMatchObject({ username: "ana@example.com" });
+  });
+
+  it("signs an account without a second factor in on its password, and sends it to set one up", async () => {
+    let signedIn = false;
+    const fresh = { ...ANA, mfa_required: true, account: { ...ACCOUNT, mfa_enabled: false, backup_codes_remaining: 0 } };
+    const backend = fakeBackend({
+      ...signedInRoutes(fresh),
+      "GET /api/auth/session": () => json(200, signedIn ? fresh : SIGNED_OUT),
+      "POST /api/auth/login": () => {
+        signedIn = true;
+        return json(200, { success: true, expires_in: 60, csrf_token: "c", session_token: null, account: fresh.account, mfa_required: true });
+      },
+    });
+    const { user, location } = renderConsole("/login");
+    await passwordStep(user);
+    await screen.findByRole("heading", { level: 1, name: "Set up a second factor" });
+    expect(location().pathname).toBe("/welcome");
+    expect(backend.callsTo("POST /api/auth/login/second-factor")).toHaveLength(0);
+  });
+
+  it("says a wrong code at the code, and keeps the step open", async () => {
+    const backend = accountBackend();
+    const { user } = renderConsole("/login");
+    await passwordStep(user);
+    await user.type(await screen.findByLabelText("Two-factor code"), "000000");
+    await user.click(screen.getByRole("button", { name: "Verify" }));
+    expect(await screen.findByText("Invalid two-factor code.")).toBeInTheDocument();
+    const code = screen.getByLabelText("Two-factor code");
+    expect(code).toHaveAccessibleDescription(/Invalid two-factor code\./);
+    await user.clear(code);
+    await user.type(code, CODE);
+    await user.click(screen.getByRole("button", { name: "Verify" }));
+    await screen.findByRole("heading", { level: 1, name: "Overview" });
+    expect(backend.callsTo("POST /api/auth/login")).toHaveLength(1);
+  });
+
+  it("goes back to the password, in the server's words, when the step has expired", async () => {
+    const backend = accountBackend();
+    backend.on("POST /api/auth/login/second-factor", () =>
+      problem(401, "sign_in_expired", "This sign-in has expired. Start again with your username and password."),
+    );
+    const { user } = renderConsole("/login");
+    await passwordStep(user);
+    await user.type(await screen.findByLabelText("Two-factor code"), CODE);
+    await user.click(screen.getByRole("button", { name: "Verify" }));
+    expect(await screen.findByText("This sign-in has expired. Start again with your username and password.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Username or email")).toHaveValue("ana");
+    expect(screen.getByLabelText("Password")).toHaveValue("");
+    expect(screen.queryByLabelText("Two-factor code")).toBeNull();
+  });
+
+  it("goes back to the first step for another account", async () => {
+    accountBackend();
+    const { user } = renderConsole("/login");
+    await passwordStep(user);
+    await user.click(await screen.findByRole("button", { name: "Use a different account" }));
+    expect(await screen.findByLabelText("Username or email")).toHaveValue("ana");
+    expect(screen.getByLabelText("Password")).toHaveValue("");
+  });
+
   it("warns, and keeps the warning, when attempts failed since the last visit", async () => {
     accountBackend({ failures_since: 3, last_failure_at: "2026-09-30T01:02:00+00:00", last_failure_ip: "198.51.100.9" });
     const { user } = renderConsole("/login");
-    await user.type(await screen.findByLabelText("Username"), "ana");
-    await user.type(screen.getByLabelText("Password"), "correct horse battery");
-    await user.type(screen.getByLabelText(/Two-factor code/), CODE);
-    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    await passwordStep(user);
+    await user.type(await screen.findByLabelText("Two-factor code"), CODE);
+    await user.click(screen.getByRole("button", { name: "Verify" }));
     const notes = within(await screen.findByRole("region", { name: "Notifications" }));
     expect(await notes.findByText("3 failed sign-in attempts since your last visit")).toBeInTheDocument();
     expect(notes.getByText(/The latest was .* from 198\.51\.100\.9\. If it was not you, tell a security officer\./)).toBeInTheDocument();
@@ -121,32 +216,44 @@ describe("sign-in with an account", () => {
   it("says the same thing whatever was wrong, with the server's words, and clears the secrets", async () => {
     accountBackend();
     const { user } = renderConsole("/login");
-    await user.type(await screen.findByLabelText("Username"), "ana");
+    await user.type(await screen.findByLabelText("Username or email"), "ana");
     await user.type(screen.getByLabelText("Password"), "wrong");
     await user.click(screen.getByRole("button", { name: "Sign in" }));
     const title = await screen.findByText("Could not sign in");
     const alert = title.closest<HTMLElement>("[role=alert]");
     if (alert === null) throw new Error("the refusal is not announced");
     expect(within(alert).getByText("Could not sign in")).toBeInTheDocument();
-    expect(within(alert).getByText("Check your username, password and two-factor code, then try again.")).toBeInTheDocument();
+    expect(
+      within(alert).getByText("Check your username and password, then try again. If your email is on more than one account, use the username."),
+    ).toBeInTheDocument();
     expect(within(alert).getByText("Invalid credentials.")).toBeInTheDocument();
     expect(screen.getByLabelText("Password")).toHaveValue("");
-    expect(screen.getByLabelText("Username")).toHaveValue("ana");
+    expect(screen.getByLabelText("Username or email")).toHaveValue("ana");
   });
 
   it("asks for what is missing before sending anything", async () => {
     const backend = accountBackend();
     const { user } = renderConsole("/login");
     await user.click(await screen.findByRole("button", { name: "Sign in" }));
-    expect(await screen.findByText("Enter your username.")).toBeInTheDocument();
+    expect(await screen.findByText("Enter your username or email.")).toBeInTheDocument();
     expect(screen.getByText("Enter your password.")).toBeInTheDocument();
     expect(backend.callsTo("POST /api/auth/login")).toHaveLength(0);
   });
 
-  it("offers the browser's passkeys in the username field", async () => {
+  it("asks for the code before sending the second step", async () => {
+    const backend = accountBackend();
+    const { user } = renderConsole("/login");
+    await passwordStep(user);
+    await user.click(await screen.findByRole("button", { name: "Verify" }));
+    expect(await screen.findByText("Enter the code.")).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/auth/login/second-factor")).toHaveLength(0);
+  });
+
+  it("offers the browser's passkeys in the username field, and fills the password as the saved one", async () => {
     accountBackend();
     renderConsole("/login");
-    expect(await screen.findByLabelText("Username")).toHaveAttribute("autocomplete", "username webauthn");
+    expect(await screen.findByLabelText("Username or email")).toHaveAttribute("autocomplete", "username webauthn");
+    expect(screen.getByLabelText("Password")).toHaveAttribute("autocomplete", "current-password");
   });
 
   it("names the server by its sign-in label only, never its hostname or version", async () => {
@@ -175,16 +282,22 @@ describe("sign-in with an account", () => {
     expect(location().pathname).toBe("/setup");
   });
 
-  it("has no accessibility violations, and speaks Spanish", async () => {
+  it("has no accessibility violations on either step, and speaks Spanish", async () => {
     accountBackend();
-    renderConsole("/login?reason=expired");
-    await screen.findByLabelText("Username");
+    const { user } = renderConsole("/login?reason=expired");
+    await screen.findByLabelText("Username or email");
+    await expectNoAxeViolations(document.body, { page: true });
+    await passwordStep(user);
+    await screen.findByLabelText("Two-factor code");
     await expectNoAxeViolations(document.body, { page: true });
     await act(async () => {
       await setLocale("es");
     });
     expect(screen.getByRole("heading", { level: 1, name: "Iniciar sesión" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Usuario")).toBeInTheDocument();
+    expect(screen.getByText("Contraseña aceptada para ana.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Código de verificación en dos pasos")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Usar otra cuenta" }));
+    expect(await screen.findByLabelText("Usuario o correo")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Acceso de emergencia" })).toBeInTheDocument();
     await expectNoAxeViolations(document.body, { page: true });
   });
@@ -239,6 +352,39 @@ describe("sign-in with a passkey", () => {
     expect(get).toHaveBeenCalledTimes(1);
     const [sent] = backend.callsTo("POST /api/auth/passkeys/login");
     expect(sent?.body).toMatchObject({ credential: { id: "CQkJ", rawId: "CQkJ", type: "public-key", response: { userHandle: "Aw" } }, bearer: false });
+  });
+
+  it("finishes the second step with the account's passkey, bound to that step", async () => {
+    const backend = accountBackend({}, ["totp", "passkey", "backup_code"]);
+    backend.on("POST /api/auth/passkeys/login/options", () =>
+      json(200, { public_key: { challenge: toBase64url(new Uint8Array([1, 2, 3])), rpId: "localhost", userVerification: "required", allowCredentials: [] }, expires_in: 300 }),
+    );
+    backend.on("POST /api/auth/passkeys/login", () => {
+      backend.on("GET /api/auth/session", () => json(200, ANA));
+      return json(200, { success: true, expires_in: 60, csrf_token: "c", session_token: null, account: ACCOUNT });
+    });
+    const raw = new Uint8Array([9, 9, 9]).buffer;
+    const get = vi.fn(() =>
+      Promise.resolve({
+        id: toBase64url(raw),
+        rawId: raw,
+        type: "public-key",
+        authenticatorAttachment: "platform",
+        response: { clientDataJSON: new Uint8Array([123, 125]).buffer, authenticatorData: new Uint8Array([1]).buffer, signature: new Uint8Array([2]).buffer, userHandle: null },
+        getClientExtensionResults: () => ({}),
+      }),
+    );
+    vi.stubGlobal("isSecureContext", true);
+    vi.stubGlobal("PublicKeyCredential", Object.assign(vi.fn(), { isConditionalMediationAvailable: () => Promise.resolve(false) }));
+    stubCredentials(get);
+
+    const { user, location } = renderConsole("/login?next=%2Fbackups");
+    await passwordStep(user);
+    await user.click(await screen.findByRole("button", { name: "Use your passkey" }));
+    await screen.findByRole("heading", { level: 1, name: "Backups" });
+    expect(location().pathname).toBe("/backups");
+    expect(backend.callsTo("POST /api/auth/passkeys/login/options")[0]?.body).toEqual({ conditional: false, challenge: CHALLENGE });
+    expect(backend.callsTo("POST /api/auth/passkeys/login")[0]?.body).toMatchObject({ bearer: false, challenge: CHALLENGE });
   });
 
   it("says nothing when the operator closes the browser's prompt", async () => {

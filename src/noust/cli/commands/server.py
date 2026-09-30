@@ -401,6 +401,36 @@ def updates_refresh(ctx: Context) -> None:
     manager.refresh(ctx.logger.info)
     pending = manager.pending()
     ctx.logger.success(f"{pending.pending} pending, {pending.security} security")
+    _noust_after_refresh(ctx)
+
+
+def _noust_after_refresh(ctx: Context) -> None:
+    """
+    Say whether the refreshed index now offers a newer Noust, and how to install it.
+
+    Only to a person at a terminal, with the update check on: the same rule as
+    the banner every command prints, whose cached answer the refresh dropped.
+
+    Args:
+        ctx: The command's context.
+    """
+    from noust.core.update_checker import UpdateChecker, UpdateCheckInProgress
+
+    if not (UpdateChecker.enabled() and UpdateChecker.should_announce(sys.argv[1:])):
+        return
+    try:
+        check = UpdateChecker.check()
+    except UpdateCheckInProgress:
+        return
+    if check.state == "update_available":
+        ctx.logger.info(
+            f"Noust {check.announced_version} can be installed now: {check.update_command}"
+        )
+    elif check.state == "index_behind":
+        ctx.logger.info(
+            f"Noust {check.announced_version} is published, but the refreshed package index "
+            "does not list it yet: its package is still on the way."
+        )
 
 
 @updates_group.command("apply")

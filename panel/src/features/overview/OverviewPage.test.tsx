@@ -206,6 +206,25 @@ describe("the overview", () => {
     });
   });
 
+  it("changes the range where the operator is: the page does not jump to the top", async () => {
+    const { user, location, history } = await overview();
+    await screen.findByRole("img", { name: /^CPU, last 24 hours/ });
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+    try {
+      const entries = history.length;
+      await user.click(screen.getByRole("radio", { name: "7d" }));
+      await waitFor(() => {
+        expect(location().search).toEqual({ window: "7d" });
+      });
+      await screen.findByRole("img", { name: /^CPU, last 7 days/ });
+      expect(scrollTo).not.toHaveBeenCalled();
+      // A view of the same page, not a new page: Back leaves the overview instead of stepping ranges.
+      expect(history.length).toBe(entries);
+    } finally {
+      scrollTo.mockRestore();
+    }
+  });
+
   it("says when history is not being recorded, why, and the command that fixes it", async () => {
     await overview({
       "GET /api/metrics/query": (call) =>

@@ -99,6 +99,30 @@ test("the charts span the window asked for, whatever part of it has history, and
   await expect(page).not.toHaveURL(/window=/);
 });
 
+test("changing the range keeps the page where it is, and Back leaves instead of stepping ranges", async ({ page, consoleServer }) => {
+  await page.setViewportSize({ width: 1280, height: 600 });
+  await signIn(page, consoleServer);
+  await page.goto("/activity");
+  await page.goto("/");
+  const machine = page.getByRole("region", { name: "Machine" });
+  await expect(machine.getByRole("img", { name: /^CPU, last 24 hours/ })).toBeVisible();
+  const range = machine.getByRole("radio", { name: "7d" });
+  await range.scrollIntoViewIfNeeded();
+  await settle(page);
+  const before = await page.evaluate(() => window.scrollY);
+  // The premise: the charts sit below the fold, so a jump to the top would show.
+  expect(before).toBeGreaterThan(100);
+
+  await range.click();
+  await expect(page).toHaveURL(/\/\?window=7d$/);
+  await expect(machine.getByRole("img", { name: /^CPU, last 7 days/ })).toBeVisible();
+  await settle(page);
+  expect(Math.abs((await page.evaluate(() => window.scrollY)) - before)).toBeLessThan(2);
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\/activity$/);
+});
+
 test("says history is recorded only while the console runs, and the command that fixes it", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer);
   const machine = page.getByRole("region", { name: "Machine" });

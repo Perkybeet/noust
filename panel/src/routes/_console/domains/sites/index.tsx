@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { inPlace } from "../../../../app/searchNavigation";
 import { SitesPage } from "../../../../features/domains/SitesPage";
 import { validateSitesSearch } from "../../../../features/domains/search";
 
@@ -12,5 +13,5 @@ export const Route = createFileRoute("/_console/domains/sites/")({
 function SitesRoute() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
-  return <SitesPage search={search} onSearchChange={(next, options) => void navigate({ search: next, replace: options?.replace ?? false })} />;
+  return <SitesPage search={search} onSearchChange={(next, options) => void navigate({ search: next, ...inPlace(options) })} />;
 }

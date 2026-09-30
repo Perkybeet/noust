@@ -41,6 +41,8 @@ def _check(
     current: str = __version__,
     checked_at: float | None = None,
     noted: bool = False,
+    indexed: str | None = None,
+    repository: str | None = None,
 ) -> VersionCheck:
     """
     Build a check as this installation would have made it.
@@ -52,6 +54,8 @@ def _check(
         current: The version the check was made by.
         checked_at: When; now by default.
         noted: Whether the on-the-way note was already shown.
+        indexed: What this server's package index offers.
+        repository: What the repository itself serves, read from it.
 
     Returns:
         The check.
@@ -66,6 +70,8 @@ def _check(
         published=published,
         checked_at=time.time() if checked_at is None else checked_at,
         noted=noted,
+        indexed=indexed,
+        repository=repository,
     )
 
 
@@ -416,6 +422,147 @@ def test_the_state_follows_the_installable_version(
     assert check.state == expected
 
 
+# A package manager installs what its local index lists, and the operating
+# system refreshes that index about once a day. Right after a release a server
+# whose index had not caught up said nothing while GitHub had the version.
+
+
+@pytest.mark.parametrize(
+    ("indexed", "repository", "published", "expected"),
+    [
+        ("99.0.0", "99.0.0", "99.0.0", "update_available"),
+        # The repository serves it; this server's index has not seen it yet.
+        (__version__, "99.0.0", "99.0.0", "index_behind"),
+        (None, "99.0.0", None, "index_behind"),
+        # The repository could not be read: only a refresh can tell.
+        (__version__, None, "99.0.0", "index_behind"),
+        # The repository was read and has not got it: the package is being built.
+        (__version__, __version__, "99.0.0", "on_the_way"),
+        (__version__, __version__, __version__, "up_to_date"),
+        (None, None, None, "up_to_date"),
+    ],
+)
+@pytest.mark.parametrize("method", ["apt", "dnf", "zypper"])
+def test_a_package_manager_announces_what_its_own_index_can_install(
+    method: str,
+    indexed: str | None,
+    repository: str | None,
+    published: str | None,
+    expected: str,
+) -> None:
+    check = _check(
+        method=method,
+        indexed=indexed,
+        repository=repository,
+        installable=repository or indexed,
+        published=published,
+    )
+
+    assert check.state == expected
+
+
+def test_index_behind_names_the_version_and_the_refresh() -> None:
+    check = _check(
+        method="apt",
+        indexed=__version__,
+        repository="99.0.0",
+        installable="99.0.0",
+        published="99.1.0",
+    )
+
+    assert check.announced_version == "99.0.0"
+    assert check.refresh_command == "noust server updates refresh"
+    assert check.release_url == "https://github.com/Perkybeet/noust/releases/tag/v99.0.0"
+
+
+def test_index_behind_without_the_repository_names_the_published_version() -> None:
+    check = _check(method="apt", indexed=__version__, installable=__version__, published="99.1.0")
+
+    assert check.announced_version == "99.1.0"
+
+
+def test_only_index_behind_has_a_refresh_command() -> None:
+    assert _check(method="apt", indexed="99.0.0", installable="99.0.0").refresh_command is None
+    assert _check(method="pip", installable=__version__, published="99.0.0").refresh_command is None
+
+
+def test_the_banner_offers_the_refresh_when_the_index_is_behind(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    UpdateChecker._pending = _check(
+        method="apt", indexed=__version__, repository="99.0.0", installable="99.0.0"
+    )
+
+    UpdateChecker.show_update_if_available(timeout=0)
+
+    err = capsys.readouterr().err
+    assert "Noust 99.0.0 is published; this server's package index has not seen it yet" in err
+    assert "noust server updates refresh" in err
+    assert "New version available" not in err
+
+
+def test_forget_drops_the_cached_answer_and_the_pending_banner(
+    sources: dict[str, list[str]],
+) -> None:
+    """A refreshed index makes the cached answer wrong: the next look asks again."""
+    UpdateChecker.check()
+    UpdateChecker._pending = _check(method="apt", repository="99.0.0", installable="99.0.0")
+
+    UpdateChecker.forget()
+
+    assert UpdateChecker._read_cache() is None
+    assert UpdateChecker._pending is None
+    sources["calls"].clear()
+    UpdateChecker.check()
+    assert "published" in sources["calls"]
+
+
+def test_a_check_started_before_forget_does_not_cache_its_stale_answer(
+    sources: dict[str, list[str]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The banner's background check can still be reading when the index is refreshed."""
+
+    def offer(cls: type[UpdateChecker], method: str) -> package_index.Offer:
+        UpdateChecker.forget()  # the refresh lands while this check reads
+        return package_index.Offer(repository="99.0.0", index=__version__)
+
+    monkeypatch.setattr(UpdateChecker, "_fetch_offer", classmethod(offer))
+
+    UpdateChecker.check()
+
+    assert UpdateChecker._read_cache() is None
+
+
+def test_the_offer_is_read_where_the_method_upgrades_from(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: list[str] = []
+
+    def fake_offer(method: str, runner: object) -> package_index.Offer:
+        seen.append(method)
+        return package_index.Offer(repository="99.0.0", index="98.0.0")
+
+    monkeypatch.setattr(package_index, "offer", fake_offer)
+
+    result = UpdateChecker._fetch_offer("apt")
+
+    assert seen == ["apt"]
+    assert result.installable == "99.0.0"
+    assert result.index == "98.0.0"
+
+
+def test_a_check_records_the_index_and_the_repository(sources: dict[str, list[str]]) -> None:
+    sources["indexed"] = [__version__]
+
+    check = UpdateChecker.check()
+
+    assert check.state == "index_behind"
+    cached = UpdateChecker._read_cache()
+    assert cached is not None
+    assert cached["indexed"] == __version__
+    assert cached["repository"] == "99.0.0"
+
+
 def test_on_the_way_announces_the_published_version_and_its_notes() -> None:
     check = _check(installable=__version__, published="99.0.0")
 
@@ -432,22 +579,30 @@ def sources(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[str]]:
         ``calls`` records every probe; ``installable``/``published`` hold the
         answers (the first element is used).
     """
-    state: dict[str, list[str]] = {"calls": [], "installable": ["99.0.0"], "published": ["99.0.0"]}
+    state: dict[str, list[str]] = {
+        "calls": [],
+        "installable": ["99.0.0"],
+        "published": ["99.0.0"],
+        # What the local index lists; the repository's own version by default.
+        "indexed": [],
+    }
 
     def detect(cls: type[UpdateChecker]) -> str:
         state["calls"].append("detect")
         return "apt"
 
-    def installable(cls: type[UpdateChecker], method: str) -> str | None:
+    def installable(cls: type[UpdateChecker], method: str) -> package_index.Offer:
         state["calls"].append(f"installable:{method}")
-        return state["installable"][0] or None
+        repository = state["installable"][0] or None
+        indexed = (state["indexed"] or state["installable"])[0] or None
+        return package_index.Offer(repository=repository, index=indexed)
 
     def published(cls: type[UpdateChecker]) -> str | None:
         state["calls"].append("published")
         return state["published"][0] or None
 
     monkeypatch.setattr(UpdateChecker, "_detect_installation_method", classmethod(detect))
-    monkeypatch.setattr(UpdateChecker, "_fetch_installable_version", classmethod(installable))
+    monkeypatch.setattr(UpdateChecker, "_fetch_offer", classmethod(installable))
     monkeypatch.setattr(UpdateChecker, "_fetch_published_version", classmethod(published))
     return state
 
@@ -579,10 +734,10 @@ class TestSingleFlight:
     def test_the_lock_is_released_even_when_a_fetch_raises(
         self, sources: dict[str, list[str]], monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        def boom(cls: type[UpdateChecker], method: str) -> str | None:
+        def boom(cls: type[UpdateChecker], method: str) -> package_index.Offer:
             raise ValueError("network is down")
 
-        monkeypatch.setattr(UpdateChecker, "_fetch_installable_version", classmethod(boom))
+        monkeypatch.setattr(UpdateChecker, "_fetch_offer", classmethod(boom))
 
         with pytest.raises(ValueError):
             UpdateChecker.check()
@@ -606,7 +761,13 @@ def test_an_old_format_cache_is_not_used() -> None:
 def test_the_banner_names_the_installable_version_and_the_right_command(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    UpdateChecker._pending = _check(installable="99.0.0", published="99.1.0", method="apt")
+    UpdateChecker._pending = _check(
+        installable="99.0.0",
+        published="99.1.0",
+        method="apt",
+        indexed="99.0.0",
+        repository="99.0.0",
+    )
 
     UpdateChecker.show_update_if_available(timeout=0)
 
@@ -747,7 +908,7 @@ def test_the_installable_version_is_read_where_the_method_upgrades_from(
 
     monkeypatch.setattr(package_index, "fetch", fetch)
 
-    assert UpdateChecker._fetch_installable_version("pip") == "99.0.0"
+    assert UpdateChecker._fetch_offer("pip").installable == "99.0.0"
     assert asked == ["https://pypi.org/pypi/noust/json"]
-    assert UpdateChecker._fetch_installable_version("source") == "99.1.0"
+    assert UpdateChecker._fetch_offer("source").installable == "99.1.0"
     assert asked[-1] == "https://api.github.com/repos/Perkybeet/noust/releases/latest"

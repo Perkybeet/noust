@@ -11,10 +11,13 @@ Documentation=https://github.com/Perkybeet/noust/blob/main/docs/console.md
 Wants=network-online.target
 After=network-online.target
 # Restarted on failure, but a hopeless start (a certificate that went missing, a
-# port something else took) ends in `failed` after five tries in five minutes
-# instead of looping. 'noust web enable' clears the counter.
-StartLimitIntervalSec=300
-StartLimitBurst=5
+# port something else took) ends in `failed` after ten tries in ten minutes
+# instead of looping. The tries span a minute and a half, longer than anything
+# transient on a restart - the previous console still exiting, its closed
+# connections holding the port - so an upgrade's restart does not leave the
+# console down. 'noust web enable' clears the counter.
+StartLimitIntervalSec=600
+StartLimitBurst=10
 
 [Service]
 Type=simple
@@ -30,7 +33,7 @@ WorkingDirectory=/
 ExecStart={{ esc.line(exec_start) }}
 Environment=PYTHONUNBUFFERED=1
 Restart=on-failure
-RestartSec=5
+RestartSec=10
 
 # Hardening that leaves every root operation the console performs intact.
 # Deliberately absent: ProtectSystem (the console installs packages into /usr

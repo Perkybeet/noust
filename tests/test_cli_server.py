@@ -129,6 +129,34 @@ class TestUpdates:
         assert "Hit:1 http://archive.ubuntu.com noble InRelease" in result.output
         assert "9 pending, 7 security" in result.output
 
+    def test_refresh_offers_the_noust_its_index_now_lists(
+        self, machine, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Refreshing is the way out of "index behind": the upgrade follows it."""
+        from noust.core.update_checker import UpdateChecker, VersionCheck
+
+        machine.runner.script(["apt-get", "update"], stdout="Hit:1")
+        monkeypatch.setattr(UpdateChecker, "should_announce", staticmethod(lambda argv: True))
+        after = VersionCheck(
+            current="3.1.2",
+            location="/usr/lib/python3/dist-packages/noust",
+            method="apt",
+            installable="3.1.3",
+            published="3.1.3",
+            checked_at=0.0,
+            indexed="3.1.3",
+            repository="3.1.3",
+        )
+        monkeypatch.setattr(UpdateChecker, "check", classmethod(lambda cls: after))
+
+        result = run(["server", "updates", "refresh"])
+
+        assert result.exit_code == 0, result.output
+        assert (
+            "Noust 3.1.3 can be installed now: sudo apt update && sudo apt install noust"
+            in result.output
+        )
+
     def test_what_changes_the_machine_needs_root(
         self, machine, monkeypatch: pytest.MonkeyPatch
     ) -> None:

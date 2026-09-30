@@ -541,6 +541,11 @@ class UpdatesManager:
             message="Could not refresh the package lists",
             details="A repository could not be reached. The output below says which.",
         )
+        # The Noust update check read the old index; its cached answer may say
+        # the index has not seen a release it now lists.
+        from noust.core.update_checker import UpdateChecker
+
+        UpdateChecker.forget()
 
     def repair(self, on_line: Callable[[str], None]) -> list[str]:
         """

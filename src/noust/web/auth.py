@@ -155,6 +155,17 @@ SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 #: WebSocket tickets are single use and only have to survive the handshake.
 WS_TICKET_TTL = 30
 
+#: How long the second step of an account's sign-in waits for its code or
+#: passkey once the password step passed: long enough to find a phone.
+LOGIN_CHALLENGE_TTL = 300
+#: Wrong codes one second step takes before it is spent and the sign-in has
+#: to start again from the password. The account's own lockout counts them too.
+LOGIN_CHALLENGE_ATTEMPTS = 5
+
+#: What a sign-in from an address many people share is counted under, with the
+#: address and the name it named (:func:`sign_in_lockout_key`).
+SIGN_IN_LOCKOUT_PREFIX = "sign-in:"
+
 #: Close codes for a handshake the middleware refuses. They are in the private
 #: 4000-4999 range so a client can tell "log in again" from "you are blocked".
 WS_CLOSE_UNAUTHORIZED = 4401
@@ -1298,6 +1309,19 @@ class SessionStore:
                 )
                 """
             )
+            # The second step of an account's sign-in: like a ticket, only the
+            # hash of the value is kept, and it is spent by the step it opens.
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS login_challenges (
+                    challenge_hash TEXT PRIMARY KEY,
+                    account_id INTEGER NOT NULL,
+                    client_ip TEXT NOT NULL,
+                    expires_at REAL NOT NULL,
+                    failures INTEGER NOT NULL DEFAULT 0
+                )
+                """
+            )
             # The token itself is never stored: only its salted hash, exactly
             # like the master token. Names stay unique across revocations so
             # an audit line naming a token always names one thing.
@@ -1651,6 +1675,7 @@ class SessionStore:
                 "DELETE FROM sessions WHERE expires_at <= ? OR revoked = 1", (now,)
             )
             self._conn.execute("DELETE FROM ws_tickets WHERE expires_at <= ?", (now,))
+            self._conn.execute("DELETE FROM login_challenges WHERE expires_at <= ?", (now,))
         return cursor.rowcount
 
     def list_active(self, account_id: int | None = None) -> list[dict[str, Any]]:
@@ -1973,6 +1998,78 @@ class SessionStore:
             ).fetchone()
             self._conn.execute("DELETE FROM ws_tickets WHERE ticket_hash = ?", (ticket_hash,))
         return dict(row) if row else None
+
+    def store_login_challenge(
+        self, challenge_hash: str, account_id: int, client_ip: str, expires_at: float
+    ) -> None:
+        """
+        Persist the second step of an account's sign-in.
+
+        Args:
+            challenge_hash: Hash of the challenge value.
+            account_id: The account whose password step passed.
+            client_ip: The address it passed from.
+            expires_at: Expiry as a UNIX timestamp.
+        """
+        with self._lock, self._conn:
+            self._conn.execute(
+                "INSERT OR REPLACE INTO login_challenges "
+                "(challenge_hash, account_id, client_ip, expires_at) VALUES (?, ?, ?, ?)",
+                (challenge_hash, int(account_id), client_ip, expires_at),
+            )
+
+    def get_login_challenge(self, challenge_hash: str) -> dict[str, Any] | None:
+        """
+        Read a live second step without spending it.
+
+        Args:
+            challenge_hash: Hash of the presented challenge.
+
+        Returns:
+            Its row as a dict, or None when unknown or expired.
+        """
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM login_challenges WHERE challenge_hash = ? AND expires_at > ?",
+                (challenge_hash, time.time()),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def fail_login_challenge(self, challenge_hash: str, limit: int) -> None:
+        """
+        Count a wrong code against a second step, spending it at ``limit``.
+
+        Args:
+            challenge_hash: Hash of the challenge.
+            limit: Wrong codes it takes.
+        """
+        with self._lock, self._conn:
+            self._conn.execute(
+                "UPDATE login_challenges SET failures = failures + 1 WHERE challenge_hash = ?",
+                (challenge_hash,),
+            )
+            self._conn.execute(
+                "DELETE FROM login_challenges WHERE challenge_hash = ? AND failures >= ?",
+                (challenge_hash, limit),
+            )
+
+    def spend_login_challenge(self, challenge_hash: str) -> bool:
+        """
+        Atomically spend a second step.
+
+        Args:
+            challenge_hash: Hash of the challenge.
+
+        Returns:
+            True when it was live and is now spent; False when another request
+            spent it first, or it expired.
+        """
+        with self._lock, self._conn:
+            cursor = self._conn.execute(
+                "DELETE FROM login_challenges WHERE challenge_hash = ? AND expires_at > ?",
+                (challenge_hash, time.time()),
+            )
+        return cursor.rowcount == 1
 
     def close(self) -> None:
         """Close the underlying database connection."""
@@ -3600,6 +3697,75 @@ class TokenManager:
         }
         return payload if self._apply_principal(payload, session) else None
 
+    def issue_login_challenge(self, account_id: int, client_ip: str) -> tuple[str, int]:
+        """
+        Open the second step of an account's sign-in, once its password step passed.
+
+        The value is random and only its hash is stored, so it cannot be
+        forged or read back from the database; it is bound to the account and
+        to the address the password came from, lasts
+        :data:`LOGIN_CHALLENGE_TTL` seconds, and is spent by the sign-in it
+        completes. It stands for the password in the second step, so the
+        password never travels twice.
+
+        Args:
+            account_id: The account whose password was right.
+            client_ip: The address it came from.
+
+        Returns:
+            The challenge and its lifetime in seconds.
+        """
+        challenge = secrets.token_urlsafe(32)
+        self.sessions.store_login_challenge(
+            hashlib.sha256(challenge.encode()).hexdigest(),
+            account_id,
+            client_ip,
+            time.time() + LOGIN_CHALLENGE_TTL,
+        )
+        return challenge, LOGIN_CHALLENGE_TTL
+
+    def login_challenge_account(self, challenge: str, client_ip: str) -> int | None:
+        """
+        Say which account a second step belongs to, without spending it.
+
+        Args:
+            challenge: The value presented.
+            client_ip: The address presenting it.
+
+        Returns:
+            The account's id; None when the challenge is unknown, expired,
+            spent or presented from another address.
+        """
+        if not challenge:
+            return None
+        record = self.sessions.get_login_challenge(hashlib.sha256(challenge.encode()).hexdigest())
+        if record is None or record["client_ip"] != client_ip:
+            return None
+        return int(record["account_id"])
+
+    def fail_login_challenge(self, challenge: str) -> None:
+        """
+        Count a wrong code against a second step; the last one it takes spends it.
+
+        Args:
+            challenge: The value presented.
+        """
+        self.sessions.fail_login_challenge(
+            hashlib.sha256(challenge.encode()).hexdigest(), LOGIN_CHALLENGE_ATTEMPTS
+        )
+
+    def spend_login_challenge(self, challenge: str) -> bool:
+        """
+        Spend a second step, so it completes one sign-in and no other.
+
+        Args:
+            challenge: The value presented.
+
+        Returns:
+            True when this call spent it.
+        """
+        return self.sessions.spend_login_challenge(hashlib.sha256(challenge.encode()).hexdigest())
+
     def revoke_session(self, session_id: str) -> None:
         """
         Revoke one session.
@@ -4047,6 +4213,67 @@ def failure_key(credential: str | None, client_ip: str) -> str:
         if name is not None:
             return f"{FLEET_LOCKOUT_PREFIX}{name}"
     return client_ip
+
+
+def shared_address(client_ip: str, config: SecurityConfig | None = None) -> bool:
+    """
+    Report whether an address stands for many people rather than one.
+
+    Loopback is where every operator reaching the console over ``ssh -L``
+    arrives from, and a trusted proxy's own address is what a request that
+    passed it without a usable forwarding header resolves to
+    (:func:`get_client_ip`). Neither says who is on the other end.
+
+    Args:
+        client_ip: The resolved client address.
+        config: Configuration to use; the installed one by default.
+
+    Returns:
+        True for a loopback address or one of ``trusted_proxies``.
+    """
+    try:
+        address = ipaddress.ip_address(client_ip)
+    except ValueError:
+        return False
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped is not None:
+        address = address.ipv4_mapped
+    if address.is_loopback:
+        return True
+    config = config or get_security_config()
+    return ip_matches(str(address), config.trusted_proxies)
+
+
+def sign_in_lockout_key(
+    client_ip: str, identifier: str | None, config: SecurityConfig | None = None
+) -> str:
+    """
+    Choose what a sign-in attempt is counted and refused under.
+
+    The address, for an address that is one client's. Behind an address many
+    people share (:func:`shared_address`), the address and the name the
+    attempt named: five typos by one operator on an SSH tunnel would
+    otherwise lock every operator on it out at once. What still bounds a
+    guesser there is the per-account lockout, which counts every wrong
+    password or code on the account whatever the address
+    (:meth:`~noust.core.accounts.AccountManager.record_failure`).
+
+    Args:
+        client_ip: The resolved client address.
+        identifier: The username or e-mail the attempt named; None for the
+            master token, which is counted under a name of its own.
+        config: Configuration to use; the installed one by default.
+
+    Returns:
+        The lockout key: the address itself, or a ``sign-in:`` key.
+    """
+    if not shared_address(client_ip, config):
+        return client_ip
+    if identifier is None:
+        return f"{SIGN_IN_LOCKOUT_PREFIX}{client_ip}:master"
+    # Cut and folded like the names it stands for, so a key is bounded and one
+    # person's typing in another case is still one person.
+    name = "".join(char for char in identifier.strip().lower() if char.isprintable())[:254]
+    return f"{SIGN_IN_LOCKOUT_PREFIX}{client_ip}:account:{name}"
 
 
 def audit_event(

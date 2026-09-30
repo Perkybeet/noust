@@ -395,6 +395,7 @@ export const fleet = {
       upToDate: "Up to date",
       available: "Update available",
       onTheWay: "Being published",
+      indexBehind: "Package index behind",
       unknown: "Not checked",
       fromTo: "{current} → {latest}",
     },

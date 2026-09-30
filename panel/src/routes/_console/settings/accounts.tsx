@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { inPlace } from "../../../app/searchNavigation";
 import { AccountsSettings } from "../../../features/settings/accounts/AccountsSettings";
 import { validateAccountsSearch } from "../../../features/settings/accounts/data";
 
@@ -12,5 +13,5 @@ export const Route = createFileRoute("/_console/settings/accounts")({
 function AccountsRoute() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
-  return <AccountsSettings search={search} onSearchChange={(next, options) => void navigate({ search: next, replace: options?.replace ?? false })} />;
+  return <AccountsSettings search={search} onSearchChange={(next, options) => void navigate({ search: next, ...inPlace(options) })} />;
 }

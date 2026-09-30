@@ -195,6 +195,24 @@ withOwnBackupCodes("new backup codes replace the old ones after confirming it's 
 // ---------------------------------------------------------------------------------------
 // Enrolment needs a server without two-factor: this group starts its own, in its own worker.
 
+test("on 127.0.0.1, where every SSH tunnel arrives, one name's failed sign-ins lock that name only", async ({ page, consoleServer }) => {
+  // The console under test is reached on loopback, as an operator's `ssh -L` reaches it.
+  expect(new URL(consoleServer.url).hostname).toBe("127.0.0.1");
+  const api = await playwrightRequest.newContext({ baseURL: consoleServer.url });
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const refused = await api.post("/api/auth/login", { data: { username: "ghost", password: "not the password" } });
+    expect(refused.status()).toBe(401);
+  }
+  const locked = await api.post("/api/auth/login", { data: { username: "ghost", password: "not the password" } });
+  expect(locked.status()).toBe(429);
+  expect(((await locked.json()) as { error: string }).error).toBe("locked_out");
+  await api.dispose();
+
+  // Everyone else on the same address still signs in.
+  await signIn(page, consoleServer, "/settings/security");
+  await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
+});
+
 const withoutTwoFactor = test.extend<object, { consoleServer: ConsoleServer }>({
   consoleServer: [
     // eslint-disable-next-line no-empty-pattern -- Playwright requires the destructuring form

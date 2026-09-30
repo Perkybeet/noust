@@ -421,8 +421,15 @@ def test_a_state_systemd_does_not_give_is_not_held_against_the_instance(
 
 
 @pytest.fixture
-def owners(store: NoustStore) -> NoustStore:
-    """Two applications: one in zero-downtime mode on 3000 and 3001, one on 3005."""
+def owners(store: NoustStore, monkeypatch: pytest.MonkeyPatch) -> NoustStore:
+    """
+    Two applications: one in zero-downtime mode on 3000 and 3001, one on 3005.
+
+    Nothing listens on any port here: these tests are about ownership, and a
+    development server on the machine running the suite answering on 3000 or
+    3001 would otherwise add a second, unrelated issue.
+    """
+    monkeypatch.setattr("noust.validators.port.is_port_available", lambda port, host="": True)
     store.create_app(App(domain="bg.example.com", app_path="/x", port=3000))
     store.set_zero_downtime("bg.example.com", True)
     store.set_active_color("bg.example.com", "blue")

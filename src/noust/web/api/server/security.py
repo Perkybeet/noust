@@ -140,12 +140,18 @@ class ChangeOut(BaseModel):
 
 
 class OverviewOut(BaseModel):
-    """The Security tab's summary: counts and open findings of the last run, pending changes."""
+    """
+    The Security tab's summary: counts and open findings of the last run, pending changes.
+
+    ``checking`` is true while the checks run in the background: reading the
+    summary starts them when there is no report, or it is stale or an hour old.
+    """
 
     checked_at: str | None = None
     counts: CheckCountsOut | None = None
     attention: list[CheckOut] = []
     pending: list[ChangeOut] = []
+    checking: bool = False
 
 
 class DirectiveChangeOut(BaseModel):
@@ -560,21 +566,26 @@ def _expiry(text: str) -> datetime:
 @router.get("", response_model=OverviewOut)
 def get_overview(session: Annotated[dict, Depends(get_current_session)]) -> OverviewOut:
     """
-    The Security tab's summary, from the last checks; never probes.
+    The Security tab's summary, from the last checks, which it has run when they are due.
+
+    It answers at once: with no report, or one stale or older than an hour,
+    the read-only checks start in the background (once) and ``checking`` says
+    so; the console reads the summary again until it is false.
 
     Args:
         session: The authenticated session.
 
     Returns:
         Counts, open findings and pending changes; ``checked_at`` is null
-        before the first run.
+        until the first run ends.
     """
-    data = _security(session).overview()
+    data = _security(session).overview(refresh_if_due=True)
     return OverviewOut(
         checked_at=data["checked_at"],
         counts=CheckCountsOut(**data["counts"]) if data["counts"] else None,
         attention=[_check(item) for item in data["attention"]],
         pending=[_change(item) for item in data["pending"]],
+        checking=data["checking"],
     )
 
 

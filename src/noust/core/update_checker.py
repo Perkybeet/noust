@@ -13,14 +13,23 @@ minutes later, PyPI a few minutes later. Announcing the GitHub release sent
 operators to an upgrade that did nothing. So a check reads two versions:
 
 - the *installable* one, from the source this installation upgrades from
-  (:func:`noust.core.package_index.installable_version`), which is what an
+  (:func:`noust.core.package_index.offer`), which is what an
   update is announced for;
 - the *published* one, the latest GitHub release.
 
-and reports one of three states (:class:`VersionCheck.state`):
+and reports one of four states (:class:`VersionCheck.state`):
 ``update_available`` when the installable version is newer than the one
 running, ``on_the_way`` when only the published one is (the package is still
 being built: nothing to do yet), ``up_to_date`` otherwise.
+
+A package manager (apt, dnf, yum, zypper) installs what its *local index*
+lists, and the operating system refreshes that index on its own schedule,
+about once a day. So for those the check also reads the index, and an update
+is only ``update_available`` once the index lists it. A release the
+repository serves (or, when the repository cannot be read, that GitHub has)
+and the index has not seen yet is ``index_behind``: the fix is refreshing the
+index (``noust server updates refresh``, which then forgets this check), and
+the upgrade is offered after that.
 
 The result is announced on stderr, and only to a person: never under
 ``--json`` and never when either stream is not a terminal. It was printed to
@@ -54,9 +63,13 @@ logger = logging.getLogger(__name__)
 #: repeated on every command.
 CONFIG_KEY = "updates.check"
 
-UpdateState = Literal["up_to_date", "update_available", "on_the_way"]
+UpdateState = Literal["up_to_date", "update_available", "on_the_way", "index_behind"]
 
 RELEASES_URL = "https://github.com/Perkybeet/noust/releases/tag/v{version}"
+
+#: What refreshes the package index, in the CLI; the console's
+#: ``POST /api/server/updates/refresh`` runs the same manager method.
+REFRESH_COMMAND = "noust server updates refresh"
 
 
 def web_installed() -> bool:
@@ -116,6 +129,10 @@ class VersionCheck:
         checked_at: When the check was made, as a Unix timestamp.
         noted: Whether the "on the way" note has been shown for this check,
             so it is shown at most once per cache period.
+        indexed: For a package manager, the newest version this server's
+            package index lists; None otherwise, or when it did not answer.
+        repository: The newest version the repository itself serves, read
+            from it; None when it could not be read.
     """
 
     current: str
@@ -125,6 +142,8 @@ class VersionCheck:
     published: str | None
     checked_at: float
     noted: bool = False
+    indexed: str | None = None
+    repository: str | None = None
 
     @property
     def state(self) -> UpdateState:
@@ -132,24 +151,46 @@ class VersionCheck:
         Whether there is anything to install.
 
         Returns:
-            ``update_available`` when the installable version is newer than
-            the running one; ``on_the_way`` when only the published release is
-            (including when the installable version could not be read, so an
-            unreadable repository never claims an upgrade that may not exist);
-            ``up_to_date`` otherwise.
+            ``update_available`` when what the upgrade installs is newer than
+            the running version - for a package manager, what its local index
+            lists; ``index_behind`` when a package manager's repository serves
+            a newer one its index has not seen, or the repository could not be
+            read and GitHub has one; ``on_the_way`` when only the published
+            release is newer (including when an installable version could not
+            be read, so an unreadable source never claims an upgrade that may
+            not exist); ``up_to_date`` otherwise.
         """
-        if package_index.is_newer(self.installable, self.current):
+        newer = package_index.is_newer
+        if self.method in package_index.INDEXED_METHODS:
+            if newer(self.indexed, self.current):
+                return "update_available"
+            if newer(self.repository, self.current):
+                return "index_behind"
+            if newer(self.published, self.current):
+                # A repository that was read and has not got it is still
+                # building the package; one that could not be read may well
+                # have it, and only a refresh of the index can tell.
+                return "on_the_way" if self.repository is not None else "index_behind"
+            return "up_to_date"
+        if newer(self.installable, self.current):
             return "update_available"
-        if package_index.is_newer(self.published, self.current):
+        if newer(self.published, self.current):
             return "on_the_way"
         return "up_to_date"
 
     @property
     def announced_version(self) -> str | None:
-        """The version the state is about: installable, or published when on the way."""
-        if self.state == "update_available":
+        """The version the state is about: the one to install, to refresh for, or on the way."""
+        state = self.state
+        if state == "update_available":
+            if self.method in package_index.INDEXED_METHODS:
+                return self.indexed
             return self.installable
-        if self.state == "on_the_way":
+        if state == "index_behind":
+            if package_index.is_newer(self.repository, self.current):
+                return self.repository
+            return self.published
+        if state == "on_the_way":
             return self.published
         return None
 
@@ -157,6 +198,11 @@ class VersionCheck:
     def update_command(self) -> str:
         """The command that upgrades this installation."""
         return UpdateChecker._get_update_command(self.method)
+
+    @property
+    def refresh_command(self) -> str | None:
+        """The command that refreshes the package index, while it is behind."""
+        return REFRESH_COMMAND if self.state == "index_behind" else None
 
     @property
     def release_url(self) -> str | None:
@@ -184,7 +230,9 @@ class VersionCheck:
         if not isinstance(checked_at, (int, float)) or isinstance(checked_at, bool):
             return None
         texts = {key: data.get(key) for key in ("current", "location", "method")}
-        optional = {key: data.get(key) for key in ("installable", "published")}
+        optional = {
+            key: data.get(key) for key in ("installable", "published", "indexed", "repository")
+        }
         if not all(isinstance(value, str) for value in texts.values()):
             return None
         if not all(value is None or isinstance(value, str) for value in optional.values()):
@@ -197,6 +245,8 @@ class VersionCheck:
             published=optional["published"],
             checked_at=float(checked_at),
             noted=bool(data.get("noted", False)),
+            indexed=optional["indexed"],
+            repository=optional["repository"],
         )
 
 
@@ -216,6 +266,11 @@ class UpdateChecker:
     #: hitting ``GET /api/system/version`` at once - never opens more than one
     #: connection to the same repository between them.
     _check_lock: threading.Lock = threading.Lock()
+
+    #: Bumped by :meth:`forget`. A check that was already reading when the
+    #: index was refreshed carries the old index's answer, and must not write
+    #: it back over the forgetting.
+    _generation: int = 0
 
     @classmethod
     def enabled(cls) -> bool:
@@ -326,22 +381,26 @@ class UpdateChecker:
             def read_published() -> None:
                 published[0] = cls._fetch_published_version()
 
+            generation = cls._generation
             # The two sources are independent; reading them side by side keeps
             # the check inside the moment a short command gives it.
             github = threading.Thread(target=read_published, daemon=True)
             github.start()
-            installable = cls._fetch_installable_version(method)
+            offer = cls._fetch_offer(method)
             github.join(timeout=package_index.TIMEOUT * 3)
 
             result = VersionCheck(
                 current=__version__,
                 location=_location(),
                 method=method,
-                installable=installable,
+                installable=offer.installable,
                 published=published[0],
                 checked_at=time.time(),
+                indexed=offer.index,
+                repository=offer.repository,
             )
-            cls._write_cache(result.to_cache())
+            if generation == cls._generation:
+                cls._write_cache(result.to_cache())
             return result
         finally:
             cls._check_lock.release()
@@ -357,19 +416,36 @@ class UpdateChecker:
         return package_index.github_latest()
 
     @classmethod
-    def _fetch_installable_version(cls, method: str) -> str | None:
+    def _fetch_offer(cls, method: str) -> package_index.Offer:
         """
-        Read the newest version the installation's own source offers.
+        Read what the installation's own source offers, and its local index.
 
         Args:
             method: The installation method.
 
         Returns:
-            The version, or None when it cannot be read.
+            The repository's version and the index's, each None when unread.
         """
         from noust.core.runner import get_runner
 
-        return package_index.installable_version(method, get_runner())
+        return package_index.offer(method, get_runner())
+
+    @classmethod
+    def forget(cls) -> None:
+        """
+        Drop the cached check, so the next one reads every source again.
+
+        Called when the package index is refreshed: the cached answer may say
+        the index has not seen a release it now lists.
+        """
+        cls._generation += 1
+        cls._pending = None
+        from noust.core.fs import get_fs
+
+        try:
+            get_fs().remove(cls.CACHE_FILE, missing_ok=True)
+        except OSError as exc:
+            logger.debug("Could not remove %s: %s", cls.CACHE_FILE, exc)
 
     # -- the CLI banner -----------------------------------------------------
 
@@ -401,8 +477,11 @@ class UpdateChecker:
     @classmethod
     def _background_check(cls) -> None:
         """Perform the actual update check (runs in background thread)."""
+        generation = cls._generation
         try:
-            cls._pending = cls.check()
+            check = cls.check()
+            if generation == cls._generation:
+                cls._pending = check
         except Exception as exc:
             # The top of a daemon thread: nothing above it would catch this,
             # and an uncaught exception there is printed over the command's
@@ -431,6 +510,8 @@ class UpdateChecker:
         try:
             if check.state == "update_available":
                 cls._show_update_message(check)
+            elif check.state == "index_behind":
+                cls._show_index_behind_message(check)
             elif check.state == "on_the_way" and not check.noted:
                 cls._show_on_the_way_message(check)
                 cls._write_cache(replace(check, noted=True).to_cache())
@@ -464,9 +545,29 @@ class UpdateChecker:
             UnicodeError: When the terminal cannot encode the banner.
         """
         sys.stderr.write(
-            f"\n\033[33m⚠  New version available: {check.installable} "
+            f"\n\033[33m⚠  New version available: {check.announced_version} "
             f"(current: {check.current})\033[0m\n"
             f"\033[33m   Update with: {check.update_command}\033[0m\n"
+            f"\033[33m   Release notes: {check.release_url}\033[0m\n\n"
+        )
+        sys.stderr.flush()
+
+    @classmethod
+    def _show_index_behind_message(cls, check: VersionCheck) -> None:
+        """
+        Say that a release exists that this server's package index has not seen.
+
+        Args:
+            check: A check whose state is ``index_behind``.
+
+        Raises:
+            OSError: When stderr cannot be written.
+            UnicodeError: When the terminal cannot encode the note.
+        """
+        sys.stderr.write(
+            f"\n\033[33mNoust {check.announced_version} is published; this server's package "
+            "index has not seen it yet.\033[0m\n"
+            f"\033[33m   Refresh it with: {check.refresh_command}\033[0m\n"
             f"\033[33m   Release notes: {check.release_url}\033[0m\n\n"
         )
         sys.stderr.flush()

@@ -1,0 +1,1 @@
+function e(e){return{resetScroll:!1,replace:e?.replace??!1}}export{e as t};

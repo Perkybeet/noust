@@ -72,7 +72,9 @@ def accounts() -> AccountManager:
     return get_token_manager().accounts
 
 
-def make_account(username: str, role: str, *, mfa: bool = True) -> list[str]:
+def make_account(
+    username: str, role: str, *, mfa: bool = True, person_ref: str | None = None
+) -> list[str]:
     """
     Create an account, with an authenticator unless told otherwise.
 
@@ -80,12 +82,13 @@ def make_account(username: str, role: str, *, mfa: bool = True) -> list[str]:
         username: Its name.
         role: Its role.
         mfa: Whether to enrol an authenticator.
+        person_ref: The e-mail of the person it belongs to.
 
     Returns:
         Its backup codes, one per sign-in or confirmation the test needs.
     """
     manager = accounts()
-    account = manager.create(username, role, password=PASSWORD)
+    account = manager.create(username, role, password=PASSWORD, person_ref=person_ref)
     if not mfa:
         return []
     secret = manager.begin_totp(account.id)
@@ -174,13 +177,21 @@ class TestAccountSignIn:
         assert body["failures_since"] == 1
 
     def test_every_refusal_answers_the_same(self, sandbox: Path) -> None:
-        client = build(sandbox)
-        codes = make_account("maria", "admin")
+        # More attempts than the address takes: this is about the answers, not the lockout.
+        client = build(sandbox, max_failed_attempts=50)
+        codes = make_account("maria", "admin", person_ref="maria@example.com")
+        make_account("pedro", "operator", person_ref="pedro@example.com")
+        make_account("pedro.view", "viewer", person_ref="pedro@example.com")
         attempts = [
             {"username": "nobody", "password": PASSWORD, "totp_code": codes[0]},
             {"username": "maria", "password": "not the password", "totp_code": codes[0]},
             {"username": "maria", "password": PASSWORD, "totp_code": "zzzzz-zzzzz"},
-            {"username": "maria", "password": PASSWORD},
+            {"username": "nobody"},
+            {"username": "maria", "password": "not the password"},
+            {"username": "maria@example.com", "password": "not the password"},
+            {"username": "nobody@example.com", "password": PASSWORD},
+            # One person, two accounts: the e-mail names neither, and says so no differently.
+            {"username": "pedro@example.com", "password": PASSWORD},
         ]
         answers = []
         for attempt in attempts:
@@ -226,6 +237,18 @@ class TestAccountSignIn:
         assert confirmed.status_code == 200, confirmed.text
         assert len(confirmed.json()["backup_codes"]) == 8
         assert client.get("/api/auth/session").json()["mfa_required"] is False
+
+    def test_an_account_without_a_second_factor_is_not_asked_for_one(self, sandbox: Path) -> None:
+        client = build(sandbox)
+        make_account("maria", "admin", mfa=False)
+
+        body = client.post(
+            "/api/auth/login", json={"username": "maria", "password": PASSWORD}
+        ).json()
+
+        assert body["success"] is True
+        assert body["second_factor"] is None
+        assert body["mfa_required"] is True
 
     def test_an_account_cannot_turn_its_second_factor_off(self, sandbox: Path) -> None:
         client = build(sandbox)
@@ -714,3 +737,288 @@ class TestLegacyTokensWithoutAnAdmin:
         assert "accounts.manage" not in payload["permissions"]
         assert "security.manage" not in payload["permissions"]
         assert "apps.manage" in payload["permissions"]
+
+
+def password_step(client: TestClient, username: str = "maria") -> dict[str, Any]:
+    """
+    Pass the first step of the console's sign-in: the name and the password.
+
+    Args:
+        client: The client.
+        username: The username or e-mail typed.
+
+    Returns:
+        The second step the server opened.
+    """
+    response = client.post("/api/auth/login", json={"username": username, "password": PASSWORD})
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["success"] is False
+    assert body["second_factor"] is not None, body
+    return dict(body["second_factor"])
+
+
+def second_step(client: TestClient, challenge: str, code: str) -> Any:
+    """Answer the second step with a code."""
+    return client.post("/api/auth/login/second-factor", json={"challenge": challenge, "code": code})
+
+
+class TestTwoStepSignIn:
+    """The console asks for the password, then for the second factor the account has."""
+
+    def test_a_right_password_opens_the_second_step_and_nothing_else(self, sandbox: Path) -> None:
+        client = build(sandbox)
+        make_account("maria", "admin")
+
+        step = password_step(client)
+
+        assert step["challenge"] and step["expires_in"] == 300
+        assert step["methods"] == ["totp", "backup_code"]
+        assert client.get("/api/auth/session").json()["authenticated"] is False
+        # Knowing the password is not a failure, and is not a sign-in yet either.
+        assert accounts().find("maria").failures_since_login == 0
+        assert accounts().find("maria").last_login_at is None
+
+    def test_the_code_completes_the_sign_in(self, sandbox: Path) -> None:
+        client = build(sandbox)
+        codes = make_account("maria", "operator")
+        step = password_step(client)
+
+        response = second_step(client, step["challenge"], codes[0])
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["success"] is True
+        assert body["account"]["username"] == "maria"
+        assert body["mfa_required"] is False
+        session = client.get("/api/auth/session").json()
+        assert session["authenticated"] is True and session["role"] == "operator"
+        entries = [e for e in read_audit(sandbox) if e["action"] == "auth.login"]
+        assert entries[-1]["result"] == "success"
+
+    def test_the_step_is_single_use(self, sandbox: Path) -> None:
+        client = build(sandbox)
+        codes = make_account("maria", "operator")
+        step = password_step(client)
+        assert second_step(client, step["challenge"], codes[0]).status_code == 200
+
+        again = second_step(build(sandbox), step["challenge"], codes[1])
+
+        assert again.status_code == 401
+        assert again.json()["error"] == "sign_in_expired"
+
+    def test_a_wrong_code_is_counted_and_the_step_stays_open(self, sandbox: Path) -> None:
+        client = build(sandbox)
+        codes = make_account("maria", "operator")
+        step = password_step(client)
+
+        wrong = second_step(client, step["challenge"], "zzzzz-zzzzz")
+
+        assert wrong.status_code == 401
+        assert wrong.json()["error"] == "invalid_totp"
+        assert accounts().find("maria").failures_since_login == 1
+        assert second_step(client, step["challenge"], codes[0]).status_code == 200
+
+    def test_wrong_codes_lock_the_account(self, sandbox: Path) -> None:
+        # The account's lockout, not the address's: the address takes more here.
+        client = build(sandbox, max_failed_attempts=50)
+        codes = make_account("maria", "operator")
+        step = password_step(client)
+        for _ in range(4):
+            assert second_step(client, step["challenge"], "zzzzz-zzzzz").status_code == 401
+
+        last = second_step(client, step["challenge"], "zzzzz-zzzzz")
+
+        assert accounts().find("maria").is_locked()
+        assert any(e["action"] == "auth.lockout" for e in read_audit(sandbox))
+        # The locked account is out, whatever it presents next, and the step with it.
+        assert last.status_code == 401
+        refused = second_step(client, step["challenge"], codes[0])
+        assert refused.status_code == 401
+        assert refused.json()["error"] in ("sign_in_expired", "invalid_credentials")
+
+    def test_the_step_expires(self, sandbox: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        client = build(sandbox)
+        codes = make_account("maria", "operator")
+        monkeypatch.setattr(auth_module, "LOGIN_CHALLENGE_TTL", 0)
+        step = password_step(client)
+
+        response = second_step(client, step["challenge"], codes[0])
+
+        assert response.status_code == 401
+        assert response.json()["error"] == "sign_in_expired"
+
+    def test_the_step_belongs_to_the_address_it_was_opened_from(self, sandbox: Path) -> None:
+        client = build(sandbox)
+        codes = make_account("maria", "operator")
+        step = password_step(client)
+        elsewhere = TestClient(client.app, client=("198.51.100.20", 50000))
+
+        response = second_step(elsewhere, step["challenge"], codes[0])
+
+        assert response.status_code == 401
+        assert response.json()["error"] == "sign_in_expired"
+        assert second_step(client, step["challenge"], codes[0]).status_code == 200
+
+    def test_a_disabled_account_cannot_finish(self, sandbox: Path) -> None:
+        client = build(sandbox)
+        codes = make_account("maria", "operator")
+        step = password_step(client)
+        accounts().disable("maria", reason="left")
+
+        response = second_step(client, step["challenge"], codes[0])
+
+        assert response.status_code == 401
+        assert response.json()["error"] == "invalid_credentials"
+        assert client.get("/api/auth/session").json()["authenticated"] is False
+
+
+class TestSignInByEmail:
+    def test_the_email_of_the_person_signs_their_one_account_in(self, sandbox: Path) -> None:
+        client = build(sandbox)
+        codes = make_account("yago", "admin", person_ref="yago.lopez@example.com")
+
+        step = password_step(client, "Yago.Lopez@example.com")
+        response = second_step(client, step["challenge"], codes[0])
+
+        assert response.status_code == 200, response.text
+        assert response.json()["account"]["username"] == "yago"
+
+
+class TestSharedAddressLockout:
+    """
+    Every operator on an SSH tunnel arrives from 127.0.0.1: one operator's typos must not
+    lock the others out, and a remote address is still locked as a whole.
+    """
+
+    @staticmethod
+    def fail(client: TestClient, username: str, times: int = 5, **headers: str) -> None:
+        for _ in range(times):
+            response = client.post(
+                "/api/auth/login",
+                json={"username": username, "password": "not the password"},
+                headers=headers,
+            )
+            assert response.status_code == 401, response.text
+
+    @staticmethod
+    def attempt(client: TestClient, username: str, **headers: str) -> Any:
+        return client.post(
+            "/api/auth/login", json={"username": username, "password": PASSWORD}, headers=headers
+        )
+
+    def test_on_loopback_the_limit_is_per_name(self, sandbox: Path) -> None:
+        client = TestClient(build(sandbox).app, client=("127.0.0.1", 50000))
+        make_account("maria", "admin", mfa=False)
+
+        self.fail(client, "ghost")
+        locked = self.attempt(client, "ghost")
+        other = self.attempt(client, "maria")
+
+        assert locked.status_code == 429
+        assert locked.json()["error"] == "locked_out"
+        assert int(locked.headers["Retry-After"]) > 0
+        assert other.status_code == 200, other.text
+        # The name is folded as the account's is: another case is the same name.
+        assert self.attempt(client, "GHOST").status_code == 429
+
+    def test_on_loopback_a_locked_name_does_not_lock_the_cookie(self, sandbox: Path) -> None:
+        client = TestClient(build(sandbox).app, client=("127.0.0.1", 50000))
+        make_account("maria", "admin", mfa=False)
+        assert self.attempt(client, "maria").status_code == 200
+
+        self.fail(client, "ghost")
+
+        assert client.get("/api/auth/sessions").status_code == 200
+
+    def test_on_ipv6_loopback_too(self, sandbox: Path) -> None:
+        client = TestClient(build(sandbox).app, client=("::1", 50000))
+        make_account("maria", "admin", mfa=False)
+        self.fail(client, "ghost")
+        assert self.attempt(client, "maria").status_code == 200
+
+    def test_a_remote_address_is_still_locked_as_a_whole(self, sandbox: Path) -> None:
+        client = TestClient(build(sandbox).app, client=("203.0.113.9", 50000))
+        make_account("maria", "admin", mfa=False)
+
+        self.fail(client, "ghost")
+        response = self.attempt(client, "maria")
+
+        assert response.status_code == 429
+        assert response.json()["error"] == "locked_out"
+
+    def test_a_trusted_proxy_that_names_nobody_counts_like_loopback(self, sandbox: Path) -> None:
+        app = build(sandbox, trusted_proxies=["10.0.0.1"]).app
+        client = TestClient(app, client=("10.0.0.1", 50000))
+        make_account("maria", "admin", mfa=False)
+
+        self.fail(client, "ghost")
+
+        assert self.attempt(client, "maria").status_code == 200
+
+    def test_behind_a_trusted_proxy_the_forwarded_address_is_locked_whole(
+        self, sandbox: Path
+    ) -> None:
+        app = build(sandbox, trusted_proxies=["10.0.0.1"]).app
+        client = TestClient(app, client=("10.0.0.1", 50000))
+        make_account("maria", "admin", mfa=False)
+        forwarded = {"X-Forwarded-For": "198.51.100.7"}
+
+        self.fail(client, "ghost", **forwarded)
+
+        assert self.attempt(client, "maria", **forwarded).status_code == 429
+        assert self.attempt(client, "maria").status_code == 200
+
+    def test_the_per_account_lockout_still_holds_on_loopback(self, sandbox: Path) -> None:
+        app = build(sandbox).app
+        make_account("maria", "admin", mfa=False)
+        # Every attempt from its own port: the account is counted, whoever asks.
+        for port in range(5):
+            client = TestClient(app, client=("127.0.0.1", 50000 + port))
+            client.post("/api/auth/login", json={"username": "maria", "password": "nope"})
+
+        assert accounts().find("maria").is_locked()
+
+    def test_the_second_step_on_loopback_is_counted_under_the_account(self, sandbox: Path) -> None:
+        client = TestClient(build(sandbox).app, client=("127.0.0.1", 50000))
+        codes = make_account("maria", "operator")
+        make_account("pedro", "admin", mfa=False)
+        step = password_step(client)
+        for _ in range(5):
+            second_step(client, step["challenge"], "zzzzz-zzzzz")
+
+        assert self.attempt(client, "pedro").status_code == 200
+        assert codes
+
+    def test_the_master_token_on_loopback_has_a_limit_of_its_own(self, sandbox: Path) -> None:
+        client = TestClient(build(sandbox).app, client=("127.0.0.1", 50000))
+        make_account("maria", "admin", mfa=False)
+        get_token_manager().generate_master_token()
+        for _ in range(5):
+            client.post("/api/auth/login", json={"token": "not the token"})
+
+        assert client.post("/api/auth/login", json={"token": "x"}).status_code == 429
+        assert self.attempt(client, "maria").status_code == 200
+
+
+@pytest.mark.parametrize(
+    ("address", "shared"),
+    [
+        ("127.0.0.1", True),
+        ("127.8.0.3", True),
+        ("::1", True),
+        ("::ffff:127.0.0.1", True),
+        ("10.0.0.1", True),
+        ("10.0.0.2", False),
+        ("203.0.113.9", False),
+        ("testclient", False),
+        ("unknown", False),
+    ],
+)
+def test_which_addresses_many_people_share(address: str, shared: bool) -> None:
+    config = SecurityConfig(trusted_proxies=["10.0.0.1"])
+    assert auth_module.shared_address(address, config) is shared
+    key = auth_module.sign_in_lockout_key(address, " Maria ", config)
+    assert (key != address) is shared
+    if shared:
+        assert key.endswith(":account:maria")

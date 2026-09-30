@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { inPlace } from "../../../../app/searchNavigation";
 import { MetricsTab } from "../../../../features/app/metrics/MetricsTab";
 import { DEFAULT_RANGE, isRange } from "../../../../features/overview/ranges";
 import type { MetricRange } from "../../../../features/overview/ranges";
@@ -27,7 +28,7 @@ function AppMetricsTab() {
     <MetricsTab
       domain={domain}
       range={range}
-      onRangeChange={(next) => void navigate({ search: next === DEFAULT_RANGE ? {} : { range: next }, replace: true })}
+      onRangeChange={(next) => void navigate({ search: next === DEFAULT_RANGE ? {} : { range: next }, ...inPlace({ replace: true }) })}
     />
   );
 }

@@ -74,7 +74,12 @@ jobs:
       matrix:
         # 3.14 is what Ubuntu 26.04 LTS ships, and it is where tarfile
         # tightened addfile(); testing it here is how that surfaced.
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        #
+        # A push to a working branch tests the oldest and the newest Python
+        # only, the two ends where the language actually differs; main and a
+        # pull request into it test every version in between as well (a tag
+        # is verified again by release.yml before anything is published).
+        python-version: ${{ fromJSON(github.event_name == 'push' && github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/') && '["3.10", "3.14"]' || '["3.10", "3.11", "3.12", "3.13", "3.14"]') }}
 
     steps:
       - uses: actions/checkout@v7
@@ -87,11 +92,22 @@ jobs:
       - name: Install project
         run: pip install -e ".[all,dev]"
 
+      # One worker per vCPU: with psutil installed `-n auto` counts physical
+      # cores, which on a runner's SMT vCPUs can be half of them. Every test has
+      # its own home, store, audit log and temporary directory (conftest.py),
+      # so the order and the worker a test lands on do not matter.
+      # Coverage is measured on the one version that uploads it, and 3.14 is
+      # in the matrix of every run; pytest-cov combines the workers' data.
       - name: Run tests
-        run: pytest --cov=noust --cov-report=xml --cov-report=term-missing
+        if: matrix.python-version != '3.14'
+        run: pytest -n logical
+
+      - name: Run tests with coverage
+        if: matrix.python-version == '3.14'
+        run: pytest -n logical --cov=noust --cov-report=xml --cov-report=term-missing
 
       - name: Upload coverage
-        if: matrix.python-version == '3.12'
+        if: matrix.python-version == '3.14'
         uses: codecov/codecov-action@v5
         with:
           files: ./coverage.xml

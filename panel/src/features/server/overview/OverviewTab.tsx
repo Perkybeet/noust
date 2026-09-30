@@ -292,7 +292,7 @@ function Readings({ summary, security }: { summary: ServerSummary | undefined; s
       />
       <StatTile
         label={t("server.overview.security")}
-        value={security === undefined ? pending : counts === null ? t("server.overview.notChecked") : counts.critical + counts.warning === 0 ? t("server.overview.noFindings") : t("server.overview.findings", { count: counts.critical + counts.warning })}
+        value={security === undefined ? pending : counts === null ? (security.checking ? t("server.overview.checking") : t("server.overview.notChecked")) : counts.critical + counts.warning === 0 ? t("server.overview.noFindings") : t("server.overview.findings", { count: counts.critical + counts.warning })}
         detail={counts !== null ? t("server.overview.findingsDetail", { critical: counts.critical, warning: counts.warning, passed: counts.passed }) : undefined}
       />
       <StatTile

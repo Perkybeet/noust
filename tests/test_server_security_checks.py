@@ -371,6 +371,173 @@ class TestChecks:
         assert summarize(None).checked_at is None
 
 
+# The console's sockets -------------------------------------------------------------
+
+#: ``ss -Hltnup`` on the owner's server: Docker publishes 8080 on every interface
+#: (IPv4 and IPv6), and the console, enabled with --port 8081, listens on loopback.
+SS_DOCKER_AND_CONSOLE = (
+    'tcp   LISTEN 0      4096         0.0.0.0:8080      0.0.0.0:*    users:(("docker-proxy",pid=2211,fd=4))\n'
+    'tcp   LISTEN 0      4096            [::]:8080         [::]:*    users:(("docker-proxy",pid=2218,fd=4))\n'
+    'tcp   LISTEN 0      2048       127.0.0.1:8081      0.0.0.0:*    users:(("noust",pid=901,fd=7))\n'
+    'tcp   LISTEN 0      128          0.0.0.0:22        0.0.0.0:*    users:(("sshd",pid=700,fd=3))\n'
+    'udp   UNCONN 0      0      127.0.0.53%lo:53        0.0.0.0:*    users:(("systemd-resolve",pid=500,fd=13))\n'
+)
+
+#: What ``systemctl show -p ActiveState,ControlGroup noust-web.service`` prints for a running console.
+WEB_UNIT_SHOW = "ActiveState=active\nControlGroup=/system.slice/noust-web.service\n"
+
+
+def _console_unit(runner: FakeSshd, host: FakeHost, pids: str = "901\n") -> None:
+    """
+    Script noust-web.service as running, with these processes in its cgroup.
+
+    Args:
+        runner: The fake runner.
+        host: The fake server.
+        pids: The content of its ``cgroup.procs``.
+    """
+    runner.script(
+        ["systemctl", "show", "-p", "ActiveState,ControlGroup", "noust-web.service"],
+        stdout=WEB_UNIT_SHOW,
+    )
+    host.write("/sys/fs/cgroup/system.slice/noust-web.service/cgroup.procs", pids)
+
+
+class TestConsoleSockets:
+    def test_every_process_holding_a_socket_is_read(self):
+        from noust.managers.server.security_sockets import parse_listeners
+
+        (listener,) = parse_listeners(
+            "tcp LISTEN 0 2048 0.0.0.0:8081 0.0.0.0:* "
+            'users:(("noust",pid=900,fd=7),("noust",pid=902,fd=7))\n'
+        )
+
+        assert listener.pid == 900
+        assert listener.pids == (900, 902)
+
+    def test_docker_on_the_configured_port_is_not_the_console(self, runner, host, risks):
+        """The owner's false critical: Docker's 0.0.0.0:8080 blamed on a console on 8081."""
+        runner.script(["ss", "-Hltnup"], stdout=SS_DOCKER_AND_CONSOLE)
+        _console_unit(runner, host)
+
+        check = _run(runner, host, risks, host_checks=False).get("fw.console_public")
+
+        assert check.status == "pass"
+        assert check.reason == "The console listens on loopback only."
+        assert check.evidence == ("127.0.0.1:8081/tcp noust: local only",)
+
+    def test_docker_on_the_configured_port_is_judged_as_any_other_port(self, runner, host, risks):
+        runner.script(["ss", "-Hltnup"], stdout=SS_DOCKER_AND_CONSOLE)
+        _console_unit(runner, host)
+
+        report = _run(runner, host, risks, host_checks=False)
+
+        # Not waved through as the console's own port: no firewall, beyond SSH and the web.
+        assert "0.0.0.0:8080/tcp docker-proxy: no firewall" in report.get("fw.inactive").evidence
+
+    def test_a_worker_of_the_console_on_the_network_without_tls_is_critical(
+        self, runner, host, risks
+    ):
+        """A socket held by a child of the service is the console's too."""
+        runner.script(
+            ["ss", "-Hltnup"],
+            stdout=(
+                'tcp LISTEN 0 4096 0.0.0.0:8080 0.0.0.0:* users:(("docker-proxy",pid=2211,fd=4))\n'
+                'tcp LISTEN 0 2048 0.0.0.0:9443 0.0.0.0:* users:(("noust",pid=902,fd=7))\n'
+            ),
+        )
+        _console_unit(runner, host, pids="900\n902\n")
+        runner.script(
+            ["systemctl", "show", "noust-web.service", "--property=ExecStart"],
+            stdout="ExecStart={ argv[]=/usr/bin/noust web start --host 0.0.0.0 --port 9443 }\n",
+        )
+
+        check = _run(runner, host, risks, host_checks=False).get("fw.console_public")
+
+        assert check.status == "fail"
+        assert check.evidence == ("0.0.0.0:9443/tcp noust: no firewall",)
+
+    def test_a_console_with_a_self_signed_certificate_serves_tls(self, runner, host, risks):
+        runner.script(
+            ["ss", "-Hltnup"],
+            stdout='tcp LISTEN 0 2048 0.0.0.0:9443 0.0.0.0:* users:(("noust",pid=901,fd=7))\n',
+        )
+        _console_unit(runner, host)
+        runner.script(
+            ["systemctl", "show", "noust-web.service", "--property=ExecStart"],
+            stdout="ExecStart={ argv[]=/usr/bin/noust web start --host 0.0.0.0 --self-signed }\n",
+        )
+
+        check = _run(runner, host, risks, host_checks=False).get("fw.console_public")
+
+        assert check.status == "pass"
+        assert check.reason == "The console answers on the network, over TLS."
+
+    def test_without_the_cgroup_the_main_process_identifies_the_console(self, runner, host, risks):
+        runner.script(["ss", "-Hltnup"], stdout=SS_DOCKER_AND_CONSOLE)
+        runner.script(
+            ["systemctl", "show", "-p", "ActiveState,ControlGroup", "noust-web.service"],
+            stdout="ActiveState=active\nControlGroup=\n",
+        )
+        runner.script(
+            ["systemctl", "show", "-p", "MainPID", "--value", "noust-web.service"],
+            stdout="901\n",
+        )
+
+        check = _run(runner, host, risks, host_checks=False).get("fw.console_public")
+
+        assert check.status == "pass"
+        assert check.evidence == ("127.0.0.1:8081/tcp noust: local only",)
+
+    def test_with_no_console_process_the_configured_port_decides_and_says_so(
+        self, runner, host, risks
+    ):
+        runner.script(
+            ["ss", "-Hltnup"],
+            stdout='tcp LISTEN 0 2048 0.0.0.0:8080 0.0.0.0:* users:(("noust",pid=80,fd=7))\n',
+        )
+        runner.script(
+            ["systemctl", "show", "-p", "ActiveState,ControlGroup", "noust-web.service"],
+            stdout="ActiveState=inactive\nControlGroup=\n",
+        )
+        runner.script(
+            ["systemctl", "show", "-p", "MainPID", "--value", "noust-web.service"],
+            stdout="0\n",
+        )
+
+        check = _run(runner, host, risks, host_checks=False).get("fw.console_public")
+
+        assert check.status == "fail"
+        assert check.evidence[0] == "0.0.0.0:8080/tcp noust: no firewall"
+        assert check.evidence[-1] == (
+            "noust-web.service is not running: the console was looked for on the "
+            "configured port, web.port 8080."
+        )
+
+    def test_the_fallback_never_takes_docker_for_the_console(self, runner, host, risks):
+        runner.script(["ss", "-Hltnup"], stdout=SS_DOCKER_AND_CONSOLE)
+
+        check = _run(runner, host, risks, host_checks=False).get("fw.console_public")
+
+        assert check.status == "pass"
+        assert check.reason == "No console socket answers on the network."
+        assert "configured port, web.port 8080" in check.evidence[-1]
+
+    def test_the_firewall_guard_protects_the_console_s_real_port(self, runner, host):
+        from noust.managers.server.security_firewall import Firewall
+
+        runner.script(
+            ["ss", "-Hltnup"],
+            stdout=SS_DOCKER_AND_CONSOLE.replace("127.0.0.1:8081", "0.0.0.0:8081"),
+        )
+        _console_unit(runner, host)
+
+        protected = Firewall(_probe(runner, host), console_port=8080).protected()
+
+        assert protected.ports.get(8081) == "the console"
+        assert 8080 not in protected.ports
+
+
 # fail2ban -------------------------------------------------------------------------
 
 

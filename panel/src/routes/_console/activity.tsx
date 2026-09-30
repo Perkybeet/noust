@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { inPlace } from "../../app/searchNavigation";
 import { ActivityPage } from "../../features/activity/ActivityPage";
 import { validateActivitySearch } from "../../features/activity/data";
 
@@ -13,6 +14,6 @@ function ActivityRoute() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   return (
-    <ActivityPage search={search} onSearchChange={(next, options) => void navigate({ search: next, replace: options?.replace ?? false })} />
+    <ActivityPage search={search} onSearchChange={(next, options) => void navigate({ search: next, ...inPlace(options) })} />
   );
 }

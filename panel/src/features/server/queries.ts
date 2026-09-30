@@ -219,11 +219,18 @@ export const bootsQuery = () =>
     staleTime: 5 * 60_000,
   });
 
-/** The Security tab's summary, from the last checks; it never probes. */
+/** How often the security summary is read while the checks run in the background. */
+const CHECKING_POLL_MS = 2_000;
+
+/**
+ * The Security tab's summary, from the last checks. Reading it starts them in the background
+ * when there is no report or it is due (`checking`); it is read again until they end.
+ */
 export const securityOverviewQuery = () =>
   queryOptions({
     queryKey: serverKeys.security,
     queryFn: ({ signal }) => request("get", "/api/server/security", { signal }),
+    refetchInterval: (query) => (query.state.data?.checking === true ? CHECKING_POLL_MS : false),
   });
 
 export const checksQuery = () =>

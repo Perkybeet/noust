@@ -146,10 +146,23 @@ class UpdateInfo(BaseModel):
     #: The latest GitHub release. Newer than ``latest_version`` while the
     #: package for this system is still being built and published.
     published_version: str | None = None
-    #: ``up_to_date``, ``update_available``, or ``on_the_way`` when only the
-    #: published release is newer. None when the check is disabled.
-    update_state: Literal["up_to_date", "update_available", "on_the_way"] | None = None
+    #: ``up_to_date``, ``update_available``, ``on_the_way`` when only the
+    #: published release is newer, or ``index_behind`` when a newer release
+    #: exists that this server's package index has not seen yet. None when
+    #: the check is disabled.
+    update_state: Literal["up_to_date", "update_available", "on_the_way", "index_behind"] | None = (
+        None
+    )
+    #: For a package manager, what this server's package index lists: what
+    #: ``apt install`` (or dnf, zypper) installs until the index is refreshed.
+    indexed_version: str | None = None
+    #: The version the state is about: the one to install, the one the index
+    #: has not seen, or the one on the way.
+    announced_version: str | None = None
     update_command: str | None = None
+    #: The CLI command that refreshes the package index, only while it is
+    #: behind; ``POST /api/server/updates/refresh`` does the same.
+    refresh_command: str | None = None
     release_url: str | None = None
     #: "checked" when the check actually ran (or the cache was used),
     #: "disabled" when the operator turned off ``updates.check`` - the panel
@@ -622,6 +635,9 @@ def check_version(session: Annotated[dict, Depends(get_current_session)]) -> Upd
         has_update=state == "update_available",
         published_version=check.published,
         update_state=state,
+        indexed_version=check.indexed,
+        announced_version=check.announced_version,
+        refresh_command=check.refresh_command,
         # Only "update_available" names something installable: "on_the_way"
         # is a GitHub release the package manager has not built yet, and the
         # CLI banner (UpdateChecker._show_update_message) shows the command

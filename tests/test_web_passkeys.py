@@ -289,15 +289,82 @@ class TestSignIn:
         browser = sign_in(app, "juan", None)
         codes = register(browser, SoftwareAuthenticator())["backup_codes"]
 
-        refused = client_for(app).post(
-            "/api/auth/login", json={"username": "juan", "password": PASSWORD}
-        )
-        assert refused.status_code == 401
+        client = client_for(app)
+        step = client.post("/api/auth/login", json={"username": "juan", "password": PASSWORD})
+        assert step.status_code == 200
+        assert step.json()["success"] is False
+        assert step.json()["second_factor"]["methods"] == ["passkey", "backup_code"]
+        assert client.get("/api/auth/session").json()["authenticated"] is False
         with_code = client_for(app).post(
             "/api/auth/login",
             json={"username": "juan", "password": PASSWORD, "totp_code": codes[0]},
         )
         assert with_code.status_code == 200
+
+
+class TestSecondStep:
+    """After a right password, the account's passkey finishes the sign-in, and no one else's."""
+
+    @staticmethod
+    def with_passkey(app: Any, username: str) -> SoftwareAuthenticator:
+        codes = make_account(username)
+        browser = sign_in(app, username, codes[0])
+        elevate(browser, codes[1])
+        authenticator = SoftwareAuthenticator()
+        register(browser, authenticator)
+        return authenticator
+
+    @staticmethod
+    def password_step(client: TestClient, username: str) -> str:
+        response = client.post("/api/auth/login", json={"username": username, "password": PASSWORD})
+        assert response.status_code == 200, response.text
+        step = response.json()["second_factor"]
+        assert step["methods"] == ["totp", "passkey", "backup_code"]
+        return str(step["challenge"])
+
+    def test_the_account_s_passkey_finishes_the_sign_in(self, app: Any) -> None:
+        authenticator = self.with_passkey(app, "maria")
+        client = client_for(app)
+        challenge = self.password_step(client, "maria")
+
+        options = client.post("/api/auth/passkeys/login/options", json={"challenge": challenge})
+        assert options.status_code == 200, options.text
+        # Only this account's passkeys are offered: the password already said who.
+        assert len(options.json()["public_key"]["allowCredentials"]) == 1
+        credential = authenticator.get(options.json()["public_key"], BASE)
+        response = client.post(
+            "/api/auth/passkeys/login", json={"credential": credential, "challenge": challenge}
+        )
+
+        assert response.status_code == 200, response.text
+        assert response.json()["account"]["username"] == "maria"
+        assert client.get("/api/auth/session").json()["authenticated"] is True
+        # The step is spent with it.
+        again = client.post(
+            "/api/auth/login/second-factor", json={"challenge": challenge, "code": "000000"}
+        )
+        assert again.json()["error"] == "sign_in_expired"
+
+    def test_someone_else_s_passkey_does_not_finish_it(self, app: Any) -> None:
+        self.with_passkey(app, "maria")
+        pedro = self.with_passkey(app, "pedro")
+        client = client_for(app)
+        challenge = self.password_step(client, "maria")
+
+        options = client.post("/api/auth/passkeys/login/options", json={"challenge": challenge})
+        credential = pedro.get(options.json()["public_key"], BASE)
+        response = client.post(
+            "/api/auth/passkeys/login", json={"credential": credential, "challenge": challenge}
+        )
+
+        assert response.status_code == 401
+        assert client.get("/api/auth/session").json()["authenticated"] is False
+
+    def test_a_spent_or_unknown_step_is_said_so(self, app: Any) -> None:
+        client = client_for(app)
+        options = client.post("/api/auth/passkeys/login/options", json={"challenge": "nope"})
+        assert options.status_code == 401
+        assert options.json()["error"] == "sign_in_expired"
 
 
 class TestGovernance:

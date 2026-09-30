@@ -1,10 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, CircleArrowUp, CircleDashed, CircleHelp, RotateCw } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronDown, CircleArrowUp, CircleDashed, CircleHelp, RefreshCw, RotateCw } from "lucide-react";
+import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 
-import { configQuery } from "../../api/queries/config";
-import { machineQuery, versionQuery } from "../../api/queries/system";
+import { request } from "../../api/client";
 import type { ResponseOf } from "../../api/client";
+import { configQuery } from "../../api/queries/config";
+import { isJobFinished, useFollowedJob } from "../../api/queries/jobs";
+import { machineQuery, systemKeys, versionQuery } from "../../api/queries/system";
 import { useDocumentTitle } from "../../app/documentTitle";
 import { CommandHint } from "../../components/page/CommandHint";
 import { KeyValueList } from "../../components/page/KeyValueList";
@@ -22,6 +25,7 @@ import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { isHttpUrl } from "../../lib/url";
 import { useNode } from "../../nodes/useNode";
+import { reportActionError } from "../apps/useAppActions";
 import { installMethodWords, readServerIdentity, selfUpdateQuery } from "./GeneralSettings.model";
 
 type UpdateInfo = ResponseOf<"/api/system/version", "get">;
@@ -68,6 +72,46 @@ function StateLine({ icon, title, children }: { icon: ReactNode; title: string; 
 }
 
 /**
+ * A release this server's package index has not seen yet: the package manager installs what its
+ * index lists, and the system refreshes that about once a day. Refreshing it here runs the same
+ * job as the Server area's refresh (and `noust server updates refresh`); when it ends the version
+ * is asked again, and the update is offered once the index lists it.
+ */
+function IndexBehind({ info, version }: { info: UpdateInfo; version: string }): ReactNode {
+  const t = useT();
+  const queryClient = useQueryClient();
+  const followed = useFollowedJob();
+  const refresh = useMutation({
+    mutationFn: () => request("post", "/api/server/updates/refresh"),
+    onSuccess: (accepted) => followed.follow(accepted.job_id),
+    onError: (error) => reportActionError(t("settings.about.version.refreshFailed"), error),
+  });
+  const job = followed.job;
+  const finished = job !== null && isJobFinished(job);
+  const settled = useRef<string | null>(null);
+  useEffect(() => {
+    if (job === null || !finished || settled.current === job.id) return;
+    settled.current = job.id;
+    void queryClient.invalidateQueries({ queryKey: systemKeys.version });
+  }, [finished, job, queryClient]);
+  const running = refresh.isPending || (job !== null && !finished);
+  const failed = job !== null && job.status === "failed";
+  return (
+    <StateLine icon={<CircleArrowUp aria-hidden="true" className="size-icon-md shrink-0" />} title={t("settings.about.version.indexBehind", { version })}>
+      <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("settings.about.version.indexBehindDescription")}</p>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button size="sm" variant="primary" icon={<RefreshCw aria-hidden="true" />} loading={running} onClick={() => refresh.mutate()}>
+          {running ? t("settings.about.version.refreshingIndex") : t("settings.about.version.refreshIndex")}
+        </Button>
+        <ReleaseNotesLink url={info.release_url} version={version} />
+      </div>
+      {failed ? <ErrorBlock live compact error={{ detail: job.error ?? "" }} title={t("settings.about.version.refreshFailed")} /> : null}
+      {info.refresh_command ? <CommandHint label={t("settings.about.version.refreshFromTerminal")} command={info.refresh_command} /> : null}
+    </StateLine>
+  );
+}
+
+/**
  * Whether a newer Noust exists, told truthfully: a release on GitHub is only "available" once
  * the package this server installs from has it; until then it is "on the way", with no command
  * that would install nothing.
@@ -89,6 +133,10 @@ function UpdateState({ info }: { info: UpdateInfo }): ReactNode {
         </p>
       </StateLine>
     );
+  }
+  if (info.update_state === "index_behind") {
+    const version = info.announced_version ?? info.published_version ?? info.latest_version;
+    if (version) return <IndexBehind info={info} version={version} />;
   }
   if (info.update_state === "on_the_way" && info.published_version) {
     return (

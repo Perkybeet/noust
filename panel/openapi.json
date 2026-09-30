@@ -12396,8 +12396,20 @@
         "type": "object"
       },
       "LoginOptionsRequest": {
-        "description": "Asking for sign-in options.\n\nAttributes:\n    conditional: For the autofill (conditional UI) flavour.",
+        "description": "Asking for sign-in options.\n\nAttributes:\n    conditional: For the autofill (conditional UI) flavour.\n    challenge: The second step a right password opened\n        (``second_factor.challenge``): the options then offer that\n        account's passkeys only, and the sign-in they start finishes it.",
         "properties": {
+          "challenge": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Challenge"
+          },
           "conditional": {
             "default": false,
             "title": "Conditional",
@@ -12453,7 +12465,7 @@
         "type": "object"
       },
       "LoginRequest": {
-        "description": "Login request body: an account, or the master token.\n\nAttributes:\n    username: The account's name. With it, ``password`` (and\n        ``totp_code`` for an account with an authenticator) sign in as\n        that person.\n    password: The account's password.\n    token: The master access token, for the break-glass sign-in; ignored\n        when ``username`` is given.\n    bearer: Whether to also return the session token in the response, for\n        clients without a cookie jar.\n    totp_code: Second factor - a six-digit authenticator code or a backup\n        code: the account's own, or the console's for the master token.",
+        "description": "Login request body: an account, or the master token.\n\nAttributes:\n    username: The account's name, or the e-mail of the person it belongs\n        to when that names exactly one account that may sign in. With\n        it, ``password`` signs in as that person: at once for an account\n        without a second factor (its session may only enrol one), with\n        ``totp_code`` in the same request for a script, or through the\n        second step (``second_factor`` in the answer) for the console.\n    password: The account's password.\n    token: The master access token, for the break-glass sign-in; ignored\n        when ``username`` is given.\n    bearer: Whether to also return the session token in the response, for\n        clients without a cookie jar.\n    totp_code: Second factor - a six-digit authenticator code or a backup\n        code: the account's own, or the console's for the master token.",
         "properties": {
           "bearer": {
             "default": false,
@@ -12513,7 +12525,7 @@
         "type": "object"
       },
       "LoginResponse": {
-        "description": "Login response body.\n\nAttributes:\n    success: Always true when the request succeeded.\n    expires_in: Session lifetime in seconds.\n    csrf_token: Token to echo in the ``X-WASM-CSRF`` header on mutations.\n    session_token: Session token, only present for ``bearer`` clients.\n    account: The account signed in; None for the master token.\n    grant: For the master token, how it holds the console: ``compat``\n        (no account exists yet), ``break_glass`` or ``recovery``.\n    previous_login_at: The sign-in before this one, ISO 8601 (ENS\n        op.acc.6.r5.2: shown to the person right after they sign in).\n    previous_login_ip: Where it came from.\n    failures_since: Refused attempts on the account since then.\n    last_failure_at: The latest of them, ISO 8601.\n    last_failure_ip: Where it came from.\n    mfa_required: The account must enrol an authenticator before\n        anything else.\n    notice_pending: The account must accept the usage notice before\n        anything else.",
+        "description": "Login response body.\n\nAttributes:\n    success: True when a session was issued; False only when the answer\n        is ``second_factor``: the password was right and the account's\n        second factor comes next.\n    expires_in: Session lifetime in seconds (0 before the second step).\n    csrf_token: Token to echo in the ``X-WASM-CSRF`` header on mutations\n        (empty before the second step).\n    session_token: Session token, only present for ``bearer`` clients.\n    account: The account signed in; None for the master token.\n    grant: For the master token, how it holds the console: ``compat``\n        (no account exists yet), ``break_glass`` or ``recovery``.\n    previous_login_at: The sign-in before this one, ISO 8601 (ENS\n        op.acc.6.r5.2: shown to the person right after they sign in).\n    previous_login_ip: Where it came from.\n    failures_since: Refused attempts on the account since then.\n    last_failure_at: The latest of them, ISO 8601.\n    last_failure_ip: Where it came from.\n    mfa_required: The account must enrol an authenticator before\n        anything else.\n    notice_pending: The account must accept the usage notice before\n        anything else.\n    second_factor: The step still owed, when the password was right and\n        the account has a second factor; everything else is empty then.",
         "properties": {
           "account": {
             "anyOf": [
@@ -12608,6 +12620,16 @@
               }
             ],
             "title": "Previous Login Ip"
+          },
+          "second_factor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SecondFactorStep"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "session_token": {
             "anyOf": [
@@ -14102,7 +14124,7 @@
         "type": "object"
       },
       "OverviewOut": {
-        "description": "The Security tab's summary: counts and open findings of the last run, pending changes.",
+        "description": "The Security tab's summary: counts and open findings of the last run, pending changes.\n\n``checking`` is true while the checks run in the background: reading the\nsummary starts them when there is no report, or it is stale or an hour old.",
         "properties": {
           "attention": {
             "default": [],
@@ -14122,6 +14144,11 @@
               }
             ],
             "title": "Checked At"
+          },
+          "checking": {
+            "default": false,
+            "title": "Checking",
+            "type": "boolean"
           },
           "counts": {
             "anyOf": [
@@ -14534,12 +14561,24 @@
         "type": "object"
       },
       "PasskeyLoginRequest": {
-        "description": "Signing in with a passkey.\n\nAttributes:\n    bearer: Also return the session token in the body, for clients\n        without a cookie jar.",
+        "description": "Signing in with a passkey.\n\nAttributes:\n    bearer: Also return the session token in the body, for clients\n        without a cookie jar.\n    challenge: The second step the options were asked for, when this\n        finishes a sign-in whose password was right: only that account's\n        passkey is accepted then, and the step is spent.",
         "properties": {
           "bearer": {
             "default": false,
             "title": "Bearer",
             "type": "boolean"
+          },
+          "challenge": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Challenge"
           },
           "credential": {
             "additionalProperties": true,
@@ -18725,6 +18764,59 @@
         "title": "SchemasResponse",
         "type": "object"
       },
+      "SecondFactorRequest": {
+        "description": "The second step of an account's sign-in.\n\nAttributes:\n    challenge: ``second_factor.challenge`` from the password step.\n    code: A six-digit authenticator code or a backup code.\n    bearer: Also return the session token in the body, for clients\n        without a cookie jar.",
+        "properties": {
+          "bearer": {
+            "default": false,
+            "title": "Bearer",
+            "type": "boolean"
+          },
+          "challenge": {
+            "maxLength": 128,
+            "title": "Challenge",
+            "type": "string"
+          },
+          "code": {
+            "maxLength": 64,
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "challenge",
+          "code"
+        ],
+        "title": "SecondFactorRequest",
+        "type": "object"
+      },
+      "SecondFactorStep": {
+        "description": "The second step of an account's sign-in, opened by a right password.\n\nAttributes:\n    challenge: What stands for the password in the second step: send it\n        with the code to ``POST /api/auth/login/second-factor``, or with\n        the passkey to ``POST /api/auth/passkeys/login``. Bound to the\n        account and the address, single use.\n    expires_in: Seconds it stays open.\n    methods: The factors the account has, in the order to offer them:\n        ``totp`` (an authenticator's code), ``passkey``, ``backup_code``.",
+        "properties": {
+          "challenge": {
+            "title": "Challenge",
+            "type": "string"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "methods": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Methods",
+            "type": "array"
+          }
+        },
+        "required": [
+          "challenge",
+          "expires_in",
+          "methods"
+        ],
+        "title": "SecondFactorStep",
+        "type": "object"
+      },
       "SelfUpdateOut": {
         "description": "What this server can do about its own Noust, and how the last update went.\n\nAttributes:\n    current_version: The Noust answering.\n    method: How it was installed: ``apt``, ``dnf``, ``yum``, ``zypper``,\n        ``pip``, ``pipx``, ``source`` or ``unknown``.\n    supported: Whether ``POST /api/system/update`` can update it.\n    code: Why not, for a machine: ``unsupported_installation`` or\n        ``container_image``.\n    reason: Why not, in a sentence.\n    hint: What to run instead.\n    command: The command an update runs, exactly.\n    last_run: The last update's record (``id``, ``status``:\n        ``running``/``installed``/``succeeded``/``failed``,\n        ``from_version``, ``to_version``, ``tail``, ``job_id``...).",
         "properties": {
@@ -21786,6 +21878,17 @@
       "UpdateInfo": {
         "description": "Installed version and, when known, the one this server can install.",
         "properties": {
+          "announced_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Announced Version"
+          },
           "current_version": {
             "title": "Current Version",
             "type": "string"
@@ -21793,6 +21896,17 @@
           "has_update": {
             "title": "Has Update",
             "type": "boolean"
+          },
+          "indexed_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Indexed Version"
           },
           "latest_version": {
             "anyOf": [
@@ -21815,6 +21929,17 @@
               }
             ],
             "title": "Published Version"
+          },
+          "refresh_command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Command"
           },
           "release_url": {
             "anyOf": [
@@ -21849,7 +21974,8 @@
                 "enum": [
                   "up_to_date",
                   "update_available",
-                  "on_the_way"
+                  "on_the_way",
+                  "index_behind"
                 ],
                 "type": "string"
               },
@@ -28329,6 +28455,49 @@
         "x-noust-permission": "public"
       }
     },
+    "/api/auth/login/second-factor": {
+      "post": {
+        "description": "Finish an account's sign-in with its second factor: the step a right password opened.\n\nThe challenge stands for the password, so it is not sent again. A wrong\ncode is counted by the account's lockout exactly as a wrong password is,\nand by the address's; the step takes a few wrong codes, then is spent.\n\nArgs:\n    request: The incoming request.\n    response: Response used to set the session cookies.\n    body: The challenge and the code.\n\nReturns:\n    The login result.\n\nRaises:\n    HTTPException: 401 ``sign_in_expired`` when the step is spent,\n        expired or from another address; ``invalid_totp`` for a wrong\n        code; ``invalid_credentials`` when the account can no longer\n        sign in (it was locked or disabled meanwhile). 429 ``locked_out``.",
+        "operationId": "login_second_factor_api_auth_login_second_factor_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SecondFactorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login Second Factor",
+        "tags": [
+          "Authentication"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
     "/api/auth/logout": {
       "post": {
         "description": "Revoke the current session and clear its cookies.\n\nArgs:\n    request: The incoming request.\n    response: Response used to clear the cookies.\n    session: The authenticated session.\n\nReturns:\n    A confirmation payload.",
@@ -28529,7 +28698,7 @@
     },
     "/api/auth/passkeys/login/options": {
       "post": {
-        "description": "Start a sign-in with a passkey. Anonymous, and writes nothing.\n\nThe options list no credential: the passkey says whose it is, so nobody\ntypes a name and nobody can ask which names have passkeys.\n\nArgs:\n    request: The request.\n    body: Whether this is for the autofill flavour.\n\nReturns:\n    The request options.\n\nRaises:\n    HTTPException: ``passkeys_<reason>`` when passkeys cannot work from\n        this page.",
+        "description": "Start a sign-in with a passkey. Anonymous, and writes nothing.\n\nThe options list no credential: the passkey says whose it is, so nobody\ntypes a name and nobody can ask which names have passkeys. The second\nstep of a sign-in whose password was right is the exception: the options\nlist that account's passkeys, which only the person who knows its\npassword learns.\n\nArgs:\n    request: The request.\n    body: Whether this is for the autofill flavour.\n\nReturns:\n    The request options.\n\nRaises:\n    HTTPException: ``passkeys_<reason>`` when passkeys cannot work from\n        this page; 401 ``sign_in_expired`` for a second step no longer open.",
         "operationId": "login_options_api_auth_passkeys_login_options_post",
         "requestBody": {
           "content": {
@@ -39303,7 +39472,7 @@
     },
     "/api/server/security": {
       "get": {
-        "description": "The Security tab's summary, from the last checks; never probes.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Counts, open findings and pending changes; ``checked_at`` is null\n    before the first run.",
+        "description": "The Security tab's summary, from the last checks, which it has run when they are due.\n\nIt answers at once: with no report, or one stale or older than an hour,\nthe read-only checks start in the background (once) and ``checking`` says\nso; the console reads the summary again until it is false.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Counts, open findings and pending changes; ``checked_at`` is null\n    until the first run ends.",
         "operationId": "get_overview_api_server_security_get",
         "responses": {
           "200": {

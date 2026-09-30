@@ -2870,6 +2870,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/login/second-factor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Login Second Factor
+         * @description Finish an account's sign-in with its second factor: the step a right password opened.
+         *
+         *     The challenge stands for the password, so it is not sent again. A wrong
+         *     code is counted by the account's lockout exactly as a wrong password is,
+         *     and by the address's; the step takes a few wrong codes, then is spent.
+         *
+         *     Args:
+         *         request: The incoming request.
+         *         response: Response used to set the session cookies.
+         *         body: The challenge and the code.
+         *
+         *     Returns:
+         *         The login result.
+         *
+         *     Raises:
+         *         HTTPException: 401 ``sign_in_expired`` when the step is spent,
+         *             expired or from another address; ``invalid_totp`` for a wrong
+         *             code; ``invalid_credentials`` when the account can no longer
+         *             sign in (it was locked or disabled meanwhile). 429 ``locked_out``.
+         */
+        post: operations["login_second_factor_api_auth_login_second_factor_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/logout": {
         parameters: {
             query?: never;
@@ -3079,7 +3117,10 @@ export interface paths {
          * @description Start a sign-in with a passkey. Anonymous, and writes nothing.
          *
          *     The options list no credential: the passkey says whose it is, so nobody
-         *     types a name and nobody can ask which names have passkeys.
+         *     types a name and nobody can ask which names have passkeys. The second
+         *     step of a sign-in whose password was right is the exception: the options
+         *     list that account's passkeys, which only the person who knows its
+         *     password learns.
          *
          *     Args:
          *         request: The request.
@@ -3090,7 +3131,7 @@ export interface paths {
          *
          *     Raises:
          *         HTTPException: ``passkeys_<reason>`` when passkeys cannot work from
-         *             this page.
+         *             this page; 401 ``sign_in_expired`` for a second step no longer open.
          */
         post: operations["login_options_api_auth_passkeys_login_options_post"];
         delete?: never;
@@ -9427,14 +9468,18 @@ export interface paths {
         };
         /**
          * Get Overview
-         * @description The Security tab's summary, from the last checks; never probes.
+         * @description The Security tab's summary, from the last checks, which it has run when they are due.
+         *
+         *     It answers at once: with no report, or one stale or older than an hour,
+         *     the read-only checks start in the background (once) and ``checking`` says
+         *     so; the console reads the summary again until it is false.
          *
          *     Args:
          *         session: The authenticated session.
          *
          *     Returns:
          *         Counts, open findings and pending changes; ``checked_at`` is null
-         *         before the first run.
+         *         until the first run ends.
          */
         get: operations["get_overview_api_server_security_get"];
         put?: never;
@@ -18139,8 +18184,13 @@ export interface components {
          *
          *     Attributes:
          *         conditional: For the autofill (conditional UI) flavour.
+         *         challenge: The second step a right password opened
+         *             (``second_factor.challenge``): the options then offer that
+         *             account's passkeys only, and the sign-in they start finishes it.
          */
         LoginOptionsRequest: {
+            /** Challenge */
+            challenge?: string | null;
             /**
              * Conditional
              * @default false
@@ -18170,9 +18220,12 @@ export interface components {
          * @description Login request body: an account, or the master token.
          *
          *     Attributes:
-         *         username: The account's name. With it, ``password`` (and
-         *             ``totp_code`` for an account with an authenticator) sign in as
-         *             that person.
+         *         username: The account's name, or the e-mail of the person it belongs
+         *             to when that names exactly one account that may sign in. With
+         *             it, ``password`` signs in as that person: at once for an account
+         *             without a second factor (its session may only enrol one), with
+         *             ``totp_code`` in the same request for a script, or through the
+         *             second step (``second_factor`` in the answer) for the console.
          *         password: The account's password.
          *         token: The master access token, for the break-glass sign-in; ignored
          *             when ``username`` is given.
@@ -18201,9 +18254,12 @@ export interface components {
          * @description Login response body.
          *
          *     Attributes:
-         *         success: Always true when the request succeeded.
-         *         expires_in: Session lifetime in seconds.
-         *         csrf_token: Token to echo in the ``X-WASM-CSRF`` header on mutations.
+         *         success: True when a session was issued; False only when the answer
+         *             is ``second_factor``: the password was right and the account's
+         *             second factor comes next.
+         *         expires_in: Session lifetime in seconds (0 before the second step).
+         *         csrf_token: Token to echo in the ``X-WASM-CSRF`` header on mutations
+         *             (empty before the second step).
          *         session_token: Session token, only present for ``bearer`` clients.
          *         account: The account signed in; None for the master token.
          *         grant: For the master token, how it holds the console: ``compat``
@@ -18218,6 +18274,8 @@ export interface components {
          *             anything else.
          *         notice_pending: The account must accept the usage notice before
          *             anything else.
+         *         second_factor: The step still owed, when the password was right and
+         *             the account has a second factor; everything else is empty then.
          */
         LoginResponse: {
             account?: components["schemas"]["AccountInfo"] | null;
@@ -18247,6 +18305,7 @@ export interface components {
             previous_login_at?: string | null;
             /** Previous Login Ip */
             previous_login_ip?: string | null;
+            second_factor?: components["schemas"]["SecondFactorStep"] | null;
             /** Session Token */
             session_token?: string | null;
             /** Success */
@@ -19032,6 +19091,9 @@ export interface components {
         /**
          * OverviewOut
          * @description The Security tab's summary: counts and open findings of the last run, pending changes.
+         *
+         *     ``checking`` is true while the checks run in the background: reading the
+         *     summary starts them when there is no report, or it is stale or an hour old.
          */
         OverviewOut: {
             /**
@@ -19041,6 +19103,11 @@ export interface components {
             attention: components["schemas"]["noust__web__api__server__security__CheckOut"][];
             /** Checked At */
             checked_at?: string | null;
+            /**
+             * Checking
+             * @default false
+             */
+            checking: boolean;
             counts?: components["schemas"]["CheckCountsOut"] | null;
             /**
              * Pending
@@ -19247,6 +19314,9 @@ export interface components {
          *     Attributes:
          *         bearer: Also return the session token in the body, for clients
          *             without a cookie jar.
+         *         challenge: The second step the options were asked for, when this
+         *             finishes a sign-in whose password was right: only that account's
+         *             passkey is accepted then, and the step is spent.
          */
         PasskeyLoginRequest: {
             /**
@@ -19254,6 +19324,8 @@ export interface components {
              * @default false
              */
             bearer: boolean;
+            /** Challenge */
+            challenge?: string | null;
             /** Credential */
             credential: {
                 [key: string]: unknown;
@@ -21492,6 +21564,48 @@ export interface components {
             schemas: components["schemas"]["SchemaResponse"][];
         };
         /**
+         * SecondFactorRequest
+         * @description The second step of an account's sign-in.
+         *
+         *     Attributes:
+         *         challenge: ``second_factor.challenge`` from the password step.
+         *         code: A six-digit authenticator code or a backup code.
+         *         bearer: Also return the session token in the body, for clients
+         *             without a cookie jar.
+         */
+        SecondFactorRequest: {
+            /**
+             * Bearer
+             * @default false
+             */
+            bearer: boolean;
+            /** Challenge */
+            challenge: string;
+            /** Code */
+            code: string;
+        };
+        /**
+         * SecondFactorStep
+         * @description The second step of an account's sign-in, opened by a right password.
+         *
+         *     Attributes:
+         *         challenge: What stands for the password in the second step: send it
+         *             with the code to ``POST /api/auth/login/second-factor``, or with
+         *             the passkey to ``POST /api/auth/passkeys/login``. Bound to the
+         *             account and the address, single use.
+         *         expires_in: Seconds it stays open.
+         *         methods: The factors the account has, in the order to offer them:
+         *             ``totp`` (an authenticator's code), ``passkey``, ``backup_code``.
+         */
+        SecondFactorStep: {
+            /** Challenge */
+            challenge: string;
+            /** Expires In */
+            expires_in: number;
+            /** Methods */
+            methods: string[];
+        };
+        /**
          * SelfUpdateOut
          * @description What this server can do about its own Noust, and how the last update went.
          *
@@ -23018,14 +23132,20 @@ export interface components {
          * @description Installed version and, when known, the one this server can install.
          */
         UpdateInfo: {
+            /** Announced Version */
+            announced_version?: string | null;
             /** Current Version */
             current_version: string;
             /** Has Update */
             has_update: boolean;
+            /** Indexed Version */
+            indexed_version?: string | null;
             /** Latest Version */
             latest_version?: string | null;
             /** Published Version */
             published_version?: string | null;
+            /** Refresh Command */
+            refresh_command?: string | null;
             /** Release Url */
             release_url?: string | null;
             /**
@@ -23036,7 +23156,7 @@ export interface components {
             /** Update Command */
             update_command?: string | null;
             /** Update State */
-            update_state?: ("up_to_date" | "update_available" | "on_the_way") | null;
+            update_state?: ("up_to_date" | "update_available" | "on_the_way" | "index_behind") | null;
         };
         /**
          * UpdateLimitsRequest
@@ -26944,6 +27064,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    login_second_factor_api_auth_login_second_factor_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SecondFactorRequest"];
             };
         };
         responses: {

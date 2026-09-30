@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { inPlace } from "../../app/searchNavigation";
 import { CronPage } from "../../features/cron/CronPage";
 import { validateCronSearch } from "../../features/cron/data";
 
@@ -13,6 +14,6 @@ function CronRoute() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   return (
-    <CronPage search={search} onSearchChange={(next, options) => void navigate({ search: next, replace: options?.replace ?? false })} />
+    <CronPage search={search} onSearchChange={(next, options) => void navigate({ search: next, ...inPlace(options) })} />
   );
 }

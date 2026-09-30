@@ -1,0 +1,1 @@
+import{It as e}from"./Button-oXJSO2wf.js";import{n as t,t as n}from"./toggle-right-DrEXgfe1.js";import{t as r}from"./Badge-DH09Gl7H.js";var i=e();function a({on:e,label:a}){return(0,i.jsxs)(r,{children:[(0,i.jsx)(e?n:t,{"aria-hidden":`true`,className:`size-icon-sm`}),a]})}export{a as t};

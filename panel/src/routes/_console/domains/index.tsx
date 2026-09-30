@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
+import { inPlace } from "../../../app/searchNavigation";
 import { CertificatesPage } from "../../../features/domains/CertificatesPage";
 import { validateCertificatesSearch } from "../../../features/domains/search";
 
@@ -21,6 +22,6 @@ function CertificatesRoute() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   return (
-    <CertificatesPage search={search} onSearchChange={(next, options) => void navigate({ search: next, replace: options?.replace ?? false })} />
+    <CertificatesPage search={search} onSearchChange={(next, options) => void navigate({ search: next, ...inPlace(options) })} />
   );
 }

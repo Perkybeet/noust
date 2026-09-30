@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { inPlace } from "../../../app/searchNavigation";
 import { ServicesPage } from "../../../features/services/ServicesPage";
 import { validateServicesSearch } from "../../../features/services/data";
 
@@ -13,6 +14,6 @@ function ServicesRoute() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   return (
-    <ServicesPage search={search} onSearchChange={(next, options) => void navigate({ search: next, replace: options?.replace ?? false })} />
+    <ServicesPage search={search} onSearchChange={(next, options) => void navigate({ search: next, ...inPlace(options) })} />
   );
 }

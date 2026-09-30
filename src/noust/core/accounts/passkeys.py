@@ -989,14 +989,16 @@ class PasskeyManager:
         A sign-in lists no credential: the passkey is discoverable, and a list
         would tell an anonymous caller who has one. A confirmation lists the
         owner's, so another server's passkey reached as ``localhost`` is not
-        offered.
+        offered, and so does the second step of a sign-in, whose password
+        already said whose passkeys to offer.
 
         Args:
             rp: This console as a relying party.
             purpose: ``login`` or ``elevate``.
             binding: The session a confirmation belongs to; empty for a sign-in.
-            account_id: The owner a confirmation is for; None for the master token.
-            any_owner: List nothing (a sign-in).
+            account_id: The owner a confirmation or a second step is for; None
+                for the master token.
+            any_owner: List nothing (an anonymous sign-in).
 
         Returns:
             A PublicKeyCredentialRequestOptionsJSON.
@@ -1007,7 +1009,7 @@ class PasskeyManager:
         require_library()
         if purpose not in PURPOSES or purpose == "register":
             raise ValueError(f"Not an assertion purpose: {purpose!r}")
-        allowed = [] if any_owner or purpose == "login" else self._descriptors(account_id, rp.id)
+        allowed = [] if any_owner else self._descriptors(account_id, rp.id)
         return {
             "challenge": b64url_encode(self._challenge(purpose, binding, rp.id)),
             "rpId": rp.id,

@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { inPlace } from "../../../../../app/searchNavigation";
 import { DataTab } from "../../../../../features/databases/data/DataTab";
 import { validateDataSearch } from "../../../../../features/databases/data/search";
 
@@ -18,7 +19,7 @@ function DatabaseDataRoute() {
       engine={engine}
       name={name}
       search={search}
-      onSearchChange={(next, options) => void navigate({ search: next, replace: options?.replace ?? false })}
+      onSearchChange={(next, options) => void navigate({ search: next, ...inPlace(options) })}
     />
   );
 }

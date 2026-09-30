@@ -545,3 +545,65 @@ def test_an_unreadable_source_is_none_not_an_error(monkeypatch: pytest.MonkeyPat
 
     assert package_index.pypi_latest() is None
     assert package_index.github_latest() is None
+
+
+# -- what the repository serves, and what this server's index lists
+
+
+def test_the_apt_offer_keeps_the_repository_and_the_local_index_apart(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The repository has 2.3.0; apt's lists, refreshed once a day, still say 2.2.0."""
+    serve(monkeypatch, {f"{OBS}/xUbuntu_24.04/Packages.gz": gzip.compress(PACKAGES.encode())})
+
+    offer = package_index.apt_offer(
+        _apt_runner("2.2.0-1"), sources=[AptSource(f"{OBS}/xUbuntu_24.04/", "/")]
+    )
+
+    assert offer.repository == "2.3.0"
+    assert offer.index == "2.2.0"
+    assert offer.installable == "2.3.0"
+
+
+def test_an_unreadable_apt_repository_leaves_only_the_index(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    serve(monkeypatch, {})
+
+    offer = package_index.apt_offer(
+        _apt_runner("2.2.5-1"), sources=[AptSource(f"{OBS}/xUbuntu_24.04/", "/")]
+    )
+
+    assert offer.repository is None
+    assert offer.index == "2.2.5"
+    assert offer.installable == "2.2.5"
+
+
+def test_the_rpm_offer_reads_the_cached_metadata_as_the_index(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    serve(
+        monkeypatch,
+        {
+            f"{OBS}/Fedora_42/repodata/repomd.xml": REPOMD,
+            f"{OBS}/Fedora_42/repodata/abc-primary.xml.gz": gzip.compress(PRIMARY),
+        },
+    )
+    argv = ("dnf", "--cacheonly", "info", "--available", "noust")
+    runner = FakeRunner().script(list(argv), stdout="Name : noust\nVersion : 2.2.5\n")
+
+    offer = package_index.rpm_offer(runner, "dnf", repositories=[f"{OBS}/Fedora_42/"])
+
+    assert offer.repository == "2.3.0"
+    assert offer.index == "2.2.5"
+    assert runner.calls == [argv]
+
+
+def test_pip_and_source_have_no_local_index(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(package_index, "pypi_latest", lambda: "2.3.0")
+    monkeypatch.setattr(package_index, "github_latest", lambda: "2.4.0")
+    runner = FakeRunner()
+
+    assert package_index.offer("pip", runner) == package_index.Offer(repository="2.3.0")
+    assert package_index.offer("source", runner) == package_index.Offer(repository="2.4.0")
+    assert runner.calls == []

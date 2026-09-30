@@ -219,10 +219,18 @@ a random user handle per server. A passkey signs in on its own and confirms sudo
 one comes with backup codes. `noust passkey reset USERNAME` is the root-only way back when every
 passkey is lost. Browsers offer passkeys only on a certificate they trust.
 
-**Lockout.** Five consecutive failed sign-ins lock the account for 15 minutes
-(`auth.lockout.*`), in addition to the lockout per address described below. The sign-in page
-does not show the host name, the version or whether a second factor is on before
-authentication, and a failure says the same thing whatever was wrong.
+**Two steps.** The console signs a person in with their username (or the email of the person,
+when it names exactly one account that may sign in) and password first. When the account has a
+second factor, that answer opens the second step, a single-use challenge bound to the account and
+the address that lasts five minutes: the code or the account's passkey finishes it, and the
+password is not sent again. An account without a second factor is let in on its password and may
+do nothing but set one up. A wrong code counts toward the account's lockout like a wrong password.
+
+**Lockout.** Five consecutive failed sign-ins (wrong passwords or codes) lock the account for 15
+minutes (`auth.lockout.*`), in addition to the lockout per address described below. The sign-in
+page does not show the host name, the version or whether a second factor is on before
+authentication, and a failure of the first step says the same thing whatever was wrong: an
+unknown name, a wrong password and an email on two accounts read alike.
 
 **The master token.** Every `noust web start` issues a new access token and prints it once,
 in the same banner whether it runs in the foreground or, with `-d`, in the background. Only
@@ -308,8 +316,13 @@ refused without being counted: it cannot be a guess, and counting it would lock 
 operator whose browser merely outlived its session. A locked-out address is refused at
 `/api/auth/login`, `/api/auth/elevate` and `/api/auth/2fa/disable`, on any request carrying a
 bearer token or a session cookie, and on WebSocket handshakes. The lockout is the attacker's
-address; an operator connecting from elsewhere is not affected. Webhook signatures are
-counted per application instead (see [Outbound requests](#outbound-requests)).
+address; an operator connecting from elsewhere is not affected. Sign-in from an address many
+people share is the exception: every operator reaching the console over `ssh -L` arrives from
+`127.0.0.1`, and a trusted proxy that passes no usable forwarding header resolves to its own
+address, so there sign-in failures are counted per address and name (and the master token under
+a name of its own) rather than locking everyone on the tunnel out at once; the per-account lockout
+still counts every one of them. Webhook signatures are counted per application instead (see
+[Outbound requests](#outbound-requests)).
 
 ## Authorization
 

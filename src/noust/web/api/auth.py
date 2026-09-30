@@ -50,6 +50,7 @@ from noust.web.auth import (
     is_secure_request,
     record_auth_failure,
     require_auth,
+    sign_in_lockout_key,
     verify_credential,
 )
 from noust.web.permissions import ALL_PERMISSIONS, DESCRIPTIONS, Permission
@@ -70,15 +71,24 @@ get_current_session = require_auth
 #: wrong: naming it would tell a guesser which half of the credential was right.
 INVALID_CREDENTIALS = "Invalid credentials."
 
+#: The answer to a second step that is no longer open: spent, expired, or
+#: presented from another address. Nothing to retry but the whole sign-in.
+SIGN_IN_EXPIRED = "This sign-in has expired. Start again with your username and password."
+
+SECOND_FACTOR_PATH = "/api/auth/login/second-factor"
+
 
 class LoginRequest(BaseModel):
     """
     Login request body: an account, or the master token.
 
     Attributes:
-        username: The account's name. With it, ``password`` (and
-            ``totp_code`` for an account with an authenticator) sign in as
-            that person.
+        username: The account's name, or the e-mail of the person it belongs
+            to when that names exactly one account that may sign in. With
+            it, ``password`` signs in as that person: at once for an account
+            without a second factor (its session may only enrol one), with
+            ``totp_code`` in the same request for a script, or through the
+            second step (``second_factor`` in the answer) for the console.
         password: The account's password.
         token: The master access token, for the break-glass sign-in; ignored
             when ``username`` is given.
@@ -95,14 +105,36 @@ class LoginRequest(BaseModel):
     totp_code: str | None = Field(default=None, max_length=64)
 
 
+class SecondFactorStep(BaseModel):
+    """
+    The second step of an account's sign-in, opened by a right password.
+
+    Attributes:
+        challenge: What stands for the password in the second step: send it
+            with the code to ``POST /api/auth/login/second-factor``, or with
+            the passkey to ``POST /api/auth/passkeys/login``. Bound to the
+            account and the address, single use.
+        expires_in: Seconds it stays open.
+        methods: The factors the account has, in the order to offer them:
+            ``totp`` (an authenticator's code), ``passkey``, ``backup_code``.
+    """
+
+    challenge: str
+    expires_in: int
+    methods: list[str]
+
+
 class LoginResponse(BaseModel):
     """
     Login response body.
 
     Attributes:
-        success: Always true when the request succeeded.
-        expires_in: Session lifetime in seconds.
-        csrf_token: Token to echo in the ``X-WASM-CSRF`` header on mutations.
+        success: True when a session was issued; False only when the answer
+            is ``second_factor``: the password was right and the account's
+            second factor comes next.
+        expires_in: Session lifetime in seconds (0 before the second step).
+        csrf_token: Token to echo in the ``X-WASM-CSRF`` header on mutations
+            (empty before the second step).
         session_token: Session token, only present for ``bearer`` clients.
         account: The account signed in; None for the master token.
         grant: For the master token, how it holds the console: ``compat``
@@ -117,6 +149,8 @@ class LoginResponse(BaseModel):
             anything else.
         notice_pending: The account must accept the usage notice before
             anything else.
+        second_factor: The step still owed, when the password was right and
+            the account has a second factor; everything else is empty then.
     """
 
     success: bool
@@ -132,6 +166,23 @@ class LoginResponse(BaseModel):
     last_failure_ip: str | None = None
     mfa_required: bool = False
     notice_pending: bool = False
+    second_factor: SecondFactorStep | None = None
+
+
+class SecondFactorRequest(BaseModel):
+    """
+    The second step of an account's sign-in.
+
+    Attributes:
+        challenge: ``second_factor.challenge`` from the password step.
+        code: A six-digit authenticator code or a backup code.
+        bearer: Also return the session token in the body, for clients
+            without a cookie jar.
+    """
+
+    challenge: str = Field(max_length=128)
+    code: str = Field(max_length=64)
+    bearer: bool = False
 
 
 class TokenInfo(BaseModel):
@@ -342,7 +393,7 @@ def _iso(timestamp: float | None) -> str | None:
     return datetime.fromtimestamp(float(timestamp), tz=timezone.utc).isoformat()
 
 
-def _login_failure(error: str, detail: str) -> HTTPException:
+def login_failure(error: str, detail: str) -> HTTPException:
     """
     Build a 401 whose reason a client can branch on without parsing English.
 
@@ -499,73 +550,122 @@ def login(request: Request, response: Response, body: LoginRequest) -> LoginResp
     return _master_login(request, response, body)
 
 
-def _account_login(request: Request, response: Response, body: LoginRequest) -> LoginResponse:
+def refuse_locked_sign_in(key: str, client_ip: str, path: str) -> None:
     """
-    Sign a person in with their account.
+    Refuse a sign-in whose lockout key is locked, when the middleware could not.
+
+    ``SecurityMiddleware`` refuses a locked-out address before any handler
+    runs. From an address many people share, a sign-in is counted per address
+    and name (:func:`~noust.web.auth.sign_in_lockout_key`), which only the
+    handler reads, so it is refused here, in the same words.
 
     Args:
-        request: The incoming request.
-        response: Response used to set the session cookies.
-        body: The login payload, with ``username``.
-
-    Returns:
-        The login result.
+        key: The attempt's lockout key.
+        client_ip: The resolved client address.
+        path: The route, for the audit record.
 
     Raises:
-        HTTPException: 401 ``invalid_credentials`` for any refusal.
+        HTTPException: 429 ``locked_out`` with ``Retry-After``.
+    """
+    if key == client_ip:
+        return
+    brute_force = get_brute_force()
+    if not brute_force.is_locked(key):
+        return
+    remaining = brute_force.get_lockout_remaining(key)
+    audit = get_audit_logger()
+    if audit is not None:
+        audit.record(
+            action="auth.lockout",
+            result="locked",
+            client_ip=client_ip,
+            resource=path,
+            detail=f"locked for {remaining} seconds (this address and name)",
+        )
+    raise HTTPException(
+        status_code=429,
+        detail={
+            "error": "locked_out",
+            "detail": f"Too many failed attempts. Locked for {remaining} seconds.",
+            "hint": None,
+            "fields": None,
+        },
+        headers={"Retry-After": str(remaining)},
+    )
+
+
+def second_factor_methods(account: Account) -> list[str]:
+    """
+    Name the second factors an account can finish a sign-in with.
+
+    Args:
+        account: The account.
+
+    Returns:
+        ``totp``, ``passkey`` and ``backup_code``, those it has, in that order.
+    """
+    methods = []
+    if account.totp_enabled:
+        methods.append("totp")
+    if account.passkeys > 0:
+        methods.append("passkey")
+    if account.backup_codes_remaining > 0:
+        methods.append("backup_code")
+    return methods
+
+
+def account_signed_in(
+    request: Request,
+    response: Response,
+    account: Account,
+    *,
+    bearer: bool,
+    auth_method: str,
+    event: str,
+    detail: str,
+    lockout_key: str,
+) -> LoginResponse:
+    """
+    Issue an account's session once every step of its sign-in passed.
+
+    The one ending of an account's sign-in, whichever way it came: password
+    and code in one request, the second step, or a passkey.
+
+    Args:
+        request: The request.
+        response: Response used to set the session cookies.
+        account: The account.
+        bearer: Also return the session token in the body.
+        auth_method: How it signed in, kept on the session.
+        event: The audit event: ``auth.login`` or ``auth.passkey.login``.
+        detail: The audit sentence.
+        lockout_key: What its failures were counted under, cleared now.
+
+    Returns:
+        The login result, with what happened since the account's last sign-in.
     """
     token_manager = get_token_manager()
     client_ip = get_client_ip(request)
-    name = _printable(body.username)
-    try:
-        account = token_manager.accounts.authenticate(
-            body.username or "", body.password or "", body.totp_code, client_ip=client_ip
-        )
-    except AuthenticationFailed as exc:
-        # The address is counted like any wrong credential, before the account:
-        # an attacker spraying names runs out at the address first, and a
-        # person's account is not locked by somebody else's guesses as fast.
-        get_brute_force().record_failure(client_ip)
-        audit_event(
-            "auth.login",
-            "failure",
-            client_ip=client_ip,
-            target=f"account:{name}",
-            detail=f"account sign-in refused: {exc.reason}",
-        )
-        if exc.locked_now:
-            policy = token_manager.policy()
-            audit_event(
-                "auth.lockout",
-                "warning",
-                client_ip=client_ip,
-                target=f"account:{name}",
-                detail=(
-                    f"account locked for {policy.lockout_minutes} minutes after "
-                    f"{policy.lockout_threshold} refused sign-ins"
-                ),
-            )
-        raise _login_failure("invalid_credentials", INVALID_CREDENTIALS) from exc
-
     record = token_manager.accounts.record_login(account.id, client_ip)
-    get_brute_force().record_success(client_ip)
-    session = token_manager.create_session(client_ip, account_id=account.id, auth_method="password")
+    get_brute_force().record_success(lockout_key)
+    session = token_manager.create_session(
+        client_ip, account_id=account.id, auth_method=auth_method
+    )
     set_session_cookies(response, session, secure=is_secure_request(request))
-
     fields = token_manager.account_fields(record.account)
     audit_event(
-        "auth.login",
+        event,
         "success",
         client_ip=client_ip,
         session=fields,
         target=f"account:{account.username}",
-        detail="signed in with a password" + (" and a second factor" if account.has_mfa else ""),
+        detail=detail,
     )
     return LoginResponse(
         success=True,
         expires_in=session.max_age,
         csrf_token=session.csrf_token,
-        session_token=session.token if body.bearer else None,
+        session_token=session.token if bearer else None,
         account=AccountInfo.of(record.account),
         previous_login_at=_iso(record.previous_login_at),
         previous_login_ip=record.previous_login_ip,
@@ -574,6 +674,203 @@ def _account_login(request: Request, response: Response, body: LoginRequest) -> 
         last_failure_ip=record.last_failed_ip,
         mfa_required=bool(fields["mfa_pending"]),
         notice_pending=bool(fields["notice_pending"]),
+    )
+
+
+def _refused_sign_in(
+    exc: AuthenticationFailed, *, client_ip: str, name: str, lockout_key: str, path: str
+) -> HTTPException:
+    """
+    Count and audit a refused account sign-in, and build its one answer.
+
+    Args:
+        exc: The refusal, whose reason goes to the audit log only.
+        client_ip: Where it came from.
+        name: What the attempt named, printable, for the audit log.
+        lockout_key: What the address's count is kept under.
+        path: The route.
+
+    Returns:
+        The 401 ``invalid_credentials`` to raise.
+    """
+    # The address is counted like any wrong credential, before the account:
+    # an attacker spraying names runs out at the address first, and a
+    # person's account is not locked by somebody else's guesses as fast.
+    get_brute_force().record_failure(lockout_key)
+    step = " at the second step" if path == SECOND_FACTOR_PATH else ""
+    audit_event(
+        "auth.login",
+        "failure",
+        client_ip=client_ip,
+        target=f"account:{name}",
+        detail=f"account sign-in refused{step}: {exc.reason}",
+    )
+    _audit_lock(exc, client_ip, name)
+    return login_failure("invalid_credentials", INVALID_CREDENTIALS)
+
+
+def _audit_lock(exc: AuthenticationFailed, client_ip: str, name: str) -> None:
+    """
+    Record that a refusal locked the account, when it did.
+
+    Args:
+        exc: The refusal.
+        client_ip: Where it came from.
+        name: The account, as the attempt named it.
+    """
+    if not exc.locked_now:
+        return
+    policy = get_token_manager().policy()
+    audit_event(
+        "auth.lockout",
+        "warning",
+        client_ip=client_ip,
+        target=f"account:{name}",
+        detail=(
+            f"account locked for {policy.lockout_minutes} minutes after "
+            f"{policy.lockout_threshold} refused sign-ins"
+        ),
+    )
+
+
+def _account_login(request: Request, response: Response, body: LoginRequest) -> LoginResponse:
+    """
+    Sign a person in with their account: the password step, and for a script the code with it.
+
+    Args:
+        request: The incoming request.
+        response: Response used to set the session cookies.
+        body: The login payload, with ``username``.
+
+    Returns:
+        The login result; for an account with a second factor and no code in
+        the request, ``success=False`` and the ``second_factor`` step to take.
+
+    Raises:
+        HTTPException: 401 ``invalid_credentials`` for any refusal; 429
+            ``locked_out`` for an address and name locked out.
+    """
+    token_manager = get_token_manager()
+    accounts = token_manager.accounts
+    client_ip = get_client_ip(request)
+    name = _printable(body.username)
+    lockout_key = sign_in_lockout_key(client_ip, body.username or "")
+    refuse_locked_sign_in(lockout_key, client_ip, "/api/auth/login")
+    code = (body.totp_code or "").strip()
+    try:
+        account = accounts.authenticate_password(
+            body.username or "", body.password or "", client_ip=client_ip
+        )
+        if account.has_mfa and code:
+            account = accounts.complete_second_factor(account.id, code, client_ip=client_ip)
+    except AuthenticationFailed as exc:
+        raise _refused_sign_in(
+            exc,
+            client_ip=client_ip,
+            name=name,
+            lockout_key=lockout_key,
+            path="/api/auth/login",
+        ) from exc
+
+    if account.has_mfa and not code:
+        # Not a failure and not a sign-in: the password was right, and the
+        # step it opens is worth nothing without the account's own factor.
+        challenge, expires_in = token_manager.issue_login_challenge(account.id, client_ip)
+        return LoginResponse(
+            success=False,
+            expires_in=0,
+            csrf_token="",
+            second_factor=SecondFactorStep(
+                challenge=challenge,
+                expires_in=expires_in,
+                methods=second_factor_methods(account),
+            ),
+        )
+
+    return account_signed_in(
+        request,
+        response,
+        account,
+        bearer=body.bearer,
+        auth_method="password",
+        event="auth.login",
+        detail="signed in with a password" + (" and a second factor" if account.has_mfa else ""),
+        lockout_key=lockout_key,
+    )
+
+
+@router.post("/login/second-factor", response_model=LoginResponse)
+def login_second_factor(
+    request: Request, response: Response, body: SecondFactorRequest
+) -> LoginResponse:
+    """
+    Finish an account's sign-in with its second factor: the step a right password opened.
+
+    The challenge stands for the password, so it is not sent again. A wrong
+    code is counted by the account's lockout exactly as a wrong password is,
+    and by the address's; the step takes a few wrong codes, then is spent.
+
+    Args:
+        request: The incoming request.
+        response: Response used to set the session cookies.
+        body: The challenge and the code.
+
+    Returns:
+        The login result.
+
+    Raises:
+        HTTPException: 401 ``sign_in_expired`` when the step is spent,
+            expired or from another address; ``invalid_totp`` for a wrong
+            code; ``invalid_credentials`` when the account can no longer
+            sign in (it was locked or disabled meanwhile). 429 ``locked_out``.
+    """
+    token_manager = get_token_manager()
+    accounts = token_manager.accounts
+    client_ip = get_client_ip(request)
+    account_id = token_manager.login_challenge_account(body.challenge, client_ip)
+    account = accounts.get(account_id) if account_id is not None else None
+    if account is None:
+        raise login_failure("sign_in_expired", SIGN_IN_EXPIRED)
+    lockout_key = sign_in_lockout_key(client_ip, account.username)
+    refuse_locked_sign_in(lockout_key, client_ip, SECOND_FACTOR_PATH)
+    try:
+        account = accounts.complete_second_factor(account.id, body.code, client_ip=client_ip)
+    except AuthenticationFailed as exc:
+        if exc.reason != "bad_code" or exc.locked_now:
+            # Locked or disabled: nothing this step can still finish.
+            token_manager.spend_login_challenge(body.challenge)
+            raise _refused_sign_in(
+                exc,
+                client_ip=client_ip,
+                name=account.username,
+                lockout_key=lockout_key,
+                path=SECOND_FACTOR_PATH,
+            ) from exc
+        token_manager.fail_login_challenge(body.challenge)
+        record_auth_failure(
+            client_ip, "/api/auth/login/second-factor", "totp", lockout_key=lockout_key
+        )
+        audit_event(
+            "auth.login",
+            "failure",
+            client_ip=client_ip,
+            target=f"account:{account.username}",
+            detail="account sign-in refused at the second step: bad_code",
+        )
+        raise login_failure("invalid_totp", "Invalid two-factor code.") from exc
+
+    if not token_manager.spend_login_challenge(body.challenge):
+        # Another request finished this step first: one step, one session.
+        raise login_failure("sign_in_expired", SIGN_IN_EXPIRED)
+    return account_signed_in(
+        request,
+        response,
+        account,
+        bearer=body.bearer,
+        auth_method="password",
+        event="auth.login",
+        detail="signed in with a password and a second factor, in two steps",
+        lockout_key=lockout_key,
     )
 
 
@@ -597,9 +894,11 @@ def _master_login(request: Request, response: Response, body: LoginRequest) -> L
     brute_force = get_brute_force()
     audit = get_audit_logger()
     client_ip = get_client_ip(request)
+    lockout_key = sign_in_lockout_key(client_ip, None)
+    refuse_locked_sign_in(lockout_key, client_ip, "/api/auth/login")
 
     if not token_manager.verify_master_token(body.token or ""):
-        brute_force.record_failure(client_ip)
+        brute_force.record_failure(lockout_key)
         if audit:
             audit.record(
                 action="auth.login",
@@ -608,7 +907,7 @@ def _master_login(request: Request, response: Response, body: LoginRequest) -> L
                 resource="/api/auth/login",
                 detail="invalid master token",
             )
-        raise _login_failure("invalid_token", "Invalid token.")
+        raise login_failure("invalid_token", "Invalid token.")
 
     totp_on = token_manager.totp_enabled()
     passkeys_on = master_has_passkeys()
@@ -627,15 +926,15 @@ def _master_login(request: Request, response: Response, body: LoginRequest) -> L
                     resource="/api/auth/login",
                     detail="second factor required but not presented",
                 )
-            raise _login_failure(*_second_factor_required(totp_on, passkeys_on, "totp_code"))
+            raise login_failure(*_second_factor_required(totp_on, passkeys_on, "totp_code"))
         if not token_manager.verify_second_factor(code, purpose="login"):
             # The same chokepoint that counts a bad master token: a wrong
             # second factor is a credential guess, and it must not have its
             # own, softer counter.
-            record_auth_failure(client_ip, "/api/auth/login", "totp")
-            raise _login_failure("invalid_totp", "Invalid two-factor code.")
+            record_auth_failure(client_ip, "/api/auth/login", "totp", lockout_key=lockout_key)
+            raise login_failure("invalid_totp", "Invalid two-factor code.")
 
-    brute_force.record_success(client_ip)
+    brute_force.record_success(lockout_key)
     session = token_manager.create_session(client_ip)
     set_session_cookies(response, session, secure=is_secure_request(request))
     grant = token_manager.master_grant()
@@ -808,23 +1107,23 @@ def elevate(
             if password_ok:
                 accounts.record_failure(account.id, client_ip)
             record_auth_failure(client_ip, "/api/auth/elevate", "password")
-            raise _login_failure("invalid_credentials", INVALID_CREDENTIALS)
+            raise login_failure("invalid_credentials", INVALID_CREDENTIALS)
     elif token_manager.totp_enabled():
         code = (body.code or "").strip()
         if not code:
-            raise _login_failure(
+            raise login_failure(
                 *_second_factor_required(True, master_has_passkeys(), "code", elevate=True)
             )
         if not token_manager.verify_second_factor(code, purpose="elevate"):
             record_auth_failure(client_ip, "/api/auth/elevate", "totp")
-            raise _login_failure("invalid_totp", "Invalid two-factor code.")
+            raise login_failure("invalid_totp", "Invalid two-factor code.")
     elif master_has_passkeys():
         # The token is accepted only while no second factor exists, as with
         # TOTP: a passkey confirms at /api/auth/passkeys/elevate.
-        raise _login_failure(*_second_factor_required(False, True, "code", elevate=True))
+        raise login_failure(*_second_factor_required(False, True, "code", elevate=True))
     elif not token_manager.verify_master_token(body.token or ""):
         record_auth_failure(client_ip, "/api/auth/elevate", "master_token")
-        raise _login_failure("invalid_token", "Invalid token.")
+        raise login_failure("invalid_token", "Invalid token.")
 
     elevated_until = token_manager.elevate(str(session.get("sid")))
 
@@ -1461,7 +1760,7 @@ def change_password(
         )
     except AuthenticationFailed as exc:
         record_auth_failure(client_ip, "/api/auth/password", "password")
-        raise _login_failure("invalid_credentials", INVALID_CREDENTIALS) from exc
+        raise login_failure("invalid_credentials", INVALID_CREDENTIALS) from exc
     if session.get("type") == "session":
         token_manager.revoke_other_sessions(str(session["sid"]), int(account_id))
     audit_event(

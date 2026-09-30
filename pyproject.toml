@@ -66,6 +66,7 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
+    "pytest-xdist>=3.5",
     "pytest-mock>=3.12",
     "syrupy>=4.6",
     "hypothesis>=6.100",

@@ -25,7 +25,8 @@ export interface LinkTabsProps {
 /**
  * Tabs whose state is the URL: each is a link, so a section can be bookmarked, shared and
  * opened in a new tab. Styled like the Tabs primitive; focus stays on the tab after a switch
- * (`data-keep-focus`) instead of jumping to the page heading.
+ * (`data-keep-focus`) instead of jumping to the page heading, and the page does not scroll to
+ * the top: the header and the strip are the same page, only the section under them changes.
  */
 export function LinkTabs({ label, tabs, className }: LinkTabsProps) {
   const t = useT();
@@ -42,6 +43,8 @@ export function LinkTabs({ label, tabs, className }: LinkTabsProps) {
               to={tab.to as string}
               params={tab.params as never}
               activeOptions={{ exact: tab.exact ?? false, includeSearch: false }}
+              // A section of the page it is on: the strip stays under the pointer (searchNavigation.ts).
+              resetScroll={false}
               className={cx(
                 "group relative flex h-10 items-center px-2.5 text-13 font-medium whitespace-nowrap text-fg-muted outline-none",
                 "hover:text-fg data-[status=active]:text-fg",

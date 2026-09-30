@@ -31,6 +31,9 @@ ANY_ADDRESSES = frozenset({"0.0.0.0", "::", "*", ""})  # noqa: S104
 #: ``users:(("nginx",pid=1234,fd=6),...)``: the first process holding a socket.
 _PROCESS = re.compile(r'\(\("(?P<name>[^"]*)",pid=(?P<pid>\d+)')
 
+#: Every process holding a socket: a server's workers share its listening socket.
+_PIDS = re.compile(r'\("[^"]*",pid=(?P<pid>\d+)')
+
 
 @dataclass(frozen=True)
 class Listener:
@@ -43,6 +46,7 @@ class Listener:
         port: The port.
         process: The program holding it, when ``ss`` could see it (root).
         pid: Its process id.
+        pids: Every process holding it, the first one included.
     """
 
     proto: str
@@ -50,6 +54,7 @@ class Listener:
     port: int
     process: str | None = None
     pid: int | None = None
+    pids: tuple[int, ...] = ()
 
     @property
     def exposure(self) -> str:
@@ -119,7 +124,8 @@ def parse_listeners(text: str) -> list[Listener]:
         endpoint = _split_endpoint(fields[4])
         if endpoint is None:
             continue
-        process = _PROCESS.search(" ".join(fields[6:]))
+        users = " ".join(fields[6:])
+        process = _PROCESS.search(users)
         found.append(
             Listener(
                 proto=fields[0],
@@ -127,6 +133,7 @@ def parse_listeners(text: str) -> list[Listener]:
                 port=endpoint[1],
                 process=process.group("name") if process else None,
                 pid=int(process.group("pid")) if process else None,
+                pids=tuple(int(match.group("pid")) for match in _PIDS.finditer(users)),
             )
         )
     return found

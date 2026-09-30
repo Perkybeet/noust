@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import signal
+import socket
 import sys
 import time
 from pathlib import Path
@@ -118,6 +119,61 @@ class TestSubprocessStart:
 
         assert not handle.is_alive()
         assert handle not in runner_module._live_processes
+
+    @pytest.mark.allow_sockets
+    def test_a_started_process_never_holds_the_consoles_listening_socket(self):
+        """
+        A tunnel outliving the console must not keep its port bound.
+
+        The socket is made inheritable on purpose, as systemd socket activation
+        or a library could leave it: the runner has to close it in the child
+        whatever the flag says.
+        """
+        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listener.bind(("127.0.0.1", 0))
+        listener.listen()
+        listener.set_inheritable(True)
+        port = listener.getsockname()[1]
+        inode = os.fstat(listener.fileno()).st_ino
+        handle = SubprocessRunner().start([sys.executable, "-c", "import time; time.sleep(60)"])
+        try:
+            fds = Path(f"/proc/{handle.pid}/fd")
+            held = {os.readlink(fd) for fd in fds.iterdir()}
+            assert f"socket:[{inode}]" not in held
+
+            listener.close()
+            # The child still runs, and the port is free for the next console.
+            assert handle.is_alive()
+            again = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            again.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                again.bind(("127.0.0.1", port))
+                again.listen()
+            finally:
+                again.close()
+        finally:
+            listener.close()
+            handle.terminate(timeout=5)
+
+    def test_shutdown_stops_every_process_within_one_deadline(self):
+        """
+        Processes that ignore SIGTERM are killed together, not one deadline each:
+        a console with a dozen tunnels must still stop before systemd gives up.
+        """
+        ignore = (
+            "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(60)"
+        )
+        handles = [SubprocessRunner().start([sys.executable, "-c", ignore]) for _ in range(4)]
+        # Let each install its handler before it is signalled.
+        time.sleep(0.5)
+        started = time.monotonic()
+
+        terminate_all_processes(timeout=1.0)
+
+        elapsed = time.monotonic() - started
+        assert all(not handle.is_alive() for handle in handles)
+        assert elapsed < 3.0, f"took {elapsed:.1f}s: one deadline per process"
 
     def test_a_string_argv_is_refused(self):
         with pytest.raises(ValueError):

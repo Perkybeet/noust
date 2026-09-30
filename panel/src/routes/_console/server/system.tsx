@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { inPlace } from "../../../app/searchNavigation";
 import { SystemTab } from "../../../features/server/system/SystemTab";
 import { validateSystemSearch } from "../../../features/server/system/data";
 
@@ -12,5 +13,5 @@ export const Route = createFileRoute("/_console/server/system")({
 function SystemRoute() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
-  return <SystemTab view={search.view ?? "processes"} onViewChange={(view) => void navigate({ search: view === "processes" ? {} : { view }, replace: true })} />;
+  return <SystemTab view={search.view ?? "processes"} onViewChange={(view) => void navigate({ search: view === "processes" ? {} : { view }, ...inPlace({ replace: true }) })} />;
 }

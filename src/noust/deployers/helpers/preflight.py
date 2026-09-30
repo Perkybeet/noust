@@ -12,7 +12,6 @@ at once rather than failing on the first one and hiding the other three.
 from __future__ import annotations
 
 import shutil
-import socket
 from pathlib import Path
 
 from noust.core.exceptions import NoustError
@@ -24,6 +23,7 @@ from noust.managers.source_manager import (
     git_environment,
     is_git_auth_failure,
 )
+from noust.validators import port as port_validator
 from noust.validators.source import is_archive_url
 
 #: A repository probe answers in seconds or is not going to answer.
@@ -137,13 +137,7 @@ def port_taken(
     """
     if allowed_owner_port == port:
         return []
-    probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        in_use = probe.connect_ex(("127.0.0.1", port)) == 0
-    finally:
-        probe.close()
-
-    issues = [f"Port {port} is already in use"] if in_use else []
+    issues = [] if port_validator.is_port_available(port) else [f"Port {port} is already in use"]
     return issues + port_owned_by_app(port, store=store if store is not None else get_store())
 
 

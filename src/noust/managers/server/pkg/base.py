@@ -484,6 +484,12 @@ class PackageBackend(ABC):
         return running_processes(self.LOCK_PROCESSES)
 
 
+#: Resident helpers that share a package manager's truncated process name but
+#: hold no lock: Ubuntu keeps ``unattended-upgrade-shutdown --wait-for-signal``
+#: running at all times, so matching it by name alone refused every update.
+IDLE_HELPERS = ("unattended-upgrade-shutdown",)
+
+
 def running_processes(names: Sequence[str]) -> list[str]:
     """
     List the running processes whose name is one of ``names``.
@@ -501,12 +507,16 @@ def running_processes(names: Sequence[str]) -> list[str]:
         return []
     found: set[str] = set()
     own = os.getpid()
-    for process in psutil.process_iter(["pid", "name"]):
+    for process in psutil.process_iter(["pid", "name", "cmdline"]):
         try:
             info = process.info
             name = info.get("name") or ""
-            if info.get("pid") != own and any(name.startswith(prefix) for prefix in names):
-                found.add(name)
+            if info.get("pid") == own or not any(name.startswith(prefix) for prefix in names):
+                continue
+            command = " ".join(info.get("cmdline") or [])
+            if any(helper in command for helper in IDLE_HELPERS):
+                continue
+            found.add(name)
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             continue
     return sorted(found)

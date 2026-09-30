@@ -276,6 +276,107 @@ class TestSignIn:
             accounts.begin_totp(account.id)
 
 
+class TestTwoSteps:
+    """The console's sign-in: the password first, then the second factor on its own."""
+
+    def test_the_password_step_does_not_ask_for_the_code(self, accounts, clock):
+        account = accounts.create("maria", "admin", password=PASSWORD)
+        enrol(accounts, account.id, clock)
+        signed = accounts.authenticate_password("maria", PASSWORD, client_ip="10.0.0.1")
+        assert signed.id == account.id and signed.has_mfa
+        assert accounts.get(account.id).failures_since_login == 0
+
+    @pytest.mark.parametrize("scenario", ["unknown", "password", "disabled", "invited"])
+    def test_the_password_step_refuses_the_same_way(self, accounts, scenario):
+        accounts.create("maria", "admin", password=PASSWORD)
+        accounts.invite("lucia", "viewer")
+        name, password = "maria", PASSWORD
+        if scenario == "unknown":
+            name = "nobody"
+        elif scenario == "password":
+            password = "not the password at all"
+        elif scenario == "disabled":
+            accounts.disable("maria")
+        else:
+            name = "lucia"
+        with pytest.raises(AuthenticationFailed) as caught:
+            accounts.authenticate_password(name, password, client_ip="10.0.0.1")
+        assert caught.value.message == "Invalid credentials"
+
+    def test_the_second_step_checks_the_code_and_counts_a_wrong_one(self, accounts, clock):
+        account = accounts.create("maria", "admin", password=PASSWORD)
+        secret, _ = enrol(accounts, account.id, clock)
+        with pytest.raises(AuthenticationFailed) as caught:
+            accounts.complete_second_factor(account.id, "000000", client_ip="10.0.0.1")
+        assert caught.value.reason == "bad_code"
+        assert accounts.get(account.id).failures_since_login == 1
+        signed = accounts.complete_second_factor(
+            account.id, code_for(secret, clock), client_ip="10.0.0.1"
+        )
+        assert signed.id == account.id
+
+    def test_the_second_step_is_held_to_the_per_account_lockout(self, accounts, clock):
+        account = accounts.create("maria", "admin", password=PASSWORD)
+        secret, _ = enrol(accounts, account.id, clock)
+        for _ in range(5):
+            with pytest.raises(AuthenticationFailed):
+                accounts.complete_second_factor(account.id, "000000", client_ip="10.0.0.1")
+        with pytest.raises(AuthenticationFailed) as caught:
+            accounts.complete_second_factor(
+                account.id, code_for(secret, clock), client_ip="10.0.0.1"
+            )
+        assert caught.value.reason == "locked"
+
+    def test_the_second_step_fails_closed_without_a_second_factor(self, accounts):
+        account = accounts.create("maria", "admin", password=PASSWORD)
+        with pytest.raises(AuthenticationFailed):
+            accounts.complete_second_factor(account.id, "000000", client_ip="10.0.0.1")
+
+
+class TestSignInByEmail:
+    """The e-mail of the person an account belongs to also names it, when it names one."""
+
+    def test_the_email_of_one_account_signs_it_in(self, accounts):
+        account = accounts.create(
+            "yago", "admin", password=PASSWORD, person_ref="Yago.Lopez@example.com"
+        )
+        signed = accounts.authenticate(
+            " YAGO.lopez@example.com ", PASSWORD, None, client_ip="10.0.0.1"
+        )
+        assert signed.id == account.id
+
+    def test_a_person_with_two_accounts_uses_the_username(self, accounts):
+        accounts.create("yago", "operator", password=PASSWORD, person_ref="yago@example.com")
+        accounts.create("yago.view", "viewer", password=PASSWORD, person_ref="yago@example.com")
+        with pytest.raises(AuthenticationFailed) as caught:
+            accounts.authenticate("yago@example.com", PASSWORD, None, client_ip="10.0.0.1")
+        assert caught.value.reason == "unknown_account"
+        assert caught.value.message == "Invalid credentials"
+        assert accounts.authenticate("yago.view", PASSWORD, None, client_ip="10.0.0.1")
+
+    def test_only_accounts_that_may_sign_in_are_counted(self, accounts):
+        accounts.create("yago", "operator", password=PASSWORD, person_ref="yago@example.com")
+        accounts.create("yago.old", "viewer", password=PASSWORD, person_ref="yago@example.com")
+        accounts.disable("yago.old")
+        accounts.invite("yago.new", "viewer", person_ref="yago@example.com")
+        signed = accounts.authenticate("yago@example.com", PASSWORD, None, client_ip="10.0.0.1")
+        assert signed.username == "yago"
+
+    def test_a_wrong_password_by_email_counts_on_the_account(self, accounts):
+        account = accounts.create(
+            "yago", "operator", password=PASSWORD, person_ref="yago@example.com"
+        )
+        with pytest.raises(AuthenticationFailed) as caught:
+            accounts.authenticate("yago@example.com", "nope", None, client_ip="10.0.0.1")
+        assert caught.value.reason == "bad_password"
+        assert accounts.get(account.id).failures_since_login == 1
+
+    def test_a_reference_that_is_not_an_email_is_not_a_sign_in_name(self, accounts):
+        accounts.create("yago", "operator", password=PASSWORD, person_ref="emp-4521")
+        with pytest.raises(AuthenticationFailed):
+            accounts.authenticate("emp-4521", PASSWORD, None, client_ip="10.0.0.1")
+
+
 class TestInvitations:
     def test_an_invitation_is_single_use_and_activates_the_account(self, accounts, clock):
         account, code = accounts.invite("lucia", "operator", created_by="maria")

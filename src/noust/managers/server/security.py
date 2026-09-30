@@ -38,9 +38,12 @@ from noust.managers.server.security_catalog import CATALOG
 from noust.managers.server.security_checks import (
     CheckReport,
     cached_report,
-    forget_report,
+    mark_report_stale,
     reapply_risks,
+    refresh_in_background,
+    refreshing,
     run_checks,
+    wait_for_refresh,
 )
 from noust.managers.server.security_fail2ban import Fail2ban
 from noust.managers.server.security_firewall import Firewall, RuleRequest
@@ -139,6 +142,14 @@ class ServerSecurity:
         self.on_output = on_output
         self.console_port = console_port
         self.probe = SecurityProbe(runner=runner, fs=fs, host=host, clock=clock)
+        # A background run looks at the machine through a probe of its own:
+        # a probe caches what it read, and is not shared across threads.
+        self._probe_args: dict[str, Any] = {
+            "runner": runner,
+            "fs": fs,
+            "host": host,
+            "clock": clock,
+        }
         self.ledger = ChangeLedger(
             changes, runner=runner, fs=fs, host=host, clock=clock, python=python
         )
@@ -162,9 +173,20 @@ class ServerSecurity:
         return Fail2ban(self.probe, on_output=self.on_output)
 
     def _changed(self) -> None:
-        """Forget what was read before a change, here and in the shared report."""
+        """Forget what was read before a change, and mark the shared report stale."""
         self.probe.invalidate()
-        forget_report()
+        mark_report_stale()
+
+    def _run_complete(self) -> CheckReport:
+        """
+        Run every check with a probe of its own: what a background run does.
+
+        Returns:
+            The report, kept for every process.
+        """
+        return run_checks(
+            SecurityProbe(**self._probe_args), risks=self.risks, console_port=self.console_port
+        )
 
     # Checks and risks -------------------------------------------------------------
 
@@ -180,6 +202,15 @@ class ServerSecurity:
             The report.
         """
         report = None if refresh else cached_report()
+        if report is not None and report.stale:
+            report = None
+        if report is None and not refresh and refreshing():
+            # The console's first look started a run a moment ago: its result,
+            # rather than the same probes twice.
+            wait_for_refresh()
+            report = cached_report()
+            if report is not None and report.stale:
+                report = None
         if report is None:
             report = run_checks(
                 self.probe,
@@ -808,22 +839,40 @@ class ServerSecurity:
 
     # Overview ------------------------------------------------------------------------------
 
-    def overview(self) -> dict[str, Any]:
+    def overview(self, *, refresh_if_due: bool = False) -> dict[str, Any]:
         """
         The four cards of the Security tab and the open findings, from the last checks.
 
+        Args:
+            refresh_if_due: With no report, a stale one or one older than
+                :data:`~noust.managers.server.security_checks.REPORT_PERIOD`,
+                run the checks in the background (once: a run in flight is
+                joined, not repeated). The console asks for this; nobody then
+                sees "not checked" on a server whose data is a click away.
+
         Returns:
-            The counts and summaries; ``checked_at`` is None before the first run.
+            The counts and summaries; ``checked_at`` is None before the first
+            run; ``checking`` is true while a background run is in flight.
         """
         report = cached_report()
+        checking = refreshing()
+        if refresh_if_due and not checking and (report is None or report.due(self.probe.now())):
+            checking = refresh_in_background(self._run_complete)
         if report is not None:
             report = reapply_risks(report, self.risks)
         pending = [change.to_dict() for change in self.pending() if change.status == "pending"]
         if report is None:
-            return {"checked_at": None, "counts": None, "attention": [], "pending": pending}
+            return {
+                "checked_at": None,
+                "counts": None,
+                "attention": [],
+                "pending": pending,
+                "checking": checking,
+            }
         return {
             "checked_at": report.checked_at,
             "counts": report.counts(),
             "attention": [check.to_dict() for check in report.attention()],
             "pending": pending,
+            "checking": checking,
         }

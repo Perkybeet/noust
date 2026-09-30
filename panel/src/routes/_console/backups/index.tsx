@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { inPlace } from "../../../app/searchNavigation";
 import { BackupsPage } from "../../../features/backups/BackupsPage";
 import { validateCoverageSearch } from "../../../features/backups/coverage";
 
@@ -16,6 +17,6 @@ function BackupsRoute() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   return (
-    <BackupsPage search={search} onSearchChange={(next, options) => void navigate({ search: next, replace: options?.replace ?? false })} />
+    <BackupsPage search={search} onSearchChange={(next, options) => void navigate({ search: next, ...inPlace(options) })} />
   );
 }

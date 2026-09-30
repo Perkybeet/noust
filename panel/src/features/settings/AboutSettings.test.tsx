@@ -87,6 +87,74 @@ describe("Settings > About", () => {
     expect(within(version).getByRole("link", { name: /What is new in 2.3.0/ })).toBeInTheDocument();
   });
 
+  it("says the package index has not seen a release, refreshes it, then offers the upgrade", { timeout: 20_000 }, async () => {
+    const JOB = { id: "j9", type: "os_refresh", name: "Refresh the package lists", description: "", status: "running", progress: 1, total_steps: 100, current_step: "", created_at: "2026-09-30T10:00:00Z" };
+    const backend = fakeBackend({
+      ...aboutRoutes({
+        current_version: "3.1.2",
+        latest_version: "3.1.3",
+        indexed_version: "3.1.2",
+        announced_version: "3.1.3",
+        has_update: false,
+        published_version: "3.1.3",
+        update_state: "index_behind",
+        update_command: null,
+        refresh_command: "noust server updates refresh",
+        release_url: "https://github.com/Perkybeet/noust/releases/tag/v3.1.3",
+      }),
+      "POST /api/server/updates/refresh": () => json(202, { job_id: "j9", status: "pending", message: "Refreshing" }),
+      "GET /api/jobs/j9": () => json(200, JOB),
+    });
+    const { user, container } = renderConsole("/settings/about");
+    const version = await screen.findByRole("region", { name: "Version" });
+    expect(await within(version).findByText("3.1.3 is published; this server's package index has not seen it yet")).toBeInTheDocument();
+    expect(within(version).getByText("noust server updates refresh")).toBeInTheDocument();
+    expect(within(version).queryByText(/sudo apt/)).not.toBeInTheDocument();
+    await expectNoAxeViolations(container);
+
+    await user.click(within(version).getByRole("button", { name: "Refresh the package index" }));
+    expect(await within(version).findByRole("button", { name: "Refreshing the package index" })).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/server/updates/refresh")).toHaveLength(1);
+
+    // The index now lists it: once the job ends the version is asked again, and the upgrade offered.
+    backend.on("GET /api/system/version", () =>
+      json(200, {
+        current_version: "3.1.2",
+        latest_version: "3.1.3",
+        indexed_version: "3.1.3",
+        announced_version: "3.1.3",
+        has_update: true,
+        update_state: "update_available",
+        update_command: "sudo apt update && sudo apt install noust",
+        release_url: "https://github.com/Perkybeet/noust/releases/tag/v3.1.3",
+      }),
+    );
+    backend.on("GET /api/jobs/j9", () => json(200, { ...JOB, status: "completed", progress: 100 }));
+    expect(await within(version).findByText("Version 3.1.3 can be installed", {}, { timeout: 10_000 })).toBeInTheDocument();
+    expect(within(version).getByText("sudo apt update && sudo apt install noust")).toBeInTheDocument();
+  });
+
+  it("shows the package manager's own words when the refresh fails", { timeout: 20_000 }, async () => {
+    fakeBackend({
+      ...aboutRoutes({
+        current_version: "3.1.2",
+        latest_version: "3.1.3",
+        announced_version: "3.1.3",
+        has_update: false,
+        update_state: "index_behind",
+        refresh_command: "noust server updates refresh",
+      }),
+      "POST /api/server/updates/refresh": () => json(202, { job_id: "j9", status: "pending", message: "Refreshing" }),
+      "GET /api/jobs/j9": () =>
+        json(200, { id: "j9", type: "os_refresh", name: "Refresh", description: "", status: "failed", progress: 100, total_steps: 100, current_step: "", created_at: "2026-09-30T10:00:00Z", error: "E: Could not resolve 'download.opensuse.org'" }),
+    });
+    const { user } = renderConsole("/settings/about");
+    const version = await screen.findByRole("region", { name: "Version" });
+    await user.click(await within(version).findByRole("button", { name: "Refresh the package index" }));
+    expect(await within(version).findByText("Could not refresh the package index")).toBeInTheDocument();
+    expect(within(version).getByText("E: Could not resolve 'download.opensuse.org'")).toBeInTheDocument();
+  });
+
   it("says when it is up to date, and when it could not tell", async () => {
     const backend = fakeBackend(
       aboutRoutes({ current_version: "2.1.0", latest_version: "2.1.0", has_update: false, update_command: null, release_url: null }),

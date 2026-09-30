@@ -1129,6 +1129,41 @@ class AccountManager:
 
     # ------------------------------------------------------ authentication
 
+    def _sign_in_row(self, identifier: str) -> sqlite3.Row | None:
+        """
+        Find the account a sign-in names: by its username, or by its person's e-mail.
+
+        A username never holds an ``@`` (:data:`USERNAME_PATTERN`), so a name
+        with one is read as the e-mail of the person an account belongs to
+        (``person_ref``). It names an account only when exactly one account of
+        that person may sign in: a person with two (an ``admin`` and a
+        ``security``, say) signs in with the username of the one they mean.
+        A disabled account, or one only invited, is not counted.
+
+        Args:
+            identifier: What was typed in the username field.
+
+        Returns:
+            The account's row, secrets included, or None.
+        """
+        typed = (identifier or "").strip()
+        if "@" in typed:
+            try:
+                ref = clean_person_ref(typed)
+            except ValidationError:
+                return None
+            rows = self._rows(
+                f"SELECT {_COLUMNS}, totp_last_steps FROM accounts "  # noqa: S608 - fixed clauses
+                "WHERE person_ref = ? AND status NOT IN (?, ?) LIMIT 2",
+                (ref, STATUS_DISABLED, STATUS_INVITED),
+            )
+            return rows[0] if len(rows) == 1 else None
+        try:
+            name = validate_username(typed)
+        except ValidationError:
+            return None
+        return self._row("username = ?", (name,))
+
     def authenticate(
         self,
         username: str,
@@ -1139,18 +1174,20 @@ class AccountManager:
         purpose: str = "login",
     ) -> Account:
         """
-        Check a username, a password and, when enrolled, a second factor.
+        Check a username, a password and, when enrolled, a second factor, in one go.
 
-        Every refusal is the same :class:`AuthenticationFailed` to the caller;
-        its ``reason`` is for the audit log. The password is hashed whatever
-        happens, against a dummy hash for an unknown name, so the answer takes
-        as long for a name that does not exist as for one that does.
+        What a script signing in with one request uses; the console asks for
+        the password first (:meth:`authenticate_password`) and the second
+        factor on its own step (:meth:`complete_second_factor`). Every refusal
+        is the same :class:`AuthenticationFailed` to the caller; its
+        ``reason`` is for the audit log.
 
         An account without a second factor is let in on its password alone:
         the session it gets may do nothing but enrol one.
 
         Args:
-            username: The name typed.
+            username: The username typed, or the e-mail of the account's
+                person (:meth:`_sign_in_row`).
             password: The password typed.
             code: A TOTP code or a backup code; required when the account has
                 an authenticator.
@@ -1165,40 +1202,109 @@ class AccountManager:
             AuthenticationFailed: When anything does not match, the account is
                 locked, disabled or only invited.
         """
-        try:
-            name = validate_username(username)
-        except ValidationError:
-            passwords.verify_password(password or "", None)
-            raise AuthenticationFailed("unknown_account") from None
-        row = self._row("username = ?", (name,))
+        account = self.authenticate_password(username, password, client_ip=client_ip)
+        if account.has_mfa:
+            if not (code or "").strip():
+                locked = self.record_failure(account.id, client_ip)
+                raise AuthenticationFailed("code_required", account.id, locked_now=locked)
+            if not self.verify_second_factor(account.id, code or "", purpose=purpose):
+                locked = self.record_failure(account.id, client_ip)
+                raise AuthenticationFailed("bad_code", account.id, locked_now=locked)
+        return account
+
+    def authenticate_password(self, username: str, password: str, *, client_ip: str) -> Account:
+        """
+        Check the first step of a sign-in: who, and their password.
+
+        Everything but the second factor is checked here, and refused the one
+        way whatever it was. The password is hashed whatever happens, against
+        a dummy hash for an unknown name, so the answer takes as long for a
+        name that does not exist as for one that does. A right password does
+        not reset the failure counters: only a completed sign-in does
+        (:meth:`record_login`).
+
+        Args:
+            username: The username typed, or the e-mail of the account's
+                person (:meth:`_sign_in_row`).
+            password: The password typed.
+            client_ip: Where the attempt came from, for the failure record.
+
+        Returns:
+            The account; whether it still owes a second factor is its
+            ``has_mfa``.
+
+        Raises:
+            AuthenticationFailed: When the name or the password does not
+                match, or the account is locked, disabled or only invited.
+        """
+        row = self._sign_in_row(username)
         stored = row["password_hash"] if row is not None else None
         password_ok = passwords.verify_password(password or "", stored)
         if row is None:
             raise AuthenticationFailed("unknown_account")
         account = _account(row)
-        account_id = account.id
-        now = self.now()
-        if account.status == STATUS_DISABLED:
-            self._note_attempt(account_id, client_ip)
-            raise AuthenticationFailed("disabled", account_id)
-        if account.status == STATUS_INVITED:
-            raise AuthenticationFailed("invited", account_id)
-        if account.is_locked(now):
-            self._note_attempt(account_id, client_ip)
-            raise AuthenticationFailed("locked", account_id)
+        self._require_usable(account, client_ip)
         if not password_ok:
-            locked = self.record_failure(account_id, client_ip)
-            raise AuthenticationFailed("bad_password", account_id, locked_now=locked)
-        if account.has_mfa:
-            if not (code or "").strip():
-                locked = self.record_failure(account_id, client_ip)
-                raise AuthenticationFailed("code_required", account_id, locked_now=locked)
-            if not self.verify_second_factor(account_id, code or "", purpose=purpose):
-                locked = self.record_failure(account_id, client_ip)
-                raise AuthenticationFailed("bad_code", account_id, locked_now=locked)
+            locked = self.record_failure(account.id, client_ip)
+            raise AuthenticationFailed("bad_password", account.id, locked_now=locked)
         if passwords.needs_rehash(stored):
-            self._update(account_id, password_hash=passwords.hash_password(password))
+            self._update(account.id, password_hash=passwords.hash_password(password))
         return account
+
+    def complete_second_factor(
+        self, account_id: int, code: str, *, client_ip: str, purpose: str = "login"
+    ) -> Account:
+        """
+        Check the second step of a sign-in, whose password step already passed.
+
+        The account is read again: one disabled or locked since its password
+        was checked is refused here. A wrong code counts towards the account's
+        lockout exactly as a wrong password does.
+
+        Args:
+            account_id: The account the password step named.
+            code: A TOTP code or a backup code.
+            client_ip: Where the attempt came from, for the failure record.
+            purpose: What the code is spent on.
+
+        Returns:
+            The account.
+
+        Raises:
+            AuthenticationFailed: ``bad_code`` for a wrong code (and for an
+                account with no second factor to check: this fails closed),
+                or the account's state when it can no longer sign in.
+        """
+        account = self.get(int(account_id))
+        if account is None:
+            raise AuthenticationFailed("unknown_account")
+        self._require_usable(account, client_ip)
+        if not account.has_mfa or not self.verify_second_factor(
+            account.id, code or "", purpose=purpose
+        ):
+            locked = self.record_failure(account.id, client_ip)
+            raise AuthenticationFailed("bad_code", account.id, locked_now=locked)
+        return account
+
+    def _require_usable(self, account: Account, client_ip: str) -> None:
+        """
+        Refuse an account that cannot sign in whatever it presents.
+
+        Args:
+            account: The account.
+            client_ip: Where the attempt came from, for the record.
+
+        Raises:
+            AuthenticationFailed: ``disabled``, ``invited`` or ``locked``.
+        """
+        if account.status == STATUS_DISABLED:
+            self._note_attempt(account.id, client_ip)
+            raise AuthenticationFailed("disabled", account.id)
+        if account.status == STATUS_INVITED:
+            raise AuthenticationFailed("invited", account.id)
+        if account.is_locked(self.now()):
+            self._note_attempt(account.id, client_ip)
+            raise AuthenticationFailed("locked", account.id)
 
     def verify_password(self, account_id: int, password: str, *, client_ip: str) -> bool:
         """

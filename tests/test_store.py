@@ -13,7 +13,6 @@ up 0600 inside 0700, because ``apps.env_vars`` holds DATABASE_URL and API keys.
 import ast
 import re
 import sqlite3
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -58,10 +57,9 @@ def fresh():
 
 
 @pytest.fixture
-def temp_db():
-    """Create a temporary database for testing."""
-    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
-        db_path = Path(f.name)
+def temp_db(tmp_path: Path):
+    """Create a temporary database for testing, WAL and shared-memory files included."""
+    db_path = tmp_path / "store.db"
 
     # Reset singleton
     NoustStore.reset_instance()
@@ -69,10 +67,8 @@ def temp_db():
 
     yield store
 
-    # Cleanup
     store.close()
     NoustStore.reset_instance()
-    db_path.unlink(missing_ok=True)
 
 
 @pytest.fixture

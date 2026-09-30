@@ -44,10 +44,10 @@ clean:
 	find . -type f -name "*.pyc" -delete
 
 test:
-	pytest
+	pytest -n auto
 
 test-cov:
-	pytest --cov=noust --cov-report=html
+	pytest -n auto --cov=noust --cov-report=html
 	@echo "Coverage report: htmlcov/index.html"
 
 lint:

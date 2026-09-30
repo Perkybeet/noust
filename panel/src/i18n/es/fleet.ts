@@ -379,6 +379,7 @@ export const fleet: Catalog<typeof en> = {
       upToDate: "Al día",
       available: "Actualización disponible",
       onTheWay: "Publicándose",
+      indexBehind: "Índice de paquetes atrasado",
       unknown: "Sin comprobar",
       fromTo: "{current} → {latest}",
     },

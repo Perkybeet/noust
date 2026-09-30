@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { inPlace } from "../../../app/searchNavigation";
 import { LogsTab } from "../../../features/server/logs/LogsTab";
 import { validateLogsSearch } from "../../../features/server/logs/data";
 
@@ -12,5 +13,5 @@ export const Route = createFileRoute("/_console/server/logs")({
 function LogsRoute() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
-  return <LogsTab search={search} onSearchChange={(next) => void navigate({ search: next, replace: true })} />;
+  return <LogsTab search={search} onSearchChange={(next) => void navigate({ search: next, ...inPlace({ replace: true }) })} />;
 }

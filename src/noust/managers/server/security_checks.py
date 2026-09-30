@@ -24,19 +24,37 @@ A probe that fails makes its check ``unknown`` with the error verbatim; it
 never becomes a pass, and never an exception that empties the list.
 
 The expensive probes (a package simulation, ``sshd -T`` per account, the
-journal) run when the list is computed, on demand; ``GET /api/system/health``
-and the console's summary read the last list from :func:`cached_report`.
+journal) run when the list is computed; ``GET /api/system/health`` and the
+console's summary read the last list from :func:`cached_report`.
+
+Nobody has to ask for that list. A complete one is kept beside the store
+(:func:`report_path`), so every process reads the same report whoever ran it;
+a change to sshd or the firewall marks it stale, and it is old after
+:data:`REPORT_PERIOD`. ``noust-monitor`` has systemd run ``python -m`` this
+module (:func:`refresh_command`) when it is missing or due - outside the
+monitor's own sandbox, which is read-only for the tools the probes run - and
+the console runs the checks once in the background
+(:func:`refresh_in_background`) when it finds none, instead of saying they
+never ran.
 """
 
 from __future__ import annotations
 
+import argparse
+import json
+import logging
+import sqlite3
+import sys
 import threading
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from noust.core import paths
 from noust.core.exceptions import NoustError
+from noust.core.fs import get_fs
 from noust.fleet.authorize import key_removal_command
 from noust.managers.server.host import PROBE_TIMEOUT, read_os_release
 from noust.managers.server.security_catalog import CATALOG, SEVERITIES
@@ -60,6 +78,18 @@ STALE_DAYS = 7
 #: sshd's limits a hardened server tightens (CIS, Mozilla).
 MAX_AUTH_TRIES = 6
 MAX_LOGIN_GRACE = 120
+
+#: Seconds a report stays current: the monitor and the console run the checks
+#: again once it is older.
+REPORT_PERIOD = 3600
+
+#: Seconds a reader waits for a run in flight before running its own.
+REFRESH_WAIT = 300
+
+#: The module systemd runs for the monitor (:func:`refresh_command`).
+MODULE = "noust.managers.server.security_checks"
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -145,10 +175,46 @@ class CheckReport:
     Attributes:
         checks: The results, in catalog order.
         checked_at: When, ISO 8601 UTC.
+        complete: Every check ran; False for the quick ones, which skip the
+            package manager and the system managers.
+        stale: Something changed since (sshd, the firewall): run them again.
     """
 
     checks: list[Check]
     checked_at: str
+    complete: bool = True
+    stale: bool = False
+
+    def age(self, now: float) -> float:
+        """
+        How old the report is.
+
+        Args:
+            now: The current time, epoch seconds.
+
+        Returns:
+            Seconds since the checks ran; infinite when the date is unreadable.
+        """
+        try:
+            moment = datetime.fromisoformat(self.checked_at)
+        except ValueError:
+            return float("inf")
+        if moment.tzinfo is None:
+            moment = moment.replace(tzinfo=timezone.utc)
+        return now - moment.timestamp()
+
+    def due(self, now: float, period: float = REPORT_PERIOD) -> bool:
+        """
+        Report whether the checks should run again.
+
+        Args:
+            now: The current time, epoch seconds.
+            period: How long a report stays current.
+
+        Returns:
+            True when stale, quick or older than the period.
+        """
+        return self.stale or not self.complete or self.age(now) >= period
 
     def counts(self) -> dict[str, int]:
         """
@@ -204,6 +270,47 @@ class CheckReport:
             "counts": self.counts(),
             "checks": [check.to_dict() for check in self.checks],
         }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> CheckReport:
+        """
+        Read back what :meth:`to_dict` wrote, with the kept report's flags.
+
+        Args:
+            data: The report.
+
+        Returns:
+            The report.
+
+        Raises:
+            KeyError: A field is missing.
+            TypeError: A field has the wrong shape.
+        """
+        checks: list[Check] = []
+        for item in data["checks"]:
+            fix = item.get("fix")
+            accepted = item.get("accepted")
+            checks.append(
+                Check(
+                    id=item["id"],
+                    group=item["group"],
+                    title=item["title"],
+                    severity=item["severity"],
+                    status=item["status"],
+                    reason=item["reason"],
+                    evidence=tuple(item.get("evidence") or ()),
+                    fix=CheckFix(**{**fix, "steps": tuple(fix.get("steps") or ())})
+                    if fix
+                    else None,
+                    accepted=AcceptedRisk(**accepted) if accepted else None,
+                )
+            )
+        return cls(
+            checks,
+            str(data["checked_at"]),
+            complete=bool(data.get("complete", True)),
+            stale=bool(data.get("stale", False)),
+        )
 
 
 def _result(
@@ -723,34 +830,44 @@ class HardeningChecks:
         )
 
     def _console_public(self, exposures: list[PortExposure]) -> Check:
-        port = self.firewall.console_port()
-        public = [
+        console = self.firewall.console_sockets()
+        mine = [
             exposure
             for exposure in exposures
-            if exposure.port == port
-            and exposure.address not in ("127.0.0.1", "::1")
-            and not exposure.docker
-            and exposure.verdict != "local"
+            if exposure.docker is None
+            and console.holds(exposure.proto, exposure.port, exposure.address)
         ]
+        public = [exposure for exposure in mine if exposure.verdict != "local"]
+        # How the console was found is part of the evidence whenever the
+        # configured port, and not its processes, decided.
+        note = [console.note] if console.note else []
         if not public:
-            return _result("fw.console_public", True, "The console listens on loopback only.")
+            return _result(
+                "fw.console_public",
+                True,
+                "The console listens on loopback only."
+                if mine
+                else "No console socket answers on the network.",
+                [*(_describe(exposure) for exposure in mine), *note],
+            )
         unit = self.probe.runner.run(
             ["systemctl", "show", f"{paths.WEB_UNIT}.service", "--property=ExecStart"],
             timeout=PROBE_TIMEOUT,
         )
-        tls = "--tls-cert" in unit.stdout
+        # A pair of its own or one Noust minted: both are TLS.
+        tls = "--tls-cert" in unit.stdout or "--self-signed" in unit.stdout
         if tls:
             return _result(
                 "fw.console_public",
                 True,
                 "The console answers on the network, over TLS.",
-                [_describe(exposure) for exposure in public],
+                [*(_describe(exposure) for exposure in public), *note],
             )
         return _result(
             "fw.console_public",
             False,
             "The console answers on the network without TLS: sign-in tokens cross it in clear.",
-            [_describe(exposure) for exposure in public],
+            [*(_describe(exposure) for exposure in public), *note],
             _guided(
                 "Serve the console on loopback behind a TLS site, or give it a certificate",
                 "noust web enable --host 127.0.0.1 (then reach it through an SSH tunnel or a site)",
@@ -1194,7 +1311,7 @@ class HardeningChecks:
             for check_id in CATALOG
             if check_id in found
         ]
-        return CheckReport(ordered, self._now().isoformat(timespec="seconds"))
+        return CheckReport(ordered, self._now().isoformat(timespec="seconds"), complete=host_checks)
 
     def _accepted(self) -> dict[str, AcceptedRisk]:
         risks = self.risks or AcceptedRisks()
@@ -1290,6 +1407,56 @@ def _console_configured() -> bool:
 
 _cache: CheckReport | None = None
 _cache_lock = threading.Lock()
+_refresh: threading.Thread | None = None
+
+#: What a kept report may fail to read with: a file half written by a crash or
+#: by hand, one from another release.
+_READ_ERRORS = (OSError, ValueError, KeyError, TypeError)
+
+
+def report_path() -> Path:
+    """
+    Where the complete report is kept: beside the store, like the security ledger.
+
+    Returns:
+        ``<store directory>/security/checks.json``.
+    """
+    from noust.core.store import get_store
+
+    return get_store().db_path.parent / "security" / "checks.json"
+
+
+def _read_kept() -> CheckReport | None:
+    """
+    Read the kept report.
+
+    Returns:
+        It, or None when there is none or it cannot be read.
+    """
+    try:
+        path = report_path()
+        if not path.is_file():
+            return None
+        return CheckReport.from_dict(json.loads(path.read_text(encoding="utf-8")))
+    except (*_READ_ERRORS, NoustError, sqlite3.Error) as exc:
+        log.warning("The kept security report could not be read: %s", exc)
+        return None
+
+
+def _keep(report: CheckReport) -> None:
+    """
+    Keep a complete report for every process: root only, it lists the server's weaknesses.
+
+    Args:
+        report: The report.
+    """
+    data = {**report.to_dict(), "complete": report.complete, "stale": report.stale}
+    fs = get_fs()
+    try:
+        fs.write_text(report_path(), json.dumps(data), mode=0o600)
+    except (OSError, NoustError, sqlite3.Error) as exc:
+        # This process still has it; the others run the checks themselves.
+        log.warning("The security report could not be kept: %s", exc)
 
 
 def run_checks(
@@ -1303,13 +1470,15 @@ def run_checks(
     Run every hardening check and remember the result.
 
     This is what the console, ``noust server security checks``, ``noust
-    health`` and the ENS compliance check call.
+    health``, the ENS compliance check and the monitor's run call. A complete
+    report is kept for every process; a quick one only in this one, or it
+    would hide the package manager's findings from everyone else.
 
     Args:
         probe: The look at the machine; a fresh one by default.
         risks: Accepted risks; the store's by default.
         host_checks: Also ask the package manager and the system managers.
-        console_port: The console's port, when known.
+        console_port: The console's configured port, when known.
 
     Returns:
         The report.
@@ -1320,6 +1489,8 @@ def run_checks(
     )
     with _cache_lock:
         _cache = report
+    if report.complete:
+        _keep(report)
     return report
 
 
@@ -1338,20 +1509,137 @@ def hardening_checks(**kwargs: Any) -> list[Check]:
 
 def cached_report() -> CheckReport | None:
     """
-    The last report computed in this process, without probing anything.
+    The last report, without probing anything: this process's or the kept one, the newer.
 
     Returns:
         The report, or None when no check has run yet.
     """
     with _cache_lock:
-        return _cache
+        memory = _cache
+    kept = _read_kept()
+    if memory is None or kept is None:
+        return memory or kept
+    if kept.checked_at > memory.checked_at or (kept.stale and kept.checked_at == memory.checked_at):
+        return kept
+    return memory
 
 
-def forget_report() -> None:
-    """Drop the remembered report, so the next reader computes it again."""
+def forget_memory() -> None:
+    """Drop this process's report; the kept one stays."""
     global _cache
     with _cache_lock:
         _cache = None
+
+
+def forget_report() -> None:
+    """Drop the remembered report, here and the kept one, so the next reader computes it again."""
+    forget_memory()
+    fs = get_fs()
+    try:
+        fs.remove(report_path())
+    except (OSError, NoustError, sqlite3.Error) as exc:
+        log.warning("The kept security report could not be removed: %s", exc)
+
+
+def mark_report_stale() -> None:
+    """
+    Say the report no longer describes the server: something was just changed.
+
+    The report stays readable (the console shows it while the checks run
+    again), marked stale, so the monitor and the console run them again and
+    :meth:`CheckReport.due` is true everywhere.
+    """
+    forget_memory()
+    kept = _read_kept()
+    if kept is not None and not kept.stale:
+        kept.stale = True
+        _keep(kept)
+
+
+def refreshing() -> bool:
+    """
+    Report whether a background run started by this process is in flight.
+
+    Returns:
+        True while it runs.
+    """
+    with _cache_lock:
+        return _refresh is not None and _refresh.is_alive()
+
+
+def refresh_in_background(run: Callable[[], object]) -> bool:
+    """
+    Run the checks on a thread of this process, unless a run is already in flight.
+
+    Args:
+        run: Runs them (and keeps the report, through :func:`run_checks`).
+
+    Returns:
+        True: a run is in flight, this one or the one before.
+    """
+    global _refresh
+
+    def target() -> None:
+        # A thread's error boundary: nothing above it would see the error.
+        try:
+            run()
+        except (NoustError, OSError, ValueError, KeyError, sqlite3.Error) as exc:
+            log.warning("The security checks could not run in the background: %s", exc)
+
+    with _cache_lock:
+        if _refresh is not None and _refresh.is_alive():
+            return True
+        _refresh = threading.Thread(target=target, name="noust-security-checks", daemon=True)
+        _refresh.start()
+    return True
+
+
+def wait_for_refresh(timeout: float | None = REFRESH_WAIT) -> bool:
+    """
+    Wait for this process's background run, if one is in flight.
+
+    Args:
+        timeout: Seconds to wait at most; None for as long as it takes.
+
+    Returns:
+        True when no run is in flight any more.
+    """
+    with _cache_lock:
+        thread = _refresh
+    if thread is not None:
+        thread.join(timeout)
+        return not thread.is_alive()
+    return True
+
+
+def refresh_command(python: str | None = None) -> list[str]:
+    """
+    The ``systemd-run`` command that runs the complete checks in a unit of their own.
+
+    The monitor runs sandboxed, read-only for most of the system; the tools
+    the probes run (ufw, the package managers) take locks and write caches.
+    A transient unit runs them as root outside that sandbox, once at a time
+    (the unit name is the lock), and is removed when it ends.
+
+    Args:
+        python: The interpreter; the one running this code by default.
+
+    Returns:
+        The argv.
+    """
+    argv = [
+        "systemd-run",
+        f"--unit={paths.SECURITY_CHECKS_UNIT}",
+        "--description=Noust security checks",
+        "--collect",
+        "--quiet",
+        "--no-block",
+        "--property=Nice=10",
+    ]
+    data_dir = paths.getenv(paths.DATA_DIR_ENV)
+    if data_dir:
+        argv.append(f"--setenv={paths.DATA_DIR_ENV}={data_dir}")
+    return [*argv, "--", python or sys.executable, "-m", MODULE, "refresh"]
 
 
 def reapply_risks(report: CheckReport, risks: AcceptedRisks | None = None) -> CheckReport:
@@ -1384,7 +1672,7 @@ def reapply_risks(report: CheckReport, risks: AcceptedRisks | None = None) -> Ch
                 fix=check.fix,
             )
         checks.append(_apply_risk(base, accepted.get(check.id)))
-    updated = CheckReport(checks, report.checked_at)
+    updated = CheckReport(checks, report.checked_at, report.complete, report.stale)
     global _cache
     with _cache_lock:
         if _cache is report:
@@ -1428,3 +1716,36 @@ def summarize(report: CheckReport | None) -> HardeningSummary:
         warnings=[check.title for check in report.checks if check.status == "warn"],
         accepted=sum(1 for check in report.checks if check.status == "accepted"),
     )
+
+
+def main(argv: list[str] | None = None) -> int:
+    """
+    Run the complete checks and keep the report: what the monitor's transient unit runs.
+
+    Args:
+        argv: ``refresh``.
+
+    Returns:
+        0 once the report is kept, whatever it found (a finding is not a
+        failure of the unit).
+    """
+    parser = argparse.ArgumentParser(prog=f"python -m {MODULE}")
+    commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser("refresh", help="Run every hardening check and keep the report.")
+    parser.parse_args(argv)
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    report = run_checks()
+    counts = report.counts()
+    log.info(
+        "%s critical, %s warning(s), %s accepted, %s unknown, %s passed",
+        counts["critical"],
+        counts["warning"],
+        counts["accepted"],
+        counts["unknown"],
+        counts["passed"],
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

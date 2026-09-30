@@ -52,8 +52,13 @@ curl -c jar -H 'Content-Type: application/json' \
   https://panel.example.com/api/auth/login
 ```
 
-`POST /api/auth/login` takes `username`, `password` and `totp_code` (a TOTP code or a backup
-code) for an account, or `token` (the master access token, plus `totp_code` when its 2FA is on).
+`POST /api/auth/login` takes `username` (or the email of the person, when it names one account),
+`password` and `totp_code` (a TOTP code or a backup code) for an account, or `token` (the master
+access token, plus `totp_code` when its 2FA is on). Without `totp_code`, an account with a second
+factor answers `success: false` and `second_factor: {challenge, expires_in, methods}`: finish with
+`POST /api/auth/login/second-factor` and `{challenge, code}`, or with a passkey by passing
+`challenge` to `POST /api/auth/passkeys/login/options` and `/login`. That is how the console signs
+in; the step is single use and lasts five minutes.
 `bearer` also returns the session token in the body, for a client without a cookie jar; it then
 sends `X-WASM-CSRF` like a browser does. Passkeys sign in with
 `POST /api/auth/passkeys/login/options` and then `POST /api/auth/passkeys/login`. The answer is

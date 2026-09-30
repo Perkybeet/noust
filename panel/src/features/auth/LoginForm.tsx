@@ -5,8 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
 
 import { isApiError } from "../../api/client";
-import { login, sessionQuery } from "../../api/queries/auth";
-import type { SessionInfo } from "../../api/queries/auth";
+import { login, loginSecondFactor, sessionQuery } from "../../api/queries/auth";
+import type { SecondFactorStep, SessionInfo } from "../../api/queries/auth";
 import { announce } from "../../app/Announcer";
 import { nodeOfConsolePath } from "../../app/nodeRoute";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -26,6 +26,12 @@ import { CeremonyError, browserLimit, conditionalMediationAvailable } from "./we
 export type LoginMode = "account" | "token";
 
 type TokenStep = "token" | "code";
+
+/** The second step of an account's sign-in, once its password was right. */
+interface FactorStep extends SecondFactorStep {
+  /** What was typed in the first step, to say whose password was accepted. */
+  name: string;
+}
 
 /** Seconds left of a lockout, counting down to zero once started. */
 function useCountdown(): [number, (seconds: number) => void] {
@@ -98,10 +104,13 @@ function Or({ t }: { t: T }) {
 }
 
 /**
- * Signing in. A person uses their account - username, password and the code from their
- * authenticator in one step, or a passkey, which the username field also offers in the
- * browser's autofill - and every refusal reads the same, whatever was wrong. The access token
- * is emergency access: kept, one link away, with what it means said before it is typed.
+ * Signing in. A person uses their account in two steps - their username (or the email of the
+ * person, when it names one account) and password, then the second factor the server says the
+ * account has: a code, or its passkey - or a passkey on its own, which the username field also
+ * offers in the browser's autofill. An account without a second factor is let in on its
+ * password and sent to set one up. Every refusal of the first step reads the same, whatever
+ * was wrong. The access token is emergency access: kept, one link away, with what it means
+ * said before it is typed.
  */
 export function LoginForm({ next, expired, mode, onModeChange }: LoginFormProps) {
   const t = useT();
@@ -114,6 +123,7 @@ export function LoginForm({ next, expired, mode, onModeChange }: LoginFormProps)
   const [code, setCode] = useState("");
   const [token, setToken] = useState("");
   const [tokenStep, setTokenStep] = useState<TokenStep>("token");
+  const [factor, setFactor] = useState<FactorStep | null>(null);
   const [masterPasskey, setMasterPasskey] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<"username" | "password" | "token" | "code", string>>>({});
   const [failure, setFailure] = useState<{ title: string; error: unknown; hint?: string } | null>(null);
@@ -124,6 +134,7 @@ export function LoginForm({ next, expired, mode, onModeChange }: LoginFormProps)
   const passwordRef = useRef<HTMLInputElement>(null);
   const tokenRef = useRef<HTMLInputElement>(null);
   const codeRef = useRef<HTMLInputElement>(null);
+  const factorPasskeyRef = useRef<HTMLButtonElement>(null);
   const autofill = useRef<AbortController | null>(null);
 
   const [remaining, lockFor] = useCountdown();
@@ -134,10 +145,13 @@ export function LoginForm({ next, expired, mode, onModeChange }: LoginFormProps)
     if (expired) announce(t("auth.sessionExpired"));
   }, [expired, t]);
 
-  // The code step of the access token moves focus to its field: the one thing left to type.
+  // The code step (of the access token, or of an account) moves focus to its field: the one
+  // thing left to type. An account with only a passkey is offered it instead.
+  const factorHasCode = factor !== null && (factor.methods.includes("totp") || factor.methods.includes("backup_code"));
   useEffect(() => {
-    if (mode === "token" && tokenStep === "code") codeRef.current?.focus();
-  }, [mode, tokenStep]);
+    if ((mode === "token" && tokenStep === "code") || (mode === "account" && factorHasCode)) codeRef.current?.focus();
+    else if (mode === "account" && factor !== null) factorPasskeyRef.current?.focus();
+  }, [mode, tokenStep, factor, factorHasCode]);
 
   // A refused value is selected for retyping once the field is enabled again: the fields are
   // disabled while a request is in flight, and a disabled field drops focus and ignores
@@ -167,8 +181,9 @@ export function LoginForm({ next, expired, mode, onModeChange }: LoginFormProps)
 
   // The passkey in the username field's autofill (conditional UI), for as long as the account
   // form is on screen. Aborted when the operator does anything else with a passkey or leaves.
+  const firstStep = factor === null;
   useEffect(() => {
-    if (mode !== "account" || !passkeysHere) return;
+    if (mode !== "account" || !passkeysHere || !firstStep) return;
     const state = { live: true };
     // Read through a function: the flag changes while the ceremony waits, which a narrowed
     // read of the property would not see.
@@ -193,7 +208,7 @@ export function LoginForm({ next, expired, mode, onModeChange }: LoginFormProps)
     };
     // finish is stable in intent (it reads the latest next through its closure on each run).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, passkeysHere]);
+  }, [mode, passkeysHere, firstStep]);
 
   const stopAutofill = (): void => {
     autofill.current?.abort();
@@ -218,11 +233,15 @@ export function LoginForm({ next, expired, mode, onModeChange }: LoginFormProps)
     reset();
     setPasskeyPending(true);
     try {
-      await finish(await signInWithPasskey());
+      await finish(await signInWithPasskey(factor === null ? {} : { challenge: factor.challenge }));
     } catch (error: unknown) {
       if (error instanceof CeremonyError && error.cancelled) return;
       if (isApiError(error) && (error.error === "locked_out" || error.error === "rate_limited")) {
         lockedOut(error);
+        return;
+      }
+      if (isApiError(error) && (error.error === "sign_in_expired" || error.error === "invalid_credentials")) {
+        backToPassword(error);
         return;
       }
       setFailure({
@@ -250,8 +269,18 @@ export function LoginForm({ next, expired, mode, onModeChange }: LoginFormProps)
     stopAutofill();
     setPending(true);
     try {
-      const trimmed = code.replace(/\s+/g, "");
-      const answer = await login({ username: username.trim(), password, bearer: false, ...(trimmed !== "" ? { totp_code: trimmed } : {}) });
+      const name = username.trim();
+      const answer = await login({ username: name, password, bearer: false });
+      setPassword("");
+      if (answer.second_factor) {
+        // The password was right and the account has a second factor: that step is next.
+        const step = answer.second_factor;
+        setCode("");
+        setFactor({ ...step, name });
+        const codeFirst = step.methods.includes("totp") || step.methods.includes("backup_code");
+        announce(codeFirst ? t("auth.account.codeAnnounce") : t("auth.account.passkeyAnnounce"));
+        return;
+      }
       await finish(answer);
     } catch (error: unknown) {
       if (isApiError(error) && (error.error === "locked_out" || error.error === "rate_limited")) {
@@ -259,9 +288,62 @@ export function LoginForm({ next, expired, mode, onModeChange }: LoginFormProps)
         return;
       }
       setPassword("");
-      setCode("");
       setFailure({ title: t("auth.account.failedTitle"), error, hint: t("auth.account.failedHint") });
       passwordRef.current?.focus();
+    } finally {
+      setPending(false);
+    }
+  };
+
+  /** Back to the first step, the name kept: the second step is over (spent, expired, refused). */
+  const backToPassword = (error?: unknown): void => {
+    setFactor(null);
+    setCode("");
+    setPassword("");
+    setFieldErrors({});
+    setFailure(error === undefined ? null : { title: t("auth.account.failedTitle"), error });
+  };
+
+  // Once the first step is back on screen, the password is what is left to type.
+  const wasFactor = useRef(false);
+  useEffect(() => {
+    if (factor === null && wasFactor.current) passwordRef.current?.focus();
+    wasFactor.current = factor !== null;
+  }, [factor]);
+
+  const submitFactor = async (event: SyntheticEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    if (pending || locked || factor === null) return;
+    const value = code.replace(/\s+/g, "");
+    if (value === "") {
+      setFieldErrors({ code: t("auth.enterCode") });
+      codeRef.current?.focus();
+      return;
+    }
+    reset();
+    setPending(true);
+    try {
+      await finish(await loginSecondFactor({ challenge: factor.challenge, code: value, bearer: false }));
+    } catch (error: unknown) {
+      if (!isApiError(error)) {
+        setFailure({ title: t("auth.signInFailed"), error });
+        return;
+      }
+      switch (error.error) {
+        case "invalid_totp":
+          setFieldErrors({ code: error.detail });
+          return;
+        case "locked_out":
+        case "rate_limited":
+          lockedOut(error);
+          return;
+        case "sign_in_expired":
+        case "invalid_credentials":
+          backToPassword(error);
+          return;
+        default:
+          setFailure({ title: t("auth.signInFailed"), error });
+      }
     } finally {
       setPending(false);
     }
@@ -322,6 +404,7 @@ export function LoginForm({ next, expired, mode, onModeChange }: LoginFormProps)
     stopAutofill();
     reset();
     setTokenStep("token");
+    setFactor(null);
     setCode("");
     setMasterPasskey(false);
     onModeChange(next);
@@ -423,6 +506,79 @@ export function LoginForm({ next, expired, mode, onModeChange }: LoginFormProps)
     );
   }
 
+  if (factor !== null) {
+    const withCode = factorHasCode;
+    const backupOnly = withCode && !factor.methods.includes("totp");
+    const passkeyStep = factor.methods.includes("passkey") && passkeysHere;
+    return (
+      <div className="flex flex-col gap-5">
+        <form onSubmit={(event) => void submitFactor(event)} noValidate className="flex flex-col gap-5">
+          {notices}
+          <div className="flex items-center justify-between gap-3 rounded-control border border-border bg-bg-sunken py-1.5 pr-1.5 pl-3">
+            <span className="min-w-0 text-13 break-words text-fg-muted">{t("auth.account.passwordAccepted", { name: factor.name })}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<ArrowLeft aria-hidden="true" />}
+              onClick={() => {
+                backToPassword();
+              }}
+              disabled={pending || passkeyPending}
+            >
+              {t("auth.account.differentAccount")}
+            </Button>
+          </div>
+          {withCode ? (
+            <>
+              <Field
+                label={backupOnly ? t("auth.account.backupCode") : t("auth.twoFactorCode")}
+                error={fieldErrors.code}
+                description={backupOnly ? t("auth.account.backupCodeHint") : t("auth.twoFactorHint")}
+              >
+                <Input
+                  ref={codeRef}
+                  name="totp_code"
+                  mono
+                  autoComplete="one-time-code"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  maxLength={32}
+                  value={code}
+                  onValueChange={(value: string) => {
+                    setCode(value);
+                  }}
+                  disabled={pending}
+                  className="w-48"
+                />
+              </Field>
+              <Button type="submit" variant="primary" size="lg" loading={pending} disabled={locked || passkeyPending} className="w-full">
+                {t("auth.verify")}
+              </Button>
+            </>
+          ) : null}
+        </form>
+        {passkeyStep ? (
+          <>
+            {withCode ? <Or t={t} /> : null}
+            <Button
+              ref={factorPasskeyRef}
+              // The one way left when the account has no code to type: then it is the primary action.
+              variant={withCode ? "secondary" : "primary"}
+              size="lg"
+              className="w-full"
+              icon={<KeyRound aria-hidden="true" />}
+              loading={passkeyPending}
+              disabled={locked || pending}
+              onClick={() => void withPasskey()}
+            >
+              {t("auth.account.usePasskey")}
+            </Button>
+          </>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-5">
       {passkeysHere ? (
@@ -460,23 +616,6 @@ export function LoginForm({ next, expired, mode, onModeChange }: LoginFormProps)
               setPassword(value);
             }}
             disabled={pending}
-          />
-        </Field>
-        <Field label={t("auth.account.code")} optional description={t("auth.account.codeHint")} error={fieldErrors.code}>
-          <Input
-            name="totp_code"
-            mono
-            inputMode="text"
-            autoComplete="one-time-code"
-            autoCapitalize="off"
-            spellCheck={false}
-            maxLength={32}
-            value={code}
-            onValueChange={(value: string) => {
-              setCode(value);
-            }}
-            disabled={pending}
-            className="w-48"
           />
         </Field>
         <Button type="submit" variant="primary" size="lg" loading={pending} disabled={locked || passkeyPending} className="w-full">

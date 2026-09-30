@@ -72,10 +72,10 @@ export const accounts = {
   },
   fields: {
     username: "Username",
-    usernameHint: "Lowercase letters, digits, dots, dashes and underscores. It cannot be changed.",
+    usernameHint: "What the person types to sign in: lowercase letters, digits, dots, dashes and underscores. It cannot be changed.",
     displayName: "Name",
     person: "Email",
-    personHint: "Who the account belongs to: two accounts of one person may not hold roles that go against each other.",
+    personHint: "Identifies the person, to keep one person's accounts apart. It signs in too while only one account has it.",
     role: "Role",
   },
   invite: {

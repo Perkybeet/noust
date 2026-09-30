@@ -29,16 +29,26 @@ export const passkeysQuery = () =>
     queryFn: ({ signal }) => request("get", "/api/auth/passkeys", { signal }),
   });
 
+export interface PasskeySignInOptions extends GetOptions {
+  /**
+   * The second step a right password opened: the browser is offered that account's passkeys
+   * only, and the sign-in finishes that step.
+   */
+  challenge?: string | undefined;
+}
+
 /**
  * Signs in with a passkey: a complete sign-in, no name or password. With `conditional`, the
  * browser offers the passkey in the username field's autofill and the promise settles only
- * when the operator picks one (or the signal aborts it).
+ * when the operator picks one (or the signal aborts it). With `challenge`, it is the second
+ * step of an account's sign-in instead.
  */
-export async function signInWithPasskey({ mediation, signal }: GetOptions = {}): Promise<PasskeyLogin> {
+export async function signInWithPasskey({ mediation, signal, challenge }: PasskeySignInOptions = {}): Promise<PasskeyLogin> {
   const conditional = mediation === "conditional";
-  const options = await request("post", "/api/auth/passkeys/login/options", { body: { conditional }, ...(signal ? { signal } : {}) });
+  const step = challenge === undefined ? {} : { challenge };
+  const options = await request("post", "/api/auth/passkeys/login/options", { body: { conditional, ...step }, ...(signal ? { signal } : {}) });
   const credential = await getPasskey(options.public_key, { mediation, signal });
-  return request("post", "/api/auth/passkeys/login", { body: { credential, bearer: false } });
+  return request("post", "/api/auth/passkeys/login", { body: { credential, bearer: false, ...step } });
 }
 
 /** Confirms it's you with one of this owner's passkeys: opens sudo mode. */

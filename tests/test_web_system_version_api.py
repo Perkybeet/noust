@@ -20,6 +20,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from noust import __version__
+from noust.core import package_index
 from noust.core.config import Config
 from noust.core.update_checker import UpdateChecker
 from noust.web.api import system as system_api
@@ -72,9 +73,7 @@ def test_disabled_reports_status_disabled_and_makes_no_request(
         raise AssertionError("the update check must not run a request while disabled")
 
     monkeypatch.setattr(UpdateChecker, "_fetch_published_version", classmethod(lambda cls: _boom()))
-    monkeypatch.setattr(
-        UpdateChecker, "_fetch_installable_version", classmethod(lambda cls, method: _boom())
-    )
+    monkeypatch.setattr(UpdateChecker, "_fetch_offer", classmethod(lambda cls, method: _boom()))
 
     response = client.get("/api/system/version")
 
@@ -94,15 +93,22 @@ def _answer(
     installable: str | None,
     published: str | None,
     method: str = "apt",
+    indexed: str | None = None,
 ) -> None:
-    """Script the check: where WASM came from, and what each source says."""
+    """
+    Script the check: where Noust came from, and what each source says.
+
+    ``installable`` is what the repository serves; the local index lists the
+    same unless ``indexed`` says otherwise.
+    """
+    offer = package_index.Offer(
+        repository=installable, index=installable if indexed is None else indexed
+    )
     monkeypatch.setattr(UpdateChecker, "CACHE_FILE", tmp_path / "version_check.json")
     monkeypatch.setattr(
         UpdateChecker, "_detect_installation_method", classmethod(lambda cls: method)
     )
-    monkeypatch.setattr(
-        UpdateChecker, "_fetch_installable_version", classmethod(lambda cls, m: installable)
-    )
+    monkeypatch.setattr(UpdateChecker, "_fetch_offer", classmethod(lambda cls, m: offer))
     monkeypatch.setattr(
         UpdateChecker, "_fetch_published_version", classmethod(lambda cls: published)
     )
@@ -181,3 +187,36 @@ def test_a_concurrent_check_already_in_flight_reports_status_checking(
     assert body["has_update"] is False
     assert body["latest_version"] is None
     assert body["update_command"] is None
+
+
+def test_a_release_the_index_has_not_seen_offers_the_refresh(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """
+    The production report: the repository and GitHub had the release, this
+    server's package index (refreshed by the OS about daily) did not, and the
+    console said nothing. It now says so, and names the refresh.
+    """
+    _answer(monkeypatch, tmp_path, installable="99.0.0", published="99.0.0", indexed=__version__)
+
+    body = client.get("/api/system/version").json()
+
+    assert body["update_state"] == "index_behind"
+    assert body["has_update"] is False
+    assert body["indexed_version"] == __version__
+    assert body["announced_version"] == "99.0.0"
+    assert body["refresh_command"] == "noust server updates refresh"
+    # The upgrade is offered once the index lists it, not before.
+    assert body["update_command"] is None
+    assert body["release_url"] == "https://github.com/Perkybeet/noust/releases/tag/v99.0.0"
+
+
+def test_an_installable_update_names_no_refresh(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _answer(monkeypatch, tmp_path, installable="99.0.0", published="99.0.0")
+
+    body = client.get("/api/system/version").json()
+
+    assert body["refresh_command"] is None
+    assert body["announced_version"] == "99.0.0"

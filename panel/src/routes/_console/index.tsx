@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { inPlace } from "../../app/searchNavigation";
 import { OverviewPage } from "../../features/overview/OverviewPage";
 import { DEFAULT_RANGE, isRange } from "../../features/overview/ranges";
 import type { MetricRange } from "../../features/overview/ranges";
@@ -25,7 +26,7 @@ function OverviewRoute() {
   return (
     <OverviewPage
       range={window}
-      onRangeChange={(next) => void navigate({ search: next === DEFAULT_RANGE ? {} : { window: next }, replace: true })}
+      onRangeChange={(next) => void navigate({ search: next === DEFAULT_RANGE ? {} : { window: next }, ...inPlace({ replace: true }) })}
     />
   );
 }

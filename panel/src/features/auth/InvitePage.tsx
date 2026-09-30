@@ -163,6 +163,8 @@ export function InvitePage() {
             {acceptErrors.form !== null ? <ErrorBlock live compact error={acceptErrors.form} title={t("auth.invite.acceptFailed")} /> : null}
             <fieldset className="flex flex-col gap-5">
               <legend className="mb-3 text-14 font-medium text-fg">{t("auth.invite.passwordLegend")}</legend>
+              {/* A password manager files the new password under the name it signs in with. */}
+              <input type="text" name="username" autoComplete="username" value={opened.username} readOnly hidden />
               <Field
                 label={t("auth.invite.password")}
                 description={t("auth.invite.passwordHint", { count: opened.password_min_length })}

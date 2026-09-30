@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { inPlace } from "../../../app/searchNavigation";
 import { ApprovalsPage } from "../../../features/approvals/ApprovalsPage";
 import { validateApprovalsSearch } from "../../../features/approvals/data";
 
@@ -12,5 +13,5 @@ export const Route = createFileRoute("/_console/settings/approvals")({
 function ApprovalsRoute() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
-  return <ApprovalsPage search={search} onSearchChange={(next, options) => void navigate({ search: next, replace: options?.replace ?? false })} />;
+  return <ApprovalsPage search={search} onSearchChange={(next, options) => void navigate({ search: next, ...inPlace(options) })} />;
 }

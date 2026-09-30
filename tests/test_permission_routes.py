@@ -43,6 +43,8 @@ PASSWORD = "correct horse battery staple"
 #: Routes that answer without a credential, on purpose, and nothing else.
 EXPECTED_PUBLIC = {
     ("POST", "/api/auth/login"),
+    # Step 2 of sign-in: authenticated by step 1's signed, single-use challenge.
+    ("POST", "/api/auth/login/second-factor"),
     ("GET", "/api/auth/session"),
     ("POST", "/api/auth/invitations/open"),
     ("POST", "/api/auth/invitations/accept"),

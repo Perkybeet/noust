@@ -39,6 +39,8 @@ from noust.web.server import _uvicorn_kwargs, create_app, get_token_manager
 PUBLIC_API_PATHS = frozenset(
     {
         "/api/auth/login",
+        # The challenge a right password opened is the credential; a wrong code is counted.
+        "/api/auth/login/second-factor",
         "/api/auth/session",
         # The invitation code is the credential; a wrong one is counted.
         "/api/auth/invitations/open",
@@ -68,6 +70,7 @@ PUBLIC_PATHS = frozenset(
         "/login",
         "/health",
         "/api/auth/login",
+        "/api/auth/login/second-factor",
         "/api/auth/session",
         "/api/auth/invitations/open",
         "/api/auth/invitations/accept",

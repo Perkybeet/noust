@@ -42,6 +42,7 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from noust.core import paths
 from noust.core.exceptions import SecurityError, ValidationError
 from noust.core.runner import EXIT_NOT_FOUND, CommandResult
 from noust.managers.server.host import PROBE_TIMEOUT, read_text
@@ -54,7 +55,7 @@ from noust.managers.server.security_pending import (
     new_change_id,
 )
 from noust.managers.server.security_probe import SecurityProbe
-from noust.managers.server.security_sockets import ANY_ADDRESSES
+from noust.managers.server.security_sockets import ANY_ADDRESSES, Listener
 
 #: Environment of every firewall command.
 FIREWALL_ENV = {"LC_ALL": "C", "TERM": "dumb"}
@@ -273,6 +274,49 @@ class DockerPort:
     def public(self) -> bool:
         """Published on every interface (Docker's default)."""
         return self.host_address in ANY_ADDRESSES
+
+
+@dataclass(frozen=True)
+class ConsoleSockets:
+    """
+    Where Noust's console listens, and how that was established.
+
+    Attributes:
+        listeners: Its listening sockets.
+        by_process: They were found by the console's own processes (the
+            service's cgroup, or its main process); False when by the
+            configured port, which is only a claim about where it listens.
+        port: The configured ``web.port``.
+        note: Why the configured port was used, for the evidence; empty
+            when the processes decided.
+    """
+
+    listeners: tuple[Listener, ...]
+    by_process: bool
+    port: int
+    note: str = ""
+
+    def holds(self, proto: str, port: int, address: str) -> bool:
+        """
+        Report whether a socket is the console's.
+
+        Args:
+            proto: ``tcp`` or ``udp``.
+            port: The port.
+            address: What it is bound to.
+
+        Returns:
+            True for one of its sockets.
+        """
+        return any(
+            (listener.proto, listener.port, listener.address) == (proto, port, address)
+            for listener in self.listeners
+        )
+
+
+#: Programs that hold a port for someone else: never the console, whatever port
+#: the configuration names.
+_PROXIES = frozenset({"docker-proxy", "rootlesskit"})
 
 
 @dataclass(frozen=True)
@@ -735,6 +779,7 @@ class Firewall:
         self.actor = actor
         self.on_output = on_output
         self._console_port = console_port
+        self._console: ConsoleSockets | None = None
         self._state: FirewallState | None = None
 
     def _run(self, argv: list[str]) -> CommandResult:
@@ -892,6 +937,73 @@ class Firewall:
             self._console_port = int(Config().get("web.port", 8080) or 8080)
         return self._console_port
 
+    def _console_pids(self) -> frozenset[int]:
+        """
+        The processes of ``noust-web.service``: its cgroup, else its main process.
+
+        Returns:
+            Their ids; empty when the service does not run (or systemd did not say).
+        """
+        # One reading of a unit's processes (rule 3): the zero-downtime switch
+        # asks the same question of an application's unit.
+        from noust.deployers.bluegreen import CGROUP_ROOTS, unit_facts_of
+
+        runner = self.probe.runner
+        cgroups = tuple(self.probe.host.at(str(root)) for root in CGROUP_ROOTS)
+        facts = unit_facts_of(paths.WEB_UNIT, runner=runner, cgroups=cgroups)
+        if facts.pids:
+            return facts.pids
+        # A host with only the cgroup v1 hierarchy: the main process, which
+        # holds the socket unless the console runs workers.
+        result = runner.run(
+            ["systemctl", "show", "-p", "MainPID", "--value", f"{paths.WEB_UNIT}.service"],
+            timeout=PROBE_TIMEOUT,
+        )
+        value = result.stdout.strip() if result.success else ""
+        return frozenset({int(value)}) if value.isdigit() and int(value) > 0 else frozenset()
+
+    def console_sockets(self) -> ConsoleSockets:
+        """
+        Find the sockets Noust's console listens on.
+
+        By its processes first: the configuration says where the console was
+        meant to listen, and on one server it named the port Docker held while
+        the console ran on another, so the console was blamed for Docker's
+        socket. Only when no console process is found (a console started by
+        hand, a host where systemd does not say) does the configured port
+        decide, and the result says so.
+
+        Returns:
+            The sockets, and how they were found.
+        """
+        if self._console is not None:
+            return self._console
+        listeners, _error = self.probe.listeners()
+        port = self.console_port()
+        unit = f"{paths.WEB_UNIT}.service"
+        pids = self._console_pids()
+        if pids:
+            owned = tuple(listener for listener in listeners if pids.intersection(listener.pids))
+            if owned:
+                self._console = ConsoleSockets(owned, True, port)
+                return self._console
+            note = (
+                f"No socket of {unit} was in ss's list: the console was looked for on the "
+                f"configured port, web.port {port}."
+            )
+        else:
+            note = (
+                f"{unit} is not running: the console was looked for on the configured port, "
+                f"web.port {port}."
+            )
+        configured = tuple(
+            listener
+            for listener in listeners
+            if listener.port == port and listener.process not in _PROXIES
+        )
+        self._console = ConsoleSockets(configured, False, port, note)
+        return self._console
+
     def exposures(self) -> tuple[list[PortExposure], str]:
         """
         Every port that answers, with the firewall's verdict on it.
@@ -903,7 +1015,7 @@ class Firewall:
         state = self.state()
         listeners, error = self.probe.listeners()
         ssh_ports = self.probe.ssh_ports()
-        console = self.console_port()
+        console = self.console_sockets()
         found: list[PortExposure] = []
         seen: set[tuple[str, int, str]] = set()
         for listener in listeners:
@@ -917,7 +1029,10 @@ class Firewall:
             baseline = (
                 listener.port in ssh_ports
                 or listener.port in WEB_PORTS
-                or (listener.port == console and listener.exposure != "local")
+                or (
+                    console.holds(listener.proto, listener.port, listener.address)
+                    and listener.exposure != "local"
+                )
             )
             found.append(
                 PortExposure(
@@ -993,10 +1108,9 @@ class Firewall:
             The protected ports and sources.
         """
         ports = dict.fromkeys(self.probe.ssh_ports(), "SSH")
-        listeners, _error = self.probe.listeners()
-        console = self.console_port()
-        if any(listener.port == console and listener.exposure != "local" for listener in listeners):
-            ports.setdefault(console, "the console")
+        for listener in self.console_sockets().listeners:
+            if listener.exposure != "local":
+                ports.setdefault(listener.port, "the console")
         sources = frozenset(session.connection.peer_address for session in self.probe.sessions())
         return Protected(ports=ports, sources=sources)
 

@@ -203,7 +203,15 @@ export const BACKUPS_VIEW = view("backups", [
 export const UPDATES_VIEW = view(
   "updates",
   ["web-01", "web-2", "db-1", "old-1"].map((node) =>
-    server(node, node === "web-2" ? { os: { updates: { pending: 12, security: 3 }, reboot: { required: true } } } : { os: null }),
+    server(
+      node,
+      node === "web-2"
+        ? { os: { updates: { pending: 12, security: 3 }, reboot: { required: true } } }
+        : node === "old-1"
+          ? // Its package index has not seen the release yet: the fleet's update refreshes it first.
+            { os: null, noust: { current_version: "1.8.0", latest_version: "2.1.0", update_state: "index_behind", update_command: null } }
+          : { os: null },
+    ),
   ),
 );
 

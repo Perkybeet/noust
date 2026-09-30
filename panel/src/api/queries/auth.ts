@@ -5,6 +5,10 @@ import type { BodyOf, ResponseOf } from "../client";
 
 export type SessionInfo = ResponseOf<"/api/auth/session", "get">;
 export type LoginBody = BodyOf<"/api/auth/login", "post">;
+export type LoginAnswer = ResponseOf<"/api/auth/login", "post">;
+/** The second step a right password opened: what stands for it, and the account's factors. */
+export type SecondFactorStep = NonNullable<LoginAnswer["second_factor"]>;
+export type SecondFactorBody = BodyOf<"/api/auth/login/second-factor", "post">;
 export type ElevateBody = BodyOf<"/api/auth/elevate", "post">;
 
 export type TwoFactorStatus = ResponseOf<"/api/auth/2fa", "get">;
@@ -47,6 +51,11 @@ export const sessionQuery = () =>
 
 export function login(body: LoginBody) {
   return request("post", "/api/auth/login", { body });
+}
+
+/** Finishes an account's sign-in with its code: the step `login` opened for it. */
+export function loginSecondFactor(body: SecondFactorBody) {
+  return request("post", "/api/auth/login/second-factor", { body });
 }
 
 export function logout() {

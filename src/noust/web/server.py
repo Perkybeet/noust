@@ -99,6 +99,7 @@ from noust.web.auth import (
     set_security_config,
     set_token_manager,
     settle_credential_failures,
+    shared_address,
 )
 from noust.web.events import (
     AppStatePublisher,
@@ -355,6 +356,7 @@ def rate_bucket(connection: HTTPConnection, client_ip: str, path: str) -> RateBu
 AUTH_PATHS = frozenset(
     {
         "/api/auth/login",
+        "/api/auth/login/second-factor",
         "/api/auth/elevate",
         "/api/auth/2fa/disable",
         "/api/auth/password",
@@ -364,6 +366,14 @@ AUTH_PATHS = frozenset(
         "/api/auth/passkeys/elevate",
     }
 )
+
+#: The sign-in steps of :data:`AUTH_PATHS`. From an address many people share
+#: (loopback behind ``ssh -L``, a trusted proxy's own), the lockout of these
+#: is kept per address and name by the handlers themselves
+#: (:func:`~noust.web.auth.sign_in_lockout_key`), because only they read the
+#: name: refusing the bare address here would refuse every operator on the
+#: tunnel for one operator's typos.
+SIGN_IN_PATHS = frozenset({"/api/auth/login", "/api/auth/login/second-factor"})
 
 _token_manager: TokenManager | None = None
 _rate_limiter: RateLimiter | None = None
@@ -830,9 +840,24 @@ async def lifespan(app: FastAPI):
         jobs.unsubscribe_all(app_states)
         jobs.unsubscribe_all(notify_jobs)
         stop_witnessing()
+        stop_child_processes()
         close_fleet_tunnels()
         manager.purge_expired_sessions()
         stop_audit_worker()
+
+
+def stop_child_processes() -> None:
+    """
+    Stop every long-lived process the console started, within one deadline.
+
+    Tunnels and followed logs run in sessions of their own, so nothing else
+    stops them when the console exits; stopped together they cannot hold its
+    shutdown longer than one :data:`~noust.core.runner.TERMINATE_TIMEOUT`,
+    whatever their number.
+    """
+    from noust.core.runner import terminate_all_processes
+
+    terminate_all_processes()
 
 
 def close_fleet_tunnels() -> None:
@@ -1461,7 +1486,9 @@ class SecurityMiddleware:
                 )
                 return
 
-        if self._guards_credentials(scope, connection, path):
+        if self._guards_credentials(scope, connection, path) and not (
+            path in SIGN_IN_PATHS and shared_address(client_ip, config)
+        ):
             brute_force = get_brute_force()
             if brute_force.is_locked(client_ip):
                 remaining = brute_force.get_lockout_remaining(client_ip)
@@ -2208,6 +2235,7 @@ def _tunnels_closed_on_exit() -> Iterator[None]:
         yield
     finally:
         try:
+            stop_child_processes()
             close_fleet_tunnels()
         finally:
             for number, handler in previous.items():

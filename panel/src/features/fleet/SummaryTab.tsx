@@ -31,6 +31,7 @@ import {
   isKnownAction,
   jobStatusView,
   noustOf,
+  noustUpdatable,
   numberOf,
   objectOf,
   originOf,
@@ -365,7 +366,7 @@ export function SummaryTab() {
   const runningApps = sum(rows, (row) => countsOf(row, "apps")?.running ?? null);
   const failedUnits = sum(rows, (row) => countsOf(row, "units")?.failed ?? null);
   const expiring = sum(rows, (row) => numberOf(row["certificates_expiring"]));
-  const updatable = rows.filter((row) => noustOf(row).state === "update_available").length;
+  const updatable = rows.filter((row) => noustUpdatable(noustOf(row).state)).length;
   const reboots = rows.filter((row) => objectOf(objectOf(row["server"])?.["reboot"])?.["required"] === true).length;
   const loading = view.isPending;
 

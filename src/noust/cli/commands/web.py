@@ -108,6 +108,12 @@ INSTALL_TIMEOUT = 900
 #: Seconds between stopping and starting again, so the port is released.
 RESTART_PAUSE = 1
 
+#: How long the service waits for a previous console to release the port.
+PORT_RELEASE_WAIT = 10.0
+
+#: Seconds between two looks at a port a previous console still holds.
+PORT_RELEASE_POLL = 0.25
+
 #: How far past a taken port to look for a free one to name. The panel is not
 #: moved automatically - see :func:`_start` - but the port offered instead has
 #: to be one that will actually work, and the search has to finish while the
@@ -761,6 +767,13 @@ def _port_in_use(host: str, port: int) -> bool:
     about a socket bound with no backlog, and reading ``ss`` output means
     parsing a different format on every distribution.
 
+    The probe binds exactly as uvicorn will, with ``SO_REUSEADDR``, so it
+    answers the question that matters: would the console's own bind fail?
+    Without the option the bind also fails against the connections the
+    previous console closed, which wait in TIME_WAIT for a minute holding
+    nothing - and every restart of the service, the package upgrade's among
+    them, refused to start over a port no process held until systemd gave up.
+
     Args:
         host: Address the panel would bind.
         port: Port the panel would bind.
@@ -771,8 +784,7 @@ def _port_in_use(host: str, port: int) -> bool:
     family = socket.AF_INET6 if ":" in strip_brackets(host) else socket.AF_INET
     probe = socket.socket(family, socket.SOCK_STREAM)
     try:
-        # Deliberately not SO_REUSEADDR: with it the bind succeeds against a
-        # socket in TIME_WAIT, which is the case this is meant to catch.
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         probe.bind((strip_brackets(host), port))
     except OSError:
         return True
@@ -783,6 +795,95 @@ def _port_in_use(host: str, port: int) -> bool:
     finally:
         probe.close()
     return False
+
+
+def _is_console_process(cmdline: Sequence[str], cgroup: str) -> bool:
+    """
+    Tell whether a process is a Noust console, or one of its children.
+
+    Args:
+        cmdline: The process's argument vector.
+        cgroup: The text of its ``/proc/<pid>/cgroup``.
+
+    Returns:
+        True for a process in the console's unit, whichever name the unit
+        has, and for a ``noust web start`` (or ``wasm web start``) anywhere.
+    """
+    units = (f"/{WEB_UNIT_FILE}", f"/{LEGACY_WEB_UNIT}.service")
+    if any(line.rstrip().endswith(units) for line in cgroup.splitlines()):
+        return True
+    programs = {Path(arg).name for arg in cmdline[:2]}
+    if not programs & {"noust", "wasm"}:
+        return False
+    rest = list(cmdline)
+    return any(rest[i : i + 2] == ["web", "start"] for i in range(len(rest) - 1))
+
+
+def _console_holds_port(host: str, port: int) -> bool:
+    """
+    Tell whether what listens on the console's port is a previous console.
+
+    Args:
+        host: The address the console binds.
+        port: The port it binds.
+
+    Returns:
+        True when a listener on that port belongs to a Noust console or a
+        process of its unit. False when it belongs to anything else, or when
+        its owner cannot be named: waiting is only for a known end.
+    """
+    try:
+        import psutil
+    except ImportError:
+        return False
+    try:
+        connections = psutil.net_connections(kind="tcp")
+    except (psutil.Error, OSError) as exc:
+        logging.getLogger(__name__).debug("Cannot list listening sockets: %s", exc)
+        return False
+    wanted = {strip_brackets(host), "0.0.0.0", "::"}  # noqa: S104 - compared, never bound
+    for connection in connections:
+        address = connection.laddr
+        if (
+            connection.status != psutil.CONN_LISTEN
+            or not address
+            or address.port != port
+            or address.ip not in wanted
+            or connection.pid is None
+        ):
+            continue
+        try:
+            cmdline = psutil.Process(connection.pid).cmdline()
+            cgroup = Path(f"/proc/{connection.pid}/cgroup").read_text(encoding="utf-8")
+        except (psutil.Error, OSError):
+            continue
+        if _is_console_process(cmdline, cgroup):
+            return True
+    return False
+
+
+def _wait_for_previous_console(host: str, port: int) -> bool:
+    """
+    Give a console that is still exiting a few seconds to release the port.
+
+    Only the service waits, and only for a console: systemd restarts it over
+    whatever the previous instance is still finishing, and an operator at a
+    terminal is better told at once.
+
+    Args:
+        host: The address the console binds.
+        port: The port it binds.
+
+    Returns:
+        True once the port is free; False when something else holds it, or
+        the previous console did not let go within :data:`PORT_RELEASE_WAIT`.
+    """
+    deadline = time.monotonic() + PORT_RELEASE_WAIT
+    while _port_in_use(host, port):
+        if time.monotonic() >= deadline or not _console_holds_port(host, port):
+            return not _port_in_use(host, port)
+        time.sleep(PORT_RELEASE_POLL)
+    return True
 
 
 def _first_free_port(host: str, port: int) -> int | None:
@@ -1263,7 +1364,11 @@ def _start(options: StartOptions, verbose: bool, *, dry_run: bool = False) -> in
     # past that check: the token was printed and then uvicorn failed with a
     # bare OSError, leaving an operator holding a credential for a server that
     # never started.
-    if not dry_run and _port_in_use(host, config.port):
+    if (
+        not dry_run
+        and _port_in_use(host, config.port)
+        and not (options.under_systemd and _wait_for_previous_console(host, config.port))
+    ):
         _report_taken_port(host, config.port, logger)
         return 1
 
@@ -1303,6 +1408,11 @@ def _start(options: StartOptions, verbose: bool, *, dry_run: bool = False) -> in
         if not options.under_systemd:
             logger.info(f"would record the process in {pid_file}")
         return 0
+
+    if options.under_systemd:
+        # The unit's options are where the service listens, whichever release
+        # wrote the unit: a start corrects a file that says otherwise.
+        remember_exposure(host, config.port, logger)
 
     if options.daemon:
         return _start_daemon(
@@ -1889,7 +1999,41 @@ def _install_and_start(
             )
             exc.details = f"{retired}\n{exc.details}" if exc.details else retired
         raise
+    remember_exposure(host, config.port, logger)
     return ConsoleService(unit=Path(path), token=token, port=config.port)
+
+
+def remember_exposure(host: str, port: int, logger: Logger | None = None) -> None:
+    """
+    Record where the console service listens as ``web.host`` and ``web.port``.
+
+    The unit's command line decides where the service listens; config.yaml is
+    what everything else reads (the security checks, the hooks site, links to
+    the console). A service enabled on another port while the file kept the
+    old one made the checks blame the console for whatever held that port
+    (Docker's, on one server). Written only when it differs.
+
+    Args:
+        host: The address the service binds.
+        port: Its port.
+        logger: Told when the file cannot be written; the console serves anyway.
+    """
+    from noust.core.exceptions import ConfigError
+
+    config = Config()
+    host = normalize_host(host)
+    if config.get("web.host") == host and config.get("web.port") == port:
+        return
+    try:
+        config.set("web.host", host)
+        config.set("web.port", port)
+        config.write()
+    except (ConfigError, SecurityError, OSError) as exc:
+        # The service is up either way; a stale file is what this repairs, not
+        # a reason to stop the console.
+        (logger or Logger()).warning(
+            f"Could not record web.host and web.port in the configuration: {exc}"
+        )
 
 
 def master_token_exists(config: SecurityConfig) -> bool:
