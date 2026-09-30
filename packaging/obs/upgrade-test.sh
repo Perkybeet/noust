@@ -151,8 +151,14 @@ prepare_3x_server() {
 
 check_3x_upgraded() {
     noust list > /dev/null 2>&1 || fail "noust list failed after the upgrade"
-    ls /var/lib/noust/noust.db.v*.bak > /dev/null 2>&1 \
-        || fail "no copy of the store was kept before migrating it"
+    # Only an upgrade that changes the store's schema (3.0 to 3.1) migrates it,
+    # and only a migration keeps a copy first.
+    case "$installed" in
+        3.0.*)
+            ls /var/lib/noust/noust.db.v*.bak > /dev/null 2>&1 \
+                || fail "no copy of the store was kept before migrating it"
+            ;;
+    esac
     if [ -n "$monitor_was_enabled" ]; then
         systemctl is-enabled --quiet noust-monitor.service \
             || fail "noust-monitor was enabled and is not after the upgrade"
@@ -161,7 +167,7 @@ check_3x_upgraded() {
         systemctl is-active --quiet noust-web.service \
             || fail "noust-web was running and is not after the upgrade"
     fi
-    echo "Upgraded from $installed: the store was copied before migrating, the units kept their state"
+    echo "Upgraded from $installed: the store is readable, the units kept their state"
 }
 
 # Run the package's scripts again, as the next upgrade would.
