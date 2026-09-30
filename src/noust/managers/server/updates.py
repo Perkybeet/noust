@@ -629,10 +629,13 @@ class UpdatesManager:
                 "Read the list and repeat the request with the removals allowed.",
                 required={"removals": list(plan.removals)},
             )
-        if not plan.packages and scope is UpdateScope.SECURITY:
+        if not plan.packages and unit is None:
             raise ServerError(
-                "There are no security updates to install",
-                "Refresh the package lists first, or apply all updates.",
+                f"There are no {'security ' if scope is UpdateScope.SECURITY else ''}"
+                "updates to install",
+                "Refresh the package lists first, or apply all updates."
+                if scope is UpdateScope.SECURITY
+                else "Refresh the package lists first.",
             )
 
         update_id = update_id or new_update_id()
@@ -647,6 +650,17 @@ class UpdatesManager:
             actor=actor,
         )
         self.records.write(record)
+        if not plan.packages:
+            # A unit was started for updates the listing it was planned from
+            # had (Ubuntu phases some in and out between two looks): there is
+            # no command to run, and the record is how it says so. An empty
+            # argv here once failed the unit with no record at all.
+            record.status = "completed"
+            record.finished_at = datetime.now(timezone.utc).isoformat()
+            record.tail = ["Nothing to install: no update is pending in this scope any more."]
+            on_line(record.tail[0])
+            self.records.write(record)
+            return record
 
         tail: list[str] = []
 

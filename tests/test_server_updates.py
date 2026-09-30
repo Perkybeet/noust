@@ -340,6 +340,33 @@ class TestApplying:
         with pytest.raises(ServerError, match="no security updates"):
             manager.apply(UpdateScope.SECURITY, on_line=lambda line: None)
 
+    def test_all_with_nothing_pending_says_so_when_asked_directly(self, host, fs, records) -> None:
+        runner = FakeRunner()
+        _script_apt(runner, simulation="0 upgraded, 0 newly installed, 0 to remove.\n")
+        manager = _manager(runner, host, fs, records)
+
+        with pytest.raises(ServerError, match="no updates to install"):
+            manager.apply(UpdateScope.ALL, on_line=lambda line: None)
+        assert not any(c[:2] == ("apt-get", "-y") for c in runner.calls)
+
+    def test_a_unit_that_finds_nothing_left_records_it_instead_of_running_nothing(
+        self, host, fs, records
+    ) -> None:
+        """A fleet job planned 2 phased updates; the unit found 0 and ran an empty argv."""
+        runner = FakeRunner()
+        _script_apt(runner, simulation="0 upgraded, 0 newly installed, 0 to remove.\n")
+        manager = _manager(runner, host, fs, records)
+        lines: list[str] = []
+
+        record = manager.apply(
+            UpdateScope.ALL, on_line=lines.append, update_id="abc12345", unit="noust-os-update-x"
+        )
+
+        assert record.status == "completed" and record.packages == []
+        assert lines and "Nothing to install" in lines[0]
+        assert not any(c[:2] == ("apt-get", "-y") for c in runner.calls)
+        assert records.read("abc12345").status == "completed"
+
     def test_a_rehearsal_writes_no_record(self, host, tmp_path: Path) -> None:
         runner = FakeRunner()
         _script_apt(runner)
