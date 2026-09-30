@@ -1,3 +1,10 @@
+noust (3.1.10-1) unstable; urgency=medium
+
+  * Server > Security is fast: one reading of sshd's login history serves every view for a minute; on a server the Internet probes all day it took 2.4 s and was read up to twice per view, so SSH, firewall and checks took 5 to 7 s and removing a key waited for it
+  * A view still loading after two seconds says what it is reading, with a spinner, instead of a bare skeleton
+
+ -- Yago Lopez Prado <yago.lopez.adeje@gmail.com>  Wed, 30 Sep 2026 23:07:02 +0000
+
 noust (3.1.9-1) unstable; urgency=medium
 
   * The fleet summary's applications tile shows every application (static and stopped ones included), with the running ones below, so it matches the Applications tab
