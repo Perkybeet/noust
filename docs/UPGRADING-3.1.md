@@ -210,12 +210,16 @@ on their page, in `noust health` and in `noust ens check`, until you move each o
 ```bash
 noust app sandbox self-test                # once: does the sandbox hold on this server?
 noust app sandbox status shop.example.com  # how it builds now
-noust app sandbox test shop.example.com    # build the live commit in the sandbox; nothing is activated
+noust app sandbox test shop.example.com    # build what the next update builds, in the sandbox; nothing is activated
 noust app sandbox enable shop.example.com  # from the next deploy on (asks for a passing test)
 ```
 
-`test` exports the commit the application runs now into a scratch directory, installs and builds
-it as `noust-build` exactly as an enabled sandbox would, and throws it away: nothing is
+`test` copies what the next update would build into a scratch directory, installs and builds
+it as `noust-build` exactly as an enabled sandbox would, and throws it away. On releases that is
+the commit the application runs now; in place it is the files git tracks as they are in the
+application's tree, uncommitted changes made on the server included (an in-place update builds
+them), without `node_modules` or build output. `test` names those changes and says to commit
+them: a fresh deploy of the repository would not have them. Nothing is
 restarted and nothing enters the deployment history. When it fails, the error says what the
 build tried to reach. The usual causes are a build that writes outside its own directory, reads
 a file from another application, or needs a private registry's credentials from root's home. In
@@ -359,19 +363,30 @@ noust fleet access --host-access on         # only if the central should reach t
 
 A server enrolled by 3.0 has the central's key in **root's** `authorized_keys`. That key can
 create Unix sockets as root anywhere on the server (`permitlisten` does not limit them): see
-[CENTRAL.md](CENTRAL.md). Move each one once it runs 3.1:
+[CENTRAL.md](CENTRAL.md). Move each one once it runs 3.1.1 or later (the central too):
 
 ```bash
 noust node migrate-tunnel vps1              # on the central: prints the command for vps1
-# on vps1, as root: run the printed 'noust fleet authorize ...'
+# on vps1, as root: run the printed 'noust fleet authorize ... --replace-root-key ...'
 noust node migrate-tunnel vps1 --join-code -   # on the central: paste the code vps1 printed
 ```
 
 On the server, `authorize` creates `noust-tunnel`, restricts it in sshd, installs the same key
-for it, removes the central's line from root's `authorized_keys` and issues a new fleet token.
-The central switches once the server answers as `noust-tunnel`; until then nothing changes and
-the code can be pasted again. `noust node list` no longer flags it. The server no longer needs
-`PermitRootLogin` for the fleet.
+for it, takes that key out of root's `authorized_keys` and issues a new fleet token. The key is
+removed because `--replace-root-key` names it, whatever the central is called in the line's
+comment; every other line stays, and a 0600 copy of the file as it was is kept next to it
+(`authorized_keys.noust-<UTC time>`). Check that `authorize` printed root's file under "Old line
+removed from". The central switches once the server answers as `noust-tunnel`; until then
+nothing changes and the code can be pasted again. `noust node list` no longer flags it. The
+server no longer needs `PermitRootLogin` for the fleet.
+
+**Migrated with 3.1.0?** 3.1.0 matched root's line by the central's name, and a 3.0 line that
+named the central otherwise stayed in root's file, still able to create Unix sockets as root.
+On 3.1.1 `noust fleet authorize` warns about any such line whatever its flags, and so does the
+hardening check "A central's tunnel logs in as root" (`noust server security checks`, counted by
+`noust health`); each warning carries the exact command that removes that key, such as
+`sed -i '\#AAAAC3NzaC1lZDI1NTE5AAAA...#d' /root/.ssh/authorized_keys`. Run it once the central
+reaches the server as `noust-tunnel`.
 
 If sshd refuses the account (usually an `AllowUsers` or `AllowGroups` without `noust-tunnel`),
 `authorize` lists the reasons and changes nothing; see

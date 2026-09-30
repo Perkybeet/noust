@@ -457,6 +457,14 @@ def _parse_access(level: str | None, host_access: bool | None) -> FleetAccess | 
     "sockets as root, however it is restricted.",
 )
 @click.option(
+    "--replace-root-key",
+    default=None,
+    metavar="KEY",
+    help="A central's old public key to take out of root's authorized_keys once the new "
+    "line is in place, whatever its comment (a 0600 copy of the file is kept). 'noust node "
+    "migrate-tunnel' prints it for a node a 3.0 central authorized as root.",
+)
+@click.option(
     "--access",
     "level",
     type=click.Choice(["read", "deploy", "admin"]),
@@ -493,6 +501,7 @@ def authorize_command(
     central: str,
     ssh_user: str,
     allow_root: bool,
+    replace_root_key: str | None,
     level: str | None,
     host_access: bool | None,
     allow_self: bool,
@@ -560,6 +569,7 @@ def authorize_command(
             central=central,
             ssh_user=ssh_user,
             allow_root=allow_root,
+            replace_root_key=replace_root_key,
             access=access,
             tokens=token_manager(),
             ensure_console=ensure_console,
@@ -660,7 +670,12 @@ def _print_summary(ctx: Context, result: Any, outcome: ConsoleOutcome | None) ->
             "Would revoke" if rehearsal else "Revoked", ", ".join(result.replaced_tokens)
         )
     if result.moved_from:
-        logger.key_value("Old line removed from", ", ".join(result.moved_from))
+        logger.key_value(
+            "Old line would be removed from" if rehearsal else "Old line removed from",
+            ", ".join(result.moved_from),
+        )
+    if result.root_key_backup:
+        logger.key_value("Copy of it before", result.root_key_backup)
     for warning in result.warnings:
         logger.warning(warning)
 

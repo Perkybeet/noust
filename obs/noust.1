@@ -344,7 +344,7 @@ Print the build regime as JSON.
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
 .SS noust app sandbox test
-Build the application's current commit in the sandbox, without activating it.
+Build what the application's next update would build, in the sandbox, without activating it.
 .TP
 .B Arguments
 .br
@@ -2970,6 +2970,9 @@ Account the central's tunnel logs in as. The default is created and restricted i
 .TP
 .B \-\-i\-understand
 Confirm \-\-ssh\-user root: a key in root's authorized_keys can create Unix sockets as root, however it is restricted.
+.TP
+.B \-\-replace\-root\-key
+A central's old public key to take out of root's authorized_keys once the new line is in place, whatever its comment (a 0600 copy of the file is kept). 'noust node migrate\-tunnel' prints it for a node a 3.0 central authorized as root.
 .TP
 .B \-\-access
 The most any central may do on this server: read, deploy (operate and update applications) or admin. Unchanged when omitted (admin on a server that never set it).

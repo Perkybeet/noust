@@ -884,6 +884,9 @@ class SandboxSpec:
             before it drops privileges: how an application's ``.env`` reaches
             its build without the build account being able to open the file.
             A missing file is skipped.
+        unset_env: Variables removed from the command's environment after
+            every source is read (``UnsetEnvironment=``): what an
+            application's ``.env`` sets that an install must not see.
         masked_files: Files that read as empty inside the sandbox (an empty
             file is bound over each): a release's ``.env``, which the build
             account may not open and which dotenv loaders (Vite's among them)
@@ -918,6 +921,7 @@ class SandboxSpec:
     hidden_paths: tuple[Path, ...] = ()
     env_allow: tuple[str, ...] = SANDBOX_ENV_ALLOW
     env_files: tuple[Path, ...] = ()
+    unset_env: tuple[str, ...] = ()
     masked_files: tuple[Path, ...] = ()
     memory_max_mb: int | None = None
     cpu_quota_percent: int | None = None
@@ -955,6 +959,9 @@ class SandboxSpec:
         ):
             for path in group:
                 _unit_path(path, what)
+        for name in self.unset_env:
+            if not _ENV_NAME.match(name):
+                raise ValueError(f"The sandbox cannot unset {name!r}: not a variable name")
         if self.working_dir is not None:
             _unit_path(self.working_dir, "the working directory")
         for limit in (self.memory_max_mb, self.cpu_quota_percent, self.tasks_max, self.timeout):
@@ -1213,6 +1220,9 @@ def sandbox_prefix(
         properties.append(f"CPUQuota={spec.cpu_quota_percent}%")
     if spec.tasks_max is not None:
         properties.append(f"TasksMax={spec.tasks_max}")
+    if spec.unset_env:
+        # systemd applies it after every EnvironmentFile=, wherever it is listed.
+        properties.append(f"UnsetEnvironment={' '.join(spec.unset_env)}")
     for env in spec.env_files:
         properties.append(f"EnvironmentFile=-{_unit_path(env, 'an environment file')}")
     # Last, so what the runner composed wins over an application's .env.

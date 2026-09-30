@@ -30,9 +30,11 @@ import functools
 import inspect
 import ipaddress
 import logging
+import signal
 import threading
 from collections import OrderedDict
-from contextlib import asynccontextmanager
+from collections.abc import Iterator
+from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -795,8 +797,12 @@ async def lifespan(app: FastAPI):
     # The fleet's reachability, while a console has the event stream open; the
     # monitor daemon probes instead whenever it runs (noust.fleet.probe).
     from noust.fleet.probe import start_probe
+    from noust.fleet.tunnels import sweep_stale_tunnels
     from noust.web.events import hub as event_hub
 
+    # A console that died without closing its tunnels left ssh processes
+    # holding ports; they go before this one opens any.
+    await asyncio.to_thread(sweep_stale_tunnels)
     fleet_probe = start_probe(daemon=False, active=lambda: event_hub.listening)
     # What the server did while the console was not running: a reboot, or an
     # update that kept going in its own systemd unit.
@@ -842,9 +848,9 @@ def close_fleet_tunnels() -> None:
     """
     from noust.core.sealing import remove_plaintext_copies
     from noust.core.secrets import secrets_dir
-    from noust.fleet.tunnels import get_tunnels
+    from noust.fleet.tunnels import stop_all
 
-    get_tunnels().close_all()
+    stop_all()
     try:
         from noust.web.api.node_proxy import node_schemas
     except FleetUnavailableError:
@@ -2159,6 +2165,55 @@ def console_config_class() -> type[Any]:
     return ConsoleConfig
 
 
+#: Signals that end the console. uvicorn takes SIGINT and SIGTERM while it
+#: serves, then raises the one it got again with the handler it found, so the
+#: handler installed here is what runs last; SIGINT already raises
+#: KeyboardInterrupt, the others would end the process on the spot.
+_EXIT_SIGNALS = (signal.SIGTERM, signal.SIGHUP)
+
+
+def _exit_on_signal(signum: int, frame: Any) -> None:
+    """
+    End the console through Python's own exit, so ``finally`` blocks and atexit run.
+
+    Args:
+        signum: The signal.
+        frame: Where it arrived.
+
+    Raises:
+        SystemExit: Always, with the shell's code for that signal.
+    """
+    raise SystemExit(128 + signum)
+
+
+@contextmanager
+def _tunnels_closed_on_exit() -> Iterator[None]:
+    """
+    Close the fleet's tunnels however the console ends.
+
+    The lifespan closes them on an orderly stop; this covers the rest: a
+    signal uvicorn raises again after its shutdown (whose default action
+    would end the process without running anything), SIGHUP, an exception,
+    and the background console's ``os._exit``, which skips atexit. Without it
+    their ssh processes, in sessions of their own, outlive the console.
+
+    Yields:
+        Nothing; the server runs inside.
+    """
+    previous: dict[int, Any] = {}
+    if threading.current_thread() is threading.main_thread():
+        for sig in _EXIT_SIGNALS:
+            previous[sig] = signal.signal(sig, _exit_on_signal)
+    try:
+        yield
+    finally:
+        try:
+            close_fleet_tunnels()
+        finally:
+            for number, handler in previous.items():
+                signal.signal(number, handler)
+
+
 def _serve(kwargs: dict[str, Any]) -> None:
     """
     Run uvicorn until it is told to stop, ending the open streams when it is.
@@ -2264,4 +2319,5 @@ def run_server(
         print("\n".join(startup_banner(master_token, banner_address(host), port, scheme)))
         print(flush=True)
 
-    _serve(_uvicorn_kwargs(app, host, port, ssl_certfile, ssl_keyfile))
+    with _tunnels_closed_on_exit():
+        _serve(_uvicorn_kwargs(app, host, port, ssl_certfile, ssl_keyfile))

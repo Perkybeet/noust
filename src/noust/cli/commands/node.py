@@ -360,9 +360,10 @@ def migrate_tunnel_command(ctx: Context, name: str, join_code: str | None) -> No
     """
     Move NAME from root to the unprivileged noust-tunnel account (a node enrolled by 3.0).
 
-    Without --join-code, prints the command to run on NAME (Noust 3.1 or
+    Without --join-code, prints the command to run on NAME (Noust 3.1.1 or
     later there): it creates noust-tunnel, restricts it in sshd, installs this
-    central's key for it and takes it out of root's authorized_keys. With
+    central's key for it and takes that key out of root's authorized_keys
+    (--replace-root-key, matched by the key whatever the line's comment). With
     --join-code, this central switches to it once NAME answers; otherwise
     nothing changes here and the code can be pasted again.
     """
@@ -399,7 +400,10 @@ def _two_step(ctx: Context, name: str, join_code: str | None, *, what: str) -> N
             click.echo(json.dumps({"node": name, "authorize_command": command}))
             return
         logger = ctx.logger
-        logger.info(f"On {name}, as root (Noust 3.1 or later there), run:")
+        logger.info(
+            f"On {name}, as root (Noust {'3.1' if what == 'rekey' else '3.1.1'} or later "
+            "there), run:"
+        )
         logger.blank()
         click.echo(command)
         logger.blank()

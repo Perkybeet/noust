@@ -416,3 +416,179 @@ def test_ssh_failures_are_explained(stderr, expected):
         console_port=8080,
     )
     assert expected in explain_ssh_failure(stderr, record, 255)
+
+
+# ---------------------------------------------------------------------------
+# Tunnels never outlive the console
+# ---------------------------------------------------------------------------
+
+
+class TestStoppedForGood:
+    def test_nothing_opens_once_every_tunnel_was_closed(self, fleet):
+        # A job still running while the console stops must not open a tunnel
+        # after close_all: nothing would ever close it.
+        _register(fleet)
+        fleet.tunnels.close_all()
+
+        with pytest.raises(NodeUnreachableError) as caught:
+            fleet.tunnels.endpoint("web-2")
+
+        assert "stopping" in caught.value.message
+        assert fleet.runner.processes == []
+
+    def test_stop_all_closes_the_process_manager_without_creating_one(self, monkeypatch):
+        from noust.fleet import tunnels as tunnels_module
+
+        tunnels_module.set_tunnels(None)
+        tunnels_module.stop_all()
+        assert tunnels_module._tunnels is None
+
+        class Manager:
+            closed = False
+
+            def close_all(self) -> None:
+                self.closed = True
+
+        manager = Manager()
+        tunnels_module.set_tunnels(manager)  # type: ignore[arg-type]
+        try:
+            tunnels_module.stop_all()
+        finally:
+            tunnels_module.set_tunnels(None)
+        assert manager.closed
+
+
+class FakeProc:
+    """A /proc of processes, and the signals sent to them."""
+
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self.signals: list[tuple[int, int]] = []
+        self.ignores_term: set[int] = set()
+        root.mkdir(parents=True, exist_ok=True)
+
+    def add(self, pid: int, argv: list[str], *, ppid: int = 1, uid: int = 0) -> None:
+        directory = self.root / str(pid)
+        directory.mkdir()
+        (directory / "cmdline").write_bytes(b"\0".join(a.encode() for a in argv) + b"\0")
+        (directory / "status").write_text(
+            f"Name:\t{Path(argv[0]).name}\nPPid:\t{ppid}\nUid:\t{uid}\t{uid}\t{uid}\t{uid}\n"
+        )
+
+    def kill(self, pid: int, sig: int) -> None:
+        import shutil
+        import signal as signals
+
+        self.signals.append((pid, sig))
+        if sig == signals.SIGTERM and pid in self.ignores_term:
+            return
+        shutil.rmtree(self.root / str(pid))
+
+
+def _tunnel_argv(identity: Path, node: str = "web-2") -> list[str]:
+    return [
+        "/usr/bin/ssh",
+        "-N",
+        "-T",
+        "-F",
+        "/dev/null",
+        "-i",
+        str(identity),
+        "-p",
+        "22",
+        "-l",
+        "noust-tunnel",
+        "-L",
+        "127.0.0.1:41234:127.0.0.1:8080",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        f"HostKeyAlias={host_key_alias(node)}",
+        "--",
+        "web2.example.com",
+    ]
+
+
+class TestStaleTunnels:
+    """A console that ended without closing its tunnels left them running: the next one stops them."""
+
+    @pytest.fixture
+    def proc(self, tmp_path: Path) -> FakeProc:
+        return FakeProc(tmp_path / "proc")
+
+    def _stop(self, proc: FakeProc, secrets: Path, **kwargs):
+        from noust.fleet.tunnels import stop_stale_tunnels
+
+        return stop_stale_tunnels(
+            [secrets],
+            proc=proc.root,
+            kill=proc.kill,
+            sleep=lambda seconds: None,
+            uid=0,
+            **kwargs,
+        )
+
+    def test_an_orphaned_tunnel_of_this_central_is_stopped(self, proc, tmp_path):
+        import signal as signals
+
+        secrets = tmp_path / "secrets"
+        proc.add(4242, _tunnel_argv(secrets / "fleet/nodes/web-2/id_ed25519"))
+
+        stopped = self._stop(proc, secrets)
+
+        assert [(s.pid, s.node) for s in stopped] == [(4242, "web-2")]
+        assert proc.signals == [(4242, signals.SIGTERM)]
+
+    def test_one_that_ignores_sigterm_is_killed(self, proc, tmp_path):
+        import signal as signals
+
+        secrets = tmp_path / "secrets"
+        proc.add(4242, _tunnel_argv(secrets / "fleet/nodes/web-2/id_ed25519"))
+        proc.ignores_term.add(4242)
+
+        self._stop(proc, secrets)
+
+        assert proc.signals == [(4242, signals.SIGTERM), (4242, signals.SIGKILL)]
+
+    def test_what_is_not_exactly_a_noust_tunnel_is_left_alone(self, proc, tmp_path):
+        secrets = tmp_path / "secrets"
+        key = secrets / "fleet/nodes/web-2/id_ed25519"
+        # Someone's own ssh with a key of theirs.
+        proc.add(10, _tunnel_argv(tmp_path / "home/.ssh/id_ed25519"))
+        # The alias names another node than the key.
+        proc.add(12, _tunnel_argv(key, node="web-3"))
+        # A user's config could redirect it: not one Noust started.
+        with_config = _tunnel_argv(key)
+        with_config[with_config.index("/dev/null")] = "/root/.ssh/config"
+        proc.add(13, with_config)
+        # Another account's process.
+        proc.add(14, _tunnel_argv(key), uid=1000)
+        # Not ssh at all, whatever its arguments.
+        proc.add(15, ["/usr/bin/python3", *_tunnel_argv(key)[1:]])
+
+        assert self._stop(proc, secrets) == []
+        assert proc.signals == []
+
+    def test_a_tunnel_a_running_noust_holds_is_left_alone(self, proc, tmp_path):
+        secrets = tmp_path / "secrets"
+        proc.add(300, ["/usr/bin/python3", "/usr/local/bin/noust", "node", "test", "web-2"])
+        proc.add(301, _tunnel_argv(secrets / "fleet/nodes/web-2/id_ed25519"), ppid=300)
+        # Its parent is gone: reparented to a subreaper that is not Noust.
+        proc.add(400, ["/lib/systemd/systemd", "--user"])
+        proc.add(401, _tunnel_argv(secrets / "fleet/nodes/web-3/id_ed25519", "web-3"), ppid=400)
+
+        stopped = self._stop(proc, secrets)
+
+        assert [(s.pid, s.node) for s in stopped] == [(401, "web-3")]
+
+    def test_a_sealed_store_s_decrypted_key_copy_is_recognised(self, proc, tmp_path):
+        secrets = tmp_path / "secrets"
+        copies = tmp_path / "run" / "noust-0" / "abc"
+        proc.add(4242, _tunnel_argv(copies / "fleet/nodes/web-2/id_ed25519"))
+        from noust.fleet.tunnels import stop_stale_tunnels
+
+        stopped = stop_stale_tunnels(
+            [secrets, copies], proc=proc.root, kill=proc.kill, sleep=lambda s: None, uid=0
+        )
+
+        assert [s.node for s in stopped] == ["web-2"]

@@ -212,6 +212,11 @@ def _quiet_lifespan(monkeypatch: pytest.MonkeyPatch) -> None:
     # The sweep of the machine's temporary directory is not this suite's to run.
     monkeypatch.setattr(inspect_module, "remove_stale_checkouts", lambda: [])
 
+    from noust.fleet import tunnels as tunnels_module
+
+    # Nor is looking for this machine's stale tunnels.
+    monkeypatch.setattr(tunnels_module, "sweep_stale_tunnels", lambda: [])
+
 
 def test_the_lifespan_sweeps_stale_inspection_checkouts(monkeypatch: pytest.MonkeyPatch) -> None:
     """A console killed mid-inspection left a checkout; the next start removes it."""
@@ -254,3 +259,75 @@ def test_the_lifespan_cancelled_otherwise_is_still_cancelled(
 
     with pytest.raises(asyncio.CancelledError):
         asyncio.run(exercise())
+
+
+def test_the_lifespan_stops_stale_tunnels_before_the_fleet_is_probed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A console that died left its ssh tunnels running; the next one stops them first."""
+    from noust.fleet import probe as probe_module
+    from noust.fleet import tunnels as tunnels_module
+
+    _quiet_lifespan(monkeypatch)
+    order: list[str] = []
+    monkeypatch.setattr(tunnels_module, "sweep_stale_tunnels", lambda: order.append("sweep"))
+    real_start = probe_module.start_probe
+
+    def start_probe(**kwargs: Any) -> Any:
+        order.append("probe")
+        return real_start(**kwargs)
+
+    monkeypatch.setattr(probe_module, "start_probe", start_probe)
+
+    async def exercise() -> None:
+        async with server_module.lifespan(FastAPI()):
+            assert order == ["sweep", "probe"]
+
+    asyncio.run(exercise())
+
+
+class TestTunnelsClosedOnExit:
+    """The ssh tunnels a console opened never outlive it, however it ends."""
+
+    @pytest.fixture
+    def closed(self, monkeypatch: pytest.MonkeyPatch) -> list[bool]:
+        calls: list[bool] = []
+        monkeypatch.setattr(server_module, "close_fleet_tunnels", lambda: calls.append(True))
+        return calls
+
+    def test_sigterm_raised_again_after_uvicorn_s_shutdown_runs_the_cleanup(
+        self, closed: list[bool]
+    ) -> None:
+        # uvicorn restores the handler it found and raises the signal again:
+        # with the default one the process would end without a finally.
+        before = signal.getsignal(signal.SIGTERM)
+
+        with pytest.raises(SystemExit) as ended:
+            with server_module._tunnels_closed_on_exit():
+                signal.raise_signal(signal.SIGTERM)
+
+        assert ended.value.code == 128 + signal.SIGTERM
+        assert closed == [True]
+        assert signal.getsignal(signal.SIGTERM) == before
+
+    def test_a_normal_end_and_an_error_close_them_too(self, closed: list[bool]) -> None:
+        with server_module._tunnels_closed_on_exit():
+            pass
+        with pytest.raises(RuntimeError):
+            with server_module._tunnels_closed_on_exit():
+                raise RuntimeError("uvicorn failed")
+
+        assert closed == [True, True]
+
+    def test_run_server_serves_inside_it(
+        self, closed: list[bool], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(server_module, "create_app", lambda config: FastAPI())
+        monkeypatch.setattr(
+            server_module, "_serve", lambda kwargs: signal.raise_signal(signal.SIGHUP)
+        )
+
+        with pytest.raises(SystemExit):
+            server_module.run_server(show_token=False)
+
+        assert closed == [True]

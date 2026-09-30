@@ -495,6 +495,7 @@ class MonorepoDeployer(AppDeployer):
                     given=env,
                     cache=self._sandbox_cache or build_sandbox.cache_dir_for(self.app_name),
                 )
+            options["sandbox"] = build_sandbox.install_environment(sandbox, phase, run_env)
         # Outside the sandbox the command inherits this process's environment,
         # as before 3.1 (see BaseDeployer._run).
 

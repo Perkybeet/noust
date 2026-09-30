@@ -1641,6 +1641,37 @@ def extract_archive(
         raise SourceError(f"Cannot read tar archive: {archive.name}", details=str(exc)) from exc
 
 
+def _copyable_from_tree(repository: Path, name: str) -> bool:
+    """
+    Decide whether a tracked path of a checkout is copied as it is in the tree.
+
+    Args:
+        repository: The checkout.
+        name: A path ``git ls-files`` printed, relative to it.
+
+    Returns:
+        False for a path that is gone, is a directory (a submodule), is in
+        ``node_modules``, or lies beyond a link (reading it would follow the
+        link); True for a file or a link itself.
+    """
+    parts = Path(name).parts
+    if not parts or Path(name).is_absolute() or ".." in parts or "node_modules" in parts:
+        return False
+    current = repository
+    for part in parts[:-1]:
+        current = current / part
+        try:
+            if not stat.S_ISDIR(current.lstat().st_mode):
+                return False
+        except OSError:
+            return False
+    try:
+        mode = (repository / name).lstat().st_mode
+    except OSError:
+        return False
+    return stat.S_ISREG(mode) or stat.S_ISLNK(mode)
+
+
 class SourceManager(BaseManager):
     """
     Manager for source code operations.
@@ -2230,6 +2261,86 @@ class SourceManager(BaseManager):
                 )
         finally:
             self.fs.remove(archive, missing_ok=True)
+
+    def export_worktree(self, repository: Path, destination: Path) -> list[str]:
+        """
+        Copy the tracked files of a checkout, as they are in it now, into a directory.
+
+        What an in-place build sees: every file git tracks, with the changes
+        made on the server and never committed, and without what git does not
+        track (``node_modules``, build output). ``git ls-files`` names the
+        files and ``tar`` copies them, both through the runner. The tree is
+        untrusted, so nothing is read through a link found in it: a tracked
+        link is copied as a link (as ``git archive`` does), and a tracked
+        path whose parent directory is now a link is left out, since tar
+        would read it wherever that link points.
+
+        Args:
+            repository: The checkout.
+            destination: Existing, empty directory to write the files into.
+
+        Returns:
+            The tracked files that differ from the commit checked out
+            (modified, added or deleted), sorted.
+
+        Raises:
+            SourceError: If git cannot list the files, or tar cannot copy them.
+        """
+        self._ensure_safe_directory(repository)
+        listed = self._git(["ls-files", "--cached", "-z"], cwd=repository)
+        if not listed.success:
+            raise SourceError(
+                f"Listing the files git tracks in {repository} failed", details=listed.stderr
+            )
+        changed = self._git(
+            ["diff", "--name-only", "--no-renames", "-z", "HEAD", "--"], cwd=repository
+        )
+        if not changed.success:
+            raise SourceError(
+                f"Listing the uncommitted changes in {repository} failed", details=changed.stderr
+            )
+        tracked = dict.fromkeys(name for name in listed.stdout.split("\0") if name)
+        files = [name for name in tracked if _copyable_from_tree(repository, name)]
+        uncommitted = sorted({name for name in changed.stdout.split("\0") if name})
+        if not files:
+            return uncommitted
+        archive = destination.parent / f".{destination.name}.tar"
+        try:
+            create = self.runner.run(
+                [
+                    "tar",
+                    "--create",
+                    "--file",
+                    str(archive),
+                    "--directory",
+                    str(repository),
+                    "--null",
+                    "--verbatim-files-from",
+                    "--no-recursion",
+                    "--files-from=-",
+                ],
+                input="\0".join(files) + "\0",
+                timeout=GIT_CLONE_TIMEOUT,
+            )
+            if not create.success:
+                raise SourceError(
+                    f"Copying the files of {repository} failed",
+                    details=create.stderr or create.stdout,
+                )
+            # Owned by whoever extracts, as a commit export is: the tree's
+            # owners mean nothing to a build that runs as another account.
+            extract = self.runner.run(
+                ["tar", "-x", "--no-same-owner", "-f", str(archive), "-C", str(destination)],
+                timeout=GIT_CLONE_TIMEOUT,
+            )
+            if not extract.success:
+                raise SourceError(
+                    f"Extracting the files of {repository} into {destination} failed",
+                    details=extract.stderr or extract.stdout,
+                )
+        finally:
+            self.fs.remove(archive, missing_ok=True)
+        return uncommitted
 
     def remote_head(
         self,

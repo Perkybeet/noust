@@ -8,7 +8,12 @@ One ``ssh -N -L 127.0.0.1:<local>:127.0.0.1:<console port>`` per node, started
 through the runner as a long-lived process (rule 1): opened the first time
 something needs the node, reused while it lives, reopened with backoff when
 it dies, closed after a while unused, and stopped with the process that owns
-it.
+it: :meth:`TunnelManager.close_all` at the console's shutdown and at exit, and
+nothing opens after it. ssh runs in its own session, so a console killed
+outright (SIGKILL, a crash) leaves its tunnels behind, holding ports: the next
+console stops them before it opens any (:func:`stop_stale_tunnels`), and
+knows them by their argv alone - ``-F /dev/null``, a key in this central's
+secrets under ``fleet/nodes/<name>/`` and ``HostKeyAlias=noust-node-<name>``.
 
 ssh runs with every option that decides its behaviour stated on the command
 line and ``-F /dev/null``, so neither the operator's ``~/.ssh/config`` nor the
@@ -31,11 +36,14 @@ from __future__ import annotations
 
 import atexit
 import contextlib
+import logging
+import os
 import re
+import signal
 import socket
 import threading
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -45,8 +53,10 @@ from noust.core import sealing
 from noust.core.exceptions import NodeError, NodeRefusedError, NodeUnreachableError
 from noust.core.runner import CommandRunner, ProcessHandle, get_runner
 from noust.core.store import NodeRecord, NoustStore, get_store
-from noust.fleet.keys import NodeKeys, host_key_alias
-from noust.fleet.models import parse_public_key
+from noust.fleet.keys import NODES_NAMESPACE, PRIVATE_KEY, NodeKeys, host_key_alias
+from noust.fleet.models import parse_public_key, validate_node_name
+
+logger = logging.getLogger(__name__)
 
 #: Close a tunnel nothing has used for this long.
 IDLE_SECONDS = 600.0
@@ -516,6 +526,13 @@ class TunnelManager:
             SecretsLockedError: When this central's secrets are sealed and it
                 has not been unlocked; nothing is dialled.
         """
+        if self._stopping.is_set():
+            # close_all ran: the console is stopping, and a tunnel opened now
+            # (by a job still finishing) would be closed by nothing.
+            raise NodeUnreachableError(
+                f"This console is stopping; no tunnel to {node} is opened",
+                details="Start the console again, then retry.",
+            )
         self.reap_idle()
         self._require_unlocked()
         override = _LOOPBACK_OVERRIDE.get(node)
@@ -913,6 +930,20 @@ def get_tunnels() -> TunnelManager:
         return _tunnels
 
 
+def stop_all() -> None:
+    """
+    Close every tunnel of this process's manager, if it has one; create none.
+
+    What the console runs whenever it stops: its lifespan's shutdown, and
+    around the server itself, so a signal that ends the process past the
+    lifespan still closes them.
+    """
+    with _tunnels_lock:
+        manager = _tunnels
+    if manager is not None:
+        manager.close_all()
+
+
 def set_tunnels(manager: TunnelManager | None) -> None:
     """
     Replace the process-wide tunnel manager (tests, the development server).
@@ -932,3 +963,221 @@ def _tell_tunnels_unlocked() -> None:
         manager = _tunnels
     if manager is not None:
         manager.on_unlocked()
+
+
+# ---------------------------------------------------------------------------
+# Tunnels a previous console left behind
+# ---------------------------------------------------------------------------
+
+#: Where the kernel describes processes.
+PROC = Path("/proc")
+
+#: How long a stale tunnel has to end after SIGTERM before it is killed.
+STALE_TERM_SECONDS = 2.0
+
+#: Programs whose processes hold their tunnels: a tunnel whose parent is a
+#: running Noust (a CLI command, another console) is that process's, not stale.
+_NOUST_PROGRAMS = frozenset({"noust", "wasm"})
+
+
+@dataclass(frozen=True)
+class StaleTunnel:
+    """
+    A tunnel process no running Noust holds.
+
+    Attributes:
+        pid: Its process id.
+        node: The node it forwards to.
+    """
+
+    pid: int
+    node: str
+
+
+def tunnel_node(argv: list[str], secrets_roots: Iterable[Path]) -> str | None:
+    """
+    Name the node a process's argv is a Noust tunnel to, from the argv alone.
+
+    Args:
+        argv: The process's command line.
+        secrets_roots: Where this central's node keys are: its secrets
+            directory, and the private copies a sealed one hands ssh.
+
+    Returns:
+        The node's name when the argv is ssh with ``-N``, ``-F /dev/null``,
+        ``-i <root>/fleet/nodes/<name>/id_ed25519`` and
+        ``HostKeyAlias=noust-node-<name>`` for that same name; None otherwise.
+    """
+
+    def after(flag: str) -> str | None:
+        indexes = [i for i, arg in enumerate(argv[:-1]) if arg == flag]
+        return argv[indexes[0] + 1] if len(indexes) == 1 else None
+
+    if not argv or Path(argv[0]).name != "ssh" or "-N" not in argv:
+        return None
+    if after("-F") != "/dev/null":
+        return None
+    identity = after("-i")
+    if identity is None:
+        return None
+    for root in secrets_roots:
+        try:
+            parts = Path(identity).relative_to(root).parts
+        except ValueError:
+            continue
+        if len(parts) != 4 or "/".join(parts[:2]) != NODES_NAMESPACE or parts[3] != PRIVATE_KEY:
+            continue
+        try:
+            name = validate_node_name(parts[2])
+        except NodeError:
+            return None
+        return name if f"HostKeyAlias={host_key_alias(name)}" in argv else None
+    return None
+
+
+def _cmdline(proc: Path, pid: int) -> list[str] | None:
+    """
+    Read a process's argv.
+
+    Args:
+        proc: ``/proc``.
+        pid: The process.
+
+    Returns:
+        The arguments, or None when it is gone or unreadable.
+    """
+    try:
+        raw = (proc / str(pid) / "cmdline").read_bytes()
+    except OSError:
+        return None
+    return [part.decode("utf-8", "replace") for part in raw.split(b"\0") if part]
+
+
+def _owner_and_parent(proc: Path, pid: int) -> tuple[int, int] | None:
+    """
+    Read a process's real uid and parent.
+
+    Args:
+        proc: ``/proc``.
+        pid: The process.
+
+    Returns:
+        ``(uid, ppid)``, or None when it is gone or unreadable.
+    """
+    try:
+        status = (proc / str(pid) / "status").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    fields = dict(line.split(":", 1) for line in status.splitlines() if ":" in line)
+    try:
+        return int(fields["Uid"].split()[0]), int(fields["PPid"].split()[0])
+    except (KeyError, IndexError, ValueError):
+        return None
+
+
+def _is_noust(argv: list[str] | None) -> bool:
+    """
+    Report whether a process is Noust itself: the CLI or a console.
+
+    Args:
+        argv: Its command line.
+
+    Returns:
+        True when its program, or the script its interpreter runs, is
+        ``noust`` or ``wasm``, or it runs ``python -m noust``.
+    """
+    if not argv:
+        return False
+    if any(Path(arg).name in _NOUST_PROGRAMS for arg in argv[:2]):
+        return True
+    return any(
+        argv[i] == "-m" and argv[i + 1].split(".")[0] == "noust" for i in range(len(argv) - 1)
+    )
+
+
+def stop_stale_tunnels(
+    secrets_roots: Iterable[Path],
+    *,
+    proc: Path = PROC,
+    kill: Callable[[int, int], None] = os.kill,
+    sleep: Callable[[float], None] = time.sleep,
+    uid: int | None = None,
+) -> list[StaleTunnel]:
+    """
+    Stop the tunnels a console that is gone left running.
+
+    A tunnel is stale when its argv is exactly one this module builds
+    (:func:`tunnel_node`), it runs as this account, and no running Noust is
+    its parent: it was reparented to init or a subreaper when its console
+    died. SIGTERM first; SIGKILL when it is still there after
+    :data:`STALE_TERM_SECONDS`.
+
+    Args:
+        secrets_roots: Where this central's node keys are.
+        proc: ``/proc``.
+        kill: Sends a signal.
+        sleep: Waits between checks.
+        uid: Only this account's processes; the effective uid by default.
+
+    Returns:
+        The tunnels stopped.
+    """
+    roots = list(secrets_roots)
+    account = os.geteuid() if uid is None else uid
+    try:
+        pids = sorted(int(entry.name) for entry in proc.iterdir() if entry.name.isdigit())
+    except OSError:
+        return []
+    stale: list[tuple[StaleTunnel, list[str]]] = []
+    for pid in pids:
+        argv = _cmdline(proc, pid)
+        node = tunnel_node(argv, roots) if argv else None
+        if argv is None or node is None:
+            continue
+        owner = _owner_and_parent(proc, pid)
+        if owner is None or owner[0] != account:
+            continue
+        parent = owner[1]
+        if parent != 1 and _is_noust(_cmdline(proc, parent)):
+            continue
+        stale.append((StaleTunnel(pid, node), argv))
+    stopped: list[StaleTunnel] = []
+    for tunnel, argv in stale:
+        try:
+            kill(tunnel.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            continue
+        except PermissionError as exc:
+            logger.warning(
+                "Could not stop the stale tunnel %s to %s: %s", tunnel.pid, tunnel.node, exc
+            )
+            continue
+        waited = 0.0
+        while _cmdline(proc, tunnel.pid) == argv and waited < STALE_TERM_SECONDS:
+            sleep(READY_POLL)
+            waited += READY_POLL
+        if _cmdline(proc, tunnel.pid) == argv:
+            with contextlib.suppress(ProcessLookupError):
+                kill(tunnel.pid, signal.SIGKILL)
+        logger.warning(
+            "Stopped a tunnel to %s (PID %s) that a console no longer running left behind",
+            tunnel.node,
+            tunnel.pid,
+        )
+        stopped.append(tunnel)
+    return stopped
+
+
+def sweep_stale_tunnels() -> list[StaleTunnel]:
+    """
+    Stop the tunnels a previous console of this central left running.
+
+    Called when the console starts, before it opens any.
+
+    Returns:
+        The tunnels stopped.
+    """
+    from noust.core.secrets import secrets_dir
+
+    root = secrets_dir()
+    return stop_stale_tunnels([root, sealing.plaintext_copy_dir(root)])

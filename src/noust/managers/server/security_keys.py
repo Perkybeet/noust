@@ -12,8 +12,9 @@ key's size is the bit length of its modulus inside the blob.
 Each key is classified, because "a key" is not one thing here:
 
 - ``operator``: no options; whoever holds it gets a shell.
-- ``central``: a Noust central's tunnel key (the ``noust-central:`` comment or
-  the ``permitlisten`` marker :mod:`noust.fleet.authorize` writes). It
+- ``central``: a Noust central's tunnel key (the ``noust-central:`` comment,
+  the ``permitlisten`` marker or the options' prefix
+  :mod:`noust.fleet.authorize` writes). It
   forwards one port and runs nothing; it never counts as a way in for a person.
 - ``cloud_disabled``: the ``command="echo 'Please login as the user ...'"``
   line cloud images put in root's file; it logs nobody in.
@@ -37,7 +38,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from noust.core.exceptions import SecurityError
-from noust.fleet.authorize import KEY_COMMENT_PREFIX, NO_LISTEN
+from noust.fleet.authorize import KEY_COMMENT_PREFIX, NO_LISTEN, has_tunnel_options
 from noust.managers.server.host import HostPaths
 from noust.managers.server.security_accounts import Account
 
@@ -247,7 +248,11 @@ def classify(options: tuple[str, ...], comment: str) -> str:
     Returns:
         ``central``, ``cloud_disabled``, ``restricted`` or ``operator``.
     """
-    if comment.startswith(KEY_COMMENT_PREFIX) or f'permitlisten="{NO_LISTEN}"' in options:
+    if (
+        comment.startswith(KEY_COMMENT_PREFIX)
+        or f'permitlisten="{NO_LISTEN}"' in options
+        or has_tunnel_options(",".join(options))
+    ):
         return "central"
     if any(option.startswith("command=") and CLOUD_REFUSAL_MARKER in option for option in options):
         return "cloud_disabled"

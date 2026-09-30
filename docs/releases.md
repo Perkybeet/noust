@@ -495,7 +495,7 @@ install scripts. From 3.1 that happens in a sandbox rather than as root:
 ```bash
 noust app sandbox self-test                 # does the sandbox hold on this server?
 noust app sandbox status shop.example.com   # sandbox, or root and why
-noust app sandbox test shop.example.com     # build the live commit in the sandbox; nothing is activated
+noust app sandbox test shop.example.com     # build what the next update builds, in the sandbox; nothing is activated
 noust app sandbox enable shop.example.com   # sandboxed from the next deploy on
 noust app sandbox enable shop.example.com --network strict
 noust app sandbox disable shop.example.com --reason "..."   # build as root: recorded, audited
@@ -509,13 +509,19 @@ noust app sandbox disable shop.example.com --reason "..."   # build as root: rec
   `/var/cache/noust/build/<app>`; the application's `.env`, handed in by systemd, which
   `noust-build` itself cannot open; a clean environment; no `/root`, no `/etc/noust`, no store,
   no other application's files. Memory and CPU are limited.
+- **Installs get devDependencies**, as a root build's did: a root install never read `.env`, so
+  a `NODE_ENV=production` there (or npm's and yarn's own production settings) is removed from
+  the install's environment, and `npm ci`, `pnpm install` and `yarn install` keep the
+  devDependencies the build needs. The build itself gets the whole `.env`.
 - **`--network strict`**: dependencies install with the network but without the application's
   variables, and the build runs with them but without a network. A build that fails for want of
   the network says so and how to allow it. A preview follows its application's profile and
   never gets production secrets.
 - **`--pty`** runs the build on a terminal, for build scripts that reopen `/dev/stderr`.
 - **In place and monorepo**: the build runs in the live tree as the service account, still with
-  the rest of the machine hidden. `noust app migrate` is the way to full separation.
+  the rest of the machine hidden. `noust app migrate` is the way to full separation. Their
+  `test` builds a copy of the tracked files as they are in that tree, uncommitted changes
+  included, and lists those changes so they can be committed.
 - **Docker Compose** builds run inside the Docker daemon. A new stack with `privileged: true` or
   the Docker socket mounted is refused unless `noust app sandbox compose-exception DOMAIN`
   records why it needs them.

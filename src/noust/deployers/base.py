@@ -626,6 +626,7 @@ class BaseDeployer(AppDeployer):
                     given=env,
                     cache=self._sandbox_cache or build_sandbox.cache_dir_for(self.app_name),
                 )
+            options["sandbox"] = build_sandbox.install_environment(sandbox, effective, run_env)
         # Outside the sandbox (an application from before 3.1, an explicit
         # root build) a command inherits this process's environment exactly as
         # before 3.1: a build relying on a variable of it must not break on

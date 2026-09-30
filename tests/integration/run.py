@@ -3535,6 +3535,168 @@ def scenario_build_sandbox(sc: Scenario) -> None:
         )
 
 
+#: The in-place application from before 3.1 moved into the sandbox (3.1.1).
+LEGACY_REPO_NAME = "legacy-inplace"
+LEGACY_DOMAIN = "legacy.test"
+LEGACY_ROOT = "/var/www/apps/legacy-test"
+
+#: Its build needs a devDependency and a tracked file changed on the server.
+LEGACY_BUILD_JS = r"""
+const fs = require("node:fs");
+const dev = require("legacy-dev");
+const config = JSON.parse(fs.readFileSync("config.json", "utf8"));
+const version = fs.readFileSync("VERSION", "utf8").trim();
+fs.mkdirSync("dist", { recursive: true });
+fs.writeFileSync("dist/built.txt", `${dev.tag} ${config.flavour} ${version}\n`);
+"""
+
+#: Serves the version and what the build wrote.
+LEGACY_SERVER_JS = r"""
+const http = require("node:http");
+const fs = require("node:fs");
+const read = (name) => { try { return fs.readFileSync(name, "utf8").trim(); } catch { return "-"; } };
+http.createServer((req, res) => {
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end(`ok ${read("VERSION")} ${read("dist/built.txt")}\n`);
+}).listen(process.env.PORT || 3000);
+"""
+
+
+def _legacy_owners(sc: Scenario, label: str) -> dict[str, list[str]]:
+    """
+    List what under the legacy application is owned by root and by noust-build.
+
+    ``.git`` is left out: it is the metadata of Noust's own git, which runs as
+    root (a ``git status`` after the tree is handed back rewrites its index),
+    and the service never writes there.
+    """
+    found: dict[str, list[str]] = {}
+    for account in ("root", "noust-build"):
+        proc = sc.run(
+            f"find {LEGACY_ROOT} -path {LEGACY_ROOT}/.git -prune -o -user {account} -print "
+            "| head -20",
+            timeout=30,
+            label=f"{label}: owned by {account}",
+        )
+        found[account] = proc.stdout.split()
+    return found
+
+
+@scenario("inplace_legacy_app_sandbox_test_enable_update")
+def scenario_legacy_inplace_sandbox(sc: Scenario) -> None:
+    """
+    An in-place application built as root before 3.1 moves into the sandbox and updates.
+
+    Production evidence from 3.1.0: the trial built a clean export of the
+    commit while the real update builds the tree (with changes made on the
+    server); a .env holding NODE_ENV="production" made the sandboxed install
+    drop devDependencies; and trees left partly root-owned by earlier root
+    builds are what the service account's sandboxed build must write. So:
+    a Node application whose build needs a devDependency and a tracked file
+    changed on the server, deployed in place, with no build regime (as a
+    pre-3.1 row has), updated once as root, its node_modules and build output
+    then handed to root as older versions left them; then test, enable,
+    update, and the new commit is served, built in the sandbox, with nothing
+    left owned by root or noust-build.
+    """
+    repo, url = make_node_repo(sc, LEGACY_REPO_NAME)
+    sc.run(
+        f"cd {repo} && mkdir -p legacy-dev && "
+        """echo '{"name": "legacy-dev", "version": "1.0.0"}' > legacy-dev/package.json && """
+        "echo 'module.exports = { tag: \"dev\" };' > legacy-dev/index.js && "
+        f"cat > build.js <<'JS'\n{LEGACY_BUILD_JS}\nJS\n"
+        f"cat > server.js <<'JS'\n{LEGACY_SERVER_JS}\nJS\n"
+        """echo '{"flavour": "committed"}' > config.json && """
+        "printf 'node_modules/\\ndist/\\n.env\\nuploads/\\n' > .gitignore && "
+        "npm pkg set scripts.build='node build.js' && "
+        "npm pkg set devDependencies.legacy-dev=file:./legacy-dev && "
+        "npm install --package-lock-only && "
+        "git add -A && git commit -q -m 'a build that needs a devDependency'",
+        timeout=60,
+        label=f"(fixture repo) {repo}: build.js needs devDependency legacy-dev and config.json",
+    )
+    sc.run(
+        f"noust create -d {LEGACY_DOMAIN} -s {url} -t nodejs --no-ssl --layout inplace",
+        timeout=DEPLOY_TIMEOUT,
+        label=f"noust create -d {LEGACY_DOMAIN} -s {url} -t nodejs --no-ssl --layout inplace",
+    )
+    # What a server upgraded from before 3.1 has: no build regime at all.
+    sc.run(
+        store_query(
+            "DELETE FROM build_sandbox WHERE app_id = "
+            "(SELECT id FROM apps WHERE domain = 'legacy.test')"
+        ),
+        timeout=15,
+        label="DELETE FROM build_sandbox for legacy.test (a pre-3.1 app has no row)",
+    )
+    status = json_of(
+        sc.run(f"noust app sandbox status {LEGACY_DOMAIN} --json", timeout=30),
+        "sandbox status",
+    )
+    sc.check(status.get("mode") == "legacy", f"not a pre-3.1 regime: {status}")
+    # The server's own NODE_ENV, and a tracked file changed on the server.
+    sc.run(
+        f"echo 'NODE_ENV=\"production\"' >> {LEGACY_ROOT}/.env && "
+        f"""echo '{{"flavour": "local"}}' > {LEGACY_ROOT}/config.json""",
+        timeout=15,
+        label=f"NODE_ENV=production in {LEGACY_ROOT}/.env; config.json changed on the server",
+    )
+    sc.run(
+        f"noust update {LEGACY_DOMAIN}",
+        timeout=DEPLOY_TIMEOUT,
+        label=f"noust update {LEGACY_DOMAIN} (as root, as before 3.1)",
+    )
+    served = curl_host(sc, LEGACY_DOMAIN)
+    sc.check(served.strip() == "ok 1 dev local 1", f"the root build serves {served!r}")
+    sc.run(
+        f"chown -R root:root {LEGACY_ROOT}/node_modules {LEGACY_ROOT}/dist",
+        timeout=30,
+        label="node_modules and dist left owned by root, as earlier root builds left them",
+    )
+
+    trial = json_of(
+        sc.run(
+            f"noust app sandbox test {LEGACY_DOMAIN} --json",
+            timeout=DEPLOY_TIMEOUT,
+            check=False,
+            label=f"noust app sandbox test {LEGACY_DOMAIN} --json",
+        ),
+        "sandbox test",
+    )
+    sc.check(trial.get("passed") is True, f"the trial failed: {trial.get('detail')}")
+    sc.check(
+        trial.get("source") == "working tree" and trial.get("uncommitted") == ["config.json"],
+        f"the trial did not build the tree with its local change: {trial}",
+    )
+    sc.run(
+        f"noust app sandbox enable {LEGACY_DOMAIN} --json",
+        timeout=60,
+        label=f"noust app sandbox enable {LEGACY_DOMAIN} --json",
+    )
+    commit_to(sc, repo, "echo 2 > VERSION", "version 2")
+    update = sc.run(
+        f"noust update {LEGACY_DOMAIN}",
+        timeout=DEPLOY_TIMEOUT,
+        check=False,
+        label=f"noust update {LEGACY_DOMAIN} (in the sandbox)",
+    )
+    if update.returncode != 0:
+        journal_tail(sc, f"-u {LEGACY_DOMAIN.replace('.', '-')}", "the application's journal")
+    sc.check(update.returncode == 0, "the sandboxed in-place update failed")
+    status = json_of(
+        sc.run(f"noust app sandbox status {LEGACY_DOMAIN} --json", timeout=30),
+        "sandbox status",
+    )
+    sc.check(status.get("mode") == "on", f"the update did not build in the sandbox: {status}")
+    served = curl_host(sc, LEGACY_DOMAIN)
+    sc.check(served.strip() == "ok 2 dev local 2", f"after the update it serves {served!r}")
+    owners = _legacy_owners(sc, "after the sandboxed update")
+    sc.check(
+        owners == {"root": [], "noust-build": []},
+        f"the tree is not the service account's: {owners}",
+    )
+
+
 #: Run inside the container by the installed Noust: the runner's sandbox
 #: against the real systemd, reporting how each command ended, as JSON.
 SANDBOX_RUNNER_PROBE = r"""

@@ -641,6 +641,123 @@ class TestRoot:
         assert result.moved_from == [str(node.keys_file())]
 
 
+def _root_line(key: str, comment: str) -> str:
+    """A restricted line in root's file, as 3.0 (or a hand) wrote it, with any comment."""
+    bare = " ".join(key.split()[:2])
+    return (
+        'restrict,port-forwarding,permitopen="127.0.0.1:8080",'
+        f'permitlisten="127.0.0.1:1",command="/usr/bin/false" {bare} {comment}'
+    )
+
+
+OPERATOR_LINE = "ssh-ed25519 AAAAmine me@laptop"
+
+
+class TestReplaceRootKey:
+    """
+    ``--replace-root-key``: the central's key as 3.0 installed it for root goes.
+
+    Seen live: 3.0 wrote the line with another central name in its comment
+    than the one 3.1 authorizes, so matching by comment left it there - a key
+    that can still create Unix sockets as root. The key itself is what is
+    matched, whatever the comment says.
+    """
+
+    def _backups(self, node) -> list[Path]:
+        return sorted(node.keys_file("root").parent.glob("authorized_keys.noust-*"))
+
+    @pytest.mark.parametrize(
+        "comment", ["noust-central:arennalabs", "noust-central@arennalabs.com"]
+    )
+    def test_the_old_line_leaves_root_s_file_whatever_its_comment(self, node, comment):
+        root_file = node.keys_file("root")
+        root_file.parent.mkdir(parents=True)
+        before = f"{OPERATOR_LINE}\n{_root_line(CENTRAL_KEY, comment)}\n"
+        root_file.write_text(before)
+
+        result = node.authorize(replace_root_key=CENTRAL_KEY)
+
+        assert root_file.read_text() == OPERATOR_LINE + "\n"
+        assert stat.S_IMODE(root_file.stat().st_mode) == 0o600
+        assert result.moved_from == [str(root_file)]
+        assert node.keys_file().read_text() == _expected_line() + "\n"
+        [backup] = self._backups(node)
+        assert backup.read_text() == before
+        assert stat.S_IMODE(backup.stat().st_mode) == 0o600
+        assert result.root_key_backup == str(backup)
+        assert result.warnings == []
+
+    def test_a_second_central_s_key_is_left_alone_and_named(self, node):
+        root_file = node.keys_file("root")
+        root_file.parent.mkdir(parents=True)
+        other = _root_line(OTHER_CENTRAL_KEY, "noust-central:hub-2")
+        root_file.write_text(
+            f"{_root_line(CENTRAL_KEY, 'noust-central:arennalabs')}\n{other}\n{OPERATOR_LINE}\n"
+        )
+
+        result = node.authorize(replace_root_key=CENTRAL_KEY)
+
+        assert root_file.read_text() == f"{other}\n{OPERATOR_LINE}\n"
+        [warning] = result.warnings
+        blob = OTHER_CENTRAL_KEY.split()[1]
+        assert fingerprint(OTHER_CENTRAL_KEY) in warning
+        assert f"sed -i '\\#{blob}#d' {root_file}" in warning
+
+    def test_it_is_idempotent(self, node):
+        root_file = node.keys_file("root")
+        root_file.parent.mkdir(parents=True)
+        root_file.write_text(f"{_root_line(CENTRAL_KEY, 'noust-central:arennalabs')}\n")
+        node.authorize(replace_root_key=CENTRAL_KEY)
+
+        again = node.authorize(replace_root_key=CENTRAL_KEY)
+
+        assert root_file.read_text() == ""
+        assert again.moved_from == []
+        assert again.root_key_backup is None
+        assert len(self._backups(node)) == 1
+
+    def test_without_the_flag_a_remaining_line_is_warned_about(self, node):
+        root_file = node.keys_file("root")
+        root_file.parent.mkdir(parents=True)
+        root_file.write_text(f"{_root_line(CENTRAL_KEY, 'noust-central:arennalabs')}\n")
+
+        result = node.authorize()
+
+        assert root_file.read_text() != ""
+        [warning] = result.warnings
+        assert str(root_file) in warning and "Unix socket" in warning
+        assert f"sed -i '\\#{CENTRAL_KEY.split()[1]}#d' {root_file}" in warning
+        assert "--replace-root-key" in warning
+
+    def test_root_itself_cannot_be_the_account(self, node):
+        with pytest.raises(NodeError) as caught:
+            node.authorize(user="root", replace_root_key=CENTRAL_KEY)
+        assert "--replace-root-key" in caught.value.message
+        assert node.console_calls == 0
+
+    def test_a_damaged_key_is_refused_before_anything_changes(self, node):
+        with pytest.raises(NodeError):
+            node.authorize(replace_root_key="ssh-ed25519 not-base64")
+        assert node.console_calls == 0
+
+    def test_a_rehearsal_reports_it_and_changes_nothing(self, node):
+        root_file = node.keys_file("root")
+        root_file.parent.mkdir(parents=True)
+        before = f"{_root_line(CENTRAL_KEY, 'noust-central:arennalabs')}\n"
+        root_file.write_text(before)
+
+        result = authorize(
+            **node.arguments(
+                runner=DryRunRunner(node.runner), dry_run=True, replace_root_key=CENTRAL_KEY
+            )
+        )
+
+        assert root_file.read_text() == before
+        assert result.moved_from == [str(root_file)]
+        assert self._backups(node) == []
+        assert result.warnings == []
+
+
 class TestAccess:
     def test_the_default_keeps_what_is_in_force(self, node):
         node.store.set_fleet_access("read", False)

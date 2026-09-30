@@ -109,13 +109,15 @@ def status_command(ctx: Context, domain: str) -> None:
 @pass_context
 def test_command(ctx: Context, domain: str) -> None:
     """
-    Build the application's current commit in the sandbox, without activating it.
+    Build what the application's next update would build, in the sandbox, without activating it.
 
-    The commit it runs now is exported to a scratch directory and installed
-    and built as noust-build, exactly as an enabled sandbox would build it,
-    then thrown away. Nothing is restarted and nothing is recorded in the
-    deployment history; the outcome is kept, and enabling asks for a passing
-    one.
+    On releases, the commit it runs now is exported; in place, the files git
+    tracks are copied as they are in its tree, uncommitted changes included
+    (listed, so they can be committed), as an in-place update builds them.
+    The copy is installed and built as noust-build in a scratch directory,
+    exactly as an enabled sandbox would build it, then thrown away. Nothing
+    is restarted and nothing is recorded in the deployment history; the
+    outcome is kept, and enabling asks for a passing one.
     """
     result = run_trial(validate_domain(domain), logger=ctx.logger, verbose=ctx.verbose)
     if ctx.json_output:
@@ -126,6 +128,8 @@ def test_command(ctx: Context, domain: str) -> None:
                     "passed": result.passed,
                     "commit": result.commit,
                     "detail": result.detail,
+                    "source": result.source,
+                    "uncommitted": list(result.uncommitted),
                 }
             )
         )

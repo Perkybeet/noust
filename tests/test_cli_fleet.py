@@ -114,6 +114,36 @@ class TestAuthorizeCommand:
         assert entries[0]["resource"] == "central:nas"
         assert "noust_tok_" not in entries[0]["detail"]
 
+    def test_replace_root_key_takes_the_old_line_out_and_says_so(self, node, state_dir):
+        root_file = node.keys_file("root")
+        root_file.parent.mkdir(parents=True)
+        bare = " ".join(CENTRAL_KEY.split()[:2])
+        root_file.write_text(
+            'restrict,port-forwarding,permitopen="127.0.0.1:8080",permitlisten="127.0.0.1:1",'
+            f'command="/usr/bin/false" {bare} noust-central:arennalabs\n'
+        )
+
+        result = CliRunner().invoke(
+            root_cli,
+            [
+                "fleet",
+                "authorize",
+                "--central-key",
+                CENTRAL_KEY,
+                "--name",
+                "nas",
+                "--replace-root-key",
+                CENTRAL_KEY,
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert root_file.read_text() == ""
+        assert str(root_file) in result.output
+        assert "authorized_keys.noust-" in result.output
+        [entry] = _audit(state_dir)
+        assert str(root_file) in entry["detail"]
+
     def test_json_shape(self, node, state_dir):
         result = CliRunner().invoke(
             root_cli,
@@ -139,6 +169,7 @@ class TestAuthorizeCommand:
             "tunnel_account_created",
             "sshd_policy",
             "moved_from",
+            "root_key_backup",
             "warnings",
             "console_token",
             "console_adopted_pid",

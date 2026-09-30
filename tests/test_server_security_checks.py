@@ -306,6 +306,36 @@ class TestChecks:
             "noust-central:hub-1: SHA256:4yDNqv1O3P66iRait+oMWrVGjJ40Le05sg2tu2RmSj0",
         )
 
+    def test_a_central_key_in_root_comes_with_the_exact_line_to_remove_it(
+        self, runner, host, risks
+    ):
+        from tests.server_security_support import CENTRAL_KEY_BARE, CENTRAL_LINE
+
+        # Any comment: a 3.0 line named its central otherwise than 3.1 does,
+        # and 'migrate-tunnel' alone left it here.
+        line = CENTRAL_LINE.replace("noust-central:hub-1", "noust-central@arennalabs.com")
+        host.write("/root/.ssh/authorized_keys", line + "\n")
+
+        check = _run(runner, host, risks, host_checks=False).get("noust.fleet_key_root")
+
+        assert check.status == "warn"
+        blob = CENTRAL_KEY_BARE.split()[1]
+        assert f"sed -i '\\#{blob}#d' /root/.ssh/authorized_keys" in check.fix.steps
+        assert any("--replace-root-key" in step for step in check.fix.steps)
+
+    def test_a_line_with_noust_s_forwarding_prefix_is_a_central_key(self, runner, host, risks):
+        from tests.server_security_support import CENTRAL_KEY_BARE
+
+        # Neither the comment nor the permitlisten marker: the options' prefix.
+        host.write(
+            "/root/.ssh/authorized_keys",
+            f'restrict,port-forwarding,permitopen="127.0.0.1:8080" {CENTRAL_KEY_BARE} x\n',
+        )
+
+        check = _run(runner, host, risks, host_checks=False).get("noust.fleet_key_root")
+
+        assert check.status == "warn"
+
     def test_a_manager_that_fails_leaves_its_checks_unknown_with_its_words(
         self, runner, host, risks, monkeypatch
     ):

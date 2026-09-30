@@ -54,6 +54,7 @@ tokens.
 
 from __future__ import annotations
 
+import binascii
 import errno
 import fcntl
 import fnmatch
@@ -62,11 +63,13 @@ import hashlib
 import os
 import pwd
 import re
+import shlex
 import stat
 import threading
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -141,6 +144,21 @@ KEY_COMMENT_PREFIX = "noust-central:"
 
 #: What any command sent with the central's key runs instead.
 FORCED_COMMAND = "/usr/bin/false"
+
+#: How every restricted line Noust has ever written starts, 3.0's included,
+#: whatever its comment says. In root's file such a line is a central's tunnel
+#: key that can still make sshd create Unix sockets as root.
+TUNNEL_OPTIONS_PREFIX = 'restrict,port-forwarding,permitopen="127.0.0.1:'
+
+#: Mode of the copy of an ``authorized_keys`` file kept before a key is taken
+#: out of it: it lists who may log in, which is nobody else's business.
+KEYS_BACKUP_MODE = 0o600
+
+#: Key types a line of an ``authorized_keys`` file may name, by prefix.
+_KEY_TYPE = re.compile(r"(?:ssh-|ecdsa-|sk-)[A-Za-z0-9@.-]+")
+
+#: What a key blob is made of; anything else is not spelled into a command.
+_BLOB = re.compile(r"[A-Za-z0-9+/]+={0,3}")
 
 #: The only remote forward (``ssh -R``) the central's key may ask for.
 #: ``port-forwarding`` re-enables remote forwarding along with local, and a
@@ -500,6 +518,125 @@ def _is_line_of(line: str, central: str) -> bool:
     return bool(fields) and fields[-1] == key_comment(central)
 
 
+def key_of_line(line: str) -> tuple[str, str] | None:
+    """
+    Find the key an ``authorized_keys`` line holds, whatever its options and comment.
+
+    Args:
+        line: The line.
+
+    Returns:
+        ``(type, blob)``, or None for a blank line, a comment or no key.
+    """
+    fields = line.split()
+    if not fields or fields[0].startswith("#"):
+        return None
+    for index, candidate in enumerate(fields[:-1]):
+        if _KEY_TYPE.fullmatch(candidate):
+            return candidate, fields[index + 1]
+    return None
+
+
+def has_tunnel_options(line: str) -> bool:
+    """
+    Report whether a line carries the options Noust gives a central's tunnel key.
+
+    Args:
+        line: An ``authorized_keys`` line.
+
+    Returns:
+        True when it starts with :data:`TUNNEL_OPTIONS_PREFIX`.
+    """
+    return line.lstrip().startswith(TUNNEL_OPTIONS_PREFIX)
+
+
+def key_removal_command(path: Path | str, blob: str) -> str | None:
+    """
+    Spell the command that removes one key's lines from an ``authorized_keys`` file.
+
+    Args:
+        path: The file.
+        blob: The key's base64 blob.
+
+    Returns:
+        ``sed -i '\\#<blob>#d' <path>``: a blob holds no ``#`` and nothing a
+        basic regular expression reads as special, so it matches exactly the
+        lines of that key. None when the blob is not base64.
+    """
+    if not _BLOB.fullmatch(blob):
+        return None
+    return f"sed -i '\\#{blob}#d' {shlex.quote(str(path))}"
+
+
+@dataclass(frozen=True)
+class RootTunnelKey:
+    """
+    A central's tunnel key found in root's ``authorized_keys``.
+
+    Attributes:
+        path: The file.
+        line_number: Where it is, from 1.
+        key_type: ``ssh-ed25519``.
+        blob: The base64 key.
+        comment: The line's last field when it is not the key: who it names.
+    """
+
+    path: Path
+    line_number: int
+    key_type: str
+    blob: str
+    comment: str
+
+    @property
+    def fingerprint(self) -> str:
+        """``SHA256:...``; ``unknown`` for a blob that is not base64."""
+        try:
+            return PublicKey(self.key_type, self.blob).fingerprint
+        except (binascii.Error, ValueError):
+            return "unknown"
+
+    def warning(self) -> str:
+        """
+        Say what the line is, why it matters and exactly how to remove it.
+
+        Returns:
+            One sentence and the command.
+        """
+        remove = key_removal_command(self.path, self.blob) or (
+            f"delete line {self.line_number} of {self.path}"
+        )
+        named = f" ({self.comment})" if self.comment else ""
+        return (
+            f"root's {self.path} still holds a central's tunnel key{named}, "
+            f"{self.fingerprint}, on line {self.line_number}: whatever its options, a key "
+            "of root's can make sshd create a Unix socket as root anywhere. If no central "
+            f"tunnels in as root any more, remove it: {remove} (or pass --replace-root-key "
+            "with that key to 'noust fleet authorize')."
+        )
+
+
+def root_tunnel_keys(path: Path, text: str | None) -> list[RootTunnelKey]:
+    """
+    List the lines of root's ``authorized_keys`` that are a central's tunnel key.
+
+    Args:
+        path: The file.
+        text: Its content, None when it does not exist.
+
+    Returns:
+        Every line carrying :data:`TUNNEL_OPTIONS_PREFIX`, in file order.
+    """
+    found: list[RootTunnelKey] = []
+    for number, line in enumerate((text or "").splitlines(), start=1):
+        key = key_of_line(line)
+        if key is None or not has_tunnel_options(line):
+            continue
+        fields = line.split()
+        comment = fields[-1] if fields[-1] != key[1] else ""
+        found.append(RootTunnelKey(path, number, key[0], key[1], comment))
+    return found
+
+
 #: Lock paths this thread already holds, and how many nested acquisitions are
 #: inside each: flock() locks belong to the open file description, not the
 #: process, so a second open()+flock() of the same file on the same thread
@@ -754,6 +891,64 @@ class AuthorizedKeys:
             kept = [candidate for candidate in lines if not _is_line_of(candidate, central)]
             self.write("\n".join([*kept, line]) + "\n")
             return True
+
+    def holds_key(self, key: PublicKey) -> bool:
+        """
+        Report whether any line of the file holds a key, whatever its options and comment.
+
+        Args:
+            key: The key.
+
+        Returns:
+            True when one does.
+        """
+        existing = self.read()
+        wanted = (key.key_type, key.blob)
+        return any(key_of_line(line) == wanted for line in (existing or "").splitlines())
+
+    def remove_key(self, key: PublicKey) -> Path | None:
+        """
+        Remove every line holding a key, keeping a copy of the file as it was.
+
+        Matched by the key alone: a line 3.0 wrote names its central in a
+        comment that need not be the name it is authorized under now.
+
+        Args:
+            key: The key.
+
+        Returns:
+            The copy (0600, next to the file, named with the UTC time), or
+            None when no line held the key and nothing changed.
+        """
+        with _locked_for_write(self.path):
+            existing = self.read()
+            if not existing:
+                return None
+            lines = existing.splitlines()
+            wanted = (key.key_type, key.blob)
+            kept = [line for line in lines if key_of_line(line) != wanted]
+            if len(kept) == len(lines):
+                return None
+            backup = self._backup_path()
+            self.fs.write_text(backup, existing, mode=KEYS_BACKUP_MODE)
+            self.fs.chmod(backup, KEYS_BACKUP_MODE)
+            self.write("\n".join(kept) + "\n" if kept else "")
+            return backup
+
+    def _backup_path(self) -> Path:
+        """
+        Name a copy of the file that does not exist yet.
+
+        Returns:
+            ``<file>.noust-<UTC time>``, with a number after it when that is taken.
+        """
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        candidate = self.path.with_name(f"{self.path.name}.noust-{stamp}")
+        number = 1
+        while os.path.lexists(candidate):
+            number += 1
+            candidate = self.path.with_name(f"{self.path.name}.noust-{stamp}.{number}")
+        return candidate
 
     def lines_of(self, central: str) -> list[str]:
         """
@@ -1517,8 +1712,13 @@ class AuthorizeResult:
         sshd_policy: The file holding the tunnel account's ``Match`` block,
             None for another account.
         moved_from: Other key files this central's lines were removed from
-            (a central moving from root to the tunnel account).
-        warnings: What the operator should know and could not be done.
+            (a central moving from root to the tunnel account), by its name
+            or by the key ``--replace-root-key`` named.
+        root_key_backup: The copy of root's ``authorized_keys`` kept before
+            ``--replace-root-key`` took a line out of it.
+        warnings: What the operator should know and could not be done: a
+            central's tunnel key still in root's file, with the command that
+            removes it.
     """
 
     join_code: str
@@ -1537,6 +1737,7 @@ class AuthorizeResult:
     tunnel_account_created: bool = False
     sshd_policy: str | None = None
     moved_from: list[str] = field(default_factory=list)
+    root_key_backup: str | None = None
     warnings: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
@@ -1557,6 +1758,7 @@ def _known_key_files(
     sshd_config: Path,
     passwd: Callable[[str], pwd.struct_passwd],
     keys_dir: Path,
+    root_keys: AuthorizedKeys | None = None,
 ) -> list[AuthorizedKeys]:
     """
     List the key files Noust may have put a central's line in: root's, and the tunnel account's.
@@ -1568,6 +1770,8 @@ def _known_key_files(
         sshd_config: Read when ``sshd -T`` cannot run.
         passwd: Account lookup.
         keys_dir: Where the tunnel account's key file is.
+        root_keys: Root's file when the caller already found it; looked up
+            (``sshd -T``) otherwise.
 
     Returns:
         The editors of the files that exist.
@@ -1578,16 +1782,65 @@ def _known_key_files(
         if tunnel.path.exists():
             files.append(tunnel)
     if except_user != "root":
-        try:
-            root = passwd("root")
-        except KeyError:
-            return files
-        editor = _authorized_keys_for(
-            root, read_sshd_settings(runner, sshd_config, user="root"), fs, runner
+        editor = root_keys or _root_keys_file(
+            runner=runner, fs=fs, sshd_config=sshd_config, passwd=passwd
         )
-        if editor.path.exists():
+        if editor is not None and editor.path.exists():
             files.append(editor)
     return files
+
+
+def _root_keys_file(
+    *,
+    runner: CommandRunner | None,
+    fs: FileSystem | None,
+    sshd_config: Path,
+    passwd: Callable[[str], pwd.struct_passwd],
+) -> AuthorizedKeys | None:
+    """
+    Build the editor of root's ``authorized_keys``, where 3.0 put centrals' keys.
+
+    Args:
+        runner: The runner.
+        fs: The filesystem seam.
+        sshd_config: Read when ``sshd -T`` cannot run.
+        passwd: Account lookup.
+
+    Returns:
+        The editor, or None on a server without a root account.
+    """
+    try:
+        root = passwd("root")
+    except KeyError:
+        return None
+    return _authorized_keys_for(
+        root, read_sshd_settings(runner, sshd_config, user="root"), fs, runner
+    )
+
+
+def _root_key_warnings(
+    root_keys: AuthorizedKeys | None, *, keep: PublicKey | None, removing: PublicKey | None
+) -> list[str]:
+    """
+    Warn about every central's tunnel key left in root's ``authorized_keys``.
+
+    Args:
+        root_keys: Root's file, None when there is no root account.
+        keep: The key just authorized for root itself (``--ssh-user root``),
+            which is meant to be there.
+        removing: The key a rehearsal would remove, which will not be there.
+
+    Returns:
+        One warning per line, with the command that removes it.
+    """
+    if root_keys is None:
+        return []
+    try:
+        found = root_tunnel_keys(root_keys.path, root_keys.read())
+    except NodeError as exc:
+        return [f"root's {root_keys.path} could not be checked ({exc.message}): {exc.details}"]
+    expected = {(key.key_type, key.blob) for key in (keep, removing) if key is not None}
+    return [line.warning() for line in found if (line.key_type, line.blob) not in expected]
 
 
 def authorize(
@@ -1599,6 +1852,7 @@ def authorize(
     confirm_replace: Callable[[list[str]], bool],
     ssh_user: str = TUNNEL_USER,
     allow_root: bool = False,
+    replace_root_key: str | None = None,
     access: FleetAccess | None = None,
     runner: CommandRunner | None = None,
     fs: FileSystem | None = None,
@@ -1636,6 +1890,11 @@ def authorize(
             default, created when missing.
         allow_root: Accept ``ssh_user="root"``. Its key, even restricted, can
             create Unix sockets as root (see the module docstring).
+        replace_root_key: A public key to take out of root's
+            ``authorized_keys`` once the new line is in place: the central's
+            key as 3.0 installed it there (``noust node migrate-tunnel``
+            prints it). Matched by the key, whatever the line's comment, and
+            a 0600 copy of the file is kept. Refused with ``ssh_user="root"``.
         access: This server's new ceiling for its centrals; None keeps the
             one in force (admin when none was ever set).
         runner: The runner ``sshd``, ``useradd``, ``systemctl`` and ``chown`` go through.
@@ -1677,6 +1936,16 @@ def authorize(
                 f"TCP. {TUNNEL_USER} cannot, and its sshd block refuses Unix sockets. "
                 "Pass --i-understand to authorize root anyway."
             ),
+        )
+    replace_key = (
+        parse_public_key(replace_root_key, what="key to take out of root's authorized_keys")
+        if replace_root_key is not None
+        else None
+    )
+    if replace_key is not None and user == "root":
+        raise NodeError(
+            "--replace-root-key cannot be used with --ssh-user root",
+            details="It takes a central's old key out of root's file; this installs one there.",
         )
     runner = runner or get_runner()
     report = progress or (lambda step, total, what: None)
@@ -1756,6 +2025,12 @@ def authorize(
     report(total - 1, total, f"Installing the central's key in {keys_file.path}")
     warnings: list[str] = []
     moved_from: list[str] = []
+    backup: Path | None = None
+    root_keys = (
+        keys_file
+        if user == "root"
+        else _root_keys_file(runner=runner, fs=fs, sshd_config=sshd_config, passwd=passwd)
+    )
     if dry_run:
         # Nothing is minted or written: the console step above already
         # refused to touch the machine under a rehearsal (it threads dry_run
@@ -1765,6 +2040,8 @@ def authorize(
         report(total, total, f"Issuing the token {next_token_name(tokens, central)}")
         issued = {"token": DRY_RUN_TOKEN, "name": next_token_name(tokens, central)}
         in_force = access or ceiling_in_force(store)
+        if replace_key is not None and root_keys is not None and root_keys.holds_key(replace_key):
+            moved_from.append(str(root_keys.path))
     else:
         # Locked from the read this rollback would restore through the
         # write that might undo it, so a concurrent authorize/deauthorize
@@ -1793,6 +2070,7 @@ def authorize(
             sshd_config=sshd_config,
             passwd=passwd,
             keys_dir=tunnel_keys_dir,
+            root_keys=root_keys,
         ):
             try:
                 if other.remove(central):
@@ -1802,6 +2080,26 @@ def authorize(
                     f"The central's old line in {other.path} could not be removed "
                     f"({exc.message}); remove it by hand: {exc.details}"
                 )
+        if replace_key is not None and root_keys is not None:
+            try:
+                backup = root_keys.remove_key(replace_key)
+            except (NodeError, OSError) as exc:
+                warnings.append(
+                    f"The key {replace_key.fingerprint} could not be taken out of "
+                    f"{root_keys.path} ({exc}); remove it by hand: "
+                    f"{key_removal_command(root_keys.path, replace_key.blob)}"
+                )
+            if backup is not None and str(root_keys.path) not in moved_from:
+                moved_from.append(str(root_keys.path))
+    # Whatever was asked: a tunnel key left in root's file is the hole the
+    # tunnel account closes, and the operator hears of every one.
+    warnings.extend(
+        _root_key_warnings(
+            root_keys,
+            keep=key if user == "root" else None,
+            removing=replace_key if dry_run else None,
+        )
+    )
 
     code = JoinCode(
         ssh_host_key=host_key.bare,
@@ -1832,6 +2130,7 @@ def authorize(
         tunnel_account_created=created,
         sshd_policy=str(policy.path) if policy is not None else None,
         moved_from=moved_from,
+        root_key_backup=str(backup) if backup is not None else None,
         warnings=warnings,
     )
 

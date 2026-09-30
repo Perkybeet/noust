@@ -331,19 +331,39 @@ again before finishing prints the same command.
 
 ## Moving a 3.0 server to the tunnel account
 
-Upgrade Noust on the server to 3.1 first, then:
+Upgrade Noust on the server to 3.1.1 first (3.1.0 does not know `--replace-root-key`), then:
 
 ```bash
 noust node migrate-tunnel vps1              # on the central: the command for vps1
-# on vps1, as root: the printed 'noust fleet authorize ...'
+# on vps1, as root: the printed 'noust fleet authorize ... --replace-root-key ...'
 noust node migrate-tunnel vps1 --join-code -   # on the central: paste the new code
 ```
 
-On `vps1`, `authorize` creates `noust-tunnel`, installs the same key for it and takes the
-central's line out of root's `authorized_keys`, then issues a new token (revoking the old
-one). The central switches to the new account once `vps1` answers as it, and puts back what it
-had if it does not; the code can be pasted again. After that the server no longer needs
+On `vps1`, `authorize` creates `noust-tunnel`, installs the same key for it and takes that
+key out of root's `authorized_keys`, then issues a new token (revoking the old one). The key is
+matched by the key itself (`--replace-root-key`), not by the central's name in the line's
+comment: a 3.0 line can name the central otherwise (`noust-central:arennalabs`), and 3.1.0,
+which matched by name, left such lines in root's file. Every other line is kept, and a copy of
+the file as it was is left next to it (`authorized_keys.noust-<UTC time>`, mode 0600).
+`authorize` reports the file under "Old line removed from" (`moved_from` in `--json`) and the
+copy under "Copy of it before" (`root_key_backup`).
+
+The central switches to the new account once `vps1` answers as it, and puts back what it had if
+it does not; the code can be pasted again. After that the server no longer needs
 `PermitRootLogin` for the fleet.
+
+Whatever its options, `authorize` then warns about every line still in root's
+`authorized_keys` that carries Noust's tunnel options (`restrict,port-forwarding,permitopen=...`),
+and so does the hardening check "A central's tunnel logs in as root" (`noust server security
+checks`, counted by `noust health`). Each warning gives the exact command that removes that key
+and nothing else:
+
+```bash
+sed -i '\#AAAAC3NzaC1lZDI1NTE5AAAA...#d' /root/.ssh/authorized_keys
+```
+
+A server migrated with 3.1.0 still has that line: remove it with the command the warning prints,
+once `noust node list` on the central shows the server reached as `noust-tunnel`.
 
 ## The console's certificate
 

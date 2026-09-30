@@ -1589,6 +1589,50 @@ def command_environment(
     return {**build_environment(cache), **chosen}
 
 
+#: What switches a package manager to a production install (devDependencies
+#: left out): npm, pnpm and yarn read NODE_ENV, and npm and yarn their own
+#: settings too.
+PRODUCTION_INSTALL_VARIABLES = (
+    "NODE_ENV",
+    "NPM_CONFIG_PRODUCTION",
+    "npm_config_production",
+    "NPM_CONFIG_OMIT",
+    "npm_config_omit",
+    "YARN_PRODUCTION",
+)
+
+
+def install_environment(
+    spec: SandboxSpec, phase: BuildPhase, env: Mapping[str, str]
+) -> SandboxSpec:
+    """
+    Give a sandboxed install the package manager's defaults a root build had.
+
+    A root build never read the application's ``.env`` for its install, so
+    npm, pnpm and yarn installed devDependencies. In the sandbox systemd loads
+    that file for every command, and a ``NODE_ENV=production`` in it (common:
+    the application runs in production) makes the install leave them out,
+    then the build fails on a missing devDependency. So the variables that
+    switch a package manager to a production install are removed from an
+    install's environment, unless the command's own environment sets them -
+    a monorepo sets NODE_ENV itself, and its root build had it too. The build
+    keeps the whole ``.env``.
+
+    Args:
+        spec: The command's sandbox.
+        phase: Its phase.
+        env: The environment the runner composes for it, which wins over ``.env``.
+
+    Returns:
+        The spec, unsetting those variables for an install; the same spec
+        for anything else.
+    """
+    if phase is not BuildPhase.INSTALL:
+        return spec
+    unset = tuple(name for name in PRODUCTION_INSTALL_VARIABLES if name not in env)
+    return replace(spec, unset_env=unset) if unset else spec
+
+
 def log_regime(logger: Logger, state: SandboxState, *, sandboxed: bool) -> None:
     """
     Say in the build log how this build runs.

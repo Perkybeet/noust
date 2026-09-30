@@ -37,6 +37,7 @@ from typing import Any
 
 from noust.core import paths
 from noust.core.exceptions import NoustError
+from noust.fleet.authorize import key_removal_command
 from noust.managers.server.host import PROBE_TIMEOUT, read_os_release
 from noust.managers.server.security_catalog import CATALOG, SEVERITIES
 from noust.managers.server.security_fail2ban import Fail2ban
@@ -1122,18 +1123,31 @@ class HardeningChecks:
             results.append(_other("noust.units_not_enabled", "unknown", _message(exc)))
         root = self.probe.keys_of("root")
         centrals = root.keys("central") if root else []
+        removals = [
+            command
+            for file in (root.files if root else ())
+            for key in file.keys
+            if key.kind == "central"
+            and (command := key_removal_command(file.path, key.blob)) is not None
+        ]
         results.append(
             _result(
                 "noust.fleet_key_root",
                 not centrals,
-                f"{len(centrals)} central(s) tunnel in as root."
+                f"{len(centrals)} central(s) tunnel in as root: such a key can make sshd "
+                "create a Unix socket as root anywhere."
                 if centrals
                 else "No central tunnels in as root.",
                 [f"{key.comment}: {key.fingerprint}" for key in centrals],
                 _guided(
-                    "Move the tunnel to the unprivileged account",
-                    "On the central: noust node migrate-tunnel <this node>, and paste the new "
-                    "join code there.",
+                    "Move the tunnel to the unprivileged account, then take the key out of "
+                    "root's file",
+                    "On the central: noust node migrate-tunnel <this node>, run what it prints "
+                    "here (its --replace-root-key takes the old key out of root's file), and "
+                    "paste the new join code there.",
+                    "A key no central uses as root any more (its node already reached as "
+                    "noust-tunnel) is removed here with:",
+                    *removals,
                 ),
             )
         )

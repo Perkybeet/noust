@@ -12,6 +12,7 @@ node publishes is recorded, a 3.0 node's as unknown.
 from __future__ import annotations
 
 import json
+import shlex
 from pathlib import Path
 
 import pytest
@@ -162,6 +163,15 @@ class TestMigrateTunnel:
         command = fleet.manager.migrate_tunnel_command("web-2")
         assert key.blob in command
         assert "--ssh-user" not in command
+
+    def test_the_command_takes_the_same_key_out_of_root_s_file(self, fleet):
+        # Matched by the key, not by the central's name in the line's comment:
+        # a 3.0 line named the central otherwise, and was left in root's file.
+        key = fleet.keys.public_key("web-2")
+        argv = shlex.split(fleet.manager.migrate_tunnel_command("web-2"))
+
+        assert argv[argv.index("--replace-root-key") + 1] == key.line()
+        assert argv[argv.index("--central-key") + 1] == key.line()
 
     def test_switches_the_account(self, fleet):
         key = fleet.keys.public_key("web-2").line()

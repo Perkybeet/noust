@@ -668,6 +668,252 @@ def test_a_failing_trial_is_recorded_with_the_builds_own_words(
         build_sandbox.enable(DOMAIN, actor="alice", store=store)
 
 
+def _in_place_app(tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace) -> str:
+    """An application deployed in place before 3.1: a git checkout with no regime row."""
+    from noust.core.store import App
+    from noust.deployers.helpers.layout import INPLACE
+
+    node_tree(root)
+    (root / ".git").mkdir()
+    (root / "pnpm-workspace.yaml").write_text("allowBuilds:\n  esbuild: true\n")
+    (root / "node_modules").mkdir()
+    store.create_app(
+        App(
+            domain=DOMAIN,
+            app_type="nodejs",
+            source="https://example.com/repo.git",
+            port=3000,
+            app_path=str(root),
+            layout=INPLACE,
+        )
+    )
+    forget_regime(store)
+    commit = "c" * 40
+    machine.git.get_repo_info = lambda path: {"is_git": True, "commit": commit[:7]}
+    machine.git.resolve_commit = lambda repository, short: commit
+    return commit
+
+
+def test_an_in_place_trial_builds_the_tree_as_an_update_would_and_names_local_changes(
+    tmp_path: Path,
+    root: Path,
+    store: NoustStore,
+    machine: SimpleNamespace,
+    as_root: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Seen live: a pnpm-workspace.yaml changed on the server (allowBuilds) is what
+    an in-place update builds with; a trial of the bare commit failed on pnpm's
+    ERR_PNPM_IGNORED_BUILDS while the update itself would pass.
+    """
+    commit = _in_place_app(tmp_path, root, store, machine)
+    copied: list[Path] = []
+
+    def export_worktree(repository: Path, destination: Path) -> list[str]:
+        copied.append(repository)
+        for name in ("package.json", "package-lock.json", "server.js", "pnpm-workspace.yaml"):
+            (destination / name).write_bytes((repository / name).read_bytes())
+        return ["pnpm-workspace.yaml"]
+
+    machine.git.export_worktree = export_worktree
+    monkeypatch.setattr(
+        "noust.deployers.registry.get_deployer",
+        lambda app_type, verbose=False: wire(
+            NodeJSDeployer(verbose=False, runner=machine.runner), machine
+        ),
+    )
+    logger = Logger(verbose=False)
+    warnings: list[str] = []
+    monkeypatch.setattr(logger, "warning", lambda message, *a, **k: warnings.append(message))
+
+    result = sandbox_trial.run_trial(DOMAIN, logger=logger, store=store)
+
+    assert result.passed, result.detail
+    assert copied == [root]
+    assert not [call for call in machine.git.calls if call[0] == "export"]
+    assert result.source == "working tree"
+    assert result.uncommitted == ("pnpm-workspace.yaml",)
+    assert result.commit == commit
+    [warning] = warnings
+    assert "pnpm-workspace.yaml" in warning
+    assert "not in the repository; commit them" in warning
+    [(_inner, spec)] = [entry for entry in machine.runner.sandboxed if entry[0] == ("npm", "ci")]
+    assert spec.working_dir != root, "the trial never builds in the served tree"
+
+
+def test_a_releases_trial_still_exports_the_commit(
+    tmp_path: Path,
+    root: Path,
+    store: NoustStore,
+    machine: SimpleNamespace,
+    as_root: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    commit = machine.git.publish(node_tree(tmp_path / "v1"))
+    deploy_new(root, machine)
+    forget_regime(store)
+    machine.git.resolve_commit = lambda repository, short: commit
+
+    def refuse(repository: Path, destination: Path) -> list[str]:
+        raise AssertionError("a release is built from its commit, never from a tree")
+
+    machine.git.export_worktree = refuse
+    exported = len(machine.git.calls)
+    monkeypatch.setattr(
+        "noust.deployers.registry.get_deployer",
+        lambda app_type, verbose=False: wire(
+            NodeJSDeployer(verbose=False, runner=machine.runner), machine
+        ),
+    )
+
+    result = sandbox_trial.run_trial(DOMAIN, logger=Logger(verbose=False), store=store)
+
+    assert result.passed, result.detail
+    assert (result.source, result.uncommitted) == ("commit", ())
+    assert [call[1] for call in machine.git.calls[exported:] if call[0] == "export"] == [commit]
+
+
+@pytest.mark.parametrize(
+    ("lockfile", "install"),
+    [
+        ("package-lock.json", ("npm", "ci")),
+        ("pnpm-lock.yaml", ("pnpm", "install")),
+        ("yarn.lock", ("yarn", "install")),
+    ],
+)
+def test_a_sandboxed_install_gets_dev_dependencies_as_a_root_build_did(
+    tmp_path: Path,
+    root: Path,
+    store: NoustStore,
+    machine: SimpleNamespace,
+    as_root: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    lockfile: str,
+    install: tuple[str, str],
+) -> None:
+    """
+    Seen live: a .env with NODE_ENV="production" reached the sandboxed install,
+    npm ci left devDependencies out, and the build failed on a missing
+    '@tailwindcss/postcss'. A root build never read .env for its install.
+    """
+    _in_place_app(tmp_path, root, store, machine)
+    (root / "package-lock.json").unlink()
+    (root / lockfile).write_text("lock\n")
+    (root / "package.json").write_text(
+        '{"name": "app", "scripts": {"build": "next build", "start": "next start"}}\n'
+    )
+    (root / ".env").write_text('NODE_ENV="production"\nDATABASE_URL=postgres://x\n')
+
+    def export_worktree(repository: Path, destination: Path) -> list[str]:
+        for name in ("package.json", lockfile, "server.js"):
+            (destination / name).write_bytes((repository / name).read_bytes())
+        return []
+
+    machine.git.export_worktree = export_worktree
+    monkeypatch.setattr(
+        "noust.deployers.registry.get_deployer",
+        lambda app_type, verbose=False: wire(
+            NodeJSDeployer(verbose=False, runner=machine.runner), machine
+        ),
+    )
+
+    result = sandbox_trial.run_trial(DOMAIN, logger=Logger(verbose=False), store=store)
+
+    assert result.passed, result.detail
+    [install_spec] = [spec for inner, spec in machine.runner.sandboxed if inner[:2] == install]
+    [build_spec] = [
+        spec
+        for inner, spec in machine.runner.sandboxed
+        if inner[0] == install[0] and inner[-1] == "build"
+    ]
+    assert "NODE_ENV" in install_spec.unset_env
+    # The application's variables still reach both; the build keeps NODE_ENV.
+    assert install_spec.env_files == build_spec.env_files == (root / ".env",)
+    assert build_spec.unset_env == ()
+
+
+def test_an_install_whose_own_environment_sets_node_env_keeps_it() -> None:
+    """A monorepo sets NODE_ENV for its commands itself, and its root build had it too."""
+    spec = SandboxSpec(user="noust-build", name="app")
+
+    kept = build_sandbox.install_environment(spec, BuildPhase.INSTALL, {"NODE_ENV": "production"})
+    cleared = build_sandbox.install_environment(spec, BuildPhase.INSTALL, {"PATH": "/usr/bin"})
+    built = build_sandbox.install_environment(spec, BuildPhase.BUILD, {})
+
+    assert "NODE_ENV" not in kept.unset_env
+    assert "NODE_ENV" in cleared.unset_env
+    assert built is spec
+
+
+class WorktreeRunner(FakeRunner):
+    """git and tar over a real tree: ls-files and diff answer, tar copies what it is fed."""
+
+    def __init__(self, tracked: list[str], changed: list[str]) -> None:
+        super().__init__()
+        self.tracked = tracked
+        self.changed = changed
+        self.archived: list[str] = []
+
+    def run(self, argv: Any, **kwargs: Any) -> Any:
+        result = super().run(argv, **kwargs)
+        args = [str(a) for a in argv]
+        if args[0] == "git" and "ls-files" in args:
+            return type(result)(argv=result.argv, exit_code=0, stdout="\0".join(self.tracked))
+        if args[0] == "git" and "diff" in args:
+            return type(result)(argv=result.argv, exit_code=0, stdout="\0".join(self.changed))
+        if args[0] == "tar" and "--create" in args:
+            self.archived = [name for name in (kwargs.get("input") or "").split("\0") if name]
+        return result
+
+
+def test_a_tree_export_copies_the_tracked_files_as_they_are_never_through_a_link(
+    tmp_path: Path,
+) -> None:
+    from noust.managers.source_manager import SourceManager
+
+    tree = tmp_path / "app"
+    (tree / "src").mkdir(parents=True)
+    (tree / "src" / "index.js").write_text("changed on the server")
+    (tree / "package.json").write_text("{}")
+    (tree / "link").symlink_to("/etc/passwd")
+    outside = tmp_path / "outside"
+    (outside / "conf").mkdir(parents=True)
+    (tree / "conf").symlink_to(outside / "conf")
+    (tree / "node_modules" / "x").mkdir(parents=True)
+    (tree / "node_modules" / "x" / "index.js").write_text("")
+    destination = tmp_path / "scratch"
+    destination.mkdir()
+    runner = WorktreeRunner(
+        tracked=[
+            "package.json",
+            "src/index.js",
+            "link",
+            "conf/settings.json",
+            "deleted.txt",
+            "node_modules/x/index.js",
+            "package.json",
+        ],
+        changed=["src/index.js", "deleted.txt"],
+    )
+
+    uncommitted = SourceManager(runner=runner).export_worktree(tree, destination)
+
+    assert uncommitted == ["deleted.txt", "src/index.js"]
+    # A tracked link is archived as a link, as git archive does; a path whose
+    # parent became a link is not read through it; a deleted file is not
+    # there; node_modules is never copied.
+    assert runner.archived == ["package.json", "src/index.js", "link"]
+    create = next(call for call in runner.calls if call[0] == "tar" and "--create" in call)
+    assert "--dereference" not in create and "-h" not in create
+    assert {"--no-recursion", "--null", "--verbatim-files-from", "--files-from=-"} <= set(create)
+    assert create[create.index("--directory") + 1] == str(tree)
+    extract = next(call for call in runner.calls if call[0] == "tar" and "-x" in call)
+    assert "--no-same-owner" in extract
+    assert extract[extract.index("-C") + 1] == str(destination)
+    assert not list(tmp_path.glob(".scratch*.tar")), "the archive is removed"
+
+
 def test_a_trial_needs_root(root: Path, store: NoustStore, tmp_path: Path) -> None:
     from noust.core.store import App
 

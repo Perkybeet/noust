@@ -572,9 +572,13 @@ class NodeManager:
             name: The node's name.
 
         Returns:
-            ``noust fleet authorize`` with this central's current key for it:
-            on a Noust 3.1 node it installs the key for ``noust-tunnel`` and
-            takes it out of root's ``authorized_keys``.
+            ``noust fleet authorize`` with this central's current key for it,
+            and the same key as ``--replace-root-key``: on a Noust 3.1.1 node
+            it installs the key for ``noust-tunnel`` and takes it out of
+            root's ``authorized_keys``. Named by the key, because the line 3.0
+            wrote there names this central in a comment that need not match
+            the name it has now, and a line left behind can still create Unix
+            sockets as root.
 
         Raises:
             NodeError: When the node is not registered or has no key here.
@@ -586,7 +590,7 @@ class NodeManager:
                 f"This central holds no key for {name}",
                 details=f"Rotate it instead: noust node rekey {name}",
             )
-        return _authorize_line(current.line())
+        return f"{_authorize_line(current.line())} --replace-root-key {shlex.quote(current.line())}"
 
     def migrate_tunnel(self, name: str, *, join_code: str, actor: str | None = None) -> NodeRecord:
         """

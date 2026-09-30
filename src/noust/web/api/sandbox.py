@@ -193,7 +193,9 @@ def sandbox_test_job(domain: str, job_context: JobContext | None = None) -> dict
         job_context: Injected by the job manager.
 
     Returns:
-        Whether it built, the commit, and the build's output when it did not.
+        Whether it built, the commit, the build's output when it did not,
+        what it built (``commit``, or the in-place ``working tree``) and the
+        uncommitted files of that tree it built as they are.
 
     Raises:
         ValidationError: It cannot be tried in the sandbox.
@@ -214,6 +216,8 @@ def sandbox_test_job(domain: str, job_context: JobContext | None = None) -> dict
         "passed": result.passed,
         "commit": result.commit,
         "detail": result.detail,
+        "source": result.source,
+        "uncommitted": list(result.uncommitted),
     }
 
 

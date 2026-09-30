@@ -311,6 +311,21 @@ class TestSandboxArgv:
             "EnvironmentFile=/run/noust/sandbox/noust-build-shop-example-com-0a1b2c3d.env"
         )
 
+    def test_an_install_unsets_what_an_env_file_would_switch_to_production(self) -> None:
+        props = properties(
+            self.argv(
+                build_spec(env_files=(SHARED / ".env",), unset_env=("NODE_ENV", "YARN_PRODUCTION"))
+            )
+        )
+
+        # Applied by systemd after every EnvironmentFile=, whatever the order.
+        assert "UnsetEnvironment=NODE_ENV YARN_PRODUCTION" in props
+        assert "UnsetEnvironment=" not in " ".join(properties(self.argv()))
+
+    def test_a_name_that_is_not_a_variable_is_refused(self) -> None:
+        with pytest.raises(ValueError, match="variable"):
+            build_spec(unset_env=("NODE_ENV PATH",))
+
     def test_the_result_marker_is_written_by_root_after_the_unit_stops(self) -> None:
         stop_post = properties(self.argv())[-1]
 

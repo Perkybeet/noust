@@ -8,11 +8,20 @@ An application from before 3.1 keeps building as root until an operator turns
 the sandbox on, and turning it on blind would find out at the next deploy
 that its build needed something the sandbox takes away (a private registry
 reached with root's ``~/.npmrc``, a ``postinstall`` that writes outside the
-release). The trial answers first: the commit the application runs now is
-exported into a scratch directory in its build cache and installed and built
+release). The trial answers first: what the next sandboxed build would build
+is copied into a scratch directory in its build cache and installed and built
 exactly as an enabled sandbox would, then thrown away. Nothing is activated,
 restarted or recorded in the deployment history; only the outcome is kept, and
 :func:`noust.deployers.helpers.sandbox.enable` asks for a passing one.
+
+What is copied depends on the layout, because that is what differs between
+them. A release is built from a commit export, so the trial exports the active
+release's commit. An in-place update builds in the served tree, uncommitted
+changes made on the server included (a ``pnpm-workspace.yaml`` that allows a
+dependency's build script, say), so the trial copies the tracked files as they
+are in that tree - never ``node_modules`` or build output, never through a link
+- and names the uncommitted ones: they build today, and are lost to anyone who
+deploys the repository.
 """
 
 from __future__ import annotations
@@ -42,9 +51,12 @@ class TrialResult:
     Attributes:
         domain: The application.
         passed: Whether it installed and built in the sandbox.
-        commit: The commit it built.
+        commit: The commit it built, or the one the tree it copied is on.
         detail: The failure, with the build's own output; None when it passed.
         state: The application's regime afterwards, with the trial recorded.
+        source: What it built: :data:`FROM_COMMIT` or :data:`FROM_TREE`.
+        uncommitted: The tracked files of an in-place tree that differ from
+            its commit, which the trial built as they are.
     """
 
     domain: str
@@ -52,6 +64,32 @@ class TrialResult:
     commit: str | None
     detail: str | None
     state: build_sandbox.SandboxState
+    source: str = "commit"
+    uncommitted: tuple[str, ...] = ()
+
+
+#: The trial built an export of the commit (an application on releases).
+FROM_COMMIT = "commit"
+
+#: The trial built a copy of the in-place tree's tracked files as they are.
+FROM_TREE = "working tree"
+
+
+def uncommitted_warning(files: tuple[str, ...] | list[str]) -> str:
+    """
+    Say that an in-place tree builds with changes the repository does not have.
+
+    Args:
+        files: The uncommitted files.
+
+    Returns:
+        The warning.
+    """
+    return (
+        f"These local changes are not in the repository; commit them: {', '.join(files)}. "
+        "The trial built them as they are, as an in-place update does, but a fresh "
+        "deploy of the repository would not have them."
+    )
 
 
 def current_commit(app: App, source_manager: SourceManager) -> tuple[str, Path]:
@@ -154,14 +192,27 @@ def run_trial(
         )
         deployer.logger = log  # type: ignore[assignment]
         commit, repository = current_commit(app, deployer.source_manager)
-        log.info(f"Trying commit {commit[:7]} of {domain} in the sandbox; nothing is activated")
+        source = FROM_COMMIT if app.layout == RELEASES else FROM_TREE
+        if source == FROM_COMMIT:
+            log.info(f"Trying commit {commit[:7]} of {domain} in the sandbox; nothing is activated")
+        else:
+            log.info(
+                f"Trying the tree of {domain} (commit {commit[:7]} and its uncommitted "
+                "changes, as an in-place update builds it) in the sandbox; nothing is activated"
+            )
         stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         scratch = build_sandbox.cache_dir_for(deployer.app_name) / (
             f"{build_sandbox.TRIAL_DIR}-{stamp}"
         )
         fs.make_dir(scratch, mode=0o755)
+        uncommitted: tuple[str, ...] = ()
         try:
-            deployer.source_manager.export_commit(repository, commit, scratch)
+            if source == FROM_COMMIT:
+                deployer.source_manager.export_commit(repository, commit, scratch)
+            else:
+                uncommitted = tuple(deployer.source_manager.export_worktree(repository, scratch))
+                if uncommitted:
+                    log.warning(uncommitted_warning(uncommitted))
             deployer.sandbox_trial(
                 StagedRelease(path=scratch, commit=commit, manager=ReleaseManager(app_path))
             )
@@ -171,11 +222,11 @@ def run_trial(
             state = build_sandbox.record_trial(
                 domain, passed=False, commit=commit, detail=detail, store=store
             )
-            return TrialResult(domain, False, commit, detail, state)
+            return TrialResult(domain, False, commit, detail, state, source, uncommitted)
         finally:
             fs.remove_tree(scratch)
     state = build_sandbox.record_trial(domain, passed=True, commit=commit, detail=None, store=store)
     log.success(
         f"{domain} builds in the sandbox; enable it with: noust app sandbox enable {domain}"
     )
-    return TrialResult(domain, True, commit, None, state)
+    return TrialResult(domain, True, commit, None, state, source, uncommitted)
