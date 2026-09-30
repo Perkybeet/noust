@@ -771,7 +771,10 @@ def _schedule(
     logger.info("Cancel it with: noust server reboot --cancel")
 
 
-@cli.command("reboot")
+# --status only reads (--cancel given with it still cancels, so it does not).
+@cli.command(
+    "reboot", read_only=lambda params: bool(params["show_status"]) and not params["cancel"]
+)
 @click.option("--in", "delay", default=None, metavar="MINUTES", help="In 5, 5m or 2h.")
 @click.option("--at", default=None, metavar="TIME", help="At 04:00 (next one) or 2026-09-30T04:00.")
 @click.option("--now", is_flag=True, help="Right now, with no minute to change your mind.")
@@ -914,7 +917,7 @@ def storage_command(ctx: Context, analyze: bool) -> None:
         logger.info("Run with --analyze to measure caches, releases, backups and logs")
 
 
-@cli.command("cleanup")
+@cli.command("cleanup", read_only=lambda params: bool(params["plan_only"]))
 @click.argument("action", type=click.Choice(CLEANUP_ACTIONS))
 @click.option(
     "--size-mb", type=click.IntRange(1), default=None, help="journal: vacuum to this size."
@@ -1125,7 +1128,7 @@ def time_ntp(ctx: Context, state: str, install: bool) -> None:
     )
 
 
-@cli.command("hostname")
+@cli.command("hostname", read_only=lambda params: params["name"] is None)
 @click.argument("name", required=False)
 @click.option(
     "--keep-against-cloud-init", is_flag=True, help="Tell cloud-init not to rename it back."

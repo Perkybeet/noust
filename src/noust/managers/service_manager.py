@@ -944,7 +944,11 @@ class ServiceManager(BaseManager):
         rows = services if services is not None else self._stored_services()
         if app.id is not None:
             owned = sorted(
-                {row.name.removesuffix(".service") for row in rows if row.app_id == app.id}
+                {
+                    self._installed_name(row.name.removesuffix(".service"), listed)
+                    for row in rows
+                    if row.app_id == app.id
+                }
             )
             if owned:
                 return owned
@@ -986,6 +990,33 @@ class ServiceManager(BaseManager):
         if legacy in listed and base not in listed and not (directory / f"{base}.service").exists():
             return [legacy]
         return [base]
+
+    def _installed_name(self, name: str, listed: Collection[str] = ()) -> str:
+        """
+        Name the unit a row of the services table stands for.
+
+        ``noust store import`` records ``wasm-<app>.service`` under the name
+        without the prefix, so a row can name a unit that does not exist while
+        its legacy twin runs the application.
+
+        Args:
+            name: The row's unit name, without ``.service``.
+            listed: Unit names systemd listed, when the caller has asked.
+
+        Returns:
+            The legacy ``wasm-`` name when only that unit is installed (its
+            file is in the managed directory, or systemd lists it and not the
+            row's name); the row's name otherwise.
+        """
+        if "@" in name or name.startswith(self.LEGACY_PREFIX):
+            return name
+        directory = Path(self.SYSTEMD_DIR)
+        if (directory / f"{name}.service").exists() or name in listed:
+            return name
+        legacy = f"{self.LEGACY_PREFIX}{name}"
+        if (directory / f"{legacy}.service").exists() or legacy in listed:
+            return legacy
+        return name
 
     def serving_units(self, app: App) -> list[str]:
         """

@@ -16,7 +16,9 @@ different things, and the gap is where real exposures live:
   active" says nothing about ``0.0.0.0:5435->5432``. Published ports come from
   ``docker ps`` (with the userland proxy off there is no socket for ``ss`` to
   see) and are reported apart, with the fix left guided: publishing on
-  ``127.0.0.1:`` in the Compose file.
+  ``127.0.0.1:`` in the Compose file. What the operator refuses in Docker's
+  ``DOCKER-USER`` chain on the public interface is filtered all the same
+  (:mod:`~noust.managers.server.security_docker_user`), and says which rule.
 
 :class:`Firewall` is the only code that changes rules (rule 4), for ufw and
 firewalld; nftables and iptables on their own are only read. Every change goes
@@ -47,6 +49,15 @@ from noust.core.exceptions import SecurityError, ValidationError
 from noust.core.runner import EXIT_NOT_FOUND, CommandResult
 from noust.managers.server.host import PROBE_TIMEOUT, read_text
 from noust.managers.server.security_access import AccessGuardError
+from noust.managers.server.security_docker_user import (
+    CHAIN,
+    Coverage,
+    DockerUserChain,
+    parse_default_interfaces,
+    parse_iptables_chain,
+    parse_nft_chain,
+)
+from noust.managers.server.security_docker_user import port_ranges as _port_ranges
 from noust.managers.server.security_pending import (
     CONFIRM_WINDOW,
     ChangeLedger,
@@ -183,25 +194,6 @@ def _rule_id(backend: str, spec: str) -> str:
     return hashlib.sha256(f"{backend}:{spec}".encode()).hexdigest()[:12]
 
 
-def _port_ranges(text: str) -> tuple[tuple[int, int], ...] | None:
-    """
-    Read ``22``, ``80,443``, ``6000:6007`` or ``6000-6007``.
-
-    Args:
-        text: The ports.
-
-    Returns:
-        Inclusive ranges, or None when this is not a port list.
-    """
-    ranges: list[tuple[int, int]] = []
-    for part in text.split(","):
-        low, sep, high = part.replace("-", ":").partition(":")
-        if not low.isdigit() or (sep and not high.isdigit()):
-            return None
-        ranges.append((int(low), int(high) if sep else int(low)))
-    return tuple(ranges)
-
-
 @dataclass
 class FirewallState:
     """
@@ -335,7 +327,10 @@ class PortExposure:
         risky: What usually holds this port, when it is one that should never
             face the internet (a database, Redis, the Docker API).
         baseline: SSH, the web ports or the public console: expected to answer.
-        docker: The Docker publication, for ``docker_bypass``.
+        docker: The Docker publication, for ``docker_bypass`` (and for
+            ``blocked`` when ``DOCKER-USER`` refuses it).
+        filtered_by: For a Docker publication ``DOCKER-USER`` refuses, the
+            rule and the port it names, for the evidence.
     """
 
     proto: str
@@ -347,6 +342,7 @@ class PortExposure:
     risky: str = ""
     baseline: bool = False
     docker: DockerPort | None = None
+    filtered_by: str = ""
 
     @property
     def reachable(self) -> bool:
@@ -749,6 +745,21 @@ def parse_docker_ps(text: str) -> list[DockerPort]:
     return found
 
 
+def _missing_chain(output: str) -> bool:
+    """
+    Tell "the chain does not exist" from a failure to read it.
+
+    Args:
+        output: What iptables or nft said.
+
+    Returns:
+        True when the tool said there is no such chain (Docker not running, or
+        not managing this family's rules): no rule, and nothing wrong.
+    """
+    text = output.lower()
+    return "no chain/target/match" in text or "no such file or directory" in text
+
+
 # The manager ----------------------------------------------------------------------
 
 
@@ -781,6 +792,8 @@ class Firewall:
         self._console_port = console_port
         self._console: ConsoleSockets | None = None
         self._state: FirewallState | None = None
+        self._docker_user: dict[str, DockerUserChain] = {}
+        self._interfaces: tuple[str, ...] | None = None
 
     def _run(self, argv: list[str]) -> CommandResult:
         """
@@ -924,6 +937,97 @@ class Firewall:
             return [], (result.stderr or result.stdout).strip()
         return parse_docker_ps(result.stdout), ""
 
+    def public_interfaces(self) -> tuple[str, ...]:
+        """
+        The interfaces the Internet comes in on: those of the default routes.
+
+        Returns:
+            Their names, IPv4's first; empty when ``ip`` is missing or says none.
+        """
+        if self._interfaces is not None:
+            return self._interfaces
+        found: list[str] = []
+        if self.probe.runner.exists("ip"):
+            for argv in (
+                ["ip", "route", "show", "default"],
+                ["ip", "-6", "route", "show", "default"],
+            ):
+                result = self._run(argv)
+                if result.success:
+                    found += [
+                        name
+                        for name in parse_default_interfaces(result.stdout)
+                        if name not in found
+                    ]
+        self._interfaces = tuple(found)
+        return self._interfaces
+
+    def docker_user_errors(self) -> list[str]:
+        """
+        Why a ``DOCKER-USER`` chain that was needed could not be read.
+
+        Returns:
+            The tools' own words, one line per chain; empty when every chain
+            read was read.
+        """
+        return [chain.error for chain in self._docker_user.values() if chain.error]
+
+    def docker_user(self, family: str) -> DockerUserChain:
+        """
+        Read Docker's ``DOCKER-USER`` chain for one address family.
+
+        ``iptables -S`` reads it on both of iptables' backends; ``nft list
+        chain`` when nftables is the only tool there is.
+
+        Args:
+            family: ``ipv4`` or ``ipv6``.
+
+        Returns:
+            The chain; without rules when it does not exist, with the tool's
+            own words in ``error`` when it could not be read.
+        """
+        if family in self._docker_user:
+            return self._docker_user[family]
+        runner = self.probe.runner
+        ipv6 = family == "ipv6"
+        tool = "ip6tables" if ipv6 else "iptables"
+        if runner.exists(tool):
+            argv = [tool, "-S", CHAIN]
+            parse = parse_iptables_chain
+        elif runner.exists("nft"):
+            argv = ["nft", "list", "chain", "ip6" if ipv6 else "ip", "filter", CHAIN]
+            parse = parse_nft_chain
+        else:
+            chain = DockerUserChain()
+            self._docker_user[family] = chain
+            return chain
+        result = self._run(argv)
+        output = (result.stderr or result.stdout).strip()
+        source = " ".join(argv)
+        if result.success:
+            chain = DockerUserChain(tuple(parse(result.stdout)), self.public_interfaces(), source)
+        elif _missing_chain(output):
+            chain = DockerUserChain(source=source)
+        else:
+            chain = DockerUserChain(
+                source=source, error=f"{source}: {output or f'exit {result.exit_code}'}"
+            )
+        self._docker_user[family] = chain
+        return chain
+
+    def docker_filter(self, port: DockerPort) -> Coverage | None:
+        """
+        Find the ``DOCKER-USER`` rule that closes a publication to the Internet.
+
+        Args:
+            port: The publication.
+
+        Returns:
+            Why it is filtered, or None when nothing provably refuses it.
+        """
+        family = "ipv6" if ":" in port.host_address else "ipv4"
+        return self.docker_user(family).covering(port.host_port, port.container_port, port.proto)
+
     def console_port(self) -> int:
         """
         The console's port.
@@ -1050,7 +1154,11 @@ class Firewall:
         for port in published:
             if not port.public:
                 continue
-            verdict = "docker_bypass" if state.active else "no_firewall"
+            coverage = self.docker_filter(port)
+            if coverage is not None:
+                verdict = "blocked"
+            else:
+                verdict = "docker_bypass" if state.active else "no_firewall"
             found.append(
                 PortExposure(
                     proto=port.proto,
@@ -1061,6 +1169,7 @@ class Firewall:
                     risky=RISKY_PORTS.get(port.container_port, "")
                     or RISKY_PORTS.get(port.host_port, ""),
                     docker=port,
+                    filtered_by=coverage.describe() if coverage is not None else "",
                 )
             )
         return found, error

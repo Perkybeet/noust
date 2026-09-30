@@ -383,6 +383,49 @@ def test_a_legacy_prefixed_unit_belongs_to_its_application(
     assert manager.list_services()[0]["app"] == "old.example.com"
 
 
+def test_a_stored_row_with_the_derived_name_resolves_to_the_legacy_unit(
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
+) -> None:
+    """
+    ``noust store import`` records wasm-<app>.service under the derived name.
+
+    The reboot pre-check on the owner's central then asked systemd about
+    ``admon-africarsrent-com.service``, which does not exist, and reported the
+    application as not enabled while ``wasm-admon-africarsrent-com`` was.
+    """
+    app = deploy(store, "admon.africarsrent.com")
+    legacy = marked(unit_dirs, "wasm-admon-africarsrent-com")
+    store.create_service(
+        Service(name="admon-africarsrent-com", app_id=app.id, unit_file=str(legacy))
+    )
+
+    assert ServiceManager().app_units(app) == ["wasm-admon-africarsrent-com"]
+
+
+def test_a_stored_row_whose_unit_exists_is_its_unit(
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
+) -> None:
+    """A legacy file left beside the current one does not take the row over."""
+    app = deploy(store, "new.example.com")
+    marked(unit_dirs, "new-example-com")
+    marked(unit_dirs, "wasm-new-example-com")
+    store.create_service(Service(name="new-example-com", app_id=app.id))
+
+    assert ServiceManager().app_units(app) == ["new-example-com"]
+
+
+def test_a_stored_row_resolves_to_the_legacy_unit_systemd_lists(
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
+) -> None:
+    """With the file out of sight, what systemd lists decides, as for a row-less app."""
+    app = deploy(store, "old.example.com")
+    store.create_service(Service(name="old-example-com", app_id=app.id))
+
+    units = ServiceManager().app_units(app, listed={"wasm-old-example-com"})
+
+    assert units == ["wasm-old-example-com"]
+
+
 def test_a_legacy_unit_systemd_lists_but_whose_file_is_unseen_still_matches(
     runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
 ) -> None:

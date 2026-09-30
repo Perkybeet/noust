@@ -81,6 +81,13 @@ def look() -> None:
     click.echo("looked")
 
 
+@thing.command("name", read_only=lambda params: params.get("value") is None)
+@click.argument("value", required=False)
+def name_command(value: str | None) -> None:
+    """Show the name, or change it: only reads without an argument."""
+    click.echo(f"renamed {value}" if value else "the name")
+
+
 @thing.command("config-set")
 @click.argument("key")
 @click.argument("value")
@@ -197,6 +204,27 @@ class TestReason:
     def test_read_only_commands_never_need_one(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(audit_policy, "security_profile", lambda: "ens-medium")
         assert run("look").exit_code == 0
+
+    def test_a_command_that_only_reads_in_one_form_needs_none_in_that_form(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(audit_policy, "security_profile", lambda: "ens-medium")
+
+        shown = run("name")
+        refused = CliRunner().invoke(thing, ["name", "web-2"], obj=Context())
+
+        assert shown.exit_code == 0 and shown.output == "the name\n"
+        assert refused.exit_code == 2 and "--reason" in refused.output
+        assert "renamed" not in refused.output
+        assert events() == []
+
+    def test_the_form_that_changes_is_recorded(self) -> None:
+        run("name")
+        run("name", "web-2")
+
+        recorded = events("cli.command")
+        assert [entry["resource"] for entry in recorded] == ["name"]
+        assert recorded[0]["details"].get("exit_code") == 0
 
     def test_the_root_reason_before_the_command_name(self) -> None:
         state = Context(reason="INC-77")

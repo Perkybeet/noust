@@ -745,6 +745,74 @@ def _humans(facts: Facts) -> list[dict[str, Any]]:
     return [a for a in facts.accounts or [] if a.get("status") in ("active", "locked", "invited")]
 
 
+#: A central's fleet token on a node: ``fleet-<central>``, ``.<n>`` when issued again.
+_FLEET_TOKEN_NAME = re.compile(r"fleet-(?P<central>.+?)(?:\.[0-9]+)?")
+
+
+def _live_fleet_tokens(facts: Facts) -> list[str]:
+    """
+    Name the fleet tokens a central can sign in to this server with now.
+
+    Args:
+        facts: The facts.
+
+    Returns:
+        Token names, unrevoked and unexpired, sorted.
+    """
+    now = facts.now.timestamp()
+    return sorted(
+        str(token.get("name"))
+        for token in facts.tokens or []
+        if token.get("scope") == "fleet"
+        and not token.get("revoked_at")
+        and (token.get("expires_at") is None or float(token["expires_at"]) > now)
+    )
+
+
+def _managed_from_central(
+    check_id: str, title: str, measures: tuple[str, ...], facts: Facts
+) -> Finding | None:
+    """
+    The finding of an account-based check on a node its central is the way into.
+
+    People sign in on the central and reach a node only through it, with the
+    central's fleet token and their own name in ``X-Noust-Actor``: a node
+    without accounts of its own has no roles, reviews or sessions to judge.
+    The first local account makes every such check apply again.
+
+    Args:
+        check_id: The check.
+        title: Its title.
+        measures: Its measures.
+        facts: The facts.
+
+    Returns:
+        The ``n/a`` finding, or None when the check applies here.
+    """
+    if facts.accounts is None or _humans(facts):
+        return None
+    tokens = _live_fleet_tokens(facts)
+    if not tokens:
+        return None
+    centrals = sorted(
+        {
+            match.group("central") if (match := _FLEET_TOKEN_NAME.fullmatch(name)) else name
+            for name in tokens
+        }
+    )
+    named = f"central {centrals[0]}" if len(centrals) == 1 else f"centrals {', '.join(centrals)}"
+    return Finding(
+        check_id,
+        title,
+        "n/a",
+        measures,
+        f"Managed from the {named}: people sign in there and reach this server only "
+        "through it; this server has no accounts of its own. It applies again with the first "
+        "local account.",
+        (*(f"fleet token {name} in force" for name in tokens), "local accounts: none"),
+    )
+
+
 def check_profile(facts: Facts) -> Finding:
     """ENS-PRF-01: the profile is on, so every area applies its values."""
     title = "Security profile"
@@ -785,6 +853,9 @@ def check_roles(facts: Facts) -> Finding:
     measures = ("op.acc.3", "org.1.3")
     if facts.accounts is None:
         return _unknown("ENS-ACC-01", title, measures, "accounts", facts)
+    managed = _managed_from_central("ENS-ACC-01", title, measures, facts)
+    if managed is not None:
+        return managed
     active = [a for a in facts.accounts if a.get("status") == "active"]
     roles = {str(a.get("role")) for a in active}
     evidence = [
@@ -872,6 +943,9 @@ def check_master_token(facts: Facts) -> Finding:
     evidence = [f"break-glass uses in 30 days: {uses}", f"last use: {_day(last)}"]
     if facts.accounts is None:
         return _unknown("ENS-ACC-03", title, measures, "accounts", facts)
+    managed = _managed_from_central("ENS-ACC-03", title, measures, facts)
+    if managed is not None:
+        return managed
     if not [a for a in facts.accounts if a.get("status") == "active"]:
         return Finding(
             "ENS-ACC-03",
@@ -988,10 +1062,14 @@ def _review(
 
 def check_access_review(facts: Facts) -> Finding:
     """ENS-ACC-05: accounts and roles reviewed within 90 days."""
+    title, measures = "Access review", ("op.acc.4.4",)
+    managed = _managed_from_central("ENS-ACC-05", title, measures, facts)
+    if managed is not None:
+        return managed
     return _review(
         "ENS-ACC-05",
-        "Access review",
-        ("op.acc.4.4",),
+        title,
+        measures,
         facts.audit_events.get("last_access_review"),
         ENS_MEDIUM.access_review_days,
         facts,
@@ -1045,6 +1123,9 @@ def check_sessions(facts: Facts) -> Finding:
     """ENS-SES-01: sessions lock after 15 minutes and end after 8 hours."""
     title = "Session lock and lifetime"
     measures = ("mp.eq.2",)
+    managed = _managed_from_central("ENS-SES-01", title, measures, facts)
+    if managed is not None:
+        return managed
     if facts.policy is None:
         return _unknown("ENS-SES-01", title, measures, "policy", facts)
     idle, absolute = int(facts.policy["idle_minutes"]), int(facts.policy["absolute_hours"])

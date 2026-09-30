@@ -34,7 +34,7 @@ import logging
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import click
 
@@ -43,6 +43,9 @@ from noust.core.exceptions import NoustError
 from noust.core.fs import DryRunFileSystem, set_fs
 from noust.core.logger import Colors, Logger, set_colors_disabled
 from noust.core.runner import DryRunRunner, SubprocessRunner, set_runner
+
+if TYPE_CHECKING:
+    from noust.cli.audit_policy import ReadOnlyWhen
 
 log = logging.getLogger(__name__)
 
@@ -243,10 +246,12 @@ class NoustCommand(click.Command):
     a command that changes something records its intent and its outcome, and
     accepts ``--reason`` after its name. A command that only reads says so
     with ``read_only=True`` (``@group.command("list", read_only=True)``) and
-    records nothing.
+    records nothing; a command that only reads in some of its forms (``noust
+    server reboot --status``) passes a predicate over its parsed parameters
+    instead, ``read_only=lambda params: bool(params["show_status"])``.
     """
 
-    def __init__(self, *args: Any, read_only: bool = False, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, read_only: bool | ReadOnlyWhen = False, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.read_only = read_only
         declared = {opt for param in self.params for opt in getattr(param, "opts", [])}

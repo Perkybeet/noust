@@ -210,9 +210,15 @@ def unenabled_app_units(runner: CommandRunner) -> list[str]:
     Args:
         runner: Used to ask systemd.
 
+    Each application is asked about through the units it runs as
+    (:meth:`~noust.managers.service_manager.ServiceManager.serving_units`),
+    never through the name derived from its domain: a legacy ``wasm-`` unit, a
+    monorepo's workspaces and a Compose project each have their own.
+
     Returns:
-        Units that exist and are not enabled. A template instance
-        (``shop@blue``) is left out: what is enabled for it is the template.
+        Units that are not enabled. Of a blue/green application only the
+        serving instance counts (``shop@green``): the idle one is disabled by
+        design, and with no serving colour recorded there is none to ask about.
     """
     from noust.core.store import get_store
     from noust.managers.service_manager import ServiceManager
@@ -220,8 +226,8 @@ def unenabled_app_units(runner: CommandRunner) -> list[str]:
     manager = ServiceManager(runner=runner)
     missing: list[str] = []
     for app in get_store().list_apps():
-        for unit in manager.app_units(app):
-            if "@" in unit:
+        for unit in manager.serving_units(app):
+            if "@" in unit and not getattr(app, "active_color", None):
                 continue
             state = runner.run(
                 ["systemctl", "is-enabled", f"{unit}.service"], timeout=COMMAND_TIMEOUT

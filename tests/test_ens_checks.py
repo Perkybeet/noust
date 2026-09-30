@@ -349,6 +349,83 @@ class TestFailures:
         assert finding.evidence == ("OperationalError: database is locked",)
 
 
+#: The account-based checks a node managed from its central has nothing of its own for.
+CENTRAL_MANAGED = ("ENS-ACC-01", "ENS-ACC-03", "ENS-ACC-05", "ENS-SES-01")
+
+
+def fleet_token(name: str, **extra: Any) -> dict[str, Any]:
+    return {
+        "name": name,
+        "scope": "fleet",
+        "created_at": (NOW - timedelta(days=30)).timestamp(),
+        "expires_at": None,
+        "revoked_at": None,
+        "owner_account_id": None,
+        **extra,
+    }
+
+
+def node_facts() -> Facts:
+    """A node of a fleet as production has them: no account, reached through its central."""
+    facts = good_facts()
+    facts.accounts = []
+    facts.tokens = [fleet_token("fleet-arenna-hub.2")]
+    facts.fleet_ceiling = {"level": "admin", "host_access": False}
+    facts.audit_events["last_access_review"] = None
+    facts.policy = {**(facts.policy or {}), "idle_minutes": 60, "absolute_hours": 24}
+    return facts
+
+
+class TestANodeManagedFromItsCentral:
+    def test_the_account_checks_do_not_apply_and_name_the_central(self) -> None:
+        found = by_id(evaluate(node_facts()))
+
+        for check_id in CENTRAL_MANAGED:
+            finding = found[check_id]
+            assert finding.status == "n/a", (check_id, finding.summary)
+            assert "Managed from the central arenna-hub" in finding.summary, check_id
+            assert "fleet token fleet-arenna-hub.2 in force" in finding.evidence, check_id
+            assert "local accounts: none" in finding.evidence, check_id
+            assert finding.remediation == ""
+
+    def test_they_apply_again_as_soon_as_there_is_a_local_account(self) -> None:
+        facts = node_facts()
+        facts.accounts = [account("ana", "admin")]
+
+        found = by_id(evaluate(facts))
+
+        assert found["ENS-ACC-01"].status == "fail"
+        assert found["ENS-ACC-05"].status == "fail"
+        assert found["ENS-SES-01"].status == "fail"
+
+    def test_a_revoked_or_expired_fleet_token_manages_nothing(self) -> None:
+        facts = node_facts()
+        facts.tokens = [
+            fleet_token("fleet-old", revoked_at=(NOW - timedelta(days=2)).timestamp()),
+            fleet_token("fleet-gone", expires_at=(NOW - timedelta(days=1)).timestamp()),
+        ]
+
+        found = by_id(evaluate(facts))
+
+        assert found["ENS-ACC-01"].status == "fail"
+        assert found["ENS-ACC-03"].status == "fail"
+
+    def test_a_server_outside_any_fleet_still_fails_without_accounts(self) -> None:
+        facts = node_facts()
+        facts.tokens = []
+        facts.fleet_ceiling = None
+
+        assert by_id(evaluate(facts))["ENS-ACC-01"].status == "fail"
+
+    def test_every_central_is_named(self) -> None:
+        facts = node_facts()
+        facts.tokens = [fleet_token("fleet-hub-b"), fleet_token("fleet-arenna-hub.2")]
+
+        summary = by_id(evaluate(facts))["ENS-ACC-01"].summary
+
+        assert "Managed from the centrals arenna-hub, hub-b" in summary
+
+
 class TestTheVerdict:
     def test_exit_codes_follow_the_worst_finding(self) -> None:
         def result(*statuses: str) -> checks.ComplianceCheck:

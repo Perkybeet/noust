@@ -74,6 +74,13 @@ READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = (
     ("findmnt", "--verify"),
     ("findmnt", "-no", "FSTYPE", "-T", "*"),
     ("swapon", "--show", "--bytes", "--raw", "--noheadings"),
+    # Docker's DOCKER-USER chain, and the interfaces the Internet comes in on.
+    ("iptables", "-S", "DOCKER-USER"),
+    ("ip6tables", "-S", "DOCKER-USER"),
+    ("nft", "list", "chain", "ip", "filter", "DOCKER-USER"),
+    ("nft", "list", "chain", "ip6", "filter", "DOCKER-USER"),
+    ("ip", "route", "show", "default"),
+    ("ip", "-6", "route", "show", "default"),
     # Disks and containers.
     ("ionice", "-c3", "nice", "-n", "19", "du", "-sx", "-B1", "--", "*"),
     ("docker", "system", "df", "--format", "json"),

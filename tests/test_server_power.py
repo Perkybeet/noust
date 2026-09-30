@@ -268,6 +268,120 @@ class TestChecks:
         assert unenabled_app_units(runner) == ["blog-example-com"]
 
 
+class TestTheApplicationsComeBack:
+    """
+    Each application is asked about through the units it really runs as.
+
+    On the owner's central the pre-check said ``admon-africarsrent-com`` would
+    not start again: the application runs as the legacy
+    ``wasm-admon-africarsrent-com.service``, enabled, and the name asked about
+    was the derived one, which systemd does not know.
+    """
+
+    @pytest.fixture
+    def units(self, tmp_path: Path, store, monkeypatch: pytest.MonkeyPatch) -> Path:
+        from noust.managers.service_manager import ServiceManager
+
+        managed = tmp_path / "etc/systemd/system"
+        managed.mkdir(parents=True)
+        monkeypatch.setattr(ServiceManager, "SYSTEMD_DIR", managed)
+        monkeypatch.setattr(ServiceManager, "UNIT_SEARCH_DIRS", (managed,))
+        monkeypatch.setattr("noust.core.store.get_store", lambda *a, **k: store)
+        monkeypatch.setattr("noust.managers.service_manager.get_store", lambda *a, **k: store)
+        return managed
+
+    @staticmethod
+    def _runner(**states: str) -> FakeRunner:
+        runner = FakeRunner()
+        # What systemctl says of a unit it does not know.
+        runner.script(
+            ["systemctl", "is-enabled"],
+            stderr="Failed to get unit file state: No such file or directory\n",
+            exit_code=1,
+        )
+        for unit, state in states.items():
+            runner.script(
+                ["systemctl", "is-enabled", f"{unit}.service"],
+                stdout=f"{state}\n",
+                exit_code=0 if state == "enabled" else 1,
+            )
+        return runner
+
+    @staticmethod
+    def _asked(runner: FakeRunner) -> list[str]:
+        return [call[2] for call in runner.calls if call[:2] == ("systemctl", "is-enabled")]
+
+    def test_a_legacy_unit_is_asked_about_by_its_own_name(self, store, units: Path) -> None:
+        from noust.core.store import App, Service
+
+        app = store.create_app(
+            App(domain="admon.africarsrent.com", app_path="/var/www/apps/admon-africarsrent-com")
+        )
+        (units / "wasm-admon-africarsrent-com.service").write_text("[Service]\n")
+        # What 'noust store import' records for such a unit: the derived name.
+        store.create_service(
+            Service(
+                name="admon-africarsrent-com",
+                app_id=app.id,
+                unit_file=str(units / "wasm-admon-africarsrent-com.service"),
+            )
+        )
+        runner = self._runner(**{"wasm-admon-africarsrent-com": "enabled"})
+
+        assert unenabled_app_units(runner) == []
+        assert self._asked(runner) == ["wasm-admon-africarsrent-com.service"]
+
+        disabled = self._runner(**{"wasm-admon-africarsrent-com": "disabled"})
+        assert unenabled_app_units(disabled) == ["wasm-admon-africarsrent-com"]
+
+    def test_a_legacy_unit_without_a_row_is_found_too(self, store, units: Path) -> None:
+        from noust.core.store import App
+
+        store.create_app(App(domain="old.example.com", app_path="/var/www/apps/old-example-com"))
+        (units / "wasm-old-example-com.service").write_text("[Service]\n")
+        runner = self._runner(**{"wasm-old-example-com": "enabled"})
+
+        assert unenabled_app_units(runner) == []
+        assert self._asked(runner) == ["wasm-old-example-com.service"]
+
+    def test_blue_green_the_serving_instance_must_be_enabled(self, store, units: Path) -> None:
+        from noust.core.store import App
+
+        store.create_app(
+            App(
+                domain="shop.example.com",
+                app_path="/var/www/apps/shop-example-com",
+                zero_downtime=True,
+                active_color="green",
+            )
+        )
+        (units / "shop-example-com@.service").write_text("[Service]\n")
+        # The idle instance is disabled by design: only the serving one matters.
+        healthy = self._runner(**{"shop-example-com@green": "enabled"})
+        broken = self._runner(**{"shop-example-com@green": "disabled"})
+
+        assert unenabled_app_units(healthy) == []
+        assert self._asked(healthy) == ["shop-example-com@green.service"]
+        assert unenabled_app_units(broken) == ["shop-example-com@green"]
+
+    def test_a_compose_application_is_asked_about_by_its_unit(self, store, units: Path) -> None:
+        from noust.core.store import App
+
+        store.create_app(
+            App(
+                domain="stack.example.com",
+                app_path="/var/www/apps/stack-example-com",
+                app_type="docker-compose",
+            )
+        )
+        (units / "stack-example-com.service").write_text("[Service]\n")
+
+        assert unenabled_app_units(self._runner(**{"stack-example-com": "enabled"})) == []
+        assert unenabled_app_units(self._runner(**{"stack-example-com": "disabled"})) == [
+            "stack-example-com"
+        ]
+
+
 class TestStatusAndCancelling:
     def test_the_schedule_is_systemds_file_and_the_row_says_who(self, store, host) -> None:
         manager = _manager(store, host, _healthy(FakeRunner()))

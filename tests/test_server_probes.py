@@ -83,6 +83,11 @@ class TestWhatIsNotDeclared:
             ["sysctl", "-w", "vm.swappiness=10"],
             ["needrestart", "-r", "a"],
             ["findmnt"],
+            ["iptables", "-I", "DOCKER-USER", "-p", "tcp", "--dport", "3307", "-j", "DROP"],
+            ["iptables", "-F", "DOCKER-USER"],
+            ["iptables", "-S"],
+            ["nft", "flush", "chain", "ip", "filter", "DOCKER-USER"],
+            ["ip", "route", "del", "default"],
         ],
     )
     def test_a_command_that_changes_something_is_never_a_probe(self, argv: list[str]) -> None:

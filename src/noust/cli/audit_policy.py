@@ -31,8 +31,11 @@ exactly why what it does must be recorded. The hook in
 **Read-only commands** record nothing and never need a reason. A command
 declares itself read-only with ``@group.command(..., read_only=True)``;
 commands that predate the flag are listed in :data:`READ_ONLY_COMMANDS` until
-their modules adopt it. Anything not declared is audited: the policy fails
-closed. A rehearsal (``--dry-run``) changes nothing, so it records nothing
+their modules adopt it. A command that only reads in some of its forms
+(``noust server reboot --status``, ``noust server hostname`` without a name)
+passes a predicate over its parsed parameters (:data:`ReadOnlyWhen`), so the
+form that reads needs no reason and the form that changes still does.
+Anything not declared is audited: the policy fails closed. A rehearsal (``--dry-run``) changes nothing, so it records nothing
 and needs no reason either.
 """
 
@@ -40,6 +43,7 @@ from __future__ import annotations
 
 import os
 import time
+from collections.abc import Callable, Mapping
 from contextlib import AbstractContextManager
 from types import TracebackType
 from typing import Any
@@ -57,6 +61,10 @@ from noust.core.exceptions import NoustError
 #: The profile under which every audited command needs ``--reason``; its
 #: name and its rules are :mod:`noust.core.ens.profile`'s.
 ENS_PROFILE = PROFILE_ENS_MEDIUM
+
+#: A command that only reads in some forms: its parsed parameters in, whether
+#: this invocation only reads out.
+ReadOnlyWhen = Callable[[Mapping[str, Any]], bool]
 
 #: Commands, by path, that only read. Prefer ``read_only=True`` on the
 #: command itself; this list is for commands declared before that existed.
@@ -167,19 +175,28 @@ def command_path(ctx: click.Context) -> str:
     return " ".join(reversed(names))
 
 
-def is_read_only(command: click.Command, path: str) -> bool:
+def is_read_only(
+    command: click.Command, path: str, params: Mapping[str, Any] | None = None
+) -> bool:
     """
-    Whether a command only reads.
+    Whether a command, as invoked, only reads.
 
     Args:
         command: The command.
         path: Its path, as :func:`command_path` gives it.
+        params: Its parsed parameters, for a command that only reads in some
+            of its forms; without them such a command counts as changing.
 
     Returns:
-        True when it declares ``read_only=True`` or is listed in
-        :data:`READ_ONLY_COMMANDS`.
+        True when it declares ``read_only=True``, declares a predicate that
+        holds for ``params``, or is listed in :data:`READ_ONLY_COMMANDS`.
     """
-    return bool(getattr(command, "read_only", False)) or path in READ_ONLY_COMMANDS
+    if path in READ_ONLY_COMMANDS:
+        return True
+    declared = getattr(command, "read_only", False)
+    if callable(declared):
+        return params is not None and bool(declared(params))
+    return bool(declared)
 
 
 def security_profile() -> str:
@@ -302,7 +319,7 @@ class AuditedInvocation(AbstractContextManager["AuditedInvocation"]):
             click.UsageError: The ENS profile is on and no ``--reason`` was
                 given (exit 2, before the command does anything).
         """
-        if is_read_only(self.command, self.path):
+        if is_read_only(self.command, self.path, self.ctx.params):
             return self
         state = self._state()
         if state is not None and state.dry_run_active:

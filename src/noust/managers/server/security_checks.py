@@ -769,31 +769,46 @@ class HardeningChecks:
             )
 
         bypass = [exposure for exposure in exposures if exposure.verdict == "docker_bypass"]
+        # Publications the operator refuses in DOCKER-USER, with the rule that does.
+        filtered = [exposure for exposure in exposures if exposure.filtered_by]
+        covered = [_describe(exposure) for exposure in filtered]
+        unread = self.firewall.docker_user_errors()
         if not bypass:
-            results.append(
-                _result(
-                    "fw.docker_bypass",
-                    True,
-                    "Docker publishes no port around the firewall."
-                    if state.active
-                    else "No firewall is active for Docker to get around.",
+            if filtered:
+                reason = (
+                    f"Docker publishes {len(filtered)} port(s) on every interface, and the "
+                    "DOCKER-USER chain refuses every one of them on the public interface."
                 )
-            )
+            elif state.active:
+                reason = "Docker publishes no port around the firewall."
+            else:
+                reason = "No firewall is active for Docker to get around."
+            results.append(_result("fw.docker_bypass", True, reason, [*covered, *unread]))
         else:
+            ports = len({(exposure.proto, exposure.port) for exposure in bypass})
             results.append(
                 _result(
                     "fw.docker_bypass",
                     False,
-                    f"Docker publishes {len(bypass)} port(s) on every interface; {state.backend} "
-                    "is active but does not filter them, because Docker's rules come first.",
-                    [_describe(exposure) for exposure in bypass],
+                    f"Docker publishes {ports} port(s) on every interface that {state.backend} "
+                    "does not filter, because Docker's rules come first, and no DOCKER-USER "
+                    "rule refuses them on the public interface"
+                    + (
+                        f" ({len(filtered)} other publication(s) it does refuse)."
+                        if filtered
+                        else "."
+                    ),
+                    [*(_describe(exposure) for exposure in bypass), *covered, *unread],
                     _guided(
-                        "Publish on 127.0.0.1 only",
+                        "Publish on 127.0.0.1 only, or refuse the port in DOCKER-USER",
                         'In the Compose file, write the port as "127.0.0.1:<host port>:<container '
                         'port>", then docker compose up -d',
                         'For every container at once: "ip": "127.0.0.1" in '
                         "/etc/docker/daemon.json, then systemctl restart docker (restarts every "
                         "container)",
+                        "Or refuse it on the public interface, and keep the rule across "
+                        "reboots: iptables -I DOCKER-USER -i <interface> -p tcp -m conntrack "
+                        "--ctorigdstport <host port> -j DROP",
                         "Reading: https://docs.docker.com/engine/network/packet-filtering-firewalls/",
                     ),
                     severity="critical"
@@ -1359,6 +1374,11 @@ def _describe(exposure: PortExposure) -> str:
     """
     address = f"[{exposure.address}]" if ":" in exposure.address else exposure.address
     label = f" ({exposure.risky})" if exposure.risky else ""
+    if exposure.filtered_by:
+        return (
+            f"{address}:{exposure.port}/{exposure.proto} {exposure.process or 'unknown'}{label}: "
+            f"{exposure.filtered_by}"
+        )
     verdicts = {
         "open": "open to everyone",
         "open_to": "open to " + ", ".join(exposure.sources),

@@ -678,3 +678,74 @@ def test_the_error_boundary_prints_a_managers_refusal_and_exits_1(machine, capsy
 
     assert code == 1
     assert "Not a valid host name" in capsys.readouterr().out
+
+
+class TestWhatOnlyReadsNeedsNoReason:
+    """
+    Under ``security.profile: ens-medium`` every change needs ``--reason``, and
+    nothing that only reads does: ``noust server reboot --status`` demanded one on
+    the owner's central because the command as a whole changes the machine.
+    """
+
+    @pytest.fixture
+    def ens(self, machine, monkeypatch: pytest.MonkeyPatch):
+        from noust.cli import audit_policy
+
+        monkeypatch.setattr(audit_policy, "security_profile", lambda: "ens-medium")
+        return machine
+
+    @pytest.mark.parametrize(
+        "args",
+        [
+            ["server", "reboot", "--status"],
+            ["server", "reboot", "--status", "--json"],
+            ["server", "cleanup", "journal", "--plan", "--size-mb", "100"],
+            ["server", "hostname"],
+            ["server", "status"],
+            ["server", "storage"],
+            ["server", "swap", "status"],
+            ["server", "time", "status"],
+            ["server", "updates", "list"],
+        ],
+    )
+    def test_reading_runs_without_a_reason(self, ens, args: list[str]) -> None:
+        result = run(args)
+
+        assert result.exit_code == 0, said(result)
+        assert "--reason" not in result.output
+
+    @pytest.mark.parametrize(
+        "args",
+        [
+            ["server", "reboot", "--yes"],
+            ["server", "reboot", "--cancel"],
+            ["server", "shutdown", "--yes"],
+            ["server", "cleanup", "journal", "--size-mb", "100"],
+            ["server", "hostname", "web-2"],
+        ],
+    )
+    def test_changing_still_needs_one(self, ens, args: list[str]) -> None:
+        result = run(args)
+
+        assert result.exit_code == 2, said(result)
+        assert "--reason" in result.output
+        assert not ens.runner.ran("shutdown")
+        assert not ens.runner.ran("hostnamectl", "set-hostname")
+        assert not ens.runner.ran("journalctl", "--vacuum-size=100M")
+
+    def test_the_read_only_forms_are_declared_on_the_commands(self) -> None:
+        from noust.cli.audit_policy import is_read_only
+
+        reboot = server_cli.cli.commands["reboot"]
+        cleanup = server_cli.cli.commands["cleanup"]
+        hostname = server_cli.cli.commands["hostname"]
+
+        assert is_read_only(reboot, "server reboot", {"show_status": True, "cancel": False})
+        assert not is_read_only(reboot, "server reboot", {"show_status": False, "cancel": False})
+        assert not is_read_only(reboot, "server reboot", {"show_status": True, "cancel": True})
+        assert is_read_only(cleanup, "server cleanup", {"plan_only": True})
+        assert not is_read_only(cleanup, "server cleanup", {"plan_only": False})
+        assert is_read_only(hostname, "server hostname", {"name": None})
+        assert not is_read_only(hostname, "server hostname", {"name": "web-2"})
+        # Without the arguments a conditional declaration is no declaration.
+        assert not is_read_only(reboot, "server reboot")
