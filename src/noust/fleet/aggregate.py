@@ -1316,6 +1316,7 @@ class Aggregator:
 
     def _submit(
         self,
+        pool: ThreadPoolExecutor,
         key: tuple[str, str, str],
         source: Source,
         resource: Resource,
@@ -1324,7 +1325,11 @@ class Aggregator:
         """
         Ask a server, or join the request already asking it the same thing.
 
+        The caller holds ``self._lock``, so that its look at the cache and this
+        one at the requests in flight are one.
+
         Args:
+            pool: Where requests run (taken before the lock: it takes it too).
             key: The cache key.
             source: The server.
             resource: The view.
@@ -1333,14 +1338,12 @@ class Aggregator:
         Returns:
             The request's future.
         """
-        pool = self._pool()
-        with self._lock:
-            running = self._inflight.get(key)
-            if running is not None:
-                return running
-            future = pool.submit(self._run, key, source, resource, params)
-            self._inflight[key] = future
-            return future
+        running = self._inflight.get(key)
+        if running is not None:
+            return running
+        future = pool.submit(self._run, key, source, resource, params)
+        self._inflight[key] = future
+        return future
 
     # --------------------------------------------------------- reachability
 
@@ -1486,15 +1489,19 @@ class Aggregator:
         fetched: dict[int, Fetched] = {}
         futures: dict[int, Future[Fetched]] = {}
         keys: dict[int, tuple[str, str, str]] = {}
+        pool = self._pool()
         for index, source in enumerate(sources):
             key = (source.cache_key, resource.name, params_key)
             keys[index] = key
+            # One look at the cache and the requests in flight, under one lock:
+            # a request that finished between two separate looks had left the
+            # cache warm and itself gone, and a second request went out.
             with self._lock:
                 cached = self._cache.get(key)
-            if cached is not None and not refresh and now - cached.fetched_mono < resource.ttl:
-                fetched[index] = cached
-            else:
-                futures[index] = self._submit(key, source, resource, checked)
+                if cached is not None and not refresh and now - cached.fetched_mono < resource.ttl:
+                    fetched[index] = cached
+                else:
+                    futures[index] = self._submit(pool, key, source, resource, checked)
         if futures:
             wait_futures(list(futures.values()), timeout=deadline)
         for index, future in futures.items():
