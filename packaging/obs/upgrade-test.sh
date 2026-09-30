@@ -39,7 +39,7 @@ new=$(cd "${3:?usage: upgrade-test.sh deb|rpm OLD_REPOSITORY NEW_PACKAGES_DIR}" 
 MARKER="# kept across the upgrade to noust"
 
 skip() {
-    echo "::warning::Upgrade from 2.x not exercised: $1"
+    echo "::warning::Upgrade not exercised: $1"
     exit 0
 }
 
@@ -119,6 +119,51 @@ check_migrated() {
     echo "Migrated: /etc/wasm and /var/lib/wasm are links, noust.db exists, no wasm-web or wasm-monitor unit is left"
 }
 
+# What a 3.x server has: its configuration, a store at the previous schema,
+# and with systemd the monitor and the console as units.
+prepare_3x_server() {
+    # A fresh 3.x package writes its configuration and store on first use, as
+    # an operator's first command would; the store goes to /var/lib/noust only
+    # when that directory exists (the services' StateDirectory= creates it).
+    mkdir -p /var/lib/noust
+    noust list > /dev/null 2>&1 || true
+    [ -f /etc/noust/config.yaml ] || noust config upgrade > /dev/null 2>&1 || true
+    [ -f /etc/noust/config.yaml ] || fail "noust $installed wrote no /etc/noust/config.yaml"
+    echo "$MARKER" >> /etc/noust/config.yaml
+    [ -s /var/lib/noust/noust.db ] || fail "noust $installed did not create its store in /var/lib/noust"
+
+    web_was_active=
+    monitor_was_enabled=
+    if have_systemd; then
+        if noust monitor enable > /dev/null 2>&1 && systemctl is-enabled --quiet noust-monitor.service; then
+            monitor_was_enabled=1
+        fi
+        if python3 -c "import fastapi" 2> /dev/null && noust web enable > /dev/null 2>&1; then
+            for _ in $(seq 1 20); do
+                systemctl is-active --quiet noust-web.service && break
+                sleep 1
+            done
+            systemctl is-active --quiet noust-web.service && web_was_active=1
+        fi
+    fi
+    echo "Before the upgrade: noust $installed, noust-monitor enabled: ${monitor_was_enabled:-no}, noust-web active: ${web_was_active:-no}"
+}
+
+check_3x_upgraded() {
+    noust list > /dev/null 2>&1 || fail "noust list failed after the upgrade"
+    ls /var/lib/noust/noust.db.v*.bak > /dev/null 2>&1 \
+        || fail "no copy of the store was kept before migrating it"
+    if [ -n "$monitor_was_enabled" ]; then
+        systemctl is-enabled --quiet noust-monitor.service \
+            || fail "noust-monitor was enabled and is not after the upgrade"
+    fi
+    if [ -n "$web_was_active" ]; then
+        systemctl is-active --quiet noust-web.service \
+            || fail "noust-web was running and is not after the upgrade"
+    fi
+    echo "Upgraded from $installed: the store was copied before migrating, the units kept their state"
+}
+
 # Run the package's scripts again, as the next upgrade would.
 reinstall_noust() {
     case "$kind" in
@@ -155,7 +200,7 @@ check_monitor_decisions_survive() {
 
     # And 3.1's own uninstall is remembered the same way.
     noust monitor enable --reason upgrade-test > /dev/null
-    noust monitor uninstall --reason upgrade-test > /dev/null
+    noust monitor uninstall --yes --reason upgrade-test > /dev/null
     [ -f /var/lib/noust/monitor-declined ] || fail "noust monitor uninstall left no marker"
     reinstall_noust
     [ ! -e "$unit" ] || fail "an uninstalled monitor was installed again by the upgrade"
@@ -177,10 +222,17 @@ case "$kind" in
 
         installed=$(dpkg-query -W -f '${Version}' wasm)
         case "$installed" in
-            2.*) echo "Installed wasm $installed from $old" ;;
-            *) skip "$old serves wasm $installed, not 2.x" ;;
+            2.*) from=2; echo "Installed wasm $installed from $old"; prepare_old_server ;;
+            3.*)
+                from=3
+                # A 3.x operator installed noust itself (manually); only a 2.x
+                # server reaches noust through the transitional wasm package.
+                apt-get install -y noust > /dev/null
+                installed=$(dpkg-query -W -f '${Version}' noust)
+                prepare_3x_server
+                ;;
+            *) skip "$old serves wasm $installed, neither 2.x nor 3.x" ;;
         esac
-        prepare_old_server
 
         mkdir -p /srv/new
         cp "$new"/*.deb /srv/new/
@@ -199,7 +251,7 @@ case "$kind" in
         esac
         check_commands
         config_kept || fail "the configuration did not survive the upgrade"
-        check_migrated
+        if [ "$from" = 2 ]; then check_migrated; else check_3x_upgraded; fi
         check_monitor_decisions_survive
 
         # The transitional package is in section oldlibs, and apt moves the
@@ -232,10 +284,10 @@ case "$kind" in
 
         installed=$(rpm -q --qf '%{VERSION}' wasm-cli)
         case "$installed" in
-            2.*) echo "Installed wasm-cli $installed from $old" ;;
-            *) skip "$old serves wasm-cli $installed, not 2.x" ;;
+            2.*) from=2; echo "Installed wasm-cli $installed from $old"; prepare_old_server ;;
+            3.*) from=3; installed=$(rpm -q --qf '%{VERSION}' noust); prepare_3x_server ;;
+            *) skip "$old serves wasm-cli $installed, neither 2.x nor 3.x" ;;
         esac
-        prepare_old_server
 
         mkdir -p /srv/new
         cp "$new"/*.noarch.rpm /srv/new/
@@ -258,7 +310,7 @@ case "$kind" in
                 fail "$leftover was left behind"
             fi
         done
-        check_migrated
+        if [ "$from" = 2 ]; then check_migrated; else check_3x_upgraded; fi
         check_monitor_decisions_survive
 
         # dnf records noust as installed for a dependency, and removing
@@ -277,4 +329,4 @@ case "$kind" in
         ;;
 esac
 
-echo "The upgrade from 2.x to $(noust --version 2>&1 | head -n 1) keeps the configuration and both commands"
+echo "The upgrade from $installed to $(noust --version 2>&1 | head -n 1) keeps the configuration and both commands"
