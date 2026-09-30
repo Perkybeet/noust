@@ -10,7 +10,7 @@
 #
 
 Name:           noust
-Version:        3.1.6
+Version:        3.1.7
 Release:        1%{?dist}
 Summary:        Deploy and manage web applications on Linux servers
 License:        AGPL-3.0-or-later
@@ -390,6 +390,10 @@ if [ -f /etc/systemd/system/wasm-web.service ]; then
 fi
 
 %changelog
+* Wed Sep 30 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.7-1
+- Updates are no longer refused because packagekitd or aptd is running: those daemons stay up after every apt run, and now count as busy only while they hold the package manager's lock (read from /proc/locks, never taken); any process holding it counts, whatever its name
+- noust audit show finds an event whose id is made only of digits
+- The central asks a node once when several views load at the same moment
 * Wed Sep 30 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.6-1
 - The console and the monitor no longer set User=root in their units: combined with NoNewPrivileges and ProtectKernelLogs, systemd 255 started them without CAP_SETUID, so apt could not drop to _apt and every Noust or system update started from the console or a fleet job failed with 'seteuid 42 failed'
 - New 'noust web refresh-unit' rewrites noust-web.service from this version's template, keeping where the console listens; the deb and rpm packages run it on upgrade, before restarting the console
