@@ -53,6 +53,22 @@ def _pid_alive(pid: int) -> bool:
         return False
 
 
+def _open_files(pid: int) -> set[str]:
+    """
+    What a process holds open, by what each descriptor points at.
+
+    A child still starting closes descriptors while they are listed (CI saw
+    one vanish between iterdir and readlink); those are skipped.
+    """
+    held: set[str] = set()
+    for fd in Path(f"/proc/{pid}/fd").iterdir():
+        try:
+            held.add(os.readlink(fd))
+        except FileNotFoundError:
+            continue
+    return held
+
+
 @pytest.mark.allow_subprocess
 class TestSubprocessStart:
     def test_a_started_process_runs_until_terminated(self):
@@ -138,8 +154,7 @@ class TestSubprocessStart:
         inode = os.fstat(listener.fileno()).st_ino
         handle = SubprocessRunner().start([sys.executable, "-c", "import time; time.sleep(60)"])
         try:
-            fds = Path(f"/proc/{handle.pid}/fd")
-            held = {os.readlink(fd) for fd in fds.iterdir()}
+            held = _open_files(handle.pid)
             assert f"socket:[{inode}]" not in held
 
             listener.close()
