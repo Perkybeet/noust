@@ -1,3 +1,10 @@
+noust (3.1.3-1) unstable; urgency=medium
+
+  * Sandboxed builds use corepack's known-good package manager, as root builds did
+  * Activity no longer shifts while it loads
+
+ -- Yago Lopez Prado <yago.lopez.adeje@gmail.com>  Wed, 30 Sep 2026 15:17:57 +0000
+
 noust (3.1.2-1) unstable; urgency=medium
 
   * An empty service_group no longer breaks sandboxed builds

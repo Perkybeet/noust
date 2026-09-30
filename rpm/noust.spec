@@ -10,7 +10,7 @@
 #
 
 Name:           noust
-Version:        3.1.2
+Version:        3.1.3
 Release:        1%{?dist}
 Summary:        Deploy and manage web applications on Linux servers
 License:        AGPL-3.0-or-later
@@ -386,6 +386,9 @@ if [ -f /etc/systemd/system/wasm-web.service ]; then
 fi
 
 %changelog
+* Wed Sep 30 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.3-1
+- Sandboxed builds use corepack's known-good package manager, as root builds did
+- Activity no longer shifts while it loads
 * Wed Sep 30 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.2-1
 - An empty service_group no longer breaks sandboxed builds
 - Activity's Operations view filters on the server and shows every job
