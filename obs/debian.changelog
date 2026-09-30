@@ -1,3 +1,10 @@
+noust (3.1.6-1) unstable; urgency=medium
+
+  * The console and the monitor no longer set User=root in their units: combined with NoNewPrivileges and ProtectKernelLogs, systemd 255 started them without CAP_SETUID, so apt could not drop to _apt and every Noust or system update started from the console or a fleet job failed with 'seteuid 42 failed'
+  * New 'noust web refresh-unit' rewrites noust-web.service from this version's template, keeping where the console listens; the deb and rpm packages run it on upgrade, before restarting the console
+
+ -- Yago Lopez Prado <yago.lopez.adeje@gmail.com>  Wed, 30 Sep 2026 20:06:00 +0000
+
 noust (3.1.5-1) unstable; urgency=medium
 
   * The Docker firewall check no longer counts a DOCKER-USER rule that names the host port with --dport: Docker has already translated it, so it filtered nothing where host and container ports differ; --ctorigdstport and --ctdir are read

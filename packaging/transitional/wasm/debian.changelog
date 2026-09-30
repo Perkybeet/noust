@@ -1,3 +1,9 @@
+wasm (3.1.6-1) unstable; urgency=medium
+
+  * WASM is now Noust: this package only installs noust 3.1.6 and can be removed
+
+ -- Yago Lopez Prado <yago.lopez.adeje@gmail.com>  Wed, 30 Sep 2026 20:06:00 +0000
+
 wasm (3.1.5-1) unstable; urgency=medium
 
   * WASM is now Noust: this package only installs noust 3.1.5 and can be removed

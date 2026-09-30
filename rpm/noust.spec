@@ -10,7 +10,7 @@
 #
 
 Name:           noust
-Version:        3.1.5
+Version:        3.1.6
 Release:        1%{?dist}
 Summary:        Deploy and manage web applications on Linux servers
 License:        AGPL-3.0-or-later
@@ -390,6 +390,9 @@ if [ -f /etc/systemd/system/wasm-web.service ]; then
 fi
 
 %changelog
+* Wed Sep 30 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.6-1
+- The console and the monitor no longer set User=root in their units: combined with NoNewPrivileges and ProtectKernelLogs, systemd 255 started them without CAP_SETUID, so apt could not drop to _apt and every Noust or system update started from the console or a fleet job failed with 'seteuid 42 failed'
+- New 'noust web refresh-unit' rewrites noust-web.service from this version's template, keeping where the console listens; the deb and rpm packages run it on upgrade, before restarting the console
 * Wed Sep 30 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.5-1
 - The Docker firewall check no longer counts a DOCKER-USER rule that names the host port with --dport: Docker has already translated it, so it filtered nothing where host and container ports differ; --ctorigdstport and --ctdir are read
 - IPv6 publications on a server without an IPv6 default route are not reported as exposed
