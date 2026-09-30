@@ -794,6 +794,7 @@ class Firewall:
         self._state: FirewallState | None = None
         self._docker_user: dict[str, DockerUserChain] = {}
         self._interfaces: tuple[str, ...] | None = None
+        self._routes: dict[str, tuple[str, ...]] = {}
 
     def _run(self, argv: list[str]) -> CommandResult:
         """
@@ -947,20 +948,53 @@ class Firewall:
         if self._interfaces is not None:
             return self._interfaces
         found: list[str] = []
-        if self.probe.runner.exists("ip"):
-            for argv in (
-                ["ip", "route", "show", "default"],
-                ["ip", "-6", "route", "show", "default"],
-            ):
-                result = self._run(argv)
-                if result.success:
-                    found += [
-                        name
-                        for name in parse_default_interfaces(result.stdout)
-                        if name not in found
-                    ]
+        for family in ("ipv4", "ipv6"):
+            found += [name for name in self.default_routes(family) if name not in found]
         self._interfaces = tuple(found)
         return self._interfaces
+
+    def default_routes(self, family: str) -> tuple[str, ...]:
+        """
+        The interfaces of one address family's default routes.
+
+        Args:
+            family: ``ipv4`` or ``ipv6``.
+
+        Returns:
+            Their names; empty when ``ip`` is missing or says none.
+        """
+        if family not in self._routes:
+            found: tuple[str, ...] = ()
+            if self.probe.runner.exists("ip"):
+                argv = ["ip", "route", "show", "default"]
+                if family == "ipv6":
+                    argv.insert(1, "-6")
+                result = self._run(argv)
+                if result.success:
+                    found = parse_default_interfaces(result.stdout)
+            self._routes[family] = found
+        return self._routes[family]
+
+    def unrouted(self, port: DockerPort) -> str:
+        """
+        Say why the Internet cannot reach an IPv6 publication at all.
+
+        Docker publishes on ``[::]`` as well as ``0.0.0.0`` whether or not the
+        server has IPv6; without an IPv6 default route nothing from outside can
+        answer back, so that publication is not an exposure. The owner's central
+        was told its six IPv6 publications were open when it has no IPv6 address.
+
+        Args:
+            port: The publication.
+
+        Returns:
+            The reason, or empty when it is reachable (or IPv4).
+        """
+        if ":" not in port.host_address or not self.probe.runner.exists("ip"):
+            return ""
+        if self.default_routes("ipv6"):
+            return ""
+        return "no IPv6 default route: nothing outside reaches it over IPv6"
 
     def docker_user_errors(self) -> list[str]:
         """
@@ -1154,8 +1188,9 @@ class Firewall:
         for port in published:
             if not port.public:
                 continue
-            coverage = self.docker_filter(port)
-            if coverage is not None:
+            unrouted = self.unrouted(port)
+            coverage = None if unrouted else self.docker_filter(port)
+            if unrouted or coverage is not None:
                 verdict = "blocked"
             else:
                 verdict = "docker_bypass" if state.active else "no_firewall"
@@ -1169,7 +1204,7 @@ class Firewall:
                     risky=RISKY_PORTS.get(port.container_port, "")
                     or RISKY_PORTS.get(port.host_port, ""),
                     docker=port,
-                    filtered_by=coverage.describe() if coverage is not None else "",
+                    filtered_by=coverage.describe() if coverage is not None else unrouted,
                 )
             )
         return found, error

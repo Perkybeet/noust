@@ -19,7 +19,12 @@ on the public interface: the interface of the default route, or every interface.
 
 The chain is walked in order, the way the kernel does, and only what can be
 proven counts as filtering: a ``DROP`` or ``REJECT`` that applies to every source
-and to the port (its host port, or its container port) on that interface. A
+and to the port on that interface. Docker has already rewritten the destination
+when a packet reaches the chain, so ``--dport`` sees the container's port and
+only ``-m conntrack --ctorigdstport`` sees the host's: a rule that names the
+host port with ``--dport`` refuses nothing where the two differ (the owner's
+central had one for ``3307->3306``, with a firewall upstream as the only thing
+closing it). A
 ``RETURN`` or ``ACCEPT`` that lets the port through first ends the walk;
 ``RELATED,ESTABLISHED`` rules never decide a new connection and are passed
 over; a rule with a condition this module does not read (a source, a mark, a
@@ -64,6 +69,7 @@ _IPTABLES_ARGUMENTS = frozenset(
         "--dports",
         "--destination-ports",
         "--ctorigdstport",
+        "--ctdir",
         "--ctstate",
         "--state",
         "-j",
@@ -177,13 +183,12 @@ class FilterRule:
                 return f"host port {host_port}"
         if self.ports is None:
             return "every port"
-        # The chain sees the container's port: that one first.
+        # The chain sees the translated destination: the host port a --dport
+        # names is not the one it compares against.
         if within(self.ports, container_port):
             if container_port == host_port:
                 return f"port {host_port}"
             return f"container port {container_port}"
-        if within(self.ports, host_port):
-            return f"host port {host_port}"
         return None
 
 
@@ -269,7 +274,15 @@ def _rule_from(
         return None
 
     port_options = ("--dport", "--destination-port", "--dports", "--destination-ports")
-    if negated & {"-p", "--protocol", "--ctorigdstport", "--ctstate", "--state", *port_options}:
+    if negated & {
+        "-p",
+        "--protocol",
+        "--ctorigdstport",
+        "--ctdir",
+        "--ctstate",
+        "--state",
+        *port_options,
+    }:
         unknown = True
     ports: tuple[tuple[int, int], ...] | None = None
     port_text = value(*port_options)
@@ -290,6 +303,12 @@ def _rule_from(
     if states is not None:
         named = {state.strip().upper() for state in states.split(",")}
         established = named <= _NOT_NEW
+    # A rule for the reply direction never sees a stranger's first packet.
+    direction = value("--ctdir")
+    if direction is not None and direction.upper() == "REPLY":
+        established = True
+    elif direction is not None and direction.upper() != "ORIGINAL":
+        unknown = True
     target = value("-j", "--jump") or ""
     interface = values.get("-i") or values.get("--in-interface")
     return FilterRule(
@@ -423,6 +442,9 @@ def _nft_rule(line: str) -> FilterRule:
             if key == "state":
                 fields["--ctstate"] = value
                 word = "--ctstate"
+            elif key == "direction":
+                fields["--ctdir"] = value
+                word = "--ctdir"
             elif key == "original" and value in ("proto-dst", "dport"):
                 ports, index = _nft_set(tokens, index)
                 fields["--ctorigdstport"] = ports
@@ -489,13 +511,11 @@ class Coverage:
         rule: The rule that refuses it, verbatim.
         port: Which of its ports the rule names (``host port 3307``).
         interfaces: Where: the public interfaces, or ``every interface``.
-        note: A caveat for the evidence, empty when there is none.
     """
 
     rule: str
     port: str
     interfaces: str
-    note: str = ""
 
     def describe(self) -> str:
         """
@@ -504,9 +524,7 @@ class Coverage:
         Returns:
             Such as ``DOCKER-USER '-A ... -j DROP' (host port 3307, on ens6)``.
         """
-        return f"filtered by {CHAIN} '{self.rule}' ({self.port}, on {self.interfaces})" + (
-            f"; {self.note}" if self.note else ""
-        )
+        return f"filtered by {CHAIN} '{self.rule}' ({self.port}, on {self.interfaces})"
 
 
 def _decides(
@@ -594,24 +612,4 @@ class DockerUserChain:
             if all(each.interface is None for each, _ in found)
             else ", ".join(self.interfaces)
         )
-        return Coverage(rule.text, matched, where, _note(matched, rule))
-
-
-def _note(matched: str, rule: FilterRule) -> str:
-    """
-    The caveat of a rule that names the host port as the chain sees it.
-
-    Args:
-        matched: Which port the rule named.
-        rule: The rule.
-
-    Returns:
-        The caveat, or empty.
-    """
-    if matched.startswith("host port") and rule.original_ports is None:
-        return (
-            "matched on the host port: Docker rewrites the destination before "
-            f"{CHAIN}, so where host and container ports differ, confirm it from "
-            "outside or match with -m conntrack --ctorigdstport"
-        )
-    return ""
+        return Coverage(rule.text, matched, where)

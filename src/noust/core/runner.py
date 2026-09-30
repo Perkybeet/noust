@@ -2394,6 +2394,15 @@ def _git_probes() -> tuple[tuple[object, ...], ...]:
         (),
         # SourceManager's: no ext:: or file:: transport, whatever a URL says.
         ("-c", "protocol.ext.allow=never", "-c", "protocol.file.allow=never"),
+        # SourceManager's reading a checkout it does not own (get_repo_info).
+        (
+            "-c",
+            "protocol.ext.allow=never",
+            "-c",
+            "protocol.file.allow=never",
+            "-c",
+            "safe.directory=*",
+        ),
         # migrate.py's look at a tree it does not own.
         ("-c", "safe.directory=*", "--no-optional-locks"),
     )

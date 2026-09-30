@@ -49,7 +49,7 @@ def test_command(ctx: Context, channel: str) -> None:
     ctx.logger.success(f"Test message sent through {channel}.")
 
 
-@cli.command("telegram-chats")
+@cli.command("telegram-chats", read_only=True)
 @global_flags
 @json_option("Print the chats as a JSON array.")
 @pass_context

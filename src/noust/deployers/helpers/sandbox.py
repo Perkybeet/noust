@@ -99,6 +99,11 @@ BUILD_GROUP = "noust-build"
 #: stack builds inside the Docker daemon.
 UNSUPPORTED_TYPES = frozenset({"docker-compose"})
 
+#: Application types a deploy runs no code for: a static site is copied and
+#: served, with nothing to install, build or hook, so there is nothing for the
+#: sandbox to hold and nothing to warn about.
+NOTHING_TO_BUILD_TYPES = frozenset({"static"})
+
 #: Deadlines for the account and the self-test, which are quick local commands.
 _ACCOUNT_TIMEOUT = 60
 _SELF_TEST_TIMEOUT = 60
@@ -757,6 +762,8 @@ def sandbox_warning(app: App, state: SandboxState | None = None) -> str | None:
     """
     if (app.app_type or "") == "docker-compose":
         return _compose_warning(app)
+    if (app.app_type or "") in NOTHING_TO_BUILD_TYPES:
+        return None
     state = state or get_state(app.domain)
     if state.mode == SandboxMode.OFF.value:
         return (

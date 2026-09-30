@@ -41,7 +41,7 @@ import pytest
 
 from noust.core.exceptions import SourceError, ValidationError
 from noust.core.logger import Logger
-from noust.core.runner import CommandResult, FakeRunner
+from noust.core.runner import CommandResult, FakeRunner, is_read_only
 from noust.core.store import NoustStore
 from noust.deployers import lifecycle
 from noust.managers.source_manager import (
@@ -77,6 +77,13 @@ GIT = ("git", "-c", "protocol.ext.allow=never", "-c", "protocol.file.allow=never
 
 FULL = "0123456789abcdef0123456789abcdef01234567"
 
+#: What SourceManager adds to a git command that only reads a checkout.
+TRUST = ("-c", "safe.directory=*")
+
+
+def _without_trust(args: tuple[str, ...]) -> tuple[str, ...]:
+    return args[len(TRUST) :] if args[: len(TRUST)] == TRUST else args
+
 
 # ---------------------------------------------------------------------------
 # A git that answers per subcommand
@@ -99,7 +106,7 @@ class GitRunner(FakeRunner):
     def run(self, argv: Any, **kwargs: Any) -> CommandResult:
         result = super().run(argv, **kwargs)
         if tuple(argv[: len(GIT)]) == GIT:
-            custom = self.answer(tuple(argv[len(GIT) :]))
+            custom = self.answer(_without_trust(tuple(argv[len(GIT) :])))
             if custom is not None:
                 code, out, err = custom
                 return CommandResult(argv=tuple(argv), exit_code=code, stdout=out, stderr=err)
@@ -107,7 +114,7 @@ class GitRunner(FakeRunner):
 
     def git(self) -> list[tuple[str, ...]]:
         """Every git call, without the common prefix."""
-        return [call[len(GIT) :] for call in self.calls if call[: len(GIT)] == GIT]
+        return [_without_trust(call[len(GIT) :]) for call in self.calls if call[: len(GIT)] == GIT]
 
 
 def git_envs(runner: GitRunner) -> list[Any]:
@@ -134,6 +141,25 @@ def test_a_commit_the_clone_has_is_resolved_without_the_network(tmp_path: Path) 
     assert SourceManager(runner=runner).resolve_commit(tmp_path, "0123ABC") == FULL
     assert ("rev-parse", "--verify", "0123abc^{commit}") in runner.git()
     assert not any(call[0] == "fetch" for call in runner.git())
+
+
+def test_the_deployed_commit_is_read_from_a_tree_root_does_not_own(tmp_path: Path) -> None:
+    """In-place trees belong to www-data; git called that dubious and the trial found no commit."""
+    (tmp_path / ".git").mkdir()
+
+    def answer(args: tuple[str, ...]) -> tuple[int, str, str] | None:
+        if args[:2] == ("rev-parse", "--short"):
+            return 0, "84c23e0\n", ""
+        return None
+
+    runner = GitRunner(answer)
+    info = SourceManager(runner=runner).get_repo_info(tmp_path)
+
+    assert info["commit"] == "84c23e0"
+    reads = [call for call in runner.calls if call[: len(GIT)] == GIT]
+    assert reads and all(call[len(GIT) : len(GIT) + 2] == TRUST for call in reads)
+    looks = [call for call in reads if "rev-parse" in call or "status" in call]
+    assert looks and all(is_read_only(call) for call in looks)
 
 
 def test_an_abbreviation_missing_from_a_shallow_clone_fetches_the_history(

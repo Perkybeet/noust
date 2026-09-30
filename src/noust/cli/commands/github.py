@@ -62,7 +62,7 @@ def status_command(ctx: Context) -> None:
         logger.info("Give the hooks a public name: noust web expose-hooks hooks.example.com")
 
 
-@cli.command("installations")
+@cli.command("installations", read_only=lambda params: not params["sync"])
 @click.option("--sync", is_flag=True, help="Ask GitHub first and record what it lists.")
 @json_option("Print the installations as JSON.")
 @pass_context

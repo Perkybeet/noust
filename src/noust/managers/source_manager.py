@@ -141,6 +141,11 @@ _WINDOWS_DRIVE_RE = re.compile(r"^[A-Za-z]:")
 #: recursive clone; these two settings close that path.
 _GIT_SAFE_CONFIG = ("-c", "protocol.ext.allow=never", "-c", "protocol.file.allow=never")
 
+#: Reading a checkout root does not own (an in-place tree belongs to the
+#: service's user): git refuses it as "dubious ownership" otherwise, and a
+#: look at which commit is deployed found none. Only for commands that read.
+_GIT_TRUST_TREE = ("-c", "safe.directory=*")
+
 #: The ssh git runs. BatchMode makes ssh fail instead of asking for a
 #: passphrase, a password or a host key confirmation on the terminal.
 #: accept-new is the host key policy Noust already applies when it tests a
@@ -1753,6 +1758,7 @@ class SourceManager(BaseManager):
         cwd: Path | None = None,
         timeout: int = GIT_TIMEOUT,
         auth: Mapping[str, str] | None = None,
+        trust_tree: bool = False,
     ) -> CommandResult:
         """
         Run a git command through the command runner.
@@ -1764,12 +1770,14 @@ class SourceManager(BaseManager):
             auth: Credential environment for a remote named by URL (see
                 :func:`split_url_credentials`). None uses the one recorded
                 for ``cwd``, if any.
+            trust_tree: Read ``cwd`` whoever owns it (:data:`_GIT_TRUST_TREE`);
+                for commands that only read.
 
         Returns:
             The command outcome, with credentials redacted from its stderr.
             Its stdout is returned as git wrote it, because callers parse it.
         """
-        argv = ["git", *_GIT_SAFE_CONFIG, *args]
+        argv = ["git", *_GIT_SAFE_CONFIG, *(_GIT_TRUST_TREE if trust_tree else ()), *args]
         env = git_environment()
         if auth is None and cwd is not None:
             auth = self._remote_auth.get(os.path.abspath(cwd))
@@ -2560,10 +2568,12 @@ class SourceManager(BaseManager):
             The branch :meth:`checkout_commit` remembered, else the remote's
             default branch, else None.
         """
-        remembered = self._git(["config", "--get", FOLLOW_BRANCH_KEY], cwd=path)
+        remembered = self._git(["config", "--get", FOLLOW_BRANCH_KEY], cwd=path, trust_tree=True)
         if remembered.success and remembered.stdout.strip():
             return remembered.stdout.strip()
-        default = self._git(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], cwd=path)
+        default = self._git(
+            ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], cwd=path, trust_tree=True
+        )
         name = default.stdout.strip() if default.success else ""
         return name.removeprefix("origin/") or None
 
@@ -3182,7 +3192,7 @@ class SourceManager(BaseManager):
         info["is_git"] = True
 
         # Get current branch
-        result = self._git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=path)
+        result = self._git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=path, trust_tree=True)
         if result.success:
             info["branch"] = result.stdout.strip()
         if info["branch"] == "HEAD":
@@ -3192,17 +3202,17 @@ class SourceManager(BaseManager):
             info["branch"] = self._followed_branch(path)
 
         # Get remote URL
-        result = self._git(["config", "--get", "remote.origin.url"], cwd=path)
+        result = self._git(["config", "--get", "remote.origin.url"], cwd=path, trust_tree=True)
         if result.success:
             info["remote"] = result.stdout.strip()
 
         # Get current commit
-        result = self._git(["rev-parse", "--short", "HEAD"], cwd=path)
+        result = self._git(["rev-parse", "--short", "HEAD"], cwd=path, trust_tree=True)
         if result.success:
             info["commit"] = result.stdout.strip()
 
         # Check if dirty
-        result = self._git(["status", "--porcelain"], cwd=path)
+        result = self._git(["status", "--porcelain"], cwd=path, trust_tree=True)
         if result.success:
             info["dirty"] = bool(result.stdout.strip())
 

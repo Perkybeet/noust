@@ -275,6 +275,27 @@ class TestPolicy:
             assert getattr(group.commands[name], "read_only", False), name
         assert not getattr(group.commands["prune"], "read_only", False)
 
+    @pytest.mark.parametrize(
+        ("path", "params"),
+        [
+            ("app sandbox status", {}),
+            ("user list", {}),
+            ("user exception list", {}),
+            ("notify telegram-chats", {}),
+            ("github installations", {"sync": False}),
+        ],
+    )
+    def test_commands_that_only_look_need_no_reason(
+        self, path: str, params: dict[str, Any]
+    ) -> None:
+        """Production under ens-medium asked for a reason to look at these."""
+        command = {" ".join(p): c for p, c in walk(cli)}[path]
+        assert audit_policy.is_read_only(command, path, params)
+
+    def test_syncing_installations_is_a_change(self) -> None:
+        command = {" ".join(p): c for p, c in walk(cli)}["github installations"]
+        assert not audit_policy.is_read_only(command, "github installations", {"sync": True})
+
     def test_sanitize_masks_by_name_and_by_assignment(self) -> None:
         recorded = audit_policy.sanitize_arguments(
             {

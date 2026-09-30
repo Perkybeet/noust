@@ -253,6 +253,21 @@ def test_an_explicit_root_build_names_who_decided_and_why(
     assert "private registry" in warning
 
 
+def test_a_static_site_from_before_has_nothing_to_warn_about(
+    tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace, as_root: Any
+) -> None:
+    """A static site runs no code on deploy; production counted it as building as root."""
+    machine.git.publish(node_tree(tmp_path / "v1"))
+    deploy_new(root, machine)
+    forget_regime(store)
+    app = store.get_app(DOMAIN)
+    assert app is not None
+
+    assert build_sandbox.sandbox_warning(app) is not None
+    app.app_type = "static"
+    assert build_sandbox.sandbox_warning(app) is None
+
+
 def test_building_as_root_needs_a_reason(root: Path, store: NoustStore) -> None:
     with pytest.raises(ValidationError, match="reason"):
         build_sandbox.disable(DOMAIN, actor="alice", reason="  ")

@@ -769,15 +769,25 @@ class HardeningChecks:
             )
 
         bypass = [exposure for exposure in exposures if exposure.verdict == "docker_bypass"]
-        # Publications the operator refuses in DOCKER-USER, with the rule that does.
+        # Publications the operator refuses in DOCKER-USER, with the rule that
+        # does, and IPv6 ones on a server the Internet cannot reach over IPv6.
         filtered = [exposure for exposure in exposures if exposure.filtered_by]
         covered = [_describe(exposure) for exposure in filtered]
+        refused = sum(1 for exposure in filtered if exposure.filtered_by.startswith("filtered"))
+        unrouted = len(filtered) - refused
+        without_route = f"{unrouted} IPv6 with no IPv6 route to this server" if unrouted else ""
         unread = self.firewall.docker_user_errors()
         if not bypass:
             if filtered:
+                closed = [
+                    f"the DOCKER-USER chain refuses {refused} on the public interface"
+                    if refused
+                    else "",
+                    without_route,
+                ]
                 reason = (
-                    f"Docker publishes {len(filtered)} port(s) on every interface, and the "
-                    "DOCKER-USER chain refuses every one of them on the public interface."
+                    f"Docker publishes {len(filtered)} port(s) on every interface, and none "
+                    f"reaches the Internet: {', '.join(part for part in closed if part)}."
                 )
             elif state.active:
                 reason = "Docker publishes no port around the firewall."
@@ -793,11 +803,9 @@ class HardeningChecks:
                     f"Docker publishes {ports} port(s) on every interface that {state.backend} "
                     "does not filter, because Docker's rules come first, and no DOCKER-USER "
                     "rule refuses them on the public interface"
-                    + (
-                        f" ({len(filtered)} other publication(s) it does refuse)."
-                        if filtered
-                        else "."
-                    ),
+                    + (f" ({refused} other publication(s) it does refuse)" if refused else "")
+                    + (f" ({without_route})" if unrouted else "")
+                    + ".",
                     [*(_describe(exposure) for exposure in bypass), *covered, *unread],
                     _guided(
                         "Publish on 127.0.0.1 only, or refuse the port in DOCKER-USER",
@@ -808,7 +816,8 @@ class HardeningChecks:
                         "container)",
                         "Or refuse it on the public interface, and keep the rule across "
                         "reboots: iptables -I DOCKER-USER -i <interface> -p tcp -m conntrack "
-                        "--ctorigdstport <host port> -j DROP",
+                        "--ctorigdstport <host port> --ctdir ORIGINAL -j DROP (the host port: the chain "
+                        "sees the container's after Docker translates it)",
                         "Reading: https://docs.docker.com/engine/network/packet-filtering-firewalls/",
                     ),
                     severity="critical"

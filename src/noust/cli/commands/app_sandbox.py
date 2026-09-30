@@ -83,7 +83,7 @@ def sandbox() -> None:
     """Build an application without root: see, try, enable or disable its sandbox."""
 
 
-@sandbox.command("status")
+@sandbox.command("status", read_only=True)
 @click.argument("domain")
 @json_option("Print the build regime as JSON.")
 @pass_context

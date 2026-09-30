@@ -174,7 +174,7 @@ def cli() -> None:
     """Manage the accounts that sign in to the console, each with one role."""
 
 
-@cli.command("list")
+@cli.command("list", read_only=True)
 @json_option("Print the accounts as JSON.")
 @pass_context
 def list_command(ctx: Context) -> None:
@@ -419,7 +419,7 @@ def exception_add_command(ctx: Context, person_ref: str, reason: str, days: int)
     )
 
 
-@exception_group.command("list")
+@exception_group.command("list", read_only=True)
 @json_option("Print the exceptions as JSON.")
 @pass_context
 def exception_list_command(ctx: Context) -> None:

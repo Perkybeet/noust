@@ -39,6 +39,9 @@ DOMAIN = "app.example.com"
 #: The safety flags SourceManager puts between ``git`` and the subcommand.
 GIT = ("git", "-c", "protocol.ext.allow=never", "-c", "protocol.file.allow=never")
 
+#: And what it adds to the commands that read which commit a checkout is on.
+READ = (*GIT, "-c", "safe.directory=*")
+
 
 @pytest.fixture(autouse=True)
 def real_filesystem():
@@ -188,8 +191,8 @@ def test_deploy_records_git_commit_and_branch(
     tmp_path: Path, store: NoustStore, runner: FakeRunner
 ) -> None:
     """A deployed git checkout records what was actually checked out."""
-    runner.script([*GIT, "rev-parse", "--abbrev-ref", "HEAD"], stdout="main\n")
-    runner.script([*GIT, "rev-parse", "--short", "HEAD"], stdout="abc1234\n")
+    runner.script([*READ, "rev-parse", "--abbrev-ref", "HEAD"], stdout="main\n")
+    runner.script([*READ, "rev-parse", "--short", "HEAD"], stdout="abc1234\n")
 
     deployer = happy_deployer(tmp_path)
     (tmp_path / "app" / ".git").mkdir(parents=True)
@@ -278,8 +281,8 @@ def test_deploy_records_the_commit_subject_for_a_git_source(
     tmp_path: Path, store: NoustStore, runner: FakeRunner
 ) -> None:
     """A deployed git checkout records what its HEAD commit says it did."""
-    runner.script([*GIT, "rev-parse", "--abbrev-ref", "HEAD"], stdout="main\n")
-    runner.script([*GIT, "rev-parse", "--short", "HEAD"], stdout="abc1234\n")
+    runner.script([*READ, "rev-parse", "--abbrev-ref", "HEAD"], stdout="main\n")
+    runner.script([*READ, "rev-parse", "--short", "HEAD"], stdout="abc1234\n")
 
     deployer = happy_deployer(tmp_path)
     # The commit subject is read through the deployer's own runner (the same

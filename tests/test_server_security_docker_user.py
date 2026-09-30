@@ -10,13 +10,16 @@ interface; ufw ... does not filter them" as critical, while
 those ports on the public interface. What is pinned, on real ``iptables -S``
 and ``nft list chain`` outputs:
 
-- a ``DROP``/``REJECT`` naming a published port (host or container port;
-  ``--dports`` lists, a single ``--dport``, ranges) on the public interface
+- a ``DROP``/``REJECT`` naming a published port (the container's with
+  ``--dport``, the host's with ``--ctorigdstport``; lists, ranges) on the public interface
   (the default route's) or on every interface filters it, and the evidence
   names the rule;
 - the chain is walked in order: a ``RETURN`` first lets the port through, a
   ``RELATED,ESTABLISHED`` rule decides nothing, a rule limited to some sources
   or to another interface does not filter it;
+- a ``--dport`` naming only the host port covers nothing where Docker
+  translates it (the central's ``5435->5432`` looked filtered and was not);
+- an IPv6 publication on a server with no IPv6 default route is not exposed;
 - what is not covered is still reported, apart from what is;
 - every command it runs is a declared read-only probe.
 """
@@ -61,6 +64,14 @@ DOCUMENTED = """-N DOCKER-USER
 """
 
 ROUTE_V4 = "default via 203.0.113.1 dev ens6 proto dhcp src 203.0.113.10 metric 100\n"
+ROUTE_V6 = "default via fe80::1 dev ens6 proto ra metric 100 pref medium\n"
+
+#: The central's rule as rewritten after 3.1.4: the host ports, as the client
+#: asked for them, in the direction a connection starts.
+BY_ORIGINAL_PORT = "".join(
+    f"-A DOCKER-USER -i ens6 -p tcp -m conntrack --ctorigdstport {port} --ctdir ORIGINAL -j DROP\n"
+    for port in (3307, 3308, 5435, 8080, 10051, 3025)
+)
 
 #: Published the way the central publishes them: every interface, both families.
 CENTRAL_DOCKER_PS = (
@@ -162,17 +173,35 @@ class TestWhatTheChainCovers:
         assert chain.covering(6380, 6379, "tcp") is None
         assert chain.covering(3307, 3307, "udp") is None
 
-    def test_the_host_port_or_the_container_port(self) -> None:
+    def test_dport_sees_the_container_port_and_ctorigdstport_the_host_port(self) -> None:
         chain = _chain(CENTRAL_DOCKER_USER)
 
-        by_host = chain.covering(5435, 5432, "tcp")
+        # Docker has rewritten 5435 to 5432 before the chain: the rule never sees 5435.
+        assert chain.covering(5435, 5432, "tcp") is None
         by_container = chain.covering(15435, 3307, "tcp")
-
-        assert by_host is not None and by_host.port == "host port 5435"
-        # The chain sees the translated destination: a host-port match is said so.
-        assert "--ctorigdstport" in by_host.describe()
         assert by_container is not None and by_container.port == "container port 3307"
-        assert by_container.note == ""
+
+        original = _chain(BY_ORIGINAL_PORT).covering(5435, 5432, "tcp")
+        assert original is not None and original.port == "host port 5435"
+        assert "--ctdir ORIGINAL" in original.describe()
+
+    def test_a_rule_for_replies_decides_no_new_connection(self) -> None:
+        [reply, other] = parse_iptables_chain(
+            "-A DOCKER-USER -p tcp -m conntrack --ctorigdstport 5435 --ctdir REPLY -j DROP\n"
+            "-A DOCKER-USER -p tcp -m conntrack --ctorigdstport 5435 --ctdir SIDEWAYS -j DROP\n"
+        )
+
+        assert reply.established and not reply.unknown
+        assert other.unknown
+        assert DockerUserChain((reply,), ("ens6",)).covering(5435, 5432, "tcp") is None
+
+    def test_nftables_direction_is_read(self) -> None:
+        [rule] = parse_nft_chain(
+            'iifname "ens6" ct original proto-dst { 3307, 5435 } ct direction original drop\n'
+        )
+
+        assert not rule.unknown and not rule.established
+        assert rule.original_ports == ((3307, 3307), (5435, 5435))
 
     def test_a_rule_on_another_interface_does_not_cover_the_public_one(self) -> None:
         chain = _chain(CENTRAL_DOCKER_USER, interfaces=("eth0",))
@@ -265,13 +294,15 @@ class TestTheFirewallAndTheCheck:
         docker = {(e.address, e.port): e for e in exposures if e.docker is not None}
         assert docker[(ANY, 10051)].verdict == "blocked"
         assert docker[(ANY, 3307)].verdict == "blocked"
-        assert docker[(ANY, 5435)].verdict == "blocked"
+        # 5435 is published to 5432, which the host-port rule does not name.
+        assert docker[(ANY, 5435)].verdict == "docker_bypass"
         assert docker[(ANY, 6380)].verdict == "docker_bypass"
         assert "DOCKER-USER" in docker[(ANY, 3307)].filtered_by
         assert not docker[(ANY, 3307)].reachable
 
     def test_ipv6_publications_are_judged_by_ip6tables(self, runner, host) -> None:
         runner.only_knows("ufw", "docker", "iptables", "ip6tables", "ip")
+        runner.script(["ip", "-6", "route", "show", "default"], stdout=ROUTE_V6)
         runner.script(
             ["ip6tables", "-S", "DOCKER-USER"],
             stdout="-N DOCKER-USER\n-A DOCKER-USER -p tcp --dport 10051 -j DROP\n",
@@ -282,11 +313,22 @@ class TestTheFirewallAndTheCheck:
         assert {(e.address, e.port): e.verdict for e in exposures}[("::", 10051)] == "blocked"
 
     def test_without_ip6tables_an_ipv6_publication_is_still_reported(self, runner, host) -> None:
+        runner.script(["ip", "-6", "route", "show", "default"], stdout=ROUTE_V6)
+
         exposures, _ = _firewall(runner, host).exposures()
 
         assert {(e.address, e.port): e.verdict for e in exposures}[("::", 10051)] == (
             "docker_bypass"
         )
+
+    def test_without_an_ipv6_route_an_ipv6_publication_is_not_exposed(self, runner, host) -> None:
+        """The central has no IPv6 address; its [::] publications were counted open."""
+        exposures, _ = _firewall(runner, host).exposures()
+
+        [v6] = [e for e in exposures if (e.address, e.port) == ("::", 10051)]
+        assert v6.verdict == "blocked"
+        assert "no IPv6 default route" in v6.filtered_by
+        assert not runner.ran("ip6tables")
 
     def test_nftables_alone_is_read_with_nft(self, runner, host) -> None:
         runner.only_knows("ufw", "docker", "nft", "ip")
@@ -308,26 +350,30 @@ class TestTheFirewallAndTheCheck:
     ) -> None:
         check = _bypass(runner, host)
 
-        # The Redis nobody filters is still the critical finding it was.
+        # The Redis nobody filters is still the critical finding it was, and
+        # 5435, which the host-port rule only seemed to cover.
         assert check.status == "fail" and check.severity == "critical"
         assert "2 port(s)" in check.reason
-        assert "3 other publication(s) it does refuse" in check.reason
+        assert "2 other publication(s) it does refuse" in check.reason
+        assert "1 IPv6 with no IPv6 route" in check.reason
         uncovered = [line for line in check.evidence if "around the firewall" in line]
-        assert len(uncovered) == 2  # 6380 on IPv4, and 10051 on IPv6 with no ip6tables
-        assert any(":6380/tcp" in line for line in uncovered)
+        assert {line.split("/tcp")[0].rsplit(":", 1)[1] for line in uncovered} == {
+            "6380",
+            "5435",
+        }
         covered = [line for line in check.evidence if "filtered by DOCKER-USER" in line]
         assert {line.split("/tcp")[0].rsplit(":", 1)[1] for line in covered} == {
             "10051",
             "3307",
-            "5435",
         }
         assert all("on ens6" in line for line in covered)
 
     def test_every_port_covered_passes_with_the_rules_as_evidence(self, runner, host) -> None:
         runner.only_knows("ufw", "docker", "iptables", "ip6tables", "ip")
+        runner.script(["ip", "-6", "route", "show", "default"], stdout=ROUTE_V6)
         runner.script(
             ["iptables", "-S", "DOCKER-USER"],
-            stdout=CENTRAL_DOCKER_USER.replace("3025", "3025,6380"),
+            stdout=BY_ORIGINAL_PORT.replace("3025", "3025:6380"),
         )
         runner.script(
             ["ip6tables", "-S", "DOCKER-USER"],
@@ -339,6 +385,18 @@ class TestTheFirewallAndTheCheck:
         assert check.status == "pass", check.reason
         assert "DOCKER-USER" in check.reason
         assert len([line for line in check.evidence if "filtered by DOCKER-USER" in line]) == 5
+
+    def test_the_rewritten_central_rule_and_no_ipv6_route_pass(self, runner, host) -> None:
+        runner.script(
+            ["iptables", "-S", "DOCKER-USER"],
+            stdout=BY_ORIGINAL_PORT + "-A DOCKER-USER -i ens6 -p tcp --dport 6379 -j DROP\n",
+        )
+
+        check = _bypass(runner, host)
+
+        assert check.status == "pass", check.reason
+        assert "refuses 4 on the public interface" in check.reason
+        assert "1 IPv6 with no IPv6 route" in check.reason
 
     def test_an_untouched_chain_changes_nothing(self, runner, host) -> None:
         runner.script(["iptables", "-S", "DOCKER-USER"], stdout=UNTOUCHED)
@@ -374,6 +432,7 @@ class TestTheFirewallAndTheCheck:
         assert not any("No chain" in line for line in check.evidence)
 
     def test_every_command_it_runs_is_a_declared_read_only_probe(self, runner, host) -> None:
+        runner.script(["ip", "-6", "route", "show", "default"], stdout=ROUTE_V6)
         runner.only_knows("ufw", "docker", "iptables", "ip6tables", "nft", "ip")
         _firewall(runner, host).exposures()
         runner.only_knows("ufw", "docker", "nft", "ip")
