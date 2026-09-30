@@ -27,6 +27,14 @@ from noust.monitor.collector import MetricsCollector
 from noust.monitor.sampler import MachineSampler
 from noust.monitor.timeseries import MetricsStore
 
+
+class _NoDatabases:
+    """No database engines: the collector's tests sample the machine and applications only."""
+
+    def sample(self, now: float | None = None) -> list[tuple[str, float]]:
+        return []
+
+
 START = 1_700_000_000  # a multiple of 5, 60, 600 and 3600 is not needed: alignment is tested
 
 HOUR = 3_600
@@ -76,6 +84,7 @@ def collector(
     monkeypatch.setattr("noust.monitor.sampler.psutil", fake)
     return MetricsCollector(
         store,
+        databases=_NoDatabases(),
         clock=lambda: world.mono,
         planner=QuietPlanner(),  # type: ignore[arg-type]
         apps_source=lambda: [],

@@ -47,6 +47,14 @@ from noust.monitor.sampler import MachineSampler
 from noust.monitor.timeseries import MetricsStore, lease_timeout
 from noust.web import metrics_collector
 
+
+class _NoDatabases:
+    """No database engines: the collector's tests sample the machine and applications only."""
+
+    def sample(self, now: float | None = None) -> list[tuple[str, float]]:
+        return []
+
+
 #: A fixed wall-clock "now" for the store, so persisted rows have known stamps.
 NOW = 1_700_002_800
 
@@ -203,6 +211,7 @@ def collector(
     """Build a collector wired entirely to fakes."""
     return MetricsCollector(
         store,
+        databases=_NoDatabases(),
         clock=clock,
         planner=planner,  # type: ignore[arg-type]
         apps_source=lambda: list(apps),
@@ -564,6 +573,7 @@ def test_a_second_collector_waits_while_the_first_holds_the_lease(
     def make(kind: str) -> MetricsCollector:
         return MetricsCollector(
             store,
+            databases=_NoDatabases(),
             kind=kind,
             interval_s=0.01,
             clock=clock,
@@ -597,6 +607,7 @@ def test_the_daemon_takes_the_lease_from_the_console_and_the_console_stops(
     def make(kind: str) -> MetricsCollector:
         return MetricsCollector(
             store,
+            databases=_NoDatabases(),
             kind=kind,
             interval_s=0.01,
             clock=clock,
@@ -704,7 +715,7 @@ def test_the_live_feed_reads_the_store_when_another_process_samples(
     store: MetricsStore, clock: FrozenClock
 ) -> None:
     """The console's collector is idle while the daemon writes: latest() reads what it wrote."""
-    other = MetricsCollector(store, kind="console", clock=clock)
+    other = MetricsCollector(store, kind="console", clock=clock, databases=_NoDatabases())
     store.record_many([("cpu.percent", 33.0), ("app.a.mem.bytes", 9.0)], ts=NOW - 2)
 
     assert other.latest() == {"cpu.percent": 33.0, "app.a.mem.bytes": 9.0}
@@ -712,7 +723,7 @@ def test_the_live_feed_reads_the_store_when_another_process_samples(
 
 def test_a_stale_reading_is_not_a_live_one(store: MetricsStore, clock: FrozenClock) -> None:
     """Numbers from an hour ago must not be pushed as if they were now."""
-    other = MetricsCollector(store, kind="console", clock=clock)
+    other = MetricsCollector(store, kind="console", clock=clock, databases=_NoDatabases())
     store.record("cpu.percent", 33.0, ts=NOW - 3_600)
 
     assert other.latest() == {}

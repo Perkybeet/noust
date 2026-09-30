@@ -125,6 +125,15 @@ class TestPasskey:
 
 
 class TestApproval:
+    @pytest.fixture(autouse=True)
+    def _a_person_at_a_terminal(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Root at a terminal decides approvals; a process systemd started does
+        # not (it is "system"). A CI runner is itself a systemd service, so its
+        # INVOCATION_ID would make every command here "system".
+        monkeypatch.delenv("INVOCATION_ID", raising=False)
+        monkeypatch.setenv("SUDO_USER", "carol")
+        monkeypatch.setenv("SUDO_UID", "1000")
+
     def ask(self) -> int:
         manager = ApprovalManager(policy=ApprovalPolicy(enabled=True))
         account = AccountManager().create("alice", "admin", password=PASSWORD)

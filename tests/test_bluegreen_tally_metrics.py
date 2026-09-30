@@ -37,6 +37,14 @@ from tests.test_bluegreen_units import (
     unit_dir,
 )
 
+
+class _NoDatabases:
+    """No database engines: the collector's tests sample the machine and applications only."""
+
+    def sample(self, now: float | None = None) -> list[tuple[str, float]]:
+        return []
+
+
 __all__ = ["nginx", "store", "unit_dir"]  # fixtures, imported for pytest
 
 
@@ -124,6 +132,7 @@ def test_both_instances_of_a_blue_green_app_are_sampled(
     ticks = iter(float(n) for n in range(100))
     collector = MetricsCollector(
         metrics,
+        databases=_NoDatabases(),
         planner=PlanBuilder(runner=runner, cgroup_mount=mount),
         apps_source=lambda: [app],
         clock=lambda: next(ticks),
