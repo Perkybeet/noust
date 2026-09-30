@@ -1043,8 +1043,9 @@ After=network.target
 
 [Service]
 Type=simple
-User=root
-Group=root
+# Root without User=root: with NoNewPrivileges and a narrowed capability set,
+# systemd 255 starts a User= service without CAP_SETUID (see noust-web).
+Environment=HOME=/root USER=root LOGNAME=root
 ExecStart={noust_path} monitor run
 Restart=always
 RestartSec=30

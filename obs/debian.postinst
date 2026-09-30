@@ -123,6 +123,13 @@ case "$1" in
         # onto the new one. Only a unit that exists and is running - a console
         # the operator stopped stays stopped, and on a first install there is
         # none.
+        # The unit is rewritten from this version's template first (keeping
+        # where the console listens): only 'noust web enable' wrote it before,
+        # so a fix to the unit never reached a server that had enabled the
+        # console already.
+        if [ -f /etc/systemd/system/noust-web.service ]; then
+            noust web refresh-unit --reason "package upgrade" >/dev/null 2>&1 || true
+        fi
         if [ -f /etc/systemd/system/noust-web.service ] && \
                 systemctl is-active --quiet noust-web.service 2>/dev/null; then
             echo "Restarting the console (noust-web.service) on the new version..."

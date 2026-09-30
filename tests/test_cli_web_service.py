@@ -336,10 +336,83 @@ def test_the_unit_is_hardened_without_breaking_what_the_console_does_as_root(
     }
 
     assert directives.get("NoNewPrivileges") == "true"
-    assert directives.get("User") == "root"
+    # Root by default, not User=root: with NoNewPrivileges and ProtectKernelLogs
+    # systemd 255 dropped CAP_SETUID for a User= service, and apt could not
+    # update anything from the console.
+    assert "User" not in directives and "Group" not in directives
+    assert "Environment=HOME=/root USER=root LOGNAME=root" in unit.splitlines()
     for forbidden in ("ProtectSystem", "ProtectHome", "ReadOnlyPaths", "PrivateDevices"):
         assert forbidden not in directives, f"{forbidden} would break root operations"
     assert "MemoryDenyWriteExecute" not in directives, "Node builds need a JIT"
+
+
+OLD_UNIT = f"""# {UNIT_MARKER}. Written by 'noust web enable'.
+[Unit]
+Description=Noust console
+StartLimitIntervalSec=300
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart={NOUST_BIN} web start --under-systemd --host 127.0.0.1 --port 9443
+NoNewPrivileges=true
+ProtectKernelLogs=true
+
+[Install]
+WantedBy=multi-user.target
+"""
+
+
+def test_refresh_unit_rewrites_an_old_unit_and_keeps_where_it_listens(
+    cli_runner: CliRunner, systemd_up: FakeRunner, unit_dirs: dict[str, Path]
+) -> None:
+    """A unit 'web enable' wrote before a fix to the template gets the fix on upgrade."""
+    path = _installed_unit(unit_dirs, OLD_UNIT)
+
+    result = cli_runner.invoke(web.cli, ["refresh-unit"])
+
+    assert result.exit_code == 0, result.output
+    unit = path.read_text()
+    assert "User=root" not in unit.splitlines()
+    assert "Environment=HOME=/root USER=root LOGNAME=root" in unit.splitlines()
+    assert (
+        f"ExecStart={NOUST_BIN} web start --under-systemd --host 127.0.0.1 --port 9443"
+        in unit.splitlines()
+    )
+    assert ("systemctl", "daemon-reload") in systemd_up.calls
+    # Rewritten, not restarted: the package restarts it right after.
+    assert not any(call[:2] == ("systemctl", "restart") for call in systemd_up.calls)
+
+
+def test_refresh_unit_without_a_unit_does_nothing(
+    cli_runner: CliRunner, systemd_up: FakeRunner, unit_dirs: dict[str, Path]
+) -> None:
+    result = cli_runner.invoke(web.cli, ["refresh-unit"])
+
+    assert result.exit_code == 0, result.output
+    assert not (unit_dirs["managed"] / "noust-web.service").exists()
+
+
+def test_refresh_unit_refuses_a_unit_that_is_not_nousts(
+    cli_runner: CliRunner, systemd_up: FakeRunner, unit_dirs: dict[str, Path]
+) -> None:
+    body = OLD_UNIT.replace(f"# {UNIT_MARKER}. Written by 'noust web enable'.\n", "")
+    path = _installed_unit(unit_dirs, body)
+
+    result = cli_runner.invoke(web.cli, ["refresh-unit"])
+
+    assert result.exit_code != 0
+    assert path.read_text() == body
+
+
+def test_the_packages_refresh_the_unit_before_restarting_the_console() -> None:
+    root = Path(__file__).resolve().parent.parent
+    for script in (root / "obs" / "debian.postinst", root / "rpm" / "noust.spec"):
+        text = script.read_text()
+        refresh = text.index("web refresh-unit")
+        assert refresh < text.index("noust-web.service", refresh + 1), script
+        assert "restart noust-web.service" in text[refresh:], script
 
 
 def test_enable_turns_the_unit_on_through_systemd(

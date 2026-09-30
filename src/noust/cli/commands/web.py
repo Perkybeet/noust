@@ -2003,6 +2003,63 @@ def _install_and_start(
     return ConsoleService(unit=Path(path), token=token, port=config.port)
 
 
+def _unit_exec_start(text: str) -> str | None:
+    """
+    Read the ``ExecStart=`` of a unit file.
+
+    Args:
+        text: The unit.
+
+    Returns:
+        Its value as written, or None when it has none.
+    """
+    for line in text.splitlines():
+        if line.startswith("ExecStart="):
+            return line.removeprefix("ExecStart=").strip() or None
+    return None
+
+
+def _refresh_unit(verbose: bool, *, dry_run: bool = False) -> int:
+    """
+    Rewrite the console's unit from this version's template, keeping its ExecStart.
+
+    Only ``noust web enable`` wrote the unit, so a fix to the template never
+    reached a server that enabled the console before it: every one kept the
+    ``User=root`` that left the console without CAP_SETUID and apt unable to
+    update from it. The package runs this before it restarts the console.
+    Where the console listens is the unit's ExecStart, which is kept as it is.
+
+    Args:
+        verbose: Whether to log verbosely.
+        dry_run: Report instead of writing.
+
+    Returns:
+        The exit code: 0 when rewritten or when there is no unit.
+
+    Raises:
+        ServiceError: When the unit has no ExecStart or is not Noust's.
+    """
+    from noust.managers.service_manager import ServiceManager
+
+    logger = Logger(verbose=verbose)
+    path = Path(ServiceManager.SYSTEMD_DIR) / WEB_UNIT_FILE
+    if not path.is_file():
+        logger.info(f"No {WEB_UNIT_FILE} to refresh: the console does not run as a service")
+        return 0
+    exec_start = _unit_exec_start(path.read_text(encoding="utf-8"))
+    if exec_start is None:
+        raise ServiceError(
+            f"{path} has no ExecStart line",
+            details="Write it again with: noust web enable",
+        )
+    _service_manager(verbose).install_unit(WEB_UNIT, WEB_UNIT_TEMPLATE, {"exec_start": exec_start})
+    if dry_run:
+        logger.info(f"would rewrite {path} for this version, keeping: {exec_start}")
+        return 0
+    logger.success(f"Rewrote {path} for this version; it applies from the console's next restart")
+    return 0
+
+
 def remember_exposure(host: str, port: int, logger: Logger | None = None) -> None:
     """
     Record where the console service listens as ``web.host`` and ``web.port``.
@@ -2877,6 +2934,14 @@ def enable_command(
 def disable_command(ctx: Context) -> NoReturn:
     """Stop the panel's systemd service and remove it."""
     _exit(_disable(ctx.verbose, dry_run=ctx.dry_run))
+
+
+@cli.command("refresh-unit")
+@global_flags
+@pass_context
+def refresh_unit_command(ctx: Context) -> NoReturn:
+    """Rewrite noust-web.service for this version, keeping where it listens (run by the package)."""
+    _exit(_refresh_unit(ctx.verbose, dry_run=ctx.dry_run))
 
 
 @cli.command("stop")

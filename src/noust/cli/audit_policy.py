@@ -151,6 +151,7 @@ SYSTEM_ENTRY_POINTS: frozenset[str] = DAEMON_COMMANDS | frozenset(
         "migrate-from-wasm",
         "monitor autoenable",
         "monitor install",
+        "web refresh-unit",
         "web stop",
     }
 )

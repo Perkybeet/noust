@@ -378,7 +378,11 @@ fi
 # across an upgrade, still serving the code the upgrade replaced. try-restart
 # only restarts a unit that is running: a console the operator stopped stays
 # stopped, and a first install has none running.
+# The unit is rewritten from this version's template first (keeping where the
+# console listens): only 'noust web enable' wrote it before, so a fix to the
+# unit never reached a server that had enabled the console already.
 if [ -f /etc/systemd/system/noust-web.service ]; then
+    /usr/bin/noust web refresh-unit --reason "package upgrade" >/dev/null 2>&1 || :
     systemctl try-restart noust-web.service >/dev/null 2>&1 || :
 fi
 if [ -f /etc/systemd/system/wasm-web.service ]; then
