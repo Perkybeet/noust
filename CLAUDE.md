@@ -164,6 +164,26 @@ Rules:
 
 ---
 
+## Access, audit and builds (3.1)
+
+- **Every API route declares a permission** in `web/permissions/routes_<area>.py`; one global
+  dependency enforces it and publishes it as `x-noust-permission`, and a route without one is
+  refused (a test fails first). Roles (`viewer`, `operator`, `admin`, `security`, `auditor`) are
+  sets of permissions in `web/permissions/roles.py`; accounts live in `core/accounts/`. The
+  master access token is break-glass, not the normal way in. Root-equivalent actions can require
+  a second person (`core/accounts/approvals.py`, guard on the router).
+- **One audit trail**: `noust.core.audit.record(event, actor=...)` with a closed catalog
+  (`core/audit/catalog.py`; a test scans the code for undeclared events), an HMAC chain, and
+  shipping to journald/syslog. CLI commands that change something are audited by `cli/app.py`.
+- **Builds never run as root.** Install, build and hooks run through
+  `CommandRunner(..., sandbox=SandboxSpec(...))` as `noust-build` in a transient systemd unit,
+  failing closed when the sandbox cannot be proven; migrations run as the app's user. Existing
+  apps switch per app after a test build (`noust app sandbox test|enable`).
+- **Dry-run probes are declared by exact argv** (`core/runner.py` `READ_ONLY_PROBES` and each
+  area's `probes.py`); a command is never read-only because one of its arguments looks harmless.
+- **The ENS profile** (`security.profile: ens-medium`) lives in one module, `core/ens/profile.py`;
+  every area reads its defaults from there.
+
 ## Fleet
 
 A central is a Noust whose job is several other Noust servers (`central.role`: `hub` never
@@ -173,12 +193,18 @@ re-implements nothing a node does. `web/api/node_proxy.py` forwards every call, 
 stream and the log and job WebSockets over that tunnel; nothing runs twice.
 
 - **The central never gets a shell.** `noust fleet authorize` runs on the node, as root, and
-  installs the central's key restricted to forwarding that node's console port only
-  (`restrict,port-forwarding,permitopen="127.0.0.1:<port>",permitlisten="127.0.0.1:1",
-  command="/usr/bin/false"`, built in `fleet/authorize.py`): no terminal, no agent, no command
-  but the forced one. `port-forwarding` reopens both directions of forwarding that `restrict`
-  turned off, which is why `permitlisten` narrows `ssh -R` to a loopback port nothing uses -
-  otherwise a reverse tunnel is the one thing left for the key to abuse.
+  installs the central's key for the unprivileged `noust-tunnel` account (no home, `nologin`,
+  keys in a root-owned file), with a Noust `Match User` block in sshd
+  (`AllowStreamLocalForwarding no`, `AllowTcpForwarding local`, `PermitOpen 127.0.0.1:<port>`,
+  `PermitTTY no`, `ForceCommand /usr/bin/false`) and the same limits repeated as key options
+  (`restrict,port-forwarding,permitopen=...,permitlisten="127.0.0.1:1",command="/usr/bin/false"`,
+  built in `fleet/authorize.py`). Both layers matter: `permitlisten` narrows TCP `ssh -R` but not
+  Unix-socket forwarding, which with a key in root's `authorized_keys` (3.0) could create a socket
+  as root at any path. `--ssh-user root` exists only behind an explicit confirmation.
+- **Each node sets a ceiling for its central.** `noust fleet authorize --access read|deploy|admin`
+  (default `admin`) and `--allow-host-access` (SSH keys, sshd, firewall: off by default) are
+  enforced by the node in the fleet admission (`fleet/policy.py` `permits()`), whatever the
+  central claims; the central reads them from `GET /api/auth/fleet/self`.
 - **Fleet tokens are accepted only from loopback.** They travel through the tunnel, never
   across the network, and only a request presenting one may carry `X-Noust-Actor`, so a node's
   audit log names the operator behind the central rather than just the central's name.
@@ -335,6 +361,12 @@ ship pydantic 1.10, and a CI job pins it.
 ---
 
 ## The panel
+
+**The design system is `docs/DESIGN.md`, and it is normative**: tokens, the seven page
+templates (`components/page`), components, patterns and copy rules. A page is built from a
+template and kit components; when something is missing the kit (and its gallery at `/__design`)
+grows first. ESLint rules and a ratchet (`styles/design-rules.test.ts`, baseline that only goes
+down) enforce it; read it before touching `panel/src`.
 
 The Noust console is a React single-page application. Its source lives in `panel/`; its build
 is committed to `src/noust/web/static/` and served by `server.py`: hashed chunks under
