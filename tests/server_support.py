@@ -151,7 +151,7 @@ def no_package_manager_running(monkeypatch: pytest.MonkeyPatch) -> None:
     Args:
         monkeypatch: Patching helper, scoped to the test.
     """
-    monkeypatch.setattr("noust.managers.server.pkg.base.running_processes", lambda names: [])
+    monkeypatch.setattr("noust.managers.server.pkg.base.running_processes", lambda names, **_: [])
 
 
 def make_machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, store) -> types.SimpleNamespace:
@@ -233,7 +233,7 @@ def make_machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, store) -> type
             f_bavail=roomy // 2,
         ),
     )
-    monkeypatch.setattr("noust.managers.server.pkg.base.running_processes", lambda names: [])
+    monkeypatch.setattr("noust.managers.server.pkg.base.running_processes", lambda names, **_: [])
 
     ctx = ServerContext(
         runner=runner,

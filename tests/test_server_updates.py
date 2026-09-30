@@ -177,7 +177,8 @@ class TestPreflight:
         self, host, fs, records, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            "noust.managers.server.pkg.base.running_processes", lambda names: ["unattended-upgr"]
+            "noust.managers.server.pkg.base.running_processes",
+            lambda names, **_: ["unattended-upgr"],
         )
         manager = _manager(FakeRunner(), host, fs, records)
 

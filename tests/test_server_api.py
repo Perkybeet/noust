@@ -284,7 +284,8 @@ class TestApplyingUpdates:
         self, api, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            "noust.managers.server.pkg.base.running_processes", lambda names: ["unattended-upgr"]
+            "noust.managers.server.pkg.base.running_processes",
+            lambda names, **_: ["unattended-upgr"],
         )
 
         response = self._apply(api)

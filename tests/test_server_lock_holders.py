@@ -7,6 +7,8 @@ running_processes with a stand-in.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 
@@ -62,3 +64,103 @@ class TestTheIdleUnattendedUpgradesHelper:
         )
 
         assert base.running_processes(("unattended-upgr",)) == ["unattended-upgr"]
+
+
+class TestResidentDaemonsCountOnlyWithTheLock:
+    """packagekitd stays up after every apt run; a fleet update was refused for it."""
+
+    @staticmethod
+    def _processes(*entries: tuple[int, str]) -> list[object]:
+        from types import SimpleNamespace
+
+        return [
+            SimpleNamespace(info={"pid": pid, "name": name, "cmdline": [f"/usr/libexec/{name}"]})
+            for pid, name in entries
+        ]
+
+    @staticmethod
+    def _locks(tmp_path, holder: int, *files) -> Path:
+        import os
+
+        lines = []
+        for index, path in enumerate(files, start=1):
+            status = os.stat(path)
+            device = f"{os.major(status.st_dev):02x}:{os.minor(status.st_dev):02x}"
+            lines.append(f"{index}: POSIX  ADVISORY  WRITE {holder} {device}:{status.st_ino} 0 EOF")
+        table = tmp_path / "locks"
+        table.write_text("\n".join(lines) + "\n")
+        return table
+
+    def test_the_lock_table_names_who_holds_a_lock_file(self, tmp_path) -> None:
+        from noust.managers.server.pkg import base
+
+        lock = tmp_path / "lock-frontend"
+        lock.write_text("")
+        other = tmp_path / "unrelated"
+        other.write_text("")
+
+        table = self._locks(tmp_path, 4242, lock)
+        assert base.lock_owner_pids([str(lock)], locks=table) == {4242}
+        assert base.lock_owner_pids([str(other)], locks=table) == set()
+        assert base.lock_owner_pids(["/nonexistent/lock"], locks=table) == set()
+
+    def test_a_lock_the_table_cannot_attribute_rules_nothing_out(self, tmp_path) -> None:
+        from noust.managers.server.pkg import base
+
+        lock = tmp_path / "lock"
+        lock.write_text("")
+
+        # Open file description locks are listed with pid -1.
+        assert base.lock_owner_pids([str(lock)], locks=self._locks(tmp_path, -1, lock)) is None
+        assert base.lock_owner_pids([str(lock)], locks=tmp_path / "missing") is None
+
+    def test_a_pid_file_names_the_running_transaction(self, tmp_path) -> None:
+        import os
+
+        from noust.managers.server.pkg import base
+
+        pid_file = tmp_path / "zypp.pid"
+        pid_file.write_text(f"{os.getpid()}\n")
+
+        assert base.lock_owner_pids([], [str(pid_file)]) == {os.getpid()}
+
+    def test_an_idle_packagekitd_is_not_busy_and_one_holding_the_lock_is(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import psutil
+
+        from noust.managers.server.pkg import base
+
+        monkeypatch.setattr(
+            psutil, "process_iter", lambda attrs=None: self._processes((900, "packagekitd"))
+        )
+        names = ("apt", "dpkg", "packagekitd")
+
+        assert base.running_processes(names, holding=set()) == []
+        assert base.running_processes(names, holding={900}) == ["packagekitd"]
+        # A lock nobody can attribute: counted, as before.
+        assert base.running_processes(names, holding=None) == ["packagekitd"]
+
+    def test_whatever_holds_the_lock_counts_and_apt_counts_by_name(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import psutil
+
+        from noust.managers.server.pkg import base
+
+        monkeypatch.setattr(
+            psutil,
+            "process_iter",
+            lambda attrs=None: self._processes((901, "apt-get"), (902, "python3")),
+        )
+
+        assert base.running_processes(("apt", "dpkg"), holding={902}) == ["apt-get", "python3"]
+
+    def test_the_backends_declare_their_locks(self) -> None:
+        from noust.managers.server.pkg.apt import AptBackend
+        from noust.managers.server.pkg.dnf import DnfBackend
+        from noust.managers.server.pkg.zypper import ZypperBackend
+
+        assert "/var/lib/dpkg/lock-frontend" in AptBackend.LOCK_FILES
+        assert "/var/lib/rpm/.rpm.lock" in DnfBackend.LOCK_FILES
+        assert "/run/zypp.pid" in ZypperBackend.PID_FILES

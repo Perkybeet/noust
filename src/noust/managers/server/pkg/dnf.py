@@ -185,6 +185,12 @@ class DnfBackend(PackageBackend):
 
     name = "dnf"
     LOCK_PROCESSES = ("dnf", "yum", "rpm", "packagekitd", "cloud-init")
+    LOCK_FILES = ("/var/lib/rpm/.rpm.lock", "/usr/lib/sysimage/rpm/.rpm.lock")
+    PID_FILES = (
+        "/var/cache/dnf/metadata_lock.pid",
+        "/var/lib/dnf/rpmdb_lock.pid",
+        "/var/log/log_lock.pid",
+    )
 
     def env(self) -> dict[str, str]:
         return dict(COMMON_ENV)

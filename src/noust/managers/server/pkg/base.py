@@ -219,6 +219,11 @@ class PackageBackend(ABC):
 
     #: Processes that hold or compete for this family's lock.
     LOCK_PROCESSES: tuple[str, ...] = ()
+    #: Files the package manager locks with fcntl while it works; a resident
+    #: daemon (:data:`RESIDENT_DAEMONS`) is busy only while it holds one.
+    LOCK_FILES: tuple[str, ...] = ()
+    #: Files a transaction writes its process id into while it runs.
+    PID_FILES: tuple[str, ...] = ()
 
     def __init__(
         self,
@@ -481,7 +486,10 @@ class PackageBackend(ABC):
             is missing the answer is "none found", and the package manager's own
             lock is the guard that still holds.
         """
-        return running_processes(self.LOCK_PROCESSES)
+        return running_processes(
+            self.LOCK_PROCESSES,
+            holding=lock_owner_pids(self.LOCK_FILES, self.PID_FILES),
+        )
 
 
 #: Resident helpers that share a package manager's truncated process name but
@@ -489,14 +497,84 @@ class PackageBackend(ABC):
 #: running at all times, so matching it by name alone refused every update.
 IDLE_HELPERS = ("unattended-upgrade-shutdown",)
 
+#: Package daemons that stay running between transactions (PackageKit, and
+#: aptdaemon), started over D-Bus and by apt's own hook after every run: one
+#: is busy only while it holds the package manager's lock. Matched by name
+#: alone, a packagekitd an apt run had just woken refused a fleet update.
+RESIDENT_DAEMONS = ("packagekitd", "aptd")
 
-def running_processes(names: Sequence[str]) -> list[str]:
+#: The kernel's table of file locks.
+PROC_LOCKS = Path("/proc/locks")
+
+
+def lock_owner_pids(
+    lock_files: Sequence[str], pid_files: Sequence[str] = (), *, locks: Path = PROC_LOCKS
+) -> set[int] | None:
+    """
+    Find the processes holding a package manager's locks, by reading, never by locking.
+
+    Args:
+        lock_files: Files locked with fcntl while it works (``/proc/locks``
+            names their holders).
+        pid_files: Files holding the process id of the transaction running.
+        locks: The kernel's lock table.
+
+    Returns:
+        The holders' process ids; None when a lock is held by a process the
+        table does not name (an open file description lock), or the table
+        cannot be read, so nothing can be ruled out.
+    """
+    wanted: set[tuple[int, int, int]] = set()
+    for name in lock_files:
+        try:
+            status = os.stat(name)
+        except OSError:
+            continue
+        wanted.add((os.major(status.st_dev), os.minor(status.st_dev), status.st_ino))
+    owners: set[int] = set()
+    for name in pid_files:
+        try:
+            text = Path(name).read_text(encoding="utf-8").strip()
+        except OSError:
+            continue
+        if text.isdigit() and Path(f"/proc/{text}").exists():
+            owners.add(int(text))
+    if not wanted:
+        return owners
+    try:
+        table = locks.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    for line in table.splitlines():
+        # "1: POSIX  ADVISORY  WRITE 1234 08:01:131090 0 EOF"; a blocked
+        # waiter is shown as "1: -> POSIX ...".
+        fields = line.split()
+        if "->" in fields:
+            continue
+        try:
+            pid, device = int(fields[4]), fields[5]
+            major, minor, inode = device.split(":")
+            key = (int(major, 16), int(minor, 16), int(inode))
+        except (IndexError, ValueError):
+            continue
+        if key in wanted:
+            if pid <= 0:
+                return None
+            owners.add(pid)
+    return owners
+
+
+def running_processes(names: Sequence[str], *, holding: set[int] | None = None) -> list[str]:
     """
     List the running processes whose name is one of ``names``.
 
     Args:
         names: Process names to look for (prefix match, since the kernel
             truncates them to 15 characters).
+        holding: The processes holding the package manager's lock
+            (:func:`lock_owner_pids`): each counts, whatever its name, and a
+            resident daemon counts only when it is one of them. None counts
+            every resident daemon, as when the lock cannot be read.
 
     Returns:
         The distinct names found, excluding this process itself.
@@ -511,10 +589,22 @@ def running_processes(names: Sequence[str]) -> list[str]:
         try:
             info = process.info
             name = info.get("name") or ""
-            if info.get("pid") == own or not any(name.startswith(prefix) for prefix in names):
+            if info.get("pid") == own:
+                continue
+            if holding and info.get("pid") in holding:
+                # Whatever it is called, it holds the lock.
+                found.add(name)
+                continue
+            if not any(name.startswith(prefix) for prefix in names):
                 continue
             command = " ".join(info.get("cmdline") or [])
             if any(helper in command for helper in IDLE_HELPERS):
+                continue
+            if (
+                holding is not None
+                and name.startswith(RESIDENT_DAEMONS)
+                and info.get("pid") not in holding
+            ):
                 continue
             found.add(name)
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):

@@ -175,6 +175,8 @@ class ZypperBackend(PackageBackend):
 
     name = "zypper"
     LOCK_PROCESSES = ("zypper", "rpm", "packagekitd", "cloud-init")
+    LOCK_FILES = ("/var/lib/rpm/.rpm.lock", "/usr/lib/sysimage/rpm/.rpm.lock")
+    PID_FILES = ("/run/zypp.pid",)
 
     def env(self) -> dict[str, str]:
         return env_with(COMMON_ENV, {"ZYPP_LOCK_TIMEOUT": str(ZYPP_LOCK_TIMEOUT)})

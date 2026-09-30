@@ -179,6 +179,12 @@ class AptBackend(PackageBackend):
         "aptd",
         "cloud-init",
     )
+    LOCK_FILES = (
+        "/var/lib/dpkg/lock-frontend",
+        "/var/lib/dpkg/lock",
+        "/var/lib/apt/lists/lock",
+        "/var/cache/apt/archives/lock",
+    )
 
     def env(self) -> dict[str, str]:
         return env_with(
