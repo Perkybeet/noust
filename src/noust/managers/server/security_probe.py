@@ -446,8 +446,11 @@ class SecurityProbe:
 
     def invalidate(self) -> None:
         """Forget every answer, so the next question asks the machine again."""
+        from noust.managers.server.security_logins import forget_shared
+
         self._effective.clear()
         self._logins = None
+        forget_shared()
         self._listeners = None
         self._established = None
         self._account_keys = None

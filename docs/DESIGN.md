@@ -833,7 +833,9 @@ the operator just did. Never "Oops" or "Sorry"; an unknown cause is not invented
 Everything loaded has four states: a skeleton shaped like the content (the region
 `aria-busy`, a `sr-only` "Loading ..."), the error, the empty state, the content. `QueryState`
 does all four. Under a second, nothing blinks; 1 to 10 seconds, a skeleton; beyond, progress
-if the end is known, otherwise a background job with its `JobProgress`. A refresh that fails
+if the end is known, otherwise a background job with its `JobProgress`. A skeleton lives in a
+`LoadingRegion` (`QueryState` uses one): after two seconds it also says, visibly and with a
+spinner, what it is reading, so a view that reads the machine never looks stuck. A refresh that fails
 keeps the last answer on screen with a compact error above it. When an optional dependency
 fails, only the affected block says so; controls are not disabled for it and "undefined" is
 never printed. An empty cell is `EmptyCell`.

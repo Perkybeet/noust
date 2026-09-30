@@ -24,6 +24,7 @@ button holds that key today.
 from __future__ import annotations
 
 import re
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -257,6 +258,28 @@ def parse_syslog(text: str, now: float) -> list[LoginEvent]:
     return events
 
 
+#: How long one reading of the evidence window serves every question. The
+#: window is 30 days of sshd's journal, which on a server the Internet probes
+#: all day (240,000 lines on the owner's central) took 2.4 s to read, and every
+#: view of Server > Security read it again - twice for the SSH keys alone. A
+#: minute-old "last used" is as true as a fresh one; what must be fresh (the
+#: login that proves a change kept access) reads with ``since``, uncached.
+SHARED_TTL = 60.0
+
+_shared_lock = threading.Lock()
+#: Held while the window is read: the views of a tab ask at the same moment,
+#: and they wait for one reading instead of each making their own.
+_reading_lock = threading.Lock()
+_shared: tuple[float, object, LoginHistory] | None = None
+
+
+def forget_shared() -> None:
+    """Drop the shared reading, so the next one asks the journal again."""
+    global _shared
+    with _shared_lock:
+        _shared = None
+
+
 @dataclass
 class LoginReader:
     """
@@ -286,7 +309,47 @@ class LoginReader:
         Returns:
             The history, and where it came from.
         """
-        start = since if since is not None else self._now() - EVIDENCE_DAYS * 86400
+        if since is None:
+            return self._shared_window()
+        return self._read(since)
+
+    def _shared_window(self) -> LoginHistory:
+        """
+        The evidence window, read once a minute for every caller in this process.
+
+        Returns:
+            The history since :data:`EVIDENCE_DAYS` ago.
+        """
+        global _shared
+        start = self._now() - EVIDENCE_DAYS * 86400
+        with _reading_lock:
+            with _shared_lock:
+                # Keyed on the runner: a test's fake machine never answers another's.
+                shared = _shared
+            if shared is not None and shared[1] is self.runner and time.monotonic() < shared[0]:
+                cached = shared[2]
+                return LoginHistory(
+                    events=tuple(event for event in cached.events if event.at >= start),
+                    source=cached.source,
+                    error=cached.error,
+                    since=start,
+                )
+            history = self._read(start)
+            if history.readable:
+                with _shared_lock:
+                    _shared = (time.monotonic() + SHARED_TTL, self.runner, history)
+            return history
+
+    def _read(self, start: float) -> LoginHistory:
+        """
+        Read the logins since a moment, from the journal or a syslog file.
+
+        Args:
+            start: Epoch seconds.
+
+        Returns:
+            The history, and where it came from.
+        """
         result = (self.runner or get_runner()).run(
             [
                 "journalctl",

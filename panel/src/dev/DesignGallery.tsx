@@ -45,6 +45,7 @@ const NAV: { title: string; links: [string, string][] }[] = [
       ["page-header", "Page header"],
       ["notice", "Notice"],
       ["job-progress", "Job progress"],
+      ["loading-region", "Loading region"],
       ["filter-bar", "Filter bar"],
       ["empty", "Empty states"],
       ["card-kit", "Card and subsection"],

@@ -11,6 +11,7 @@ import { nodeErrorWords } from "../../nodes/nodeErrors";
 import { useNode } from "../../nodes/useNode";
 import { Button } from "../ui/Button";
 import { Notice } from "../ui/Notice";
+import { LoadingRegion } from "./LoadingRegion";
 import { SystemOutput } from "../ui/SystemOutput";
 
 export interface ErrorBlockProps {
@@ -190,10 +191,9 @@ export function QueryState<T>({
       );
     }
     return (
-      <div aria-busy="true" className={className}>
-        <span className="sr-only">{t("common.queryState.loading", { label })}</span>
+      <LoadingRegion label={t("common.queryState.loading", { label })} {...(className !== undefined ? { className } : {})}>
         {skeleton}
-      </div>
+      </LoadingRegion>
     );
   }
 

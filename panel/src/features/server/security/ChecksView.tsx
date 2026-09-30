@@ -13,6 +13,7 @@ import { Button, buttonClassName } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { EmptyState } from "../../../components/ui/EmptyState";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
@@ -216,10 +217,9 @@ export function ChecksView() {
   }
   if (checks.data === undefined) {
     return (
-      <div aria-busy="true" className="flex flex-col gap-3">
-        <span className="sr-only">{t("server.checks.loading")}</span>
+      <LoadingRegion label={t("server.checks.loading")} className="flex flex-col gap-3">
         <Skeleton className="h-64 w-full rounded-card" />
-      </div>
+      </LoadingRegion>
     );
   }
   const sorted = sortChecks(checks.data.checks);

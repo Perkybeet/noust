@@ -6,6 +6,8 @@ export { DangerAction, DangerZone } from "./DangerZone";
 export type { DangerActionProps, DangerZoneProps } from "./DangerZone";
 export { KeyValueList, KeyValueListSkeleton } from "./KeyValueList";
 export type { KeyValueItem, KeyValueListProps } from "./KeyValueList";
+export { LoadingRegion } from "./LoadingRegion";
+export type { LoadingRegionProps } from "./LoadingRegion";
 export { ErrorBlock, QueryState } from "./QueryState";
 export type { ErrorBlockProps, QueryLike, QueryStateProps } from "./QueryState";
 export { RelativeTime } from "./RelativeTime";

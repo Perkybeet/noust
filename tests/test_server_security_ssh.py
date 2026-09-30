@@ -376,6 +376,39 @@ class TestLogins:
         assert history.source == "/var/log/auth.log"
         assert history.events[0].method == "password"
 
+    def test_the_window_is_read_once_a_minute_for_every_probe(self, sshd, host):
+        """The central's 30-day journal took 2.4 s to read, and every view read it again."""
+        from noust.managers.server import security_logins
+
+        security_logins.forget_shared()
+        _journal(sshd, accepted("root", ED_FP, at=NOW - 60))
+
+        first = LoginReader(sshd, host.paths, lambda: NOW).read()
+        second = LoginReader(sshd, host.paths, lambda: NOW).read()
+
+        assert len(sshd.calls_to("journalctl")) == 1
+        assert [e.fingerprint for e in second.events] == [e.fingerprint for e in first.events]
+
+        # What proves a change kept access is read fresh, always.
+        LoginReader(sshd, host.paths, lambda: NOW).read(since=NOW - 120)
+        assert len(sshd.calls_to("journalctl")) == 2
+
+        # A change to SSH forgets the reading.
+        security_logins.forget_shared()
+        LoginReader(sshd, host.paths, lambda: NOW).read()
+        assert len(sshd.calls_to("journalctl")) == 3
+
+    def test_an_unreadable_history_is_not_kept(self, sshd, host):
+        from noust.managers.server import security_logins
+
+        security_logins.forget_shared()
+        sshd.script(["journalctl"], stderr="No journal files were found.", exit_code=1)
+
+        LoginReader(sshd, host.paths, lambda: NOW).read()
+        LoginReader(sshd, host.paths, lambda: NOW).read()
+
+        assert len(sshd.calls_to("journalctl")) == 2
+
     def test_old_style_syslog_dates_get_their_year(self):
         events = parse_syslog(
             "Sep 29 11:00:00 vps-1 sshd[1]: Accepted publickey for root from 192.0.2.4 port 1 "

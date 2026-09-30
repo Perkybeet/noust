@@ -28,6 +28,7 @@ import { Menu, MenuItem } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import type { Status } from "../../../components/ui/StatusPill";
@@ -213,11 +214,10 @@ export function FirewallView() {
   }
   if (query.data === undefined) {
     return (
-      <div aria-busy="true" className="flex flex-col gap-4">
-        <span className="sr-only">{t("server.firewall.loading")}</span>
+      <LoadingRegion label={t("server.firewall.loading")} className="flex flex-col gap-4">
         <Skeleton className="h-5 w-72" />
         <Skeleton className="h-64 w-full rounded-card" />
-      </div>
+      </LoadingRegion>
     );
   }
   const data = query.data;

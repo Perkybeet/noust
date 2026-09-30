@@ -29,6 +29,7 @@ import { Menu, MenuItem } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { Textarea } from "../../../components/ui/Textarea";
@@ -380,11 +381,10 @@ export function SshView() {
   }
   if (ssh.data === undefined) {
     return (
-      <div aria-busy="true" className="grid gap-6 xl:grid-cols-2">
-        <span className="sr-only">{t("server.ssh.loading")}</span>
+      <LoadingRegion label={t("server.ssh.loading")} className="grid gap-6 xl:grid-cols-2">
         <Skeleton className="h-80 w-full rounded-card" />
         <Skeleton className="h-80 w-full rounded-card" />
-      </div>
+      </LoadingRegion>
     );
   }
   return (

@@ -18,6 +18,7 @@ import type { Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
@@ -106,10 +107,9 @@ export function BansView() {
   }
   if (query.data === undefined) {
     return (
-      <div aria-busy="true" className="flex flex-col gap-4">
-        <span className="sr-only">{t("server.bans.loading")}</span>
+      <LoadingRegion label={t("server.bans.loading")} className="flex flex-col gap-4">
         <Skeleton className="h-40 w-full rounded-card" />
-      </div>
+      </LoadingRegion>
     );
   }
   const state = query.data;

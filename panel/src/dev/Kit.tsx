@@ -2,7 +2,7 @@ import { Boxes, DatabaseBackup, GitBranch, RotateCw } from "lucide-react";
 import { useState } from "react";
 
 import { PageHeader } from "../app/PageHeader";
-import { FilterBar, JobProgress, Subsection } from "../components/page";
+import { FilterBar, JobProgress, LoadingRegion, Subsection } from "../components/page";
 import {
   Button,
   Card,
@@ -17,6 +17,7 @@ import {
   Meter,
   Notice,
   Select,
+  Skeleton,
   StatusPill,
 } from "../components/ui";
 import type { Column } from "../components/ui";
@@ -68,6 +69,23 @@ function Jobs() {
             announce={false}
           />
         </div>
+      </BothThemes>
+    </Section>
+  );
+}
+
+function Loading() {
+  return (
+    <Section
+      id="loading-region"
+      title="Loading region"
+      description="A skeleton shaped like the content, aria-busy, what it reads said to screen readers at once. After two seconds, views that read the machine (sshd, the firewall, the journal) also say it visibly, with a spinner, so a slow read never looks stuck."
+    >
+      <BothThemes>
+        <LoadingRegion label="Leyendo SSH" className="grid gap-4 sm:grid-cols-2">
+          <Skeleton className="h-32 w-full rounded-card" />
+          <Skeleton className="h-32 w-full rounded-card" />
+        </LoadingRegion>
       </BothThemes>
     </Section>
   );
@@ -284,6 +302,7 @@ export function Kit() {
       <Headers />
       <Notices />
       <Jobs />
+      <Loading />
       <Filters />
       <Empties />
       <Surfaces />
