@@ -15,7 +15,10 @@ export const fleet = {
     triggerAll: "Server: all servers",
     triggerCentral: "Server: this central, {name}",
     all: "All servers",
-    allDescription: { one: "The fleet at once: {count} server", other: "The fleet at once: {count} servers" },
+    allDescription: {
+      one: "The fleet at once: {count} server",
+      other: "The fleet at once: {count} servers",
+    },
     central: "This central",
     centralDescription: "Its servers, security and API tokens",
     thisServer: "This server",
@@ -48,14 +51,16 @@ export const fleet = {
       "{node} runs Noust {nodeVersion}, newer than this server's {version}. This console shows only what it knows; update this server to use everything {node} offers.",
     unknownNode: "This server has no node named {node}.",
     backToThisServer: "Go to this server",
-    readOnly: "{node} lets this central only read. Anything that changes {node} from here is refused there, on purpose.",
+    readOnly:
+      "{node} lets this central only read. Anything that changes {node} from here is refused there, on purpose.",
     deployOnly:
       "{node} lets this central operate, update and roll back its applications, not create, delete or configure anything. Those are refused there, on purpose.",
   },
   capability: {
     notAvailable: "Not available on {node} (Noust {version})",
     notAvailableNoVersion: "Not available on {node}",
-    explanation: "The Noust on {node} does not offer this. Update Noust on {node} to use it here.",
+    explanation:
+      "The Noust on {node} does not offer this. Update Noust on {node} to use it here.",
     checking: "Checking what {node} offers",
   },
   errors: {
@@ -105,7 +110,8 @@ export const fleet = {
     loadFailed: "Could not load the fleet",
     empty: {
       title: "No servers in this fleet yet",
-      description: "Manage several servers from this console. Each one authorizes this console once; it never gets a shell there.",
+      description:
+        "Manage several servers from this console. Each one authorizes this console once; it never gets a shell there.",
     },
   },
   column: {
@@ -219,27 +225,47 @@ export const fleet = {
     notRead: "Not read",
     olderNoust: "Its Noust is too old to say",
     noAttention: "Nothing",
-    attentionCount: { one: "{count} needs attention", other: "{count} need attention" },
+    attentionCount: {
+      one: "{count} needs attention",
+      other: "{count} need attention",
+    },
     appsRunning: { one: "{count} running", other: "{count} running" },
     appsFailed: { one: "{count} failed", other: "{count} failed" },
     figures: {
       servers: "Servers answering",
       serversValue: "{answering} of {total}",
       serversAll: "Every server answered",
-      serversDown: { one: "{count} not answering", other: "{count} not answering" },
+      serversDown: {
+        one: "{count} not answering",
+        other: "{count} not answering",
+      },
       apps: "Applications",
+      appsTotal: { one: "{count} in all", other: "{count} in all" },
+      appsRunningNoneFailed: {
+        one: "{count} running, none failing",
+        other: "{count} running, none failing",
+      },
       noneFailed: "None failed",
       services: "Services",
       servicesFailed: { one: "{count} failed", other: "{count} failed" },
       servicesDetail: "On every server",
       certificates: "Certificates",
-      certificatesExpiring: { one: "{count} expiring", other: "{count} expiring" },
+      certificatesExpiring: {
+        one: "{count} expiring",
+        other: "{count} expiring",
+      },
       certificatesNone: "None expiring",
       certificatesDetail: "Due within 30 days",
       updates: "Updates",
-      updatesAvailable: { one: "{count} to update", other: "{count} to update" },
+      updatesAvailable: {
+        one: "{count} to update",
+        other: "{count} to update",
+      },
       updatesNone: "Every Noust up to date",
-      reboots: { one: "{count} waits for a restart", other: "{count} wait for a restart" },
+      reboots: {
+        one: "{count} waits for a restart",
+        other: "{count} wait for a restart",
+      },
       noReboots: "No restart pending",
       attention: "Needs attention",
       attentionDetail: "As each server sees it",
@@ -247,11 +273,13 @@ export const fleet = {
     },
     attention: {
       title: "Needs attention",
-      description: "On every server, worst first. Each opens where it is fixed, on its own server.",
+      description:
+        "On every server, worst first. Each opens where it is fixed, on its own server.",
       loading: "Checking every server",
       empty: {
         one: "Nothing needs attention on the {count} server that answered.",
-        other: "Nothing needs attention on any of the {count} servers that answered.",
+        other:
+          "Nothing needs attention on any of the {count} servers that answered.",
       },
       on: "on {server}",
       failure: "Failure:",
@@ -292,7 +320,10 @@ export const fleet = {
     select: "Select",
     selectOne: "Select {name}",
     clearSelection: "Clear selection",
-    runOnSelected: { one: "Run an action on {count} server", other: "Run an action on {count} servers" },
+    runOnSelected: {
+      one: "Run an action on {count} server",
+      other: "Run an action on {count} servers",
+    },
     updateAvailable: "{version} available",
     now: "Now",
     never: "Never",
@@ -305,11 +336,13 @@ export const fleet = {
   },
   labels: {
     title: "Labels of {name}",
-    description: "This central's own way to group its servers and aim an action at a group. The server never sees them.",
+    description:
+      "This central's own way to group its servers and aim an action at a group. The server never sees them.",
     label: "Labels",
     help: "As key=value, separated by commas: env=prod, team=web. Saving replaces them all.",
     invalidFormat: "Write each label as key=value, separated by commas.",
-    invalidCharacters: "Use letters, digits, dots, dashes and underscores in keys and values, starting with a letter or digit.",
+    invalidCharacters:
+      "Use letters, digits, dots, dashes and underscores in keys and values, starting with a letter or digit.",
     save: "Save labels",
     cancel: "Cancel",
     failed: "Could not save the labels of {name}",
@@ -362,8 +395,14 @@ export const fleet = {
     searchPlaceholder: "Domain or server",
     count: { one: "{count} application", other: "{count} applications" },
     countFiltered: "{shown} of {total} applications",
-    gaps: { one: "{count} without a backup", other: "{count} without a backup" },
-    unscheduledCount: { one: "{count} without a schedule", other: "{count} without a schedule" },
+    gaps: {
+      one: "{count} without a backup",
+      other: "{count} without a backup",
+    },
+    unscheduledCount: {
+      one: "{count} without a schedule",
+      other: "{count} without a schedule",
+    },
     empty: "No server has an application to back up yet.",
     coverage: {
       none: "No backup",
@@ -435,19 +474,23 @@ export const fleet = {
   actions: {
     certs_renew: {
       label: "Renew certificates",
-      description: "Each server renews the certificates that are due, as its own timer would.",
+      description:
+        "Each server renews the certificates that are due, as its own timer would.",
     },
     backups_run: {
       label: "Back up applications now",
-      description: "Each server backs up every application, then checks each archive it made.",
+      description:
+        "Each server backs up every application, then checks each archive it made.",
     },
     backups_verify: {
       label: "Verify the newest backups",
-      description: "Each server checks the newest backup of every application can be restored.",
+      description:
+        "Each server checks the newest backup of every application can be restored.",
     },
     apps_update: {
       label: "Update applications",
-      description: "Each server deploys the latest code of every application, and keeps the old one if the new one fails to start.",
+      description:
+        "Each server deploys the latest code of every application, and keeps the old one if the new one fails to start.",
     },
     apps_restart: {
       label: "Restart applications",
@@ -455,16 +498,19 @@ export const fleet = {
     },
     noust_update: {
       label: "Update Noust",
-      description: "Each server installs the newest Noust the way it was installed, one at a time by default.",
+      description:
+        "Each server installs the newest Noust the way it was installed, one at a time by default.",
     },
     os_updates: {
       label: "Apply system updates",
-      description: "Each server installs its pending operating system updates. None restarts on its own.",
+      description:
+        "Each server installs its pending operating system updates. None restarts on its own.",
     },
   },
   bulk: {
     title: "Run an action on several servers",
-    description: "It runs as one job of this central, server by server, after you see its plan.",
+    description:
+      "It runs as one job of this central, server by server, after you see its plan.",
     steps: {
       action: "Action",
       servers: "Servers",
@@ -487,44 +533,64 @@ export const fleet = {
       loading: "Loading the servers",
       all: { one: "All {count} server", other: "All {count} servers" },
       labelsLabel: "Labels",
-      labelsHelp: "Servers carrying every label, as key=value separated by commas: env=prod.",
-      labelsMatch: { one: "Matches {count} server: {names}.", other: "Matches {count} servers: {names}." },
+      labelsHelp:
+        "Servers carrying every label, as key=value separated by commas: env=prod.",
+      labelsMatch: {
+        one: "Matches {count} server: {names}.",
+        other: "Matches {count} servers: {names}.",
+      },
       labelsInvalid: "Write each label as key=value, separated by commas.",
       noneChosen: "Choose at least one server.",
       noneMatch: "No server carries these labels.",
     },
     options: {
       forceRenew: "Renew even those not due yet",
-      forceRenewHelp: "Let's Encrypt limits renewals: only when a certificate must change now.",
+      forceRenewHelp:
+        "Let's Encrypt limits renewals: only when a certificate must change now.",
       forceUpdate: "Deploy even when nothing new was pushed",
-      forceUpdateHelp: "Rebuilds from the same commit, for a change outside the repository.",
+      forceUpdateHelp:
+        "Rebuilds from the same commit, for a change outside the repository.",
       verify: "Check each backup after it is made",
-      verifyHelp: "Restores it into a scratch folder and compares, which takes longer.",
+      verifyHelp:
+        "Restores it into a scratch folder and compares, which takes longer.",
       scope: "Which updates",
       scopeSecurity: "Security updates only",
-      scopeSecurityHelp: "Fixes for known vulnerabilities; the least that changes.",
+      scopeSecurityHelp:
+        "Fixes for known vulnerabilities; the least that changes.",
       scopeAll: "Every pending update",
-      scopeAllHelp: "Everything the system has pending, as its package manager would install it.",
+      scopeAllHelp:
+        "Everything the system has pending, as its package manager would install it.",
     },
     how: {
       legend: "How",
       serial: "At a time",
-      serialHelp: "Servers at once, or a share such as 25%. {value} by default.",
-      serialInvalid: "Write a number of servers, 1 or more, or a share from 1% to 100%.",
+      serialHelp:
+        "Servers at once, or a share such as 25%. {value} by default.",
+      serialInvalid:
+        "Write a number of servers, 1 or more, or a share from 1% to 100%.",
       maxFailures: "Stop after",
-      maxFailuresHelp: "Failed servers before the rest are skipped. {value} by default.",
-      maxFailuresHelpNever: "Failed servers before the rest are skipped. By default it never stops.",
+      maxFailuresHelp:
+        "Failed servers before the rest are skipped. {value} by default.",
+      maxFailuresHelpNever:
+        "Failed servers before the rest are skipped. By default it never stops.",
       maxFailuresInvalid: "Write a number of failed servers, 0 or more.",
       canary: "First, alone",
-      canaryHelp: "One server that runs it before any other; if it fails, nothing else runs.",
+      canaryHelp:
+        "One server that runs it before any other; if it fails, nothing else runs.",
       noCanary: "None",
     },
     plan: {
       loading: "Asking every server what it would do",
       failed: "Could not plan the action",
-      summary: { one: "“{action}” will run on {count} server.", other: "“{action}” will run on {count} servers." },
+      summary: {
+        one: "“{action}” will run on {count} server.",
+        other: "“{action}” will run on {count} servers.",
+      },
       nothing: "No chosen server can run “{action}”.",
-      skipped: { one: "{count} server is skipped, and says why below.", other: "{count} servers are skipped, and say why below." },
+      skipped: {
+        one: "{count} server is skipped, and says why below.",
+        other: "{count} servers are skipped, and say why below.",
+      },
       batchesLabel: "Batches, in order",
       batchLine: "Batch {batch}:",
       canaryFirst: "First, alone:",
@@ -535,10 +601,14 @@ export const fleet = {
       sudo: "Sudo mode",
       sudoYes: "Asked once",
       sudoNo: "Not needed",
-      elevation: "You will confirm it's you once, for the whole job: a server asks for sudo mode for this action.",
-      centralLast: "This central is not updated by this job: update it last, on its own, so it can watch every server come back.",
-      noReboot: "No server restarts on its own. A server that needs a restart says so on the Updates view afterwards.",
-      nothingToRun: "No chosen server can run this: the plan says why for each one.",
+      elevation:
+        "You will confirm it's you once, for the whole job: a server asks for sudo mode for this action.",
+      centralLast:
+        "This central is not updated by this job: update it last, on its own, so it can watch every server come back.",
+      noReboot:
+        "No server restarts on its own. A server that needs a restart says so on the Updates view afterwards.",
+      nothingToRun:
+        "No chosen server can run this: the plan says why for each one.",
     },
     run: {
       button: { one: "Run on {count} server", other: "Run on {count} servers" },
@@ -588,7 +658,10 @@ export const fleet = {
       succeeded: { one: "{count} succeeded", other: "{count} succeeded" },
       failed: { one: "{count} failed", other: "{count} failed" },
       skipped: { one: "{count} skipped", other: "{count} skipped" },
-      unreachable: { one: "{count} not answering", other: "{count} not answering" },
+      unreachable: {
+        one: "{count} not answering",
+        other: "{count} not answering",
+      },
       refused: { one: "{count} refused", other: "{count} refused" },
       interrupted: { one: "{count} interrupted", other: "{count} interrupted" },
       cancelled: { one: "{count} cancelled", other: "{count} cancelled" },
@@ -613,9 +686,13 @@ export const fleet = {
       error: "It could not be checked",
     },
     retry: {
-      button: { one: "Retry the failed one", other: "Retry the {count} failed" },
+      button: {
+        one: "Retry the failed one",
+        other: "Retry the {count} failed",
+      },
       title: "Retry the servers that did not get done",
-      description: "Failed and unreachable servers, and those skipped for a reason that may not hold any more.",
+      description:
+        "Failed and unreachable servers, and those skipped for a reason that may not hold any more.",
       failed: "Could not start the retry",
     },
   },
@@ -626,13 +703,16 @@ export const fleet = {
   newApp: {
     step: "Server",
     title: "Which server deploys it",
-    description: "Every later step reads that server: its domains, its ports, its GitHub App.",
+    description:
+      "Every later step reads that server: its domains, its ports, its GitHub App.",
     legend: "Server",
     missing: "Choose the server that deploys it.",
     none: "This fleet has no server that can take an application yet: add one first.",
-    noneUsable: "No server of this fleet can take a new application right now: each one says why.",
+    noneUsable:
+      "No server of this fleet can take a new application right now: each one says why.",
     notAnswering: "{name} is not answering.",
     readOnly: "{name} lets this central only read.",
-    deployOnly: "{name} lets this central update applications, not create them.",
+    deployOnly:
+      "{name} lets this central update applications, not create them.",
   },
 } as const;

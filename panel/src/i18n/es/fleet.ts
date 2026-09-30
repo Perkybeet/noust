@@ -11,7 +11,10 @@ export const fleet: Catalog<typeof en> = {
     triggerAll: "Servidor: todos los servidores",
     triggerCentral: "Servidor: esta central, {name}",
     all: "Todos los servidores",
-    allDescription: { one: "Toda la flota a la vez: {count} servidor", other: "Toda la flota a la vez: {count} servidores" },
+    allDescription: {
+      one: "Toda la flota a la vez: {count} servidor",
+      other: "Toda la flota a la vez: {count} servidores",
+    },
     central: "Esta central",
     centralDescription: "Sus servidores, su seguridad y sus tokens de API",
     thisServer: "Este servidor",
@@ -44,20 +47,23 @@ export const fleet: Catalog<typeof en> = {
       "{node} ejecuta Noust {nodeVersion}, posterior a la {version} de este servidor. Esta consola muestra solo lo que conoce; actualiza este servidor para usar todo lo que ofrece {node}.",
     unknownNode: "Este servidor no tiene ningún nodo llamado {node}.",
     backToThisServer: "Ir a este servidor",
-    readOnly: "{node} solo deja leer a esta central. Lo que cambie {node} desde aquí lo rechaza {node}, a propósito.",
+    readOnly:
+      "{node} solo deja leer a esta central. Lo que cambie {node} desde aquí lo rechaza {node}, a propósito.",
     deployOnly:
       "{node} deja a esta central operar, actualizar y volver atrás sus aplicaciones, pero no crear, borrar ni configurar nada. Eso lo rechaza {node}, a propósito.",
   },
   capability: {
     notAvailable: "No disponible en {node} (Noust {version})",
     notAvailableNoVersion: "No disponible en {node}",
-    explanation: "El Noust de {node} no ofrece esto. Actualiza Noust en {node} para usarlo aquí.",
+    explanation:
+      "El Noust de {node} no ofrece esto. Actualiza Noust en {node} para usarlo aquí.",
     checking: "Comprobando qué ofrece {node}",
   },
   errors: {
     unreachableTitle: "{node} no responde",
     refusedTitle: "{node} rechazó a este servidor",
-    unreachableHint: "Este servidor no pudo llegar a {node} a través de su túnel.",
+    unreachableHint:
+      "Este servidor no pudo llegar a {node} a través de su túnel.",
     refusedHint: "{node} ya no acepta el token de flota de este servidor.",
   },
 
@@ -98,7 +104,8 @@ export const fleet: Catalog<typeof en> = {
     loadFailed: "No se pudo cargar la flota",
     empty: {
       title: "Esta flota aún no tiene servidores",
-      description: "Gestiona varios servidores desde esta consola. Cada uno la autoriza una vez; nunca obtiene una shell allí.",
+      description:
+        "Gestiona varios servidores desde esta consola. Cada uno la autoriza una vez; nunca obtiene una shell allí.",
     },
   },
   column: {
@@ -173,7 +180,8 @@ export const fleet: Catalog<typeof en> = {
     why: {
       stale: "{name} no respondió: sus filas son su última respuesta.",
       unreachable: "{name} no respondió.",
-      unsupported: "Tiene una versión anterior de Noust, que no puede mostrar todo aquí.",
+      unsupported:
+        "Tiene una versión anterior de Noust, que no puede mostrar todo aquí.",
       forbidden: "{name} se negó a mostrar esto a tu cuenta.",
       error: "{name} respondió con un error.",
     },
@@ -209,27 +217,47 @@ export const fleet: Catalog<typeof en> = {
     notRead: "Sin leer",
     olderNoust: "Su Noust es demasiado antiguo para decirlo",
     noAttention: "Nada",
-    attentionCount: { one: "{count} requiere atención", other: "{count} requieren atención" },
+    attentionCount: {
+      one: "{count} requiere atención",
+      other: "{count} requieren atención",
+    },
     appsRunning: { one: "{count} en marcha", other: "{count} en marcha" },
     appsFailed: { one: "{count} con fallo", other: "{count} con fallo" },
     figures: {
       servers: "Servidores que responden",
       serversValue: "{answering} de {total}",
       serversAll: "Todos los servidores respondieron",
-      serversDown: { one: "{count} no responde", other: "{count} no responden" },
+      serversDown: {
+        one: "{count} no responde",
+        other: "{count} no responden",
+      },
       apps: "Aplicaciones",
+      appsTotal: { one: "{count} en total", other: "{count} en total" },
+      appsRunningNoneFailed: {
+        one: "{count} en marcha, ninguna con fallo",
+        other: "{count} en marcha, ninguna con fallo",
+      },
       noneFailed: "Ninguna con fallo",
       services: "Servicios",
       servicesFailed: { one: "{count} con fallo", other: "{count} con fallo" },
       servicesDetail: "En todos los servidores",
       certificates: "Certificados",
-      certificatesExpiring: { one: "{count} por caducar", other: "{count} por caducar" },
+      certificatesExpiring: {
+        one: "{count} por caducar",
+        other: "{count} por caducar",
+      },
       certificatesNone: "Ninguno por caducar",
       certificatesDetail: "Caducan en 30 días",
       updates: "Actualizaciones",
-      updatesAvailable: { one: "{count} por actualizar", other: "{count} por actualizar" },
+      updatesAvailable: {
+        one: "{count} por actualizar",
+        other: "{count} por actualizar",
+      },
       updatesNone: "Todo Noust al día",
-      reboots: { one: "{count} espera un reinicio", other: "{count} esperan un reinicio" },
+      reboots: {
+        one: "{count} espera un reinicio",
+        other: "{count} esperan un reinicio",
+      },
       noReboots: "Ningún reinicio pendiente",
       attention: "Requiere atención",
       attentionDetail: "Según cada servidor",
@@ -237,11 +265,13 @@ export const fleet: Catalog<typeof en> = {
     },
     attention: {
       title: "Requiere atención",
-      description: "En todos los servidores, lo peor primero. Cada punto se abre donde se arregla, en su servidor.",
+      description:
+        "En todos los servidores, lo peor primero. Cada punto se abre donde se arregla, en su servidor.",
       loading: "Comprobando todos los servidores",
       empty: {
         one: "Nada requiere atención en el {count} servidor que respondió.",
-        other: "Nada requiere atención en ninguno de los {count} servidores que respondieron.",
+        other:
+          "Nada requiere atención en ninguno de los {count} servidores que respondieron.",
       },
       on: "en {server}",
       failure: "Fallo:",
@@ -279,7 +309,10 @@ export const fleet: Catalog<typeof en> = {
     select: "Elegir",
     selectOne: "Elegir {name}",
     clearSelection: "Quitar la selección",
-    runOnSelected: { one: "Ejecutar una acción en {count} servidor", other: "Ejecutar una acción en {count} servidores" },
+    runOnSelected: {
+      one: "Ejecutar una acción en {count} servidor",
+      other: "Ejecutar una acción en {count} servidores",
+    },
     updateAvailable: "{version} disponible",
     now: "Ahora",
     never: "Nunca",
@@ -292,16 +325,20 @@ export const fleet: Catalog<typeof en> = {
   },
   labels: {
     title: "Etiquetas de {name}",
-    description: "La forma que tiene esta central de agrupar sus servidores y dirigir una acción a un grupo. El servidor nunca las ve.",
+    description:
+      "La forma que tiene esta central de agrupar sus servidores y dirigir una acción a un grupo. El servidor nunca las ve.",
     label: "Etiquetas",
     help: "Como clave=valor, separadas por comas: env=prod, team=web. Guardar las sustituye todas.",
-    invalidFormat: "Escribe cada etiqueta como clave=valor, separadas por comas.",
-    invalidCharacters: "Usa letras, dígitos, puntos, guiones y guiones bajos en claves y valores, empezando por una letra o un dígito.",
+    invalidFormat:
+      "Escribe cada etiqueta como clave=valor, separadas por comas.",
+    invalidCharacters:
+      "Usa letras, dígitos, puntos, guiones y guiones bajos en claves y valores, empezando por una letra o un dígito.",
     save: "Guardar etiquetas",
     cancel: "Cancelar",
     failed: "No se pudieron guardar las etiquetas de {name}",
     none: "Ninguna",
-    notForCentral: "Las etiquetas agrupan los servidores de la central, no la central",
+    notForCentral:
+      "Las etiquetas agrupan los servidores de la central, no la central",
   },
 
   apps: {
@@ -347,7 +384,10 @@ export const fleet: Catalog<typeof en> = {
     count: { one: "{count} aplicación", other: "{count} aplicaciones" },
     countFiltered: "{shown} de {total} aplicaciones",
     gaps: { one: "{count} sin copia", other: "{count} sin copia" },
-    unscheduledCount: { one: "{count} sin programación", other: "{count} sin programación" },
+    unscheduledCount: {
+      one: "{count} sin programación",
+      other: "{count} sin programación",
+    },
     empty: "Ningún servidor tiene aún una aplicación de la que hacer copia.",
     coverage: {
       none: "Sin copia",
@@ -416,19 +456,23 @@ export const fleet: Catalog<typeof en> = {
   actions: {
     certs_renew: {
       label: "Renovar certificados",
-      description: "Cada servidor renueva los certificados que toca, como haría su propio temporizador.",
+      description:
+        "Cada servidor renueva los certificados que toca, como haría su propio temporizador.",
     },
     backups_run: {
       label: "Hacer copia de las aplicaciones ahora",
-      description: "Cada servidor hace copia de todas sus aplicaciones y comprueba cada archivo que ha hecho.",
+      description:
+        "Cada servidor hace copia de todas sus aplicaciones y comprueba cada archivo que ha hecho.",
     },
     backups_verify: {
       label: "Verificar las copias más recientes",
-      description: "Cada servidor comprueba que la copia más reciente de cada aplicación se puede restaurar.",
+      description:
+        "Cada servidor comprueba que la copia más reciente de cada aplicación se puede restaurar.",
     },
     apps_update: {
       label: "Actualizar aplicaciones",
-      description: "Cada servidor despliega el código más reciente de cada aplicación y conserva el anterior si el nuevo no arranca.",
+      description:
+        "Cada servidor despliega el código más reciente de cada aplicación y conserva el anterior si el nuevo no arranca.",
     },
     apps_restart: {
       label: "Reiniciar aplicaciones",
@@ -436,16 +480,19 @@ export const fleet: Catalog<typeof en> = {
     },
     noust_update: {
       label: "Actualizar Noust",
-      description: "Cada servidor instala el Noust más reciente como se instaló, de uno en uno por defecto.",
+      description:
+        "Cada servidor instala el Noust más reciente como se instaló, de uno en uno por defecto.",
     },
     os_updates: {
       label: "Aplicar actualizaciones del sistema",
-      description: "Cada servidor instala las actualizaciones pendientes de su sistema operativo. Ninguno se reinicia solo.",
+      description:
+        "Cada servidor instala las actualizaciones pendientes de su sistema operativo. Ninguno se reinicia solo.",
     },
   },
   bulk: {
     title: "Ejecutar una acción en varios servidores",
-    description: "Se ejecuta como una tarea de esta central, servidor a servidor, después de ver su plan.",
+    description:
+      "Se ejecuta como una tarea de esta central, servidor a servidor, después de ver su plan.",
     steps: {
       action: "Acción",
       servers: "Servidores",
@@ -468,44 +515,65 @@ export const fleet: Catalog<typeof en> = {
       loading: "Cargando los servidores",
       all: { one: "El {count} servidor", other: "Los {count} servidores" },
       labelsLabel: "Etiquetas",
-      labelsHelp: "Servidores con todas las etiquetas, como clave=valor separadas por comas: env=prod.",
-      labelsMatch: { one: "Coincide {count} servidor: {names}.", other: "Coinciden {count} servidores: {names}." },
-      labelsInvalid: "Escribe cada etiqueta como clave=valor, separadas por comas.",
+      labelsHelp:
+        "Servidores con todas las etiquetas, como clave=valor separadas por comas: env=prod.",
+      labelsMatch: {
+        one: "Coincide {count} servidor: {names}.",
+        other: "Coinciden {count} servidores: {names}.",
+      },
+      labelsInvalid:
+        "Escribe cada etiqueta como clave=valor, separadas por comas.",
       noneChosen: "Elige al menos un servidor.",
       noneMatch: "Ningún servidor tiene estas etiquetas.",
     },
     options: {
       forceRenew: "Renovar también los que aún no tocan",
-      forceRenewHelp: "Let's Encrypt limita las renovaciones: solo cuando un certificado deba cambiar ya.",
+      forceRenewHelp:
+        "Let's Encrypt limita las renovaciones: solo cuando un certificado deba cambiar ya.",
       forceUpdate: "Desplegar aunque no haya nada nuevo",
-      forceUpdateHelp: "Recompila desde el mismo commit, para un cambio fuera del repositorio.",
+      forceUpdateHelp:
+        "Recompila desde el mismo commit, para un cambio fuera del repositorio.",
       verify: "Comprobar cada copia al hacerla",
-      verifyHelp: "La restaura en una carpeta temporal y la compara, lo que lleva más tiempo.",
+      verifyHelp:
+        "La restaura en una carpeta temporal y la compara, lo que lleva más tiempo.",
       scope: "Qué actualizaciones",
       scopeSecurity: "Solo las de seguridad",
-      scopeSecurityHelp: "Arreglos de vulnerabilidades conocidas; lo que menos cambia.",
+      scopeSecurityHelp:
+        "Arreglos de vulnerabilidades conocidas; lo que menos cambia.",
       scopeAll: "Todas las pendientes",
-      scopeAllHelp: "Todo lo que el sistema tiene pendiente, como lo instalaría su gestor de paquetes.",
+      scopeAllHelp:
+        "Todo lo que el sistema tiene pendiente, como lo instalaría su gestor de paquetes.",
     },
     how: {
       legend: "Cómo",
       serial: "A la vez",
-      serialHelp: "Servidores a la vez, o una parte como 25%. {value} por defecto.",
-      serialInvalid: "Escribe un número de servidores, 1 o más, o una parte del 1% al 100%.",
+      serialHelp:
+        "Servidores a la vez, o una parte como 25%. {value} por defecto.",
+      serialInvalid:
+        "Escribe un número de servidores, 1 o más, o una parte del 1% al 100%.",
       maxFailures: "Parar tras",
-      maxFailuresHelp: "Servidores fallidos antes de saltarse el resto. {value} por defecto.",
-      maxFailuresHelpNever: "Servidores fallidos antes de saltarse el resto. Por defecto no para nunca.",
+      maxFailuresHelp:
+        "Servidores fallidos antes de saltarse el resto. {value} por defecto.",
+      maxFailuresHelpNever:
+        "Servidores fallidos antes de saltarse el resto. Por defecto no para nunca.",
       maxFailuresInvalid: "Escribe un número de servidores fallidos, 0 o más.",
       canary: "Primero, solo",
-      canaryHelp: "Un servidor que lo ejecuta antes que ningún otro; si falla, no se ejecuta nada más.",
+      canaryHelp:
+        "Un servidor que lo ejecuta antes que ningún otro; si falla, no se ejecuta nada más.",
       noCanary: "Ninguno",
     },
     plan: {
       loading: "Preguntando a cada servidor qué haría",
       failed: "No se pudo planificar la acción",
-      summary: { one: "«{action}» se ejecutará en {count} servidor.", other: "«{action}» se ejecutará en {count} servidores." },
+      summary: {
+        one: "«{action}» se ejecutará en {count} servidor.",
+        other: "«{action}» se ejecutará en {count} servidores.",
+      },
       nothing: "Ningún servidor elegido puede ejecutar «{action}».",
-      skipped: { one: "Se salta {count} servidor, y abajo dice por qué.", other: "Se saltan {count} servidores, y abajo dicen por qué." },
+      skipped: {
+        one: "Se salta {count} servidor, y abajo dice por qué.",
+        other: "Se saltan {count} servidores, y abajo dicen por qué.",
+      },
       batchesLabel: "Lotes, en orden",
       batchLine: "Lote {batch}:",
       canaryFirst: "Primero, solo:",
@@ -516,13 +584,20 @@ export const fleet: Catalog<typeof en> = {
       sudo: "Modo sudo",
       sudoYes: "Se pide una vez",
       sudoNo: "No hace falta",
-      elevation: "Confirmarás que eres tú una vez, para toda la tarea: un servidor pide el modo sudo para esta acción.",
-      centralLast: "Esta tarea no actualiza esta central: actualízala la última, por su cuenta, para que pueda ver volver a cada servidor.",
-      noReboot: "Ningún servidor se reinicia solo. Un servidor que necesite reiniciarse lo dirá después en la vista Actualizaciones.",
-      nothingToRun: "Ningún servidor elegido puede ejecutar esto: el plan dice por qué en cada uno.",
+      elevation:
+        "Confirmarás que eres tú una vez, para toda la tarea: un servidor pide el modo sudo para esta acción.",
+      centralLast:
+        "Esta tarea no actualiza esta central: actualízala la última, por su cuenta, para que pueda ver volver a cada servidor.",
+      noReboot:
+        "Ningún servidor se reinicia solo. Un servidor que necesite reiniciarse lo dirá después en la vista Actualizaciones.",
+      nothingToRun:
+        "Ningún servidor elegido puede ejecutar esto: el plan dice por qué en cada uno.",
     },
     run: {
-      button: { one: "Ejecutar en {count} servidor", other: "Ejecutar en {count} servidores" },
+      button: {
+        one: "Ejecutar en {count} servidor",
+        other: "Ejecutar en {count} servidores",
+      },
       failed: "No se pudo empezar «{action}»",
     },
   },
@@ -569,9 +644,15 @@ export const fleet: Catalog<typeof en> = {
       succeeded: { one: "{count} correcto", other: "{count} correctos" },
       failed: { one: "{count} fallido", other: "{count} fallidos" },
       skipped: { one: "{count} saltado", other: "{count} saltados" },
-      unreachable: { one: "{count} no responde", other: "{count} no responden" },
+      unreachable: {
+        one: "{count} no responde",
+        other: "{count} no responden",
+      },
       refused: { one: "{count} rechazado", other: "{count} rechazados" },
-      interrupted: { one: "{count} interrumpido", other: "{count} interrumpidos" },
+      interrupted: {
+        one: "{count} interrumpido",
+        other: "{count} interrumpidos",
+      },
       cancelled: { one: "{count} cancelado", other: "{count} cancelados" },
     },
     status: {
@@ -594,9 +675,13 @@ export const fleet: Catalog<typeof en> = {
       error: "No se pudo comprobar",
     },
     retry: {
-      button: { one: "Reintentar el fallido", other: "Reintentar los {count} fallidos" },
+      button: {
+        one: "Reintentar el fallido",
+        other: "Reintentar los {count} fallidos",
+      },
       title: "Reintentar los servidores que no terminaron",
-      description: "Los fallidos y los que no respondieron, y los que se saltaron por un motivo que puede haber cambiado.",
+      description:
+        "Los fallidos y los que no respondieron, y los que se saltaron por un motivo que puede haber cambiado.",
       failed: "No se pudo empezar el reintento",
     },
   },
@@ -604,13 +689,16 @@ export const fleet: Catalog<typeof en> = {
   newApp: {
     step: "Servidor",
     title: "Qué servidor la despliega",
-    description: "Cada paso siguiente lee ese servidor: sus dominios, sus puertos, su GitHub App.",
+    description:
+      "Cada paso siguiente lee ese servidor: sus dominios, sus puertos, su GitHub App.",
     legend: "Servidor",
     missing: "Elige el servidor que la despliega.",
     none: "Esta flota aún no tiene ningún servidor que pueda recibir una aplicación: añade uno primero.",
-    noneUsable: "Ningún servidor de esta flota puede recibir una aplicación nueva ahora: cada uno dice por qué.",
+    noneUsable:
+      "Ningún servidor de esta flota puede recibir una aplicación nueva ahora: cada uno dice por qué.",
     notAnswering: "{name} no responde.",
     readOnly: "{name} solo deja leer a esta central.",
-    deployOnly: "{name} deja a esta central actualizar aplicaciones, no crearlas.",
+    deployOnly:
+      "{name} deja a esta central actualizar aplicaciones, no crearlas.",
   },
 };
