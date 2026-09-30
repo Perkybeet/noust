@@ -10,7 +10,7 @@
 #
 
 Name:           noust
-Version:        3.1.3
+Version:        3.1.4
 Release:        1%{?dist}
 Summary:        Deploy and manage web applications on Linux servers
 License:        AGPL-3.0-or-later
@@ -386,6 +386,12 @@ if [ -f /etc/systemd/system/wasm-web.service ]; then
 fi
 
 %changelog
+* Wed Sep 30 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.4-1
+- Sign in in two steps, with username or email; the lockout no longer locks everyone behind an SSH tunnel
+- The security report runs by itself; the console is found by its process; DOCKER-USER rules count as filtering
+- The console comes back after an upgrade; the update notice says when the package index has not seen a release
+- OS updates are no longer blocked by Ubuntu's idle unattended-upgrades helper
+- Test suite runs in parallel
 * Wed Sep 30 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.3-1
 - Sandboxed builds use corepack's known-good package manager, as root builds did
 - Activity no longer shifts while it loads
