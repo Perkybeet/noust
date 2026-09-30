@@ -733,6 +733,18 @@ SANDBOX_UNIT_PREFIX = "noust-build-"
 #: build then cannot execute.
 SANDBOX_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
+#: Corepack in a sandbox starts from an empty cache, where it would resolve the
+#: newest release of a package manager instead of the version root's cache
+#: remembers (seen live: pnpm 12, which the distribution's corepack cannot
+#: start). Its known-good default is what a root build got; auto-pinning would
+#: write ``packageManager`` into the application's package.json; a prompt would
+#: wait forever. A caller's own env still wins.
+SANDBOX_COREPACK_ENV = {
+    "COREPACK_DEFAULT_TO_LATEST": "0",
+    "COREPACK_ENABLE_AUTO_PIN": "0",
+    "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0",
+}
+
 #: Seconds the unit's own ``RuntimeMaxSec`` adds to the caller's deadline. The
 #: runner's deadline is what stops a command; this only stops the unit if the
 #: process that started it died first.
@@ -1097,7 +1109,7 @@ def sandbox_environment(
     Returns:
         The variables, as they go into the environment file.
     """
-    composed = {"PATH": SANDBOX_PATH}
+    composed = {"PATH": SANDBOX_PATH, **SANDBOX_COREPACK_ENV}
     composed.update(clean_environment(parent, spec.env_allow))
     if spec.pty:
         composed.update(PTY_ENV)

@@ -427,6 +427,20 @@ class TestSandboxEnvironment:
         assert env["PATH"] == runner_module.SANDBOX_PATH
         assert "/root" not in env["PATH"]
 
+    def test_corepack_uses_its_known_good_version_and_never_pins(self) -> None:
+        # An empty corepack cache must not jump to the newest package manager
+        # (pnpm 12 broke the distribution's corepack), nor write packageManager.
+        env = sandbox_environment(build_spec(), None, self.PARENT)
+
+        assert env["COREPACK_DEFAULT_TO_LATEST"] == "0"
+        assert env["COREPACK_ENABLE_AUTO_PIN"] == "0"
+        assert env["COREPACK_ENABLE_DOWNLOAD_PROMPT"] == "0"
+
+    def test_a_caller_may_still_choose_corepack_settings(self) -> None:
+        env = sandbox_environment(build_spec(), {"COREPACK_DEFAULT_TO_LATEST": "1"}, self.PARENT)
+
+        assert env["COREPACK_DEFAULT_TO_LATEST"] == "1"
+
     def test_the_compatibility_mode_quiets_the_terminal(self) -> None:
         env = sandbox_environment(build_spec(pty=True), None, {})
 
