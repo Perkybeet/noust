@@ -34,6 +34,8 @@ not restore can neither replace a good remote copy nor push an old one out.
 
 from __future__ import annotations
 
+import json
+import logging
 import re
 import secrets
 from collections.abc import Callable
@@ -49,13 +51,17 @@ from noust.core.exceptions import (
     NoustError,
     ValidationError,
 )
-from noust.core.fs import FileSystem, get_fs
+from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
+from noust.core.notifications.context import NotificationContext
+from noust.core.notifications.model import Notification
+from noust.core.store import NoustStore
 from noust.managers.backup_destination_files import DestinationFileManager, file_sha256
 from noust.managers.backup_scheduler import BackupScheduler, validate_calendar
 from noust.managers.database.backup_notifications import (
     compose_database_backup_completed,
     compose_database_backup_failed,
     compose_database_backup_upload_failed,
+    compose_database_restore,
     deliver,
 )
 from noust.managers.database.backup_records import (
@@ -208,6 +214,198 @@ class PolicyView:
             ]
             data.update(stored)
         return data
+
+
+#: The directory, beside the store, holding one entry per restore in progress.
+_JOURNAL_DIR = "restores-in-flight"
+
+_log = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class InterruptedRestore:
+    """
+    A restore whose process stopped before it said how it ended.
+
+    Attributes:
+        engine: Canonical engine name.
+        target: The database restored into.
+        source: The dump's file name.
+        safety_copy: The copy of what the database held, when one was taken.
+        message: What happened and the exact command that puts it back.
+    """
+
+    engine: str
+    target: str
+    source: str
+    safety_copy: str | None
+    message: str
+
+
+class _RestoreJournal:
+    """
+    One file per restore in progress, written before anything is touched.
+
+    A restore runs inside the console; a package upgrade restarting it
+    mid-restore used to leave a dropped database and a safety copy nothing
+    recorded. The entry names the safety copy as soon as it exists, and
+    :func:`reconcile_interrupted_restores` reads what is left at the next
+    start.
+    """
+
+    def __init__(self, store: NoustStore, fs: FileSystem) -> None:
+        """
+        Args:
+            store: The store; the journal lives beside it.
+            fs: The filesystem the entries are written through.
+        """
+        self.directory = store.db_path.parent / _JOURNAL_DIR
+        self.fs = fs
+
+    def begin(self, engine: str, target: str, source: Path, *, replace: bool) -> Path:
+        """
+        Record that a restore starts.
+
+        Args:
+            engine: Canonical engine name.
+            target: The database restored into.
+            source: The dump.
+            replace: Whether the database is dropped first.
+
+        Returns:
+            The entry, for :meth:`note_safety_copy` and :meth:`end`.
+        """
+        self.fs.make_dir(self.directory, mode=SECRET_DIR_MODE)
+        entry = self.directory / f"{engine}-{target}-{secrets.token_hex(4)}.json"
+        self._write(
+            entry,
+            {
+                "engine": engine,
+                "target": target,
+                "source": str(source),
+                "replace": replace,
+                "started_at": now(),
+                "safety_copy": None,
+            },
+        )
+        return entry
+
+    def note_safety_copy(self, entry: Path, copy: Path) -> None:
+        """
+        Name the safety copy in an entry, before anything is dropped.
+
+        Args:
+            entry: The entry :meth:`begin` returned.
+            copy: The safety copy.
+        """
+        data = _read_entry(entry) or {}
+        self._write(entry, {**data, "safety_copy": str(copy)})
+
+    def end(self, entry: Path) -> None:
+        """
+        Forget a restore that ended, well or badly, and said so.
+
+        Args:
+            entry: The entry.
+        """
+        self.fs.remove(entry, missing_ok=True)
+
+    def _write(self, entry: Path, data: dict[str, Any]) -> None:
+        self.fs.write_text(entry, json.dumps(data, sort_keys=True), mode=SECRET_MODE)
+
+
+def _read_entry(entry: Path) -> dict[str, Any] | None:
+    """
+    Args:
+        entry: A journal entry.
+
+    Returns:
+        Its content, or None when it cannot be read as one.
+    """
+    try:
+        data = json.loads(entry.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _restore_interrupted(
+    engine: str, target: str, source: str, message: str
+) -> Callable[[NotificationContext], Notification]:
+    """
+    Args:
+        engine: Canonical engine name.
+        target: The database restored into.
+        source: The dump's file name.
+        message: What happened and how to recover.
+
+    Returns:
+        What composes the failed-restore notification for it.
+    """
+
+    def build(ctx: NotificationContext) -> Notification:
+        return compose_database_restore(False, engine, target, source, message, ctx)
+
+    return build
+
+
+def reconcile_interrupted_restores(
+    store: NoustStore, *, fs: FileSystem | None = None
+) -> list[InterruptedRestore]:
+    """
+    Report the restores a stopped console left unfinished, once each.
+
+    Called when the console starts. Each one is logged, announced as a failed
+    restore with the command that puts the safety copy back, and removed
+    from the journal; the caller puts the same words on the interrupted job.
+
+    Args:
+        store: The store the journal lives beside.
+        fs: The filesystem; the process-wide one by default.
+
+    Returns:
+        What was found.
+    """
+    from noust.core.notifier import notify_composed
+
+    fs = fs or get_fs()
+    directory = store.db_path.parent / _JOURNAL_DIR
+    if not directory.is_dir():
+        return []
+    found: list[InterruptedRestore] = []
+    for entry in sorted(directory.glob("*.json")):
+        data = _read_entry(entry) or {}
+        engine = str(data.get("engine") or "unknown")
+        target = str(data.get("target") or entry.stem)
+        source = Path(str(data.get("source") or "")).name
+        safety = data.get("safety_copy")
+        said = (
+            f"The restore of {engine}/{target} from {source} was interrupted: the console "
+            "stopped before it finished."
+        )
+        if safety:
+            message = (
+                f"{said} What {target} held before is in the safety copy {safety}. Put it "
+                f"back with: noust db restore {target} {safety} --engine {engine} --drop"
+            )
+        else:
+            message = (
+                f"{said} No safety copy had been taken, so nothing had been dropped; "
+                f"{target} may hold part of the dump. Check it before relying on it."
+            )
+        _log.warning(message)
+        found.append(
+            InterruptedRestore(
+                engine=engine,
+                target=target,
+                source=source,
+                safety_copy=str(safety) if safety else None,
+                message=message,
+            )
+        )
+        notify_composed(_restore_interrupted(engine, target, source, message))
+        fs.remove(entry, missing_ok=True)
+    return found
 
 
 class DatabaseBackups:
@@ -1186,15 +1384,36 @@ class DatabaseBackups:
                 details="A snapshot replaces every key of the instance.",
                 field="new_name",
             )
-        outcome = self.service.restore(
-            engine,
-            database,
-            source,
-            drop_existing=drop_existing,
-            safety_backup=safety_backup,
-            new_name=new_name,
-        )
-        self._note_safety_copy(engine, database, outcome)
+        canonical = self.service.manager(engine).ENGINE_NAME
+        journal = _RestoreJournal(self.service.store, self.fs)
+        entry = journal.begin(canonical, new_name or database, source, replace=drop_existing)
+        noted: set[Path] = set()
+
+        def taken(copy: Path) -> None:
+            # Before anything is dropped: a console restarted mid-restore
+            # leaves the copy on record, and the journal says where it is.
+            self._record_safety_copy(canonical, database, copy)
+            noted.add(copy)
+            journal.note_safety_copy(entry, copy)
+
+        try:
+            outcome = self.service.restore(
+                engine,
+                database,
+                source,
+                drop_existing=drop_existing,
+                safety_backup=safety_backup,
+                new_name=new_name,
+                on_safety_copy=taken,
+            )
+        except Exception:
+            # A failure the restore handled (and said so): not interrupted.
+            # Only a process that stopped (killed, restarted) leaves the entry.
+            journal.end(entry)
+            raise
+        journal.end(entry)
+        if outcome.safety_copy is not None and outcome.safety_copy not in noted:
+            self._note_safety_copy(engine, database, outcome)
         if outcome.safety_copy is not None:
             self._prune_safety_copies(engine, database)
         return outcome
@@ -1260,9 +1479,21 @@ class DatabaseBackups:
             outcome: What the restore did.
         """
         copy = outcome.safety_copy
-        if copy is None or not copy.is_file():
+        if copy is None:
             return
-        canonical = self.service.manager(engine).ENGINE_NAME
+        self._record_safety_copy(self.service.manager(engine).ENGINE_NAME, database, copy)
+
+    def _record_safety_copy(self, canonical: str, database: str, copy: Path) -> None:
+        """
+        Record one safety copy as ``safety``.
+
+        Args:
+            canonical: Canonical engine name.
+            database: The database it is a copy of.
+            copy: The file.
+        """
+        if not copy.is_file():
+            return
         self.records.save_dump(
             DumpRecord(
                 engine=canonical,

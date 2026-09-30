@@ -328,3 +328,30 @@ def test_a_role_reaches_what_it_holds(
     assert not (
         response.status_code == 403 and response.json().get("error") == "permission_denied"
     ), response.text
+
+
+class TestWebSocketsDeclareAPermission:
+    """Security review 3.1, finding 4: the handshake is a route like any other."""
+
+    def test_every_websocket_route_declares_a_permission(self, app: Any) -> None:
+        from noust.web.permissions.websockets import websocket_permission_for_template
+        from tests.test_web_auth import iter_routes
+
+        templates = [
+            path.replace(":path}", "}")
+            for path, route in iter_routes(app.routes)
+            if route.__class__.__name__.endswith("WebSocketRoute")
+        ]
+        assert len(templates) >= 4, templates
+        missing = [t for t in templates if websocket_permission_for_template(t) is None]
+        assert not missing, missing
+
+    def test_a_node_s_stream_needs_what_the_node_s_own_stream_needs(self) -> None:
+        from noust.web.permissions.websockets import websocket_permissions
+
+        assert websocket_permissions("/ws/events") == [Permission.APPS_READ]
+        assert websocket_permissions("/ws/nodes/nas/logs/shop.example.com") == [
+            Permission.FLEET_READ,
+            Permission.APPS_READ,
+        ]
+        assert websocket_permissions("/ws/unknown") is None

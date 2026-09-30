@@ -117,54 +117,78 @@ unencrypted. See [security.md](security.md) for the full rules.
 
 ![Sign in](assets/console/login.png)
 
-The sign-in page shows the hostname and the Noust version of the server before asking for
-anything, so a token is never typed into the wrong server. Paste the access token; if
-two-factor authentication is on, the next step asks for a code from the authenticator app or
-one of the backup codes. Five failed attempts from one address lock it out for 15 minutes,
-and the page counts down.
+Sign in with your account: username, password and a code from your authenticator app, or a
+passkey on its own. Browsers offer passkeys only on a certificate they trust, so over an SSH
+tunnel or with a self-signed certificate the page says why the button is missing. The page does
+not show the host name or the version before you sign in; `auth.login_label` sets a line that
+tells your servers apart. After signing in, the console says when and from where you last signed
+in and how many attempts failed since.
 
-A session lasts 12 hours without activity and never more than 24 hours. Enrol two-factor
-authentication under Settings > Security, or with `noust 2fa enroll` and `noust 2fa confirm`.
+**A server with no accounts** signs in with the access token, as in 3.0, and then opens **Create
+the first account**: an administrator, and (recommended) a security officer for another person.
+Once an account exists, the access token is emergency access: it still signs in, and each use is
+recorded. An invited person opens the invitation link, chooses a password and sets up a second
+factor. Every account sets up a second factor, an authenticator app or a passkey, at its first
+sign-in, before it can do anything else. When `auth.notice.text` is set, a notice of rights and
+obligations is shown and must be accepted.
+
+A session ends after 30 minutes without activity and 12 hours after sign-in (`auth.session.*`).
+Five failed attempts lock the account for 15 minutes, and five from one address lock that
+address; the page counts down.
 
 ## Layout
 
-- **Sidebar**: Overview, Fleet (a central only), Applications, Databases, Services, Cron,
-  Domains and certificates, Backups, Activity, Server, and Settings at the bottom. On a narrow
-  screen it becomes a menu.
-- **Top bar**: on a central, a server selector before the machine strip - "This server" or any
-  node it manages, and `/n/<node>/...` keeps the choice across a reload; the machine strip
-  (hostname, uptime, load, CPU, memory, disk, and units running and failed), the command
-  palette, and the session menu (theme, keyboard shortcuts, sign out).
+- **Sidebar**, in two groups: Overview, Applications, Databases, Domains and certificates,
+  Backups; then Server, Cron, Activity. On a central, Fleet comes first. Settings is at the
+  bottom. On a narrow screen it becomes a menu.
+- **Top bar**: on a central, a server selector with three contexts: one server, **All servers**
+  (the Fleet pages) and **This central** (the central's own settings). `/n/<server>/...` keeps
+  the choice across a reload, the last server is remembered, and every page for one server shows
+  its name above the title. Then the machine strip (host name, uptime, load, CPU, memory, disk,
+  units running and failed), the command palette, the language switch, and the session menu
+  (account, theme, keyboard shortcuts, sign out).
 - The browser tab is titled `<page> - <hostname> - Noust`.
 
-Colour means state and nothing else: green running, amber in progress, red failed, grey
-stopped, and violet for what you can interact with. Every state also has a shape and a text
-label. When a system tool fails, its own output is shown verbatim in a monospace block, with
-the suggested fix above it.
+Every page follows one of the templates in [DESIGN.md](DESIGN.md): a list, a detail page with
+tabs, settings with a side navigation, the dashboard, a wizard, a file editor, or the sign-in
+column. Colour means state and nothing else: green running, amber in progress, red failed, grey
+stopped, and violet for what you can interact with; chart series have a palette of their own.
+Every state also has a shape and a text label. When a system tool fails, its own output is shown
+verbatim in a monospace block, with the suggested fix above it.
 
 ## Pages
 
 ### Overview
 
-What needs attention, machine charts, every application with its state, and the recent
-deployments (shown at the top of this page). "New application" starts the wizard.
+How this server is doing, what needs you and what happened lately. Six key figures:
+applications running and failed, deploys today, certificates due, backups in the last 24 hours,
+disk, and pending system updates. Below them, what needs attention (worst first, each with the
+way to fix it) beside recent activity as a timeline, then the machine's charts and quick actions.
+When the charts' history is not being recorded, it says why and what to run. A server with
+nothing deployed shows first steps instead. On a hub, the home page is the fleet summary.
 
 ### Fleet
 
-A [central's](CENTRAL.md) own page, hidden on a plain server. Every server it manages, side by
-side: whether it answers, its version, load, memory, disk, applications, units and
-certificates, and a "Needs attention" that merges every server's own problems, worst first,
-each opening on the server it is about. **Add a server** starts the same flow as **Settings >
-Servers**. The server selector in the top bar switches the whole console to a node - the URL
-becomes `/n/<node>/...` - and every action taken there (including a destructive one, still
-behind "Confirm it's you") reaches that node's own API through the central's tunnel, never the
-central itself.
+A [central's](CENTRAL.md) own pages, hidden on a plain server. Tabs: **Summary** (the fleet's
+key figures and what needs attention on every server, worst first), **Servers** (reachability,
+version, load, memory, disk, labels), **Applications**, **Certificates**, **Backups**,
+**Updates** and **Activity**, each row with its server and a link to its page there. A server
+that did not answer, is too old for a view, or refused you is one row with its state and its
+own words; the rest of the page is unaffected.
+
+**Bulk actions** (renew certificates, back up, verify backups, update or restart applications,
+update Noust, apply system updates) are chosen from a list of servers or by label, show their
+plan first (which servers, in which batches, what is skipped and why), and run as a fleet job
+with each server's outcome and a button to retry the servers that failed. **Add a server**
+starts the same flow as **Settings > Servers**.
 
 ![Fleet](assets/console/fleet.png)
 
-A hub (`central.role = hub`) deploys nothing of its own: every page above is replaced by the
-Fleet, and `/` redirects there. Switched to a node, Applications (and every other page) is that
-node's own:
+The server selector switches every other page to one server, and every action taken there
+(including a destructive one, still behind "Confirm it's you") reaches that server's own API
+through the central's tunnel. What the server's ceiling for the central does not allow is
+greyed out with the reason. A hub (`central.role = hub`) deploys nothing of its own; switched to
+a server, Applications (and every other page) is that server's own:
 
 ![A node's applications](assets/console/node-apps.png)
 
@@ -173,32 +197,36 @@ node's own:
 ![Applications](assets/console/apps.png)
 
 Every application with its state, type, port, last deploy, CPU and memory, filterable by
-state and type.
+state and type. On a phone, rows become cards with their actions always visible.
 
-**New application** (`/apps/new`) takes three steps: **Source** (a Git URL or a directory on
-the server, and a branch), **Review** and **Deploy**. The server inspects the repository
-before anything is created: the detected type (editable), install, build and start
-commands, port, and the variables declared in `.env.example` as a form, with secrets
-flagged. It checks the domain's DNS, then deploys and streams the build log until the
-application answers.
+**New application** (`/apps/new`) walks through **Server** (on a fleet only: which server
+deploys it, so any server can be reached from one place), **Source** (a Git URL, a GitHub
+repository, a directory on the server, a recipe or an export, and a branch), **Address**,
+**Configuration**, **Variables**, **Database** (optional: one created and linked before the first
+build, its connection string in the app's environment) and **Deploy**. The server inspects the repository before anything is created: the
+detected type (editable), install, build and start commands, port, and the variables declared in
+`.env.example` as a form, with secrets flagged. It checks the domain's DNS, then deploys and
+streams the build log until the application answers. Switched to a server of the fleet, the
+wizard deploys there.
 
 ![New application](assets/console/apps-new.png)
 
 ### One application
 
-The header shows the domain, state, type, port and a link to the live site, and a banner
-while a job runs on it or when its last deploy failed. Tabs:
+The header shows the domain, state, type, port and a link to the live site. A banner between the
+header and the tabs appears while a job runs on it, when its last deploy failed or when it is
+down, with a link to **Diagnose**. Tabs:
 
 | Tab | What it has |
 |---|---|
 | Overview | Last deploy, uptime, certificate, domains, webhook, runtime facts, and resource use against its limits |
-| Deployments | Deployment history; for an application on releases, its releases with their status, and **Roll back to this** or **Activate** on each one on disk |
+| Deployments | Deployment history; for an application with instant rollback, its releases with their status, and **Roll back to this** or **Activate** on each one on disk |
 | Logs | The unit's journal, live |
-| Metrics | CPU and memory over the last hour, 24 hours, 7 or 30 days, against its limits, with deploys marked |
+| Metrics | CPU and memory (requests and errors for a static site) over an hour, a day, a week or a month, against its limits, with deploys marked; or why there is nothing to show |
 | Environment | The `.env`, redacted; revealing and editing need sudo mode. Changes are staged and reviewed before saving; a restart applies them |
+| Database | The databases it uses, creating and linking one, and its connection string |
 | Domains | Primary, aliases and redirects, with a DNS check per name; add a name as an alias or a redirect |
-| Diagnose | [Why it is down](#diagnose): every check, verdict and probable cause |
-| Settings | Source, releases (**Enable releases** for an application in place), resource limits, webhook, and the danger zone |
+| Settings | One page per subsection, below |
 
 ![Application](assets/console/app-overview.png)
 
@@ -208,37 +236,49 @@ to Diagnose plus Roll back and Redeploy.
 
 ![Deployment](assets/console/app-deployment.png)
 
-On an application on releases, rolling back switches `current` and restarts behind the
-health gate in seconds, and is not a job. On one in place, rolling back restores a backup and
-runs as a job. See [releases.md](releases.md).
+With instant rollback, rolling back switches `current` and restarts behind the health gate in
+seconds, and is not a job. On an application in a single folder (in place), rolling back
+restores a backup and runs as a job. See [releases.md](releases.md).
 
-**Settings > Releases** plans the migration of an application in place ("Plan the
-migration"), shows what moves to `shared/` and any warnings, and runs it after confirmation.
-**Resource limits** sets memory (MB, at least 64), CPU (percent of one core) and tasks (at
-least 16), optionally restarting so they apply now. **Danger zone** deletes the application,
-optionally with its files and certificate, after you type its domain.
+**Settings** has a side navigation, a URL per subsection, and a save bar ("N unsaved changes ·
+Discard · Save"):
+
+| Subsection | What it has |
+|---|---|
+| General | Type, port, source, the branch it deploys from (pin or unpin it), commands, how deploys work, the service |
+| Deploys | **Instant rollback**: what it gives you, what changes on disk, the migration plan and a rehearsal, then the migration; releases kept; the health check; blue/green |
+| Deploy on push | The webhook as a guided setup: the public URL (`noust web expose-hooks`), the secret, the values to enter at the forge, the branch that deploys, and the last deliveries, ignored ones included |
+| Builds | Whether it builds in the sandbox or as root and why; **Test in the sandbox**, then enable; the network profile; building as root with a reason |
+| Resources | Memory (MB, at least 64), CPU (percent of one core) and tasks (at least 16), optionally restarting so they apply now |
+| Previews | Pull request previews and their settings |
+| Export | The application as a file to import elsewhere |
+| Delete | Delete the application; removing its files and its certificate are separate choices, both off until you tick them, and you type its domain to confirm |
 
 ### Diagnose
 
 ![Diagnose](assets/console/app-diagnose.png)
 
-Correlates the unit's state, the port it listens on, an HTTP probe straight to the
-application and one through nginx, the last journal lines, nginx's error log for the domain,
-the certificate, the last deployment, OOM kills in the last seven days and disk space. The
-most likely cause comes first, with each check's evidence verbatim. Every probe only reads.
-The same report is `noust diagnose DOMAIN`.
+Reached from the application's banner, or `/apps/<domain>/diagnose`. Correlates the unit's
+state, the port it listens on, an HTTP probe straight to the application and one through nginx,
+the last journal lines, nginx's error log for the domain, the certificate, the last deployment,
+OOM kills in the last seven days and disk space. The most likely cause comes first, with each
+check's evidence verbatim. Every probe only reads. The same report is `noust diagnose DOMAIN`.
 
 ### Databases
 
-Engines with their state (install, start, stop, restart, uninstall), databases, users and
-database backups. One database's page has its size, owner and encoding, a SQL runner
-(read-only by default; write mode needs sudo mode), its backups and a connection string.
+Two tabs: **Databases**, every database on every running engine with its size, application and
+backups, and the ones created outside Noust to track; and **Engines**, each engine with its state,
+version and end of life (install, start, stop, restart, uninstall). Database ports open beyond
+the machine are flagged here.
 
-### Services
-
-Every systemd unit Noust manages. "Show all units" also lists what other packages installed,
-read-only. A service's page has its live journal, start, stop, restart, enable, disable, and
-an editor for its unit file that is checked with `systemd-analyze verify` before saving.
+One database's page has tabs: **Overview** (size, owner, application, backups, health),
+**Data** (tables and rows, read-only, paged and filtered, with the columns' types; Redis keys;
+editing one row needs sudo mode), **Query** (the SQL console: read-only by default, enforced
+by the database server; history, saved statements, export, `EXPLAIN`; write mode needs sudo
+mode), **Backups** (its policy with schedule, retention and destinations; restore as a new
+database or over this one after a safety copy), **Users** (with owner, read-write and read-only
+profiles, and password rotation), **Connect** (an SSH tunnel from your computer, never an open
+port) and **Metrics**.
 
 ### Cron
 
@@ -250,36 +290,61 @@ now, enable, disable, and each job's recent runs with their output and exit stat
 Two tabs. **Certificates**: every certificate with its names, issuer and expiry; issue one
 (method: automatic, nginx, Apache, webroot or standalone; extra names; `www`), renew those
 due, renew one now, revoke, delete. **Sites**: every nginx or Apache site; create, enable,
-disable, delete, and edit a site's configuration, which is tested by the web server before it
-is installed.
+disable, delete, and edit a site's configuration in a full-height editor with "Test" and "Test
+and save": the web server tests it before it is installed.
 
 ![Domains and certificates](assets/console/domains.png)
 
 ### Backups
 
-Storage used per application, every backup (verify, restore, delete), backup schedules, and
-"New backup" with the same options as `noust backup create`.
+Three tabs: **Backups** (storage used per application, every backup: verify, restore, delete;
+"New backup" with the same options as `noust backup create`), **Schedules** and
+**Destinations** (remote places, their test and their key).
 
 ### Activity
 
-Every job and every audited action on this machine in one timeline, newest first, filterable
+Every job and every audited action on this server in one timeline, newest first, filterable
 by kind, result and actor. A job opens its log.
 
 ### Server
 
-Health (the same checks as `noust health`), system facts, network, top processes, and the
-resource monitor: install, enable, start, its findings, and a test email.
+Seven tabs, each with its URL:
+
+| Tab | What it has |
+|---|---|
+| Overview | What needs attention, then the machine at a glance; fits one screen |
+| Updates | Pending updates, security first; apply all or only security; refresh; "a reboot is due" and why; services on replaced libraries; automatic updates; the history of runs |
+| Security | Hardening checks with their fix or exact steps, accepted risks; SSH (effective settings, keys, safe fixes that revert unless confirmed); the firewall against the ports that really answer; fail2ban |
+| Storage | Real filesystems, what takes their space, clean-ups, swap |
+| Services | Every systemd unit Noust manages ("Show all units" lists the rest, read-only); a service's page has its live journal, controls and a unit editor checked with `systemd-analyze verify` |
+| Logs | The journal of any unit, with filters |
+| System | Time and synchronisation, host name, the operating system and its end of life, processes, network, reboot and shut down (now or scheduled), and the resource monitor |
+
+`/services` redirects to Server > Services.
 
 ### Settings
 
-| Section | What it has |
-|---|---|
-| General | Applications directory, web server, certificate email, backups, and the console address that `--open` links use (it does not move the console) |
-| Security | Two-factor authentication, active sessions (sign out others), lockout policy |
-| Servers | A central only: every server it manages, its reachability, version and last-seen time; **Add a server** walks through `noust fleet authorize` and the join code, test and remove |
-| Notifications | The delivery switch, channels (webhook, Slack, Discord, Telegram, email) with a test button each, which events notify, and private destinations allowed |
-| API tokens | Issue (shown once), list and revoke |
-| About | Version and updates, installation, CLI equivalents, links |
+A side navigation with a page per section. On a central, each section says whose it is: the
+selected server's, or this central's.
+
+| Section | Scope | What it has |
+|---|---|---|
+| General | Server | Applications directory, web server, certificate email, backups, the server's name, and the console address `--open` links use |
+| Notifications | Server | Channels (webhook, Slack, Discord, Telegram, email) in drawers, with a test each; which events notify; private destinations allowed |
+| Integrations | Server | The GitHub App |
+| About | Server | Version and updates, installation, CLI equivalents, links |
+| Servers | Central | Every server, its reachability, version, ceiling and labels; **Add a server** walks through `noust fleet authorize` and the join code; test and remove |
+| Accounts | Central | Accounts, roles, invitations, separation-of-duties exceptions (with `accounts.read`) |
+| Security | Central | Your password, second factor and passkeys; sessions; the sign-in policy and the notice |
+| API tokens | Central | Your tokens: issue (shown once), narrow, list and revoke |
+| Approvals | Central | Four-eyes requests: yours, and those waiting for you to decide |
+| Audit log | Central | The audit trail, its verification, destinations and reviews (with `audit.read`) |
+| Compliance | Central | `noust ens check` and the evidence report |
+| Central | Central | The role, the certificate and the seal |
+
+On a server without a fleet, every section is the server's own. What a server's own accounts,
+tokens and second factor are cannot be changed from a central; the page says how to manage them
+on the server.
 
 ![Settings > Servers](assets/console/settings-servers.png)
 
@@ -293,6 +358,7 @@ Writing any setting needs sudo mode.
 | `g` `o` | Go to Overview |
 | `g` `a` | Go to Applications |
 | `g` `b` | Go to Databases |
+| `g` `f` | Go to the Fleet (a central) |
 | `g` `s` | Go to Settings |
 | `g` `d` | Go to the application's Deployments tab; outside an application, to Activity |
 | `/` | Focus this page's search, or open the palette when it has none |
@@ -309,12 +375,17 @@ keys or `Ctrl N` / `Ctrl P` move, `Enter` runs, `Esc` closes.
 ## Sudo mode
 
 Destructive and credential-changing actions (deleting anything, restoring a backup, revealing
-or editing an `.env`, moving to releases, changing limits, editing a unit or a site, SQL in
-write mode, changing settings, issuing a token, disabling 2FA) ask you to confirm it is you:
-a dialog titled "Confirm it's you" asks for an authenticator or backup code, or for the access
-token when 2FA is off. The confirmation covers the next 10 minutes, and the action you were
+or editing an `.env`, moving to instant rollback, changing limits, editing a unit or a site,
+SQL in write mode, server changes, managing accounts, changing settings, issuing a token) ask
+you to confirm it is you: a dialog titled "Confirm it's you" asks for your passkey, or your
+password and a code from your authenticator app (for the access token, its code, or the token
+itself when it has none). The confirmation covers the next 10 minutes, and the action you were
 taking is retried once confirmed. Flows that already know they need it, such as deleting an
 application, ask before their own confirmation dialog, so only one is ever on screen.
+
+When approvals are on, an action that needs a second person becomes a request instead of
+running: the console says so, it appears under Settings > Approvals for whoever may decide it,
+and once approved you run it again from the same place, once.
 
 ## Live updates
 
@@ -353,7 +424,9 @@ The console targets WCAG 2.2 level AA, and that is tested rather than declared:
 - State is never colour alone: it always has a shape and a text label.
 - Deploy transitions are announced politely and failures assertively through live regions.
   Log lines are never announced.
-- Every chart has a text summary and a "View as table" alternative.
+- Every chart has a text summary, works from the keyboard (arrow keys step through readings,
+  announced in a live region), and its expanded view has a Data tab with the readings as a
+  table.
 - With `prefers-reduced-motion`, transitions are instant.
 
 If something in the console is not usable with your assistive technology, please open an

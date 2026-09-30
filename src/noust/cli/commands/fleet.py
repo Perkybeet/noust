@@ -468,8 +468,9 @@ def _parse_access(level: str | None, host_access: bool | None) -> FleetAccess | 
     "--allow-host-access/--no-host-access",
     "host_access",
     default=None,
-    help="Let centrals change how this server is reached (SSH keys, sshd, firewall, "
-    "accounts), on top of --access admin. Off unless set.",
+    help="Let centrals reach the host itself: change how this server is reached (SSH keys, "
+    "sshd, firewall, accounts) and make root-equivalent changes (raw units, cron commands, "
+    "backup hooks, raw site configuration), on top of --access admin. Off unless set.",
 )
 @click.option(
     "--allow-self",
@@ -648,6 +649,12 @@ def _print_summary(ctx: Context, result: Any, outcome: ConsoleOutcome | None) ->
     logger.key_value("Token", result.token_name)
     access = FleetAccess.from_dict(result.access)
     logger.key_value("Access", f"{access.describe()} (change it with 'noust fleet access')")
+    if access.level == "admin" and not access.host_access:
+        logger.info(
+            "Without host access a central cannot change SSH, the firewall or system "
+            "accounts, nor make root-equivalent changes (raw units, cron commands, backup "
+            "hooks, raw site configuration)."
+        )
     if result.replaced_tokens:
         logger.key_value(
             "Would revoke" if rehearsal else "Revoked", ", ".join(result.replaced_tokens)
@@ -724,8 +731,9 @@ def deauthorize_command(ctx: Context, central: str, ssh_user: str | None) -> Non
     "--host-access",
     type=click.Choice(["on", "off"]),
     default=None,
-    help="Whether centrals may change how this server is reached (SSH keys, sshd, "
-    "firewall, accounts); only counts with admin.",
+    help="Whether centrals may reach the host itself: SSH keys, sshd, firewall, accounts, "
+    "and root-equivalent changes (raw units, cron commands, backup hooks, raw site "
+    "configuration); only counts with admin.",
 )
 @json_option("Print the ceiling as JSON.")
 @pass_context

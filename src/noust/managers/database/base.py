@@ -37,7 +37,7 @@ import secrets
 import string
 import time
 from abc import abstractmethod
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -1783,6 +1783,7 @@ class BaseDatabaseManager(BaseManager):
         drop_existing: bool = False,
         *,
         safety_backup: bool = True,
+        on_safety_copy: Callable[[Path], None] | None = None,
         **kwargs,
     ) -> RestoreOutcome:
         """
@@ -1811,8 +1812,13 @@ class BaseDatabaseManager(BaseManager):
             drop_existing: Drop and recreate the database before loading.
             safety_backup: Take the safety copy when nothing is dropped. A
                 replace always takes it, whatever this says.
+            on_safety_copy: Called with the safety copy as soon as it exists,
+                before anything is dropped or loaded: the caller records it
+                there, so a process killed mid-restore still leaves the way
+                back on record.
             **kwargs: Engine-specific options, handed to the checks and the
-                loader (``format`` for PostgreSQL).
+                loader (``format`` for PostgreSQL; ``isolated`` for a load
+                beside a database, which must reach no other).
 
         Returns:
             What was done, the safety copy included.
@@ -1838,6 +1844,8 @@ class BaseDatabaseManager(BaseManager):
             owner = self._database_owner(database)
             safety = self.backup(database).path
             self.logger.info(f"Safety copy of '{database}' taken before the restore: {safety}")
+            if on_safety_copy is not None:
+                on_safety_copy(safety)
 
         replaced = exists and drop_existing
         if replaced:

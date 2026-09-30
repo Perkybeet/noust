@@ -104,6 +104,8 @@ from noust.web.events import (
     begin_shutdown,
     shutting_down,
 )
+from noust.web.permissions.enforce import PermissionDenied, check_permission
+from noust.web.permissions.websockets import websocket_permissions
 
 logger = logging.getLogger(__name__)
 
@@ -1506,6 +1508,31 @@ class SecurityMiddleware:
                     error="forbidden",
                 )
                 return
+            # A stream is held to its route's permission, and to the second
+            # factor and usage notice gates, here where every handshake passes
+            # - exactly what require_auth does for a call.
+            denied = _websocket_refusal(path, session)
+            if denied is not None:
+                if audit:
+                    audit.record(
+                        action="ws.connect",
+                        result="denied",
+                        client_ip=client_ip,
+                        actor=actor_label(session),
+                        resource=path,
+                        detail=denied.reason,
+                    )
+                await self._deny(
+                    scope,
+                    receive,
+                    send,
+                    connection,
+                    status_code=403,
+                    ws_code=WS_CLOSE_FORBIDDEN,
+                    detail=denied.reason,
+                    error=denied.error,
+                )
+                return
             # One budget per credential, taken here at the one place every
             # handshake passes and given back when the handler returns - that
             # is, when the socket closes - whatever route it was.
@@ -1829,6 +1856,35 @@ class SecurityMiddleware:
         )
         self._harden_headers(MutableHeaders(raw=response.raw_headers), connection, status_code)
         await response(scope, receive, send)
+
+
+def _websocket_refusal(path: str, session: dict[str, Any]) -> PermissionDenied | None:
+    """
+    Say why a handshake's principal may not open the stream at a path, if it may not.
+
+    Args:
+        path: The handshake's path.
+        session: Its authenticated payload.
+
+    Returns:
+        The refusal (``permission_denied``, ``mfa_required`` or
+        ``notice_required``), or None when the stream may open.
+    """
+    needed = websocket_permissions(path)
+    if needed is None:
+        return PermissionDenied(
+            "permission_denied",
+            "unknown",
+            "This stream declares no permission, so it is refused",
+            "This is a defect in Noust: every WebSocket must name its permission in "
+            "noust.web.permissions.websockets.",
+        )
+    try:
+        for permission in needed:
+            check_permission(session, permission)
+    except PermissionDenied as exc:
+        return exc
+    return None
 
 
 def _query_ticket(scope: Scope) -> str | None:

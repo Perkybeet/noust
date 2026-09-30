@@ -802,3 +802,38 @@ def test_a_failed_job_keeps_the_tools_own_output_in_its_error() -> None:
 
     assert text.startswith("new.example.com has no DNS record")
     assert text.endswith("DNS problem: NXDOMAIN looking up A for new.example.com")
+
+
+def test_a_database_restore_interrupted_by_a_restart_says_how_to_put_it_back(
+    store: Any,
+) -> None:
+    """The job's error names the safety copy the journal recorded before the drop."""
+    import json
+
+    journal = store.db_path.parent / "restores-in-flight"
+    journal.mkdir()
+    (journal / "postgresql-shop-0a1b2c3d.json").write_text(
+        json.dumps(
+            {
+                "engine": "postgresql",
+                "target": "shop",
+                "source": "/var/backups/noust/postgresql/shop-20260930.dump",
+                "replace": True,
+                "started_at": "2026-09-30T10:00:00+00:00",
+                "safety_copy": "/var/backups/noust/postgresql/shop-safety.dump",
+            }
+        )
+    )
+    store.create_job(JobRecord(id="r1", type="restore", name="Restore shop", status="running"))
+
+    JobManager.reset_instance()
+    JobManager()
+
+    job = store.get_job("r1")
+    assert job is not None and job.status == "failed"
+    assert job.error is not None and job.error.startswith(INTERRUPTED_REASON)
+    assert (
+        "noust db restore shop /var/backups/noust/postgresql/shop-safety.dump "
+        "--engine postgresql --drop"
+    ) in job.error
+    assert not list(journal.iterdir())

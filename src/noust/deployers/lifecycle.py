@@ -549,7 +549,9 @@ def _update_release(
             details=f"Its source is {fetch_from}. Rebuild it from there: noust update {app.domain}",
         )
 
-    follow = _release_branch(app, app_path, branch, deployer, notice or log.warning)
+    # A branch named now, else the pin, else the recorded branch: never the
+    # one the repository cache happens to be on (see branch_to_build).
+    follow = branch or branch_to_build(app)
     deployer.configure(
         domain=app.domain,
         source=fetch_from,
@@ -636,44 +638,40 @@ def _update_release(
     )
 
 
-def _release_branch(
-    app: App,
-    app_path: Path,
-    branch: str | None,
-    deployer: object,
-    notice: Callable[[str], None],
-) -> str | None:
+def branch_to_build(app: App, *, source_manager: SourceManager | None = None) -> str | None:
     """
-    Name the branch a release update builds, never switching one implicitly.
+    Name the branch a plain update of an application builds.
 
-    A branch named now or pinned on purpose is built. Otherwise the repository
-    cache keeps the branch it is on: a 3.0 ``noust update --branch`` moved it
-    without recording the choice, so the recorded branch can be one the
-    application left. A cache detached at a tag (a recipe's) names only a
-    guess, so the recorded name is followed then, as before.
+    The one answer the update, the webhook's branch filter and the "is there
+    anything new" question share, so a push is accepted exactly when the
+    update it queues would build the pushed branch:
+
+    - a pinned branch, whatever the layout;
+    - in place, the branch the checkout is on (the update pulls it and
+      records it, as before 3.1);
+    - otherwise the recorded branch. On releases the repository cache is an
+      implementation detail and is never learned from: a 3.0 ``noust update
+      --branch hotfix`` was a one-shot build that left the cache on hotfix,
+      and learning from it turned the next plain or webhook update into a
+      switch of production to hotfix, after which the webhook ignored every
+      push to the branch the application really tracks.
 
     Args:
         app: The application's row.
-        app_path: The application directory.
-        branch: The branch the operator named for this update, if any.
-        deployer: The deployer building the release; its source manager reads
-            the cache.
-        notice: Where to tell the operator the store's branch was corrected.
+        source_manager: Reads the checkout; a new one by default.
 
     Returns:
-        The branch to build; None follows the cache's (or the remote's default).
+        The branch, or None when nothing names one.
     """
-    if branch:
-        return branch
-    store = get_store()
-    pinned = store.get_branch_pin(app.domain)
+    pinned = get_store().get_branch_pin(app.domain)
     if pinned:
         return pinned
-    cache = app_path / REPO_CACHE_DIR
-    if app.branch and isinstance(deployer, BaseDeployer) and (cache / ".git").is_dir():
-        info = deployer.source_manager.get_repo_info(cache)
-        if not info.get("detached"):
-            _record_followed_branch(store, app, info.get("branch"), "repository cache", notice)
+    if app.layout != RELEASES:
+        root = app_root(app)
+        if (root / ".git").exists():
+            info = (source_manager or SourceManager()).get_repo_info(root)
+            if not info.get("detached") and info.get("branch"):
+                return str(info["branch"])
     return app.branch
 
 
@@ -1671,7 +1669,7 @@ def _ask_upstream(domain: str, branch: str | None, log: Logger) -> UpstreamState
             source = app.source
             active = ReleaseManager(root).current()
             live = active.commit if active is not None else None
-            follow = branch or app.branch or _cache_branch(root, None)
+            follow = branch or branch_to_build(app) or _cache_branch(root, None)
         else:
             if not (root / ".git").exists():
                 return None

@@ -632,6 +632,17 @@ def test_releases_after_a_rollback_have_something_new(
     assert upstream is not None and upstream.has_new_commits
 
 
+def test_releases_ask_about_the_pinned_branch(
+    store: NoustStore, machine: SimpleNamespace, two_releases: tuple[str, str]
+) -> None:
+    """The question names the branch the update will build: the pin first."""
+    store.set_branch_pin(DOMAIN, "hotfix")
+
+    lifecycle.check_upstream(DOMAIN)
+
+    assert ("ls-remote", GIT_URL, "hotfix") in machine.git.calls
+
+
 def inplace_git(
     monkeypatch: pytest.MonkeyPatch, *, commit: str | None, remote: Any
 ) -> list[tuple[Any, ...]]:

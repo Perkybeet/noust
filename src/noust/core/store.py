@@ -1757,27 +1757,110 @@ class NoustStore:
             logger.debug("Filesystem declined to create %s; skipping schema", self._db_path)
             return
 
-        # A plain read: it decides which path to take next, and neither path
-        # needs it inside its own transaction.
-        conn = self._get_connection()
-        cursor = conn.cursor()
+        current = self._schema_version()
+        if current is not None and current > SCHEMA_VERSION:
+            raise StoreError(
+                f"The Noust database at {self._db_path} was written by a newer Noust "
+                f"(schema v{current}; this version understands up to v{SCHEMA_VERSION})",
+                details=(
+                    "Downgrading Noust is not supported: install the newer version again. "
+                    "To go back regardless, restore the copy the upgrade kept beside it "
+                    f"({self._db_path.name}.v<old version>-*.bak) over "
+                    f"{self._db_path.name}; whatever changed since the upgrade is lost."
+                ),
+            )
+
+        if current is None:
+            if self._create_fresh_schema():
+                return
+            # Another process created it between the read and the lock.
+            current = self._schema_version() or 0
+
+        if current < SCHEMA_VERSION:
+            self._keep_copy_before_migrating(current)
+            self._run_migrations(current)
+        elif current >= schema_v12.VERSION:
+            self._complete_v12()
+
+    def _schema_version(self) -> int | None:
+        """
+        The version the database says it has: a plain read, outside any lock.
+
+        Returns:
+            The highest recorded version, 0 for an empty table, or None when
+            there is no ``schema_version`` table at all.
+        """
+        cursor = self._get_connection().cursor()
         cursor.execute("""
             SELECT name FROM sqlite_master
             WHERE type='table' AND name='schema_version'
         """)
-        schema_exists = cursor.fetchone() is not None
-
-        if not schema_exists:
-            self._create_fresh_schema()
-            return
-
+        if cursor.fetchone() is None:
+            return None
         cursor.execute("SELECT MAX(version) FROM schema_version")
-        current_version = cursor.fetchone()[0] or 0
+        return int(cursor.fetchone()[0] or 0)
 
-        if current_version < SCHEMA_VERSION:
-            self._run_migrations(current_version)
+    def _keep_copy_before_migrating(self, version: int) -> None:
+        """
+        Copy the database beside itself before the first migration step.
 
-    def _create_fresh_schema(self) -> None:
+        An upgrade is the one moment a store changes shape, and the only way
+        back from a release that turns out wrong is the file as it was:
+        ``noust.db.v11-20260930T101500Z.bak``, 0600 like the store, taken
+        with SQLite's online backup so what the WAL still holds is in it.
+        Two processes upgrading at once each keep their own copy, both whole;
+        neither can abort the other. Nothing is copied under a rehearsal,
+        which changes nothing to go back from.
+
+        Args:
+            version: The version on disk, before the climb.
+
+        Raises:
+            StoreError: The copy could not be made; nothing was migrated.
+        """
+        if is_rehearsal():
+            return
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        # One file per opener: two processes (or threads) opening the old store
+        # in the same second - noust-web restarting while noust-monitor starts,
+        # at the upgrade - used to write one file at once, and the loser aborted.
+        opener = f"{os.getpid()}-{os.urandom(3).hex()}"
+        copy = self._db_path.with_name(f"{self._db_path.name}.v{version}-{stamp}-{opener}.bak")
+        try:
+            self.fs.write_text(copy, "", mode=SECRET_MODE)
+            target = sqlite3.connect(copy)
+            try:
+                self._get_connection().backup(target)
+            finally:
+                target.close()
+        except (OSError, sqlite3.Error) as exc:
+            raise StoreError(
+                f"Could not keep a copy of {self._db_path} before upgrading it from v{version}",
+                details=(
+                    f"{exc}. Nothing was changed. Free space in {self._db_path.parent} (the "
+                    "copy is the size of the database) and run the command again."
+                ),
+            ) from exc
+        logger.info("Kept a copy of the store before upgrading it: %s", copy)
+
+    def _complete_v12(self) -> None:
+        """
+        Add what a v12 store lacks of v12, when it lacks anything.
+
+        A build from before every area of 3.1 had its fragment stamped stores
+        12 with some tables missing, and a version already recorded is never
+        climbed again. :func:`schema_v12.apply_v12` is idempotent, so running
+        it completes such a store; the check before it is a read, so a
+        complete store (every other one) takes no write lock to open.
+        """
+        cursor = self._get_connection().cursor()
+        if not schema_v12.incomplete(cursor):
+            return
+        logger.warning("The store is at v12 without all of v12's tables; adding them")
+        with self._ddl_transaction() as ddl:
+            schema_v12.apply_v12(ddl, _run_script)
+
+    def _create_fresh_schema(self) -> bool:
         """
         Create every table at the current version, for a database that has none.
 
@@ -1785,12 +1868,22 @@ class NoustStore:
         partway through ``SCHEMA_SQL`` leaves no ``schema_version`` table at
         all, the same "nothing happened" state as before this was called,
         rather than some tables present and no version row to say so.
+
+        Returns:
+            False when another process created the schema between this one's
+            read and its write lock; nothing was done then.
         """
         with self._ddl_transaction() as cursor:
+            cursor.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='schema_version'"
+            )
+            if cursor.fetchone() is not None:
+                return False
             _run_script(cursor, SCHEMA_SQL)
             # v12 is one function for fresh and upgraded stores alike.
             schema_v12.apply_v12(cursor, _run_script)
             cursor.execute("INSERT INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,))
+        return True
 
     def _run_migrations(self, from_version: int) -> None:
         """
@@ -1813,6 +1906,13 @@ class NoustStore:
         had done so far, including a ``schema_version`` row it might have
         already written, so the version number on disk never gets ahead of
         the schema that is actually there.
+
+        Several processes open the store at an upgrade (the console
+        restarting, the monitor starting, a backup timer), and all of them
+        may read the old version. Each step therefore takes the write lock
+        first and re-reads the version inside it: a step another process
+        already committed is skipped instead of failing on its
+        ``schema_version`` row.
 
         Args:
             from_version: Current schema version.
@@ -1838,6 +1938,9 @@ class NoustStore:
 
         for version in range(from_version + 1, SCHEMA_VERSION + 1):
             with self._ddl_transaction() as cursor:
+                cursor.execute("SELECT MAX(version) FROM schema_version")
+                if (cursor.fetchone()[0] or 0) >= version:
+                    continue
                 if version in migrations:
                     migrations[version](cursor)
                 cursor.execute("INSERT INTO schema_version (version) VALUES (?)", (version,))
@@ -3442,28 +3545,31 @@ class NoustStore:
             )
             return cursor.rowcount
 
-    def prune_deployments_before(self, started_before: str) -> tuple[int, list[str]]:
+    def prune_deployments_before(
+        self, started_before: str, keep: Iterable[int] = ()
+    ) -> tuple[int, list[str]]:
         """
         Delete finished deployment rows that started before a cutoff (ENS G19).
 
         Args:
             started_before: ``started_at`` cutoff, in the format rows use
                 (local ISO 8601).
+            keep: Deployment ids never deleted whatever their age: what is
+                live, what a rollback targets, what a backup snapshot names.
 
         Returns:
             How many rows were deleted, and their build log paths for the
             caller to delete.
         """
-        finished = "status != 'running'"
+        kept = sorted({int(identifier) for identifier in keep})
+        clause = "status != 'running' AND started_at < ?"
+        if kept:
+            clause += f" AND id NOT IN ({', '.join('?' * len(kept))})"
+        params: tuple[Any, ...] = (started_before, *kept)
         with self._transaction() as cursor:
-            cursor.execute(
-                f"SELECT log_path FROM deployments WHERE {finished} AND started_at < ?",
-                (started_before,),
-            )
+            cursor.execute(f"SELECT log_path FROM deployments WHERE {clause}", params)
             logs = [str(row["log_path"]) for row in cursor.fetchall() if row["log_path"]]
-            cursor.execute(
-                f"DELETE FROM deployments WHERE {finished} AND started_at < ?", (started_before,)
-            )
+            cursor.execute(f"DELETE FROM deployments WHERE {clause}", params)
             return cursor.rowcount, logs
 
     # =========================================================================

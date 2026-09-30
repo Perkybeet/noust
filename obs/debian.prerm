@@ -25,7 +25,7 @@ case "$1" in
         # Without 'noust web enable' the console runs as a daemon (noust web
         # start -d), not as a unit; stop it while its binary still exists.
         if [ -x /usr/bin/noust ]; then
-            /usr/bin/noust web stop >/dev/null 2>&1 || true
+            /usr/bin/noust web stop --reason "package removal" >/dev/null 2>&1 || true
         fi
         ;;
 

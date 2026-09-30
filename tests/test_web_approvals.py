@@ -135,6 +135,13 @@ class Person:
         return self.client.patch(path, json=body, headers=self.headers(**headers))
 
 
+def allow_root_equivalent_from_centrals() -> None:
+    """A cron command runs as root: a central reaches it only with host access."""
+    from noust.fleet.policy import FleetAccess, set_access
+
+    set_access(FleetAccess("admin", host_access=True))
+
+
 def audit_actions() -> list[dict[str, Any]]:
     path = audit.get_log().path
     if not path.exists():
@@ -345,6 +352,7 @@ class TestFleet:
     def test_a_central_s_call_needs_the_central_s_word(
         self, app: Any, cron: Any, policy: dict[str, Any]
     ) -> None:
+        allow_root_equivalent_from_centrals()
         token = str(get_token_manager().create_fleet_token("fleet-nas")["token"])
         client = TestClient(app, client=("127.0.0.1", 50000))
         headers = {
@@ -401,3 +409,226 @@ class TestTheSwitchIsASecuritySetting:
 
         assert "approval" in SECURITY_CONFIG_SECTIONS
         assert "approval" in FLEET_PROTECTED_CONFIG_SECTIONS
+
+
+def token_for(username: str, *permissions: str) -> dict[str, str]:
+    """An API token of an account's own, as a Bearer header."""
+    manager = get_token_manager()
+    owner = manager.accounts.require(username)
+    issued = manager.create_api_token(
+        f"{username}-token",
+        "read",
+        owner=owner,
+        permissions=list(permissions),
+        allow_elevated=True,
+    )
+    return {"Authorization": f"Bearer {issued['token']}"}
+
+
+class TestAccountsCannotBeMadeWithoutASecondPerson:
+    """Security review 3.1, finding 1: creating or recovering an account is a role grant."""
+
+    def test_creating_an_account_needs_approval(self, app: Any, policy: dict[str, Any]) -> None:
+        sam = Person(app, "sam", "security")
+        sam.elevate()
+        asked = sam.post(
+            "/api/auth/accounts", {"username": "shadow", "role": "admin", "password": PASSWORD}
+        )
+        assert asked.status_code == 202, asked.text
+        assert AccountManager().find("shadow") is None
+        approval_id = asked.headers["X-Noust-Approval-Request"]
+        request = sam.client.get(f"/api/approvals/{approval_id}").json()
+        assert request["kind"] == "role_change"
+
+        # Only a security officer decides a role change, never an admin.
+        policy["approvers"] = ("security", "admin")
+        alice = Person(app, "alice", "admin")
+        alice.elevate()
+        assert alice.post(f"/api/approvals/{approval_id}/approve", {}).status_code in (403, 404)
+
+    def test_inviting_a_new_account_needs_approval(self, app: Any, policy: dict[str, Any]) -> None:
+        sam = Person(app, "sam", "security")
+        sam.elevate()
+        asked = sam.post("/api/auth/invitations", {"username": "shadow", "role": "admin"})
+        assert asked.status_code == 202, asked.text
+        assert AccountManager().find("shadow") is None
+
+    def test_recovering_an_existing_admin_needs_approval(
+        self, app: Any, policy: dict[str, Any]
+    ) -> None:
+        get_token_manager().accounts.create("alice", "admin", password=PASSWORD)
+        sam = Person(app, "sam", "security")
+        tess = Person(app, "tess", "security")
+        sam.elevate()
+        asked = sam.post("/api/auth/invitations", {"username": "alice"})
+        assert asked.status_code == 202, asked.text
+        approval_id = asked.headers["X-Noust-Approval-Request"]
+
+        tess.elevate()
+        assert tess.post(f"/api/approvals/{approval_id}/approve", {}).status_code == 200
+        done = sam.post(
+            "/api/auth/invitations", {"username": "alice"}, **{"X-Noust-Approval": approval_id}
+        )
+        assert done.status_code == 201, done.text
+
+    def test_the_first_account_needs_nobody_else(self, app: Any, policy: dict[str, Any]) -> None:
+        token = get_token_manager().generate_master_token()
+        client = TestClient(app, client=("testclient", 50000))
+        created = client.post(
+            "/api/auth/accounts",
+            json={"username": "first", "role": "security", "password": PASSWORD},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert created.status_code == 201, created.text
+
+    def test_nobody_recovers_their_own_account(self, app: Any) -> None:
+        sam = Person(app, "sam", "security")
+        sam.elevate()
+        refused = sam.post("/api/auth/invitations", {"username": "sam"})
+        assert refused.status_code == 400, refused.text
+        assert "your own account" in refused.json()["detail"]
+
+    def test_nobody_recovers_another_account_of_theirs_with_a_role_they_may_not_hold(
+        self, app: Any
+    ) -> None:
+        accounts = get_token_manager().accounts
+        accounts.add_exception("person-1", "Single operator for the migration", days=1)
+        accounts.create("sam-ops", "admin", password=PASSWORD, person_ref="person-1")
+        sam = Person(app, "sam", "security", person_ref="person-1")
+        accounts.revoke_exception(accounts.list_exceptions()[0].id)
+        sam.elevate()
+        refused = sam.post("/api/auth/invitations", {"username": "sam-ops"})
+        assert refused.status_code == 400, refused.text
+        assert "belongs to you" in refused.json()["detail"]
+
+
+class TestNoSelfApprovalThroughAToken:
+    """Security review 3.1, finding 2: a token is its owner, for deciding."""
+
+    def test_the_owner_of_the_requesting_token_cannot_approve(
+        self, app: Any, policy: dict[str, Any]
+    ) -> None:
+        get_token_manager().accounts.create("maria", "operator", password=PASSWORD)
+        sam = Person(app, "sam", "security")
+        bearer = token_for("sam", "accounts.manage", "accounts.read")
+        client = TestClient(app, client=("testclient", 50000))
+        asked = client.patch("/api/auth/accounts/maria", json={"role": "admin"}, headers=bearer)
+        assert asked.status_code == 202, asked.text
+        approval_id = asked.headers["X-Noust-Approval-Request"]
+
+        sam.elevate()
+        own = sam.post(f"/api/approvals/{approval_id}/approve", {})
+        assert own.status_code == 403, own.text
+        assert own.json()["error"] == "approval_denied"
+
+    def test_another_account_of_the_same_person_cannot_approve(
+        self, app: Any, policy: dict[str, Any]
+    ) -> None:
+        get_token_manager().accounts.create("maria", "operator", password=PASSWORD)
+        Person(app, "sam", "security", person_ref="person-1")
+        tess = Person(app, "sam2", "security", person_ref="person-1")
+        bearer = token_for("sam", "accounts.manage", "accounts.read")
+        client = TestClient(app, client=("testclient", 50000))
+        asked = client.patch("/api/auth/accounts/maria", json={"role": "admin"}, headers=bearer)
+        approval_id = asked.headers["X-Noust-Approval-Request"]
+
+        tess.elevate()
+        refused = tess.post(f"/api/approvals/{approval_id}/approve", {})
+        assert refused.status_code == 403, refused.text
+
+
+class TestNoOwnRoleChangeThroughAToken:
+    """Security review 3.1, finding 3: a token names its owner, not a username."""
+
+    def test_a_security_officer_cannot_change_their_own_role_with_a_token(self, app: Any) -> None:
+        Person(app, "sam", "security")
+        bearer = token_for("sam", "accounts.manage", "accounts.read")
+        client = TestClient(app, client=("testclient", 50000))
+        response = client.patch("/api/auth/accounts/sam", json={"role": "admin"}, headers=bearer)
+        assert response.status_code == 400, response.text
+        assert "your own account" in response.json()["detail"]
+        assert AccountManager().require("sam").role == "security"
+
+
+class TestDatabaseWritesNeedApproval:
+    """Security review 3.1, finding 7: every way of writing through the console."""
+
+    def test_explain_analyze_runs_the_statement(self) -> None:
+        explain = approvals_module.rule_for(
+            "POST", "/api/databases/query/explain", ["databases.read"], {"analyze": True}, {}
+        )
+        assert explain is not None and explain.kind == "infrastructure"
+        assert (
+            approvals_module.rule_for(
+                "POST", "/api/databases/query/explain", ["databases.read"], {"analyze": False}, {}
+            )
+            is None
+        )
+
+    @pytest.mark.parametrize(
+        ("method", "template"),
+        [
+            ("POST", "/api/databases/databases/{engine}/{name}/rows"),
+            ("PATCH", "/api/databases/databases/{engine}/{name}/rows"),
+            ("POST", "/api/databases/databases/{engine}/{name}/rows/delete"),
+        ],
+    )
+    def test_row_edits_write(self, method: str, template: str) -> None:
+        rule = approvals_module.rule_for(method, template, ["databases.write"], {}, {})
+        assert rule is not None and rule.kind == "infrastructure"
+
+
+class TestFleetApprovalRecords:
+    """Security review 3.1, low: a central's approval is recorded with both people."""
+
+    HEADERS = {
+        FLEET_ACTOR_HEADER: "maria",
+        FLEET_ACTOR_ROLE_HEADER: "admin",
+        FLEET_ELEVATED_HEADER: "1",
+    }
+
+    def client(self, app: Any) -> tuple[TestClient, dict[str, str]]:
+        allow_root_equivalent_from_centrals()
+        token = str(get_token_manager().create_fleet_token("fleet-nas")["token"])
+        return TestClient(app, client=("127.0.0.1", 50000)), {
+            "Authorization": f"Bearer {token}",
+            **self.HEADERS,
+        }
+
+    def test_both_identities_are_on_record(
+        self, app: Any, cron: Any, policy: dict[str, Any]
+    ) -> None:
+        client, headers = self.client(app)
+        vouched = client.post(
+            "/api/cron",
+            json=JOB,
+            headers={**headers, "X-Noust-Approved-By": "sam", "X-Noust-Approval": "7"},
+        )
+        assert vouched.status_code == 201, vouched.text
+        use = [entry for entry in audit_actions() if entry["action"] == "approval.use"][-1]
+        assert use["details"]["approved_by"]["name"] == "sam"
+        assert use["details"]["requested_by"]["name"] == "maria"
+        assert use["details"]["requested_by"]["central"] == "fleet-nas"
+
+    def test_a_central_cannot_say_the_requester_approved_it(
+        self, app: Any, cron: Any, policy: dict[str, Any]
+    ) -> None:
+        client, headers = self.client(app)
+        refused = client.post(
+            "/api/cron",
+            json=JOB,
+            headers={**headers, "X-Noust-Approved-By": "maria", "X-Noust-Approval": "7"},
+        )
+        assert refused.status_code == 403, refused.text
+        assert cron.created == []
+
+    def test_a_malformed_approval_is_refused(
+        self, app: Any, cron: Any, policy: dict[str, Any]
+    ) -> None:
+        client, headers = self.client(app)
+        refused = client.post(
+            "/api/cron",
+            json=JOB,
+            headers={**headers, "X-Noust-Approved-By": "sam", "X-Noust-Approval": "7; drop"},
+        )
+        assert refused.status_code == 403, refused.text

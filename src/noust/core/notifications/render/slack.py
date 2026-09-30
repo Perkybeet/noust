@@ -41,6 +41,7 @@ from noust.core.notifications.render.common import (
     fit,
     http_url,
     omitted_marker,
+    with_pinned_marker,
 )
 
 #: Slack's limits: a header's text, a section's text, a field's text, and the
@@ -150,7 +151,8 @@ def _excerpt_text(excerpt: Excerpt, notification: Notification) -> str:
     Returns:
         The italic label and the lines in a code block that cannot close early.
     """
-    lines = [entities(line).replace("```", "'''") for line in excerpt.lines]
+    shown = with_pinned_marker(list(excerpt.lines), excerpt, notification)
+    lines = [entities(line).replace("```", "'''") for line in shown]
     marker = omitted_marker(excerpt, notification)
     if marker:
         lines.append(entities(f"… {marker}"))

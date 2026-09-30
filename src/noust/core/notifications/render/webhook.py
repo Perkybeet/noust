@@ -30,7 +30,8 @@ consumer written for the old body keeps working and a new one gets structure:
              command to run next is the last fact.
 ``links``    ``[{rel, label, url}]``; ``rel`` ``console``.
 ``excerpt``  ``{label, lines, omitted}`` or null: the system's own lines,
-             verbatim.
+             verbatim. With ``pinned`` (a count) when the first lines
+             are the output's first error, brought up above its end.
 ==========  ==========================================================
 
 When ``notifications.channels.webhook.secret`` is set every delivery is signed:
@@ -97,17 +98,31 @@ def render(n: Notification) -> dict[str, Any]:
             {"key": fact.key, "label": fact.label, "value": fact.value} for fact in detail_facts(n)
         ],
         "links": [{"rel": link.rel, "label": link.label, "url": link.url} for link in n.links],
-        "excerpt": (
-            {
-                "label": n.excerpt.label,
-                "lines": list(n.excerpt.lines),
-                "omitted": n.excerpt.omitted,
-            }
-            if n.excerpt is not None
-            else None
-        ),
+        "excerpt": _excerpt(n),
     }
     return payload
+
+
+def _excerpt(n: Notification) -> dict[str, Any] | None:
+    """
+    Args:
+        n: The notification.
+
+    Returns:
+        Its excerpt as data, or None; ``pinned`` only when lines were
+        brought up, so a receiver written for the first three keys sees
+        exactly what it always did otherwise.
+    """
+    if n.excerpt is None:
+        return None
+    data: dict[str, Any] = {
+        "label": n.excerpt.label,
+        "lines": list(n.excerpt.lines),
+        "omitted": n.excerpt.omitted,
+    }
+    if n.excerpt.pinned:
+        data["pinned"] = n.excerpt.pinned
+    return data
 
 
 def encode(payload: dict[str, Any]) -> bytes:

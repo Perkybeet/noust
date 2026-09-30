@@ -575,13 +575,17 @@ def make_sandbox_filesystem(sandbox: Sandbox) -> Any:
             if self._inside("move", source, destination):
                 super().move(source, destination)
 
+        def rename(self, source: Path, destination: Path) -> None:
+            if self._inside("rename", source, destination):
+                super().rename(source, destination)
+
         def copy_tree(self, source: Path, destination: Path) -> None:
             if self._inside("copy_tree", destination):
                 super().copy_tree(source, destination)
 
-        def chmod(self, path: Path, mode: int) -> None:
+        def chmod(self, path: Path, mode: int, *, follow_symlinks: bool = True) -> None:
             if self._inside("chmod", path):
-                super().chmod(path, mode)
+                super().chmod(path, mode, follow_symlinks=follow_symlinks)
 
         def symlink(self, target: Path, link: Path) -> None:
             if self._inside("symlink", link):

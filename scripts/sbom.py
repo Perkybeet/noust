@@ -17,7 +17,7 @@ on at run time (never the build tools). The SBOM lists both:
 - every npm package of ``panel/package-lock.json`` that is not a development
   dependency, with the lockfile's SHA-512 integrity.
 
-It is attached to each GitHub release (``.github/workflows/supply-chain.yml``)
+It is attached to each GitHub release (``.github/workflows/release.yml``)
 for ENS op.pl.3 and op.exp.1.r4, and for anyone who scans what they install.
 
 Usage:

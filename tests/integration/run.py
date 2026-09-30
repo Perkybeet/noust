@@ -446,8 +446,11 @@ def upgrade_to_noust(name: str, wheel: Path, transitional_wheel: Path) -> None:
         sh(["docker", "cp", str(path), f"{name}:/tmp/noust-upgrade-wheels/{path.name}"], timeout=60)
     docker_exec(
         name,
-        "/opt/wasm/bin/pip install --quiet --no-index --find-links=/tmp/noust-upgrade-wheels "
-        f"'noust[all]=={UPGRADE_FROM_VERSION}'",
+        # The wheel by path, and its dependencies from the index: 3.1 added one
+        # (cryptography, for passkeys) that WASM 2.3 never installed, which a
+        # real `pip install -U wasm-cli` fetches. Pinning by name instead would
+        # let the index's own noust of the same version win over this tree's.
+        f"/opt/wasm/bin/pip install --quiet '/tmp/noust-upgrade-wheels/{wheel.name}[all]'",
         timeout=PIP_INSTALL_TIMEOUT,
     )
     docker_exec(
@@ -474,6 +477,16 @@ def upgrade_to_noust(name: str, wheel: Path, transitional_wheel: Path) -> None:
         name, "/opt/wasm/bin/python3 -c 'import noust; print(noust.__version__)'", timeout=30
     )
     print(f"[setup] upgraded to {result.stdout.strip()}")
+
+
+def wheel_version(wheel: Path) -> str:
+    """The version a wheel carries, from its file name (``noust-3.1.0-py3-none-any.whl``).
+
+    The upgrade steps pin ``noust`` to the working tree's version: pinning it to
+    :data:`UPGRADE_FROM_VERSION` only held while the tree was still at 2.3.0, and
+    against any later tree ``--no-index`` finds nothing to install.
+    """
+    return wheel.name.split("-")[1]
 
 
 def remove_container(name: str) -> None:
@@ -2470,7 +2483,9 @@ def _remote_backups_sftp(sc: Scenario, sftp: str, findings: list[str]) -> None:
         if event.get("event") == "backup_failed" and event.get("domain") == BK_DOMAIN
     ]
     sc.check(
-        len(events) == 1 and "itsftp" in str(events[0].get("title")),
+        # 3.1: the title names the application; the destination is one of the facts.
+        len(events) == 1
+        and any(fact.get("value") == "itsftp" for fact in events[0].get("facts") or []),
         f"expected one backup_failed notification naming itsftp: {events!r}",
     )
     if elapsed > 120:
@@ -4130,6 +4145,729 @@ def run_upgrade_mode(wheel: Path, transitional_wheel: Path, *, keep: bool) -> in
 
 
 # ---------------------------------------------------------------------------
+# Upgrade rehearsal: Noust 3.0 -> 3.1 (--upgrade-from-3.0; not in the default suite)
+# ---------------------------------------------------------------------------
+
+#: The release the 3.1 rehearsal starts from, installed from PyPI.
+UPGRADE_30_VERSION = "3.0.0"
+
+#: Its applications: in place (static and Node, the Node one later moved to
+#: another branch with `noust update --branch`) and one on releases.
+U30_STATIC_DOMAIN = "u30-static.test"
+U30_NODE_DOMAIN = "u30-node.test"
+U30_NODE_ROOT = "/var/www/apps/u30-node-test"
+U30_NODE_REPO_NAME = "u30-node"
+U30_REL_DOMAIN = "u30-rel.test"
+U30_REL_REPO_NAME = "u30-rel"
+U30_DOMAINS = (U30_STATIC_DOMAIN, U30_NODE_DOMAIN, U30_REL_DOMAIN)
+U30_BRANCH = "feature"
+U30_TOKEN_NAME = "u30-admin-token"
+
+#: The obsolete setting (the 1.x AI monitor's key) and the operator comment
+#: the config.yaml carries into the upgrade.
+U30_OBSOLETE_KEY_VALUE = "sk-noust-it-obsolete-openai-key"
+U30_COMMENT = "# Operator note (noust-it): keep this comment across the 3.1 upgrade"
+U30_CONFIG = "/etc/noust/config.yaml"
+
+#: The password of the first account; the harness never prints it.
+U30_ADMIN = "u30admin"
+
+
+def install_noust_release(name: str, version: str) -> None:
+    """Install a released Noust from PyPI into /opt/noust, the way install_noust installs a wheel.
+
+    Args:
+        name: Container name.
+        version: The exact ``noust`` version, e.g. "3.0.0".
+    """
+    print(f"[setup] creating /opt/noust venv and installing noust=={version} from PyPI")
+    docker_exec(name, "python3 -m venv /opt/noust", timeout=60)
+    docker_exec(name, "/opt/noust/bin/pip install --quiet --upgrade pip", timeout=120)
+    docker_exec(
+        name,
+        f"/opt/noust/bin/pip install --quiet 'noust[all]=={version}'",
+        timeout=PIP_INSTALL_TIMEOUT,
+    )
+    docker_exec(name, "ln -sf /opt/noust/bin/noust /usr/local/bin/noust", timeout=15)
+    docker_exec(name, "ln -sf /opt/noust/bin/wasm /usr/local/bin/wasm", timeout=15)
+    result = docker_exec(name, "noust --version", timeout=30)
+    print(f"[setup] installed {result.stdout.strip()}")
+
+
+def upgrade_noust_venv(sc: Scenario, wheel: Path) -> None:
+    """Install the working tree's wheel over a released Noust in /opt/noust.
+
+    ``pip install '<wheel>[all]'`` first, for the dependencies 3.1 added
+    (cryptography): pip leaves an installed wheel of the same version alone
+    ("already installed with the same version as the provided wheel"), and
+    this tree may still carry the version it upgrades from. Then the wheel
+    itself, forced and without dependencies, so the code really is replaced.
+    Checked by importing the package, never by running the CLI: the first
+    command is the one that migrates the store, and that belongs to the
+    rehearsal.
+    """
+    sh(["docker", "cp", str(wheel), f"{sc.container}:/tmp/{wheel.name}"], timeout=60)
+    sc.run(
+        f"/opt/noust/bin/pip install --quiet '/tmp/{wheel.name}[all]'",
+        timeout=PIP_INSTALL_TIMEOUT,
+        label=f"pip install '/tmp/{wheel.name}[all]' (dependencies 3.1 added)",
+    )
+    sc.run(
+        f"/opt/noust/bin/pip install --quiet --force-reinstall --no-deps '/tmp/{wheel.name}'",
+        timeout=PIP_INSTALL_TIMEOUT,
+        label=f"pip install --force-reinstall --no-deps /tmp/{wheel.name}",
+    )
+    installed = sc.run(
+        "/opt/noust/bin/python -c 'import noust.core.store as s; print(s.SCHEMA_VERSION)'",
+        timeout=30,
+        label="the installed package's SCHEMA_VERSION (read without running the CLI)",
+    ).stdout.strip()
+    sc.check(
+        installed == str(SCHEMA_VERSION),
+        f"the venv still runs the old code: SCHEMA_VERSION {installed!r}, "
+        f"the tree has {SCHEMA_VERSION}",
+    )
+
+
+def api_secret(
+    sc: Scenario,
+    method: str,
+    path: str,
+    label: str,
+    *,
+    bearer: str | None = None,
+    body: dict[str, Any] | None = None,
+) -> tuple[int, Any]:
+    """Call the console with a secret that never reaches an argv (curl reads its config on stdin).
+
+    Args:
+        sc: The scenario.
+        method: HTTP method.
+        path: Path under the console.
+        label: What the evidence calls it.
+        bearer: A token for the Authorization header.
+        body: A JSON body.
+
+    Returns:
+        The status code and the parsed body.
+    """
+
+    def quoted(value: str) -> str:
+        return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+    lines = [
+        f"url = {quoted(PANEL_URL + path)}",
+        f"request = {quoted(method)}",
+        "silent",
+        "show-error",
+        'write-out = "\\n%{http_code}"',
+    ]
+    if bearer is not None:
+        lines.append(f"header = {quoted('Authorization: Bearer ' + bearer)}")
+    if body is not None:
+        lines.append(f"header = {quoted('Content-Type: application/json')}")
+        lines.append(f"data = {quoted(json.dumps(body))}")
+    proc = subprocess.run(
+        ["docker", "exec", "-i", sc.container, "curl", "-K", "-"],
+        input="\n".join(lines) + "\n",
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    text, _, code = proc.stdout.rpartition("\n")
+    try:
+        payload: Any = json.loads(text) if text.strip() else None
+    except json.JSONDecodeError:
+        payload = text
+    shown = str(payload)
+    for secret in (bearer, (body or {}).get("token"), (body or {}).get("password")):
+        if secret:
+            shown = shown.replace(str(secret), "<secret>")
+    sc.evidence.append(f"$ {label}\n{code} {shown[:3000]}")
+    return int(code or 0), payload
+
+
+def _u30_curl(sc: Scenario, domain: str, label: str) -> str:
+    return sc.run(
+        f"curl -sS -H 'Host: {domain}' http://127.0.0.1/",
+        timeout=30,
+        check=False,
+        label=f"{label} curl -H 'Host: {domain}' http://127.0.0.1/",
+    ).stdout.strip()
+
+
+def _u30_serving(sc: Scenario, label: str, node_version: str) -> None:
+    """Every application serves what it should."""
+    static = _u30_curl(sc, U30_STATIC_DOMAIN, label)
+    sc.check("Noust Integration Static Fixture" in static, f"{label} static: {static!r}")
+    node = _u30_curl(sc, U30_NODE_DOMAIN, label)
+    sc.check(node == f"ok {node_version}", f"{label} node: expected ok {node_version}: {node!r}")
+    rel = _u30_curl(sc, U30_REL_DOMAIN, label)
+    sc.check(rel == "ok 1", f"{label} releases app: {rel!r}")
+
+
+def _u30_unit(sc: Scenario, unit: str, label: str) -> tuple[str, str, bool]:
+    """(is-enabled, is-active, unit file present) of a unit, one line each, never failing."""
+    out = (
+        sc.run(
+            f"echo $(systemctl is-enabled {unit} 2>/dev/null); "
+            f"echo $(systemctl is-active {unit} 2>/dev/null); "
+            f"test -e /etc/systemd/system/{unit} && echo present || echo absent",
+            timeout=15,
+            check=False,
+            label=label,
+        )
+        .stdout.strip()
+        .splitlines()
+    )
+    out += [""] * (3 - len(out))
+    return out[0].strip(), out[1].strip(), out[2].strip() == "present"
+
+
+def run_upgrade_30_rehearsal(sc: Scenario, wheel: Path, *, monitor_installed: bool) -> None:
+    """Set a server up with the released Noust 3.0.0, upgrade it to this tree, check 3.1's promises.
+
+    What docs/UPGRADING-3.1.md says holds: the store at v12 with a
+    ``noust.db.v11-*.bak`` copy beside it, the applications serving and
+    listed, the API token and the console's access token still
+    authenticating, the first admin account adopting the tokens, ``config
+    clean`` removing the obsolete key with the comment kept and a 0600 copy,
+    the monitor installed and enabled only where it was installed (and left
+    off where 3.0 uninstalled it, with no marker 3.0 ever wrote), a plain
+    update of an application moved with ``update --branch`` staying on that
+    branch, the audit chain verifying, and ``ens check --json`` answering.
+
+    The package's own configure steps (obs/debian.postinst) are run by hand
+    after the pip upgrade, in its order, since that is what reaches most
+    servers and pip runs none of them.
+
+    Args:
+        sc: The scenario.
+        wheel: The working tree's wheel, on the host.
+        monitor_installed: Whether 3.0 leaves the monitor installed (True)
+            or enabled and then uninstalled (False).
+    """
+    v30 = "[noust 3.0]"
+    v31 = "[noust 3.1]"
+    #: Defects that do not stop the rehearsal; any of them fails it at the end.
+    findings: list[str] = []
+
+    # --- The monitor first, as run_upgrade_rehearsal does: its StateDirectory
+    # --- gives /var/lib/noust a real directory before the store is created.
+    sc.run("noust monitor enable", timeout=90, label=f"{v30} noust monitor enable")
+    if not monitor_installed:
+        # Let it run, as a real 3.0 monitor did, then remove it: 3.0 wrote no
+        # marker, so only the journal remembers it.
+        time.sleep(3)
+        sc.run(
+            "journalctl --unit noust-monitor.service --lines 3 --no-pager --output cat",
+            timeout=15,
+            label=f"{v30} the monitor's journal before it is uninstalled",
+        )
+        sc.run("noust monitor uninstall -y", timeout=60, label=f"{v30} noust monitor uninstall -y")
+        gone = _u30_unit(
+            sc, "noust-monitor.service", f"{v30} noust-monitor.service after uninstall"
+        )
+        sc.check(not gone[2], f"3.0's uninstall left the unit file: {gone!r}")
+
+    # --- config.yaml: the defaults, then an operator comment and the obsolete
+    # --- monitor.openai.api_key inside the existing monitor: section.
+    sc.run("noust config upgrade", timeout=30, label=f"{v30} noust config upgrade")
+    sc.run(
+        "python3 - <<'EOF'\n"
+        "import pathlib\n"
+        f"p = pathlib.Path('{U30_CONFIG}')\n"
+        "lines = p.read_text().splitlines() if p.exists() else []\n"
+        f"block = ['  openai:', '    api_key: {U30_OBSOLETE_KEY_VALUE}', '    model: gpt-4']\n"
+        "out, done = [], False\n"
+        "for line in lines:\n"
+        "    out.append(line)\n"
+        "    if line.rstrip() == 'monitor:' and not done:\n"
+        "        out.extend(block)\n"
+        "        done = True\n"
+        "if not done:\n"
+        "    out += ['monitor:'] + block\n"
+        f"p.write_text('{U30_COMMENT}\\n' + '\\n'.join(out) + '\\n')\n"
+        "EOF",
+        timeout=15,
+        label=f"{v30} add '{U30_COMMENT}' and monitor.openai.api_key to {U30_CONFIG}",
+    )
+    sc.run(
+        f"grep -n -B1 -A3 'openai' {U30_CONFIG}; head -3 {U30_CONFIG}",
+        timeout=15,
+        label=f"{v30} {U30_CONFIG} around the obsolete key",
+    )
+    sc.run("noust config show >/dev/null", timeout=30, label=f"{v30} noust config show (loads)")
+
+    # --- Applications ------------------------------------------------------
+    repo, url = make_node_repo(sc, U30_NODE_REPO_NAME)
+    commit_to(
+        sc, repo, f"git checkout -q -b {U30_BRANCH} && echo {U30_BRANCH}-1 > VERSION", "feature 1"
+    )
+    sc.run(f"git -C {repo} checkout -q main", timeout=15, label=f"(fixture repo) {repo}: main")
+    rel_repo, rel_url = make_node_repo(sc, U30_REL_REPO_NAME)
+
+    sc.run(
+        f"noust create -d {U30_STATIC_DOMAIN} -s /root/fixtures/static-site -t static --no-ssl "
+        "--layout inplace",
+        timeout=DEPLOY_TIMEOUT,
+        label=f"{v30} noust create -d {U30_STATIC_DOMAIN} (static, in place)",
+    )
+    sc.run(
+        f"noust create -d {U30_NODE_DOMAIN} -s {url} -t nodejs --no-ssl --layout inplace",
+        timeout=DEPLOY_TIMEOUT,
+        label=f"{v30} noust create -d {U30_NODE_DOMAIN} -s {url} (node, in place)",
+    )
+    sc.run(
+        f"noust create -d {U30_REL_DOMAIN} -s {rel_url} -t nodejs --no-ssl --layout releases",
+        timeout=DEPLOY_TIMEOUT,
+        label=f"{v30} noust create -d {U30_REL_DOMAIN} -s {rel_url} (node, releases)",
+    )
+    switched = sc.run(
+        f"noust update {U30_NODE_DOMAIN} --branch {U30_BRANCH}",
+        timeout=DEPLOY_TIMEOUT,
+        check=False,
+        label=f"{v30} noust update {U30_NODE_DOMAIN} --branch {U30_BRANCH}",
+    )
+    if switched.returncode != 0:
+        # An in-place application is a `git clone --depth 1 --branch main`, which
+        # is single-branch: `git fetch origin feature` then only fills
+        # FETCH_HEAD, never refs/remotes/origin/feature, so the retried
+        # `git checkout feature` still finds nothing (source_manager.pull). The
+        # finding is kept and the rest is rehearsed on the state an operator
+        # reaches by widening the clone's refspec by hand.
+        findings.append(
+            f"3.0: `noust update {U30_NODE_DOMAIN} --branch {U30_BRANCH}` failed on an in-place "
+            f"git app (exit {switched.returncode}): {switched.stdout.strip().splitlines()[-1:]!r}"
+        )
+        sc.run(
+            f"git -C {U30_NODE_ROOT} remote set-branches --add origin {U30_BRANCH}",
+            timeout=15,
+            label=f"{v30} (workaround) git remote set-branches --add origin {U30_BRANCH}",
+        )
+        sc.run(
+            f"noust update {U30_NODE_DOMAIN} --branch {U30_BRANCH}",
+            timeout=DEPLOY_TIMEOUT,
+            label=f"{v30} noust update {U30_NODE_DOMAIN} --branch {U30_BRANCH} (after the workaround)",
+        )
+    branch_30 = sc.run(
+        f"git -C {U30_NODE_ROOT} rev-parse --abbrev-ref HEAD",
+        timeout=15,
+        label=f"{v30} the in-place checkout's branch",
+    ).stdout.strip()
+    sc.check(branch_30 == U30_BRANCH, f"3.0 did not switch the checkout: {branch_30!r}")
+    _u30_serving(sc, v30, f"{U30_BRANCH}-1")
+
+    # --- Console and tokens ------------------------------------------------
+    enable = docker_exec(sc.container, "noust web enable", timeout=60, check=False)
+    sc.evidence.append(f"$ {v30} noust web enable\n(output withheld: it holds the access token)")
+    master_match = re.search(r"Access Token:\s*(\S+)", enable.stdout)
+    sc.check(
+        enable.returncode == 0 and master_match is not None,
+        f"noust web enable printed no access token (exit {enable.returncode}): {enable.stderr}",
+    )
+    master = master_match.group(1) if master_match else ""
+    deadline = time.time() + 30
+    while time.time() < deadline:
+        probe = docker_exec(
+            sc.container,
+            f"curl -sS -o /dev/null -w '%{{http_code}}' {PANEL_URL}/health",
+            timeout=15,
+            check=False,
+        )
+        if probe.stdout.strip() == "200":
+            break
+        time.sleep(1)
+    issued = docker_exec(
+        sc.container, f"noust token create {U30_TOKEN_NAME} --scope admin", timeout=30
+    )
+    sc.evidence.append(f"$ {v30} noust token create {U30_TOKEN_NAME} --scope admin\n(withheld)")
+    token_match = re.search(r"Token:\s*(\S+)", issued.stdout)
+    sc.check(token_match is not None, "noust token create printed no token")
+    token = token_match.group(1) if token_match else ""
+
+    code, session = api_secret(
+        sc, "GET", "/api/auth/session", f"{v30} GET /api/auth/session (API token)", bearer=token
+    )
+    sc.check(
+        code == 200 and isinstance(session, dict) and session.get("authenticated") is True,
+        f"the API token does not authenticate on 3.0: {code} {session!r}",
+    )
+    code, login = api_secret(
+        sc,
+        "POST",
+        "/api/auth/login",
+        f"{v30} POST /api/auth/login (access token)",
+        body={"token": master},
+    )
+    sc.check(code == 200, f"the access token does not sign in on 3.0: {code} {login!r}")
+
+    # --- Before ------------------------------------------------------------
+    db = sc.run("noust store path", timeout=30, label=f"{v30} noust store path").stdout.strip()
+    db = db.splitlines()[-1].strip() if db else ""
+    sc.check(db.endswith("noust.db"), f"unexpected store path: {db!r}")
+    schema_30 = sc.run(
+        store_query_at(db, "SELECT MAX(version) FROM schema_version"),
+        timeout=15,
+        label=f"{v30} store schema",
+    ).stdout.strip()
+    list_30 = sc.run("noust list", timeout=30, label=f"{v30} noust list").stdout
+    monitor_30 = _u30_unit(sc, "noust-monitor.service", f"{v30} noust-monitor.service")
+    sc.check(
+        monitor_30[2] == monitor_installed,
+        f"the monitor's unit file is not as this variant set it: {monitor_30!r}",
+    )
+    sc.run(f"ls -l {db}* 2>&1", timeout=15, check=False, label=f"{v30} ls -l the store")
+
+    # --- Upgrade: the wheel over the same venv, then the package's steps ---
+    upgrade_noust_venv(sc, wheel)
+    for step in (
+        'noust config upgrade --reason "package upgrade"',
+        'noust config clean --reason "package upgrade"',
+    ):
+        sc.run(step, timeout=60, label=f"{v31} (postinst) {step}")
+    if _u30_unit(sc, "noust-monitor.service", f"{v31} (postinst) is the monitor enabled?")[0] == (
+        "enabled"
+    ):
+        sc.run(
+            'noust monitor install --reason "package upgrade" && systemctl daemon-reload && '
+            "systemctl try-restart noust-monitor.service",
+            timeout=90,
+            label=f"{v31} (postinst) noust monitor install; try-restart noust-monitor",
+        )
+    auto = sc.run(
+        'noust monitor autoenable --reason "package upgrade"',
+        timeout=90,
+        label=f"{v31} (postinst) noust monitor autoenable",
+    )
+    sc.run(
+        "systemctl is-active --quiet noust-web.service && systemctl restart noust-web.service",
+        timeout=60,
+        label=f"{v31} (postinst) systemctl restart noust-web.service",
+    )
+    deadline = time.time() + 30
+    while time.time() < deadline:
+        probe = docker_exec(
+            sc.container,
+            f"curl -sS -o /dev/null -w '%{{http_code}}' {PANEL_URL}/health",
+            timeout=15,
+            check=False,
+        )
+        if probe.stdout.strip() == "200":
+            break
+        time.sleep(1)
+
+    # --- The store: v12, with the v11 copy beside it -----------------------
+    schema_31 = sc.run(
+        store_query_at(db, "SELECT MAX(version) FROM schema_version"),
+        timeout=15,
+        label=f"{v31} store schema",
+    ).stdout.strip()
+    sc.check(
+        schema_31 == str(SCHEMA_VERSION),
+        f"the store is at v{schema_31} (was v{schema_30}), expected v{SCHEMA_VERSION}",
+    )
+    backups = (
+        sc.run(
+            f"stat -c '%a %s %n' {db}.v11-*.bak",
+            timeout=15,
+            check=False,
+            label=f"{v31} stat {db}.v11-*.bak",
+        )
+        .stdout.strip()
+        .splitlines()
+    )
+    sc.check(len(backups) == 1, f"expected one v11 copy of the store: {backups!r}")
+    if backups:
+        mode, _, path = backups[0].partition(" ")
+        bak = path.partition(" ")[2]
+        sc.check(mode == "600", f"the v11 copy is mode {mode}, expected 600")
+        bak_schema = sc.run(
+            " ; ".join(
+                (
+                    store_query_at(bak, "SELECT MAX(version) FROM schema_version"),
+                    store_query_at(bak, "SELECT COUNT(*) FROM apps"),
+                )
+            ),
+            timeout=15,
+            label=f"{v31} the copy's schema and app count",
+        ).stdout.split()
+        sc.check(
+            bak_schema == [schema_30, "3"],
+            f"the copy is not the 3.0 store: {bak_schema!r} (3.0 was v{schema_30})",
+        )
+
+    # --- Applications ------------------------------------------------------
+    _u30_serving(sc, v31, f"{U30_BRANCH}-1")
+    list_31 = sc.run("noust list", timeout=30, label=f"{v31} noust list").stdout
+    for domain in U30_DOMAINS:
+        sc.check(domain in list_30, f"3.0's noust list did not show {domain}")
+        sc.check(domain in list_31, f"noust list after the upgrade does not show {domain}")
+
+    # --- Tokens, before any account ------------------------------------------
+    code, session = api_secret(
+        sc, "GET", "/api/auth/session", f"{v31} GET /api/auth/session (API token)", bearer=token
+    )
+    sc.check(
+        code == 200 and isinstance(session, dict) and session.get("authenticated") is True,
+        f"the 3.0 API token no longer authenticates: {code} {session!r}",
+    )
+    code, login = api_secret(
+        sc,
+        "POST",
+        "/api/auth/login",
+        f"{v31} POST /api/auth/login (access token)",
+        body={"token": master},
+    )
+    sc.check(code == 200, f"the 3.0 access token no longer signs in: {code} {login!r}")
+    web_token = sc.run("noust web token", timeout=30, label=f"{v31} noust web token").stdout
+    sc.check("issued" in web_token, f"noust web token does not report the token: {web_token!r}")
+    listed = json_of(
+        sc.run("noust token list --json", timeout=30, label=f"{v31} noust token list --json"),
+        "noust token list --json",
+    )
+    ours = [t for t in listed.get("tokens", []) if t.get("name") == U30_TOKEN_NAME]
+    sc.check(
+        len(ours) == 1 and not ours[0].get("revoked_at") and ours[0].get("scope") == "admin",
+        f"the 3.0 token is not listed live with its scope: {ours!r}",
+    )
+
+    # --- The first account adopts the tokens ------------------------------
+    password = "Upgrade-" + secrets.token_hex(8)
+    created = subprocess.run(
+        [
+            "docker",
+            "exec",
+            "-i",
+            sc.container,
+            "noust",
+            "user",
+            "create",
+            U30_ADMIN,
+            "--role",
+            "admin",
+            "--stdin",
+        ],
+        input=password + "\n",
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    sc.evidence.append(
+        f"$ {v31} noust user create {U30_ADMIN} --role admin --stdin\n{created.stdout.strip()}\n"
+        f"{created.stderr.strip()}\n(exit={created.returncode})"
+    )
+    sc.check(created.returncode == 0, f"noust user create failed: {created.stderr!r}")
+    sc.check(
+        "adopted 1 API token" in created.stdout.replace("\n", " "),
+        f"the first admin did not report adopting the 3.0 token: {created.stdout!r}",
+    )
+    listed = json_of(
+        sc.run("noust token list --json", timeout=30, label=f"{v31} noust token list --json"),
+        "noust token list --json",
+    )
+    ours = [t for t in listed.get("tokens", []) if t.get("name") == U30_TOKEN_NAME]
+    sc.check(
+        len(ours) == 1 and ours[0].get("owner_account_id") is not None,
+        f"the 3.0 token has no owner after the first admin: {ours!r}",
+    )
+    code, session = api_secret(
+        sc,
+        "GET",
+        "/api/auth/session",
+        f"{v31} GET /api/auth/session (adopted API token)",
+        bearer=token,
+    )
+    sc.check(
+        code == 200 and isinstance(session, dict) and session.get("authenticated") is True,
+        f"the adopted API token no longer authenticates: {code} {session!r}",
+    )
+    code, apps_payload = api_secret(
+        sc, "GET", "/api/apps", f"{v31} GET /api/apps (adopted API token)", bearer=token
+    )
+    sc.check(code == 200, f"the adopted admin token cannot list apps: {code}")
+    code, login = api_secret(
+        sc,
+        "POST",
+        "/api/auth/login",
+        f"{v31} POST /api/auth/login (access token, now break-glass)",
+        body={"token": master},
+    )
+    sc.check(code == 200, f"the access token no longer signs in as break-glass: {code} {login!r}")
+    sc.run("noust user list", timeout=30, label=f"{v31} noust user list")
+
+    # --- config clean -------------------------------------------------------
+    config_after = sc.run(f"cat {U30_CONFIG}", timeout=15, label=f"{v31} cat {U30_CONFIG}").stdout
+    sc.check("openai" not in config_after, "config clean left monitor.openai in config.yaml")
+    sc.check(U30_OBSOLETE_KEY_VALUE not in config_after, "the OpenAI key is still in config.yaml")
+    sc.check(U30_COMMENT in config_after, "config clean dropped the operator's comment")
+    copies = (
+        sc.run(
+            f"stat -c '%a %n' {U30_CONFIG}.bak-*",
+            timeout=15,
+            check=False,
+            label=f"{v31} stat {U30_CONFIG}.bak-*",
+        )
+        .stdout.strip()
+        .splitlines()
+    )
+    sc.check(len(copies) >= 1, "config clean wrote no dated copy")
+    for line in copies:
+        mode, _, path = line.partition(" ")
+        sc.check(mode == "600", f"{path} is mode {mode}, expected 600")
+        leaked = sc.run(
+            f"grep -c '{U30_OBSOLETE_KEY_VALUE}' {path} || true",
+            timeout=15,
+            check=False,
+            label=f"{v31} the OpenAI key in {path}?",
+        ).stdout.strip()
+        sc.check(leaked == "0", f"the OpenAI key was kept in the copy {path}")
+    shown = sc.run("noust config show", timeout=30, label=f"{v31} noust config show").stdout
+    sc.check("openai" not in shown.lower(), "config show still lists monitor.openai")
+
+    # --- The monitor --------------------------------------------------------
+    monitor_31 = _u30_unit(sc, "noust-monitor.service", f"{v31} noust-monitor.service")
+    marker = sc.run(
+        "ls /var/lib/noust/monitor-declined 2>/dev/null || true",
+        timeout=15,
+        check=False,
+        label=f"{v31} ls /var/lib/noust/monitor-declined",
+    ).stdout.strip()
+    sc.run("noust monitor status", timeout=30, check=False, label=f"{v31} noust monitor status")
+    if monitor_installed:
+        sc.check(
+            monitor_31[:2] == ("enabled", "active") and monitor_31[2],
+            f"the installed monitor is not enabled and active after the upgrade: {monitor_31!r}",
+        )
+        sc.check(not marker, f"a declined marker was written for an installed monitor: {marker}")
+    else:
+        sc.check(
+            not monitor_31[2] and monitor_31[1] != "active",
+            f"the monitor 3.0 uninstalled came back after the upgrade: {monitor_31!r} "
+            f"(autoenable said: {auto.stdout.strip()!r})",
+        )
+        sc.check(bool(marker), "the removed monitor was not remembered as declined")
+
+    # --- A plain update stays on the branch 3.0 switched to ---------------
+    commit_to(sc, repo, f"git checkout -q {U30_BRANCH} && echo {U30_BRANCH}-2 > VERSION", "f2")
+    commit_to(sc, repo, "git checkout -q main && echo main-2 > VERSION", "main 2")
+    pin = json_of(
+        sc.run(
+            f"noust app branch {U30_NODE_DOMAIN} --json",
+            timeout=30,
+            label=f"{v31} noust app branch {U30_NODE_DOMAIN} --json",
+        ),
+        "noust app branch --json",
+    )
+    sc.check(not pin.get("pinned"), f"the upgrade pinned a branch by itself: {pin!r}")
+    sc.run(
+        f"noust update {U30_NODE_DOMAIN}",
+        timeout=DEPLOY_TIMEOUT,
+        label=f"{v31} noust update {U30_NODE_DOMAIN} (no --branch)",
+    )
+    branch_31 = sc.run(
+        f"git -C {U30_NODE_ROOT} rev-parse --abbrev-ref HEAD",
+        timeout=15,
+        label=f"{v31} the in-place checkout's branch after a plain update",
+    ).stdout.strip()
+    sc.check(branch_31 == U30_BRANCH, f"a plain update moved the checkout to {branch_31!r}")
+    node = _u30_curl(sc, U30_NODE_DOMAIN, v31)
+    sc.check(
+        node == f"ok {U30_BRANCH}-2", f"the plain update did not deploy {U30_BRANCH}: {node!r}"
+    )
+
+    # --- 3.1 on a branch the in-place clone has never seen ----------------
+    commit_to(sc, repo, "git checkout -q -b feature2 && echo feature2-1 > VERSION", "feature2")
+    sc.run(f"git -C {repo} checkout -q main", timeout=15, label=f"(fixture repo) {repo}: main")
+    fresh = sc.run(
+        f"noust update {U30_NODE_DOMAIN} --branch feature2",
+        timeout=DEPLOY_TIMEOUT,
+        check=False,
+        label=f"{v31} noust update {U30_NODE_DOMAIN} --branch feature2 (not in the clone's refspec)",
+    )
+    if fresh.returncode != 0:
+        findings.append(
+            f"3.1: `noust update {U30_NODE_DOMAIN} --branch feature2` still fails on an in-place "
+            f"git app (exit {fresh.returncode}): {fresh.stdout.strip().splitlines()[-1:]!r}"
+        )
+        still = _u30_curl(sc, U30_NODE_DOMAIN, v31)
+        sc.check(still == f"ok {U30_BRANCH}-2", f"the failed switch broke the app: {still!r}")
+    else:
+        now = _u30_curl(sc, U30_NODE_DOMAIN, v31)
+        sc.check(now == "ok feature2-1", f"update --branch feature2 serves {now!r}")
+
+    # --- Audit and ENS ------------------------------------------------------
+    sc.run("noust audit status", timeout=30, check=False, label=f"{v31} noust audit status")
+    sc.run("noust audit verify", timeout=60, label=f"{v31} noust audit verify")
+    ens = sc.run(
+        "noust ens check --json", timeout=180, check=False, label=f"{v31} noust ens check --json"
+    )
+    sc.check(ens.returncode in (0, 1, 2), f"ens check crashed: exit {ens.returncode}")
+    sc.check("Traceback" not in ens.stderr, "ens check raised")
+    report = json_of(ens, "noust ens check --json")
+    sc.check(
+        isinstance(report, dict) and bool(report.get("findings")),
+        f"ens check --json has no findings: {str(report)[:500]}",
+    )
+    sc.check(
+        not report.get("errors"),
+        f"ens check could not read part of the server: {report.get('errors')!r}",
+    )
+    sc.run("noust --version", timeout=30, label=f"{v31} noust --version")
+    sc.check(not findings, "defects found:\n  - " + "\n  - ".join(findings))
+
+
+def run_upgrade_30_mode(wheel: Path, *, variants: list[bool], keep: bool) -> int:
+    """Run :func:`run_upgrade_30_rehearsal` once per monitor variant, each in its own container.
+
+    Args:
+        wheel: The working tree's wheel, on the host.
+        variants: ``monitor_installed`` values to run.
+        keep: Do not remove the containers when done.
+
+    Returns:
+        0 when every variant passed, 1 otherwise.
+    """
+    started_at = time.monotonic()
+    failures = 0
+    for monitor_installed in variants:
+        label = (
+            "upgrade_noust_3_0_to_3_1_monitor_installed"
+            if monitor_installed
+            else "upgrade_noust_3_0_to_3_1_monitor_uninstalled"
+        )
+        name = random_container_name()
+        sc = Scenario(container=name)
+        print(f"\n=== {label} ({name}) ===")
+        try:
+            try:
+                start_container(name)
+                wait_for_systemd(name)
+                install_fixtures(name)
+                install_noust_release(name, UPGRADE_30_VERSION)
+                run_upgrade_30_rehearsal(sc, wheel, monitor_installed=monitor_installed)
+            except (AssertionError, HarnessError) as exc:
+                failures += 1
+                print(f"FAIL: {label}: {exc}")
+            else:
+                print(f"PASS: {label}")
+        finally:
+            if sc.evidence:
+                print("--- evidence ---")
+                print("\n\n".join(sc.evidence))
+            if keep:
+                print(f"\n[teardown] --keep given, leaving container {name} running")
+            else:
+                print(f"\n[teardown] removing container {name}")
+                remove_container(name)
+    elapsed = time.monotonic() - started_at
+    print(
+        f"\n[summary] {len(variants)} scenario(s) run, {failures} failure(s), {elapsed:.1f}s total"
+    )
+    return 1 if failures else 0
+
+
+# ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
 
@@ -4168,6 +4906,21 @@ def parse_args() -> argparse.Namespace:
             "instead of the regular scenario suite. --scenario is ignored when this is given."
         ),
     )
+    parser.add_argument(
+        "--upgrade-from-3.0",
+        dest="upgrade_from_30",
+        action="store_true",
+        help=(
+            f"Run only the Noust {UPGRADE_30_VERSION} -> working tree upgrade rehearsal, one "
+            "container per monitor variant. --scenario is ignored when this is given."
+        ),
+    )
+    parser.add_argument(
+        "--monitor-variant",
+        choices=("installed", "uninstalled", "both"),
+        default="both",
+        help="With --upgrade-from-3.0: which state 3.0 leaves the monitor in (default: both).",
+    )
     return parser.parse_args()
 
 
@@ -4200,6 +4953,10 @@ def main() -> int:
         build_image()
     else:
         print(f"[setup] reusing existing image {IMAGE_TAG}")
+
+    if args.upgrade_from_30:
+        variants = {"installed": [True], "uninstalled": [False], "both": [True, False]}
+        return run_upgrade_30_mode(wheel, variants=variants[args.monitor_variant], keep=args.keep)
 
     if args.upgrade:
         transitional_wheel = build_transitional_wheel(workdir)

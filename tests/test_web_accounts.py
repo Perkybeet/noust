@@ -623,3 +623,94 @@ class TestInvitations:
         assert listed.status_code == 403
         assert created.status_code == 403
         assert created.json()["error"] == "permission_denied"
+
+
+def _ws_code(client: TestClient, url: str, **kwargs: Any) -> int | None:
+    from starlette.websockets import WebSocketDisconnect
+
+    try:
+        with client.websocket_connect(url, **kwargs):
+            return None
+    except WebSocketDisconnect as exc:
+        return exc.code
+
+
+class TestWebSocketGates:
+    """Security review 3.1, finding 4: a stream is held to what its route declares."""
+
+    def test_a_stream_needs_its_permission(self, sandbox: Path) -> None:
+        from noust.web.auth import WS_CLOSE_FORBIDDEN
+        from noust.web.websockets.router import WS_SUBPROTOCOL, WS_TOKEN_PREFIX
+
+        client = build(sandbox)
+        make_account("maria", "admin")
+        issued = get_token_manager().create_api_token(
+            "fleet-watcher", "read", owner=accounts().find("maria"), permissions=["fleet.read"]
+        )
+        protocols = [WS_SUBPROTOCOL, f"{WS_TOKEN_PREFIX}{issued['token']}"]
+        for path in ("/ws/events", "/ws/jobs", "/ws/jobs/x1", "/ws/logs/shop.example.com"):
+            assert _ws_code(client, path, subprotocols=protocols) == WS_CLOSE_FORBIDDEN, path
+
+    def test_no_stream_before_the_notice_is_accepted(self, sandbox: Path) -> None:
+        from noust.web.auth import WS_CLOSE_FORBIDDEN
+
+        client = build(sandbox, policy=AuthPolicy(notice_text="Access is logged."))
+        codes = make_account("maria", "viewer")
+        sign_in(client, "maria", codes[0])
+        assert _ws_code(client, "/ws/events") == WS_CLOSE_FORBIDDEN
+
+    def test_no_stream_before_a_second_factor(self, sandbox: Path) -> None:
+        from noust.web.auth import WS_CLOSE_FORBIDDEN
+
+        client = build(sandbox)
+        make_account("maria", "viewer", mfa=False)
+        sign_in(client, "maria", None)
+        assert _ws_code(client, "/ws/events") == WS_CLOSE_FORBIDDEN
+
+
+class TestTheNoticeGatesStandingPower:
+    """Security review 3.1, low: no sudo mode and no token before the notice."""
+
+    POLICY = AuthPolicy(notice_text="Access is logged. Use it for your job only.")
+
+    def test_no_sudo_mode_before_the_notice(self, sandbox: Path) -> None:
+        client = build(sandbox, policy=self.POLICY)
+        codes = make_account("maria", "admin")
+        csrf = sign_in(client, "maria", codes[0])["csrf_token"]
+        refused = client.post(
+            "/api/auth/elevate",
+            json={"password": PASSWORD, "code": codes[1]},
+            headers={CSRF_HEADER_NAME: csrf},
+        )
+        assert refused.status_code == 403, refused.text
+        assert refused.json()["error"] == "notice_required"
+
+    def test_a_token_is_held_to_its_owner_s_notice(self, sandbox: Path) -> None:
+        client = build(sandbox, policy=self.POLICY)
+        make_account("maria", "admin")
+        issued = get_token_manager().create_api_token("ci", "read", owner=accounts().find("maria"))
+        bearer = {"Authorization": f"Bearer {issued['token']}"}
+        refused = client.get("/api/apps", headers=bearer)
+        assert refused.status_code == 403, refused.text
+        assert refused.json()["error"] == "notice_required"
+        # Its own credential stays reachable, like a session's.
+        assert client.get("/api/auth/verify", headers=bearer).status_code == 200
+
+
+class TestLegacyTokensWithoutAnAdmin:
+    """Security review 3.1, low: a 3.0 token nobody adopted is not above every account."""
+
+    def test_an_unowned_admin_token_does_not_govern_security(self, sandbox: Path) -> None:
+        build(sandbox)
+        manager = get_token_manager()
+        legacy = manager._issue_api_token("ci-3.0", "admin", None)
+        before = manager.verify_api_token(legacy["token"], "testclient")
+        assert before is not None and "audit.manage" in before["permissions"]
+        make_account("sam", "security")
+
+        payload = manager.verify_api_token(legacy["token"], "testclient")
+        assert payload is not None
+        assert "audit.manage" not in payload["permissions"]
+        assert "accounts.manage" not in payload["permissions"]
+        assert "security.manage" not in payload["permissions"]
+        assert "apps.manage" in payload["permissions"]

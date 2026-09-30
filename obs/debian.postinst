@@ -78,19 +78,19 @@ case "$1" in
                 || [ -e /etc/systemd/system/wasm-web.service ] \
                 || [ -e /etc/systemd/system/wasm-monitor.service ]; then
             echo "Moving this server from WASM's names to Noust's..."
-            noust migrate-from-wasm || echo "noust: the migration from wasm did not finish; run 'noust migrate-from-wasm' (see /usr/share/doc/noust/UPGRADING-3.0.md)" >&2
+            noust migrate-from-wasm --reason "package upgrade" || echo "noust: the migration from wasm did not finish; run 'noust migrate-from-wasm' (see /usr/share/doc/noust/UPGRADING-3.0.md)" >&2
         fi
 
         # Add new defaults to an existing configuration (user values are
         # kept).
         if [ -f /etc/noust/config.yaml ] || [ -f /etc/wasm/config.yaml ]; then
             echo "Upgrading configuration with new defaults..."
-            noust config upgrade --quiet 2>/dev/null || true
+            noust config upgrade --reason "package upgrade" --quiet 2>/dev/null || true
             # Remove the settings no version reads any more (the old AI
             # monitor's OpenAI key among them), as text and with a dated 0600
             # copy first. It only ever removes what 'noust config show' lists
             # as obsolete, and a file it cannot edit safely is left alone.
-            noust config clean --quiet 2>/dev/null || true
+            noust config clean --reason "package upgrade" --quiet 2>/dev/null || true
         fi
 
         # Rewrite the monitor unit for this version if it is enabled. Only
@@ -99,7 +99,7 @@ case "$1" in
         # the migration did not finish, and it says so already.
         if systemctl is-enabled noust-monitor.service >/dev/null 2>&1; then
             echo "Updating noust-monitor.service..."
-            noust monitor install >/dev/null 2>&1 || true
+            noust monitor install --reason "package upgrade" >/dev/null 2>&1 || true
             systemctl daemon-reload
             systemctl try-restart noust-monitor.service || true
         elif systemctl is-enabled wasm-monitor.service >/dev/null 2>&1; then
@@ -114,7 +114,7 @@ case "$1" in
         # there is no systemd. 'noust monitor autoenable' makes that call in
         # one place; it must not fail the package.
         if [ -d /run/systemd/system ]; then
-            noust monitor autoenable >/dev/null 2>&1 || true
+            noust monitor autoenable --reason "package upgrade" >/dev/null 2>&1 || true
         fi
 
         # 'noust web enable' runs the console as a unit (wasm-web.service

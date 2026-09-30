@@ -22,6 +22,11 @@ exactly why what it does must be recorded. The hook in
 4. ``--reason`` (before or after the command name) is recorded with it, and
    is required under ``security.profile: ens-medium`` (op.exp.5.1, change
    reference); without it the command exits 2 before doing anything.
+5. The entry points a unit, a timer or a package script runs
+   (:data:`SYSTEM_ENTRY_POINTS`) are audited like any other change but need
+   no reason: nobody is there to type one, and a timer 3.0 wrote cannot be
+   given one. Refusing them would stop the console, the monitor and every
+   scheduled backup the moment the profile is turned on.
 
 **Read-only commands** record nothing and never need a reason. A command
 declares itself read-only with ``@group.command(..., read_only=True)``;
@@ -117,6 +122,30 @@ READ_ONLY_COMMANDS: frozenset[str] = frozenset(
 #: other, but bind no correlation id: the console binds one per request and
 #: per job, and a process-wide one would be inherited by all of them.
 DAEMON_COMMANDS: frozenset[str] = frozenset({"web start", "monitor run", "central run"})
+
+#: What systemd units, timers, the container and the package scripts run.
+#: They need no ``--reason`` under the ENS profile (see the module's point
+#: 5) and are recorded with ``entry_point`` in their details; under a unit
+#: the actor is ``system`` (:func:`~noust.core.audit.cli_actor`). The package
+#: scripts pass ``--reason "package upgrade"`` anyway, so that what an
+#: upgrade changed says so. ``tests/test_audit_entry_points.py`` reads every
+#: unit template, rendered unit and package script and fails when one runs a
+#: change that is not listed here.
+SYSTEM_ENTRY_POINTS: frozenset[str] = DAEMON_COMMANDS | frozenset(
+    {
+        # Timers and oneshot units. 'db backup-run' is not here: 3.1 wrote
+        # its timers with --reason in the line, and by hand it needs one.
+        "backup run-schedule",
+        "preview sweep",
+        # Debian postinst/prerm, RPM %posttrans/%preun.
+        "config clean",
+        "config upgrade",
+        "migrate-from-wasm",
+        "monitor autoenable",
+        "monitor install",
+        "web stop",
+    }
+)
 
 
 def command_path(ctx: click.Context) -> str:
@@ -255,6 +284,7 @@ class AuditedInvocation(AbstractContextManager["AuditedInvocation"]):
         self._started = 0.0
         self._actor: audit.Actor | None = None
         self._reason: str | None = None
+        self._entry_point = False
 
     def _state(self) -> Any:
         from noust.cli.app import Context
@@ -281,7 +311,12 @@ class AuditedInvocation(AbstractContextManager["AuditedInvocation"]):
         self._reason = (own if isinstance(own, str) and own else None) or (
             state.reason if state is not None else None
         )
-        if not self._reason and profile.defaults_for(security_profile()).cli_reason_required:
+        entry_point = self.path in SYSTEM_ENTRY_POINTS
+        if (
+            not self._reason
+            and not entry_point
+            and profile.defaults_for(security_profile()).cli_reason_required
+        ):
             raise click.UsageError(
                 f"'noust {self.path}' changes this server, and the {ENS_PROFILE} security "
                 'profile requires a reason for every change. Add --reason "<change reference '
@@ -299,6 +334,9 @@ class AuditedInvocation(AbstractContextManager["AuditedInvocation"]):
         }
         if self._reason:
             details["reason"] = self._reason
+        if entry_point:
+            details["entry_point"] = True
+        self._entry_point = entry_point
         audit.record(
             "cli.command.start",
             actor=self._actor,
@@ -334,6 +372,8 @@ class AuditedInvocation(AbstractContextManager["AuditedInvocation"]):
             details["error"] = error
         if self._reason:
             details["reason"] = self._reason
+        if self._entry_point:
+            details["entry_point"] = True
         try:
             audit.record(
                 "cli.command", actor=self._actor, target=self.path, outcome=outcome, details=details

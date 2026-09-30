@@ -322,6 +322,24 @@ class TestRetention:
         assert result.ok, result.broken
         assert result.first_seq == 8
 
+    def test_the_purge_is_anchored_before_anything_is_deleted(
+        self, log: AuditLog, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Deleted first, a crash or a failed append left a gap nothing explained."""
+        self.age(log, monkeypatch, 400, 3)
+        fill(log, 1)
+        doomed = log.closed_files()
+
+        def cannot_append(*args: object, **kwargs: object) -> None:
+            raise OSError(28, "No space left on device")
+
+        monkeypatch.setattr(log, "append", cannot_append)
+
+        with pytest.raises(OSError):
+            log.purge(retention_days=365, shipped_seq=None)
+
+        assert all(path.exists() for path in doomed)
+
     def test_nothing_within_retention_is_deleted(
         self, log: AuditLog, monkeypatch: pytest.MonkeyPatch
     ) -> None:

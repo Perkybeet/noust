@@ -156,6 +156,40 @@ def legacy_scope(permissions: frozenset[str] | set[str]) -> str:
     return "read"
 
 
+#: Roles from the most a node grants to the least, for rounding a narrowed
+#: credential down to one a node understands.
+_ROLES_BY_REACH: tuple[str, ...] = ("admin", "security", "operator", "auditor", "viewer")
+
+
+def role_within(role: str | None, permissions: frozenset[str] | set[str]) -> str | None:
+    """
+    The role a central may name for a principal without widening it.
+
+    A node grants what its own table gives the role it is told, so a token
+    narrowed below its owner's role must not be named by that role: it is
+    named by the widest role it holds every permission of instead.
+
+    Args:
+        role: The role of the account behind the principal, or None.
+        permissions: What the principal actually holds on the central.
+
+    Returns:
+        ``role`` when the principal holds all of it; otherwise the widest role
+        entirely within ``permissions``, and ``viewer`` - the least a node
+        grants anyone - when none is. None when ``role`` is None (the master
+        token, a token nobody owns), which the node narrows by scope.
+    """
+    if role is None:
+        return None
+    held = frozenset(permissions)
+    if role in ROLE_PERMISSIONS and ROLE_PERMISSIONS[role] <= held:
+        return role
+    for candidate in _ROLES_BY_REACH:
+        if ROLE_PERMISSIONS[candidate] <= held:
+            return candidate
+    return "viewer"
+
+
 def fleet_role_for(role: str | None, grant: str | None = None) -> str:
     """
     The role a central forwards for one of its principals.

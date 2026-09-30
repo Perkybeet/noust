@@ -78,9 +78,51 @@ def hand_over_tree(
     # That -R also put o+r on the .env files, which hold the secrets this
     # deployment was given. The chown above has just made the service account
     # their owner, so 0600 is readable by the application and by nobody else.
+    # The tree is a repository's, so a name here can be a link it committed:
+    # neither the entry nor a directory of the tree above it is followed out
+    # of the tree. A file named outside the tree (``shared/.env`` handed over
+    # with a release) is Noust's own, and only its leaf is checked.
     for env_file in env_files:
-        if env_file.exists():
-            fs.chmod(env_file, SECRET_MODE)
+        if env_file.is_symlink() or escapes(env_file, app_path):
+            logger.warning(
+                f"Left {env_file} alone: it is a symbolic link, or under one, that "
+                "leads out of the application; the repository should not commit it"
+            )
+            continue
+        if env_file.is_file():
+            fs.chmod(env_file, SECRET_MODE, follow_symlinks=False)
+
+
+def escapes(path: Path, root: Path) -> bool:
+    """
+    Say whether a path named inside a tree leads out of it through a link.
+
+    Args:
+        path: The path as named.
+        root: The tree.
+
+    Returns:
+        True when ``path`` is named under ``root`` but a directory link on
+        the way takes it elsewhere. A path named outside ``root`` is not the
+        tree's to judge, and is False.
+    """
+    return path.is_relative_to(root) and not is_inside(path, root)
+
+
+def is_inside(path: Path, root: Path) -> bool:
+    """
+    Say whether a path stays inside a tree once every link on the way is followed.
+
+    Args:
+        path: A path under ``root`` as named, which may not exist yet.
+        root: The tree.
+
+    Returns:
+        True when the directory holding ``path``, with every link on the way
+        resolved, is ``root`` or under it. The leaf itself is not resolved:
+        whether it may be a link is the caller's rule.
+    """
+    return path.parent.resolve().is_relative_to(root.resolve())
 
 
 def hand_over_file(
@@ -116,6 +158,11 @@ def hand_over_file(
     Returns:
         True if both the chown and the chmod succeeded.
     """
+    # chown and chmod dereference a link given by name, so a link where a
+    # file was expected would hand whatever it points at to the account.
+    if path.is_symlink():
+        logger.warning(f"Refusing to hand {path} over: it is a symbolic link")
+        return False
     chown = runner.run(
         ["chown", f"{user}:{group}", str(path)],
         timeout=_PERMISSIONS_TIMEOUT,

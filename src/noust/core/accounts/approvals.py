@@ -8,9 +8,10 @@ ENS op.acc.3 asks that critical tasks need two people, so that one authorised
 person cannot abuse their rights alone. Sudo mode is the same person again;
 ``admin`` is root-equivalent. So, under the ENS profile or when the operator
 turns it on (``approval.enabled``), the actions of :func:`rule_for` - raw
-units, cron commands, backup hooks, raw site configuration, SQL that writes,
-deploying from a directory of this server, adding and removing nodes, and
-role changes - become requests another person decides.
+units, cron commands, backup hooks, raw site configuration, SQL that writes
+(row edits and ``EXPLAIN ANALYZE`` included), deploying from a directory of
+this server, adding and removing nodes, and role grants (a role change, a new
+account, a recovery invitation) - become requests another person decides.
 
 The mechanism is a guard at the chokepoint, like sudo mode
 (:func:`noust.web.api.approvals.require_approval`, on every API route): the
@@ -21,8 +22,9 @@ console and ``noust approval`` share one implementation:
 
 - **Who decides.** By default only ``security``. With ``approval.approvers:
   [security, admin]`` an ``admin`` may approve infrastructure, never a role
-  change. Never the requester, never another account of the same person
-  (``person_ref``), never a token, the master token or a central. Root at the
+  change. Never the requester (nor the owner of the token that asked), never
+  another account of the same person (``person_ref``), never a token, the
+  master token or a central. Root at the
   terminal decides too: the CLI is the emergency channel, not held to roles,
   and on record with the operating system identity.
 - **What is approved.** The exact call: method, path, query and body, by
@@ -284,6 +286,17 @@ ROUTE_RULES: dict[tuple[str, str], ApprovalRule] = {
     ("DELETE", "/api/nodes/{node}"): ApprovalRule(
         "fleet.node.remove", KIND_INFRASTRUCTURE, "Removing a server from this central."
     ),
+    # A row edit is a write through the console's own database session, the
+    # same power as SQL that writes.
+    ("POST", "/api/databases/databases/{engine}/{name}/rows"): ApprovalRule(
+        "db.rows.write", KIND_INFRASTRUCTURE, "Inserting a row into a database."
+    ),
+    ("PATCH", "/api/databases/databases/{engine}/{name}/rows"): ApprovalRule(
+        "db.rows.write", KIND_INFRASTRUCTURE, "Changing a row of a database."
+    ),
+    ("POST", "/api/databases/databases/{engine}/{name}/rows/delete"): ApprovalRule(
+        "db.rows.write", KIND_INFRASTRUCTURE, "Deleting rows of a database."
+    ),
 }
 
 #: ``root_equivalent`` routes that change nothing: checking a candidate unit.
@@ -300,6 +313,21 @@ def _local_source(body: Any, _params: Mapping[str, str]) -> bool:
     from noust.validators.source import is_local_path
 
     return is_local_path(body["source"])
+
+
+def _analyzes(body: Any, _params: Mapping[str, str]) -> bool:
+    # EXPLAIN ANALYZE executes the statement it explains, writes included.
+    return isinstance(body, Mapping) and body.get("analyze") is True
+
+
+def _accounts_exist(_body: Any, _params: Mapping[str, str]) -> bool:
+    # The first account is made with the master token before anyone exists
+    # who could decide; from the second on, a new account (any role) and a
+    # recovery (which hands an existing account, role and all, to whoever
+    # holds the code) are role grants another person decides.
+    from noust.core.accounts.manager import AccountManager
+
+    return AccountManager().any_exist()
 
 
 def _changes_role(body: Any, params: Mapping[str, str]) -> bool:
@@ -325,9 +353,32 @@ BODY_RULES: dict[tuple[str, str], tuple[ApprovalRule, Callable[[Any, Mapping[str
         ),
         _local_source,
     ),
+    ("POST", "/api/databases/query/explain"): (
+        ApprovalRule(
+            "db.query.analyze",
+            KIND_INFRASTRUCTURE,
+            "EXPLAIN ANALYZE, which runs the statement it explains.",
+        ),
+        _analyzes,
+    ),
     ("PATCH", "/api/auth/accounts/{username}"): (
         ApprovalRule("user.role_change", KIND_ROLE_CHANGE, "Changing an account's role."),
         _changes_role,
+    ),
+    ("POST", "/api/auth/accounts"): (
+        ApprovalRule(
+            "user.create", KIND_ROLE_CHANGE, "Creating an account, with the role it is given."
+        ),
+        _accounts_exist,
+    ),
+    ("POST", "/api/auth/invitations"): (
+        ApprovalRule(
+            "user.invite",
+            KIND_ROLE_CHANGE,
+            "Inviting a person to a new account, or recovering an existing one: whoever "
+            "holds the code gets the account and its role.",
+        ),
+        _accounts_exist,
     ),
 }
 
@@ -396,6 +447,9 @@ _CONDITIONS: dict[str, str] = {
     "db.query.write": "mode is 'write'",
     "apps.local_source": "source is a directory of this server",
     "user.role_change": "role differs from the account's",
+    "db.query.analyze": "analyze is true",
+    "user.create": "an account already exists",
+    "user.invite": "an account already exists",
 }
 
 
@@ -569,9 +623,13 @@ class ApprovalActor:
         id: The account id, the token's name, the login uid.
         name: The username, ``master``, ``token:<name>``, the login.
         role: The account's role, or the grant of the master token.
-        person_ref: The person an account belongs to.
+        person_ref: The person an account belongs to; for a token, its
+            owner's.
         via: How the credential arrived.
         source: Where from.
+        account: The account behind it: the account itself, or the owner of
+            an API token. A token is its owner when deciding, so nobody
+            approves what they asked for through a token of their own.
     """
 
     kind: str
@@ -581,6 +639,7 @@ class ApprovalActor:
     person_ref: str | None = None
     via: str | None = None
     source: str | None = None
+    account: str | None = None
 
     @property
     def account_id(self) -> int | None:
@@ -591,6 +650,13 @@ class ApprovalActor:
             return int(self.id)
         except ValueError:
             return None
+
+    @property
+    def behind(self) -> str | None:
+        """The account behind the principal: its own id, or a token's owner."""
+        if self.kind == "account":
+            return self.id
+        return self.account
 
     def same_principal(self, other: ApprovalActor) -> bool:
         """
@@ -832,6 +898,7 @@ def _request(row: sqlite3.Row) -> ApprovalRequest:
             name=str(row["requester_name"]),
             role=row["requester_role"],
             person_ref=row["requester_person"],
+            account=row["requester_account"],
         ),
         created_at=float(row["created_at"]),
         expires_at=float(row["expires_at"]),
@@ -1073,8 +1140,8 @@ class ApprovalManager:
             cursor.execute(
                 "INSERT INTO approval_requests (action, kind, method, path, parameters, "
                 "fingerprint, reason, state, requester_kind, requester_id, requester_name, "
-                "requester_role, requester_person, created_at, expires_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "requester_role, requester_person, requester_account, created_at, expires_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     rule.action,
                     rule.kind,
@@ -1089,6 +1156,7 @@ class ApprovalManager:
                     requester.name,
                     requester.role,
                     requester.person_ref,
+                    requester.behind,
                     now,
                     now + policy.request_hours * 3600,
                 ),
@@ -1119,7 +1187,9 @@ class ApprovalManager:
                 "Only a person with an account decides approvals; tokens, the master token "
                 "and centrals never do."
             )
-        if decider.same_principal(request.requester):
+        if decider.same_principal(request.requester) or (
+            decider.behind is not None and decider.behind == request.requester.behind
+        ):
             return "Nobody decides their own request; another person has to."
         if (
             decider.person_ref

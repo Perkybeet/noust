@@ -1060,6 +1060,7 @@ def _user_password(
     propagate: bool,
     force: bool,
     logger: Logger,
+    first_password: bool = False,
 ) -> int:
     """
     Rotate an account's password and give it to the applications that use it.
@@ -1071,6 +1072,7 @@ def _user_password(
         propagate: Rewrite and restart the applications that use it.
         force: Do not ask for confirmation.
         logger: Logger for progress and errors.
+        first_password: Give a Redis instance with no password its first one.
 
     Returns:
         Process exit code.
@@ -1085,7 +1087,9 @@ def _user_password(
         logger.info("Cancelled")
         return 0
     try:
-        outcome = _service(logger).rotate_password(engine, username, host=host, propagate=propagate)
+        outcome = _service(logger).rotate_password(
+            engine, username, host=host, propagate=propagate, first_password=first_password
+        )
     except NoustError as e:
         return _fail(logger, e)
     logger.success(f"New password for {username}: {outcome.password}")
@@ -2093,10 +2097,22 @@ def user_list(ctx: Context, engine: str) -> None:
     is_flag=True,
     help="Do not give the new password to the applications that sign in as the user.",
 )
+@click.option(
+    "--first-password",
+    is_flag=True,
+    help="Give a Redis instance that has no password its first one; every client "
+    "connecting without one gets NOAUTH.",
+)
 @click.option("--force", "-f", "-y", is_flag=True, help="Do not ask for confirmation.")
 @pass_context
 def user_password(
-    ctx: Context, username: str, engine: str, host: str, no_propagate: bool, force: bool
+    ctx: Context,
+    username: str,
+    engine: str,
+    host: str,
+    no_propagate: bool,
+    first_password: bool,
+    force: bool,
 ) -> None:
     """
     Give a user a new password, and the applications that use it too.
@@ -2112,6 +2128,7 @@ def user_password(
             propagate=not no_propagate,
             force=force,
             logger=ctx.logger,
+            first_password=first_password,
         )
     )
 

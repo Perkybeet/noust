@@ -93,6 +93,36 @@ def make_journal(cycles: int = 4) -> str:
     return "\n".join(lines)
 
 
+#: What a Node service that throws at startup leaves in the journal by the time
+#: systemd gives up on it: the error, its stack, and systemd's own lines, which
+#: are the last twelve and hide it (the real-machine harness, 3.1).
+NODE_CRASH = [
+    "Sep 30 09:14:02 web-1 systemd[1]: Started shop-example-com.service - Noust: shop.example.com (nodejs).",
+    "Sep 30 09:14:02 web-1 node[73120]: /var/www/apps/shop-example-com/releases/20260930-091358-3f2a1bc/server.js:4",
+    'Sep 30 09:14:02 web-1 node[73120]:   throw new Error("broken on purpose");',
+    "Sep 30 09:14:02 web-1 node[73120]:   ^",
+    "Sep 30 09:14:02 web-1 node[73120]: ",
+    "Sep 30 09:14:02 web-1 node[73120]: Error: broken on purpose",
+    "Sep 30 09:14:02 web-1 node[73120]:     at Object.<anonymous> (/var/www/apps/shop-example-com/releases/20260930-091358-3f2a1bc/server.js:4:9)",
+    "Sep 30 09:14:02 web-1 node[73120]:     at Module._compile (node:internal/modules/cjs/loader:1364:14)",
+    "Sep 30 09:14:02 web-1 node[73120]:     at Module._extensions..js (node:internal/modules/cjs/loader:1422:10)",
+    "Sep 30 09:14:02 web-1 node[73120]:     at Module.load (node:internal/modules/cjs/loader:1203:32)",
+    "Sep 30 09:14:02 web-1 node[73120]:     at Module._load (node:internal/modules/cjs/loader:1019:12)",
+    "Sep 30 09:14:02 web-1 node[73120]:     at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:128:12)",
+    "Sep 30 09:14:02 web-1 node[73120]:     at node:internal/main/run_main_module:28:49",
+    "Sep 30 09:14:02 web-1 node[73120]: ",
+    "Sep 30 09:14:02 web-1 node[73120]: Node.js v18.19.1",
+    "Sep 30 09:14:02 web-1 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE",
+    "Sep 30 09:14:02 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.",
+    "Sep 30 09:14:07 web-1 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 5.",
+    "Sep 30 09:14:07 web-1 systemd[1]: Stopped shop-example-com.service - Noust: shop.example.com (nodejs).",
+    "Sep 30 09:14:07 web-1 systemd[1]: shop-example-com.service: Start request repeated too quickly.",
+    "Sep 30 09:14:07 web-1 systemd[1]: shop-example-com.service: Failed with result 'exit-code'.",
+    "Sep 30 09:14:07 web-1 systemd[1]: Failed to start shop-example-com.service - Noust: shop.example.com (nodejs).",
+]
+NODE_ERROR = "Sep 30 09:14:02 web-1 node[73120]: Error: broken on purpose"
+
+
 def health_evidence() -> str:
     """
     Returns:

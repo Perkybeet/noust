@@ -43,7 +43,7 @@ from noust.core.exceptions import (
 )
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, get_fs
 from noust.core.redact import Scrubber, app_secret_values, scrubber_for, secret_env_values
-from noust.core.store import DeploymentTrigger, JobRecord, get_store
+from noust.core.store import DeploymentTrigger, JobRecord, NoustStore, get_store
 
 logger = logging.getLogger(__name__)
 
@@ -451,12 +451,50 @@ class JobManager:
         not stop the panel from starting.
         """
         try:
-            changed = get_store().fail_interrupted_jobs(INTERRUPTED_REASON)
+            store = get_store()
+            restores = [
+                job
+                for status in (JobStatus.RUNNING.value, JobStatus.PENDING.value)
+                for job in store.list_jobs(limit=1000, status=status)
+                if job.type == JobType.RESTORE.value
+            ]
+            changed = store.fail_interrupted_jobs(INTERRUPTED_REASON)
         except _RECORDING_ERRORS as exc:
             logger.warning("Could not check for interrupted jobs at startup: %s", exc)
             return
         if changed:
             logger.warning("%d job(s) marked failed after a panel restart", changed)
+        self._report_interrupted_restores(store, restores)
+
+    @staticmethod
+    def _report_interrupted_restores(store: NoustStore, jobs: list[JobRecord]) -> None:
+        """
+        Put on each interrupted database restore how to get its database back.
+
+        A restore runs inside this process, so a restart mid-restore (a
+        package upgrade) can leave a database dropped. Its safety copy was
+        recorded before the drop, in the restore journal; this reads what is
+        left of it, announces each one, and gives the job the exact command
+        that loads the copy back.
+
+        Args:
+            store: The store.
+            jobs: The restore jobs the previous process left running or queued.
+        """
+        from noust.managers.database.backups import reconcile_interrupted_restores
+
+        try:
+            found = reconcile_interrupted_restores(store)
+        except _RECORDING_ERRORS as exc:
+            logger.warning("Could not check for interrupted database restores: %s", exc)
+            return
+        for restore in found:
+            for job in jobs:
+                if job.name == f"Restore {restore.target}":
+                    try:
+                        store.update_job(job.id, error=f"{INTERRUPTED_REASON}. {restore.message}")
+                    except _RECORDING_ERRORS as exc:
+                        logger.warning("Could not record how to recover %s: %s", job.id, exc)
 
     def _start_worker(self) -> None:
         """Start the background worker thread if it is not already running."""

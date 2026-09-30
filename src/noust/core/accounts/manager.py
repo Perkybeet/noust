@@ -612,6 +612,10 @@ class AccountManager:
                 details=f"Enable it first with 'noust user enable {name}'.",
             )
         else:
+            # A recovery hands the account, role and all, to whoever holds the
+            # code: the role is granted again, so it is held to the same
+            # separation of duties as granting it (an exception may have ended).
+            self._check_separation(existing.person_ref, existing.role, exclude_id=existing.id)
             account = existing
 
         code = f"{INVITATION_PREFIX}{secrets.token_urlsafe(32)}"
@@ -1504,6 +1508,43 @@ class AccountManager:
         return account
 
     # ------------------------------------------------ separation of duties
+
+    def check_grant(self, account: Account, by: Account | None, action: str) -> None:
+        """
+        Refuse handing an account's role to the person who asks for it.
+
+        A recovery invitation (and a role change) gives an account's role to
+        whoever ends up holding it. Asked by the account itself, or by another
+        account of the same person holding a role incompatible with it, that
+        is one person granting themselves a role they could not be given.
+
+        Args:
+            account: The account whose role is handed out.
+            by: The account asking (a token's owner), or None for a principal
+                that is no account (the master token, root).
+            action: What was attempted, for the message.
+
+        Raises:
+            AccountError: When it would be a grant to oneself.
+        """
+        if by is None:
+            return
+        if by.id == account.id:
+            raise AccountError(
+                f"You cannot {action} your own account",
+                details="Another security officer can, or root with 'noust user'.",
+            )
+        if (
+            by.person_ref
+            and by.person_ref == account.person_ref
+            and incompatible_roles(by.role, account.role)
+            and not self._exception_in_force(by.person_ref)
+        ):
+            raise AccountError(
+                f"You cannot {action} {account.username!r}: it belongs to you ({by.person_ref}) "
+                f"and holds {account.role}, which is incompatible with your {by.role} role",
+                details="Another security officer can, or root with 'noust user'.",
+            )
 
     def _check_separation(
         self, person_ref: str | None, role: str, *, exclude_id: int | None

@@ -277,6 +277,19 @@ class TestDeciding:
         with pytest.raises(ApprovalDenied, match="same person"):
             manager.approve(request.id, maria_sec)
 
+    def test_nor_through_a_token_of_their_own(
+        self, manager: ApprovalManager, store: NoustStore
+    ) -> None:
+        # Security review 3.1, finding 2: a token is its owner when deciding.
+        sam = person(store, "sam", "security")
+        token = ApprovalActor(
+            kind="token", id="sam-ci", name="token:sam-ci", role="security", account=sam.id
+        )
+        request, _digest = ask(manager, token)
+        assert manager.get(request.id).requester.account == sam.id
+        with pytest.raises(ApprovalDenied, match="own request"):
+            manager.approve(request.id, sam)
+
     def test_an_admin_decides_only_when_allowed(self, store: NoustStore, clock: Clock) -> None:
         alice = person(store, "alice", "admin")
         bob = person(store, "bob", "admin")

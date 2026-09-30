@@ -53,6 +53,7 @@ from noust.core.exceptions import (
     NoustError,
     OutOfMemoryError,
     RolledBackError,
+    SecurityError,
     ServiceError,
 )
 from noust.core.fs import DryRunFileSystem, FileSystem
@@ -80,7 +81,7 @@ from noust.deployers.helpers import sandbox as build_sandbox
 from noust.deployers.helpers.databases import provision_database
 from noust.deployers.helpers.health import wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
-from noust.deployers.helpers.permissions import hand_over_tree
+from noust.deployers.helpers.permissions import escapes, hand_over_tree
 from noust.deployers.helpers.preflight import repository_unreachable
 from noust.deployers.helpers.registration import StoreRegistrar
 from noust.deployers.helpers.sandbox import BuildPhase, SandboxState
@@ -457,7 +458,7 @@ class MonorepoDeployer(AppDeployer):
         The monorepo's chokepoint for the code a deployment runs from the
         repository (rule 4), with BaseDeployer's policy: an install or a build
         of a monorepo in the sandbox runs in it; a migration runs as the
-        application; anything else as this process, with a clean environment.
+        application; anything else as this process, with its environment.
 
         Args:
             command: Program and arguments.
@@ -494,8 +495,8 @@ class MonorepoDeployer(AppDeployer):
                     given=env,
                     cache=self._sandbox_cache or build_sandbox.cache_dir_for(self.app_name),
                 )
-        elif phase is not BuildPhase.PRIVILEGED:
-            options["clean_env"] = True
+        # Outside the sandbox the command inherits this process's environment,
+        # as before 3.1 (see BaseDeployer._run).
 
         if stream:
             return self.runner.stream(
@@ -560,7 +561,9 @@ class MonorepoDeployer(AppDeployer):
                 env_files=self._env_files(self.build_path),
             )
         root_env = self.app_path / ".env"
-        env_file = root_env if root_env.is_file() else None
+        # systemd reads EnvironmentFile= as root, outside the sandbox: a
+        # committed link would feed it another application's secrets.
+        env_file = root_env if root_env.is_file() and not root_env.is_symlink() else None
         if phase is BuildPhase.RELEASE:
             return build_sandbox.release_spec(
                 app_name=self.app_name,
@@ -1297,6 +1300,15 @@ class MonorepoDeployer(AppDeployer):
         Raises:
             EnvironmentValidationError: When a name or a value is unusable.
         """
+        # The workspace directory is the repository's: one committed as a link
+        # would carry this root-owned write of the database password wherever
+        # it points.
+        if escapes(path, self.app_path):
+            raise SecurityError(
+                f"Refusing to write {path}: a directory above it is a symbolic link "
+                "that leads out of the application",
+                details="Remove the link from the repository, or make it a real directory.",
+            )
         EnvManager(fs=self.fs).write_env_file(path, validate_environment(env_vars))
 
     def _workspace_env_file(self, workspace: MonorepoWorkspace) -> Path:
@@ -1454,7 +1466,9 @@ class MonorepoDeployer(AppDeployer):
         base = root or self.app_path
         files = [base / ws.path / ".env.production" for ws in self.workspaces]
         files.append(base / ".env")
-        return files
+        # Only what this deployment wrote: a name the repository committed as a
+        # link is not a secret of ours, and following it would reach the host.
+        return [path for path in files if not path.is_symlink() and not escapes(path, base)]
 
     def _build_all(self) -> None:
         """Build all applications using Turborepo."""

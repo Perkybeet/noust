@@ -2065,14 +2065,7 @@ class SourceManager(BaseManager):
             )
         safe_branch = validate_git_ref(target)
 
-        # An explicit refspec rather than `fetch --all`: the cache is a
-        # single-branch clone, and a deploy of another branch must still find
-        # it on the remote.
-        result = self._git(
-            ["fetch", "origin", f"+refs/heads/{safe_branch}:refs/remotes/origin/{safe_branch}"],
-            cwd=cache,
-            timeout=GIT_NETWORK_TIMEOUT,
-        )
+        result = self._fetch_branch(cache, safe_branch)
         if not result.success:
             # A recipe pins a release tag, which is not under refs/heads: the
             # cache follows the tag instead, detached, as the clone did.
@@ -2090,6 +2083,82 @@ class SourceManager(BaseManager):
         result = self._git(["reset", "--hard", f"origin/{safe_branch}"], cwd=cache)
         if not result.success:
             raise SourceError("Git reset failed", details=result.stderr)
+
+    def _fetch_branch(self, repository: Path, branch: str) -> CommandResult:
+        """
+        Fetch one branch of ``origin`` into its remote-tracking branch, and follow it.
+
+        A clone made with ``--depth`` is a single-branch clone: its
+        ``remote.origin.fetch`` names the one branch it was cloned on, so
+        ``git fetch origin <other>`` only fills ``FETCH_HEAD`` and nothing
+        can check ``origin/<other>`` out. The refspec here names the
+        destination, so the remote-tracking branch exists whatever the clone
+        was told to follow; a branch the clone does not follow yet is fetched
+        at depth 1 when the clone is shallow, rather than with its whole
+        history, and added to ``remote.origin.fetch`` once the remote has
+        answered, so later fetches and ``git pull`` keep it current. It is
+        added only then: a refspec naming a branch the remote does not have
+        would fail every fetch after it.
+
+        Args:
+            repository: A clone with an ``origin`` remote.
+            branch: The branch, already validated.
+
+        Returns:
+            The fetch's result; a failed one is the caller's to explain.
+
+        Raises:
+            SourceError: If the fetch worked but the clone cannot be made to
+                follow the branch.
+        """
+        followed = self._follows_branch(repository, branch)
+        fetch = ["fetch"]
+        if not followed and self._is_shallow(repository):
+            fetch += ["--depth", "1"]
+        fetch += ["origin", f"+refs/heads/{branch}:refs/remotes/origin/{branch}"]
+        result = self._git(fetch, cwd=repository, timeout=GIT_NETWORK_TIMEOUT)
+        if result.success and not followed:
+            added = self._git(["remote", "set-branches", "--add", "origin", branch], cwd=repository)
+            if not added.success:
+                raise SourceError(
+                    f"Cannot make {repository} follow the branch {branch}", details=added.stderr
+                )
+        return result
+
+    def _follows_branch(self, repository: Path, branch: str) -> bool:
+        """
+        Report whether a clone's ``origin`` fetch refspecs cover a branch.
+
+        Args:
+            repository: The clone.
+            branch: The branch, already validated.
+
+        Returns:
+            True for the wildcard refspec of an ordinary clone or one naming
+            the branch; False otherwise, a single-branch clone of another
+            branch among them.
+        """
+        result = self._git(["config", "--get-all", "remote.origin.fetch"], cwd=repository)
+        covering = {
+            "refs/heads/*:refs/remotes/origin/*",
+            f"refs/heads/{branch}:refs/remotes/origin/{branch}",
+        }
+        return result.success and any(
+            line.strip().lstrip("+") in covering for line in result.stdout.splitlines()
+        )
+
+    def _is_shallow(self, repository: Path) -> bool:
+        """
+        Report whether a clone has only part of its history.
+
+        Args:
+            repository: The clone.
+
+        Returns:
+            True for a clone made with ``--depth`` and not deepened since.
+        """
+        result = self._git(["rev-parse", "--is-shallow-repository"], cwd=repository)
+        return result.success and result.stdout.strip() == "true"
 
     def _follow_tag(self, cache: Path, tag: str) -> bool:
         """
@@ -2283,9 +2352,8 @@ class SourceManager(BaseManager):
                 if found is not None:
                     return found
 
-        shallow = self._git(["rev-parse", "--is-shallow-repository"], cwd=repository)
         fetch = ["fetch"]
-        if shallow.success and shallow.stdout.strip() == "true":
+        if self._is_shallow(repository):
             fetch.append("--unshallow")
         fetch += ["--tags", "origin", "+refs/heads/*:refs/remotes/origin/*"]
         result = self._git(fetch, cwd=repository, timeout=GIT_CLONE_TIMEOUT)
@@ -2667,15 +2735,22 @@ class SourceManager(BaseManager):
             if safe_branch:
                 result = self._git(["checkout", safe_branch], cwd=path)
                 if not result.success:
-                    # Branch might not exist locally, try fetching first
-                    fetched = self._git(
-                        ["fetch", "origin", safe_branch], cwd=path, timeout=GIT_NETWORK_TIMEOUT
+                    # Neither a local branch nor a remote-tracking one: in a
+                    # single-branch clone the remote has it and the clone
+                    # never asked (see _fetch_branch).
+                    fetched = self._fetch_branch(path, safe_branch)
+                    if not fetched.success:
+                        raise self._git_failed(
+                            fetched, f"Git fetch of {safe_branch} failed", repository=path
+                        )
+                    result = self._git(
+                        ["checkout", "--track", "-B", safe_branch, f"origin/{safe_branch}"],
+                        cwd=path,
                     )
-                    if not fetched.success and is_git_auth_failure(fetched.stderr):
-                        raise self._git_failed(fetched, "Git fetch failed", repository=path)
-                    result = self._git(["checkout", safe_branch], cwd=path)
                     if not result.success:
-                        raise SourceError(f"Failed to checkout branch: {safe_branch}")
+                        raise SourceError(
+                            f"Failed to checkout branch: {safe_branch}", details=result.stderr
+                        )
 
             # Try regular pull first
             result = self._git(["pull", "--rebase"], cwd=path, timeout=GIT_NETWORK_TIMEOUT)

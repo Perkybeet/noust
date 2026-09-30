@@ -108,19 +108,59 @@ class TestStart:
             ("pipx", ("pipx", "upgrade", "noust")),
         ],
     )
-    def test_each_method_has_its_one_command(self, tmp_path, method, command):
+    def test_each_method_has_its_one_command(self, tmp_path, monkeypatch, method, command):
+        monkeypatch.setattr(self_update, "web_installed", lambda: False)
         runner = FakeRunner()
         _manager(tmp_path, runner, method=method).start()
 
         argv = _systemd_run(runner)
         assert argv[argv.index("--") + 1 :] == command
 
-    def test_pip_is_this_interpreters(self, tmp_path):
+    def test_pip_is_this_interpreters(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(self_update, "web_installed", lambda: False)
         runner = FakeRunner()
         _manager(tmp_path, runner, method="pip").start()
 
         argv = _systemd_run(runner)
         assert argv[argv.index("--") + 1 :][1:] == ("-m", "pip", "install", "--upgrade", "noust")
+
+    def test_pip_keeps_the_console_with_what_it_needs_now(self, tmp_path, monkeypatch):
+        """A new release may add to the web extra; a plain upgrade would leave it out."""
+        monkeypatch.setattr(self_update, "web_installed", lambda: True)
+        runner = FakeRunner()
+        _manager(tmp_path, runner, method="pip").start()
+
+        argv = _systemd_run(runner)
+        assert argv[argv.index("--") + 1 :][1:] == (
+            "-m",
+            "pip",
+            "install",
+            "--upgrade",
+            "noust[web]",
+        )
+
+    def test_pipx_upgrades_inside_its_own_environment_with_the_web_extra(
+        self, tmp_path, monkeypatch
+    ):
+        monkeypatch.setattr(self_update, "web_installed", lambda: True)
+        runner = FakeRunner()
+        _manager(tmp_path, runner, method="pipx").start()
+
+        argv = _systemd_run(runner)
+        assert argv[argv.index("--") + 1 :] == (
+            "pipx",
+            "runpip",
+            "noust",
+            "install",
+            "--upgrade",
+            "noust[web]",
+        )
+
+    def test_the_status_shows_the_command_that_will_run(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(self_update, "web_installed", lambda: True)
+        status = _manager(tmp_path, FakeRunner(), method="pip").status()
+
+        assert status["command"][-1] == "noust[web]"
 
     def test_a_refresh_that_fails_installs_nothing(self, tmp_path):
         runner = FakeRunner().script(["apt-get", "update"], exit_code=100, stderr="E: repo is gone")

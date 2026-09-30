@@ -46,6 +46,7 @@ from noust import __version__
 from noust.core import paths
 from noust.core.fs import SECRET_MODE, FileSystem, get_fs
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.update_checker import web_installed
 
 #: Every transient unit of a self-update starts with this, then the run's id.
 UNIT_PREFIX = "noust-self-update-"
@@ -126,6 +127,39 @@ COMMANDS: dict[str, SelfUpdateCommand] = {
     ),
     "pipx": SelfUpdateCommand(install=("pipx", "upgrade", "noust"), restarts_console=False),
 }
+
+#: The same methods when the console is installed: the ``web`` extra is named,
+#: so what a new release adds to it is installed too. A plain ``pip install
+#: --upgrade noust`` upgrades noust and nothing new it needs for the console;
+#: pipx's own ``upgrade`` keeps the spec it was installed with, which for a
+#: console added by ``pipx inject`` has no extra, so pip runs inside pipx's
+#: environment instead.
+WEB_COMMANDS: dict[str, SelfUpdateCommand] = {
+    "pip": SelfUpdateCommand(
+        install=(sys.executable, "-m", "pip", "install", "--upgrade", "noust[web]"),
+        restarts_console=False,
+    ),
+    "pipx": SelfUpdateCommand(
+        install=("pipx", "runpip", "noust", "install", "--upgrade", "noust[web]"),
+        restarts_console=False,
+    ),
+}
+
+
+def command_for(method: str) -> SelfUpdateCommand | None:
+    """
+    The one command that updates an installation.
+
+    Args:
+        method: The installation method.
+
+    Returns:
+        The command, or None for a method this module does not update.
+    """
+    if method in WEB_COMMANDS and web_installed():
+        return WEB_COMMANDS[method]
+    return COMMANDS.get(method)
+
 
 #: What an image-based installation runs instead (docs/CENTRAL.md).
 CONTAINER_COMMAND = "docker compose pull && docker compose up -d"
@@ -517,7 +551,7 @@ class SelfUpdate:
         record = self.read()
         if record is not None:
             record = self.settle(record)
-        command = COMMANDS.get(self.method())
+        command = command_for(self.method())
         return {
             "current_version": self.version,
             "method": self.method(),
@@ -566,7 +600,13 @@ class SelfUpdate:
                 f"Follow it with: journalctl -fu {previous.unit}.service",
             )
         method = self.method()
-        command = COMMANDS[method]
+        command = command_for(method)
+        if command is None:
+            raise SelfUpdateRefused(
+                "unsupported_installation",
+                f"Noust cannot update an installation made with {method}",
+                "Update it the way it was installed.",
+            )
         env = dict(command.env)
         if command.refresh is not None:
             refreshed = self.runner.stream(

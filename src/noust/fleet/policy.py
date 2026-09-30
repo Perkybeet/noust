@@ -46,9 +46,10 @@ ACCESS_LEVELS: tuple[AccessLevel, ...] = ("read", "deploy", "admin")
 
 #: What a ``deploy`` ceiling adds to reading: moving the applications that
 #: already run here - start, stop, restart, update, roll back, redeploy - and
-#: taking the backups that make those safe. Creating, deleting or configuring
-#: anything is ``admin``.
-DEPLOY_PERMISSIONS = frozenset({"apps.operate", "apps.deploy", "backups.manage"})
+#: taking the backups that make those safe (``backups.run``; deleting backups
+#: or changing where they go is ``backups.manage``, which is ``admin``).
+#: Creating, deleting or configuring anything is ``admin``.
+DEPLOY_PERMISSIONS = frozenset({"apps.operate", "apps.deploy", "backups.run"})
 
 #: What no central may ever do on a node, whatever its ceiling: manage who
 #: signs in here, the security settings and the audit trail. A compromised
@@ -65,6 +66,14 @@ SELF_PERMISSION = "self"
 #: system accounts. Allowed to a central only when the node says so in so many
 #: words (``host_access``), on top of an ``admin`` ceiling.
 HOST_ACCESS_PERMISSION = "server.host_access"
+
+#: A raw unit, a cron command, a backup hook or a raw site configuration: each
+#: runs as root, so it is a way onto the host however it is labelled. A central
+#: gets it only with host access, exactly like :data:`HOST_ACCESS_PERMISSION`.
+ROOT_EQUIVALENT_PERMISSION = "root_equivalent"
+
+#: Every permission that reaches the host itself, held back without host access.
+HOST_PERMISSIONS = frozenset({HOST_ACCESS_PERMISSION, ROOT_EQUIVALENT_PERMISSION})
 
 
 def validate_access_level(value: Any) -> AccessLevel:
@@ -97,10 +106,13 @@ class FleetAccess:
     Attributes:
         level: ``read`` (only reads), ``deploy`` (reads, plus operating and
             updating the applications already here) or ``admin`` (everything
-            but the node's own accounts, security settings and audit trail).
-        host_access: Whether a central may also change how this server is
-            reached (SSH keys, sshd, firewall, system accounts). Only counts
-            with an ``admin`` level.
+            but the node's own accounts, security settings and audit trail,
+            and what reaches the host).
+        host_access: Whether a central may also reach the host itself: change
+            how this server is reached (SSH keys, sshd, firewall, system
+            accounts) and make root-equivalent changes (raw units, cron
+            commands, backup hooks, raw site configuration). Only counts with
+            an ``admin`` level.
     """
 
     level: AccessLevel = "admin"
@@ -174,7 +186,7 @@ def permits(access: FleetAccess, permission: str) -> bool:
         return True
     if permission in NEVER_FLEET_PERMISSIONS:
         return False
-    if permission == HOST_ACCESS_PERMISSION:
+    if permission in HOST_PERMISSIONS:
         return access.level == "admin" and access.host_access
     if access.level == "read":
         return permission.endswith(".read")

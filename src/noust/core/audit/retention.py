@@ -25,12 +25,15 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from noust.core.audit.actor import Actor
 from noust.core.audit.settings import RetentionSettings, load_retention
 from noust.core.exceptions import NoustError
 from noust.core.fs import get_fs, is_rehearsal
+
+if TYPE_CHECKING:
+    from noust.core.store import NoustStore
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +155,8 @@ def prune(
         report.errors["jobs"] = str(exc)
     try:
         count, logs = store.prune_deployments_before(
-            (moment - timedelta(days=settings.deployments_days)).isoformat()
+            (moment - timedelta(days=settings.deployments_days)).isoformat(),
+            keep=_deployments_still_needed(store),
         )
         report.deleted["deployments"] = count
         report.files += _delete_logs(logs, base / "deploy-logs")
@@ -186,6 +190,39 @@ def prune(
             },
         )
     return report
+
+
+def _deployments_still_needed(store: NoustStore) -> set[int]:
+    """
+    Name the deployment rows an application still depends on, whatever their age.
+
+    An application not deployed in a year still runs its last deployment:
+    its row is the rollback target, and the newest rows of each application
+    are what keeps their snapshot backups from being rotated away
+    (:meth:`~noust.managers.backup_manager.BackupManager._protected_backup_ids`
+    reads the same :data:`SNAPSHOT_DEPLOYMENTS_KEPT`). An application's
+    newest success is kept too, behind any run of failures.
+
+    Args:
+        store: The store.
+
+    Returns:
+        The ids of the rows the retention period must not delete.
+    """
+    from noust.core.store import DeploymentStatus
+    from noust.managers.backup_manager import SNAPSHOT_DEPLOYMENTS_KEPT
+
+    success = DeploymentStatus.SUCCESS.value
+    keep: set[int] = set()
+    for app in store.list_apps():
+        newest = store.list_deployments(app.domain, limit=SNAPSHOT_DEPLOYMENTS_KEPT)
+        keep.update(record.id for record in newest if record.id is not None)
+        if not any(record.status == success for record in newest):
+            for record in store.list_deployments(app.domain, limit=1000):
+                if record.status == success and record.id is not None:
+                    keep.add(record.id)
+                    break
+    return keep
 
 
 def _prune_observations(days: int) -> int:

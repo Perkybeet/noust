@@ -44,6 +44,7 @@ from noust.core.notifications.render.common import (
     http_url,
     omitted_marker,
     render_text,
+    with_pinned_marker,
 )
 
 #: Telegram's own limit, characters after entity parsing.
@@ -121,7 +122,8 @@ def _excerpt_block(excerpt: Excerpt, notification: Notification) -> list[str]:
     Returns:
         The lines of the block: an italic label and a ``pre``.
     """
-    lines = [escape(line) for line in strip_journal_prefix(excerpt.lines)]
+    shown = with_pinned_marker(list(strip_journal_prefix(excerpt.lines)), excerpt, notification)
+    lines = [escape(line) for line in shown]
     marker = omitted_marker(excerpt, notification)
     if marker:
         lines.append(escape(f"… {marker}"))

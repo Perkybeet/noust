@@ -4,7 +4,9 @@ name: Supply chain
 #
 #   SBOM        a CycloneDX document for the wheel and the console's bundled
 #               npm packages (scripts/sbom.py, standard library only), kept as
-#               an artifact of every run and attached to every GitHub release
+#               an artifact of every run; release.yml writes the one attached
+#               to each GitHub release, since a release created there with
+#               GITHUB_TOKEN triggers no other workflow
 #   pip-audit   known vulnerabilities in the Python dependencies as resolved
 #   npm audit   known vulnerabilities in the packages the console bundles
 #
@@ -20,8 +22,6 @@ on:
   schedule:
     # Mondays: new advisories against what already shipped.
     - cron: "17 5 * * 1"
-  release:
-    types: [published]
   workflow_dispatch:
 
 concurrency:
@@ -35,9 +35,6 @@ jobs:
   sbom:
     name: SBOM
     runs-on: ubuntu-latest
-    permissions:
-      # Only to attach the SBOM to a published release.
-      contents: write
     steps:
       - uses: actions/checkout@v7
 
@@ -63,12 +60,6 @@ jobs:
         with:
           name: sbom
           path: ${{ env.SBOM_FILE }}
-
-      - name: Attach it to the release
-        if: github.event_name == 'release'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.event.release.tag_name }}" "$SBOM_FILE" --clobber
 
   pip-audit:
     name: pip-audit

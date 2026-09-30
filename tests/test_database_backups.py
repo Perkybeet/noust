@@ -1207,3 +1207,124 @@ class TestListing:
     def test_the_remote_folder_of_a_database_and_of_a_redis_instance(self) -> None:
         assert remote_folder("postgresql", "shop") == "databases/postgresql/shop"
         assert remote_folder("redis", "3") == "databases/redis/instance"
+
+
+# ---------------------------------------------------------------------------
+# A load beside a database is isolated from every other database
+# ---------------------------------------------------------------------------
+
+
+def _isolation_seen(
+    engine: type[BaseDatabaseManager], monkeypatch: pytest.MonkeyPatch
+) -> list[dict[str, Any]]:
+    seen: list[dict[str, Any]] = []
+    monkeypatch.setattr(engine, "_check_backup", lambda self, path, **kwargs: seen.append(kwargs))
+    return seen
+
+
+def test_a_restore_test_loads_isolated(
+    backups: DatabaseBackups, engine: type[BaseDatabaseManager], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A dump that switches database must not reach production from a test."""
+    seen = _isolation_seen(engine, monkeypatch)
+    taken = backups.dump("postgresql", "shop")
+
+    backups.verify("postgresql", taken.name, restore=True)
+
+    assert seen and all(kwargs.get("isolated") is True for kwargs in seen)
+
+
+def test_a_restore_as_a_new_database_loads_isolated(
+    backups: DatabaseBackups, engine: type[BaseDatabaseManager], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen = _isolation_seen(engine, monkeypatch)
+    taken = backups.dump("postgresql", "shop")
+
+    backups.restore("postgresql", "shop", taken.name, new_name="shop_copy")
+
+    assert seen == [{"isolated": True}]
+
+
+def test_a_restore_over_the_database_itself_is_not_isolated(
+    backups: DatabaseBackups, engine: type[BaseDatabaseManager], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen = _isolation_seen(engine, monkeypatch)
+    taken = backups.dump("postgresql", "shop")
+
+    backups.restore("postgresql", "shop", taken.name)
+
+    assert seen == [{}]
+
+
+# ---------------------------------------------------------------------------
+# A restore the console did not live to finish
+# ---------------------------------------------------------------------------
+
+
+def _safety_records(backups: DatabaseBackups) -> list[str]:
+    return [
+        record.file_name
+        for record in backups.records.dumps("postgresql", "shop")
+        if record.origin == "safety"
+    ]
+
+
+def test_the_safety_copy_is_recorded_before_the_database_is_dropped(
+    backups: DatabaseBackups, engine: type[BaseDatabaseManager], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Recorded after the load, a restart mid-restore left it unknown to Noust."""
+    taken = backups.dump("postgresql", "shop")
+    seen_at_drop: list[list[str]] = []
+    original = engine.drop_database
+
+    def drop(self: Any, name: str, force: bool = False) -> None:
+        seen_at_drop.append(_safety_records(backups))
+        original(self, name, force=force)
+
+    monkeypatch.setattr(engine, "drop_database", drop)
+
+    outcome = backups.restore("postgresql", "shop", taken.name, drop_existing=True)
+
+    assert outcome.safety_copy is not None
+    assert seen_at_drop == [[outcome.safety_copy.name]]
+
+
+def test_an_interrupted_restore_is_reported_with_the_command_to_put_it_back(
+    backups: DatabaseBackups, engine: type[BaseDatabaseManager], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from noust.managers.database.backups import reconcile_interrupted_restores
+
+    taken = backups.dump("postgresql", "shop")
+
+    def killed(self: Any, database: str, backup_path: Path, **kwargs: Any) -> None:
+        # What the process sees of a restart: it stops, and nothing after runs.
+        raise SystemExit(143)
+
+    monkeypatch.setattr(engine, "_load_backup", killed)
+    with pytest.raises(SystemExit):
+        backups.restore("postgresql", "shop", taken.name, drop_existing=True)
+    (safety,) = _safety_records(backups)
+
+    found = reconcile_interrupted_restores(backups.service.store)
+
+    assert len(found) == 1
+    assert found[0].target == "shop"
+    assert (
+        f"noust db restore shop {backups.service.dump_path('postgresql', safety)}"
+        in found[0].message
+    )
+    assert "--engine postgresql --drop" in found[0].message
+    # Reported once: the journal entry is gone.
+    assert reconcile_interrupted_restores(backups.service.store) == []
+
+
+def test_a_restore_that_finishes_leaves_nothing_to_reconcile(
+    backups: DatabaseBackups,
+) -> None:
+    from noust.managers.database.backups import reconcile_interrupted_restores
+
+    taken = backups.dump("postgresql", "shop")
+
+    backups.restore("postgresql", "shop", taken.name, drop_existing=True)
+
+    assert reconcile_interrupted_restores(backups.service.store) == []

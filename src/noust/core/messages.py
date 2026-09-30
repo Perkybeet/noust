@@ -464,6 +464,10 @@ MESSAGES: dict[str, dict[Locale, str]] = {
         "en": "{count} earlier lines omitted",
         "es": "{count} líneas anteriores omitidas",
     },
+    "ui.first_error": {
+        "en": "First error above; the last lines follow",
+        "es": "Primer error arriba; siguen las últimas líneas",
+    },
     "excerpt.journal": {
         "en": "Last lines of the journal of {unit}",
         "es": "Últimas líneas del registro de {unit}",

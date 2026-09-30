@@ -73,6 +73,9 @@ class UnitState:
         result: systemd's verdict on how it ended (``success``, ``exit-code``,
             ``timeout``, ``signal``).
         exit_status: The main process's exit status, when it has one.
+        known: False when systemd did not answer (``systemctl show`` failed or
+            timed out): nothing above is then true or false, and a caller must
+            not read "not active" as "it ended".
     """
 
     loaded: bool
@@ -80,6 +83,7 @@ class UnitState:
     sub_state: str = ""
     result: str = ""
     exit_status: int | None = None
+    known: bool = True
 
 
 @dataclass(frozen=True)
@@ -324,7 +328,10 @@ class UpdateUnit:
             update_id: The run's identifier.
 
         Returns:
-            Its state; a unit that ended and was collected is not loaded.
+            Its state; a unit that ended and was collected is not loaded. When
+            systemd did not answer the state is not ``known``: an empty or
+            failed ``show`` parsed as "inactive", which declared running
+            updates over.
         """
         result = self.runner.run(
             [
@@ -335,6 +342,8 @@ class UpdateUnit:
             ],
             timeout=PROBE_TIMEOUT,
         )
+        if not result.success or "LoadState=" not in result.stdout:
+            return UnitState(loaded=True, active=True, known=False)
         return parse_show(result.stdout)
 
     def _drain(self, unit: str, cursor: str | None, on_line: Callable[[str], None]) -> str | None:
@@ -394,7 +403,8 @@ class UpdateUnit:
         deadline = time.monotonic() + max_seconds
         while True:
             cursor = self._drain(unit, cursor, relay)
-            if not self.state(update_id).active:
+            state = self.state(update_id)
+            if state.known and not state.active:
                 # The last lines are written before the state flips; one more
                 # look, or the end of the output is what gets lost.
                 self._drain(unit, cursor, relay)
@@ -434,9 +444,20 @@ class UpdateUnit:
                 # given the deadline a unit would have had.
                 if not self._older_than_deadline(record):
                     continue
-            elif self.state(record.id).active:
-                reattach.append(record)
+            else:
+                state = self.state(record.id)
+                # Unanswered is not ended: followed again, the follower keeps
+                # asking until systemd answers or the deadline passes.
+                if state.active or not state.known:
+                    reattach.append(record)
+                    continue
+            # The unit may have written its result while systemd was asked:
+            # the record read before is stale, and writing it would replace a
+            # success with "failed".
+            fresh = self.records.read(record.id)
+            if fresh is None or fresh.status != "running":
                 continue
+            record = fresh
             record.status = "failed"
             record.finished_at = datetime.now(timezone.utc).isoformat()
             record.error = (

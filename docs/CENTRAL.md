@@ -153,14 +153,22 @@ and no `noust central run`.
 directory its user owns), but `noust web enable` is the supported way to run a console as a
 service there.
 
-## First sign-in and two-factor
+## First sign-in and accounts
 
-1. Sign in with the token from the first start.
-2. Turn on two-factor authentication in the console's settings (or
-   `docker exec -it noust noust 2fa enroll`, then `noust 2fa confirm CODE`). **A central
-   refuses to add its first server without it.**
+1. Sign in with the token from the first start. A central with no accounts opens **Create the
+   first account**: an administrator, and (recommended) a security officer for another person.
+   Or from the command line: `docker exec -it noust noust user create alice --role admin`.
+2. Sign in as that account and enrol its second factor, an authenticator app or a passkey. Every
+   account must have one, and **a central refuses to add its first server without it**. From
+   then on the access token is emergency access only.
 3. Lost the token? `docker exec -it noust noust web token --new` issues another and retires
    the old one.
+
+The central's accounts are the ones that matter for the fleet: operators reach every server
+through the central, and each server receives the operator's name and role with every call
+(`X-Noust-Actor`, `X-Noust-Actor-Role`). The server grants what its own table gives that role,
+within its ceiling for the central (below). A server's own accounts, tokens and second factor are
+never the central's to change.
 
 `docker exec -it noust noust central status` shows the role, where the data is, the
 certificate's fingerprint, who may connect, whether the secrets are sealed, how many
@@ -221,13 +229,22 @@ central's token is admitted, whatever the central claims for its operator:
 | Ceiling | A central may |
 |---------|---------------|
 | `read` | read everything, change nothing |
-| `deploy` | also start, stop, restart, update and roll back the applications already there, and take backups |
-| `admin` (default) | everything, except the server's own accounts, security settings and audit log |
+| `deploy` | also start, stop, restart, update and roll back the applications already there, and take backups (not delete them or change where they go) |
+| `admin` (default) | everything, except the server's own accounts, security settings and audit log, and what reaches the host (below) |
 
-`host access` (off by default) additionally lets a central with `admin` change how the server
-is reached: SSH keys, sshd, the firewall, system accounts. A compromised central is held to
-the ceiling of each server; the server's own accounts, tokens and two-factor sign-in are never
-a central's to change.
+`host access` (off by default) additionally lets a central with `admin` reach the host itself:
+change how the server is reached (SSH keys, sshd, the firewall, system accounts) and make
+root-equivalent changes (raw systemd units, cron commands, backup hooks, raw site
+configuration), each of which runs as root and so is host access by another name. A
+compromised central is held to the ceiling of each server; the server's own accounts, tokens
+and two-factor sign-in are never a central's to change.
+
+When a server requires four-eyes approvals (`approval.enabled`, or the ENS profile), a
+central's call that needs one is let through only with the central's word that it was approved
+there: `X-Noust-Approval` (the central's request number) and `X-Noust-Approved-By` (who
+approved it). The server cannot check the central's decision, only that one was taken: it
+refuses the call when either header is missing or malformed, or when the approver named is the
+operator who asked, and its audit log records both people and the central's token.
 
 ```bash
 noust fleet access                           # on the server: the ceiling in force
@@ -240,6 +257,65 @@ It is set only on the server's command line (or with `noust fleet authorize --ac
 `GET /api/auth/fleet/self`, and the central records it when it adds or tests the server
 (`noust node show` and `noust node list` show it) to grey out what the server would refuse. A
 3.0 server publishes nothing and shows as `unknown`.
+
+## Seeing the whole fleet
+
+The Fleet page and `noust fleet` ask every server at once, each with its own deadline, and show
+what came back: a server that is down, too old or refuses the operator is one row with its
+state and its own words (ssh's, or the server's API error), never an error for the whole page.
+When a server cannot be reached, its last good answer is shown with its age.
+
+```bash
+noust fleet status                       # every server: reachability, version, apps, units, certificates
+noust fleet apps --status failed         # every application of every server
+noust fleet certs --expiring 21          # certificates, the soonest to expire first
+noust fleet backups                      # each application's newest backup, the gaps first
+noust fleet updates                      # Noust and system updates pending on each server
+noust fleet activity --node vps1         # what happened lately
+```
+
+In the console, the Fleet page has the same views as tabs (Summary, Servers, Applications,
+Certificates, Backups, Updates, Activity), and each row links to the page on its server. On a
+hub, the Fleet summary is the home page. The server selector in the top bar switches every other
+page to one server, and each page shows that server's name above its title.
+
+## Acting on several servers
+
+```bash
+noust node label vps1 env=prod region=eu     # labels live on the central; the server never sees them
+noust node label vps1 region-                # remove one
+noust fleet run certs_renew --label env=prod --plan
+noust fleet run apps_update --label env=prod --serial 25% --max-failures 1 --canary vps1
+noust fleet run os_updates --nodes vps1,vps2 --option scope=security
+noust fleet jobs                             # the fleet jobs, and each server's outcome
+noust fleet retry JOB_ID                     # again, on the servers that failed or were not reached
+```
+
+Actions: `certs_renew`, `backups_run`, `backups_verify`, `apps_update`, `apps_restart`,
+`noust_update` and `os_updates`. Every run shows its plan first (which servers, in which
+batches, what is skipped and why) and asks before it starts. A server that cannot run the action
+(too old, above its ceiling, nothing to do) is skipped with the reason. `--serial` sets how many
+servers run at a time, `--canary` runs one server alone first and stops everything if it fails,
+and `--max-failures` stops the rest after that many failures. Each server runs the action
+through its own API, as the same operator, with the same sudo mode and approvals as a call made
+there by hand. The Fleet page starts the same jobs.
+
+System updates never reboot a server; `noust_update` updates Noust with the server's own
+installation method (the package manager or pip).
+
+## A fleet on different versions
+
+A 3.1 central drives 3.0 servers, and a 3.0 central drives 3.1 servers. A 3.0 server shows as
+`unsupported` in the fleet views it does not offer, bulk actions skip it with the reason, and its
+ceiling shows as `unknown`. Upgrade the central first, then each server, then move each server to
+the tunnel account. See [UPGRADING-3.1.md](UPGRADING-3.1.md#upgrading-a-fleet).
+
+## Notifications
+
+A central sends `node_unreachable` when a server stops answering, `node_recovered` when it
+answers again, and `node_host_key_changed` when a server's SSH host key changed and the tunnel
+was closed, through the central's own notification channels. `server.name` names each server in
+every message.
 
 ## Rotating a server's key
 
@@ -337,18 +413,39 @@ signing key, the token hash, the sessions and the two-factor secret (under `/dat
 
 ## Backups
 
-Back up the whole volume. It holds:
+`noust central backup` writes everything a central needs to come back into one file, while it
+runs: every file of its configuration and state directories, the databases as consistent
+snapshots, and a SHA-256 manifest, encrypted and authenticated under a passphrase you type
+(scrypt, then AES-256-CBC by openssl and HMAC-SHA256, the construction of sealed secrets). The
+passphrase is stored nowhere.
+
+```bash
+docker exec -it noust noust central backup                       # to central/ under the backups directory
+docker exec -it noust noust central backup --output /data/backups/central
+docker exec -it noust noust central backup --verify FILE         # it opens, and every file matches
+docker exec -it noust noust central backup --decrypt FILE --to /data/restore.tar.gz
+```
+
+Keep the file off the machine and the passphrase apart from it: without the passphrase nobody,
+Noust included, can restore it. To restore, decrypt it, stop the central, and put the
+archive's `noust-central/config/` and `noust-central/state/` back as the configuration and
+state directories (`/data/config` and `/data/state` in the container, `/etc/noust` and
+`/var/lib/noust` on a VPS); `MANIFEST.json` lists every file with its SHA-256. A sealed central's
+secrets stay sealed inside the backup, so restoring them needs both passphrases.
+
+What it holds, and what a copy of the whole volume holds too:
 
 | Path | What |
 |------|------|
-| `/data/config/` | `config.yaml`, the console's signing key, token hash, sessions, two-factor state, audit log, and its TLS pair (`panel-tls/`) |
-| `/data/state/noust.db` | the store: servers, their pinned host keys, history |
+| `/data/config/` | `config.yaml`, the console's signing key, token hash, sessions, two-factor state, audit log and its key, and its TLS pair (`panel-tls/`) |
+| `/data/state/noust.db` | the store: servers, their pinned host keys, labels, accounts, fleet jobs, history |
 | `/data/state/secrets/` | node keys and tokens (sealed or not) and the seal header `.seal` |
 | `/data/backups/`, `/data/log/` | the central's own backups and logs |
 
-Stop the container for a consistent copy (`docker stop noust`), or copy it running and accept
-that the last minute may be missing. A sealed backup is only as useful as the passphrase you
-still have: without it, restore gives you a central that cannot reach any server.
+A copy of the volume works too. Stop the container for a consistent copy (`docker stop noust`),
+or copy it running and accept that the last minute may be missing. A sealed backup is only as
+useful as the passphrase you still have: without it, restore gives you a central that cannot
+reach any server.
 
 With a named volume:
 
@@ -365,7 +462,10 @@ docker compose pull && docker compose up -d        # on UGOS Pro: stop the proje
 
 The data stays on the volume; the new image reads it where the old one left it. The first
 start of a new version prints no token (one was already issued). Pin a version in
-`compose.yaml` (`ghcr.io/perkybeet/noust:3.0.0`) to update when you choose, or use `latest`.
+`compose.yaml` (`ghcr.io/perkybeet/noust:3.1.0`) to update when you choose, or use `latest`.
+Take a `noust central backup` first: a new version may migrate the store, and the copy it keeps
+beside the store (`noust.db.v<old>-<time>.bak`) is the only way back to the older image. The
+upgrade from 3.0 is described in [UPGRADING-3.1.md](UPGRADING-3.1.md).
 
 ## Troubleshooting
 

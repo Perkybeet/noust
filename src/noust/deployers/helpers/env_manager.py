@@ -662,11 +662,19 @@ class EnvManager:
             OSError: If the file cannot be created or written.
         """
         directory = app_path / ".wasm"
+        # In place the application directory is a repository checkout, and a
+        # committed ``.wasm -> /etc`` would have this tighten /etc to 0700
+        # and write the inventory there.
+        if directory.is_symlink():
+            raise SecurityError(
+                f"Refusing to write the environment inventory through the symlink {directory}",
+                details="Remove .wasm from the repository; Noust keeps its own files there.",
+            )
         self.fs.make_dir(directory, mode=SECRET_DIR_MODE, parents=True)
         # A .wasm left world readable by an older version is tightened; the
         # directory is ours alone, so there is nothing else to break.
         if directory.is_dir() and directory.stat().st_mode & 0o077:
-            self.fs.chmod(directory, SECRET_DIR_MODE)
+            self.fs.chmod(directory, SECRET_DIR_MODE, follow_symlinks=False)
 
         target = directory / "env-config.json"
         if target.is_symlink():

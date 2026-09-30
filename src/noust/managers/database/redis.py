@@ -248,6 +248,23 @@ class RedisManager(BaseDatabaseManager):
         """
         return self._known_password()
 
+    def requirepass_set(self) -> bool | None:
+        """
+        Ask the instance whether clients must authenticate.
+
+        Returns:
+            False when ``requirepass`` is empty (every client connects without
+            a password), True when one is set, None when the instance could
+            not be asked (a password Noust does not know answers ``NOAUTH``).
+        """
+        success, output = self._execute_redis("CONFIG", "GET", "requirepass")
+        if not success or "NOAUTH" in output:
+            return None
+        lines = [line.strip() for line in output.splitlines()]
+        if not lines or lines[0] != "requirepass":
+            return None
+        return len(lines) > 1 and lines[1] != ""
+
     def _client_env(self) -> Mapping[str, str] | None:
         """
         Build the environment that authenticates the client.
@@ -1013,7 +1030,8 @@ class RedisManager(BaseDatabaseManager):
             backup_path: Path to the backup file, plain or gzipped.
             drop_existing: Ignored; the snapshot replaces everything.
             safety_backup: Ignored; the safety copy is always taken.
-            **kwargs: Unused.
+            **kwargs: ``on_safety_copy``, called with the safety copy before
+                the snapshot is replaced (see the base class).
 
         Returns:
             What was done.
@@ -1041,6 +1059,9 @@ class RedisManager(BaseDatabaseManager):
 
         safety = self.backup("all").path
         self.logger.info(f"Safety copy of the instance taken before the restore: {safety}")
+        on_safety_copy = kwargs.get("on_safety_copy")
+        if callable(on_safety_copy):
+            on_safety_copy(safety)
         try:
             self._load_backup("all", backup_path)
         except DatabaseBackupError as exc:

@@ -1378,6 +1378,7 @@ class DatabaseService:
         host: str = "localhost",
         propagate: bool = True,
         password: str | None = None,
+        first_password: bool = False,
     ) -> RotationOutcome:
         """
         Give an account a new password and every application that uses it.
@@ -1401,13 +1402,18 @@ class DatabaseService:
             host: Host restriction (MySQL).
             propagate: Rewrite and restart the applications that use it.
             password: The new password; generated when omitted.
+            first_password: Confirms giving a Redis instance that has no
+                ``requirepass`` its first one. Every client that connects
+                without a password - an application with no link among them,
+                which Noust cannot find - starts getting ``NOAUTH``, so it is
+                never done without being asked for.
 
         Returns:
             What was done, the new password included.
 
         Raises:
-            DatabaseUserError: When the account is internal or the engine
-                refuses.
+            DatabaseUserError: When the account is internal, the engine
+                refuses, or a first Redis password was not confirmed.
             DatabaseError: When an application did not come back; everything
                 is undone and the error carries the gate's evidence.
         """
@@ -1421,6 +1427,21 @@ class DatabaseService:
         if old is None and username == "default":
             known = getattr(manager, "client_password", None)
             old = known() if callable(known) else None
+            # "No password" is a state an undo can put back (requirepass ""),
+            # not an unknown one; it is also the case that cuts off clients.
+            probe = getattr(manager, "requirepass_set", None)
+            if old is None and callable(probe) and probe() is False:
+                old = ""
+        if old == "" and username == "default" and not first_password:
+            raise DatabaseUserError(
+                f"{manager.DISPLAY_NAME} has no password yet; setting one is not a rotation",
+                details=(
+                    "Every client that connects without a password starts failing with "
+                    "NOAUTH, and only the applications linked to it are given the new "
+                    "one. Check what else connects to it, then confirm: noust db "
+                    f"user-password default --engine {engine_name} --first-password"
+                ),
+            )
         new = password or manager.generate_password()
 
         apps = self._apps_using(engine_name, username, old) if propagate else []
@@ -1499,13 +1520,16 @@ class DatabaseService:
             manager: The engine.
             username: The account.
             host: Its host restriction.
-            old: The old password, when Noust knew it.
+            old: The old password, when Noust knew it; "" for a Redis
+                instance that had none.
             changed: The applications whose variables were written, with
                 what they held before.
             target: The audit target.
         """
         self.logger.warning("Undoing the password rotation")
         if old is not None:
+            # "" is Redis's "no password": set back as such, it lifts the
+            # requirepass the rotation put on every other client.
             manager.set_user_password(username, old, host=host)
             self.secrets.write(_password_secret(manager.ENGINE_NAME, username), old)
         for app, previous in changed:
@@ -2519,6 +2543,7 @@ class DatabaseService:
         drop_existing: bool = False,
         safety_backup: bool = True,
         new_name: str | None = None,
+        on_safety_copy: Callable[[Path], None] | None = None,
     ) -> RestoreOutcome:
         """
         Restore a dump into a database, or into a new one beside it.
@@ -2537,6 +2562,8 @@ class DatabaseService:
             drop_existing: Drop and recreate the target before loading.
             safety_backup: Take the safety copy when nothing is dropped.
             new_name: Restore into a new database of this name instead.
+            on_safety_copy: Called with the safety copy before anything is
+                dropped or loaded (see the manager's ``restore``).
 
         Returns:
             What was done.
@@ -2558,11 +2585,16 @@ class DatabaseService:
         target_name = new_name or database
         target = f"{engine_name}/{target_name}"
         try:
+            # Beside the original, the load must reach nothing else: a dump
+            # that switches database would otherwise write into the original.
+            isolation = {"isolated": True} if new_name is not None else {}
             outcome = manager.restore(
                 target_name,
                 source,
                 drop_existing=drop_existing and new_name is None,
                 safety_backup=safety_backup,
+                on_safety_copy=on_safety_copy,
+                **isolation,
             )
         except DatabaseError:
             self.audit("db.restore", target, "failure", source=source.name)

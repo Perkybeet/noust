@@ -77,14 +77,18 @@ def _states(snapshot: dict[str, Any]) -> dict[str, tuple[str, str | None]]:
     return {node["node"]: (node["state"], node["reason"]) for node in snapshot["nodes"]}
 
 
+def _renewal(node: Any, failed: bool) -> Any:
+    def answer(request: Any) -> Any:
+        if failed:
+            return node.queue(status="failed", error="certbot said no\nDNS problem")
+        return node.queue()
+
+    return answer
+
+
 def _renews(central: Central, *failing: str) -> None:
     for name, node in central.nodes.items():
-        failed = name in failing
-        node.handlers[("POST", "/api/certs/renew-all")] = lambda request, node=node, failed=failed: (
-            node.queue(status="failed", error="certbot said no\nDNS problem")
-            if failed
-            else node.queue()
-        )
+        node.handlers[("POST", "/api/certs/renew-all")] = _renewal(node, name in failing)
 
 
 class TestPlan:

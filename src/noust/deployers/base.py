@@ -586,7 +586,7 @@ class BaseDeployer(AppDeployer):
         (rule 4): an install or a build of an application in the sandbox runs
         in it, as ``noust-build`` (see :mod:`noust.deployers.helpers.sandbox`);
         a migration runs as the application; anything else as this process,
-        with a clean environment unless it is explicitly ``privileged``.
+        with its environment, as before 3.1.
 
         Args:
             command: Program and arguments.
@@ -622,12 +622,14 @@ class BaseDeployer(AppDeployer):
                 run_env = build_sandbox.command_environment(
                     self._sandbox_regime,
                     effective,
-                    configured=run_env,
+                    configured=self._build_variables(run_env),
                     given=env,
                     cache=self._sandbox_cache or build_sandbox.cache_dir_for(self.app_name),
                 )
-        elif effective is not BuildPhase.PRIVILEGED:
-            options["clean_env"] = True
+        # Outside the sandbox (an application from before 3.1, an explicit
+        # root build) a command inherits this process's environment exactly as
+        # before 3.1: a build relying on a variable of it must not break on
+        # upgrade. The sandbox starts clean by construction (sandbox_environment).
 
         if stream:
             result = self.runner.stream(
@@ -706,6 +708,33 @@ class BaseDeployer(AppDeployer):
         self._sandbox_regime = regime
         return regime
 
+    def _build_variables(self, configured: dict[str, str]) -> dict[str, str]:
+        """
+        Name the application's variables a sandboxed install or build is given.
+
+        Args:
+            configured: This deployment's variables, the command's merged in.
+
+        Returns:
+            ``configured`` as is, except for a preview building with the
+            network: it gets its ``.env`` (which the sandbox then does not
+            load) without the production secrets it was copied.
+        """
+        state = self._sandbox_regime
+        app = self._app_row()
+        if (
+            not isinstance(state, SandboxState)
+            or app is None
+            or app.preview_parent is None
+            or state.network == build_sandbox.NetworkProfile.STRICT.value
+        ):
+            return configured
+        env_file = self._existing_env_file()
+        from_file = self._env_manager.read_env_file(env_file) if env_file is not None else {}
+        return build_sandbox.preview_build_variables(
+            {**from_file, **configured}, app.env_secret_marks
+        )
+
     def _build_account(self) -> tuple[str, str]:
         """
         Name the account a sandboxed build of this application runs as.
@@ -727,7 +756,9 @@ class BaseDeployer(AppDeployer):
             The file, or None.
         """
         env_file = self._env_file()
-        return env_file if env_file.is_file() else None
+        # In place this is the repository's own tree, and systemd reads the
+        # file as root outside the sandbox: a committed link is not a .env.
+        return env_file if env_file.is_file() and not env_file.is_symlink() else None
 
     def _execution(self, phase: BuildPhase) -> SandboxSpec | None:
         """
@@ -1624,9 +1655,16 @@ class BaseDeployer(AppDeployer):
                     details=error_output or "No error output captured.",
                 )
 
+            hint = build_sandbox.network_hint(
+                self._sandbox_regime if isinstance(self._sandbox_regime, SandboxState) else None,
+                self.domain,
+                error_output,
+            )
             raise BuildError(
                 "Build failed",
-                details=error_output or "No error output captured.",
+                details="\n\n".join(
+                    part for part in (hint, error_output or "No error output captured.") if part
+                ),
             )
 
         self.post_build()
@@ -2639,7 +2677,10 @@ class BaseDeployer(AppDeployer):
         """
         if not self.app_path.is_dir():
             return []
-        return sorted(path for path in self.app_path.glob(".env*") if path.is_file())
+        # is_file() follows a link, and a repository can commit one as .env.
+        return sorted(
+            path for path in self.app_path.glob(".env*") if path.is_file() and not path.is_symlink()
+        )
 
     def _recorder(self) -> DeploymentRecorder:
         """
@@ -2942,9 +2983,10 @@ class BaseDeployer(AppDeployer):
 
         self._app_record = self._register_app_in_store(AppStatus.DEPLOYING.value)
         if is_new_deployment:
-            # Created from 3.1: it builds in the sandbox from its first build,
-            # and a preview in the strict network profile. The row goes with
-            # the application's if this deployment is undone.
+            # Created from 3.1: it builds in the sandbox from its first build;
+            # a preview with the network but without production's secrets,
+            # or strict when its parent is. The row goes with the
+            # application's if this deployment is undone.
             build_sandbox.adopt_new_app(
                 self.domain, preview=self._preview_parent is not None, store=self.store
             )

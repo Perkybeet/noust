@@ -79,3 +79,61 @@ def test_a_console_command_says_what_to_install(monkeypatch: pytest.MonkeyPatch)
         token_manager()
 
     assert "noust[web]" in caught.value.details
+
+
+#: Every optional dependency: the console's stack and what only some commands
+#: use. The RPM only suggests them, and a pip install without extras has none.
+OPTIONAL = (
+    "fastapi",
+    "starlette",
+    "uvicorn",
+    "pydantic",
+    "httpx",
+    "psutil",
+    "websockets",
+    "cryptography",
+)
+
+
+@pytest.fixture
+def without_optional_dependencies(monkeypatch: pytest.MonkeyPatch):
+    """
+    A fresh import of noust on an interpreter that has none of them.
+
+    None in sys.modules makes an import statement raise ImportError. Every
+    module is put back afterwards, so no other test sees the fresh copies.
+    """
+    saved = dict(sys.modules)
+    for name in list(sys.modules):
+        if name == "noust" or name.startswith("noust."):
+            del sys.modules[name]
+        elif name.split(".")[0] in OPTIONAL:
+            del sys.modules[name]
+    for name in OPTIONAL:
+        sys.modules[name] = None  # type: ignore[assignment]
+    try:
+        yield
+    finally:
+        sys.modules.clear()
+        sys.modules.update(saved)
+
+
+def test_every_command_loads_without_any_optional_dependency(
+    without_optional_dependencies: None,
+) -> None:
+    """``noust --help`` loads every command module; none may need an extra to be listed."""
+    import click
+
+    from noust.cli.app import cli
+
+    def walk(command: click.Command) -> int:
+        count = 1
+        if isinstance(command, click.Group):
+            ctx = click.Context(command)
+            for name in command.list_commands(ctx):
+                sub = command.get_command(ctx, name)
+                assert sub is not None, name
+                count += walk(sub)
+        return count
+
+    assert walk(cli) > 100

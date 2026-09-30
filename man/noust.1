@@ -2646,6 +2646,9 @@ Host the user connects from. Default: localhost.
 .B \-\-no\-propagate
 Do not give the new password to the applications that sign in as the user.
 .TP
+.B \-\-first\-password
+Give a Redis instance that has no password its first one; every client connecting without one gets NOAUTH.
+.TP
 .B \-\-force, \-f, \-y
 Do not ask for confirmation.
 .TP
@@ -2915,7 +2918,7 @@ Show or set the most any central may do on this server.
 The most any central may do here: read, deploy (operate and update applications) or admin.
 .TP
 .B \-\-host\-access
-Whether centrals may change how this server is reached (SSH keys, sshd, firewall, accounts); only counts with admin.
+Whether centrals may reach the host itself: SSH keys, sshd, firewall, accounts, and root\-equivalent changes (raw units, cron commands, backup hooks, raw site configuration); only counts with admin.
 .TP
 .B \-\-json
 Print the ceiling as JSON.
@@ -2972,7 +2975,7 @@ Confirm \-\-ssh\-user root: a key in root's authorized_keys can create Unix sock
 The most any central may do on this server: read, deploy (operate and update applications) or admin. Unchanged when omitted (admin on a server that never set it).
 .TP
 .B \-\-allow\-host\-access, \-\-no\-host\-access
-Let centrals change how this server is reached (SSH keys, sshd, firewall, accounts), on top of \-\-access admin. Off unless set.
+Let centrals reach the host itself: change how this server is reached (SSH keys, sshd, firewall, accounts) and make root\-equivalent changes (raw units, cron commands, backup hooks, raw site configuration), on top of \-\-access admin. Off unless set.
 .TP
 .B \-\-allow\-self
 Authorize even though this server looks like the central that issued the key (testing only).

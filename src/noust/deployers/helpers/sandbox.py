@@ -48,9 +48,13 @@ application as root anyway is an explicit, audited per-application setting
 sandbox. Applications from before keep building as root, with the warning
 :func:`sandbox_warning` gives the health report and the application page,
 until an operator tests the sandbox with a build of the current commit
-(``noust app sandbox test``) and enables it. Previews use the strict network
-profile: dependencies install with the network and without the application's
-secrets, and the build runs with its variables and without a network.
+(``noust app sandbox test``) and enables it. Previews build with the network,
+as they always did, and without the production secrets their variables are a
+copy of (:func:`preview_build_variables`). The strict network profile is
+opt-in, per application (``noust app sandbox enable --network strict``), and
+its previews follow it: dependencies install with the network and without the
+application's variables, and the build runs with them and without a network.
+A strict build that fails on the network says how to allow it.
 
 **Where the protection stops.** An application still ``in place`` builds in its
 live tree, as its service account (changing the owner of a tree the service
@@ -68,6 +72,7 @@ import grp
 import logging
 import os
 import pwd
+import re
 import secrets
 import shutil
 import sqlite3
@@ -355,7 +360,15 @@ def _merged(state: SandboxState, fields: dict[str, Any]) -> SandboxState:
 
 def adopt_new_app(domain: str, *, preview: bool, store: NoustStore | None = None) -> SandboxState:
     """
-    Put an application created from 3.1 in the sandbox; a preview in the strict profile.
+    Put an application created from 3.1 in the sandbox.
+
+    A preview builds with the network, as previews always did (``next/font``
+    and the like fetch at build time), and never with the production secrets
+    it was copied (:func:`preview_build_variables`). The strict profile - no
+    network for the build - is opt-in: a preview takes it when the
+    application it previews builds strict (``noust app sandbox enable
+    <domain> --network strict``, or the ``network`` field of the console's
+    sandbox settings).
 
     An application that already has a row keeps it: this is called on a first
     deployment, and a row that exists was written by an operator.
@@ -369,14 +382,13 @@ def adopt_new_app(domain: str, *, preview: bool, store: NoustStore | None = None
         Its state.
     """
     store = store or get_store()
+    network = NetworkProfile.FULL.value
     if is_rehearsal():
         # The application's own row was rolled back; so is this one.
-        return SandboxState(
-            domain=domain,
-            mode=SandboxMode.ON.value,
-            network=(NetworkProfile.STRICT if preview else NetworkProfile.FULL).value,
-        )
+        return SandboxState(domain=domain, mode=SandboxMode.ON.value, network=network)
     app = _app(store, domain)
+    if preview and app.preview_parent:
+        network = _preview_network(app.preview_parent, store)
     existing = (
         store._get_connection()
         .execute("SELECT 1 FROM build_sandbox WHERE app_id = ?", (app.id,))
@@ -388,9 +400,92 @@ def adopt_new_app(domain: str, *, preview: bool, store: NoustStore | None = None
         store,
         domain,
         mode=SandboxMode.ON.value,
-        network=(NetworkProfile.STRICT if preview else NetworkProfile.FULL).value,
+        network=network,
         changed_by="noust",
         changed_at=_now(),
+    )
+
+
+def _preview_network(parent: str, store: NoustStore) -> str:
+    """
+    Name the network profile a new preview of an application builds in.
+
+    Args:
+        parent: The application previewed.
+        store: The store.
+
+    Returns:
+        ``strict`` when that application opted in to it, else ``full``.
+    """
+    try:
+        chosen = get_state(parent, store=store).network
+    except ValidationError:
+        return NetworkProfile.FULL.value
+    return chosen if chosen == NetworkProfile.STRICT.value else NetworkProfile.FULL.value
+
+
+def preview_build_variables(
+    values: Mapping[str, str], marks: Mapping[str, bool] | None
+) -> dict[str, str]:
+    """
+    Keep the variables a preview's build may see: none of production's secrets.
+
+    A preview's variables are a copy of its application's, and a pull request
+    builds with the network: a secret given to its build could be sent
+    anywhere. A variable is withheld when the one classifier says it is
+    secret, or when its name alone looks secret and the operator did not mark
+    it otherwise; public ones (``NEXT_PUBLIC_*``) stay, since builds inline
+    them.
+
+    Args:
+        values: The preview's variables.
+        marks: Its secret marks, the operator's overrides.
+
+    Returns:
+        The variables that are not secrets.
+    """
+    from noust.core.secret_detection import classify, name_looks_secret
+
+    kept: dict[str, str] = {}
+    for name, value in values.items():
+        verdict = classify(name, value, marks)
+        if verdict.secret or (not verdict.marked and name_looks_secret(name)):
+            continue
+        kept[name] = value
+    return kept
+
+
+#: What a build's output says when it could not reach the network: DNS, a
+#: refused or unreachable connection, a fetch that failed.
+_NETWORK_FAILURE = re.compile(
+    r"ENOTFOUND|EAI_AGAIN|ENETUNREACH|ECONNREFUSED|ETIMEDOUT|getaddrinfo|"
+    r"Temporary failure in name resolution|Could not resolve host|"
+    r"Network is unreachable|network request failed|Failed to fetch",
+    re.IGNORECASE,
+)
+
+
+def network_hint(state: SandboxState | None, domain: str, output: str) -> str:
+    """
+    Say how to give a strict build the network, when its failure looks like it needed it.
+
+    Args:
+        state: The regime the build ran in; None when it was not sandboxed.
+        domain: The application.
+        output: What the build printed.
+
+    Returns:
+        The hint, or "" when the build was not strict or did not fail on
+        the network.
+    """
+    if state is None or state.network != NetworkProfile.STRICT.value:
+        return ""
+    if not _NETWORK_FAILURE.search(output or ""):
+        return ""
+    return (
+        f"{domain} builds without a network (the strict profile), and the build "
+        "looks like it tried to reach one. Allow it with: "
+        f"noust app sandbox enable {domain} --network full"
     )
 
 
@@ -1172,8 +1267,16 @@ def build_spec(
     strict = state.network == NetworkProfile.STRICT.value
     read_only = (shared,) if shared is not None else ()
     writable = (build_path, cache)
+    # A preview with the network gets its variables filtered through the
+    # command's environment instead (preview_build_variables): the file holds
+    # production's secrets.
+    networked_preview = app is not None and app.preview_parent is not None and not strict
     env_files: tuple[Path, ...] = ()
-    if env_file is not None and not (strict and phase is BuildPhase.INSTALL):
+    if (
+        env_file is not None
+        and not (strict and phase is BuildPhase.INSTALL)
+        and not networked_preview
+    ):
         env_files = (env_file,)
     # Readable by the service account only; bound empty so a dotenv loader
     # reads nothing instead of failing, and the values come from env_files.

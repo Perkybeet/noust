@@ -24,6 +24,7 @@ from noust.core.notifications.excerpt import (
 )
 from noust.core.notifications.model import Excerpt
 from noust.deployers.helpers.health_gate import HealthGate
+from tests.notifications_support import NODE_CRASH, NODE_ERROR
 
 JOURNAL = [
     "Sep 29 10:45:12 web-1 systemd[1]: Started shop-example-com.service.",
@@ -121,7 +122,127 @@ class TestMakeExcerpt:
         assert normalize("Deploy  failed!") == normalize("deploy failed")
 
 
+class TestTheFirstErrorIsKept:
+    def test_a_node_crash_keeps_its_error_above_systemds_lines(self) -> None:
+        plain = make_excerpt(NODE_CRASH, label="Journal")
+        assert plain is not None and NODE_ERROR not in plain.lines, "the defect this guards"
+
+        excerpt = make_excerpt(NODE_CRASH, label="Journal", pin_error=True)
+
+        assert excerpt is not None
+        assert excerpt.lines[0] == NODE_ERROR
+        assert excerpt.pinned == 1
+        assert excerpt.lines.count(NODE_ERROR) == 1
+        # The tail is still the end of the journal, verbatim and in order.
+        tail = excerpt.lines[1:]
+        assert tail == tuple(line.rstrip() for line in NODE_CRASH[-len(tail) :])
+        assert len(excerpt.lines) <= 12
+        assert sum(len(line) + 1 for line in excerpt.lines) <= 1200
+        assert excerpt.omitted == len(NODE_CRASH) - len(excerpt.lines)
+
+    def test_it_comes_after_the_steps_own_message(self) -> None:
+        excerpt = make_excerpt(NODE_CRASH, label="J", pin_error=True, lead="Release did not start")
+
+        assert excerpt is not None
+        assert excerpt.lines[:2] == ("Release did not start", NODE_ERROR)
+        assert excerpt.pinned == 2
+
+    def test_an_error_already_in_the_tail_is_not_repeated(self) -> None:
+        """A restart loop says the same error every cycle; the last one is shown."""
+        cycle = [
+            "Sep 29 10:45:{s:02d} web-1 systemd[1]: Started shop.service.",
+            "Sep 29 10:45:{s:02d} web-1 npm[4{s:02d}]: Error: Could not find a production build",
+            "Sep 29 10:45:{s:02d} web-1 systemd[1]: shop.service: Failed with result 'exit-code'.",
+            "Sep 29 10:45:{s:02d} web-1 systemd[1]: shop.service: Scheduled restart job.",
+        ]
+        journal = [line.format(s=10 + n) for n in range(6) for line in cycle]
+
+        assert make_excerpt(journal, label="J", pin_error=True) == make_excerpt(journal, label="J")
+
+    def test_an_error_inside_the_tail_changes_nothing(self) -> None:
+        assert make_excerpt(JOURNAL, label="J", pin_error=True) == make_excerpt(JOURNAL, label="J")
+
+    def test_the_next_line_is_kept_when_it_continues_the_message(self) -> None:
+        journal = [
+            "Sep 30 09:14:02 web-1 node[7]: Error: invalid configuration:",
+            'Sep 30 09:14:02 web-1 node[7]:   "port" must be a number',
+            "Sep 30 09:14:02 web-1 node[7]:     at validate (/srv/app/config.js:12:11)",
+            *(f"Sep 30 09:14:03 web-1 systemd[1]: shop.service: line {n}" for n in range(15)),
+        ]
+
+        excerpt = make_excerpt(journal, label="J", pin_error=True)
+
+        assert excerpt is not None
+        assert excerpt.lines[:2] == tuple(journal[:2])
+        assert excerpt.pinned == 2
+        assert excerpt.lines[2:] == tuple(journal[-10:])
+
+    def test_a_stack_frame_is_not_part_of_the_message(self) -> None:
+        excerpt = make_excerpt(NODE_CRASH, label="J", pin_error=True)
+
+        assert excerpt is not None
+        assert "at Object.<anonymous>" not in excerpt.lines[1]
+
+    def test_a_python_traceback_pins_the_exception_line(self) -> None:
+        journal = [
+            "Sep 30 09:14:02 web-1 gunicorn[9]: Traceback (most recent call last):",
+            'Sep 30 09:14:02 web-1 gunicorn[9]:   File "/srv/app/settings.py", line 3, in <module>',
+            'Sep 30 09:14:02 web-1 gunicorn[9]:     raise ImproperlyConfigured("SECRET_KEY is empty")',
+            "Sep 30 09:14:02 web-1 gunicorn[9]: django.core.exceptions.ImproperlyConfigured: SECRET_KEY is empty",
+            *(f"Sep 30 09:14:03 web-1 systemd[1]: shop.service: line {n}" for n in range(15)),
+        ]
+
+        excerpt = make_excerpt(journal, label="J", pin_error=True)
+
+        assert excerpt is not None
+        assert excerpt.lines[0] == journal[3]
+        assert excerpt.pinned == 1
+
+    def test_plain_output_without_a_journal_prefix(self) -> None:
+        output = [
+            "> shop@1.4.2 build",
+            "Error: Cannot find module 'tailwindcss'",
+            "Require stack:",
+            *(f"- /srv/app/node_modules/pkg{n}/index.js" for n in range(15)),
+        ]
+
+        excerpt = make_excerpt(output, label="J", pin_error=True)
+
+        assert excerpt is not None
+        assert excerpt.lines[0] == "Error: Cannot find module 'tailwindcss'"
+        assert excerpt.pinned == 1
+
+    def test_systemds_own_failure_lines_are_not_the_error(self) -> None:
+        journal = [f"Sep 30 09:14:0{n} web-1 app[3]: working {n}" for n in range(5)] + [
+            line for line in NODE_CRASH if "systemd[1]" in line
+        ] * 2
+
+        excerpt = make_excerpt(journal, label="J", pin_error=True)
+
+        assert excerpt == make_excerpt(journal, label="J")
+
+
 class TestTrimExcerpt:
+    def test_the_pinned_error_outlives_the_tail(self) -> None:
+        excerpt = Excerpt("x", ("Error: boom", *(f"l{i}" for i in range(10))), omitted=5, pinned=1)
+
+        trimmed = trim_excerpt(excerpt, max_lines=4, max_chars=1000)
+
+        assert trimmed is not None
+        assert trimmed.lines == ("Error: boom", "l7", "l8", "l9")
+        assert trimmed.pinned == 1
+        assert trimmed.omitted == 12
+
+    def test_the_pinned_lines_go_last(self) -> None:
+        excerpt = Excerpt("x", ("lead", "Error: boom", "l0", "l1"), pinned=2)
+
+        trimmed = trim_excerpt(excerpt, max_lines=1, max_chars=1000)
+
+        assert trimmed is not None
+        assert trimmed.lines == ("Error: boom",)
+        assert trimmed.pinned == 1
+        assert trimmed.omitted == 3
+
     def test_leaves_a_short_excerpt_alone(self) -> None:
         excerpt = Excerpt("x", ("a", "b"), 3)
 

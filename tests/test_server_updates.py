@@ -39,6 +39,7 @@ from noust.managers.server.updates import (
 )
 from noust.managers.server.updates_unit import (
     UNIT_PREFIX,
+    UnitState,
     UpdateUnit,
     decode_message,
     parse_journal,
@@ -631,6 +632,63 @@ class TestReconciling:
         outcome = UpdateUnit(records=records, runner=FakeRunner(), fs=fs, host=host).reconcile()
 
         assert outcome.lost == ()
+
+
+class TestAnUnansweredProbe:
+    """
+    A ``systemctl show`` that failed or timed out says nothing about the unit.
+
+    It parsed as "inactive", which marked a running update failed and made a
+    follower stop following an update that was still going.
+    """
+
+    def test_reconciling_does_not_declare_a_run_lost_when_systemd_did_not_answer(
+        self, host, fs, records
+    ) -> None:
+        runner = FakeRunner()
+        runner.script(["systemctl", "show"], exit_code=1, stderr="Failed to connect to bus")
+        records.write(
+            UpdateRecord(
+                id="0a1b2c3d", scope="all", status="running", unit=f"{UNIT_PREFIX}0a1b2c3d"
+            )
+        )
+
+        outcome = UpdateUnit(records=records, runner=runner, fs=fs, host=host).reconcile()
+
+        assert outcome.lost == ()
+        stored = records.read("0a1b2c3d")
+        assert stored is not None and stored.status == "running"
+
+    def test_following_keeps_waiting_when_systemd_did_not_answer(self, host, fs, records) -> None:
+        runner = FakeRunner()
+        runner.script(["systemctl", "show"], exit_code=1, stderr="Connection timed out")
+
+        with pytest.raises(ServerError, match="Gave up"):
+            UpdateUnit(records=records, runner=runner, fs=fs, host=host).follow(
+                "0a1b2c3d", lambda line: None, poll_seconds=0, max_seconds=0
+            )
+
+    def test_a_result_recorded_while_reconciling_is_not_overwritten(
+        self, host, fs, records, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        records.write(
+            UpdateRecord(
+                id="0a1b2c3d", scope="all", status="running", unit=f"{UNIT_PREFIX}0a1b2c3d"
+            )
+        )
+        unit = UpdateUnit(records=records, runner=FakeRunner(), fs=fs, host=host)
+
+        def finishes_meanwhile(update_id: str) -> UnitState:
+            records.write(UpdateRecord(id=update_id, scope="all", status="completed", exit_code=0))
+            return UnitState(loaded=False, active=False)
+
+        monkeypatch.setattr(unit, "state", finishes_meanwhile)
+
+        outcome = unit.reconcile()
+
+        assert outcome.lost == ()
+        stored = records.read("0a1b2c3d")
+        assert stored is not None and stored.status == "completed"
 
 
 class TestStartAndFollow:

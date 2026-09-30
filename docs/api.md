@@ -10,90 +10,110 @@ credential. On a console bound to loopback, run them on the server against
 
 ## Authentication
 
-Two ways in, for two kinds of client.
+Two ways in, for two kinds of client: tokens for scripts, sessions for browsers. Whoever comes
+in, every route checks one permission (see [Permissions](#permissions)).
 
 ### Bearer tokens, for scripts
 
 ```bash
-noust token create ci-update --scope deploy                 # prints the token once
+noust token create ci-update --scope deploy --owner alice    # prints the token once
 noust token create dashboard --scope read --expires-hours 720
 curl -H "Authorization: Bearer $TOKEN" https://panel.example.com/api/apps
 ```
 
 API tokens start with `noust_tok_` (`wasm_tok_` for tokens issued before 3.0, which keep
-working), are shown once, and are stored only as a salted hash.
-Manage them with `noust token list|revoke`, the console's Settings > API tokens, or
-`GET|POST /api/auth/tokens` and `DELETE /api/auth/tokens/{id}` (admin scope; issuing one
-from a browser session also needs sudo mode). The master access token is also accepted as a
-bearer credential, with admin scope.
+working), are shown once, and are stored only as a salted hash. Manage them with
+`noust token list|revoke`, the console's Settings > API tokens, or `GET|POST /api/auth/tokens`
+and `DELETE /api/auth/tokens/{id}`. An account issues and lists its own tokens there; issuing
+one from a browser session needs sudo mode.
 
-The master token and API tokens carry no session, so they need no CSRF token and are never
-asked for sudo mode. A *session* token presented as a Bearer credential (see `bearer` below)
-is still a session: it needs the CSRF header and sudo mode exactly like the cookie.
+`POST /api/auth/tokens` takes `name`, `scope` (`read`, `deploy` or `admin`), `expires_hours`,
+`permissions` (a list to narrow it to, each held by the issuing account), `allowed_cidrs` (the
+networks it is accepted from) and `allow_elevated` (whether it may call routes that need sudo
+mode; off by default, refused under the ENS profile). A token acts for its owner and never holds
+more than the owner's permissions, whatever its scope; if the owner's role changes or the owner
+is disabled, the token follows at its next request. Under the `ens-medium` profile every token
+expires within `auth.tokens.max_days` (90).
 
-### Scopes
+Tokens issued before the server had accounts keep their 3.0 scope and are never asked for sudo
+mode. The first `admin` account adopts them. The master access token is also accepted as a
+bearer credential: the whole console while no account exists, break-glass afterwards (see
+[security.md](security.md#authentication)).
 
-| Scope | Allows |
-|---|---|
-| `read` | Every `GET`, `HEAD` and `OPTIONS`, except the three below. `.env` values come back redacted. |
-| `deploy` | `read`, plus `POST /api/jobs/update`, `POST /api/jobs/rollback`, `POST /api/apps/{domain}/releases/{id}/activate`: moving an application that already exists. |
-| `admin` | Everything. |
-
-Every other `POST`, `PUT`, `PATCH` and `DELETE` needs `admin` - creating an application
-(`POST /api/apps`) and inspecting a source (`POST /api/apps/inspect`) included, since both
-fetch and build or read whatever source they are given, as root. Three reads also need
-`admin`: `GET /api/auth/tokens`, `GET /api/audit`, and `GET /api/apps/{domain}/env?unmask=true`
-(which from a session also needs sudo mode). Process listings answer every scope, but only
-`admin` sees each process's `command`; other scopes get `null` (or `""` in
-`/api/monitor/processes`). A credential without the scope gets `403` with
-`"error": "forbidden"` and a detail naming the scope it has and the one required.
-
-A `source` that is a local path rather than a repository URL is accepted by `POST /api/apps`
-and `POST /api/apps/inspect` only from the master token or a session in sudo mode (`403`
-`elevation_required` until it confirms). An API token gets `403` `forbidden`, whatever its
-scope. Application reads show a credential stored inside a clone URL as `***`.
+A token carries no session, so it needs no CSRF token. A *session* token presented as a Bearer
+credential (see `bearer` below) is still a session: it needs the CSRF header and sudo mode
+exactly like the cookie.
 
 ### Sessions, for browsers
 
 ```bash
 curl -c jar -H 'Content-Type: application/json' \
-  -d '{"token": "noust_...", "totp_code": "123456"}' \
+  -d '{"username": "alice", "password": "...", "totp_code": "123456"}' \
   https://panel.example.com/api/auth/login
 ```
 
-`POST /api/auth/login` takes `token` (the master access token), `totp_code` (a TOTP code or a
-backup code, required when 2FA is on) and `bearer` (also return the session token in the
-body, for a client without a cookie jar; it then sends `X-WASM-CSRF` like a browser does).
-It answers `{success, expires_in, csrf_token, session_token}` and sets two cookies:
+`POST /api/auth/login` takes `username`, `password` and `totp_code` (a TOTP code or a backup
+code) for an account, or `token` (the master access token, plus `totp_code` when its 2FA is on).
+`bearer` also returns the session token in the body, for a client without a cookie jar; it then
+sends `X-WASM-CSRF` like a browser does. Passkeys sign in with
+`POST /api/auth/passkeys/login/options` and then `POST /api/auth/passkeys/login`. The answer is
+`{success, expires_in, csrf_token, session_token}`, and two cookies are set:
 
 - `wasm_session`: `HttpOnly`, `SameSite=Strict`, `Secure` over TLS.
 - `wasm_csrf`: readable by the page, holding the CSRF token.
 
 Every `POST`, `PUT`, `PATCH` and `DELETE` made with a session, in the cookie or as a Bearer
 token, must echo the CSRF token in the `X-WASM-CSRF` header. `GET /api/auth/session` (no
-credential required) reports whether the caller is signed in, its scope, `expires_at`,
-`elevated_until`, whether 2FA is on, the hostname, the Noust version and the CSRF header and
-cookie names. A credential presented to it that is wrong counts toward the lockout like
+credential required) reports whether the caller is signed in, its account and role, its
+permissions, `expires_at`, `elevated_until`, whether a second factor is set up, and the CSRF
+header and cookie names. Before sign-in it does not reveal the host name, the version or
+whether 2FA is on. A credential presented to it that is wrong counts toward the lockout like
 anywhere else; one the console signed that has merely expired does not.
 
-A failed sign-in answers `401` with `error` set to `invalid_token`, `totp_required` or
-`invalid_totp`. A TOTP code is accepted once per purpose (signing in, `elevate`, disabling
-2FA); sending it again answers `invalid_totp`. Five failures from one address lock it out
-for 15 minutes (`429`, `"error": "locked_out"`, with `Retry-After`), on every request that
-carries a credential, the session cookie included.
+A session ends after 30 minutes without activity and 12 hours in total (`auth.session.*`). An
+account that has not enrolled a second factor gets `403 mfa_required` on everything but enrolling
+one; one that has not accepted the usage notice (`auth.notice.text`) gets `403
+notice_required` until `POST /api/auth/notice/accept`.
+
+A failed sign-in answers `401` with the same `error` whatever was wrong (`invalid_credentials`
+for an account; `invalid_token`, `totp_required` or `invalid_totp` for the master token). A TOTP
+code is accepted once per purpose (signing in, `elevate`, disabling 2FA). Five failures from one
+address lock it out for 15 minutes (`429`, `"error": "locked_out"`, with `Retry-After`), on every
+request that carries a credential; five consecutive failures for one account lock that account
+for 15 minutes.
+
+Accounts are managed under `/api/auth/accounts`, invitations under `/api/auth/invitations`
+(accepted at `/api/auth/invitations/open` and `/accept`, without a credential), passkeys under
+`/api/auth/passkeys`, and an account changes its own password with `POST /api/auth/password`.
+
+### Permissions
+
+Every route needs one permission, published in `/api/openapi.json` as the operation's
+`x-noust-permission`: `public` (no credential), `self` (any signed-in principal, acting on its
+own session, tokens, second factor and passkeys), or one of `apps.read`, `apps.operate`,
+`apps.deploy`, `apps.manage`, `secrets.reveal`, `root_equivalent`, `server.read`,
+`server.manage`, `server.host_access`, `databases.read`, `databases.write`, `databases.manage`,
+`backups.read`, `backups.run`, `backups.manage`, `fleet.read`, `fleet.manage`, `settings.read`,
+`settings.manage`, `security.manage`, `accounts.read`, `accounts.manage`, `audit.read`,
+`audit.manage`, `compliance.read`. `GET /api/auth/roles` lists what each role holds; the table
+is in [security.md](security.md#roles-and-permissions).
+
+A credential without the permission gets `403` with `"error": "permission_denied"` and a
+detail naming the permission. A 3.0 scope maps onto permissions: `read` is a viewer, `deploy` a
+viewer that may also deploy (`apps.deploy`), `admin` everything.
+
+A `source` that is a local path rather than a repository URL is accepted by `POST /api/apps`
+and `POST /api/apps/inspect` only from the master token or a session in sudo mode (`403`
+`elevation_required` until it confirms). An API token gets `403`, whatever it holds.
+Application reads show a credential stored inside a clone URL as `***`.
 
 ### Sudo mode
 
-Some operations ask a session to confirm its operator: deleting an application, a
-database, a user, a service, a site, a certificate, a backup or a domain; restoring a
-backup; revoking a certificate; revealing or writing an `.env`; migrating to releases;
-changing resource limits, the health check or the release retention; editing a unit or site
-by hand; creating a service; creating or
-rewriting a cron job or a backup schedule; deploying or inspecting a local path; SQL in
-write mode; writing the configuration; issuing an API token; enrolling, confirming or
-disabling 2FA; regenerating backup codes.
-
-Without a recent confirmation they answer:
+Routes that need a session to confirm its operator are marked in the schema with
+`x-noust-requires-elevation`: deleting things, restoring, revealing secrets, writing an `.env`,
+raw units and site configuration, server changes, account management, issuing tokens, and
+the rest listed in [security.md](security.md#sudo-mode). Without a recent confirmation they
+answer:
 
 ```json
 HTTP/1.1 403 Forbidden
@@ -103,10 +123,38 @@ HTTP/1.1 403 Forbidden
  "fields": null, "output": null}
 ```
 
-`POST /api/auth/elevate` with `{"code": "123456"}` (TOTP or backup code) when 2FA is on, or
-`{"token": "noust_..."}` when it is off, elevates the session for 10 minutes and answers
-`{"elevated_until": "..."}`. Then retry the request. The master token and API tokens are
-exempt; a session is not, whichever header carries it.
+`POST /api/auth/elevate` with `{"password": "...", "code": "123456"}` for an account (TOTP or
+backup code), `{"code": "123456"}` for the master token with 2FA, or `{"token": "noust_..."}`
+when it has none, elevates the session for 10 minutes and answers `{"elevated_until": "..."}`.
+A passkey does the same through `POST /api/auth/passkeys/elevate/options` and
+`/api/auth/passkeys/elevate`. Then retry the request. Tokens issued before 3.1 and the master
+token are not asked; a token issued since is refused on these routes unless it has
+`allow_elevated`. A session is always asked, whichever header carries it.
+
+### Approvals
+
+When four-eyes approvals apply (`approval.enabled`, or the `ens-medium` profile;
+`GET /api/approvals/policy` says), the routes marked `x-noust-requires-approval` in the schema
+do not run on the first call. The schema publishes the mark whether approvals are on or not,
+with the rule's `action`, `kind` and `when` (always, or the condition on the body, such as
+`mode: "write"` for SQL). The first call answers:
+
+```json
+HTTP/1.1 202 Accepted
+Location: /api/approvals/17
+X-Noust-Approval-Request: 17
+
+{"error": "approval_required",
+ "detail": "This needs a second person's approval. Request 17 is waiting for a security account to decide it.",
+ "hint": "Once approved, send exactly the same call again with the header X-Noust-Approval: 17, within 30 minutes.",
+ "fields": {"approval": "17", "state": "requested"}}
+```
+
+Send `X-Noust-Reason` (percent-encoded UTF-8) with the first call to say why; the `ens-medium`
+profile requires it. Another person decides with `POST /api/approvals/{id}/approve` or
+`/reject` (sudo mode), or `noust approval approve ID` as root. Then the requester sends the same
+call again, byte for byte, with `X-Noust-Approval: 17`; it runs once. `GET /api/approvals` lists
+requests (`state=requested|approved|rejected|expired|executed|all`).
 
 ## Errors
 
@@ -124,9 +172,10 @@ Every error from every router has the same shape:
 
 - `error` is a stable machine code. For Noust's own exceptions it is the exception class in
   lower case (`deploymenterror`, `certificateerror`, `serviceerror`, ...); otherwise one of
-  `unauthorized`, `forbidden`, `not_found`, `conflict`, `validation_error`, `rate_limited`,
-  `locked_out`, `elevation_required`, `payload_too_large`, `app_busy`, `invalid_token`,
-  `totp_required`, `invalid_totp`, `internal`.
+  `unauthorized`, `forbidden`, `permission_denied`, `not_found`, `conflict`,
+  `validation_error`, `rate_limited`, `locked_out`, `elevation_required`, `approval_required`,
+  `mfa_required`, `notice_required`, `payload_too_large`, `app_busy`, `invalid_credentials`,
+  `invalid_token`, `totp_required`, `invalid_totp`, `internal`.
 - `detail` is one sentence for a person. `hint` is the suggested fix, or `null`.
 - `fields` is set on `422` validation errors, `null` otherwise: a map from field name to
   message, which the console shows next to each form control.
@@ -138,9 +187,10 @@ lockout) have the same keys except `output`.
 
 | Status | When |
 |---|---|
-| `400` | Invalid input Noust checked itself: a domain, a name, a path, a configuration value, a source |
+| `400` | Invalid input Noust checked itself: a domain, a name, a path, a configuration value, a source; a `Host` not in `web.allowed_hosts` |
 | `401` | No credential, or an invalid or expired one |
-| `403` | Scope too narrow, sudo mode required, address not allowed |
+| `202` | `approval_required`: the call became a four-eyes request; see [Approvals](#approvals) |
+| `403` | Permission missing, sudo mode required, second factor or notice pending, address not allowed |
 | `404` | Unknown application, database, job, release... |
 | `409` | Conflict: the domain is taken, the database exists, the application is in place and has no releases; `app_busy` when another deploy, update, rollback, migration, restore or deletion is running on the application (`detail` names it; wait for it, or follow it in Jobs) |
 | `413` | Request body over the limit, checked before authentication: 1 MiB, or 5 MiB under `/hooks/` |
@@ -167,7 +217,8 @@ lockout) have the same keys except `output`.
     Filters: `domain`, `status` (`queued`, `running`, `success`, `failed`, `rolled_back`),
     `trigger` (`panel`, `cli`, `webhook`).
   - `GET /api/audit?limit=50&before=T`: answers `{items, next_before}`. `limit` at most 200.
-    Filters: `action`, `result`, `actor`.
+    Filters: `action`, `result`, `actor`, `category`, `correlation_id`, `target`. Needs
+    `audit.read`.
 
   Other lists take a `limit` and return the newest entries: `GET /api/jobs` (at most 100),
   `GET /api/backups` (at most 1000), `GET /api/monitor/observations` and the process lists
@@ -180,7 +231,7 @@ lockout) have the same keys except `output`.
 ### `GET /events` (Server-Sent Events)
 
 One stream carries everything the console updates live. It authenticates like any `GET`:
-the session cookie or a bearer token with `read` scope.
+the session cookie or any bearer token.
 
 ```bash
 curl -N -H "Authorization: Bearer $TOKEN" https://panel.example.com/events
@@ -242,8 +293,8 @@ Frames are JSON:
   `{"type": "heartbeat"}` after 30 quiet seconds. An unknown id gets `{"type": "error"}` and
   the socket closes.
 - Every socket answers `{"type": "ping"}` with `{"type": "pong"}`. `/ws/jobs/{id}` also
-  accepts `{"type": "cancel"}` from an admin credential; any other scope is answered with an
-  error and nothing is cancelled.
+  accepts `{"type": "cancel"}` from a credential holding `apps.operate`; anyone else is
+  answered with an error and nothing is cancelled.
 
 ```bash
 websocat -H "Authorization: Bearer $TOKEN" \
@@ -252,7 +303,7 @@ websocat -H "Authorization: Bearer $TOKEN" \
 
 ## Examples
 
-Create an application and follow its deploy (an admin credential):
+Create an application and follow its deploy (a credential holding `apps.manage`):
 
 ```bash
 curl -s -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
@@ -304,7 +355,7 @@ curl -s -H "Authorization: Bearer $TOKEN" "https://panel.example.com/api/deploym
 
 ## Deploy webhooks
 
-`POST /api/apps/{domain}/webhook-secret` (admin) creates or replaces an application's webhook
+`POST /api/apps/{domain}/webhook-secret` (`apps.manage`, sudo mode) creates or replaces an application's webhook
 secret and answers `{domain, secret, hook_url}`; the secret is shown once. Configure the forge
 to send push events to `hook_url`, which is `https://<console>/hooks/deploy/{domain}`:
 
@@ -314,15 +365,20 @@ to send push events to `hook_url`, which is `https://<console>/hooks/deploy/{dom
 | Gitea | `X-Gitea-Signature: <HMAC-SHA256 of the body>` |
 | GitLab | `X-Gitlab-Token: <secret>` |
 
-A delivery for a branch other than the application's answers `200 {"status": "ignored",
-"reason": "branch"}`; a forge retry of the same delivery answers `"reason": "duplicate"`.
+A push to a branch other than the one the application deploys (its pinned branch; without a
+pin, the branch its checkout is on in place or its recorded branch on releases) answers
+`200 {"status": "ignored", "reason": "branch"}`; with no branch at all to go by, any push
+deploys. A forge's ping is answered and recorded; a forge retry of the same delivery answers `"reason": "duplicate"`.
 An accepted delivery queues an update (`202 {job_id, status}`), exactly like `noust update`.
 An unknown application and one without a secret both answer `404`; a bad signature answers
 `401` and counts against that application: after 10 in 15 minutes its hook answers `429`
 (`"error": "locked_out"`, `Retry-After`) for 15 minutes. Other applications, and the forge's
 address, are not affected. A delivery larger than 5 MiB answers `413`. `DELETE /api/apps/{domain}/webhook-secret` turns
-webhooks off; `GET /api/apps/{domain}/webhook/deliveries` lists the deployments webhooks
-triggered. The hook must be reachable from the forge, which means exposing the console (see
+webhooks off. `GET /api/apps/{domain}/webhook` reports how far the setup is (public URL,
+secret, branch, GitHub App), `GET /api/apps/{domain}/webhook/received` lists every delivery
+whatever became of it (a burst of wrong signatures is one row with a count), and
+`GET /api/apps/{domain}/webhook/deliveries` lists the deployments webhooks triggered. The same
+from the terminal: `noust app webhook show|rotate|disable|deliveries DOMAIN`. The hook must be reachable from the forge, which means exposing the console (see
 [security.md](security.md)).
 
 ## Health
@@ -333,121 +389,421 @@ for load balancers and uptime checks. It says nothing about the machine; use
 
 ## Endpoint reference
 
-The rule: `GET` needs `read`, the operations listed under [Scopes](#scopes) need `deploy`,
-everything else needs `admin`. In the tables, "deploy" marks the `deploy` operations and
-"sudo" what a browser session must confirm first.
-Request and response bodies are in `/api/openapi.json`.
+Generated from the schema this release serves. Each row gives the permission every method
+needs, "sudo" where a browser session must confirm first (`x-noust-requires-elevation`), and
+"four-eyes" where the call becomes an approval request when approvals apply
+(`x-noust-requires-approval`). `public` needs no credential; `self` any signed-in principal,
+acting on its own things. Request and response bodies are in `/api/openapi.json`.
+
+On a central, every node's API is also reachable through the central at
+`/api/nodes/{node}/api/...`, its event stream at `/api/nodes/{node}/events` and its WebSockets
+at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling for the central
+(see [CENTRAL.md](CENTRAL.md)).
 
 ### Applications
 
-| Endpoint | |
-|---|---|
-| `GET /api/apps` | List, with state, layout, limits, last deployment |
-| `POST /api/apps` | Deploy a new application (job). A local path needs sudo |
-| `POST /api/apps/inspect` | Preview a source without deploying. A local path needs sudo |
-| `GET /api/apps/types` | Application types |
-| `GET /api/apps/{domain}` | One application |
-| `DELETE /api/apps/{domain}` | Delete (job). sudo |
-| `POST /api/apps/{domain}/start`, `/stop`, `/restart` | Control its unit |
-| `GET /api/apps/{domain}/logs` | Journal tail |
-| `GET /api/apps/{domain}/env` | `.env`, redacted; `?unmask=true` needs admin and sudo |
-| `PUT /api/apps/{domain}/env` | Replace the `.env`; the answer says a restart is required. sudo |
-| `PATCH /api/apps/{domain}/limits` | `{memory_max_mb, cpu_quota_percent, tasks_max, restart}`; null removes a limit. sudo |
-| `PATCH /api/apps/{domain}/health` | `{path, expect, timeout}`, what the health gate asks; null or absent is the default (`/`, any status below 500, 30 s). 400 on a value the gate cannot use. sudo |
-| `GET /api/apps/{domain}/releases` | Releases, newest first |
-| `POST /api/apps/{domain}/releases/{id}/activate` | Instant rollback or roll forward. deploy |
-| `PATCH /api/apps/{domain}/releases/retention` | `{keep}`, 1 to 50; prunes now and answers with what it removed. sudo |
-| `GET /api/apps/{domain}/rollback-points` | Backups usable by a backup rollback |
-| `GET /api/apps/{domain}/migrate/plan` | What moving to releases would do |
-| `POST /api/apps/{domain}/migrate` | Move to releases. sudo |
-| `GET /api/apps/{domain}/diagnose` | Why it is down |
-| `GET /api/apps/{domain}/domains` | Its domains |
-| `POST /api/apps/{domain}/domains` | Add an alias or redirect; certificate extension is a job |
-| `DELETE /api/apps/{domain}/domains/{name}` | Remove one. sudo |
-| `GET /api/apps/{domain}/domains/{name}/dns` | Does it resolve here |
-| `GET /api/domains/dns?name=` | Same check, for a name not attached yet |
-| `POST`, `DELETE /api/apps/{domain}/webhook-secret` | Enable (rotate) or disable webhooks |
-| `GET /api/apps/{domain}/webhook/deliveries` | Deployments triggered by webhooks |
+| Endpoint | Method, permission | |
+|---|---|---|
+| `/api/apps` | GET `apps.read`; POST `apps.manage`, four-eyes | List; deploy a new application (job). A local path needs sudo mode |
+| `/api/apps/import` | POST `apps.manage`, sudo |  |
+| `/api/apps/inspect` | POST `apps.manage` | Preview a source without deploying. A local path needs sudo mode |
+| `/api/apps/types` | GET `apps.read` |  |
+| `/api/apps/{domain}` | GET `apps.read`; DELETE `apps.manage`, sudo |  |
+| `/api/apps/{domain}/branch` | PATCH `apps.manage`, sudo | Pin the branch it deploys from, or unpin it |
+| `/api/apps/{domain}/databases` | GET `databases.read`; POST `databases.write` |  |
+| `/api/apps/{domain}/databases/link` | POST `databases.write` |  |
+| `/api/apps/{domain}/databases/{engine}/{name}` | DELETE `databases.manage` |  |
+| `/api/apps/{domain}/databases/{engine}/{name}/url` | POST `secrets.reveal`, sudo |  |
+| `/api/apps/{domain}/deployments/{deployment_id}/rebuild` | POST `apps.deploy` |  |
+| `/api/apps/{domain}/deployments/{deployment_id}/rollback` | POST `apps.deploy` |  |
+| `/api/apps/{domain}/diagnose` | GET `apps.read` |  |
+| `/api/apps/{domain}/domains` | GET `apps.read`; POST `apps.manage` |  |
+| `/api/apps/{domain}/domains/{name}` | DELETE `apps.manage`, sudo |  |
+| `/api/apps/{domain}/domains/{name}/dns` | GET `apps.read` |  |
+| `/api/apps/{domain}/env` | GET `apps.read`; PUT `apps.manage`, sudo | `.env`, redacted (`?unmask=true` needs `secrets.reveal` and sudo mode); replace it |
+| `/api/apps/{domain}/env/marks` | PUT `apps.manage`, sudo |  |
+| `/api/apps/{domain}/export` | GET `secrets.reveal` |  |
+| `/api/apps/{domain}/health` | PATCH `apps.manage`, sudo | `{path, expect, timeout}` of the health gate; null is the default |
+| `/api/apps/{domain}/limits` | PATCH `apps.manage`, sudo | `{memory_max_mb, cpu_quota_percent, tasks_max, restart}`; null removes a limit |
+| `/api/apps/{domain}/logs` | GET `apps.read` |  |
+| `/api/apps/{domain}/metrics` | GET `apps.read` |  |
+| `/api/apps/{domain}/migrate` | POST `apps.manage`, sudo |  |
+| `/api/apps/{domain}/migrate/plan` | GET `apps.read` |  |
+| `/api/apps/{domain}/previews` | GET `apps.read` |  |
+| `/api/apps/{domain}/previews/settings` | PUT `apps.manage`, sudo; DELETE `apps.manage`, sudo |  |
+| `/api/apps/{domain}/previews/{number}` | DELETE `apps.manage`, sudo |  |
+| `/api/apps/{domain}/releases` | GET `apps.read` |  |
+| `/api/apps/{domain}/releases/retention` | PATCH `apps.manage`, sudo | `{keep}`, 1 to 50; prunes now |
+| `/api/apps/{domain}/releases/{release_id}/activate` | POST `apps.deploy` | Instant rollback or roll forward, behind the health gate |
+| `/api/apps/{domain}/restart` | POST `apps.operate` |  |
+| `/api/apps/{domain}/rollback-points` | GET `apps.read` |  |
+| `/api/apps/{domain}/sandbox` | GET `apps.read` | How it builds: sandbox or root, and why |
+| `/api/apps/{domain}/sandbox/compose-exception` | PUT `root_equivalent`, sudo, four-eyes; DELETE `apps.manage` |  |
+| `/api/apps/{domain}/sandbox/disable` | POST `root_equivalent`, sudo, four-eyes |  |
+| `/api/apps/{domain}/sandbox/enable` | POST `apps.manage` |  |
+| `/api/apps/{domain}/sandbox/test` | POST `apps.deploy` | Build the live commit in the sandbox, activating nothing (job) |
+| `/api/apps/{domain}/start` | POST `apps.operate` |  |
+| `/api/apps/{domain}/stop` | POST `apps.operate` |  |
+| `/api/apps/{domain}/webhook` | GET `apps.read` | How far the deploy webhook is set up |
+| `/api/apps/{domain}/webhook-secret` | POST `apps.manage`, sudo; DELETE `apps.manage`, sudo | Create or rotate the secret (shown once); disable the webhook |
+| `/api/apps/{domain}/webhook/deliveries` | GET `apps.read` | Deployments webhooks triggered |
+| `/api/apps/{domain}/webhook/received` | GET `apps.read` | Every delivery received, ignored and refused ones included |
+| `/api/apps/{domain}/webhook/reveal` | POST `secrets.reveal`, sudo |  |
+| `/api/apps/{domain}/zero-downtime` | GET `apps.read`; PUT `apps.manage`, sudo |  |
 
 ### Jobs and deployments
 
-| Endpoint | |
-|---|---|
-| `GET /api/jobs`, `GET /api/jobs/active` | Jobs (`limit`, `status`, `domain`) |
-| `GET /api/jobs/{id}`, `GET /api/jobs/{id}/log` | One job, its log |
-| `POST /api/jobs/{id}/cancel` | Cancel a job that has not started |
-| `POST /api/jobs/update` | `{domain}`. deploy |
-| `POST /api/jobs/rollback` | `{domain, backup_id}`: restore a backup. deploy |
-| `POST /api/jobs/backup` | `{domain, description}` |
-| `POST /api/jobs/cert` | `{domain, email, webserver, include_www}` |
-| `POST /api/jobs/delete` | `{domain, remove_files, remove_ssl}`. sudo |
-| `DELETE /api/jobs/cleanup` | Forget finished jobs in memory (`max_age_hours`); the history stays |
-| `GET /api/deployments`, `/{id}`, `/{id}/log` | Deployment history and build logs |
+| Endpoint | Method, permission | |
+|---|---|---|
+| `/api/deployments` | GET `apps.read` |  |
+| `/api/deployments/{deployment_id}` | GET `apps.read` |  |
+| `/api/deployments/{deployment_id}/log` | GET `apps.read` |  |
+| `/api/jobs` | GET `apps.read` |  |
+| `/api/jobs/active` | GET `apps.read` |  |
+| `/api/jobs/backup` | POST `backups.run` |  |
+| `/api/jobs/cert` | POST `apps.manage` |  |
+| `/api/jobs/cleanup` | DELETE `audit.manage` | Forget finished jobs in memory; the history stays |
+| `/api/jobs/delete` | POST `apps.manage`, sudo | `{domain, remove_files, remove_ssl}` |
+| `/api/jobs/rollback` | POST `apps.deploy` | `{domain, backup_id}`: restore a backup |
+| `/api/jobs/update` | POST `apps.deploy` | `{domain}` |
+| `/api/jobs/{job_id}` | GET `apps.read` |  |
+| `/api/jobs/{job_id}/cancel` | POST `apps.operate` |  |
+| `/api/jobs/{job_id}/log` | GET `apps.read` |  |
 
-### Sites, certificates, services, cron
+### Sites, certificates and domains
 
-| Endpoint | |
-|---|---|
-| `GET`, `POST /api/sites`; `GET /api/sites/templates` | Sites and the templates to create them from |
-| `GET /api/sites/{domain}`, `GET /api/sites/{domain}/config` | One site, its configuration file |
-| `POST /api/sites/{domain}/config/test` | Test a configuration without installing it |
-| `PUT /api/sites/{domain}/config` | Install a configuration after testing it. sudo |
-| `POST /api/sites/{domain}/enable`, `/disable`; `POST /api/sites/reload` | |
-| `DELETE /api/sites/{domain}` | Delete a site, its configuration and certificate. sudo |
-| `GET /api/certs`, `GET /api/certs/{domain}` | Certificates, expiry, issuer |
-| `POST /api/certs/{domain}` | Obtain |
-| `POST /api/certs/{domain}/renew`, `POST /api/certs/renew-all` | Renew |
-| `POST /api/certs/{domain}/revoke`, `DELETE /api/certs/{domain}` | sudo |
-| `GET /api/services`; `POST /api/services/verify` | Services (`noust_only`; `wasm_only`, its name before 3.0, is still read when `noust_only` is absent); check a unit with `systemd-analyze verify` |
-| `POST /api/services` | Create a service, from a raw unit or from fields. sudo |
-| `GET /api/services/{name}`, `/logs`, `/config` | |
-| `POST /api/services/{name}/start`, `/stop`, `/restart`, `/enable`, `/disable` | |
-| `PUT /api/services/{name}/config`, `DELETE /api/services/{name}` | sudo |
-| `GET /api/cron`; `POST /api/cron/preview` | Jobs; the next runs of a schedule |
-| `POST /api/cron` | Create or rewrite a job. sudo |
-| `DELETE /api/cron/{name}`; `POST /api/cron/{name}/run`, `/enable`, `/disable` | |
-| `GET /api/cron/{name}/runs` | Recent runs, from the journal |
+| Endpoint | Method, permission | |
+|---|---|---|
+| `/api/certs` | GET `apps.read` |  |
+| `/api/certs/renew-all` | POST `apps.operate` |  |
+| `/api/certs/{domain}` | GET `apps.read`; POST `apps.manage`; DELETE `apps.manage`, sudo |  |
+| `/api/certs/{domain}/renew` | POST `apps.operate` |  |
+| `/api/certs/{domain}/revoke` | POST `apps.manage`, sudo |  |
+| `/api/domains/dns` | GET `apps.read` |  |
+| `/api/sites` | GET `apps.read`; POST `apps.manage` |  |
+| `/api/sites/reload` | POST `apps.operate` |  |
+| `/api/sites/templates` | GET `apps.read` |  |
+| `/api/sites/{domain}` | GET `apps.read`; DELETE `apps.manage`, sudo |  |
+| `/api/sites/{domain}/config` | GET `apps.read`; PUT `root_equivalent`, sudo, four-eyes |  |
+| `/api/sites/{domain}/config/test` | POST `apps.operate` |  |
+| `/api/sites/{domain}/disable` | POST `apps.manage` |  |
+| `/api/sites/{domain}/enable` | POST `apps.manage` |  |
 
-### Backups and databases
+### Services and cron
 
-| Endpoint | |
-|---|---|
-| `GET`, `POST /api/backups`; `GET /api/backups/storage` | |
-| `GET /api/backups/{id}`; `POST /api/backups/{id}/verify` | |
-| `POST /api/backups/{id}/restore`, `DELETE /api/backups/{id}` | sudo |
-| `GET /api/backup-schedules` | Scheduled backups |
-| `POST /api/backup-schedules`, `DELETE /api/backup-schedules/{domain}` | Create or rewrite, delete. sudo |
-| `GET /api/databases/engines`; `GET /api/databases/engines/{engine}/status`, `/logs`, `/privileges` | |
-| `POST /api/databases/engines/{engine}/install`, `/uninstall`, `/start`, `/stop`, `/restart` | |
-| `GET`, `POST /api/databases/databases`; `GET /api/databases/databases/{engine}/{name}` | |
-| `DELETE /api/databases/databases/{engine}/{name}` | sudo |
-| `POST /api/databases/users`, `/users/grant`, `/users/revoke`; `GET /api/databases/users/{engine}` | |
-| `DELETE /api/databases/users/{engine}/{username}` | sudo |
-| `GET`, `POST /api/databases/backups` | |
-| `POST /api/databases/backups/restore` | sudo. A PostgreSQL plain dump holding a psql meta-command (`\!`, `\o`, `\connect`...) outside COPY data is refused before anything is dropped |
-| `POST /api/databases/query` | One statement; `mode: "write"` needs sudo. PostgreSQL read mode signs in over `127.0.0.1` as `wasm_ro_<database>` with a password, so `pg_hba.conf` must allow `host <database> wasm_ro_<database> 127.0.0.1/32 scram-sha-256` (Debian and Ubuntu's default `host all all 127.0.0.1/32` line does) |
-| `POST /api/databases/connection-string` | |
+| Endpoint | Method, permission | |
+|---|---|---|
+| `/api/cron` | GET `apps.read`; POST `root_equivalent`, sudo, four-eyes |  |
+| `/api/cron/preview` | POST `apps.read` |  |
+| `/api/cron/{name}` | DELETE `apps.manage`, sudo |  |
+| `/api/cron/{name}/disable` | POST `apps.operate` |  |
+| `/api/cron/{name}/enable` | POST `apps.operate` |  |
+| `/api/cron/{name}/run` | POST `apps.operate` |  |
+| `/api/cron/{name}/runs` | GET `apps.read` |  |
+| `/api/services` | GET `server.read`; POST `root_equivalent`, sudo, four-eyes |  |
+| `/api/services/verify` | POST `root_equivalent` |  |
+| `/api/services/{name}` | GET `server.read`; DELETE `server.manage`, sudo |  |
+| `/api/services/{name}/config` | GET `secrets.reveal`; PUT `root_equivalent`, sudo, four-eyes |  |
+| `/api/services/{name}/disable` | POST `apps.operate` |  |
+| `/api/services/{name}/enable` | POST `apps.operate` |  |
+| `/api/services/{name}/logs` | GET `server.read` |  |
+| `/api/services/{name}/restart` | POST `apps.operate` |  |
+| `/api/services/{name}/start` | POST `apps.operate` |  |
+| `/api/services/{name}/stop` | POST `apps.operate` |  |
 
-### Machine, monitor, configuration, audit, authentication
+### Backups
 
-| Endpoint | |
-|---|---|
-| `GET /api/system`, `/machine`, `/cpu`, `/memory`, `/disks`, `/network`, `/processes`, `/health`, `/version` | `command` in `/processes` for admin only |
-| `GET /api/metrics`, `GET /api/metrics/{metric}` | Stored metric history for charts |
-| `GET /api/monitor/status`, `/config`, `/metrics`, `/processes`, `/observations` | |
-| `POST /api/monitor/scan`, `/install`, `/uninstall`, `/enable`, `/disable`, `/start`, `/stop`, `/test-email` | |
-| `POST /api/monitor/observations/{id}/acknowledge` | |
-| `GET /api/config`, `/defaults`, `/apps-directory`, `/webserver`, `/backup`, `/ssl`, `/web` | Secrets come back as `***` |
-| `PUT`, `PATCH /api/config`; `PUT /api/config/{section}` | sudo |
-| `POST /api/config/reload` | |
-| `POST /api/config/notifications/{channel}/test` | Send a test through `webhook`, `slack`, `discord`, `telegram` or `email` |
-| `GET /api/audit` | admin |
-| `POST /api/auth/login`, `/logout`, `/elevate`, `/ws-ticket`; `GET /api/auth/session`, `/verify` | |
-| `GET /api/auth/sessions`; `POST /api/auth/sessions/revoke-all`, `/revoke-others`; `DELETE /api/auth/sessions/{prefix}` | |
-| `GET /api/auth/2fa` | |
-| `POST /api/auth/2fa/enroll`, `/confirm`, `/disable`, `/backup-codes` | sudo |
-| `GET`, `POST /api/auth/tokens`; `DELETE /api/auth/tokens/{id}` | admin; issuing needs sudo |
-| `GET /api/openapi.json` | This contract |
+| Endpoint | Method, permission | |
+|---|---|---|
+| `/api/backup-destinations` | GET `backups.read`; POST `backups.manage`, sudo |  |
+| `/api/backup-destinations/backends` | GET `backups.read` |  |
+| `/api/backup-destinations/{name}` | PUT `backups.manage`, sudo; DELETE `backups.manage`, sudo |  |
+| `/api/backup-destinations/{name}/backups` | GET `backups.read` |  |
+| `/api/backup-destinations/{name}/backups/{backup_id}/restore` | POST `backups.manage`, sudo |  |
+| `/api/backup-destinations/{name}/show-key` | POST `secrets.reveal`, sudo |  |
+| `/api/backup-destinations/{name}/test` | POST `backups.run` |  |
+| `/api/backup-schedules` | GET `backups.read`; POST `root_equivalent`, sudo, four-eyes |  |
+| `/api/backup-schedules/{domain}` | PUT `root_equivalent`, sudo, four-eyes; DELETE `backups.manage`, sudo |  |
+| `/api/backups` | GET `backups.read`; POST `backups.run` |  |
+| `/api/backups/storage` | GET `backups.read` |  |
+| `/api/backups/{backup_id}` | GET `backups.read`; DELETE `backups.manage`, sudo |  |
+| `/api/backups/{backup_id}/push` | POST `backups.manage`, sudo |  |
+| `/api/backups/{backup_id}/restore` | POST `backups.manage`, sudo |  |
+| `/api/backups/{backup_id}/verify` | POST `backups.run` |  |
+
+### Databases
+
+| Endpoint | Method, permission | |
+|---|---|---|
+| `/api/databases/backup-policies` | GET `backups.read` |  |
+| `/api/databases/backup-policies/{engine}/{database}` | GET `backups.read`; PUT `backups.manage`, sudo; DELETE `backups.manage`, sudo |  |
+| `/api/databases/backup-policies/{engine}/{database}/run` | POST `backups.run` |  |
+| `/api/databases/backups` | GET `databases.read`; POST `backups.run` |  |
+| `/api/databases/backups/remote` | GET `backups.read` |  |
+| `/api/databases/backups/remote/databases` | GET `backups.read` |  |
+| `/api/databases/backups/restore` | POST `databases.manage`, sudo | Restore over a database after a safety copy, or `as_new` (job) |
+| `/api/databases/backups/restore-remote` | POST `databases.manage`, sudo |  |
+| `/api/databases/backups/suggest-name` | GET `databases.read` |  |
+| `/api/databases/backups/{name}` | DELETE `backups.manage`, sudo |  |
+| `/api/databases/backups/{name}/download` | GET `databases.manage`, sudo |  |
+| `/api/databases/backups/{name}/push` | POST `backups.manage` |  |
+| `/api/databases/backups/{name}/verify` | POST `backups.run` |  |
+| `/api/databases/connection-string` | POST `secrets.reveal` |  |
+| `/api/databases/console/history` | GET `databases.read`; DELETE `databases.read` |  |
+| `/api/databases/console/saved` | GET `databases.read`; POST `databases.read` |  |
+| `/api/databases/console/saved/{saved_id}` | PUT `databases.read`; DELETE `databases.read` |  |
+| `/api/databases/databases` | GET `databases.read`; POST `databases.write` |  |
+| `/api/databases/databases/adopt` | POST `databases.write` |  |
+| `/api/databases/databases/{engine}/{name}` | GET `databases.read`; DELETE `databases.manage`, sudo |  |
+| `/api/databases/databases/{engine}/{name}/access` | GET `databases.read` |  |
+| `/api/databases/databases/{engine}/{name}/access/{username}` | PUT `databases.write` |  |
+| `/api/databases/databases/{engine}/{name}/connect` | GET `databases.read` |  |
+| `/api/databases/databases/{engine}/{name}/fix-owner` | GET `databases.read`; POST `databases.manage`, sudo |  |
+| `/api/databases/databases/{engine}/{name}/forget` | POST `databases.manage`, sudo |  |
+| `/api/databases/databases/{engine}/{name}/key` | GET `databases.read` |  |
+| `/api/databases/databases/{engine}/{name}/keys` | GET `databases.read` |  |
+| `/api/databases/databases/{engine}/{name}/metrics` | GET `databases.read` |  |
+| `/api/databases/databases/{engine}/{name}/overview` | GET `databases.read` |  |
+| `/api/databases/databases/{engine}/{name}/relation` | GET `databases.read` |  |
+| `/api/databases/databases/{engine}/{name}/relations` | GET `databases.read` |  |
+| `/api/databases/databases/{engine}/{name}/rows` | GET `databases.read`; POST `databases.write`, sudo, four-eyes; PATCH `databases.write`, sudo, four-eyes |  |
+| `/api/databases/databases/{engine}/{name}/rows/delete` | POST `databases.write`, sudo, four-eyes |  |
+| `/api/databases/databases/{engine}/{name}/schemas` | GET `databases.read` |  |
+| `/api/databases/databases/{engine}/{name}/slow-queries` | GET `databases.read` |  |
+| `/api/databases/engines` | GET `databases.read` |  |
+| `/api/databases/engines/{engine}/exposure` | GET `databases.read` |  |
+| `/api/databases/engines/{engine}/install` | POST `databases.manage` |  |
+| `/api/databases/engines/{engine}/logs` | GET `databases.read` |  |
+| `/api/databases/engines/{engine}/metrics` | GET `databases.read` |  |
+| `/api/databases/engines/{engine}/privileges` | GET `databases.read` |  |
+| `/api/databases/engines/{engine}/restart` | POST `apps.operate` |  |
+| `/api/databases/engines/{engine}/start` | POST `apps.operate` |  |
+| `/api/databases/engines/{engine}/status` | GET `databases.read` |  |
+| `/api/databases/engines/{engine}/stop` | POST `apps.operate` |  |
+| `/api/databases/engines/{engine}/uninstall` | POST `databases.manage`, sudo |  |
+| `/api/databases/exposure` | GET `databases.read` |  |
+| `/api/databases/provisioning/plan` | GET `databases.read` |  |
+| `/api/databases/query` | POST `databases.read`, four-eyes | One statement; `mode: "write"` needs `databases.write` and sudo mode (and a four-eyes approval when approvals apply) |
+| `/api/databases/query/explain` | POST `databases.read`, four-eyes |  |
+| `/api/databases/query/export` | POST `databases.read` |  |
+| `/api/databases/users` | POST `databases.write` |  |
+| `/api/databases/users/grant` | POST `databases.write` |  |
+| `/api/databases/users/revoke` | POST `databases.write` |  |
+| `/api/databases/users/{engine}` | GET `databases.read` |  |
+| `/api/databases/users/{engine}/{username}` | DELETE `databases.manage`, sudo |  |
+| `/api/databases/users/{engine}/{username}/password` | POST `databases.manage`, sudo |  |
+| `/api/databases/users/{engine}/{username}/password/reveal` | POST `secrets.reveal`, sudo |  |
+
+### The server
+
+| Endpoint | Method, permission | |
+|---|---|---|
+| `/api/metrics` | GET `server.read` |  |
+| `/api/metrics/query` | GET `server.read` | Several series in one request, at the resolution the window needs |
+| `/api/metrics/{metric}` | GET `server.read` |  |
+| `/api/monitor/config` | GET `server.read` |  |
+| `/api/monitor/disable` | POST `server.manage` |  |
+| `/api/monitor/enable` | POST `server.manage` |  |
+| `/api/monitor/install` | POST `server.manage` |  |
+| `/api/monitor/metrics` | GET `server.read` |  |
+| `/api/monitor/observations` | GET `server.read` |  |
+| `/api/monitor/observations/{observation_id}/acknowledge` | POST `apps.operate` |  |
+| `/api/monitor/processes` | GET `server.read` |  |
+| `/api/monitor/scan` | POST `apps.operate` |  |
+| `/api/monitor/start` | POST `server.manage` |  |
+| `/api/monitor/status` | GET `server.read` |  |
+| `/api/monitor/stop` | POST `server.manage` |  |
+| `/api/monitor/test-email` | POST `apps.operate` |  |
+| `/api/monitor/uninstall` | POST `server.manage` |  |
+| `/api/overview` | GET `server.read` | The Overview page in one answer |
+| `/api/server/capabilities` | GET `server.read` |  |
+| `/api/server/identity` | GET `server.read` |  |
+| `/api/server/identity/hostname` | PUT `server.manage`, sudo |  |
+| `/api/server/logs` | GET `secrets.reveal` | The journal of any unit |
+| `/api/server/logs/boots` | GET `server.read` |  |
+| `/api/server/logs/units` | GET `server.read` |  |
+| `/api/server/power` | GET `server.read` |  |
+| `/api/server/power/reboot` | POST `server.manage`, sudo |  |
+| `/api/server/power/scheduled` | DELETE `server.manage` |  |
+| `/api/server/power/shutdown` | POST `server.host_access`, sudo |  |
+| `/api/server/processes` | GET `server.read` |  |
+| `/api/server/security` | GET `server.read` |  |
+| `/api/server/security/changes` | GET `server.read` |  |
+| `/api/server/security/changes/{change_id}/confirm` | POST `server.host_access`, sudo |  |
+| `/api/server/security/changes/{change_id}/revert` | POST `server.host_access`, sudo |  |
+| `/api/server/security/checks` | GET `server.read` |  |
+| `/api/server/security/checks/refresh` | POST `server.read` |  |
+| `/api/server/security/checks/{check_id}/fix` | POST `server.host_access`, sudo |  |
+| `/api/server/security/fail2ban` | GET `server.read` |  |
+| `/api/server/security/fail2ban/install` | POST `server.manage`, sudo |  |
+| `/api/server/security/fail2ban/unban` | POST `server.manage`, sudo |  |
+| `/api/server/security/firewall` | GET `server.read` |  |
+| `/api/server/security/firewall/disable` | POST `server.host_access`, sudo |  |
+| `/api/server/security/firewall/enable` | POST `server.host_access`, sudo |  |
+| `/api/server/security/firewall/rules` | POST `server.host_access`, sudo |  |
+| `/api/server/security/firewall/rules/{rule_id}` | DELETE `server.host_access`, sudo |  |
+| `/api/server/security/risks` | GET `server.read` |  |
+| `/api/server/security/risks/{check_id}` | PUT `security.manage`, sudo; DELETE `security.manage`, sudo |  |
+| `/api/server/security/ssh` | GET `server.read` |  |
+| `/api/server/security/ssh/fixes/{fix}` | GET `server.read`; POST `server.host_access`, sudo |  |
+| `/api/server/security/ssh/keys` | GET `server.read`; POST `server.host_access`, sudo |  |
+| `/api/server/security/ssh/keys/remove` | POST `server.host_access`, sudo |  |
+| `/api/server/storage` | GET `server.read` |  |
+| `/api/server/storage/analyze` | POST `server.manage` |  |
+| `/api/server/storage/analyze/latest` | GET `server.read` |  |
+| `/api/server/storage/cleanup` | POST `server.manage`, sudo |  |
+| `/api/server/storage/cleanup/plan` | GET `server.read` |  |
+| `/api/server/storage/docker/images` | GET `server.read` |  |
+| `/api/server/summary` | GET `server.read` | What `noust server status` prints |
+| `/api/server/swap` | GET `server.read`; POST `server.manage`, sudo; DELETE `server.manage`, sudo |  |
+| `/api/server/swap/swappiness` | PUT `server.manage`, sudo |  |
+| `/api/server/time` | GET `server.read`; PUT `server.manage`, sudo |  |
+| `/api/server/updates` | GET `server.read` |  |
+| `/api/server/updates/apply` | POST `server.manage`, sudo |  |
+| `/api/server/updates/auto` | GET `server.read`; PUT `server.manage`, sudo |  |
+| `/api/server/updates/plan` | GET `server.read` |  |
+| `/api/server/updates/refresh` | POST `server.manage`, sudo |  |
+| `/api/server/updates/repair` | POST `server.manage`, sudo |  |
+| `/api/server/updates/restarts` | GET `server.read`; POST `server.manage`, sudo |  |
+| `/api/server/updates/runs` | GET `server.read` |  |
+| `/api/server/updates/runs/{update_id}` | GET `server.read` |  |
+| `/api/system` | GET `server.read` |  |
+| `/api/system/cpu` | GET `server.read` |  |
+| `/api/system/disks` | GET `server.read` |  |
+| `/api/system/health` | GET `server.read` |  |
+| `/api/system/machine` | GET `server.read` |  |
+| `/api/system/memory` | GET `server.read` |  |
+| `/api/system/network` | GET `server.read` |  |
+| `/api/system/processes` | GET `server.read` |  |
+| `/api/system/update` | GET `server.read`; POST `server.manage`, sudo | Noust's own version, and updating it |
+| `/api/system/version` | GET `server.read` |  |
+
+### The fleet
+
+| Endpoint | Method, permission | |
+|---|---|---|
+| `/api/central/unlock` | POST `security.manage`, sudo | Give a sealed central its passphrase |
+| `/api/fleet/actions` | GET `fleet.read`; POST `fleet.manage` | Actions a bulk job can run; start one (`plan: true` only shows the plan) |
+| `/api/fleet/activity` | GET `fleet.read` |  |
+| `/api/fleet/apps` | GET `fleet.read` |  |
+| `/api/fleet/backups` | GET `fleet.read` |  |
+| `/api/fleet/certificates` | GET `fleet.read` |  |
+| `/api/fleet/jobs` | GET `fleet.read` |  |
+| `/api/fleet/jobs/{job_id}` | GET `fleet.read` |  |
+| `/api/fleet/jobs/{job_id}/retry` | POST `fleet.manage` |  |
+| `/api/fleet/servers` | GET `fleet.read` |  |
+| `/api/fleet/servers/{node}/labels` | PUT `fleet.manage` |  |
+| `/api/fleet/summary` | GET `fleet.read` |  |
+| `/api/fleet/updates` | GET `fleet.read` |  |
+| `/api/nodes` | GET `fleet.read`; POST `fleet.manage`, sudo, four-eyes |  |
+| `/api/nodes/{node}` | GET `fleet.read`; DELETE `fleet.manage`, sudo, four-eyes |  |
+| `/api/nodes/{node}/key` | GET `fleet.manage` | The central's key for a new server and the command to run on it |
+| `/api/nodes/{node}/test` | POST `fleet.read` |  |
+
+### Configuration, integrations and recipes
+
+| Endpoint | Method, permission | |
+|---|---|---|
+| `/api/config` | GET `settings.read`; PUT `security.manage`, sudo; PATCH `settings.manage`, sudo |  |
+| `/api/config/apps-directory` | GET `settings.read`; PUT `settings.manage`, sudo |  |
+| `/api/config/backup` | GET `settings.read`; PUT `settings.manage`, sudo |  |
+| `/api/config/defaults` | GET `settings.read` |  |
+| `/api/config/notifications/telegram` | GET `settings.read`; PUT `settings.manage`, sudo |  |
+| `/api/config/notifications/telegram/chats` | POST `settings.manage` |  |
+| `/api/config/notifications/{channel}/test` | POST `apps.operate` |  |
+| `/api/config/reload` | POST `settings.manage` |  |
+| `/api/config/smtp` | GET `settings.read`; PUT `settings.manage`, sudo |  |
+| `/api/config/ssl` | GET `settings.read`; PUT `settings.manage`, sudo |  |
+| `/api/config/web` | GET `settings.read`; PUT `security.manage`, sudo |  |
+| `/api/config/webserver` | GET `settings.read`; PUT `settings.manage`, sudo |  |
+| `/api/integrations/github` | GET `apps.read`; DELETE `apps.manage`, sudo |  |
+| `/api/integrations/github/installations` | POST `apps.manage`, sudo |  |
+| `/api/integrations/github/installations/sync` | POST `apps.manage` |  |
+| `/api/integrations/github/manifest` | POST `apps.manage`, sudo |  |
+| `/api/integrations/github/manifest/conversions` | POST `apps.manage`, sudo |  |
+| `/api/integrations/github/repositories` | GET `apps.read` |  |
+| `/api/integrations/github/repositories/{owner}/{repo}/branches` | GET `apps.read` |  |
+| `/api/recipes` | GET `apps.read` |  |
+| `/api/recipes/{name}` | GET `apps.read` |  |
+
+### Accounts, sessions and tokens
+
+| Endpoint | Method, permission | |
+|---|---|---|
+| `/api/auth/2fa` | GET `self` |  |
+| `/api/auth/2fa/backup-codes` | POST `self`, sudo |  |
+| `/api/auth/2fa/confirm` | POST `self` |  |
+| `/api/auth/2fa/disable` | POST `self`, sudo |  |
+| `/api/auth/2fa/enroll` | POST `self` |  |
+| `/api/auth/accounts` | GET `accounts.read`; POST `accounts.manage`, sudo, four-eyes |  |
+| `/api/auth/accounts/{username}` | GET `accounts.read`; PATCH `accounts.manage`, sudo, four-eyes; DELETE `accounts.manage`, sudo |  |
+| `/api/auth/accounts/{username}/disable` | POST `accounts.manage`, sudo |  |
+| `/api/auth/accounts/{username}/enable` | POST `accounts.manage`, sudo |  |
+| `/api/auth/accounts/{username}/reset-mfa` | POST `accounts.manage`, sudo |  |
+| `/api/auth/accounts/{username}/unlock` | POST `accounts.manage`, sudo |  |
+| `/api/auth/elevate` | POST `self` |  |
+| `/api/auth/exceptions` | GET `accounts.read`; POST `accounts.manage`, sudo |  |
+| `/api/auth/exceptions/{exception_id}` | DELETE `accounts.manage`, sudo |  |
+| `/api/auth/fleet/revoke` | POST `self` |  |
+| `/api/auth/fleet/self` | GET `self` | This server's ceiling for the calling central |
+| `/api/auth/invitations` | POST `accounts.manage`, sudo, four-eyes |  |
+| `/api/auth/invitations/accept` | POST `public` |  |
+| `/api/auth/invitations/open` | POST `public` |  |
+| `/api/auth/login` | POST `public` |  |
+| `/api/auth/logout` | POST `self` |  |
+| `/api/auth/notice/accept` | POST `self` |  |
+| `/api/auth/passkeys` | GET `self` |  |
+| `/api/auth/passkeys/elevate` | POST `self` |  |
+| `/api/auth/passkeys/elevate/options` | POST `self` |  |
+| `/api/auth/passkeys/login` | POST `public` |  |
+| `/api/auth/passkeys/login/options` | POST `public` |  |
+| `/api/auth/passkeys/registration` | POST `self` |  |
+| `/api/auth/passkeys/registration/options` | POST `self` |  |
+| `/api/auth/passkeys/{passkey_id}` | PATCH `self`; DELETE `self` |  |
+| `/api/auth/password` | POST `self` |  |
+| `/api/auth/roles` | GET `self` |  |
+| `/api/auth/session` | GET `public` |  |
+| `/api/auth/sessions` | GET `self` |  |
+| `/api/auth/sessions/revoke-all` | POST `self` |  |
+| `/api/auth/sessions/revoke-others` | POST `self` |  |
+| `/api/auth/sessions/{sid_prefix}` | DELETE `self` |  |
+| `/api/auth/tokens` | GET `self`; POST `self`, sudo |  |
+| `/api/auth/tokens/{token_id}` | DELETE `self` |  |
+| `/api/auth/verify` | GET `self` |  |
+| `/api/auth/ws-ticket` | POST `self` |  |
+
+### Approvals, audit and compliance
+
+| Endpoint | Method, permission | |
+|---|---|---|
+| `/api/approvals` | GET `self` |  |
+| `/api/approvals/policy` | GET `self` |  |
+| `/api/approvals/{approval_id}` | GET `self` |  |
+| `/api/approvals/{approval_id}/approve` | POST `self`, sudo |  |
+| `/api/approvals/{approval_id}/reject` | POST `self`, sudo |  |
+| `/api/audit` | GET `audit.read` |  |
+| `/api/audit/events` | GET `audit.read` |  |
+| `/api/audit/export` | GET `audit.read` |  |
+| `/api/audit/reviews` | GET `audit.read`; POST `audit.read` |  |
+| `/api/audit/status` | GET `audit.read` |  |
+| `/api/audit/verify` | GET `audit.read` | Check the chain |
+| `/api/ens/access-review` | GET `accounts.read`; POST `accounts.manage` |  |
+| `/api/ens/check` | GET `compliance.read` |  |
+| `/api/ens/incident` | GET `compliance.read` |  |
+| `/api/ens/inventory` | GET `apps.read` |  |
+| `/api/ens/inventory/{domain}` | PUT `apps.manage` |  |
+| `/api/ens/profile` | GET `settings.read` |  |
+| `/api/ens/report` | GET `compliance.read` | The evidence bundle |
+
+### Other routes
+
+| Endpoint | Method, permission | |
+|---|---|---|
+| `/api/openapi.json` | GET `self` |  |
+| `/health` | GET `public` |  |
+| `/hooks/deploy/{domain}` | POST `public` |  |
+| `/hooks/github` | POST `public` |  |
+
 
 FastAPI's own `/docs`, `/redoc` and `/openapi.json` are disabled: the schema of an API that
 runs systemd as root is only served to authenticated callers.

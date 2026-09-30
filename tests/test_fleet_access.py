@@ -37,14 +37,13 @@ READS = [
 WRITES = [
     "apps.manage",
     "secrets.reveal",
-    "root_equivalent",
     "server.manage",
     "databases.write",
     "databases.manage",
     "fleet.manage",
     "settings.manage",
 ]
-DEPLOYS = ["apps.operate", "apps.deploy", "backups.manage"]
+DEPLOYS = ["apps.operate", "apps.deploy", "backups.run"]
 NEVER = ["security.manage", "accounts.manage", "audit.manage"]
 
 
@@ -87,6 +86,21 @@ class TestPermits:
         assert not permits(FleetAccess("read", True), "server.host_access")
         assert not permits(FleetAccess("deploy", True), "server.host_access")
         assert not permits(FleetAccess("read", True), "server.manage")
+
+    def test_deploy_takes_backups_but_does_not_manage_them(self):
+        # Security review 3.1, finding 5: backups.manage deletes backups and
+        # changes where they go; a deploy ceiling only takes them.
+        assert permits(FleetAccess("deploy"), "backups.run")
+        assert not permits(FleetAccess("deploy"), "backups.manage")
+        assert permits(FleetAccess("admin"), "backups.manage")
+
+    def test_root_equivalent_is_host_access(self):
+        # Security review 3.1, finding 6: a raw unit or a root cron command is
+        # a way onto the host, so it needs the same explicit yes.
+        assert not permits(FleetAccess("admin"), "root_equivalent")
+        assert permits(FleetAccess("admin", True), "root_equivalent")
+        assert not permits(FleetAccess("deploy", True), "root_equivalent")
+        assert not permits(FleetAccess("read", True), "root_equivalent")
 
     def test_a_central_s_own_credential_is_never_withheld(self):
         # /api/auth/fleet/revoke and /api/auth/fleet/self are "self": a central held

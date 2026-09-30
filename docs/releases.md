@@ -75,6 +75,14 @@ run the same sequence:
    install runs normally.
 4. **Build** inside the release.
 5. **Hand the tree over** to the service user.
+
+Steps 3 and 4, and a deployer's own hooks, run in the build sandbox for applications created
+from 3.1 on and for those where it was enabled: a transient systemd unit, as the unprivileged
+`noust-build` account, able to write the release and the application's own cache in
+`/var/cache/noust/build/<app>` and nothing else. The release belongs to `noust-build` while it
+builds and is handed to the service user afterwards. Migrations (the release phase, `prisma
+migrate deploy`) run as the application, with its own environment. See
+[Builds in the sandbox](#builds-in-the-sandbox).
 6. **Write the site, the certificate and the unit**, all pointing at `current`. Only a
    deploy (`noust create`, `POST /api/apps`) does this; an update skips it, because the unit
    and the site already point at `current`.
@@ -160,8 +168,8 @@ curl -X POST -H "Authorization: Bearer $TOKEN" \
   https://panel.example.com/api/apps/shop.example.com/releases/20260924-101500-9f8e7d6/activate
 ```
 
-This needs a token with the `deploy` scope, the same as queueing an update. See
-[api.md](api.md).
+This needs the `apps.deploy` permission (an `operator` or an `admin`, or a token with the
+`deploy` scope), the same as queueing an update. See [api.md](api.md).
 
 Release statuses, as `noust releases list --json` and `GET /api/apps/{domain}/releases`
 report them: `active`, `superseded`, `rolled_back`, `failed`, `built`. `active` is whatever
@@ -188,7 +196,7 @@ noust update shop.example.com --commit 9f8e7d6     # full or abbreviated, at lea
 
 In the console, "Redeploy" on a deployment's page does the same:
 `POST /api/apps/{domain}/deployments/{id}/rebuild` queues the update job with that
-deployment's commit and answers `202` with the job. It needs the `deploy` scope, like an
+deployment's commit and answers `202` with the job. It needs `apps.deploy`, like an
 update, and answers `409 no_commit` for a deployment whose source is not git.
 
 The id must name exactly one commit. It is looked up in the clone first; one the clone does
@@ -209,6 +217,28 @@ for more characters; one that names none is an error. `--commit` does not combin
   `noust update` without `--commit` checks that branch out again and pulls it: the
   application follows its branch again. The deployment history records that branch, not
   `HEAD`.
+
+## Which branch an update builds
+
+An update builds one branch, decided the same way by `noust update`, the console's Update, the
+nothing-new check and the deploy webhook's filter, so a push is accepted exactly when the update
+it queues would build the pushed branch:
+
+1. **A branch named for this update**: `noust update DOMAIN --branch X`. When the update
+   succeeds, `X` becomes the application's pinned branch.
+2. **Otherwise, the pinned branch.** `noust app branch DOMAIN BRANCH` pins one (the branch must
+   exist on the remote; nothing is rebuilt until the next update), `noust app branch DOMAIN`
+   shows it, and `--unpin` removes it. In the console: application > Settings > General.
+   `PATCH /api/apps/{domain}/branch` over the API.
+3. **Otherwise, as before 3.1**: in place, the branch the checkout is on (the update pulls it
+   and records it); on releases, the branch recorded for the application. The repository cache
+   of an application on releases is never learned from: in 3.0 a one-off `update --branch
+   hotfix` left the cache on `hotfix`, and the next plain or webhook update switched production
+   to it.
+
+With a branch pinned, the webhook ignores pushes to any other branch and records them as
+ignored (`noust app webhook deliveries DOMAIN`). With no branch to go by at all, any push
+deploys; `noust app webhook show` warns about it.
 
 ## Nothing new to deploy
 
@@ -244,7 +274,7 @@ failure in full). A push webhook never checks: the push is itself the news.
 Every deployment in the history says whether it can be gone back to:
 `GET /api/deployments` and `GET /api/deployments/{id}` carry `rollback_available` and, when it
 is false, `rollback_unavailable_reason`. `POST /api/apps/{domain}/deployments/{id}/rollback`
-queues it as a job (`202`), with the `deploy` scope; a deployment that cannot be gone back to
+queues it as a job (`202`), with `apps.deploy`; a deployment that cannot be gone back to
 answers `409 rollback_unavailable` with the reason.
 
 - **On releases**, going back to a deployment activates the release it built, behind the
@@ -456,6 +486,44 @@ The checkout after a failed update is detached at the previous commit, like `nou
 the tree are overwritten by the checkout, as they are by the update's own pull. A build that
 fails before anything was restarted is not rolled back for a monorepo: the units keep running
 the processes they had, and the tree is left at the new commit for the next update to fix.
+
+## Builds in the sandbox
+
+Installing dependencies and building run code from the repository and from every dependency's
+install scripts. From 3.1 that happens in a sandbox rather than as root:
+
+```bash
+noust app sandbox self-test                 # does the sandbox hold on this server?
+noust app sandbox status shop.example.com   # sandbox, or root and why
+noust app sandbox test shop.example.com     # build the live commit in the sandbox; nothing is activated
+noust app sandbox enable shop.example.com   # sandboxed from the next deploy on
+noust app sandbox enable shop.example.com --network strict
+noust app sandbox disable shop.example.com --reason "..."   # build as root: recorded, audited
+```
+
+- **Who builds in it**: applications and previews created from 3.1 on, and every application
+  where it was enabled. Applications deployed before 3.1 keep building as root, flagged on their
+  page and in `noust health`, until `test` passes and `enable` turns it on (`--force` skips the
+  test). It becomes the default for every application in 3.2.
+- **What the build sees**: its release, read-write; its own cache under
+  `/var/cache/noust/build/<app>`; the application's `.env`, handed in by systemd, which
+  `noust-build` itself cannot open; a clean environment; no `/root`, no `/etc/noust`, no store,
+  no other application's files. Memory and CPU are limited.
+- **`--network strict`**: dependencies install with the network but without the application's
+  variables, and the build runs with them but without a network. A build that fails for want of
+  the network says so and how to allow it. A preview follows its application's profile and
+  never gets production secrets.
+- **`--pty`** runs the build on a terminal, for build scripts that reopen `/dev/stderr`.
+- **In place and monorepo**: the build runs in the live tree as the service account, still with
+  the rest of the machine hidden. `noust app migrate` is the way to full separation.
+- **Docker Compose** builds run inside the Docker daemon. A new stack with `privileged: true` or
+  the Docker socket mounted is refused unless `noust app sandbox compose-exception DOMAIN`
+  records why it needs them.
+- **Fail closed**: where the self-test fails (containers and WSL without mount namespaces), a
+  build stops with the evidence and never falls back to root; `disable` with a reason is the
+  explicit way to build that application as root.
+- A build killed for its time or memory limit says which; cancelling a deploy stops its build
+  unit.
 
 ## Deploy history
 

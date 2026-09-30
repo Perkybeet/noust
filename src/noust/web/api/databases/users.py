@@ -126,10 +126,17 @@ class RotatePasswordRequest(BaseModel):
         propagate: Give the new password to the applications that sign in as
             the account, restarting each behind its health gate; anything
             that does not come back undoes the whole rotation.
+        first_password: Confirms giving a Redis instance that has no password
+            its first one: every application reaching it without credentials
+            stops working until it is given the password.
     """
 
     propagate: bool = Field(default=True, description="Rewrite and restart the applications")
     host: str = Field(default="localhost", description="Host restriction")
+    first_password: bool = Field(
+        default=False,
+        description="Redis only: confirm setting a first password on an instance without one",
+    )
 
 
 class PasswordResponse(BaseModel):
@@ -314,6 +321,7 @@ def rotate_password(
             "username": username,
             "host": request.host,
             "propagate": request.propagate,
+            "first_password": request.first_password,
         },
         metadata={"engine": manager.ENGINE_NAME, "username": username},
         message=f"Rotating the password of {username}",

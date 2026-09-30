@@ -829,3 +829,74 @@ def test_a_first_deploy_that_fails_keeps_the_database_and_says_how_to_drop_it(
     assert "noust db drop new_app_example_com_db --engine postgresql" in error.details
     assert "noust db user-delete new_app_example_com_user --engine postgresql" in error.details
     assert ("db.link", "db:postgresql/new_app_example_com_db", "failure") in audited
+
+
+# ============================================================ Redis without a password
+
+
+class FakeRedis(FakeEngine):
+    """An instance whose ``requirepass`` the state holds; empty is no password."""
+
+    ENGINE_NAME = "redis"
+    DISPLAY_NAME = "Redis"
+    INTERNAL_USERS = frozenset()
+
+    def client_password(self) -> str | None:
+        return self.state["requirepass"] or None
+
+    def requirepass_set(self) -> bool | None:
+        return bool(self.state["requirepass"])
+
+    def set_user_password(self, username, password, host="localhost"):
+        self._calls("set_password", username, password)
+        self.state["requirepass"] = password
+
+
+@pytest.fixture
+def redis_service(tmp_path: Path, store: NoustStore, state: dict[str, Any]) -> DatabaseService:
+    state["requirepass"] = ""
+
+    def resolve(name: str) -> BaseDatabaseManager | None:
+        return FakeRedis(state, tmp_path / "dumps") if name == "redis" else None
+
+    return DatabaseService(
+        store=store,
+        secrets=SecretStore(root=tmp_path / "secrets"),
+        resolve=resolve,
+        engines=lambda: ["redis"],
+    )
+
+
+def test_a_first_redis_password_needs_to_be_asked_for(redis_service, state) -> None:
+    """Every application that connects without one would start getting NOAUTH."""
+    with pytest.raises(DatabaseUserError) as raised:
+        redis_service.rotate_password("redis", "default")
+
+    assert "NOAUTH" in (raised.value.details or "")
+    assert state["requirepass"] == ""
+    assert not [call for call in state["calls"] if call[0] == "set_password"]
+
+
+def test_a_first_redis_password_that_fails_is_undone_to_no_password(
+    redis_service, store, app, state, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No password is a state to go back to, not an unknown one."""
+    from noust.core.exceptions import DeploymentError
+    from noust.managers.database import service as service_module
+
+    monkeypatch.setattr(redis_service, "_apps_using", lambda engine, username, old: [app])
+
+    def refuses(*args: Any, **kwargs: Any) -> Any:
+        raise DeploymentError("did not come back", details="NOAUTH Authentication required")
+
+    monkeypatch.setattr(service_module, "change_app_env", refuses)
+
+    with pytest.raises(DatabaseError):
+        redis_service.rotate_password("redis", "default", first_password=True)
+
+    assert state["requirepass"] == ""
+    assert [c for c in state["calls"] if c[0] == "set_password"][-1] == (
+        "set_password",
+        "default",
+        "",
+    )

@@ -72,7 +72,8 @@ from noust.web.auth import (
     require_auth,
 )
 from noust.web.events import CREDENTIAL_RECHECK_SECONDS, HEARTBEAT_SECONDS, shutting_down
-from noust.web.permissions.roles import ROLE_PERMISSIONS
+from noust.web.permissions.principal import permissions_of
+from noust.web.permissions.roles import ROLE_PERMISSIONS, role_within
 
 if TYPE_CHECKING:
     import httpx
@@ -224,12 +225,18 @@ def forwarded_identity(session: dict[str, Any]) -> dict[str, Any]:
 
     scope = str(session.get("scope") or "read")
     role = session.get("role")
+    # A person's role, so the node grants its own table's permissions for it;
+    # the master token and pre-account tokens keep the 3.0 scope rule. A token
+    # narrowed below its owner's role (or by the ENS profile) is named by the
+    # widest role it wholly holds, never by its owner's: the node would grant
+    # the whole role.
+    forwarded = (
+        role_within(str(role), permissions_of(session)) if role in ROLE_PERMISSIONS else None
+    )
     return {
         "actor": fleet_actor(actor_label(session)),
         "actor_scope": scope if scope in SCOPE_RANK else "read",
-        # A person's role, so the node grants its own table's permissions for
-        # it; the master token and pre-account tokens keep the 3.0 scope rule.
-        "actor_role": str(role) if role in ROLE_PERMISSIONS else None,
+        "actor_role": forwarded,
         "elevated": central_elevated(session),
     }
 

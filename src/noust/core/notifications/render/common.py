@@ -91,6 +91,28 @@ def omitted_marker(excerpt: Excerpt, notification: Notification) -> str:
     return message(key, notification.locale, count=excerpt.omitted)
 
 
+def with_pinned_marker(lines: list[str], excerpt: Excerpt, notification: Notification) -> list[str]:
+    """
+    Mark where an excerpt's first error ends and the end of the output begins.
+
+    Args:
+        lines: The excerpt's lines as the channel shows them (escaped, or
+            without the journal's prefix), one for each of ``excerpt.lines``.
+        excerpt: The excerpt.
+        notification: The notification it belongs to, for the language.
+
+    Returns:
+        The lines, with ``… First error above; the last lines follow`` in the
+        reader's language after the pinned ones (:attr:`Excerpt.pinned`), when
+        lines follow them. The marker is Noust's, so it is plain text that
+        each renderer escapes like the lines; nothing it points at changes.
+    """
+    if not 0 < excerpt.pinned < len(lines):
+        return lines
+    marker = f"\u2026 {message('ui.first_error', notification.locale)}"
+    return [*lines[: excerpt.pinned], marker, *lines[excerpt.pinned :]]
+
+
 def detail_facts(notification: Notification) -> tuple[Fact, ...]:
     """
     Args:
@@ -135,7 +157,9 @@ def render_text(notification: Notification, *, footer: bool = False) -> str:
         lines.extend(f"  {fact.label}: {fact.value}" for fact in section.rows)
     if n.excerpt is not None and n.excerpt.lines:
         lines.extend(["", f"{n.excerpt.label}:"] if n.excerpt.label else [""])
-        lines.extend(f"  {line}" for line in n.excerpt.lines)
+        lines.extend(
+            f"  {line}" for line in with_pinned_marker(list(n.excerpt.lines), n.excerpt, n)
+        )
         marker = omitted_marker(n.excerpt, n)
         if marker:
             lines.append(f"  {marker}")

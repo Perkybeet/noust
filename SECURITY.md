@@ -59,7 +59,8 @@ Every release is built by GitHub Actions from a signed tag, published to PyPI by
 publishing and to the OBS repositories with their signing key. Each GitHub release carries a
 CycloneDX SBOM (`noust-<version>.cdx.json`: the Python dependencies and the npm packages the
 console bundles), and CI runs `pip-audit` and `npm audit` on every change and weekly, with
-Dependabot proposing dependency updates. See `.github/workflows/supply-chain.yml`.
+Dependabot proposing dependency updates. See `.github/workflows/supply-chain.yml`, and
+`.github/workflows/release.yml`, which writes the SBOM a release carries.
 
 Organisations subject to Spain's Esquema Nacional de Seguridad will find how Noust maps to the
 RD 311/2022 measures, and what remains theirs, in [docs/ENS.md](docs/ENS.md).

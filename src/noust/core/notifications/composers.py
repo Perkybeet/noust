@@ -291,7 +291,7 @@ def _excerpt_of(
     else:
         label = message("excerpt.output", ctx.locale)
         source = "\n".join(piece for piece in (parts.summary, parts.trailing) if piece)
-    return make_excerpt(source, label=label, avoid=avoid, lead=lead)
+    return make_excerpt(source, label=label, avoid=avoid, lead=lead, pin_error=True)
 
 
 def _english(code: str, part: str) -> str:
@@ -733,6 +733,7 @@ def compose_unit_failure(
             journal,
             label=message("excerpt.journal", ctx.locale, unit=unit),
             avoid=[summary, command.value, *(fact.value for fact in facts)],
+            pin_error=True,
         )
     if excerpt is None:
         # What systemd reported about the last run is what the journal, when

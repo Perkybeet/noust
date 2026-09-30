@@ -778,3 +778,62 @@ def test_the_hook_url_given_out_is_the_public_one_when_exposed(
     minted = admin.post(f"/api/apps/{DOMAIN}/webhook-secret")
 
     assert minted.json()["hook_url"] == f"https://hooks.example.net/hooks/deploy/{DOMAIN}"
+
+
+# ---------------------------------------------------------------------------
+# The branch filter names the branch the update will build
+# ---------------------------------------------------------------------------
+
+
+def _push(client: TestClient, secret: str, branch: str) -> Any:
+    body = json.dumps({"ref": f"refs/heads/{branch}"}).encode()
+    return client.post(
+        f"/hooks/deploy/{DOMAIN}", content=body, headers=github_headers(secret, body)
+    )
+
+
+def test_a_release_app_filters_on_its_pinned_branch(
+    client: TestClient, store: NoustStore, secret: str, queued: list[dict[str, Any]]
+) -> None:
+    """A pin is what the update builds, so it is what a push must name."""
+    app = store.get_app(DOMAIN)
+    app.layout = "releases"
+    store.update_app(app)
+    store.set_branch_pin(DOMAIN, "hotfix")
+
+    ignored = _push(client, secret, "main")
+    accepted = _push(client, secret, "hotfix")
+
+    assert ignored.json() == {"status": "ignored", "reason": "branch"}
+    assert accepted.status_code == 202
+    assert len(queued) == 1
+
+
+def test_an_inplace_app_filters_on_the_branch_its_checkout_follows(
+    tmp_path: Path,
+    client: TestClient,
+    store: NoustStore,
+    secret: str,
+    queued: list[dict[str, Any]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """In place the update pulls the checkout's branch, and records it."""
+    from noust.deployers import lifecycle
+
+    checkout = tmp_path / "checkout"
+    (checkout / ".git").mkdir(parents=True)
+    app = store.get_app(DOMAIN)
+    app.app_path = str(checkout)
+    store.update_app(app)
+    monkeypatch.setattr(
+        lifecycle.SourceManager,
+        "get_repo_info",
+        lambda self, path: {"branch": "develop", "detached": False, "commit": "c0"},
+    )
+
+    ignored = _push(client, secret, "main")
+    accepted = _push(client, secret, "develop")
+
+    assert ignored.json() == {"status": "ignored", "reason": "branch"}
+    assert accepted.status_code == 202
+    assert len(queued) == 1

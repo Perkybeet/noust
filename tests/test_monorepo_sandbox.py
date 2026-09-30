@@ -225,7 +225,7 @@ def test_a_sandbox_that_does_not_hold_stops_a_monorepo_build_instead_of_running_
 # ---------------------------------------------------------------------------
 
 
-def test_a_monorepo_from_before_builds_as_root_with_a_clean_environment_and_a_warning(
+def test_a_monorepo_from_before_builds_as_root_with_its_environment_and_a_warning(
     tmp_path: Path, store: NoustStore, runner: FakeRunner, as_root: Any
 ) -> None:
     root = workspace_tree(tmp_path / "mono")
@@ -236,7 +236,8 @@ def test_a_monorepo_from_before_builds_as_root_with_a_clean_environment_and_a_wa
     install = index_of(runner, lambda c: c == ("pnpm", "install", "--frozen-lockfile"))
     build = index_of(runner, lambda c: c == ("pnpm", "build"))
     assert runner.sandboxes[install] is None and runner.sandboxes[build] is None
-    assert runner.clean_envs[install] and runner.clean_envs[build]
+    # As before 3.1: only the sandbox starts from a clean environment.
+    assert not runner.clean_envs[install] and not runner.clean_envs[build]
     warning = build_sandbox.sandbox_warning(app)
     assert warning is not None
     assert "still builds as root" in warning

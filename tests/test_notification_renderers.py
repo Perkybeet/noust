@@ -600,7 +600,7 @@ class TestWebhook:
         for link in payload["links"]:
             assert set(link) == {"rel", "label", "url"}
         if payload["excerpt"] is not None:
-            assert set(payload["excerpt"]) == {"label", "lines", "omitted"}
+            assert set(payload["excerpt"]) - {"pinned"} == {"label", "lines", "omitted"}
 
     def test_the_legacy_keys_keep_their_meaning(self) -> None:
         payload = webhook.render(catalog("en")["deploy.rolled_back"])
@@ -1008,3 +1008,61 @@ class TestEveryChannel:
         text = telegram_text(telegram.render(n, CHAT_ID))
 
         assert html_lib.unescape(text).splitlines()[0].endswith("a&b<c>d")
+
+
+# ---------------------------------------------------------------------------
+# The first error, brought up above the end of the output
+# ---------------------------------------------------------------------------
+
+PINNED_ERROR = "Sep 30 09:14:02 web-1 node[73120]: Error: broken on purpose"
+PINNED = Excerpt(
+    "Last lines of the journal of shop-example-com",
+    (
+        PINNED_ERROR,
+        *(
+            f"Sep 30 09:14:07 web-1 systemd[1]: shop-example-com.service: line {n}"
+            for n in range(11)
+        ),
+    ),
+    omitted=10,
+    pinned=1,
+)
+
+
+class TestPinnedError:
+    @pytest.mark.parametrize("channel", CHANNELS)
+    def test_every_channel_shows_the_error_first_and_marks_it(self, channel: str) -> None:
+        text = visible(channel, notification(excerpt=PINNED))
+
+        error = text.find("node[73120]: Error: broken on purpose")
+        marker = text.find("First error above; the last lines follow")
+        tail = text.find("shop-example-com.service: line 10")
+        assert -1 < error < marker < tail
+
+    def test_telegram_keeps_it_when_the_tail_gives_way(self) -> None:
+        text = telegram.render(notification(excerpt=PINNED), CHAT_ID)["text"]
+
+        pre = re.search(r"<pre>(.*)</pre>", text, re.S)
+        assert pre is not None
+        body = pre.group(1).splitlines()
+        assert body[0] == "node[73120]: Error: broken on purpose"
+        assert body[1] == "… First error above; the last lines follow"
+        assert body[-2] == "systemd[1]: shop-example-com.service: line 10"
+        assert len(body) <= 10  # eight lines and the two markers
+
+    def test_the_marker_is_in_the_readers_language(self) -> None:
+        text = visible("telegram", notification(excerpt=PINNED, locale="es"))
+
+        assert "Primer error arriba; siguen las últimas líneas" in text
+
+    def test_nothing_is_marked_when_only_the_error_is_left(self) -> None:
+        n = notification(excerpt=Excerpt("x", (PINNED_ERROR,), omitted=3, pinned=1))
+
+        assert "First error above" not in visible("email-text", n)
+
+    def test_the_webhook_says_how_many_lines_are_pinned(self) -> None:
+        payload = webhook.render(notification(excerpt=PINNED))
+
+        assert payload["excerpt"]["pinned"] == 1
+        assert payload["excerpt"]["lines"][0] == PINNED_ERROR
+        assert "pinned" not in webhook.render(catalog("en")["deploy.rolled_back"])["excerpt"]

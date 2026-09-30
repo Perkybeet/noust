@@ -873,21 +873,24 @@ class AuditLog:
                     events += sum(1 for _ in _chained_lines(path))
             if not doomed:
                 return None
+            report = PurgeReport(tuple(path.name for path in doomed), events, last_seq, last_mac)
+            # The anchor first: deleted first, a crash or a failed append left
+            # a gap at the head of the chain that nothing in the log explained.
+            # An anchor whose files are still there is only early.
+            self.append(
+                "audit.purge",
+                actor=Actor.system("retention"),
+                details={
+                    "files": list(report.files),
+                    "events": report.events,
+                    "last_seq": report.last_seq,
+                    "last_mac": report.last_mac,
+                    "retention_days": retention_days,
+                },
+            )
             fs = get_fs()
             for path in doomed:
                 fs.remove(path)
-        report = PurgeReport(tuple(path.name for path in doomed), events, last_seq, last_mac)
-        self.append(
-            "audit.purge",
-            actor=Actor.system("retention"),
-            details={
-                "files": list(report.files),
-                "events": report.events,
-                "last_seq": report.last_seq,
-                "last_mac": report.last_mac,
-                "retention_days": retention_days,
-            },
-        )
         return report
 
 

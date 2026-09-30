@@ -1604,3 +1604,77 @@ class TestOwnerAndGrantsInListings:
 def test_every_engine_answers_its_port_through_one_method(mysql: MySQLManager) -> None:
     """Callers ask server_port(); an engine that cannot ask its server answers its default."""
     assert mysql.server_port() == mysql.DEFAULT_PORT
+
+
+# ---------------------------------------------------------------------------
+# Restoring beside a database never writes into another one
+# ---------------------------------------------------------------------------
+
+#: What ``mysqldump --databases prod`` writes: the load switches database.
+DATABASES_DUMP = (
+    "-- MariaDB dump 10.19\n"
+    "CREATE DATABASE /*!32312 IF NOT EXISTS*/ `prod` /*!40100 DEFAULT CHARACTER SET utf8mb4 */;\n"
+    "USE `prod`;\n"
+    "DROP TABLE IF EXISTS `users`;\n"
+    "-- Dump completed on 2026-09-30 10:00:00\n"
+)
+
+
+@pytest.mark.parametrize("compressed", [False, True])
+def test_mysql_restore_as_new_refuses_a_dump_that_switches_database(
+    mysql: MySQLManager, runner: FakeRunner, tmp_path: Path, compressed: bool
+) -> None:
+    """``--binary-mode -D tmp`` still runs ``USE prod``: the load would hit production."""
+    existing_database(mysql, exists=False)
+    dump = tmp_path / ("prod.sql.gz" if compressed else "prod.sql")
+    if compressed:
+        dump.write_bytes(gzip.compress(DATABASES_DUMP.encode()))
+    else:
+        dump.write_text(DATABASES_DUMP)
+
+    with pytest.raises(DatabaseBackupError, match="another database") as raised:
+        mysql.restore("prod_restored", dump, isolated=True)
+
+    assert "USE `prod`" in (raised.value.details or "") or "CREATE DATABASE" in (
+        raised.value.details or ""
+    )
+    # Refused before the new database was even created.
+    assert not [call for call in runner.calls if call[0] == "mysql"]
+
+
+def test_mysql_isolated_load_runs_the_client_with_one_database(
+    mysql: MySQLManager, runner: FakeRunner, tmp_path: Path
+) -> None:
+    existing_database(mysql)
+    dump = tmp_path / "shop.sql"
+    dump.write_text("DROP TABLE IF EXISTS `t`;\nINSERT INTO `t` VALUES ('a; use it');\n")
+
+    mysql.restore("shop_restored", dump, safety_backup=False, isolated=True)
+
+    assert runner.calls[-1] == (
+        "mysql",
+        "-N",
+        "-B",
+        "-D",
+        "shop_restored",
+        "--binary-mode",
+        "--one-database",
+    )
+
+
+@pytest.mark.parametrize(
+    ("stdout", "exit_code", "expected"),
+    [
+        ("requirepass\n\n", 0, False),
+        ("requirepass\ns3cret\n", 0, True),
+        ("NOAUTH Authentication required.\n", 0, None),
+        ("", 1, None),
+    ],
+)
+def test_redis_says_whether_clients_must_authenticate(
+    redis: RedisManager, runner: FakeRunner, stdout: str, exit_code: int, expected: bool | None
+) -> None:
+    """Empty is "no password", which a rotation can put back; unknown is not."""
+    runner.script(["redis-cli"], stdout=stdout, exit_code=exit_code)
+
+    assert redis.requirepass_set() is expected

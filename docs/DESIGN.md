@@ -467,6 +467,9 @@ grow).
 ```
 
 - Each subsection is its own URL and fits in one and a half screens at 1440.
+- A subsection's one primary action that is not a Save ("Invite a person", "Create token")
+  goes in the page's header through `SettingsPrimaryAction` (`features/settings/SettingsShell`),
+  never in a section.
 - **One form pattern**: a subsection is one form, saved from its `SaveBar`, which is there from
   the first frame ("No unsaved changes") so its arrival never moves the page; Save is the
   view's primary only while there is something to save. No row of "Save changes" buttons.
@@ -647,13 +650,18 @@ never for help, which stays visible.
 **`Dialog`** (`size` `sm | md | lg | xl`). A short task that needs focus. Not for long reading
 or long forms (a drawer). Footer buttons at the right, the primary last.
 
-**`ConfirmDialog`** (`friction` `"none" | "simple" | "type"`, `server`, `children`). Anything that destroys
+**`ConfirmDialog`** (`friction` `"none" | "simple" | "type"`, `server`, `children`, `ready`). Anything that destroys
 or interrupts, with the friction its reach deserves (see 6.2). `simple` opens on Cancel; `type`
 asks for `confirmText`; `none` runs at once and reports a failure as an error toast. A failure
 is shown in the dialog, verbatim, and the dialog stays open. On a fleet, pass `server`. Options
 that change what the action does ("Also delete its files") are its `children`, `Checkbox`es
 between the question and the name to type, never inside the description; each one that destroys
-more starts unchecked, and the description says what the current choice destroys.
+more starts unchecked, and the description says what the current choice destroys; `ready`
+false keeps the action disabled while an option still lacks what it needs (a restore's
+target). An action the operator held is not a failure (`lib/held.ts`, used here, by
+`reportActionError` and by `ErrorBlock`): a cancelled "Confirm it's you" leaves the question
+open and says nothing, a request left waiting for approval closes it with a neutral "Waiting
+for approval" toast that leads to Approvals.
 
 **`Drawer`** (`size` `md | lg`). Detail with the page still behind it: a log, a unit file, a
 certificate, a channel's form.
@@ -669,8 +677,11 @@ confirmation.
 state is the URL) by default; `Tabs` only where a URL makes no sense. Eight tabs at most.
 
 **`DataTable`** (`mobile` `"scroll" | "cards"`, column `card` `"title" | "status" | "meta" |
-"hidden"`, `density`, `rowActions`, `onRowActivate`, `skeletonRows`). Rows of like things. Lists
-of a T1 page use `mobile="cards"`. See 6.8.
+"control" | "hidden"`, `density`, `layout` `"auto" | "fixed"`, `rowActions`, `onRowActivate`,
+`skeletonRows`). Rows of like things. Lists of a T1 page use `mobile="cards"`; a selection
+checkbox is `card: "control"` (its own slot, never on the meta line), and an empty meta value
+is left out of the card rather than drawn as a dash. `layout="fixed"` for values with no
+natural length (an audit event): the columns keep their widths and cells truncate. See 6.8.
 
 **`EmptyCell`** (`reason`). A table cell with nothing in it: an en dash on screen and the reason
 for screen readers. Never a bare "-".
@@ -715,7 +726,8 @@ in `meta`; `actions` is the 3.0 form, kept for pages not yet migrated.
 **`KeyValueList`**. Facts about one thing, one per row; system values in mono and copyable. Not
 tabular data.
 
-**`StatTile`**. One key figure with a line of context, in a dashboard's figures band.
+**`StatTile`**. One key figure with a line of context, in a dashboard's figures band. On a
+phone, two to a row, its label, value and context wrap instead of being cut.
 
 **`Meter`**, **`ResourceMeter`**, **`Progress`**. A level in a range (with a glyph and a word
 when it is a problem); use against a limit; progress of a task with a known end (amber).
@@ -749,7 +761,8 @@ beside Try again, after the system's words ("View output"); `JobProgress` passes
 **`SaveBar`**, **`Stepper`**, **`WizardActions`**, and the templates `ListPage`, `DetailPage`,
 `SettingsLayout`, `DashboardPage`, `Wizard`, `FileEditorPage`, `AuthLayout`: section 4. The
 `Wizard`'s `summary` is a landmark named "Chosen so far" (`summaryLabel` to rename it);
-`FileEditorPage`'s `footer` holds its `CommandHint`, under the bar. `SettingsLayout` renders only
+`FileEditorPage`'s `footer` holds its `CommandHint`, under the bar. The `Wizard`'s summary sits
+beside the step from 1536px (16rem at least) and follows it below that. `SettingsLayout` renders only
 the navigation the screen shows (the side list from 640px, the index on a phone's index route),
 so the page has one navigation landmark in a browser and in a unit test alike.
 
@@ -918,7 +931,8 @@ every few seconds are never live regions.
   yet"); one or two sentences say the next step; the action is an imperative of one or two
   words; the command, when the CLI has one.
 - **Numbers, sizes and dates** go through `lib/format.ts` (binary sizes, two units of duration,
-  "3 min ago" with the exact moment in a tooltip). An ellipsis is one character, `…` (U+2026),
+  "3 min ago" with the exact moment in a tooltip). A used/total pair is written in one unit,
+  the larger value's (`formatBytesPair`: "0.71 TB of 0.98 TB", never "727 GB of 0.98 TB"). An ellipsis is one character, `…` (U+2026),
   never three dots.
   Titles have no final full stop; sentences do.
 - **No jargon**: the surface speaks of the result for the operator; the technical term is a

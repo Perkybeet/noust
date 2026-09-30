@@ -660,11 +660,13 @@ def test_an_update_builds_a_new_release_and_keeps_shared_data(
 
 class TestTheBranchAReleaseUpdateFollows:
     """
-    A release update never changes branch unless an operator says so.
+    A release update builds the branch the store records, never the cache's.
 
-    The repository cache follows a branch; a 3.0 ``noust update --branch``
-    moved it without recording the choice. Building the recorded branch
-    instead would switch what production serves on the next plain update.
+    The repository cache is an implementation detail: a 3.0 ``noust update
+    --branch hotfix`` was a one-shot build that left the cache on hotfix.
+    Learning the branch from the cache made the next plain (or webhook)
+    update rewrite ``apps.branch`` to hotfix and build it, after which the
+    webhook ignored every push to the branch the application really tracks.
     """
 
     def _deployed(
@@ -681,7 +683,7 @@ class TestTheBranchAReleaseUpdateFollows:
     def _synced(self, machine: SimpleNamespace) -> list[str | None]:
         return [call[3] for call in machine.git.calls if call[0] == "sync"]
 
-    def test_a_cache_on_another_branch_keeps_it_and_the_store_learns_it(
+    def test_a_cache_left_on_another_branch_builds_the_recorded_one(
         self,
         tmp_path: Path,
         root: Path,
@@ -690,12 +692,12 @@ class TestTheBranchAReleaseUpdateFollows:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         self._deployed(tmp_path, root, store, machine)
-        machine.git.branch = "develop"
+        machine.git.branch = "hotfix"
 
         update(machine, monkeypatch)
 
-        assert self._synced(machine) == ["develop"]
-        assert store.get_app(DOMAIN).branch == "develop"
+        assert self._synced(machine) == ["main"]
+        assert store.get_app(DOMAIN).branch == "main"
         assert lifecycle.pinned_branch(DOMAIN) is None
 
     def test_a_cache_detached_at_a_tag_follows_the_recorded_name(

@@ -1096,3 +1096,40 @@ def test_stopping_the_server_closes_every_tunnel(monkeypatch: pytest.MonkeyPatch
     assert fake.closed_all is True
     # The decrypted copies a sealed store handed ssh go with the process.
     assert len(removed) == 1
+
+
+class TestForwardedIdentityNeverWidens:
+    """Security review 3.1, finding 4: a narrowed token is not its owner on a node."""
+
+    def payload(self, permissions: frozenset[str], role: str = "admin") -> dict[str, Any]:
+        from noust.web.permissions.roles import legacy_scope
+
+        return {
+            "type": "api_token",
+            "sid": "token:ci",
+            "token_name": "ci",
+            "role": role,
+            "owner_account_id": 1,
+            "permissions": permissions,
+            "scope": legacy_scope(permissions),
+            "elevation_exempt": True,
+            "ip": "127.0.0.1",
+        }
+
+    def test_a_viewer_token_of_an_admin_is_a_viewer_on_the_node(self) -> None:
+        from noust.web.permissions.roles import VIEWER
+
+        identity = node_proxy.forwarded_identity(self.payload(VIEWER))
+        assert identity["actor_role"] == "viewer"
+        assert identity["actor_scope"] == "read"
+
+    def test_a_token_missing_one_admin_permission_is_not_admin(self) -> None:
+        from noust.web.permissions.roles import ADMIN
+
+        identity = node_proxy.forwarded_identity(self.payload(ADMIN - {"root_equivalent"}))
+        assert identity["actor_role"] == "operator"
+
+    def test_a_full_admin_is_still_admin(self) -> None:
+        from noust.web.permissions.roles import ADMIN
+
+        assert node_proxy.forwarded_identity(self.payload(ADMIN))["actor_role"] == "admin"

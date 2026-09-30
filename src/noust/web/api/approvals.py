@@ -103,7 +103,9 @@ class ApprovalInfo(BaseModel):
     Attributes:
         id: Its id; the value of ``X-Noust-Approval``.
         action: ``root_equivalent``, ``fleet.node.add``, ``fleet.node.remove``,
-            ``db.query.write``, ``apps.local_source`` or ``user.role_change``.
+            ``db.query.write``, ``db.query.analyze``, ``db.rows.write``,
+            ``apps.local_source``, ``user.role_change``, ``user.create`` or
+            ``user.invite``.
         kind: ``infrastructure`` or ``role_change``.
         description: What the action is, in one sentence.
         method: The call's method.
@@ -232,14 +234,20 @@ def approval_actor(session: dict[str, Any], client_ip: str | None = None) -> App
 
     Returns:
         The actor: an account with its role and person, the master token, a
-        token or a central.
+        token or a central. A token carries its owner's account and person,
+        so its owner never decides what it asked for.
     """
     principal = principal_of(session)
+    behind: str | None = None
+    if principal.kind == "account":
+        behind = principal.id
+    elif principal.kind == "token" and session.get("owner_account_id") is not None:
+        behind = str(session["owner_account_id"])
     person_ref = None
-    if principal.kind == "account" and principal.id is not None:
+    if behind is not None:
         from noust.web.server import get_token_manager
 
-        account = get_token_manager().accounts.get(int(principal.id))
+        account = get_token_manager().accounts.get(int(behind))
         person_ref = account.person_ref if account is not None else None
     return ApprovalActor(
         kind=principal.kind,
@@ -249,6 +257,7 @@ def approval_actor(session: dict[str, Any], client_ip: str | None = None) -> App
         person_ref=person_ref,
         via=principal.via,
         source=client_ip or principal.source,
+        account=behind,
     )
 
 
@@ -370,7 +379,13 @@ def _vouched_by_central(request: Request, session: dict[str, Any], action: str) 
     Let a central's call through when the central says it was approved there.
 
     The accounts, and so the decisions, live on the central; the node only
-    refuses a call its central did not vouch for.
+    refuses a call its central did not vouch for. That is the trust model: a
+    node cannot check the central's decision, only that the central took one.
+    Called only while this node's own policy asks for approvals, so a node
+    that requires them refuses a call whose headers are missing or malformed,
+    or that names its own requester as the approver; the record names both
+    people, the operator behind the central and the approver, and the
+    central's token.
 
     Args:
         request: The call.
@@ -385,26 +400,38 @@ def _vouched_by_central(request: Request, session: dict[str, Any], action: str) 
     approved_by = request.headers.get(APPROVED_BY_HEADER, "")
     reference = request.headers.get(APPROVAL_HEADER, "")
     actor = actor_of(session)
+    principal = principal_of(session)
+    requested_by = {"name": principal.name, "central": principal.id, "role": principal.role}
+    reason = "the central did not vouch for an approval"
     if FLEET_ACTOR_PATTERN.fullmatch(approved_by) and _APPROVAL_ID.fullmatch(reference):
-        record(
-            "approval.use",
-            actor=actor,
-            target=f"central-approval:{reference}",
-            details={
-                "action": action,
-                "method": request.method,
-                "path": request.url.path,
-                "approved_by": {"name": approved_by, "on": "central"},
-                "central_approval": reference,
-            },
-        )
-        return
+        if approved_by.lower() != principal.name.lower():
+            record(
+                "approval.use",
+                actor=actor,
+                target=f"central-approval:{reference}",
+                details={
+                    "action": action,
+                    "method": request.method,
+                    "path": request.url.path,
+                    "requested_by": requested_by,
+                    "approved_by": {"name": approved_by, "on": "central"},
+                    "central_approval": reference,
+                },
+            )
+            return
+        reason = "the central named the requester as the approver"
     record(
         "http.denied.approval",
         actor=actor,
         target=request.url.path,
         outcome="denied",
-        details={"action": action, "reason": "the central did not vouch for an approval"},
+        details={
+            "action": action,
+            "reason": reason,
+            "requested_by": requested_by,
+            "approved_by": approved_by[:64] or None,
+            "central_approval": reference[:16] or None,
+        },
     )
     raise HTTPException(
         status_code=403,

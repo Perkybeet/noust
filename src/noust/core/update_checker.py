@@ -31,6 +31,7 @@ stdout after every command, which appended a banner to the JSON document of
 from __future__ import annotations
 
 import importlib.metadata
+import importlib.util
 import json
 import logging
 import sys
@@ -56,6 +57,19 @@ CONFIG_KEY = "updates.check"
 UpdateState = Literal["up_to_date", "update_available", "on_the_way"]
 
 RELEASES_URL = "https://github.com/Perkybeet/noust/releases/tag/v{version}"
+
+
+def web_installed() -> bool:
+    """
+    Whether this installation has the console's dependencies.
+
+    An upgrade of such an installation names the ``web`` extra, so that what
+    a new release adds to it is installed too.
+
+    Returns:
+        True when FastAPI can be imported by this interpreter.
+    """
+    return importlib.util.find_spec("fastapi") is not None
 
 
 class UpdateCheckInProgress(Exception):
@@ -638,11 +652,13 @@ class UpdateChecker:
         Returns:
             Update command string.
         """
+        # Quoted: an unquoted [web] is a glob to zsh.
+        spec = "'noust[web]'" if web_installed() else "noust"
         commands = {
             # Install, not only-upgrade: a machine that still has the
             # package under WASM's name (wasm, wasm-cli) gets noust this way.
-            "pip": "pip install --upgrade noust",
-            "pipx": "pipx install --force noust",
+            "pip": f"pip install --upgrade {spec}",
+            "pipx": f"pipx install --force {spec}",
             "apt": "sudo apt update && sudo apt install noust",
             "dnf": "sudo dnf install --refresh noust",
             "yum": "sudo yum install noust",

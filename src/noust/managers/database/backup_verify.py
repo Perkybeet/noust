@@ -404,7 +404,9 @@ def restore_test(manager: BaseDatabaseManager, path: Path) -> RestoreTest:
     failure = ""
     tables: int | None = None
     try:
-        manager.restore(name, path, drop_existing=False, safety_backup=False)
+        # Isolated: a dump taken with --databases names the database it came
+        # from, and loading it into the temporary one would write there.
+        manager.restore(name, path, drop_existing=False, safety_backup=False, isolated=True)
         loaded = True
         try:
             tables = manager.get_database_info(name).tables

@@ -22,7 +22,10 @@
 #   - the operator's /etc/wasm/config.yaml survives it, with no .rpmsave copy;
 #   - on Debian, dpkg no longer holds that file as a conffile of wasm, so
 #     purging the transitional package cannot delete it (through the link at
-#     /etc/wasm) - and purging it really does keep it.
+#     /etc/wasm) - and purging it really does keep it;
+#   - with systemd, the package's 'noust monitor autoenable' never overrides
+#     an operator: a disabled monitor stays disabled, and a declined one
+#     (removed with the marker left behind) is not installed again.
 #
 # If the old repository cannot be reached, or already serves 3.x (it only ever
 # keeps the latest version, so after the release it has no 2.x left), there is
@@ -116,6 +119,48 @@ check_migrated() {
     echo "Migrated: /etc/wasm and /var/lib/wasm are links, noust.db exists, no wasm-web or wasm-monitor unit is left"
 }
 
+# Run the package's scripts again, as the next upgrade would.
+reinstall_noust() {
+    case "$kind" in
+        deb) INVOCATION_ID=upgrade-test apt-get install -y --reinstall noust > /dev/null ;;
+        rpm) INVOCATION_ID=upgrade-test dnf reinstall -y noust > /dev/null ;;
+    esac
+}
+
+check_monitor_decisions_survive() {
+    have_systemd || return 0
+    unit=/etc/systemd/system/noust-monitor.service
+
+    # A disabled monitor stays disabled: turned off with systemctl, so no
+    # marker is involved, only the unit being there.
+    noust monitor install --reason upgrade-test > /dev/null
+    rm -f /var/lib/noust/monitor-declined
+    systemctl disable --now noust-monitor.service > /dev/null 2>&1
+    reinstall_noust
+    [ -f "$unit" ] || fail "the upgrade removed a disabled monitor's unit"
+    if systemctl is-enabled --quiet noust-monitor.service; then
+        fail "a disabled monitor was enabled by the upgrade"
+    fi
+    echo "A disabled monitor stays disabled"
+
+    # An operator-declined monitor is not enabled: the unit deleted by hand,
+    # as 3.0's 'noust monitor uninstall' left it, and the marker the upgrade
+    # notes tell such an operator to touch.
+    rm -f "$unit"
+    systemctl daemon-reload
+    touch /var/lib/noust/monitor-declined
+    reinstall_noust
+    [ ! -e "$unit" ] || fail "an operator-declined monitor was installed again by the upgrade"
+    echo "An operator-declined monitor is not enabled"
+
+    # And 3.1's own uninstall is remembered the same way.
+    noust monitor enable --reason upgrade-test > /dev/null
+    noust monitor uninstall --reason upgrade-test > /dev/null
+    [ -f /var/lib/noust/monitor-declined ] || fail "noust monitor uninstall left no marker"
+    reinstall_noust
+    [ ! -e "$unit" ] || fail "an uninstalled monitor was installed again by the upgrade"
+}
+
 case "$kind" in
     deb)
         export DEBIAN_FRONTEND=noninteractive
@@ -155,6 +200,7 @@ case "$kind" in
         check_commands
         config_kept || fail "the configuration did not survive the upgrade"
         check_migrated
+        check_monitor_decisions_survive
 
         # The transitional package is in section oldlibs, and apt moves the
         # manual-install mark of a package that moves into oldlibs to what it
@@ -213,6 +259,7 @@ case "$kind" in
             fi
         done
         check_migrated
+        check_monitor_decisions_survive
 
         # dnf records noust as installed for a dependency, and removing
         # wasm-cli would take it along (clean_requirements_on_remove). What

@@ -253,11 +253,19 @@ class Excerpt:
         lines: The lines, oldest first.
         omitted: How many earlier lines were left out, for the marker every
             renderer draws in the reader's language.
+        pinned: How many of the first lines stay whatever a channel's budget
+            is, because they carry the output's first error, brought up from
+            above the lines that follow it (the failing step's own message,
+            when there is one, counts among them). Zero when nothing was
+            brought up; the lines after the pinned ones are the end of the
+            output, as it came. Counted in :attr:`lines` as given, so each
+            entry must be one line.
     """
 
     label: str
     lines: tuple[str, ...]
     omitted: int = 0
+    pinned: int = 0
 
     def __post_init__(self) -> None:
         """Split multi-line entries and clean every line."""

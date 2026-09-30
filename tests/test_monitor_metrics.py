@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import functools
 import io
+import sqlite3
 import threading
 import time
 import types
@@ -152,6 +153,19 @@ def test_the_unit_runs_at_low_priority_and_still_only_writes_its_own_state(
     assert "StateDirectory=noust" in unit
 
 
+def test_the_unit_can_write_the_audit_log_it_records_to(machine: types.SimpleNamespace) -> None:
+    """
+    Every command, 'monitor run' included, records to the audit log in the
+    configuration directory, which ProtectSystem=strict makes read-only. The
+    '-' keeps a missing directory from failing the namespace (226/NAMESPACE).
+    """
+    from noust.core import paths
+
+    unit = monitor(machine)._unit_content()
+
+    assert f"\nReadWritePaths=-{paths.config_dir()}\n" in unit
+
+
 def test_the_promise_about_command_lines_names_its_one_exception() -> None:
     """The guarantee the CLI prints is true of the code that reads a PHP worker's title."""
     scope = " ".join(process_monitor_module.MONITOR_SCOPE)
@@ -214,6 +228,51 @@ def test_a_monitor_the_operator_removed_stays_removed(machine: types.SimpleNames
 
     assert monitor(machine).install_by_default() == "declined"
     assert machine.runner.calls == []
+
+
+def test_a_monitor_removed_before_the_marker_existed_is_not_brought_back(
+    machine: types.SimpleNamespace,
+) -> None:
+    """3.0's uninstall left no marker; the journal still remembers the unit ran."""
+    machine.runner.script(
+        ["journalctl", "--unit", "noust-monitor.service"],
+        stdout="Noust process monitor started\n",
+    )
+
+    assert monitor(machine).install_by_default() == "removed"
+    assert not (machine.unit_dir / "noust-monitor.service").exists()
+    assert machine.declined.is_file(), "the inference is kept, so it is made once"
+    assert not any(call[:2] == ("systemctl", "enable") for call in machine.runner.calls)
+
+
+def test_wasms_monitor_in_the_journal_counts_too(machine: types.SimpleNamespace) -> None:
+    """A 2.x server that removed wasm-monitor and then moved onto Noust's names."""
+    machine.runner.script(["journalctl", "--unit", "wasm-monitor.service"], stdout="started\n")
+
+    assert monitor(machine).install_by_default() == "removed"
+
+
+def test_observations_recorded_here_before_count_as_a_monitor_that_ran(
+    machine: types.SimpleNamespace, tmp_path: Path
+) -> None:
+    """Only a monitor writes observations; the file alone is not evidence."""
+    from noust.monitor.observation_store import ObservationStore
+
+    store = ObservationStore(db_path=tmp_path / "observations.db")
+    store.stats()
+    assert monitor(machine, store=store).install_by_default() == "enabled"
+
+    (machine.unit_dir / "noust-monitor.service").unlink()
+    machine.declined.unlink(missing_ok=True)
+    conn = sqlite3.connect(store.db_path)
+    conn.execute(
+        "INSERT INTO observations (observed_at, pid, process_name, signal, severity)"
+        " VALUES ('2026-01-01T00:00:00', 4242, 'xmrig', 'high_cpu', 'warning')"
+    )
+    conn.commit()
+    conn.close()
+
+    assert monitor(machine, store=store).install_by_default() == "removed"
 
 
 def test_turning_it_on_again_forgets_the_refusal(machine: types.SimpleNamespace) -> None:

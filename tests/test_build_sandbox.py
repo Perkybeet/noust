@@ -203,7 +203,7 @@ def forget_regime(store: NoustStore) -> None:
         cursor.execute("DELETE FROM build_sandbox")
 
 
-def test_an_application_from_before_keeps_building_as_root_with_a_warning_and_a_clean_env(
+def test_an_application_from_before_keeps_building_as_root_with_a_warning_and_its_env(
     tmp_path: Path,
     root: Path,
     store: NoustStore,
@@ -224,7 +224,9 @@ def test_an_application_from_before_keeps_building_as_root_with_a_warning_and_a_
 
     installs = [i for i, c in enumerate(runner.calls) if i >= before and c == ("npm", "ci")]
     assert installs, runner.calls[before:]
-    assert all(runner.clean_envs[i] for i in installs)
+    # Exactly as before 3.1: a build that relied on a variable of the
+    # environment Noust runs in keeps it. Only the sandbox starts clean.
+    assert not any(runner.clean_envs[i] for i in installs)
     assert runner.sandboxes[installs[0]] is None
     app = store.get_app(DOMAIN)
     assert app is not None
@@ -370,6 +372,24 @@ def test_a_migration_runs_as_the_application_not_as_the_build(
     assert spec.strict is False
 
 
+def test_only_the_sandbox_starts_from_a_clean_environment(
+    tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """In the sandbox what Noust's own process inherited never reaches the build."""
+    from noust.core.runner import sandbox_environment
+
+    monkeypatch.setenv("NOUST_LEAKY_TOKEN", "x")
+    runner = FakeRunner()
+    deployer = primed(tmp_path / "apps" / "x", runner=runner)
+
+    deployer._run(["npm", "run", "build"], phase=BuildPhase.BUILD)
+
+    [spec] = runner.sandboxes
+    assert spec is not None
+    composed = sandbox_environment(spec, runner.envs[0], dict(os.environ))
+    assert "NOUST_LEAKY_TOKEN" not in composed
+
+
 def test_a_privileged_command_runs_as_this_process_with_its_environment(
     tmp_path: Path, store: NoustStore
 ) -> None:
@@ -382,7 +402,7 @@ def test_a_privileged_command_runs_as_this_process_with_its_environment(
     assert runner.clean_envs == [False]
 
 
-def test_without_root_a_build_runs_directly_with_a_clean_environment(
+def test_without_the_sandbox_a_build_runs_directly_with_the_inherited_environment(
     tmp_path: Path, store: NoustStore
 ) -> None:
     runner = FakeRunner()
@@ -392,7 +412,7 @@ def test_without_root_a_build_runs_directly_with_a_clean_environment(
     deployer._run(["npm", "ci"])
 
     assert runner.calls == [("npm", "ci")]
-    assert runner.clean_envs == [True]
+    assert runner.clean_envs == [False]
 
 
 # ---------------------------------------------------------------------------
@@ -730,3 +750,90 @@ def test_a_build_killed_by_a_limit_names_the_limit(
         assert "MemoryMax=2048M" in (raised.value.details or "")
     else:
         assert "deadline" in (raised.value.details or "")
+
+
+# ---------------------------------------------------------------------------
+# Previews: the network by default, never production's secrets
+# ---------------------------------------------------------------------------
+
+PARENT = "shop.example.com"
+PREVIEW = "pr-7.previews.example.com"
+
+
+def preview_rows(store: NoustStore, *, parent_network: str | None = None) -> None:
+    """Register an application and one of its previews."""
+    from noust.core.store import App
+
+    store.create_app(App(domain=PARENT, app_type="nodejs"))
+    if parent_network is not None:
+        build_sandbox.enable(PARENT, actor="test", force=True, network=parent_network, store=store)
+    store.create_app(App(domain=PREVIEW, app_type="nodejs", preview_parent=PARENT))
+
+
+def test_a_preview_builds_with_the_network_by_default(store: NoustStore) -> None:
+    """next/font/google and the like fetch at build time; 3.0 previews built that way."""
+    preview_rows(store)
+
+    state = build_sandbox.adopt_new_app(PREVIEW, preview=True, store=store)
+
+    assert state.network == "full"
+
+
+def test_a_preview_builds_strict_when_its_application_opted_in(store: NoustStore) -> None:
+    preview_rows(store, parent_network="strict")
+
+    state = build_sandbox.adopt_new_app(PREVIEW, preview=True, store=store)
+
+    assert state.network == "strict"
+
+
+def test_a_preview_built_with_the_network_is_never_given_production_secrets(
+    tmp_path: Path, store: NoustStore
+) -> None:
+    preview_rows(store)
+    runner = FakeRunner()
+    root = tmp_path / "apps" / "pr-7"
+    deployer = NodeJSDeployer(verbose=False, runner=runner)
+    deployer.configure(PREVIEW, "https://example.com/x.git", app_path=root)
+    deployer._layout = "releases"
+    deployer._sandbox_regime = SandboxState(domain=PREVIEW, mode="on", network="full")
+    deployer._sandbox_cache = root.parent / "cache"
+    deployer._sandbox_tree = deployer.build_path
+    env_file = deployer._env_file()
+    env_file.parent.mkdir(parents=True)
+    env_file.write_text(
+        "DATABASE_URL=postgresql://shop:hunter2hunter2@localhost/shop\n"
+        "STRIPE_SECRET_KEY=sk_live_0123456789abcdef\n"
+        "NEXT_PUBLIC_SITE_URL=https://shop.example.com\n"
+    )
+
+    deployer._run(["npm", "ci"], phase=BuildPhase.INSTALL)
+    deployer._run(["npm", "run", "build"], phase=BuildPhase.BUILD)
+
+    for spec, env in zip(runner.sandboxes, runner.envs, strict=True):
+        assert spec is not None and spec.network == "full"
+        assert spec.env_files == ()
+        given = env or {}
+        assert given["NEXT_PUBLIC_SITE_URL"] == "https://shop.example.com"
+        assert "STRIPE_SECRET_KEY" not in given
+        assert "DATABASE_URL" not in given
+
+
+def test_a_strict_build_that_fails_on_the_network_says_how_to_allow_it(
+    tmp_path: Path, store: NoustStore
+) -> None:
+    runner = FakeRunner().script(
+        ["npm", "run", "build"],
+        exit_code=1,
+        stderr="request to https://fonts.googleapis.com/css2 failed, reason: "
+        "getaddrinfo ENOTFOUND fonts.googleapis.com",
+    )
+    deployer = primed(tmp_path / "apps" / "x", network="strict", runner=runner)
+    deployer.package_manager = "npm"
+    deployer.has_build = True
+
+    with pytest.raises(BuildError) as raised:
+        deployer.build()
+
+    assert f"noust app sandbox enable {DOMAIN} --network full" in (raised.value.details or "")
+    assert "ENOTFOUND" in (raised.value.details or "")

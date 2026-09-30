@@ -82,6 +82,14 @@ def control_field(control: str, field: str) -> str:
 class TestTheProductPackages:
     """noust.spec and debian.control take over from wasm-cli and wasm."""
 
+    def test_every_document_the_packages_list_exists(self):
+        """dh_installdocs and rpm's %doc fail the build on a missing file, in OBS, late."""
+        listed = [line.strip() for line in read("obs/debian.docs").splitlines() if line.strip()]
+        listed += re.findall(r"^%doc (\S+\.md)$", read("rpm/noust.spec"), re.MULTILINE)
+        missing = sorted({path for path in listed if not (REPO / path).is_file()})
+        assert not missing, f"listed for the packages and not in the tree: {missing}"
+        assert "docs/UPGRADING-3.1.md" in listed
+
     def test_the_rpm_conflicts_with_wasm_cli_2_and_never_obsoletes_it(self):
         """
         Obsoletes made dnf replace wasm-cli 2.x with noust outright, so rpm
@@ -158,7 +166,7 @@ class TestTheProductPackages:
         else:
             text = text[text.index("configure)") :]
 
-        migrate = text.index("noust migrate-from-wasm ||")
+        migrate = text.index('noust migrate-from-wasm --reason "package upgrade" ||')
         assert migrate < text.index("monitor install")
         assert migrate < text.index("restart noust-web.service")
         failure = text[migrate:].splitlines()[0]

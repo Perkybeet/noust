@@ -41,13 +41,25 @@ noust monitor test-email    # send one email to the recipients, to prove the set
 
 The unit is `noust-monitor.service`. It runs `noust monitor run` as root, restarts on failure,
 and is sandboxed (`NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome=read-only`,
-`PrivateDevices`). The console's Server page has the same controls.
+`PrivateDevices`). The console has the same controls under Server > System, and the Overview
+says when the history is not being recorded, why, and what to run.
 
 The package installs and enables the monitor on install, and on an upgrade that finds none,
 because the charts' history is recorded here (see [Metrics history](#metrics-history)). It
 never overrides a decision: a monitor that is installed stays as it is, and one you disabled or
 removed stays off until you run `noust monitor enable`. Where there is no systemd (a container)
 nothing is installed, and the console records the history while it runs.
+
+"Turned off" is remembered in `/var/lib/noust/monitor-declined`, which `noust monitor disable`
+and `noust monitor uninstall` write from 3.1 on. A monitor removed with 3.0's `noust monitor
+uninstall` left no such file, so on the upgrade to 3.1 the package also leaves the monitor off
+when the journal still has lines from `noust-monitor` (or `wasm-monitor`), or the observation
+database holds anything a monitor recorded, and writes the file then. Where neither is left
+(a rotated journal), keep the monitor off with:
+
+```bash
+sudo touch /var/lib/noust/monitor-declined    # before upgrading; noust monitor enable removes it
+```
 
 ## What it watches
 
@@ -91,7 +103,9 @@ series), most of it the hourly tier: 24 rows per series per day, so `metrics.ret
 scales it directly.
 
 Only one collector writes at a time: the monitor takes a lease in the database, and the console
-samples only while no monitor does. `noust monitor status` says whether the history is being
+samples only while no monitor does (a container, where there is no systemd). The console reads
+the history with `GET /api/metrics/query`, several series per request, at the tier the window
+needs. `noust monitor status` says whether the history is being
 recorded and, when it is not, why and what to run.
 
 What is measured per application depends on how it runs:
@@ -178,6 +192,7 @@ only when `notifications.enabled` is on and the event is enabled. Test a channel
 | `GET /api/monitor/status` | Unit state, and the list of things the monitor never does |
 | `GET /api/monitor/config` | Settings in effect |
 | `GET /api/monitor/metrics` | One live reading of CPU, load, memory, swap, disks, network |
+| `GET /api/metrics/query` | The recorded history: several series, a window, mean and maximum per bucket |
 | `GET /api/monitor/processes` | The process table, sortable, at most 500 |
 | `POST /api/monitor/scan` | Run one scan now |
 | `GET /api/monitor/observations` | Recorded observations and their counts |
@@ -189,8 +204,13 @@ only when `notifications.enabled` is on and the event is enabled. Test a channel
 
 ## Troubleshooting
 
-- **Nothing is recorded.** `psutil` must be installed (`apt install python3-psutil`, or
-  `pip install psutil`), and the monitor needs root to see every process.
+- **Nothing is recorded.** `psutil` must be installed (`apt install python3-psutil`,
+  `dnf install python3-psutil`, `zypper install python3-psutil`, or `pip install psutil`; the
+  RPM package only recommends it), and the monitor needs root to see every process.
+- **An application has no chart.** The chart says why: the unit is stopped or missing, it is a
+  static site (see its requests instead), or accounting is off for its unit. Units written from
+  3.1 on carry `MemoryAccounting=yes` and `CPUAccounting=yes`; for an older one, redeploy it or
+  add them (`systemctl edit <unit>`) and restart it.
 - **No email.** Run `noust monitor test-email`: it prints the SMTP server's own error. Check
   that the firewall allows outbound 465 or 587.
 - **Too many resource-use observations.** Raise `monitor.cpu_threshold` or

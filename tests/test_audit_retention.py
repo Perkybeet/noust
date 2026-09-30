@@ -101,6 +101,47 @@ def test_old_deployments_go(store: NoustStore) -> None:
     assert report.deleted["deployments"] == 1
 
 
+def test_an_application_s_rollback_targets_outlive_the_retention_period(
+    store: NoustStore,
+) -> None:
+    """
+    An application not deployed in a year keeps its live deployment.
+
+    Deleting it lost the rollback target and the protection its snapshot
+    backup gets (the newest deployments of each application name theirs).
+    """
+    from noust.core.store import App
+    from noust.managers.backup_manager import SNAPSHOT_DEPLOYMENTS_KEPT
+
+    store.create_app(App(domain="shop.example.com", app_type="nodejs"))
+    rows = []
+    for _ in range(SNAPSHOT_DEPLOYMENTS_KEPT + 2):
+        rows.append(store.record_deployment_start("shop.example.com", "cli"))
+        store.finish_deployment(rows[-1], "success")
+
+    report = prune(SETTINGS, now=datetime.now() + timedelta(days=400))
+
+    assert report.deleted["deployments"] == 2
+    kept = {record.id for record in store.list_deployments("shop.example.com", limit=100)}
+    assert kept == set(rows[2:])
+
+
+def test_the_last_success_is_kept_behind_a_run_of_failures(store: NoustStore) -> None:
+    from noust.core.store import App
+    from noust.managers.backup_manager import SNAPSHOT_DEPLOYMENTS_KEPT
+
+    store.create_app(App(domain="shop.example.com", app_type="nodejs"))
+    good = store.record_deployment_start("shop.example.com", "cli")
+    store.finish_deployment(good, "success")
+    for _ in range(SNAPSHOT_DEPLOYMENTS_KEPT):
+        failed = store.record_deployment_start("shop.example.com", "cli")
+        store.finish_deployment(failed, "failed")
+
+    prune(SETTINGS, now=datetime.now() + timedelta(days=400))
+
+    assert store.get_deployment(good) is not None
+
+
 def test_a_running_deployment_stays(store: NoustStore) -> None:
     store.record_deployment_start("shop.example.com", "cli")
     report = prune(SETTINGS, now=datetime.now() + timedelta(days=366))

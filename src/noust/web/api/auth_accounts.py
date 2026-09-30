@@ -384,12 +384,36 @@ class AccountActionResponse(BaseModel):
     message: str
 
 
+def _caller_account(session: dict[str, Any]) -> Account | None:
+    """
+    The account a request acts as: the signed-in account, or an API token's owner.
+
+    Args:
+        session: The authenticated payload.
+
+    Returns:
+        The account, or None for the master token, a token nobody owns or a
+        central.
+    """
+    if session.get("fleet"):
+        return None
+    raw = session.get("account_id")
+    if raw is None and session.get("type") == "api_token":
+        raw = session.get("owner_account_id")
+    if raw is None:
+        return None
+    return get_token_manager().accounts.get(int(raw))
+
+
 def _refuse_self(session: dict[str, Any], username: str, action: str) -> None:
     """
     Refuse an action on one's own account that another person has to take.
 
     Changing one's own role, disabling or removing oneself are how a single
-    person would escape separation of duties; the root CLI still can.
+    person would escape separation of duties; the root CLI still can. Who
+    "oneself" is comes from the account id - a session's account, or the
+    owner of the token making the call - never from a username a token's
+    payload does not carry.
 
     Args:
         session: The authenticated payload.
@@ -399,7 +423,12 @@ def _refuse_self(session: dict[str, Any], username: str, action: str) -> None:
     Raises:
         AccountError: When the account is the caller's own.
     """
-    if session.get("username") and str(session["username"]) == username.strip().lower():
+    caller = _caller_account(session)
+    target = get_token_manager().accounts.find(username)
+    own = (caller is not None and target is not None and caller.id == target.id) or (
+        bool(session.get("username")) and str(session["username"]) == username.strip().lower()
+    )
+    if own:
         raise AccountError(
             f"You cannot {action} your own account",
             details="Another security officer can, or root with 'noust user'.",
@@ -600,7 +629,12 @@ def create_invitation(
         ValidationError: When a field is refused.
         AccountError: When the role clashes or the account is disabled.
     """
-    account, code = get_token_manager().accounts.invite(
+    accounts = get_token_manager().accounts
+    existing = accounts.find(body.username)
+    if existing is not None:
+        # A recovery gives the account's role to whoever holds the code.
+        accounts.check_grant(existing, _caller_account(session), "issue a recovery invitation for")
+    account, code = accounts.invite(
         body.username,
         body.role,
         display_name=body.display_name,

@@ -91,7 +91,14 @@ def test_the_unit_declares_no_path_systemd_will_not_create(unit: str) -> None:
     it is a namespace systemd cannot build, and the service never starts.
     """
     named = directives(unit)
-    offenders = {key: named[key] for key in UNCREATED_DIRECTIVES if key in named}
+    # A path prefixed with '-' is one systemd skips when it is missing, which
+    # is exactly the failure this is about made impossible.
+    offenders = {
+        key: [path for value in named[key] for path in value.split() if not path.startswith("-")]
+        for key in UNCREATED_DIRECTIVES
+        if key in named
+    }
+    offenders = {key: found for key, found in offenders.items() if found}
 
     assert not offenders, (
         f"the unit names paths systemd will not create: {offenders}. "

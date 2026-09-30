@@ -240,7 +240,20 @@ def test_the_banner_is_written_to_stderr_never_stdout(
     captured = capsys.readouterr()
     assert captured.out == ""
     assert "New version available: 99.0.0" in captured.err
-    assert "pip install --upgrade noust" in captured.err
+    assert "pip install --upgrade " in captured.err
+
+
+@pytest.mark.parametrize(("web", "spec"), [(True, "'noust[web]'"), (False, "noust")])
+def test_the_pip_hint_keeps_the_console(
+    monkeypatch: pytest.MonkeyPatch, web: bool, spec: str
+) -> None:
+    """An installation with the console is told to upgrade with it."""
+    from noust.core import update_checker
+
+    monkeypatch.setattr(update_checker, "web_installed", lambda: web)
+
+    assert UpdateChecker._get_update_command("pip") == f"pip install --upgrade {spec}"
+    assert UpdateChecker._get_update_command("pipx") == f"pipx install --force {spec}"
 
 
 @pytest.mark.parametrize(

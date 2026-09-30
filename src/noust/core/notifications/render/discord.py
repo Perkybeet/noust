@@ -35,6 +35,7 @@ from noust.core.notifications.render.common import (
     fit,
     http_url,
     omitted_marker,
+    with_pinned_marker,
 )
 
 TITLE_LIMIT = 256
@@ -143,7 +144,8 @@ def _description(n: Notification, excerpt: Excerpt | None) -> str:
         )
         parts.append(f"**{markdown(clip(section.heading, 200))}**\n{rows}")
     if excerpt is not None and excerpt.lines:
-        lines = [defuse(line).replace("```", "'''") for line in excerpt.lines]
+        shown = with_pinned_marker(list(excerpt.lines), excerpt, n)
+        lines = [defuse(line).replace("```", "'''") for line in shown]
         marker = omitted_marker(excerpt, n)
         if marker:
             lines.append(f"… {marker}")

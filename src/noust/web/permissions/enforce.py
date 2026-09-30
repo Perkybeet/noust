@@ -102,6 +102,30 @@ def has_permission(payload: Mapping[str, Any], permission: str) -> bool:
     return permission == PUBLIC or permission in permissions_of(payload)
 
 
+def ensure_notice_accepted(payload: Mapping[str, Any], permission: str = Permission.SELF) -> None:
+    """
+    Refuse a principal that has not accepted the usage notice yet.
+
+    What is one's own (``self``) stays open without it, so the notice can be
+    read and accepted - except what gives standing power: sudo mode and a new
+    API token call this themselves.
+
+    Args:
+        payload: An authenticated payload; a token's carries its owner's state.
+        permission: What was asked, for the refusal.
+
+    Raises:
+        PermissionDenied: 403 ``notice_required``.
+    """
+    if payload.get("notice_pending"):
+        raise PermissionDenied(
+            "notice_required",
+            permission,
+            "Accept the usage notice before doing anything else",
+            "Read it in GET /api/auth/session and accept it: POST /api/auth/notice/accept.",
+        )
+
+
 def check_permission(payload: Mapping[str, Any], permission: str) -> None:
     """
     Refuse a principal that may not do what a route needs.
@@ -126,13 +150,7 @@ def check_permission(payload: Mapping[str, Any], permission: str) -> None:
                 "Set up two-factor authentication before doing anything else",
                 "Enrol an authenticator: POST /api/auth/2fa/enroll, then /api/auth/2fa/confirm.",
             )
-        if payload.get("notice_pending"):
-            raise PermissionDenied(
-                "notice_required",
-                permission,
-                "Accept the usage notice before doing anything else",
-                "Read it in GET /api/auth/session and accept it: POST /api/auth/notice/accept.",
-            )
+        ensure_notice_accepted(payload, permission)
     if permission in permissions_of(payload):
         return
     who = payload.get("role") or payload.get("grant") or payload.get("scope") or "this credential"

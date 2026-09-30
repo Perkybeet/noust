@@ -53,7 +53,7 @@ from noust.web.auth import (
     verify_credential,
 )
 from noust.web.permissions import ALL_PERMISSIONS, DESCRIPTIONS, Permission
-from noust.web.permissions.enforce import has_permission
+from noust.web.permissions.enforce import ensure_notice_accepted, has_permission
 from noust.web.permissions.roles import GRANT_COMPAT, ROLE_PERMISSIONS
 from noust.web.server import get_brute_force, get_token_manager
 
@@ -782,8 +782,12 @@ def elevate(
     Raises:
         HTTPException: 401 with ``error`` ``invalid_credentials`` for an
             account, ``totp_required``, ``invalid_totp`` or ``invalid_token``
-            for the master token, when the factors do not verify.
+            for the master token, when the factors do not verify; 403
+            ``notice_required`` before the usage notice is accepted.
     """
+    # Sudo mode is standing power over everything destructive: not before
+    # the usage notice is accepted, though elevating is one's own business.
+    ensure_notice_accepted(session)
     token_manager = get_token_manager()
     client_ip = get_client_ip(request)
 
@@ -1728,8 +1732,10 @@ def create_api_token(
             permission, network or expiry is refused. The audit record names
             the token; the token itself never reaches the audit log.
         HTTPException: 403 with ``error: "elevation_required"`` per
-            :func:`noust.web.api.deps.require_elevated`.
+            :func:`noust.web.api.deps.require_elevated`, or
+            ``notice_required`` before the owner accepted the usage notice.
     """
+    ensure_notice_accepted(session)
     token_manager = get_token_manager()
     if session.get("type") == "api_token" and not has_permission(
         session, Permission.ACCOUNTS_MANAGE

@@ -18,6 +18,8 @@ opening.
 """
 
 import sqlite3
+import stat
+import threading
 from pathlib import Path
 
 import pytest
@@ -690,3 +692,144 @@ class TestNodeRows:
         assert store.delete_node("web-2") is True
         assert store.delete_node("web-2") is False
         assert store.get_node("web-2") is None
+
+
+def _create_v11_database(db_path: Path) -> None:
+    """
+    Create a real v11 database as 3.0 leaves it, with one application.
+
+    Args:
+        db_path: Where the database file is created.
+    """
+    _create_v10_database(db_path)
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(store_module, "SCHEMA_VERSION", 11)
+        NoustStore(db_path, fs=RecordingFileSystem())
+    NoustStore.reset_instance()
+    assert _raw_max_version(db_path) == 11
+
+
+def _backups(db_path: Path) -> list[Path]:
+    return sorted(db_path.parent.glob(f"{db_path.name}.v*.bak"))
+
+
+class TestAnUpgradeKeepsACopyFirst:
+    """Before any step runs on an older store, a copy of it is kept beside it."""
+
+    def test_a_v11_store_is_copied_before_it_climbs(self, fresh, tmp_path):
+        db_path = tmp_path / "noust.db"
+        _create_v11_database(db_path)
+        for old in _backups(db_path):
+            old.unlink()
+
+        NoustStore(db_path, fs=RecordingFileSystem())
+
+        [copy] = _backups(db_path)
+        assert copy.name.startswith("noust.db.v11-")
+        assert stat.S_IMODE(copy.stat().st_mode) == 0o600
+        assert _raw_max_version(copy) == 11
+        conn = sqlite3.connect(copy)
+        try:
+            domains = [row[0] for row in conn.execute("SELECT domain FROM apps")]
+        finally:
+            conn.close()
+        assert domains == ["v8.example.com"]
+        assert _raw_max_version(db_path) == SCHEMA_VERSION
+
+    def test_a_current_or_new_store_is_not_copied(self, fresh, tmp_path):
+        db_path = tmp_path / "noust.db"
+        NoustStore(db_path, fs=RecordingFileSystem())
+        NoustStore.reset_instance()
+        NoustStore(db_path, fs=RecordingFileSystem())
+
+        assert _backups(db_path) == []
+
+
+class TestANewerStoreIsRefused:
+    def test_opening_a_store_from_a_newer_noust_says_so(self, fresh, tmp_path):
+        db_path = tmp_path / "noust.db"
+        NoustStore(db_path, fs=RecordingFileSystem())
+        NoustStore.reset_instance()
+        conn = sqlite3.connect(db_path)
+        conn.execute("INSERT INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION + 1,))
+        conn.commit()
+        conn.close()
+
+        with pytest.raises(store_module.StoreError) as raised:
+            NoustStore(db_path, fs=RecordingFileSystem())
+
+        assert "newer" in raised.value.message
+        assert "downgrading noust is not supported" in (raised.value.details or "").lower()
+        assert _raw_max_version(db_path) == SCHEMA_VERSION + 1
+
+
+def _bare_store(db_path: Path) -> NoustStore:
+    """A store object outside the singleton: what a second process holds."""
+    store = object.__new__(NoustStore)
+    store._fs = RecordingFileSystem()
+    store._db_path = db_path
+    store._local = threading.local()
+    store._initialized = False
+    return store
+
+
+class TestTwoProcessesMigratingAtOnce:
+    """noust-web restarting, noust-monitor starting and a timer, all at the upgrade."""
+
+    def test_both_read_v11_and_neither_fails(self, fresh, tmp_path, monkeypatch):
+        db_path = tmp_path / "noust.db"
+        _create_v11_database(db_path)
+        first, second = _bare_store(db_path), _bare_store(db_path)
+        both_read = threading.Barrier(2, timeout=10)
+        read_version = NoustStore._schema_version
+
+        def _read_then_wait(self: NoustStore) -> int | None:
+            version = read_version(self)
+            both_read.wait()
+            return version
+
+        monkeypatch.setattr(NoustStore, "_schema_version", _read_then_wait)
+        errors: list[BaseException] = []
+
+        def _open(store: NoustStore) -> None:
+            try:
+                store._ensure_schema()
+            except BaseException as exc:
+                errors.append(exc)
+
+        threads = [threading.Thread(target=_open, args=(s,)) for s in (first, second)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=30)
+
+        assert errors == []
+        conn = sqlite3.connect(db_path)
+        try:
+            versions = [row[0] for row in conn.execute("SELECT version FROM schema_version")]
+        finally:
+            conn.close()
+        assert versions.count(SCHEMA_VERSION) == 1
+        assert max(versions) == SCHEMA_VERSION
+
+
+class TestAStoreStampedV12WithoutItsTables:
+    """An intermediate 3.1 build stamped 12 before every area had its fragment."""
+
+    def test_the_missing_tables_and_columns_are_added_on_open(self, fresh, tmp_path):
+        db_path = tmp_path / "noust.db"
+        NoustStore(db_path, fs=RecordingFileSystem())
+        NoustStore.reset_instance()
+        complete = {table: _raw_columns(db_path, table) for table in _raw_tables(db_path)}
+        table, column, _ = store_module.schema_v12._columns()[0]
+        conn = sqlite3.connect(db_path)
+        conn.execute("DROP TABLE webauthn_spent")
+        conn.execute(f"ALTER TABLE {table} DROP COLUMN {column}")
+        conn.commit()
+        conn.close()
+        assert _raw_tables(db_path) != set(complete)
+
+        NoustStore(db_path, fs=RecordingFileSystem())
+
+        assert {t: _raw_columns(db_path, t) for t in _raw_tables(db_path)} == complete
+        assert _raw_max_version(db_path) == SCHEMA_VERSION

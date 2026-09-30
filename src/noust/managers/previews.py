@@ -29,11 +29,14 @@ its author must be an owner, member or collaborator, and a bot's (Dependabot,
 Renovate) only when the settings allow bots.
 
 Since 3.1 a preview is built in the build sandbox, as the unprivileged
-``noust-build`` account (:mod:`noust.deployers.helpers.sandbox`), in the strict
-network profile: its dependencies install with the network and without the
-parent's variables, and its build runs with them and without a network. The
-deployment marks it so when it creates the preview's application
-(``preview_parent``); nothing here has to.
+``noust-build`` account (:mod:`noust.deployers.helpers.sandbox`). It builds
+with the network, as previews always did, and without the production secrets
+among the variables it copied (only the unit gets those). The strict network
+profile is opt-in: a preview takes it when its parent builds strict (``noust
+app sandbox enable <parent> --network strict``), and then its dependencies
+install with the network and without the parent's variables, and its build
+runs with them and without a network. The deployment decides this when it
+creates the preview's application (``preview_parent``); nothing here has to.
 """
 
 from __future__ import annotations

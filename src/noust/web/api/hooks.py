@@ -64,6 +64,7 @@ from noust.core.exceptions import DeploymentError, DomainError
 from noust.core.forge_events import parse_pull_request
 from noust.core.store import App, DeploymentRecord, DeploymentTrigger, StoreError, get_store
 from noust.core.webhook_deliveries import WebhookDelivery
+from noust.deployers.lifecycle import branch_to_build
 from noust.integrations import webhook as webhook_service
 from noust.integrations.webhook import mint_secret as mint_webhook_secret
 from noust.managers.previews import handle_pull_request
@@ -519,12 +520,15 @@ async def deliver(domain: str, request: Request) -> JSONResponse:
         )
 
     branch = _pushed_branch(payload)
-    if app is not None and app.branch and branch != app.branch:
+    # The branch the queued update would build, not only the recorded one: a
+    # pin, or the checkout's branch in place, is what gets deployed.
+    tracked = await run_in_threadpool(branch_to_build, app) if app is not None else None
+    if app is not None and tracked and branch != tracked:
         _record(
             request,
             validated,
             "ignored",
-            f"push to {branch or 'no branch'}, app tracks {app.branch} ({provider})",
+            f"push to {branch or 'no branch'}, app tracks {tracked} ({provider})",
         )
         _log(
             app,
@@ -532,7 +536,7 @@ async def deliver(domain: str, request: Request) -> JSONResponse:
             provider=provider,
             event=PUSH,
             branch=branch,
-            detail=f"push to {branch or 'no branch'}; this application deploys {app.branch}",
+            detail=f"push to {branch or 'no branch'}; this application deploys {tracked}",
             delivery=delivery,
         )
         return JSONResponse(status_code=200, content={"status": "ignored", "reason": "branch"})

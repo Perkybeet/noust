@@ -53,6 +53,7 @@ from noust.core.notifications.context import NotificationContext, default_server
 from noust.core.notifications.excerpt import normalize
 from noust.core.notifications.model import Notification, State
 from noust.deployers.deploy_events import DeployEvent, DeployEventKind
+from tests.notifications_support import NODE_CRASH, NODE_ERROR
 
 JOURNAL = "\n".join(
     [f"Sep 29 10:45:{i:02d} web-1 npm[48455]: line number {i}" for i in range(10, 30)]
@@ -428,6 +429,39 @@ class TestDeployFailureEvidence:
 
         assert notification.excerpt is not None
         assert notification.excerpt.lines[0] == "Release 2026 did not pass its health check"
+
+    def test_a_node_crash_keeps_its_error_above_systemds_lines(
+        self, ctx: NotificationContext
+    ) -> None:
+        """The real-machine harness: "Error: broken on purpose" was pushed out."""
+        evidence = (
+            "The application did not answer the health check.\n\n"
+            "Last lines of the journal of shop-example-com:\n" + "\n".join(NODE_CRASH)
+        )
+
+        notification = compose_deploy(
+            event(
+                DeployEventKind.ROLLED_BACK,
+                error_message="Release 2026 did not pass its health check; release 2025 is active again",
+                error_output=evidence,
+            ),
+            ctx,
+        )
+
+        excerpt = notification.excerpt
+        assert excerpt is not None
+        assert excerpt.lines[0] == NODE_ERROR
+        assert excerpt.pinned == 1
+        assert excerpt.lines[-1] == NODE_CRASH[-1]
+        assert excerpt.lines.count(NODE_ERROR) == 1
+
+    def test_a_unit_crash_keeps_its_error_too(self, ctx: NotificationContext) -> None:
+        notification = compose_unit_failure(
+            "failed", "shop-example-com", ctx, result="exit-code", journal="\n".join(NODE_CRASH)
+        )
+
+        assert notification.excerpt is not None
+        assert notification.excerpt.lines[0] == NODE_ERROR
 
     def test_without_a_journal_the_tools_output_is_the_excerpt(
         self, ctx: NotificationContext

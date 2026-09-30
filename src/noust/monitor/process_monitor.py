@@ -24,6 +24,7 @@ from datetime import date, datetime
 from functools import partial
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from noust.core import paths
 from noust.core.config import SYSTEMD_DIR, Config
@@ -59,6 +60,7 @@ from noust.monitor.models import (
     ServiceHealth,
 )
 from noust.monitor.observation_store import DEFAULT_MAX_OBSERVATIONS, ObservationStore
+from noust.monitor.observation_store import default_db_path as default_observations_path
 from noust.monitor.signals import observe_processes
 
 #: Seconds between scans. A minute is enough for capacity planning and cheap
@@ -1030,6 +1032,12 @@ ProtectHome=read-only
 # never having run once.
 StateDirectory={paths.NAME}
 LogsDirectory={paths.NAME}
+# The audit log, its key and its lock live in the configuration directory
+# (3.0's web-audit.log, one chain with the console's), and 'monitor run' is on
+# record like every command: without this, strict makes every event it writes
+# fail with EROFS. The '-' makes a missing directory no error: it is created
+# by the first command that records anything, 'noust monitor install' included.
+ReadWritePaths=-{paths.config_dir()}
 PrivateDevices=true
 RestrictSUIDSGID=true
 
@@ -1228,13 +1236,18 @@ WantedBy=multi-user.target
 
         - a monitor already installed is left as it is, enabled or disabled;
         - one an operator disabled or removed stays off (:meth:`declined_path`);
+        - one that ran here before and is gone stays gone
+          (:meth:`_ran_here_before`): 3.0's ``noust monitor uninstall`` left
+          no marker, and the first upgrade to 3.1 must not read its absence
+          as "never had one";
         - a server still on WASM's names is left to ``migrate-from-wasm``;
         - a machine without systemd (a container, a chroot) has nothing to
           install into.
 
         Returns:
             What happened: ``enabled``, ``installed`` (the unit is there),
-            ``declined``, ``legacy``, ``no_systemd`` or ``no_psutil``.
+            ``declined``, ``removed`` (it ran here before; now remembered as
+            declined), ``legacy``, ``no_systemd`` or ``no_psutil``.
 
         Raises:
             MonitorError: When the unit cannot be written or started.
@@ -1247,6 +1260,9 @@ WantedBy=multi-user.target
             return "installed"
         if self.declined_path.exists():
             return "declined"
+        if self._ran_here_before():
+            self._remember_declined()
+            return "removed"
         try:
             import psutil  # noqa: F401
         except ImportError:
@@ -1254,6 +1270,62 @@ WantedBy=multi-user.target
         self.install_service()
         self.enable_service()
         return "enabled"
+
+    def _ran_here_before(self) -> bool:
+        """
+        Whether a monitor ran on this server before and has since been removed.
+
+        Asked only when there is no unit and no marker. The journal keeps the
+        lines a monitor unit wrote after the unit file is deleted, under
+        either name; and only a running monitor writes observations. Both are
+        read, never changed. A journal rotated away and a monitor that never
+        flagged a process leave no evidence: ``touch`` the marker
+        (:meth:`declined_path`) to keep such a server's monitor off.
+
+        Returns:
+            True when either says a monitor ran here.
+        """
+        for unit in (self.SERVICE_NAME, paths.LEGACY_MONITOR_UNIT):
+            result = self.runner.run(
+                [
+                    "journalctl",
+                    "--unit",
+                    f"{unit}.service",
+                    "--lines",
+                    "1",
+                    "--quiet",
+                    "--no-pager",
+                    "--output",
+                    "cat",
+                ],
+                timeout=SYSTEMCTL_TIMEOUT,
+            )
+            if result.success and result.stdout.strip():
+                return True
+        return self._has_observations()
+
+    def _has_observations(self) -> bool:
+        """
+        Whether the observation store holds anything a monitor recorded.
+
+        Returns:
+            True when it has at least one observation. A missing or
+            unreadable file is no evidence either way.
+        """
+        path = self._store.db_path if self._store is not None else default_observations_path()
+        if not path.is_file():
+            return False
+        try:
+            connection = sqlite3.connect(f"file:{quote(str(path))}?mode=ro", uri=True)
+            try:
+                return (
+                    connection.execute("SELECT 1 FROM observations LIMIT 1").fetchone() is not None
+                )
+            finally:
+                connection.close()
+        except sqlite3.Error as exc:
+            self.logger.debug(f"Could not read {path}: {exc}")
+            return False
 
     def get_service_status(self) -> dict[str, Any]:
         """

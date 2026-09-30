@@ -135,7 +135,7 @@ componente.
 |---|---|---|---|---|
 | op.acc.1 Identificación (+R1) | Identificador singular por persona y por perfil; lista de usuarios autorizados; bajas | Cuentas con un rol cada una (`noust user`); incompatibilidades por persona (`person_ref`); tokens con dueño; bajas que revocan sesiones y tokens; la lista en `noust ens access-review list` | Mantener la lista de personas autorizadas y decidir altas y bajas | - |
 | op.acc.2 Requisitos de acceso | Recursos protegidos; derechos por decisión del responsable | Todo `/api` y `/ws` pasa por un punto único con un permiso declarado por ruta (`x-noust-permission`); una prueba falla si una ruta no lo declara | Decidir quién recibe qué rol | - |
-| op.acc.3 Segregación de funciones | Concurrencia de dos personas en tareas críticas; quien autoriza distinto de quien usa | Roles incompatibles por persona (`admin`/`operator` con `security`, `auditor` con cualquiera); aprobación de cuatro ojos para lo equivalente a root, nodos y cambios de rol (`noust approval`) | Repartir cuentas entre personas; excepción documentada si solo hay un responsable (`noust user exception add`, visible en el informe) | En instalaciones de una persona, la excepción es la medida compensatoria |
+| op.acc.3 Segregación de funciones | Concurrencia de dos personas en tareas críticas; quien autoriza distinto de quien usa | Roles incompatibles por persona (`admin`/`operator` con `security`, `auditor` con cualquiera); aprobación de cuatro ojos para lo equivalente a root, las escrituras en bases de datos, nodos, cambios de rol, altas de cuentas e invitaciones de recuperación (`noust approval`) | Repartir cuentas entre personas; excepción documentada si solo hay un responsable (`noust user exception add`, visible en el informe) | En instalaciones de una persona, la excepción es la medida compensatoria |
 | op.acc.4 Gestión de derechos | Mínimo privilegio, necesidad de conocer, revisión periódica (.4.4), acceso remoto autorizado (.4.5) | Permisos por rol; techo por nodo para la central (`noust fleet access`); revisión con atestación (`noust ens access-review attest`, evento `access.review`, ENS-ACC-05 a 90 días) | Política de acceso remoto; hacer la revisión | - |
 | op.acc.5 Autenticación (externos) | Como op.acc.6 | Mismos mecanismos | Si hay usuarios externos, R2 y R5 | N.A. salvo acceso de clientes |
 | op.acc.6 Autenticación (organización) (+R1..R5, R8, R9) | Aceptación de obligaciones (.1/.2); credencial bajo control exclusivo (.3); mínima información previa (.7); bloqueo con intervención (.8); aviso tras el acceso (.9); doble factor (R2, R8); registro de éxito y fallo y último acceso (R5); acceso remoto (R9) | Alta por invitación de un solo uso; contraseña con política; MFA obligatoria (TOTP o passkey); secretos TOTP cifrados en reposo; login con errores uniformes y sin versión ni hostname; bloqueo por cuenta que exige `noust user unlock`; último acceso y fallos desde entonces tras entrar; aviso con aceptación; TLS y lista de acceso | Política de contraseñas; decidir el procedimiento de reactivación (5.4) | - |
@@ -185,7 +185,7 @@ componente.
 | mp.com.4 Separación de flujos | Segmentación | Solo tráfico saliente de la central; consola de nodo en loopback | Red de gestión separada | Operador |
 | mp.si.2 Criptografía de soportes | Confidencialidad e integridad de lo que sale | Copias: subida solo a destinos cifrados en el perfil; metadatos con HMAC-SHA256 que cubre el SHA-256 del archivo; copia de la central con scrypt + AES-256-CBC + HMAC-SHA256 | Cifrado de disco; custodia de claves y passphrases | - |
 | mp.si.3-5 Custodia, transporte, borrado | - | Ficheros 0600/0700 | Custodia física, transporte, borrado seguro | Operador |
-| mp.sw.1 Desarrollo (+R1..R4) | Separar desarrollo y producción | Orígenes permitidos; previews en sandbox con red estricta; SBOM y CI con análisis estático | Desarrollo seguro de sus aplicaciones; sin datos reales en pruebas | Las previews heredan el `.env` de la aplicación salvo que el operador defina el suyo |
+| mp.sw.1 Desarrollo (+R1..R4) | Separar desarrollo y producción | Orígenes permitidos; previews en sandbox, compiladas sin los secretos de producción (red estricta opcional por aplicación); SBOM y CI con análisis estático | Desarrollo seguro de sus aplicaciones; sin datos reales en pruebas | Las previews heredan el `.env` de la aplicación salvo que el operador defina el suyo |
 | mp.sw.2 Aceptación (+R1) | Pruebas antes de producción | HealthGate y vuelta atrás; previews | Nodo o central de preproducción | - |
 | mp.info.1 Datos personales | RGPD | Datos mínimos (nombre de usuario, correo opcional, IP en auditoría); retención configurable (`retention.*`) | Base jurídica y plazos | - |
 | mp.info.2 Calificación | Nivel de cada información | Clasificación por aplicación en el inventario | Calificar | - |
@@ -416,7 +416,10 @@ recuperación**: custodia por el responsable de seguridad en dos lugares distint
 - Repositorios protegidos (rama principal protegida, revisión obligatoria, commits firmados) en la
   forja de la organización; `security.allowed_sources` limitado a ellos.
 - Cada orden de la CLI que cambia algo lleva `--reason "<referencia de cambio>"`; los despliegues
-  desde la consola quedan con su actor, commit y disparador.
+  desde la consola quedan con su actor, commit y disparador. Las que ejecutan las unidades, los
+  temporizadores y los scripts de los paquetes (`web start`, `monitor run`, `central run`,
+  `backup run-schedule`, `preview sweep`, `config upgrade`, `monitor install`...) no lo necesitan:
+  quedan auditadas igual, con `entry_point` en el detalle y, bajo systemd, el actor `system`.
 - Acciones equivalentes a root, altas y bajas de nodos y cambios de rol: aprobación de otra persona
   (`noust approval list`, `approve`).
 - HealthGate como prueba de aceptación automática y vuelta atrás en segundos; previews para probar

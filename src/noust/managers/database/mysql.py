@@ -17,8 +17,10 @@ documents as the way to authenticate without a command line password.
 
 from __future__ import annotations
 
+import gzip
 import hashlib
 import os
+import re
 import secrets as secrets_module
 import shutil
 import tempfile
@@ -26,6 +28,7 @@ import time
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 from noust.core.exceptions import (
     DatabaseBackupError,
@@ -198,6 +201,51 @@ _USER_NAME_MAX_LENGTH = 32
 #: name as well turns a client error into an actionable one, and keeps the
 #: guarantee if a client ever ships without that switch honoured.
 _HOST_CLIENT_COMMANDS = frozenset({"system", "source", "tee", "pager", "edit"})
+
+
+#: A statement that leaves the database a load was pointed at, at the start
+#: of a line (where mysqldump writes every statement), bare or inside a
+#: ``/*!NNNNN ... */`` versioned comment. A ``--databases`` dump carries
+#: ``CREATE DATABASE`` and ``USE`` for the database it was taken from, and
+#: ``mysql -D new`` runs them: the "new" database stays empty and the load
+#: goes into the original.
+_OTHER_DATABASE_STATEMENT = re.compile(
+    rb"^\s*(?:/\*!\d*\s*)?(?:USE\b|(?:CREATE|DROP|ALTER)\s+(?:DATABASE|SCHEMA)\b)",
+    re.IGNORECASE,
+)
+
+
+def statement_leaving_the_database(dump: Path) -> str | None:
+    """
+    Find the first statement in a dump that would load into another database.
+
+    The dump is streamed line by line, gzipped or not, so a large one costs
+    no memory. Only line starts are looked at: mysqldump escapes the
+    newlines inside a value, so a line starting ``USE`` is a statement and
+    never data.
+
+    Args:
+        dump: A plain or gzipped SQL dump.
+
+    Returns:
+        The offending line, shortened, or None when there is none.
+
+    Raises:
+        DatabaseBackupError: When a gzipped dump cannot be read.
+    """
+    try:
+        with open(dump, "rb") as probe:
+            gzipped = probe.read(2) == b"\x1f\x8b"
+        opener = gzip.open if gzipped else open
+        with opener(dump, "rb") as handle:
+            for line in handle:
+                if _OTHER_DATABASE_STATEMENT.match(line):
+                    return line.decode("utf-8", errors="replace").strip()[:200]
+    except (OSError, EOFError) as exc:
+        raise DatabaseBackupError(
+            f"Could not read {dump.name} to check it", details=str(exc)
+        ) from exc
+    return None
 
 
 def _refuse_client_commands(statement: str) -> None:
@@ -1039,6 +1087,36 @@ class MySQLManager(BaseDatabaseManager):
             ]
             return self._dump_to_file(argv, destination, database=database, compress=compress)
 
+    def _check_backup(self, backup_path: Path, **kwargs: Any) -> None:
+        """
+        Refuse a dump that would leave the database an isolated load names.
+
+        Args:
+            backup_path: The dump.
+            **kwargs: ``isolated`` for a load beside a database (a restore as
+                a new one, a restore test), which must reach nothing else.
+
+        Raises:
+            DatabaseBackupError: When an isolated load's dump holds ``USE`` or
+                ``CREATE DATABASE``: it was taken with ``--databases`` or
+                ``--all-databases``, and loading it would write into the
+                database it came from, production included.
+        """
+        if not kwargs.get("isolated"):
+            return
+        found = statement_leaving_the_database(backup_path)
+        if found is not None:
+            raise DatabaseBackupError(
+                f"{backup_path.name} switches to another database; it cannot be loaded "
+                "beside the original",
+                details=(
+                    f"It contains: {found}\nA dump taken with --databases or "
+                    "--all-databases names the database it came from, and loading it "
+                    "would write there instead. Restore it over that database, or take "
+                    "a dump of the one database without --databases."
+                ),
+            )
+
     def _load_backup(self, database: str, backup_path: Path, **kwargs: object) -> None:
         """
         Load a plain or gzipped dump through the client's stdin.
@@ -1053,20 +1131,26 @@ class MySQLManager(BaseDatabaseManager):
         administrative account's privileges: a restore trusts the dump's
         SQL, which is why it needs sudo mode.
 
+        An isolated load (``isolated=True``: a restore as a new database, a
+        restore test) also runs with ``--one-database``, so a ``USE`` that
+        slipped past :meth:`_check_backup` makes the client skip what follows
+        instead of running it against another database.
+
         Args:
             database: The database to load into.
             backup_path: The dump.
-            **kwargs: Unused.
+            **kwargs: ``isolated``, see above.
 
         Raises:
             DatabaseBackupError: When the client fails; the error carries its
                 output.
         """
         staged_name = f"{self.ENGINE_NAME}-restore-{database}{self.BACKUP_SUFFIX}"
+        isolation = ["--one-database"] if kwargs.get("isolated") else []
         with self._staged_backup(backup_path, staged_name) as staged:
             with self._credentials() as credentials:
                 result = self._exec(
-                    [*self._client_argv(credentials, database), "--binary-mode"],
+                    [*self._client_argv(credentials, database), "--binary-mode", *isolation],
                     stdin_path=staged,
                     timeout=TRANSFER_TIMEOUT,
                 )

@@ -53,6 +53,7 @@ from noust.web.auth import (
     record_auth_failure,
     require_auth,
 )
+from noust.web.permissions.enforce import ensure_notice_accepted
 from noust.web.permissions.roles import GRANT_COMPAT
 from noust.web.server import get_brute_force, get_token_manager
 
@@ -939,8 +940,10 @@ def elevate_with_passkey(
 
     Raises:
         HTTPException: 401 as for a passkey sign-in, and
-            ``passkey_wrong_owner`` for somebody else's passkey.
+            ``passkey_wrong_owner`` for somebody else's passkey; 403
+            ``notice_required`` before the usage notice is accepted.
     """
+    ensure_notice_accepted(session)
     owner = _owner(session)
     rp = _party(request)
     client_ip = get_client_ip(request)

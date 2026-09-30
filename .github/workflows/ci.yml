@@ -138,6 +138,24 @@ jobs:
           print(f"The web layer imports under pydantic {pydantic.VERSION}")
           PY
 
+      # Every router, not only the ones the tests below reach, and the schema
+      # FastAPI builds from all their models: a model only the OpenAPI walk
+      # touches fails there, at the first GET of /api/openapi.json.
+      - name: Import every API module and build the OpenAPI schema
+        run: |
+          python - <<'PY'
+          import importlib, pkgutil, sys
+          import pydantic
+          sys.path.insert(0, "scripts")
+          import noust.web.api as api
+          from export_openapi import _build_schema
+          modules = [m.name for m in pkgutil.iter_modules(api.__path__, f"{api.__name__}.")]
+          for name in modules:
+              importlib.import_module(name)
+          schema = _build_schema()
+          print(f"{len(modules)} API modules import and {len(schema['paths'])} paths build under pydantic {pydantic.VERSION}")
+          PY
+
       # Endpoints whose models and validators go through the bridge, the
       # error contract every router answers in, sudo mode, the job and app
       # events the console caches as API responses, and the console itself

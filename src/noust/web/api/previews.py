@@ -276,10 +276,11 @@ def put_preview_settings(
     Turn previews on for an application, or change their settings.
 
     Installs ``noust-previews.timer`` the first time any application turns
-    previews on. A preview builds in the sandbox (as ``noust-build``, in the
-    strict network profile: dependencies install with the network and without
-    the secrets, the build runs without a network), with a copy of the
-    application's environment minus ``exclude_env``; only pull requests from
+    previews on. A preview builds in the sandbox (as ``noust-build``, with the
+    network but without the variables classified as secret and without loading
+    the application's ``.env``; the strict profile, a build without network, is
+    the application's opt-in), with a copy of the application's environment
+    minus ``exclude_env``; only pull requests from
     people trusted with the repository get one (see
     :func:`noust.managers.previews.handle_pull_request`).
 

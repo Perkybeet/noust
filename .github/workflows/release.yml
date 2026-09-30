@@ -575,10 +575,29 @@ jobs:
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+      # The SBOM is written here, not by supply-chain.yml's release trigger: a
+      # release created with GITHUB_TOKEN fires no other workflow, so that
+      # trigger never ran and no release had its SBOM.
+      - name: Set up Python for the SBOM
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Write the SBOM
+        id: sbom
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel
+          python -m pip install "$(ls dist/*.whl)[web]"
+          SBOM="noust-${{ steps.get_version.outputs.version }}.cdx.json"
+          python scripts/sbom.py dist/*.whl --extras web -o "$SBOM"
+          echo "file=${SBOM}" >> "$GITHUB_OUTPUT"
+
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
+          files: ${{ steps.sbom.outputs.file }}
           tag_name: v${{ steps.get_version.outputs.version }}
           name: Noust v${{ steps.get_version.outputs.version }}
           body: |

@@ -1086,6 +1086,15 @@ API_TOKEN_COLUMNS_3_1 = (
 #: What no API token holds under the ENS profile, whoever owns it: a token is
 #: a standing credential nobody watches, and root-equivalent changes or
 #: governing accounts and security settings need a person (ens.md §4.2.6).
+#: The most a token issued before accounts holds once accounts exist and no
+#: admin adopted it: an admin's permissions, never the governance of
+#: accounts, security settings or the audit trail.
+LEGACY_TOKEN_CEILING = permissions_for_role("admin") - {
+    Permission.SECURITY_MANAGE,
+    Permission.ACCOUNTS_MANAGE,
+    Permission.AUDIT_MANAGE,
+}
+
 ENS_TOKEN_EXCLUDED = frozenset(
     {Permission.ROOT_EQUIVALENT, Permission.ACCOUNTS_MANAGE, Permission.SECURITY_MANAGE}
 )
@@ -3131,6 +3140,7 @@ class TokenManager:
             else LEGACY_SCOPES.get(str(record["scope"]), permissions_for_scope("read"))
         )
         role: str | None = None
+        owner: Account | None = None
         if owner_id is None:
             if policy.ens:
                 raise CredentialRefused(
@@ -3143,6 +3153,11 @@ class TokenManager:
                     action="auth.token.denied",
                 )
             permissions = requested
+            if self._accounts_exist():
+                # Accounts exist but no admin adopted it: a 3.0 token is not
+                # above every person, so it holds at most what an admin does -
+                # never the accounts, the security settings or the audit trail.
+                permissions = requested & LEGACY_TOKEN_CEILING
         else:
             owner = self._account(owner_id)
             if owner is None or not owner.can_sign_in():
@@ -3158,13 +3173,31 @@ class TokenManager:
         if policy.ens:
             permissions = permissions - ENS_TOKEN_EXCLUDED
         allow_elevated = record.get("allow_elevated")
+        notice = policy.notice_version
         return {
             "permissions": frozenset(permissions),
             "scope": legacy_scope(permissions),
             "role": role,
             "owner_account_id": owner_id,
             "elevation_exempt": (allow_elevated is None or bool(allow_elevated)) and not policy.ens,
+            # A token acts for its owner, so it waits for its owner to accept
+            # the usage notice as the owner's session does.
+            "notice_pending": owner is not None
+            and notice is not None
+            and owner.notice_version != notice,
         }
+
+    def _accounts_exist(self) -> bool:
+        """
+        Returns:
+            True when any account exists, or when the store cannot be read:
+            a token is not given more on a guess.
+        """
+        try:
+            return self.accounts.any_exist()
+        except (StoreError, sqlite3.Error) as exc:
+            logger.error("Cannot read the accounts from the store: %s", exc)
+            return True
 
     def _first_admin(self) -> Account | None:
         """

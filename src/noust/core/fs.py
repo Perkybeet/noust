@@ -25,6 +25,7 @@ from __future__ import annotations
 import errno
 import os
 import shutil
+import stat
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
@@ -172,13 +173,22 @@ class FileSystem(ABC):
         """
 
     @abstractmethod
-    def chmod(self, path: Path, mode: int) -> None:
+    def chmod(self, path: Path, mode: int, *, follow_symlinks: bool = True) -> None:
         """
         Change permissions.
 
         Args:
             path: What to change.
             mode: New mode.
+            follow_symlinks: False for any path found in a tree Noust does not
+                control (a repository, a release, ``shared/``): the change is
+                made to the entry itself, and a symbolic link is refused, so a
+                link committed as ``.env`` cannot make root change the mode of
+                the file it points at.
+
+        Raises:
+            OSError: ``ELOOP`` when ``follow_symlinks`` is False and ``path``
+                is a symbolic link.
         """
 
     @abstractmethod
@@ -197,6 +207,35 @@ class FileSystem(ABC):
                 stays relative, so the tree it lives in can be moved.
             link: The link to create.
         """
+
+
+def _chmod_entry(path: Path, mode: int) -> None:
+    """
+    Change the mode of a directory entry without following a symbolic link.
+
+    Linux has no lchmod, and a check followed by a chmod leaves a window in
+    which the entry can be swapped for a link. So the entry is opened with
+    ``O_PATH | O_NOFOLLOW``, which pins the inode without reading it (a FIFO
+    or a device is never opened for real), and the mode is changed through
+    the descriptor's ``/proc`` alias, which names that inode and nothing else.
+
+    Args:
+        path: The entry.
+        mode: New mode.
+
+    Raises:
+        OSError: ``ELOOP`` when the entry is a symbolic link, or what the
+            open or the chmod report.
+    """
+    descriptor = os.open(path, os.O_PATH | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        if stat.S_ISLNK(os.fstat(descriptor).st_mode):
+            raise OSError(
+                errno.ELOOP, "refusing to change the mode through a symbolic link", str(path)
+            )
+        os.chmod(f"/proc/self/fd/{descriptor}", mode)
+    finally:
+        os.close(descriptor)
 
 
 class RealFileSystem(FileSystem):
@@ -276,8 +315,11 @@ class RealFileSystem(FileSystem):
         shutil.copytree(source, destination, symlinks=True, dirs_exist_ok=True)
         _changed("copy_tree", source, destination)
 
-    def chmod(self, path: Path, mode: int) -> None:
-        path.chmod(mode)
+    def chmod(self, path: Path, mode: int, *, follow_symlinks: bool = True) -> None:
+        if follow_symlinks:
+            path.chmod(mode)
+        else:
+            _chmod_entry(path, mode)
         _changed("chmod", path)
 
     def symlink(self, target: Path, link: Path) -> None:
@@ -350,7 +392,7 @@ class DryRunFileSystem(FileSystem):
     def copy_tree(self, source: Path, destination: Path) -> None:
         self._skip(f"would copy {source} to {destination}")
 
-    def chmod(self, path: Path, mode: int) -> None:
+    def chmod(self, path: Path, mode: int, *, follow_symlinks: bool = True) -> None:
         self._skip(f"would set {path} to mode {mode:o}")
 
     def symlink(self, target: Path, link: Path) -> None:
@@ -398,9 +440,9 @@ class RecordingFileSystem(RealFileSystem):
         self.changes.append(("copy_tree", source))
         super().copy_tree(source, destination)
 
-    def chmod(self, path: Path, mode: int) -> None:
+    def chmod(self, path: Path, mode: int, *, follow_symlinks: bool = True) -> None:
         self.changes.append(("chmod", path))
-        super().chmod(path, mode)
+        super().chmod(path, mode, follow_symlinks=follow_symlinks)
 
     def symlink(self, target: Path, link: Path) -> None:
         self.changes.append(("symlink", link))

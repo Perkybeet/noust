@@ -46,6 +46,7 @@ from noust.core.notifications.render.common import (
     http_url,
     omitted_marker,
     render_text,
+    with_pinned_marker,
 )
 
 logger = logging.getLogger(__name__)
@@ -195,7 +196,7 @@ def _excerpt_html(excerpt: Excerpt, n: Notification) -> str:
     Returns:
         The label and the sunken code block.
     """
-    body = "\n".join(_e(line) for line in excerpt.lines)
+    body = "\n".join(_e(line) for line in with_pinned_marker(list(excerpt.lines), excerpt, n))
     marker = omitted_marker(excerpt, n)
     if marker:
         body += "\n" + _e(f"… {marker}")

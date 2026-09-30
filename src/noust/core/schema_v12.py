@@ -22,8 +22,12 @@ Rules for a fragment:
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from collections.abc import Callable
+
+#: The schema version this module defines.
+VERSION = 12
 
 # Identity: accounts, roles, invitations, approvals (backlog 30, ENS G01/G02/G08).
 # Timestamps are UNIX seconds (REAL), like the console's session database, so
@@ -136,6 +140,8 @@ CREATE TABLE IF NOT EXISTS approval_requests (
     requester_name TEXT NOT NULL,
     requester_role TEXT,
     requester_person TEXT,
+    -- The account behind the requester: itself, or an API token's owner.
+    requester_account TEXT,
     created_at REAL NOT NULL,
     expires_at REAL NOT NULL,
     decided_at REAL,
@@ -149,7 +155,11 @@ CREATE TABLE IF NOT EXISTS approval_requests (
 );
 CREATE INDEX IF NOT EXISTS idx_approval_requests_state ON approval_requests(state, expires_at);
 """
-ACCOUNTS_COLUMNS: list[tuple[str, str, str]] = []
+ACCOUNTS_COLUMNS: list[tuple[str, str, str]] = [
+    # Added before 3.1 shipped; listed so a development store stamped 12
+    # without it is completed at start (store._complete_v12).
+    ("approval_requests", "requester_account", "TEXT"),
+]
 
 # Audit v2 (ENS G03-G05) needs nothing here: the chained log file is the record and the
 # queue, its shipping cursors sit beside it and reviews are events in it (noust.core.audit),
@@ -535,6 +545,32 @@ def _existing_columns(cursor: sqlite3.Cursor, table: str) -> set[str]:
     # above, which are code, never input.
     cursor.execute(f"PRAGMA table_info({table})")
     return {row[1] for row in cursor.fetchall()}
+
+
+_CREATED = re.compile(
+    r"CREATE\s+(?:UNIQUE\s+)?(TABLE|INDEX)\s+IF\s+NOT\s+EXISTS\s+(\w+)", re.IGNORECASE
+)
+
+
+def incomplete(cursor: sqlite3.Cursor) -> bool:
+    """
+    Whether a store lacks any table, index or column v12 defines.
+
+    Only reads, so a complete store is checked without a write lock.
+
+    Args:
+        cursor: A cursor on the store.
+
+    Returns:
+        True when :func:`apply_v12` would add something.
+    """
+    cursor.execute("SELECT type, name FROM sqlite_master WHERE type IN ('table', 'index')")
+    present = {(str(kind), str(name)) for kind, name in cursor.fetchall()}
+    for fragment in _fragments():
+        for kind, name in _CREATED.findall(fragment):
+            if (kind.lower(), name) not in present:
+                return True
+    return any(column not in _existing_columns(cursor, table) for table, column, _ in _columns())
 
 
 def apply_v12(cursor: sqlite3.Cursor, run_script: Callable[[sqlite3.Cursor, str], None]) -> None:

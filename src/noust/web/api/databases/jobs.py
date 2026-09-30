@@ -277,6 +277,7 @@ def rotate_job(
     propagate: bool = True,
     actor: str | None = None,
     job_context: JobContext | None = None,
+    first_password: bool = False,
 ) -> dict[str, Any]:
     """
     Rotate an account's password and give it to the applications that use it.
@@ -287,6 +288,7 @@ def rotate_job(
         host: Its host restriction.
         propagate: Rewrite and restart the applications that use it.
         actor: Who queued it, as the audit trail names them.
+        first_password: Confirms a Redis instance's first password.
         job_context: Injected by the job manager.
 
     Returns:
@@ -294,7 +296,7 @@ def rotate_job(
         the console shows it through the sudo-mode reveal endpoint.
     """
     outcome = _service(job_context, f"Rotating the password of {username}", actor).rotate_password(
-        engine, username, host=host, propagate=propagate
+        engine, username, host=host, propagate=propagate, first_password=first_password
     )
     _done(job_context)
     return {**outcome.to_dict(), "password_stored": True}

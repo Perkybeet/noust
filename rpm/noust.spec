@@ -75,7 +75,9 @@ Suggests:       python3-fastapi
 Suggests:       python3-starlette
 Suggests:       python3-pydantic
 Suggests:       python3-uvicorn
-Suggests:       python3-psutil
+# The monitor, which records the charts' history and which the package enables
+# by default ('noust monitor autoenable'), cannot run without it.
+Recommends:     python3-psutil
 # A central's proxy to its nodes (HTTP and WebSockets through each tunnel).
 Suggests:       python3-httpx
 Suggests:       python3-websockets
@@ -108,7 +110,7 @@ Suggests:       python%{python3_pkgversion}-fastapi
 Suggests:       python%{python3_pkgversion}-starlette
 Suggests:       python%{python3_pkgversion}-pydantic
 Suggests:       python%{python3_pkgversion}-uvicorn
-Suggests:       python%{python3_pkgversion}-psutil
+Recommends:     python%{python3_pkgversion}-psutil
 Suggests:       python%{python3_pkgversion}-httpx
 Suggests:       python%{python3_pkgversion}-websockets
 Suggests:       python%{python3_pkgversion}-cryptography
@@ -226,6 +228,7 @@ install -d %{buildroot}/var/log/noust
 %doc README.md
 %doc docs/
 %doc docs/UPGRADING-3.0.md
+%doc docs/UPGRADING-3.1.md
 %{python3_sitelib}/noust/
 %{python3_sitelib}/noust-*
 %{_bindir}/noust
@@ -282,7 +285,7 @@ if [ $1 -eq 0 ]; then
     # Without 'noust web enable' the console runs as a daemon (noust web start
     # -d), not as a unit; stop it while its binary still exists.
     if [ -x /usr/bin/noust ]; then
-        /usr/bin/noust web stop >/dev/null 2>&1 || :
+        /usr/bin/noust web stop --reason "package removal" >/dev/null 2>&1 || :
     fi
 fi
 
@@ -338,15 +341,15 @@ if { [ -d /etc/wasm ] && [ ! -L /etc/wasm ]; } \
         || [ -e /etc/systemd/system/wasm-web.service ] \
         || [ -e /etc/systemd/system/wasm-monitor.service ]; then
     echo "Moving this server from WASM's names to Noust's..."
-    /usr/bin/noust migrate-from-wasm || echo "noust: the migration from wasm did not finish; run 'noust migrate-from-wasm' (see %{_docdir}/noust/UPGRADING-3.0.md)" >&2
+    /usr/bin/noust migrate-from-wasm --reason "package upgrade" || echo "noust: the migration from wasm did not finish; run 'noust migrate-from-wasm' (see %{_docdir}/noust/UPGRADING-3.0.md)" >&2
 fi
 
 # Add new defaults to an existing configuration (user values are kept).
 if [ -f /etc/noust/config.yaml ] || [ -f /etc/wasm/config.yaml ]; then
-    /usr/bin/noust config upgrade --quiet >/dev/null 2>&1 || :
+    /usr/bin/noust config upgrade --reason "package upgrade" --quiet >/dev/null 2>&1 || :
     # Remove the settings no version reads any more (the old AI monitor's
     # OpenAI key among them), as text and with a dated 0600 copy first.
-    /usr/bin/noust config clean --quiet >/dev/null 2>&1 || :
+    /usr/bin/noust config clean --reason "package upgrade" --quiet >/dev/null 2>&1 || :
 fi
 
 # Rewrite the monitor unit for this version if it is enabled. Only under its
@@ -354,7 +357,7 @@ fi
 # which after the migration above means the migration did not finish, and it
 # says so already.
 if systemctl is-enabled noust-monitor.service >/dev/null 2>&1; then
-    /usr/bin/noust monitor install >/dev/null 2>&1 || :
+    /usr/bin/noust monitor install --reason "package upgrade" >/dev/null 2>&1 || :
     systemctl daemon-reload >/dev/null 2>&1 || :
     systemctl try-restart noust-monitor.service >/dev/null 2>&1 || :
 elif systemctl is-enabled wasm-monitor.service >/dev/null 2>&1; then
@@ -368,7 +371,7 @@ fi
 # and it does nothing where there is no systemd. 'noust monitor autoenable'
 # makes that call in one place; it must not fail the transaction.
 if [ -d /run/systemd/system ]; then
-    /usr/bin/noust monitor autoenable >/dev/null 2>&1 || :
+    /usr/bin/noust monitor autoenable --reason "package upgrade" >/dev/null 2>&1 || :
 fi
 
 # 'noust web enable' runs the console as a unit, and %%preun leaves it running
