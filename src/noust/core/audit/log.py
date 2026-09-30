@@ -854,19 +854,27 @@ class AuditLog:
         """
         Find one event by sequence number or id.
 
+        Digits are a ``seq`` first, and an ``id`` when no event has that
+        sequence number: an id is hexadecimal, and one made only of digits
+        was never found.
+
         Args:
             key: A ``seq`` (digits) or an ``id`` (or a prefix of one).
 
         Returns:
-            The newest matching event, or None.
+            The event with that sequence number, else the newest whose id
+            starts with it; None when there is neither.
         """
         wanted_seq = int(key) if key.isdigit() else None
+        by_id: dict[str, Any] | None = None
         for entry in self.iter_newest_first():
             if wanted_seq is not None and entry.get("seq") == wanted_seq:
                 return entry
-            if wanted_seq is None and str(entry.get("id", "")).startswith(key):
-                return entry
-        return None
+            if by_id is None and str(entry.get("id", "")).startswith(key):
+                if wanted_seq is None:
+                    return entry
+                by_id = entry
+        return by_id
 
     def verify(self) -> VerifyResult:
         """

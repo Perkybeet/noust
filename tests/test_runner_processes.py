@@ -49,7 +49,7 @@ def _pid_alive(pid: int) -> bool:
     try:
         with open(f"/proc/{pid}/stat", encoding="utf-8") as handle:
             return handle.read().split(")")[-1].split()[0] != "Z"
-    except FileNotFoundError:
+    except (FileNotFoundError, ProcessLookupError):
         return False
 
 

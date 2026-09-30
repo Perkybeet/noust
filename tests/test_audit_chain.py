@@ -387,6 +387,21 @@ class TestReading:
         assert log.find(third["id"][:10]) == third
         assert log.find("99") is None
 
+    def test_an_id_made_only_of_digits_is_found(self, log: AuditLog) -> None:
+        """CI drew the id 7282496076 and find() read it as a sequence number."""
+        fill(log, 3)
+        second = log.find("2")
+        assert second is not None
+        numeric = "7282496076" + second["id"][10:]
+        lines = log.path.read_text().replace(second["id"], numeric)
+        log.path.write_text(lines)
+
+        found = log.find(numeric[:10])
+
+        assert found is not None and found["seq"] == 2
+        # A sequence number that exists still wins over an id that starts with it.
+        assert log.find("3")["seq"] == 3
+
     def test_iter_since_skips_whole_files_already_shipped(self, tmp_path: Path) -> None:
         log = AuditLog(
             tmp_path / "web-audit.log", settings=AuditSettings(journald="off"), rotate_bytes=1500
