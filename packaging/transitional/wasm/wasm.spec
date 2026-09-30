@@ -14,7 +14,7 @@
 # noust's %%pre and %%posttrans, which run on either path.
 
 Name:           wasm-cli
-Version:        3.1.7
+Version:        3.1.8
 Release:        1%{?dist}
 Summary:        Transitional package: WASM is now Noust
 License:        AGPL-3.0-or-later
@@ -43,6 +43,8 @@ package can be removed once noust is installed; with dnf, run
 %doc README
 
 %changelog
+* Wed Sep 30 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.8-1
+- WASM is now Noust: this package only installs noust 3.1.8 and can be removed
 * Wed Sep 30 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.7-1
 - WASM is now Noust: this package only installs noust 3.1.7 and can be removed
 * Wed Sep 30 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.6-1

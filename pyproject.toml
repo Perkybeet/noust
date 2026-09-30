@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "noust"
-version = "3.1.7"
+version = "3.1.8"
 description = "Noust - deploy and manage web applications on Linux servers"
 readme = "README.md"
 license = { text = "AGPL-3.0-or-later" }
