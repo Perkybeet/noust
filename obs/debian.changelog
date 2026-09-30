@@ -1,3 +1,15 @@
+noust (3.1.0-1) unstable; urgency=medium
+
+  * Accounts with roles, passkeys, four-eyes approvals and an audit trail shipped to syslog; ENS categoria MEDIA profile and evidence
+  * Manage the server: OS updates, reboots, storage, SSH and firewall changes that revert unless confirmed, hardening checks
+  * Fleet: an unprivileged tunnel account, per-node ceilings, fleet-wide views and bulk actions
+  * Builds, previews and monorepos run sandboxed as noust-build, never as root
+  * Databases rebuilt: per-app provisioning, data browser, SQL console, verified backup policies, metrics
+  * Metrics history in tiers; a dashboard Overview; notifications rebuilt per channel
+  * A normative design system and every console page rebuilt on it
+
+ -- Yago Lopez Prado <yago.lopez.adeje@gmail.com>  Wed, 30 Sep 2026 06:31:50 +0000
+
 noust (3.0.0-1) unstable; urgency=medium
 
   * Renamed from wasm: the package, the command and the paths are noust now; wasm remains a command alias for the whole 3.x series

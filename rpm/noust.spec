@@ -10,7 +10,7 @@
 #
 
 Name:           noust
-Version:        3.0.0
+Version:        3.1.0
 Release:        1%{?dist}
 Summary:        Deploy and manage web applications on Linux servers
 License:        AGPL-3.0-or-later
@@ -386,6 +386,14 @@ if [ -f /etc/systemd/system/wasm-web.service ]; then
 fi
 
 %changelog
+* Wed Sep 30 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.0-1
+- Accounts with roles, passkeys, four-eyes approvals and an audit trail shipped to syslog; ENS categoria MEDIA profile and evidence
+- Manage the server: OS updates, reboots, storage, SSH and firewall changes that revert unless confirmed, hardening checks
+- Fleet: an unprivileged tunnel account, per-node ceilings, fleet-wide views and bulk actions
+- Builds, previews and monorepos run sandboxed as noust-build, never as root
+- Databases rebuilt: per-app provisioning, data browser, SQL console, verified backup policies, metrics
+- Metrics history in tiers; a dashboard Overview; notifications rebuilt per channel
+- A normative design system and every console page rebuilt on it
 * Tue Sep 29 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.0.0-1
 - Renamed from wasm: the package, the command and the paths are noust now; wasm remains a command alias for the whole 3.x series
 - Fleet: a central manages every server over SSH tunnels it opens outward, with a key that can only forward the node's console port and never runs a command

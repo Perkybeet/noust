@@ -44,7 +44,7 @@ services:
   noust:
     # scripts/release.py keeps this tag in step with the release; `latest`
     # follows every release if you prefer.
-    image: ghcr.io/perkybeet/noust:3.0.0
+    image: ghcr.io/perkybeet/noust:3.1.0
     container_name: noust
     restart: unless-stopped
     ports:
