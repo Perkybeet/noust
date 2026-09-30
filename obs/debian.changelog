@@ -1,3 +1,10 @@
+noust (3.1.2-1) unstable; urgency=medium
+
+  * An empty service_group no longer breaks sandboxed builds
+  * Activity's Operations view filters on the server and shows every job
+
+ -- Yago Lopez Prado <yago.lopez.adeje@gmail.com>  Wed, 30 Sep 2026 14:30:28 +0000
+
 noust (3.1.1-1) unstable; urgency=medium
 
   * migrate-tunnel removes the central's previous key from root (closes the 3.0 hole on migrated nodes)
