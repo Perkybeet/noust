@@ -10,7 +10,7 @@ import { StatusGlyph, stateTextClass } from "../../components/ui/StatusPill";
 import type { Status } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
-import { formatBytes, formatCount, formatPercent } from "../../lib/format";
+import { formatBytesPair, formatCount, formatPercent } from "../../lib/format";
 import { appsTone, backupsTone, certificatesTone, deploysTone, diskTone, updatesTone } from "./overviewData";
 import type { FigureTone } from "./overviewData";
 
@@ -67,7 +67,7 @@ function Value({ tone, children, word }: { tone: FigureTone; children: ReactNode
   return (
     <span className="flex min-w-0 items-center gap-2">
       {state !== null ? <StatusGlyph state={state} size={14} className={stateTextClass(state)} /> : null}
-      <span className="title truncate text-18 text-fg">{children}</span>
+      <span className="title min-w-0 break-words text-18 text-fg sm:truncate">{children}</span>
       {state !== null && word !== undefined ? <span className={`shrink-0 text-12 ${stateTextClass(state)}`}>{word}</span> : null}
     </span>
   );
@@ -217,8 +217,7 @@ function diskFigure(t: T, disk: Overview["disk"]): Figure {
   if (disk.error) return unreadable(t, "disk", "/server", label, disk.error);
   const tone = diskTone(disk);
   const percent = formatPercent(disk.free_percent, t.locale);
-  const used = formatBytes(disk.used, t.locale);
-  const total = formatBytes(disk.total, t.locale);
+  const [used, total] = formatBytesPair(disk.used, disk.total, t.locale);
   const days = disk.forecast_full_days ?? null;
   const reason = disk.forecast_reason?.code ?? null;
   return {

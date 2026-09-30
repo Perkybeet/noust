@@ -170,8 +170,8 @@ export const domains = {
     checking: "Checking",
     noCertificateHttpOnly: "No certificate, HTTP only",
     extendingCertificate: "Extending the certificate",
-    notCovered: "Not covered",
-    covered: "Covered",
+    notCovered: "No HTTPS",
+    covered: "HTTPS",
   },
 
   sitesTab: {

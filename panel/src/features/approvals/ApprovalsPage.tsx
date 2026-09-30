@@ -32,7 +32,7 @@ import { roleLabel } from "../settings/accounts/roles";
 import { approvalKeys, approvalPolicyQuery, approvalsQuery, approve, reject } from "./api";
 import type { Approval } from "./api";
 import { ApprovalStateLabel } from "./ApprovalStateLabel";
-import { callFromSnapshot, inView } from "./data";
+import { approvalDescription, callFromSnapshot, inView } from "./data";
 import type { ApprovalsSearch, ApprovalsView } from "./data";
 import { forgetHeld, heldCall } from "./store";
 
@@ -49,9 +49,10 @@ function columnsFor(t: T): Column<Approval>[] {
       card: "title",
       cell: (item) => (
         <span className="flex min-w-0 flex-col">
-          <span className="text-13 text-pretty text-fg">{item.description}</span>
+          <span className="text-13 text-pretty text-fg">{approvalDescription(t, item)}</span>
+          {/* The request's number; the call itself, exactly as asked, is in its drawer. */}
           <Mono tone="muted" truncate>
-            #{item.id} {item.method} {item.path}
+            #{item.id}
           </Mono>
         </span>
       ),
@@ -107,6 +108,7 @@ function ApprovalDrawer({ approval, onClose }: { approval: Approval; onClose: ()
     { label: t("approvals.fields.request"), value: `#${String(approval.id)}` },
     { label: t("approvals.fields.state"), value: <ApprovalStateLabel t={t} state={approval.state} />, mono: false, copy: false },
     { label: t("approvals.fields.action"), value: approval.action },
+    { label: t("approvals.fields.call"), value: `${approval.method} ${approval.path}` },
     { label: t("approvals.fields.requester"), value: who(t, approval.requester), mono: false, copy: false },
     { label: t("approvals.fields.reason"), value: approval.reason ?? t("approvals.table.noReason"), mono: false, copy: false },
     { label: t("approvals.fields.asked"), value: <RelativeTime value={approval.created_at} />, mono: false, copy: false },
@@ -130,7 +132,7 @@ function ApprovalDrawer({ approval, onClose }: { approval: Approval; onClose: ()
         if (!next && !decide.isPending && !run.isPending) onClose();
       }}
       title={t("approvals.drawer.title", { id: approval.id })}
-      description={approval.description}
+      description={approvalDescription(t, approval)}
       footer={
         deciding || withdrawing ? (
           <>

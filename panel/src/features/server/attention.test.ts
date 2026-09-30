@@ -6,8 +6,13 @@ import { SECURITY, SUMMARY } from "./testing";
 describe("attentionItems", () => {
   it("lists the summary's facts and the open checks, the most serious first", () => {
     const items = attentionItems(SUMMARY, SECURITY);
-    expect(items.map((item) => item.kind)).toEqual(["securityUpdates", "check", "rebootRequired", "noSwap", "check"]);
-    expect(items.map((item) => item.severity)).toEqual(["critical", "critical", "warning", "warning", "warning"]);
+    expect(items.map((item) => item.kind)).toEqual(["check", "securityUpdates", "rebootRequired", "noSwap", "check"]);
+    expect(items.map((item) => item.severity)).toEqual(["critical", "warning", "warning", "warning", "warning"]);
+  });
+
+  it("calls pending security updates a warning, as the Overview's tile does: the server marks none critical", () => {
+    const updates = attentionItems(SUMMARY, undefined).find((item) => item.kind === "securityUpdates");
+    expect(updates?.severity).toBe("warning");
   });
 
   it("leaves a check to the summary fact that says the same with numbers", () => {
@@ -37,7 +42,7 @@ describe("attentionItems", () => {
       system: { state: "degraded", failed_units: ["mysql.service"] },
     };
     const kinds = attentionItems(worse, undefined).map((item) => item.kind);
-    expect(kinds).toEqual(["securityUpdates", "osUnsupported", "diskFull", "rebootRequired", "clockUnsynced", "noSwap", "failedUnits"]);
+    expect(kinds).toEqual(["osUnsupported", "diskFull", "securityUpdates", "rebootRequired", "clockUnsynced", "noSwap", "failedUnits"]);
     expect(verdictOf(attentionItems(worse, undefined)).label).toBe("critical");
   });
 

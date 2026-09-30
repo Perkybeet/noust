@@ -13,7 +13,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusGlyph, stateTextClass } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
-import { formatBytes } from "../../lib/format";
+import { formatBytes, formatBytesPair } from "../../lib/format";
 
 /** The Meter's own thresholds: the summary line turns amber and red with it. */
 const WARN = 0.75;
@@ -78,7 +78,7 @@ export function StorageSummary() {
         <span className={cx("tabular-nums", level !== "normal" && "font-medium text-fg")}>
           {filesystem === null
             ? t("backups.storage.diskUnknown")
-            : t("backups.storage.disk", { free: formatBytes(filesystem.free, t.locale), total: formatBytes(filesystem.total, t.locale) })}
+            : t("backups.storage.disk", { free: formatBytesPair(filesystem.free, filesystem.total, t.locale)[0], total: formatBytesPair(filesystem.free, filesystem.total, t.locale)[1] })}
         </span>
         <Popover
           trigger={<IconButton label={t("backups.storage.about")} icon={<ICONS.info />} size="sm" className="-my-1" />}
@@ -93,7 +93,7 @@ export function StorageSummary() {
                 value={filesystem.used}
                 max={filesystem.total}
                 size="sm"
-                valueText={t("backups.storage.diskValueText", { used: formatBytes(filesystem.used, t.locale), total: formatBytes(filesystem.total, t.locale) })}
+                valueText={t("backups.storage.diskValueText", { used: formatBytesPair(filesystem.used, filesystem.total, t.locale)[0], total: formatBytesPair(filesystem.used, filesystem.total, t.locale)[1] })}
               />
             ) : null}
             <p className="text-13 text-fg-muted">{t.rich("backups.storage.keptIn", { path: <Mono tone="default">{data.path}</Mono> })}</p>

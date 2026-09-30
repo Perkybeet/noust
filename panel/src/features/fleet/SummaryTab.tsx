@@ -134,7 +134,7 @@ function AttentionCard({ t, rows, loading }: { t: T; rows: readonly FleetRow[]; 
       description={t("fleet.summary.attention.description")}
       {...(entries.length > ATTENTION_SHOWN
         ? {
-            footer: (
+            actions: (
               <Button
                 size="sm"
                 variant="ghost"

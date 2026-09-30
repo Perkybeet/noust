@@ -4,6 +4,7 @@ import { setLocale } from "../app/locale";
 import { loadCatalog } from "../i18n";
 import {
   formatBytes,
+  formatBytesPair,
   formatBytesRate,
   formatCount,
   formatDate,
@@ -208,8 +209,10 @@ describe("in Spanish", () => {
 
   it("speaks of the future and names older days in Spanish", () => {
     expect(formatRelative(new Date(now.getTime() + 3 * 3600 * 1000), now, "es")).toBe("dentro de 3 h");
-    expect(formatRelative(new Date(2026, 8, 12, 9), now, "es")).toBe("12 sept");
-    expect(formatRelative(new Date(2025, 8, 12, 9), now, "es")).toBe("12 sept 2025");
+    // The month in full: "20 ago" (August) would read as the English "ago" beside "hace 2 d".
+    expect(formatRelative(new Date(2026, 8, 12, 9), now, "es")).toBe("12 de septiembre");
+    expect(formatRelative(new Date(2026, 7, 20, 9), now, "es")).toBe("20 de agosto");
+    expect(formatRelative(new Date(2025, 8, 12, 9), now, "es")).toBe("12 de septiembre de 2025");
     expect(formatDate(new Date(2026, 11, 24), {}, "es")).toBe("24 dic 2026");
   });
 
@@ -218,5 +221,16 @@ describe("in Spanish", () => {
     expect(formatBytes(1_536)).toBe("1,5 KB");
     expect(formatRelative(ago(180), now)).toBe("hace 3 min");
     expect(formatDuration(125)).toBe("2 min 05 s");
+  });
+});
+
+describe("formatBytesPair", () => {
+  const GB = 1024 ** 3;
+  it("writes a used/total pair in the larger value's unit, never mixing units", () => {
+    expect(formatBytesPair(727 * GB, 1006 * GB, "en")).toEqual(["0.71 TB", "0.98 TB"]);
+    expect(formatBytesPair(727 * GB, 1006 * GB, "es")).toEqual(["0,71 TB", "0,98 TB"]);
+    expect(formatBytesPair(512 * 1024 ** 2, 16 * GB, "en")).toEqual(["0.50 GB", "16 GB"]);
+    expect(formatBytesPair(0, 16 * GB, "en")).toEqual(["0 GB", "16 GB"]);
+    expect(formatBytesPair(300, 900, "en")).toEqual(["300 B", "900 B"]);
   });
 });

@@ -208,12 +208,11 @@ export const backups = {
     submit: "Restore",
     restoreInto: "Restore into",
     restoreIntoDescription: "Another domain restores a copy there and leaves this one alone.",
-    domainPlaceholder: "the domain",
-    typeToConfirm: "Type {domain} to confirm",
     restoreEnv: "Restore .env files",
     envFromArchive: "From the backup, replacing the ones there now.",
     verifyFirst: { label: "Check its integrity first", description: "Refuses to restore a damaged or tampered backup." },
-    error: "The restore did not start",
+    envKept: "The .env files there now are kept.",
+    envReplaced: "The .env files there now are replaced too.",
   },
 
   restoreFromDestination: {
@@ -418,7 +417,6 @@ export const backups = {
     backupQueuedDescription: "You will be told when the backup finishes.",
     restoreQueuedDescription: "You will be told when the restore finishes.",
     copyQueuedDescription: "You will be told when the copy finishes.",
-    restoreQueueError: "Could not queue the restore",
     deleteError: "Could not delete the backup",
     copyQueueError: "Could not queue the copy",
     removeScheduleError: "Could not remove the schedule",

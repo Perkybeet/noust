@@ -244,15 +244,28 @@ export interface MarkerPosition {
   top: number;
 }
 
-/** Where each marker's affordance sits over the plot, from uPlot's own geometry. */
+/** A marker's affordance is 24px across (WCAG 2.5.8); the next one down sits this far below it. */
+export const MARKER_SIZE = 24;
+const MARKER_PITCH = MARKER_SIZE + 2;
+
+/**
+ * Where each marker's affordance sits over the plot, from uPlot's own geometry. Markers closer
+ * than an affordance's width (two deploys a minute apart on a day's axis) are stacked down their
+ * hairlines rather than drawn over each other, so each stays a whole target of its own.
+ */
 export function positionMarkers(u: MarkerPlot, markers: readonly ChartMarker[], pxRatio: number): MarkerPosition[] {
   const leftCss = u.bbox.left / pxRatio;
   const topCss = u.bbox.top / pxRatio;
-  return markers.map((marker) => ({
-    marker,
-    left: leftCss + u.valToPos(marker.at, "x", false),
-    top: topCss,
-  }));
+  const placed = markers.map((marker) => ({ marker, left: leftCss + u.valToPos(marker.at, "x", false), top: topCss }));
+  // Each row keeps the rightmost edge taken so far; a marker goes to the first row it clears.
+  const rows: number[] = [];
+  for (const position of [...placed].sort((a, b) => a.left - b.left)) {
+    let row = rows.findIndex((edge) => position.left - edge >= MARKER_SIZE);
+    if (row === -1) row = rows.length;
+    rows[row] = position.left;
+    position.top = topCss + row * MARKER_PITCH;
+  }
+  return placed;
 }
 
 /** Draws a dashed hairline at each marker's x, top to bottom of the plot area. */
@@ -472,6 +485,7 @@ function SeriesKey({ series, index }: { series: ChartSeries | undefined; index: 
   );
 }
 
+// size-6 is MARKER_SIZE.
 const MARKER_ICON_CLASS = "flex size-6 items-center justify-center rounded-pill bg-surface hover:bg-surface-hover";
 const MARKER_CHIP_CLASS =
   "flex h-7 items-center gap-1.5 rounded-pill border border-border bg-surface px-2.5 text-12 hover:bg-surface-hover";

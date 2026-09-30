@@ -487,6 +487,14 @@ describe("Chart markers", () => {
     const plot: MarkerPlot = { valToPos: (v) => v - T0, bbox: { left: 80, top: 16, width: 800, height: 288 } };
     expect(positionMarkers(plot, [inRange], 2)).toEqual([{ marker: inRange, left: 40 + 60, top: 8 }]);
   });
+
+  it("stacks markers closer than a target's width down their hairlines, and leaves apart ones on top", () => {
+    const plot: MarkerPlot = { valToPos: (v) => v - T0, bbox: { left: 0, top: 0, width: 800, height: 288 } };
+    const at = (offset: number) => ({ ...inRange, at: T0 + offset, label: `Deploy at ${String(offset)}` });
+    const [a, b, c, d] = positionMarkers(plot, [at(100), at(110), at(115), at(200)], 1);
+    expect([a?.top, b?.top, c?.top, d?.top]).toEqual([0, 26, 52, 0]);
+    expect([a?.left, b?.left, c?.left, d?.left]).toEqual([100, 110, 115, 200]);
+  });
 });
 
 describe("Chart expanded", () => {

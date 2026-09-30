@@ -1,22 +1,22 @@
-import { Link } from "@tanstack/react-router";
 import { Play } from "lucide-react";
+import { useState } from "react";
 
 import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ErrorBlock } from "../../components/page/QueryState";
-import { RelativeTime } from "../../components/page/RelativeTime";
-import { appStatus, deployStatus } from "../../components/page/status";
-import { Button, buttonClassName } from "../../components/ui/Button";
+import { appStatus } from "../../components/page/status";
+import { Button } from "../../components/ui/Button";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { EmptyCell } from "../../components/ui/EmptyCell";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { ICONS } from "../../components/ui/icons";
 import { Mono } from "../../components/ui/Mono";
-import { StatusGlyph, StatusPill, stateTextClass } from "../../components/ui/StatusPill";
+import { StatusPill } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
-import { cx } from "../../lib/cx";
+import { formatCount } from "../../lib/format";
+import { DeployMoment } from "../apps/AppsTable";
+import { useTypeName } from "../apps/data";
 import { useFleetActions } from "./BulkActionDialog";
 import { field, numberOf, objectOf, originOf } from "./data";
 import type { FleetRow, NodeOutcome } from "./data";
@@ -27,9 +27,13 @@ import { PartialNotice, ServerCell, ServerFilter, StateFilter, useFleetView } fr
 
 const APP_STATES = ["running", "failed", "stopped", "deploying"] as const;
 
-const NAME_LINK = "min-w-0 rounded-chip font-medium text-fg hover:underline hover:underline-offset-2";
+/** Rows shown before "Show more": a page of a long list (docs/DESIGN.md, 6.8). */
+export const APPS_PAGE = 25;
 
-function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>): Column<FleetRow>[] {
+// The same name as the local list: the domain in the interface's type, not a system value.
+const NAME_LINK = "-mx-1 block max-w-full truncate rounded-chip px-1 py-0.5 font-medium text-fg hover:underline hover:underline-offset-2";
+
+function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>, typeName: (type: string | null) => string | null): Column<FleetRow>[] {
   return [
     {
       id: "app",
@@ -38,7 +42,7 @@ function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>): Column<Fleet
       sortValue: (row) => field(row, "domain"),
       cell: (row) => (
         <HrefLink href={originOf(row).href} className={NAME_LINK}>
-          <Mono truncate>{field(row, "domain") ?? ""}</Mono>
+          {field(row, "domain") ?? ""}
         </HrefLink>
       ),
     },
@@ -63,32 +67,27 @@ function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>): Column<Fleet
     {
       id: "type",
       header: t("fleet.column.type"),
+      width: "w-36",
       hideBelow: "md",
       card: "meta",
       cell: (row) => {
-        const type = field(row, "app_type");
-        return type === null ? <EmptyCell reason={t("fleet.apps.noType")} /> : <span className="text-13 text-fg">{type}</span>;
+        const type = typeName(field(row, "app_type"));
+        return type === null ? <EmptyCell reason={t("fleet.apps.noType")} /> : <span className="text-fg-muted">{type}</span>;
       },
     },
     {
       id: "deploy",
       header: t("fleet.column.lastDeploy"),
+      width: "w-40",
       hideBelow: "lg",
       card: "meta",
+      // As the local list says it: the deploy's state as its glyph (and in words for a screen
+      // reader), and when.
       cell: (row) => {
         const last = objectOf(row["last_deployment"]);
         if (last === null) return <EmptyCell reason={t("fleet.apps.neverDeployed")} />;
-        const view = deployStatus(typeof last["status"] === "string" ? last["status"] : null, t.locale);
-        const when = typeof last["finished_at"] === "string" ? last["finished_at"] : typeof last["started_at"] === "string" ? last["started_at"] : null;
-        return (
-          <span className="flex flex-wrap items-center gap-x-2 text-13">
-            <span className={cx("inline-flex items-center gap-1", stateTextClass(view.state))}>
-              <StatusGlyph state={view.state} size={10} />
-              <span className="text-fg">{view.label}</span>
-            </span>
-            {when !== null ? <RelativeTime value={when} className="text-fg-muted" /> : null}
-          </span>
-        );
+        const text = (key: string): string | null => (typeof last[key] === "string" ? last[key] : null);
+        return <DeployMoment deploy={{ status: text("status") ?? "", finished_at: text("finished_at"), started_at: text("started_at") }} />;
       },
     },
     {
@@ -121,7 +120,8 @@ export function AppsTab({ search, onSearchChange }: AppsTabProps) {
   const t = useT();
   const view = useFleetView("apps");
   const actions = useFleetActions();
-  const Add = ICONS.add;
+  const typeName = useTypeName();
+  const [limit, setLimit] = useState(APPS_PAGE);
   const rows = view.data?.items ?? [];
   const shown = rows.filter((row) => {
     const origin = originOf(row);
@@ -131,8 +131,10 @@ export function AppsTab({ search, onSearchChange }: AppsTabProps) {
   });
 
   const set = (patch: FleetSearchPatch, replace = false): void => {
+    setLimit(APPS_PAGE);
     onSearchChange(patchSearch(search, patch), { replace });
   };
+  const paged = shown.slice(0, limit);
 
   if (view.isError && view.data === undefined) {
     return <ErrorBlock error={view.error} title={t("fleet.page.loadFailed")} onRetry={() => void view.refetch()} retrying={view.isRefetching} />;
@@ -180,17 +182,13 @@ export function AppsTab({ search, onSearchChange }: AppsTabProps) {
             >
               {t("fleet.apps.update")}
             </Button>
-            <Link to="/apps/new" search={{ node: undefined }} className={buttonClassName("secondary")}>
-              <Add aria-hidden="true" />
-              {t("fleet.apps.newApplication")}
-            </Link>
           </>
         }
       />
       <DataTable
         caption={t("fleet.apps.caption")}
-        columns={columns(t, view.outcomes)}
-        rows={shown}
+        columns={columns(t, view.outcomes, typeName)}
+        rows={paged}
         getRowId={(row) => `${originOf(row).node}:${field(row, "domain") ?? ""}`}
         loading={view.isPending}
         skeletonRows={6}
@@ -217,6 +215,20 @@ export function AppsTab({ search, onSearchChange }: AppsTabProps) {
           )
         }
       />
+      {shown.length > paged.length ? (
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <span className="text-13 text-fg-muted tabular-nums">
+            {t("fleet.apps.shownOf", { shown: formatCount(paged.length, t.locale), total: formatCount(shown.length, t.locale) })}
+          </span>
+          <Button
+            onClick={() => {
+              setLimit((current) => current + APPS_PAGE);
+            }}
+          >
+            {t("fleet.apps.showMore", { count: Math.min(APPS_PAGE, shown.length - paged.length) })}
+          </Button>
+        </div>
+      ) : null}
       <CommandHint label={t("fleet.page.fromTerminal")} command="noust fleet apps" />
     </div>
   );

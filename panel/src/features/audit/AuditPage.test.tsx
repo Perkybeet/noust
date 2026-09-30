@@ -73,12 +73,17 @@ describe("Settings > Audit log", () => {
     auditBackend();
     const { container } = renderConsole("/settings/audit");
     const table = await screen.findByRole("region", { name: "Audit events" });
-    expect(await within(table).findByText("user.role_change")).toBeInTheDocument();
-    const row = within(within(table).getByText("user.role_change").closest("tr") as HTMLElement);
+    // The event in words, not its id; what the server recorded about it is in the drawer.
+    expect(await within(table).findByText("Account role changed")).toBeInTheDocument();
+    expect(within(table).queryByText("user.role_change")).not.toBeInTheDocument();
+    expect(within(table).queryByText("operator to admin, approved by gus")).not.toBeInTheDocument();
+    const row = within(within(table).getByText("Account role changed").closest("tr") as HTMLElement);
     expect(row.getByText("Security officer")).toBeInTheDocument();
     expect(row.getByText("account:ana")).toBeInTheDocument();
     expect(row.getByText("Done")).toBeInTheDocument();
-    expect(within(within(table).getByText("auth.login").closest("tr") as HTMLElement).getByText("Failed")).toBeInTheDocument();
+    expect(within(within(table).getByText("Sign-in").closest("tr") as HTMLElement).getByText("Failed")).toBeInTheDocument();
+    // Fixed columns: a long value truncates in its cell instead of pushing the others away.
+    expect(within(table).getByRole("table")).toHaveClass("table-fixed");
     expect(await screen.findByText("The audit log is intact")).toBeInTheDocument();
     expect(screen.getByText(/1,204 events verified from the first to the last/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Export" })).toHaveAttribute("href", "/api/audit/export");
@@ -89,8 +94,10 @@ describe("Settings > Audit log", () => {
     const backend = auditBackend();
     const { user, location } = renderConsole("/settings/audit");
     const table = await screen.findByRole("region", { name: "Audit events" });
-    await user.click(await within(table).findByText("user.role_change"));
-    const drawer = await screen.findByRole("dialog", { name: "user.role_change" });
+    await user.click(await within(table).findByText("Account role changed"));
+    const drawer = await screen.findByRole("dialog", { name: "Account role changed" });
+    expect(within(drawer).getByText("user.role_change")).toBeInTheDocument();
+    expect(within(drawer).getByText("operator to admin, approved by gus")).toBeInTheDocument();
     expect(within(drawer).getByText("req-9f2")).toBeInTheDocument();
     expect(within(drawer).getByText(/"approval": 41/)).toBeInTheDocument();
     await user.click(within(drawer).getByRole("button", { name: "Events of the same request" }));
@@ -134,6 +141,15 @@ describe("Settings > Audit log", () => {
     renderConsole("/settings/audit");
     expect(await screen.findByText("El registro de auditoría está íntegro")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Eventos" })).toBeInTheDocument();
+    const table = await screen.findByRole("region", { name: "Eventos de auditoría" });
+    expect(await within(table).findByText("Rol de una cuenta cambiado")).toBeInTheDocument();
+    expect(within(table).getByText("Inicio de sesión")).toBeInTheDocument();
+  });
+
+  it("records a review as a secondary action: the log is read here, not changed", async () => {
+    auditBackend();
+    renderConsole("/settings/audit");
+    expect(await screen.findByRole("button", { name: "Record a review" })).toHaveAttribute("data-variant", "secondary");
   });
 });
 

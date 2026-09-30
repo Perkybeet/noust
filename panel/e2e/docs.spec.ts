@@ -78,7 +78,9 @@ async function shot(page: Page, name: string): Promise<void> {
   // One screen, as a reader's monitor shows it (1440x900, landscape), never the whole page:
   // a full-page capture of a long view is a tall strip that GitHub and PyPI shrink until
   // nothing on it can be read (owner feedback, 3.1).
-  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.evaluate(() => {
+    window.scrollTo(0, 0);
+  });
   await page.screenshot({ path: path.join(OUT, `${name}.png`), fullPage: false });
 }
 

@@ -60,7 +60,8 @@ function fromSummary(summary: ServerSummary): AttentionItem[] {
       id: "security-updates",
       kind: "securityUpdates",
       count: updates.security ?? 0,
-      severity: "critical",
+      // A warning, as the Overview's tile says it: the server marks no update critical.
+      severity: "warning",
       action: { kind: "tab", to: "/server/updates" },
     });
   }

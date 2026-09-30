@@ -9,7 +9,7 @@
  * - an application exported from its settings, with and without its secret values (sudo mode);
  * - that export imported on another domain, with the secret it left out, and the job's report
  *   of what was applied and what was not;
- * - the console's language, switched in Settings and kept across a reload;
+ * - the console's language, switched in the session panel and kept across a reload;
  * - the language of notifications, saved to the server's configuration.
  */
 
@@ -241,9 +241,12 @@ test("an export imports on another domain with the secret it left out, and says 
   await forgetApp(page, consoleServer, domain);
 });
 
-test("the language chosen in Settings applies at once and survives a reload", async ({ page, consoleServer }) => {
+test("the language chosen in the session panel applies at once and survives a reload", async ({ page, consoleServer }) => {
+  // The console's language is this browser's preference, beside the theme: not a server setting.
   await signIn(page, consoleServer, "/settings");
-  const language = page.getByRole("main").getByRole("group", { name: "Language" });
+  await page.getByRole("button", { name: "Session and preferences" }).click();
+  const panel = page.getByRole("dialog", { name: "Session" });
+  const language = panel.getByRole("group", { name: "Language" });
   await expect(language.getByRole("button", { name: "English" })).toHaveAttribute("aria-pressed", "true");
   await settle(page);
   await expectNoA11yViolations(page, "the language switch in English");
@@ -257,7 +260,8 @@ test("the language chosen in Settings applies at once and survives a reload", as
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("lang", "es");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(spanish.settings.page.title);
-  const switched = page.getByRole("main").getByRole("group", { name: spanish.language.label });
+  await page.getByRole("button", { name: spanish.shell.session.label }).click();
+  const switched = page.getByRole("dialog", { name: spanish.shell.session.title }).getByRole("group", { name: spanish.language.label });
   await expect(switched.getByRole("button", { name: "Español" })).toHaveAttribute("aria-pressed", "true");
   expect(await page.evaluate(() => window.localStorage.getItem("noust.locale"))).toBe("es");
 

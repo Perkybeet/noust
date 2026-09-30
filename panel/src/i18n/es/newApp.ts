@@ -146,6 +146,7 @@ export const newApp: Catalog<typeof en> = {
     notGit: "No es una copia de Git",
     noType: "Ningún tipo ha reconocido este origen. Elige uno abajo: su deployer decide los comandos de instalación, compilación y arranque al ejecutarse.",
     notDeployable: "No se puede desplegar tal como está:",
+    canDeploy: "Noust puede desplegarlo como {type}.",
     looksLike: "Parece una aplicación {type}.",
     looksLikeUsing: "Parece una aplicación {type} que usa {manager}.",
     alsoMatches: "También coincide con {types}.",

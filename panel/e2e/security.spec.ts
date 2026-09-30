@@ -95,7 +95,8 @@ test("signing out other sessions leaves this browser in and signs every other on
   };
   // The worker's server may already carry sessions from earlier tests; only the count going up
   // by the one about to sign in, and every one of them but this browser's own leaving, is asserted.
-  await expect(dataRows()).not.toHaveCount(0);
+  // Loaded, not the placeholder rows the table holds while it loads: "Show all" comes with them.
+  await expect(dataRows().getByText("This browser")).toBeVisible();
   await showAll();
   const before = await dataRows().count();
 
@@ -104,7 +105,8 @@ test("signing out other sessions leaves this browser in and signs every other on
   await signIn(otherPage, consoleServer, "/settings/security");
 
   await page.reload();
-  await expect(dataRows()).not.toHaveCount(0);
+  // Loaded, not the placeholder rows the table holds while it loads: "Show all" comes with them.
+  await expect(dataRows().getByText("This browser")).toBeVisible();
   await showAll();
   await expect(dataRows()).toHaveCount(before + 1);
 

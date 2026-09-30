@@ -168,8 +168,8 @@ export const domains: Catalog<typeof en> = {
     checking: "Comprobando",
     noCertificateHttpOnly: "Sin certificado, solo HTTP",
     extendingCertificate: "Extendiendo el certificado",
-    notCovered: "No cubierto",
-    covered: "Cubierto",
+    notCovered: "Sin HTTPS",
+    covered: "HTTPS",
   },
 
   sitesTab: {

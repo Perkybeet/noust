@@ -89,7 +89,7 @@ test("restoring the latest backup is confirmed by typing the target domain", asy
   await page.getByRole("button", { name: "Actions for shop.example.net", exact: true }).click();
   await page.getByRole("menuitem", { name: "Restore the latest…" }).click();
 
-  const dialog = page.getByRole("dialog", { name: "Restore a backup of shop.example.net" });
+  const dialog = page.getByRole("alertdialog", { name: "Restore a backup of shop.example.net" });
   await expect(dialog).toBeVisible();
   const confirmButton = dialog.getByRole("button", { name: "Restore" });
   await expect(confirmButton).toBeDisabled();
@@ -114,7 +114,7 @@ test("restoring the latest backup is confirmed by typing the target domain", asy
   );
   await elevate.getByRole("button", { name: "Confirm" }).click();
   const body = (await requested).postDataJSON() as { target_domain: string | null; restore_env: boolean; verify: boolean };
-  expect(body).toEqual({ target_domain: null, restore_env: true, verify: true });
+  expect(body).toEqual({ target_domain: null, restore_env: false, verify: true });
   await expect(elevate).toBeHidden();
   await expect(toasts(page).getByText("Restore queued for shop.example.net", { exact: true })).toBeVisible();
 });
@@ -125,7 +125,7 @@ test("restoring into a different domain is confirmed by typing that domain", asy
   await drawer.getByRole("button", { name: /^Actions for/ }).first().click();
   await page.getByRole("menuitem", { name: "Restore…" }).click();
 
-  const dialog = page.getByRole("dialog", { name: "Restore a backup of shop.example.net" });
+  const dialog = page.getByRole("alertdialog", { name: "Restore a backup of shop.example.net" });
   const domainField = dialog.getByRole("textbox").nth(0);
   await domainField.fill("shop-staging.example.com");
   const confirmField = dialog.getByRole("textbox").nth(1);

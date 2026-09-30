@@ -144,6 +144,7 @@ export const newApp = {
     notGit: "Not a Git checkout",
     noType: "No type recognised this source. Choose one below: its deployer decides the install, build and start commands when it runs.",
     notDeployable: "Not deployable as it is:",
+    canDeploy: "Noust can deploy this as {type}.",
     looksLike: "Looks like a {type} app.",
     looksLikeUsing: "Looks like a {type} app using {manager}.",
     alsoMatches: "It also matches {types}.",

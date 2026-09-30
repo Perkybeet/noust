@@ -320,6 +320,17 @@ describe("the three contexts", () => {
     expect(screen.getByRole("link", { name: "Back to web-2, the server you were on" })).toHaveAttribute("href", "/n/web-2/settings");
   });
 
+  it("offers no way back to the central's own server on the central's pages: the selector names it already", async () => {
+    const { user, history } = await consoleAt("/apps");
+    await user.click(await trigger("Server: web-01"));
+    await user.click(await screen.findByRole("menuitemradio", { name: /^This central/ }));
+    await waitFor(() => {
+      expect(history.location.pathname).toBe("/settings/servers");
+    });
+    expect(await trigger("Server: this central, web-01")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^Back to web-01/ })).not.toBeInTheDocument();
+  });
+
   it("keeps a node's own settings on the node, and says whose the central's are", async () => {
     const { user, history } = await consoleAt("/n/web-2/settings/notifications");
     const nav = await screen.findByRole("navigation", { name: "Settings sections" });

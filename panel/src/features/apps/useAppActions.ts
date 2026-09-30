@@ -2,7 +2,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { isApiError, request } from "../../api/client";
-import { ElevationCancelledError } from "../../api/errors";
 import type { ApiError } from "../../api/errors";
 import { appKeys } from "../../api/queries/apps";
 import { jobKeys } from "../../api/queries/jobs";
@@ -12,6 +11,7 @@ import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { describeError } from "../../lib/errors";
+import { reportHeld } from "../../lib/held";
 
 export interface AppActionOptions {
   /**
@@ -26,10 +26,7 @@ export interface AppActionOptions {
  * cancelled "Confirm it's you" is not a failure, and is said as such.
  */
 export function reportActionError(title: string, error: unknown): void {
-  if (error instanceof ElevationCancelledError) {
-    toast.info(error.detail);
-    return;
-  }
+  if (reportHeld(error)) return;
   const { hint, detail, output } = describeError(error);
   toast.error(title, { detail, ...(hint !== null ? { description: hint } : {}), ...(output !== null ? { output } : {}) });
 }

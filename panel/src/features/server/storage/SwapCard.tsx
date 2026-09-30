@@ -19,7 +19,7 @@ import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
-import { formatBytes } from "../../../lib/format";
+import { formatBytes, formatBytesPair } from "../../../lib/format";
 import { ActionDialog } from "../ActionDialog";
 import { ServerErrorBlock } from "../errors";
 import { serverKeys, swapQuery } from "../queries";
@@ -47,7 +47,8 @@ export function SwapCard() {
   }
   if (swap.data === undefined) {
     return (
-      <Card level={2} title={t("server.swap.title")} padding="sm">
+      // The header keeps the room of its action, so the card's body does not drop when it lands.
+      <Card level={2} title={t("server.swap.title")} padding="sm" actions={<Skeleton className="h-control-sm w-32 rounded-control" />}>
         <Skeleton className="h-32 w-full" />
       </Card>
     );
@@ -59,7 +60,7 @@ export function SwapCard() {
     { label: t("server.swap.memory"), value: formatBytes(data.memory_bytes, t.locale), mono: false, copy: false },
     {
       label: t("server.swap.swap"),
-      value: none ? t("server.swap.none") : t("server.swap.used", { used: formatBytes(data.used_bytes, t.locale), total: formatBytes(data.total_bytes, t.locale) }),
+      value: none ? t("server.swap.none") : t("server.swap.used", { used: formatBytesPair(data.used_bytes, data.total_bytes, t.locale)[0], total: formatBytesPair(data.used_bytes, data.total_bytes, t.locale)[1] }),
       mono: false,
       copy: false,
     },

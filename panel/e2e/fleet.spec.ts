@@ -63,7 +63,7 @@ interface FleetWorkerFixtures {
 
 /**
  * A central and a node sharing one worker: every test below reads them, and the one
- * destructive test only ever creates and removes its own, disposable service on the node, so
+ * destructive test only ever creates and removes its own, disposable destination on the node, so
  * the pair stays good for every test scheduled after it on the same worker. The node going
  * down is its own, separate pair (below), never this shared one.
  */
@@ -262,32 +262,40 @@ withFleet("Add a server: a console token pasted as a join code is caught, and a 
 withFleet(
   "a destructive action on the node asks to confirm it's you, then succeeds there and only there",
   async ({ page, consoleServer, problems }) => {
+    // A backup destination: within the node's default ceiling (admin, without host access), where
+    // a raw unit is not - that one is root-equivalent, and the node refuses it to any central.
     const name = `e2e-fleet-${String(Date.now())}`;
-    problems.expect(new RegExp(`status of 403 .*\\/api\\/nodes\\/${NODE_NAME}\\/api\\/services$`));
+    problems.expect(new RegExp(`status of 403 .*\\/api\\/nodes\\/${NODE_NAME}\\/api\\/backup-destinations$`));
+    const rows = () => page.getByRole("region", { name: "Backup destinations" }).getByRole("row").filter({ has: page.getByRole("cell", { name, exact: true }) });
 
-    await signIn(page, consoleServer, `/n/${NODE_NAME}/services`);
-    await page.getByRole("button", { name: "New service" }).click();
-    const create = page.getByRole("dialog", { name: "New service" });
+    await signIn(page, consoleServer, `/n/${NODE_NAME}/backups/destinations`);
+    await page.getByRole("button", { name: "Add destination" }).click();
+    const create = page.getByRole("dialog", { name: "Add backup destination" });
     await create.getByLabel("Name", { exact: true }).fill(name);
-    await create.getByLabel("Command", { exact: true }).fill("/usr/bin/node worker.js");
-    await create.getByRole("button", { name: "Create service" }).click();
+    await create.getByRole("combobox", { name: "Backend" }).click();
+    await page.getByRole("option", { name: /^SFTP server/ }).click();
+    await create.getByLabel("Host", { exact: true }).fill("backup.fleet.invalid");
+    await create.getByLabel("User", { exact: true }).fill("noust");
+    await create.getByLabel("Remote folder").fill("/volume1/backups");
+    await create.getByRole("button", { name: "Add destination" }).click();
     await confirmItsYou(page, consoleServer);
-    await expect(toasts(page).getByText(`Created ${name}`)).toBeVisible();
-    await expect(page.getByRole("link", { name })).toBeVisible();
+    await expect(create).toBeHidden();
+    await expect(toasts(page).getByText(`Backup destination created: ${name}`, { exact: true })).toBeVisible();
+    await expect(rows()).toHaveCount(1);
 
-    // It landed on the node's own model, not the central's: the central's own services never
-    // saw it, which only the proxy actually reaching the node's process could produce.
-    await page.goto("/services");
-    await expect(page.getByRole("link", { name })).toHaveCount(0);
+    // It landed on the node's own configuration, not the central's: the central's own
+    // destinations never saw it, which only the proxy actually reaching the node could produce.
+    await page.goto("/backups/destinations");
+    await expect(page.getByRole("region", { name: "Backup destinations" })).toBeVisible();
+    await expect(rows()).toHaveCount(0);
 
-    await page.goto(`/n/${NODE_NAME}/services/${name}`);
-    await page.getByRole("button", { name: "Delete service" }).click();
-    const remove = page.getByRole("alertdialog", { name: `Delete ${name}` });
-    await remove.locator("input").fill(name);
-    await remove.getByRole("button", { name: "Delete service" }).click();
-    await expect(page).toHaveURL(new RegExp(`/n/${NODE_NAME}/services$`));
-    await expect(toasts(page).getByText(`Deleted ${name}`)).toBeVisible();
-    await expect(page.getByRole("link", { name })).toHaveCount(0);
+    await page.goto(`/n/${NODE_NAME}/backups/destinations`);
+    await page.getByRole("button", { name: `Actions for ${name}`, exact: true }).click();
+    await page.getByRole("menuitem", { name: "Remove" }).click();
+    const remove = page.getByRole("alertdialog", { name: `Remove ${name}` });
+    await remove.getByRole("button", { name: "Remove destination" }).click();
+    await expect(remove).toBeHidden();
+    await expect(rows()).toHaveCount(0);
   },
 );
 
@@ -459,7 +467,9 @@ test("a node that is down and one on an older Noust: the views answer partially,
     await expectNoA11yViolations(page, "a partial fleet's summary");
 
     await page.getByRole("navigation", { name: "Fleet views" }).getByRole("link", { name: "Applications" }).click();
-    // web-2 answered: its application is there, even though db-1 did not.
+    // web-2 answered: its application is there, even though db-1 did not. Four servers' worth
+    // is more than one page of the list, so it is looked for as an operator would.
+    await page.getByRole("searchbox", { name: "Search applications" }).fill(NODE_APP);
     await expect(page.getByRole("region", { name: "Applications on every server" }).getByRole("link", { name: NODE_APP, exact: true })).toBeVisible();
 
     await page.getByRole("navigation", { name: "Fleet views" }).getByRole("link", { name: "Updates" }).click();

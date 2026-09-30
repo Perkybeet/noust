@@ -34,7 +34,8 @@ import { formatCount } from "../../lib/format";
 import { roleLabel } from "../settings/accounts/roles";
 import { splitErrors } from "../settings/formErrors";
 import { catalogQuery, recordReview, reviewsQuery, statusQuery, trailKeys, verifyQuery } from "./api";
-import { RESULTS, actorName, isFiltered, matches, outcomeView } from "./data";
+import { auditActionLabel } from "../activity/data";
+import { RESULTS, actorName, categoryLabel, isFiltered, matches, outcomeView } from "./data";
 import type { AuditSearch } from "./data";
 
 const PAGE = 50;
@@ -62,46 +63,45 @@ function Actor({ t, entry }: { t: T; entry: AuditEntry }) {
   );
 }
 
+/** The event in words, the same as Activity says it; an id with no words, as the server wrote it. */
+function EventName({ t, action }: { t: T; action: string }) {
+  const label = auditActionLabel(t, action);
+  return label !== action ? (
+    <span className="block truncate" title={label}>
+      {label}
+    </span>
+  ) : (
+    <Mono tone="default" truncate>
+      {action}
+    </Mono>
+  );
+}
+
+/**
+ * The table's columns, at fixed widths but the event's: what the server recorded about an
+ * event (its detail, the command it ran) has no natural length, so it lives in the event's
+ * drawer, and where a request came from with it.
+ */
 function columnsFor(t: T): Column<AuditEntry>[] {
   return [
-    {
-      id: "event",
-      header: t("audit.table.event"),
-      card: "title",
-      cell: (entry) => (
-        <span className="flex min-w-0 flex-col">
-          <Mono tone="default" truncate>
-            {entry.action}
-          </Mono>
-          {entry.detail ? <span className="line-clamp-1 text-12 text-fg-muted">{entry.detail}</span> : null}
-        </span>
-      ),
-    },
-    { id: "outcome", header: t("audit.table.outcome"), card: "status", width: "w-32", cell: (entry) => <Outcome t={t} result={entry.result} /> },
-    { id: "actor", header: t("audit.table.actor"), width: "w-44", cell: (entry) => <Actor t={t} entry={entry} /> },
+    { id: "event", header: t("audit.table.event"), card: "title", cell: (entry) => <EventName t={t} action={entry.action} /> },
+    { id: "outcome", header: t("audit.table.outcome"), card: "status", width: "w-28", cell: (entry) => <Outcome t={t} result={entry.result} /> },
+    { id: "actor", header: t("audit.table.actor"), width: "w-36", cell: (entry) => <Actor t={t} entry={entry} /> },
     {
       id: "target",
       header: t("audit.table.target"),
       hideBelow: "md",
+      width: "w-44",
       cell: (entry) => (entry.resource ? <Mono tone="default" truncate>{entry.resource}</Mono> : <EmptyCell reason={t("audit.table.noTarget")} />),
     },
-    {
-      id: "source",
-      header: t("audit.table.source"),
-      hideBelow: "lg",
-      width: "w-36",
-      cell: (entry) => {
-        const source = entry.client_ip ?? entry.who?.source ?? entry.who?.via ?? null;
-        return source === null ? <EmptyCell reason={t("audit.table.noSource")} /> : <Mono tone="muted">{source}</Mono>;
-      },
-    },
-    { id: "when", header: t("audit.table.when"), width: "w-32", cell: (entry) => <RelativeTime value={entry.timestamp} /> },
+    { id: "when", header: t("audit.table.when"), width: "w-28", cell: (entry) => <RelativeTime value={entry.timestamp} /> },
   ];
 }
 
 /** One event, every field of it, and the way to its siblings of the same request. */
 function EntryDrawer({ entry, onClose, onCorrelate }: { entry: AuditEntry; onClose: () => void; onCorrelate: (id: string) => void }) {
   const t = useT();
+  const label = auditActionLabel(t, entry.action);
   const items: KeyValueItem[] = [
     { label: t("audit.fields.action"), value: entry.action },
     { label: t("audit.fields.outcome"), value: <Outcome t={t} result={entry.result} />, mono: false, copy: false },
@@ -121,8 +121,7 @@ function EntryDrawer({ entry, onClose, onCorrelate }: { entry: AuditEntry; onClo
       onOpenChange={(next) => {
         if (!next) onClose();
       }}
-      title={entry.action}
-      description={entry.detail ?? undefined}
+      title={label}
       {...(entry.correlation_id
         ? {
             footer: (
@@ -140,6 +139,14 @@ function EntryDrawer({ entry, onClose, onCorrelate }: { entry: AuditEntry; onClo
       <div className="flex flex-col gap-5">
         {entry.sensitive ? <Notice>{t("audit.drawer.sensitive")}</Notice> : null}
         <KeyValueList items={items} />
+        {entry.detail ? (
+          <div className="flex flex-col gap-1.5">
+            <p className="text-13 font-medium text-fg">{t("audit.drawer.recorded")}</p>
+            <SystemOutput label={t("audit.drawer.recorded")} maxHeight="max-h-40">
+              {entry.detail}
+            </SystemOutput>
+          </div>
+        ) : null}
         {entry.details && Object.keys(entry.details).length > 0 ? (
           <div className="flex flex-col gap-1.5">
             <p className="text-13 font-medium text-fg">{t("audit.drawer.details")}</p>
@@ -367,7 +374,8 @@ export function AuditPage({ search, onSearchChange }: AuditPageProps) {
               <Download aria-hidden="true" className="size-icon-md" />
               {t("audit.page.export")}
             </a>
-            <Button variant="primary" icon={<ScrollText aria-hidden="true" />} onClick={() => setReviewing(true)}>
+            {/* Secondary, as the access review's is: this page reads the log, it changes nothing. */}
+            <Button icon={<ScrollText aria-hidden="true" />} onClick={() => setReviewing(true)}>
               {t("audit.page.review")}
             </Button>
           </>
@@ -388,16 +396,14 @@ export function AuditPage({ search, onSearchChange }: AuditPageProps) {
                   aria-label={t("audit.page.categoryFilter")}
                   value={search.category ?? ALL}
                   onValueChange={(value) => set({ category: value === ALL ? undefined : value })}
-                  options={[{ value: ALL, label: t("audit.page.everyCategory") }, ...(catalog.data?.categories ?? []).map((category) => ({ value: category, label: category }))]}
-                  mono
+                  options={[{ value: ALL, label: t("audit.page.everyCategory") }, ...(catalog.data?.categories ?? []).map((category) => ({ value: category, label: categoryLabel(t, category) }))]}
                   className="min-w-36"
                 />
                 <Select
                   aria-label={t("audit.page.outcomeFilter")}
                   value={search.result ?? ALL}
                   onValueChange={(value) => set({ result: value === ALL ? undefined : value })}
-                  options={[{ value: ALL, label: t("audit.page.everyOutcome") }, ...RESULTS.map((result) => ({ value: result, label: result }))]}
-                  mono
+                  options={[{ value: ALL, label: t("audit.page.everyOutcome") }, ...RESULTS.map((result) => ({ value: result, label: outcomeView(t, result).label }))]}
                   className="min-w-36"
                 />
               </>
@@ -434,6 +440,7 @@ export function AuditPage({ search, onSearchChange }: AuditPageProps) {
               rows={shown}
               getRowId={(entry) => entry.id ?? `${entry.timestamp}-${entry.action}-${entry.actor}`}
               density="compact"
+              layout="fixed"
               mobile="cards"
               loading={query.isPending}
               skeletonRows={8}

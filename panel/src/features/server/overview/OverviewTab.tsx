@@ -22,7 +22,7 @@ import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusGlyph, stateTextClass } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
-import { formatBytes, formatDate, formatDuration, formatPercent, parseTimestamp } from "../../../lib/format";
+import { formatBytes, formatBytesPair, formatDate, formatDuration, formatPercent, parseTimestamp } from "../../../lib/format";
 import { NodeCapabilityGate } from "../../../nodes/capability";
 import { attentionItems } from "../attention";
 import type { AttentionItem } from "../attention";
@@ -134,7 +134,7 @@ function AttentionRow({ item }: { item: AttentionItem }) {
       <span className="sr-only">{item.severity === "critical" ? t("server.attention.critical") : t("server.attention.warning")}</span>
       <div className="flex min-w-0 flex-1 basis-60 flex-col">
         <span className="text-13 text-fg">{attentionText(t, item)}</span>
-        {item.kind === "check" && item.check.reason !== "" ? <span className="truncate text-12 text-fg-muted">{item.check.reason}</span> : null}
+        {/* A check's reason is the server's English prose: the Security tab shows it in full. */}
       </div>
       <AttentionAction item={item} />
     </li>
@@ -313,8 +313,8 @@ function Readings({ summary, security }: { summary: ServerSummary | undefined; s
         detail={
           memory !== undefined
             ? t("server.overview.memoryDetail", {
-                used: formatBytes(memory.used, t.locale),
-                total: formatBytes(memory.total, t.locale),
+                used: formatBytesPair(memory.used, memory.total, t.locale)[0],
+                total: formatBytesPair(memory.used, memory.total, t.locale)[1],
                 swap: summary?.swap.total_bytes != null ? formatBytes(summary.swap.total_bytes, t.locale) : "–",
               })
             : undefined

@@ -189,9 +189,11 @@ serial("a role change waits for a second officer, who approves it in the inbox; 
   const decider = await other.newPage();
   const gus = person("gus");
   await signInAs(decider, gus, "/settings/approvals");
-  const request = decider.getByRole("row").filter({ hasText: "/api/auth/accounts/viewer1" }).first();
+  // The inbox says what a request does in plain words; the call itself is in its drawer.
+  const request = decider.getByRole("row").filter({ hasText: "Change the role of an account" }).filter({ hasText: "sec1" }).first();
   await request.getByRole("button", { name: /^Open request/ }).click();
   const drawer = decider.getByRole("dialog", { name: /^Request \d+$/ });
+  await expect(drawer.getByText("PATCH /api/auth/accounts/viewer1", { exact: true })).toBeVisible();
   await expect(drawer.getByText(/"role": "operator"/)).toBeVisible();
   await stillness(decider);
   await expectNoA11yViolations(decider, "the request as the decider reads it");

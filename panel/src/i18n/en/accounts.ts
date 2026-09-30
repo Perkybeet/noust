@@ -29,7 +29,7 @@ export const accounts = {
   },
   page: {
     documentTitle: "Accounts",
-    title: "People",
+    title: "Accounts",
     description: "Each person signs in with their own account, one role per account. Nobody's password is known to anyone else.",
     invite: "Invite a person",
     filterLabel: "Filter accounts",
@@ -41,7 +41,7 @@ export const accounts = {
     everyState: "Every state",
     count: { one: "{count} account", other: "{count} accounts" },
     countFiltered: "{shown} of {total} accounts",
-    caption: "Accounts",
+    caption: "Every account",
     noMatch: "No account matches these filters.",
     clearFilters: "Clear filters",
     loadFailed: "Could not load the accounts",

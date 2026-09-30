@@ -26,7 +26,7 @@ async function signIn(page: Page, server: ConsoleServer, path: string): Promise<
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 }
 
-test("the list says which databases are backed up, and the engines sit in one line above it", async ({ page, consoleServer }) => {
+test("the list says which databases are backed up, and the engines have a tab of their own", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/databases");
   await expect(page.getByRole("heading", { level: 1, name: "Databases" })).toBeVisible();
   const table = page.getByRole("region", { name: "Databases" });
@@ -34,8 +34,9 @@ test("the list says which databases are backed up, and the engines sit in one li
   await expect(production.getByText("Backed up")).toBeVisible();
   await expect(production.getByRole("link", { name: "example.com" })).toBeVisible();
   await expect(table.getByRole("row", { name: /example_staging/ }).getByText("No backups scheduled")).toBeVisible();
-  const engines = page.getByRole("navigation", { name: "Engines" });
-  await expect(engines.getByText("MongoDB")).toBeVisible();
+  // Nothing but filters and one notice sits between the header and the table (T1): what
+  // configures the list, the engines, is a subset tab, not a strip above it.
+  await expect(page.getByRole("navigation", { name: "Engines" })).toHaveCount(0);
   await expect(page.getByText(/databases? (has|have) no backup schedule/)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the databases list");
@@ -43,6 +44,7 @@ test("the list says which databases are backed up, and the engines sit in one li
   await page.getByRole("navigation", { name: "Databases sections" }).getByRole("link", { name: "Engines" }).click();
   await expect(page).toHaveURL(/\/databases\/engines$/);
   const list = page.getByRole("region", { name: "Database engines" });
+  await expect(list.getByRole("row", { name: /MongoDB/ })).toBeVisible();
   await expect(list.getByRole("row", { name: /MySQL\/MariaDB/ }).getByText(/Upstream support for version 8\.0 ended/)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the engines tab");

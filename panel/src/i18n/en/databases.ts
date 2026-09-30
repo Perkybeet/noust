@@ -33,10 +33,6 @@ export const databases = {
     done: { one: "Tracked {count} database", other: "Tracked {count} databases" },
     failed: "Could not track the databases",
   },
-  strip: {
-    label: "Engines",
-    manage: "Manage engines",
-  },
   engine: {
     state: {
       running: "Running",

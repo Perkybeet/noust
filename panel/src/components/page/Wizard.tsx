@@ -104,7 +104,9 @@ export function Wizard({ header, steps, current, onSelectStep, title, descriptio
         className={cx(
           "grid min-w-0 gap-8",
           "lg:grid-cols-[var(--width-settings-nav)_minmax(0,var(--width-wizard))]",
-          summary !== undefined && "xl:grid-cols-[var(--width-settings-nav)_minmax(0,var(--width-wizard))_minmax(0,1fr)]",
+          // The summary beside the step only where it has room to be read (16rem at least);
+          // narrower, it follows the step instead of cutting every value it holds.
+          summary !== undefined && "2xl:grid-cols-[var(--width-settings-nav)_minmax(0,var(--width-wizard))_minmax(16rem,1fr)]",
         )}
       >
         <div data-slot="stepper" className="min-w-0">
@@ -127,7 +129,7 @@ export function Wizard({ header, steps, current, onSelectStep, title, descriptio
           <WizardActions {...actions} className="sticky bottom-0 z-sticky border-t border-border bg-bg py-3" />
         </section>
         {summary !== undefined ? (
-          <aside data-slot="summary" aria-label={summaryLabel ?? t("common.wizard.summary")} className="min-w-0 max-xl:lg:col-start-2">
+          <aside data-slot="summary" aria-label={summaryLabel ?? t("common.wizard.summary")} className="min-w-0 max-2xl:lg:col-start-2">
             {summary}
           </aside>
         ) : null}

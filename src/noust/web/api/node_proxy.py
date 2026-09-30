@@ -479,6 +479,7 @@ class NodeSchemas:
     def __init__(self) -> None:
         """Start with nothing cached."""
         self._schemas: dict[str, NodeSchema] = {}
+        self._fetching: dict[str, asyncio.Lock] = {}
 
     def cached(self, node: NodeRecord) -> NodeSchema | None:
         """
@@ -520,6 +521,34 @@ class NodeSchemas:
         schema = self.cached(node)
         if schema is not None:
             return schema
+        # One fetch per node at a time: a page opened on a node asks it a dozen things at once,
+        # and each would otherwise download and compile the same schema of several hundred KiB
+        # - on a busy central, for long enough that the page times out waiting.
+        lock = self._fetching.setdefault(node.name, asyncio.Lock())
+        async with lock:
+            schema = self.cached(node)
+            if schema is not None:
+                return schema
+            return await self._fetch(node, client, upstream)
+
+    async def _fetch(
+        self, node: NodeRecord, client: httpx.AsyncClient, upstream: Upstream
+    ) -> NodeSchema:
+        """
+        Read the node's schema through the tunnel and cache its elevation map.
+
+        Args:
+            node: The node.
+            client: A client for the node.
+            upstream: The node's headers.
+
+        Returns:
+            The map.
+
+        Raises:
+            HTTPException: 502 when the node does not serve its schema, or
+                serves one larger than :data:`_MAX_SCHEMA_BYTES`.
+        """
         # Streamed and capped while reading, not after: a node's own claimed
         # Content-Length is not trusted, so the only way to bound how much of
         # a hostile or broken node's answer the central ever buffers is to
@@ -576,8 +605,10 @@ class NodeSchemas:
         """
         if name is None:
             self._schemas.clear()
+            self._fetching.clear()
         else:
             self._schemas.pop(name, None)
+            self._fetching.pop(name, None)
 
 
 #: One cache per process, like the tunnels it reads through.

@@ -28,7 +28,7 @@ import { Meter } from "../../../components/ui/Progress";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
-import { formatBytes, formatPercent } from "../../../lib/format";
+import { formatBytes, formatBytesPair, formatPercent } from "../../../lib/format";
 import { NodeCapabilityGate } from "../../../nodes/capability";
 import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";
@@ -94,13 +94,20 @@ function Mounts({ mounts }: { mounts: readonly Mount[] | undefined }) {
       {mounts === undefined ? (
         <ul aria-busy="true" aria-label={t("server.storage.loading")} className="flex flex-col divide-y divide-border">
           {Array.from({ length: TYPICAL_MOUNTS }, (_, index) => (
+            // Each bar in a box of its line's height, so a row is as tall as the mount it stands for.
             <li key={index} className="grid min-w-0 gap-x-6 gap-y-2 px-5 py-3 md:grid-cols-2">
-              <div className="flex flex-col gap-1.5">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-3 w-40" />
+              <div className="flex flex-col gap-0.5">
+                <span className="flex h-5 items-center">
+                  <Skeleton className="h-3.5 w-24" />
+                </span>
+                <span className="flex h-4 items-center">
+                  <Skeleton className="h-3 w-40" />
+                </span>
               </div>
               <div className="flex flex-col gap-1.5">
-                <Skeleton className="h-4 w-full" />
+                <span className="flex h-5 items-center">
+                  <Skeleton className="h-3.5 w-full" />
+                </span>
                 <Skeleton className="h-1.5 w-full" />
               </div>
             </li>
@@ -130,7 +137,7 @@ function Mounts({ mounts }: { mounts: readonly Mount[] | undefined }) {
               <Meter
                 value={mount.used_bytes}
                 max={mount.total_bytes}
-                label={t("server.storage.free", { free: formatBytes(mount.free_bytes, t.locale), total: formatBytes(mount.total_bytes, t.locale) })}
+                label={t("server.storage.free", { free: formatBytesPair(mount.free_bytes, mount.total_bytes, t.locale)[0], total: formatBytesPair(mount.free_bytes, mount.total_bytes, t.locale)[1] })}
                 valueText={formatPercent(mount.percent_used, t.locale)}
               />
             </li>
@@ -368,9 +375,19 @@ function StorageView() {
           )
         }
         actions={
-          <Button loading={analyze.isPending} disabled={jobs.busy} onClick={() => analyze.mutate()}>
-            {data?.analysis_at ? t("server.storage.measureAgain") : t("server.storage.measure")}
-          </Button>
+          data === undefined ? (
+            // The button's room while the label is unknown, in the one a measured server has.
+            <span
+              aria-hidden="true"
+              className="inline-flex h-control-md animate-breathe items-center rounded-control border border-transparent bg-surface-active px-3 text-13 font-medium whitespace-nowrap text-transparent select-none"
+            >
+              {t("server.storage.measureAgain")}
+            </span>
+          ) : (
+            <Button loading={analyze.isPending} disabled={jobs.busy} onClick={() => analyze.mutate()}>
+              {data.analysis_at ? t("server.storage.measureAgain") : t("server.storage.measure")}
+            </Button>
+          )
         }
       />
       <Mounts mounts={data?.mounts} />

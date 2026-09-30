@@ -75,6 +75,7 @@ export const audit = {
     seq: "Position in the chain",
   },
   drawer: {
+    recorded: "What the server recorded",
     details: "Details",
     sameRequest: "Events of the same request",
     sensitive: "This event records that someone read something sensitive, such as secrets.",

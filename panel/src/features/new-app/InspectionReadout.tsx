@@ -36,9 +36,14 @@ function Command({ step, argv, none }: { step: string; argv: string | null; none
  * when something has to be done first, what. Only an explicit `compatible: false` warns; an
  * inspection that did not say (an older backend) shows nothing rather than a guess.
  */
-function Verdict({ inspection }: { inspection: Inspection }) {
+function Verdict({ inspection, types }: { inspection: Inspection; types: readonly AppTypeOption[] }) {
   const t = useT();
-  const verdict = inspection.verdict ?? null;
+  // "It can be deployed" is said in the console's words; the backend's prose is kept only
+  // where it carries what the console cannot say itself (what is missing on this server).
+  const verdict =
+    inspection.compatible === true && inspection.app_type
+      ? t("newApp.readout.canDeploy", { type: typeName(types, inspection.app_type) })
+      : (inspection.verdict ?? null);
   const suggestion = inspection.suggestion ?? null;
   if (verdict === null && suggestion === null) return null;
   const body = (
@@ -112,7 +117,7 @@ export function InspectionReadout({ inspection, types, source }: { inspection: I
           <p className="px-4 py-3 text-13 text-pretty text-fg">{t("newApp.readout.noType")}</p>
         ) : (
           <div className="flex flex-col gap-3 px-4 py-3">
-            <Verdict inspection={inspection} />
+            <Verdict inspection={inspection} types={types} />
             <p className="text-13 text-pretty text-fg">
               {inspection.package_manager
                 ? t.rich("newApp.readout.looksLikeUsing", {
@@ -120,8 +125,8 @@ export function InspectionReadout({ inspection, types, source }: { inspection: I
                     manager: <Mono>{inspection.package_manager}</Mono>,
                   })
                 : t("newApp.readout.looksLike", { type: typeName(types, inspection.app_type) })}
-              {/* The verdict names the other types itself, with what choosing one would mean. */}
-              {others.length > 0 && !inspection.verdict ? (
+              {/* A verdict that is not deployable names the other types itself. */}
+              {others.length > 0 && (inspection.compatible === true || !inspection.verdict) ? (
                 <span className="text-fg-muted">
                   {` ${t("newApp.readout.alsoMatches", { types: joinList(others.map((type) => typeName(types, type)), t.locale) })}`}
                 </span>

@@ -348,7 +348,7 @@ export function UsersTab({ engine, name }: { engine: string; name: string }) {
           onConfirm={async () => {
             const accepted = await request("post", "/api/databases/users/{engine}/{username}/password", {
               params: { engine, username: rotating.username },
-              body: { propagate: true, host: rotating.host },
+              body: { propagate: true, host: rotating.host, first_password: false },
             });
             job.track(accepted, "rotate", rotating.username);
             void queryClient.invalidateQueries({ queryKey: jobKeys.active });

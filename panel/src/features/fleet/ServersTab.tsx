@@ -68,8 +68,8 @@ function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>, handlers: Row
       id: "select",
       header: t("fleet.servers.select"),
       width: "w-12",
-      // On a phone too: choosing servers for an action is this view's job.
-      card: "meta",
+      // On a phone too, in a slot of its own: choosing servers for an action is this view's job.
+      card: "control",
       cell: (row) => {
         const origin = originOf(row);
         // A bulk action runs on the central's servers, never on the central itself.
@@ -121,7 +121,8 @@ function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>, handlers: Row
       id: "labels",
       header: t("fleet.column.labels"),
       hideBelow: "md",
-      card: "meta",
+      // A phone hides the column as a narrow table would: the labels are edited from the menu.
+      card: "hidden",
       cell: (row) => {
         const labels = labelsOf(row);
         if (originOf(row).local) return <EmptyCell reason={t("fleet.labels.notForCentral")} />;
@@ -139,7 +140,7 @@ function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>, handlers: Row
       id: "access",
       header: t("fleet.column.access"),
       hideBelow: "lg",
-      card: "meta",
+      card: "hidden",
       cell: (row) => <AccessCell t={t} row={row} />,
     },
     {

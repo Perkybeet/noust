@@ -280,7 +280,7 @@ export const appSettings: Catalog<typeof en> = {
     disableTitle: "¿Desactivar el despliegue al hacer push en {domain}?",
     disableDescription: "Se descarta el secreto y se rechaza toda entrega hasta que se cree uno nuevo. No cambia nada más.",
     receivedTitle: "Push recibidos",
-    receivedDescription: "Todo lo que ha enviado la plataforma, lo más reciente primero, pasara lo que pasara.",
+    receivedDescription: "Cada push que ha llegado, lo más reciente primero, pasara lo que pasara.",
     receivedFailed: "No se pudieron cargar los push recibidos",
     receivedCaption: "Entregas recibidas para {domain}, las más recientes primero",
     receivedHeader: "Recibido",

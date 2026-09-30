@@ -27,6 +27,7 @@ import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { reportActionError } from "../../apps/useAppActions";
+import { SettingsPrimaryAction } from "../SettingsShell";
 import { AccessReviewSection } from "./AccessReview";
 import { DisableDialog, ExceptionDialog, RoleDialog } from "./AccountDialogs";
 import { accountKeys, accountsQuery, enableAccount, exceptionsQuery, removeAccount, resetMfa, revokeException, unlockAccount } from "./api";
@@ -422,7 +423,8 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
       {query.data !== undefined ? (
         <ConflictsNotice t={t} conflicts={query.data.conflicts} canManage={canManage} onException={(person) => setPending({ kind: "exception", person })} />
       ) : null}
-      <Section title={t("accounts.page.title")} description={t("accounts.page.description")} {...(empty ? {} : { actions: inviteButton("primary") })}>
+      {!empty ? <SettingsPrimaryAction>{inviteButton("primary")}</SettingsPrimaryAction> : null}
+      <Section title={t("accounts.page.title")} description={t("accounts.page.description")}>
         {content}
       </Section>
       {!empty ? <ExceptionsSection t={t} canManage={canManage} onAdd={() => setPending({ kind: "exception", person: "" })} /> : null}

@@ -304,11 +304,14 @@ describe("an application's page", () => {
       const www = (await within(domains).findByRole("link", { name: /^www\.shop\.example\.com/ })).closest("li");
       if (!www) throw new Error("no row for www");
       expect(within(www).getByText("Redirect")).toBeInTheDocument();
-      expect(within(domains).getAllByText("Covered")).toHaveLength(2);
+      // HTTPS in words and neutral: a name the certificate covers is a fact, not a running state.
+      const https = within(domains).getAllByText("HTTPS");
+      expect(https).toHaveLength(2);
+      for (const label of https) expect(label.closest("[data-tone]")).toHaveAttribute("data-tone", "https");
       // Served, and not on the certificate yet: said, not hidden.
       const blog = within(domains).getByRole("link", { name: /^blog\.shop\.example\.com/ }).closest("li");
       if (!blog) throw new Error("no row for blog");
-      expect(within(blog).getByText("Not covered")).toBeInTheDocument();
+      expect(within(blog).getByText("No HTTPS")).toBeInTheDocument();
       expect(within(blog).getByRole("link", { name: /^blog/ })).toHaveAttribute("href", "http://blog.shop.example.com");
       const runtime = screen.getByRole("region", { name: "How it runs" });
       expect(within(runtime).getByText("Single folder")).toBeInTheDocument();
@@ -385,10 +388,11 @@ describe("in Spanish", () => {
     expect(await screen.findByText("Quedan 29 días")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Dominios" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Cómo se ejecuta" })).toBeInTheDocument();
-    // The last deploys, as dots named by their outcome, and the newest in words.
+    // The last deploys, as glyphs named by their outcome, and in words under them: how many
+    // succeeded and how the newest ended.
     expect(await screen.findByRole("link", { name: /^Despliegue 12: Fallido c07d5e3/ })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /^Despliegue 11: Correcto 9f2c41a/ })).toBeInTheDocument();
-    expect(screen.getByText(/Último despliegue: fallido,/)).toBeInTheDocument();
+    expect(screen.getByText(/^\d+ de \d+ correctos; el último, fallido,/)).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 });

@@ -1,0 +1,1 @@
+function e(e,t){if(e!==void 0)return e.certificates.find(e=>e.domain===t||e.domains.includes(t))??null}export{e as t};

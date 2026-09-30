@@ -54,7 +54,9 @@ export function FileEditorPage({ header, notice, meta, children, bar, footer, cl
             </div>
           ) : null}
           {meta !== undefined ? (
-            <div data-slot="meta" className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-13 text-fg-muted">
+            // One line beside the notice from lg: the facts truncate rather than wrap, so one that
+            // arrives late (or a longer language) never pushes the editor down.
+            <div data-slot="meta" className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-13 text-fg-muted lg:flex-nowrap">
               {meta}
             </div>
           ) : null}

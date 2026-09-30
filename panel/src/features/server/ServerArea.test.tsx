@@ -79,10 +79,12 @@ describe("the Server area", () => {
     });
     const [first, second] = within(list).getAllByRole("listitem");
     if (first === undefined || second === undefined) throw new Error("fewer than two rows");
-    expect(first).toHaveTextContent("4 security updates are pending.");
-    expect(within(first).getByRole("link", { name: "Install" })).toHaveAttribute("href", "/server/updates");
-    expect(second).toHaveTextContent("Docker publishes ports around the firewall");
-    expect(within(second).getByRole("link", { name: "Review" })).toHaveAttribute("href", "/server/security?view=firewall");
+    // The critical finding first; pending security updates are a warning, as on the Overview.
+    expect(first).toHaveTextContent("Docker publishes ports around the firewall");
+    expect(within(first).getByRole("link", { name: "Review" })).toHaveAttribute("href", "/server/security?view=firewall");
+    expect(second).toHaveTextContent("4 security updates are pending.");
+    expect(within(second).getByRole("link", { name: "Install" })).toHaveAttribute("href", "/server/updates");
+    expect(within(second).getByText("Warning")).toHaveClass("sr-only");
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
@@ -189,7 +191,7 @@ describe("the Server area", () => {
     const list = await screen.findByRole("list", {
       name: "Lo que requiere atención",
     });
-    expect(within(list).getAllByRole("listitem")[0]).toHaveTextContent(
+    expect(within(list).getAllByRole("listitem")[1]).toHaveTextContent(
       "Hay 4 actualizaciones de seguridad pendientes.",
     );
     await expectNoAxeViolations(screen.getByRole("main"));
@@ -523,7 +525,7 @@ describe("the Storage, Logs and System tabs", () => {
     ).toHaveTextContent("/dev/vda1");
     expect(
       await screen.findByRole("region", { name: "What takes space" }),
-    ).toHaveTextContent("System journal");
+    ).toHaveTextContent("System logs");
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 

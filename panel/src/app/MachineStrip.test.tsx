@@ -41,8 +41,17 @@ describe("the unit tally", () => {
   it("says each count in words, with its shape", async () => {
     const { strip } = await stripAt({ running: 9, failed: 1, stopped: 2 });
     const link = within(strip).getByRole("link", { name: "Noust's services: 9 running, 1 failed, 2 stopped" });
-    // Both forms are rendered; the strip's own width (a container query) shows one of them.
-    expect(link.textContent).toBe("Services9 running1 failed2 stopped");
+    // Both forms are rendered; the strip's own width (a container query) shows one of them:
+    // the words, or on a narrower strip the counts alone, whose meaning the link's name keeps.
+    expect(link.textContent).toBe("Services9 running91 failed12 stopped2");
+    expect(within(link).getByText("9 running")).toHaveClass("hidden");
+  });
+
+  it("keeps the machine's name whole: the counts and meters give way first", async () => {
+    const { strip } = await stripAt({ running: 9, failed: 1, stopped: 2 });
+    const name = within(strip).getByText("web-01");
+    expect(name.closest("a")).toHaveClass("shrink-0");
+    expect(name).not.toHaveClass("truncate");
   });
 
   it("shows the same sentence as a tooltip on keyboard focus", async () => {

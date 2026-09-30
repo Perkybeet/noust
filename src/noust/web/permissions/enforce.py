@@ -26,6 +26,7 @@ from typing import Any
 
 from fastapi import HTTPException, Request
 
+from noust.fleet.policy import HOST_PERMISSIONS, NEVER_FLEET_PERMISSIONS
 from noust.web.permissions import PUBLIC, Permission
 from noust.web.permissions.principal import permissions_of
 from noust.web.permissions.registry import (
@@ -34,6 +35,7 @@ from noust.web.permissions.registry import (
     permission_for_route,
     proxied_path,
 )
+from noust.web.permissions.roles import permissions_for_role
 
 logger = logging.getLogger(__name__)
 
@@ -153,13 +155,45 @@ def check_permission(payload: Mapping[str, Any], permission: str) -> None:
         ensure_notice_accepted(payload, permission)
     if permission in permissions_of(payload):
         return
-    who = payload.get("role") or payload.get("grant") or payload.get("scope") or "this credential"
+    role = payload.get("role")
+    if payload.get("fleet") and role and permission in permissions_for_role(str(role)):
+        # The operator's role holds it; this node's ceiling for its centrals is what withheld
+        # it, and asking a security officer for another role would change nothing.
+        raise PermissionDenied(
+            "permission_denied",
+            permission,
+            f"This server does not let a central use the '{permission}' permission",
+            _ceiling_hint(permission),
+        )
+    who = role or payload.get("grant") or payload.get("scope") or "this credential"
     raise PermissionDenied(
         "permission_denied",
         permission,
         f"This needs the '{permission}' permission, which {who} does not hold",
         "Ask a security officer for an account with a role that holds it.",
     )
+
+
+def _ceiling_hint(permission: str) -> str:
+    """
+    Say how a node's ceiling for its centrals would allow a permission, if it can.
+
+    Args:
+        permission: The permission the ceiling withheld.
+
+    Returns:
+        One sentence naming the command to run on the node, or where to act instead.
+    """
+    if permission in NEVER_FLEET_PERMISSIONS:
+        return (
+            "No central may do this on a server it manages: sign in to this server's own console."
+        )
+    if permission in HOST_PERMISSIONS:
+        return (
+            "It reaches the host itself: if this central should, run "
+            "'noust fleet access --level admin --host-access on' on this server, as root."
+        )
+    return "If this central should, run 'noust fleet access --level admin' on this server, as root."
 
 
 def _route_index(request: Request) -> RouteIndex:

@@ -28,7 +28,7 @@ export const accounts: Catalog<typeof en> = {
   },
   page: {
     documentTitle: "Cuentas",
-    title: "Personas",
+    title: "Cuentas",
     description: "Cada persona inicia sesión con su propia cuenta, con un rol por cuenta. Nadie conoce la contraseña de otro.",
     invite: "Invitar a una persona",
     filterLabel: "Filtrar cuentas",
@@ -40,7 +40,7 @@ export const accounts: Catalog<typeof en> = {
     everyState: "Todos los estados",
     count: { one: "{count} cuenta", other: "{count} cuentas" },
     countFiltered: "{shown} de {total} cuentas",
-    caption: "Cuentas",
+    caption: "Todas las cuentas",
     noMatch: "Ninguna cuenta coincide con estos filtros.",
     clearFilters: "Quitar filtros",
     loadFailed: "No se pudieron cargar las cuentas",

@@ -71,6 +71,7 @@ export function ServiceLayout({ name }: { name: string }) {
 
   const service = record.service;
   const view = service ? serviceState(service) : null;
+  const settled = !record.appPending;
   const managed = service !== undefined && !record.foreign;
   const tabs: readonly LinkTab[] = [
     { label: "services.tabs.overview", to: "/server/services/$name", params: { name }, exact: true },
@@ -179,9 +180,12 @@ export function ServiceLayout({ name }: { name: string }) {
             : {}),
         }}
         banner={banner}
-        tabs={<LinkTabs label={t("services.tabs.label")} tabs={tabs} />}
+        // Until it is known whether the unit is an application's, whose banner goes above the
+        // tabs, the tabs and the tab wait: they appear once, in place, instead of dropping by
+        // the banner's height when the applications arrive.
+        {...(settled ? { tabs: <LinkTabs label={t("services.tabs.label")} tabs={tabs} /> } : {})}
       >
-        <Outlet />
+        {settled ? <Outlet /> : null}
       </DetailPage>
       <ConfirmDialog
         open={confirmStop}

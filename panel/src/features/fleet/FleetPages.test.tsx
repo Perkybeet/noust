@@ -5,7 +5,7 @@ import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem } from "../../test/fakes";
-import { JOB, PLAN, SSH_TIMEOUT, centralSession, fleetRoutes } from "./testFixtures";
+import { APPS_VIEW, JOB, PLAN, SSH_TIMEOUT, centralSession, fleetRoutes } from "./testFixtures";
 
 /**
  * A list's row by a text in it. The tests run at a phone's width (jsdom matches no media
@@ -36,16 +36,23 @@ function rows(caption: string): Promise<HTMLElement> {
 describe("the fleet's summary", () => {
   it("adds every server up, says who did not answer in its own words, and opens problems on their server", { timeout: 30_000 }, async () => {
     fakeBackend(fleetRoutes());
-    const { container, user } = renderConsole("/fleet");
+    const { container } = renderConsole("/fleet");
     expect(await screen.findByRole("heading", { level: 1, name: "Fleet" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Fleet views" })).toBeInTheDocument();
 
     // Partial, never blank: db-1's last answer is shown, with why it is old.
     expect(await screen.findByText("2 of 4 servers did not answer fully")).toBeInTheDocument();
-    expect(screen.getByText("The tunnel to db-1 did not open")).toBeInTheDocument();
+    // The console's own sentence and fix, then what the server said, verbatim, in mono: never
+    // the backend's English prose standing in for the sentence.
+    const troubled = screen.getByRole("list", { name: "Servers that did not answer fully" });
+    expect(within(troubled).getByText("db-1 did not answer: its rows are its last answer.")).toBeInTheDocument();
+    expect(troubled).toHaveTextContent("Check the connection with noust node test db-1.");
+    expect(within(troubled).queryByText("Check it with 'noust node test db-1'.")).not.toBeInTheDocument();
+    const said = within(troubled).getByRole("region", { name: "What db-1 said" });
+    expect(said).toHaveTextContent("The tunnel to db-1 did not open");
+    expect(said).toHaveTextContent(SSH_TIMEOUT);
     expect(screen.getByText("It runs an older Noust, which does not offer GET /api/overview.")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "What db-1 said" }));
-    expect(screen.getByText(SSH_TIMEOUT)).toBeInTheDocument();
+    expect(troubled).toHaveTextContent("Update Noust on old-1 to see everything here.");
 
     expect(screen.getByText("3 of 4")).toBeInTheDocument();
     const attention = card("Needs attention");
@@ -80,7 +87,7 @@ describe("the fleet's summary", () => {
 
 describe("the fleet's views", () => {
   it("lists every server's applications, each naming its server and opening there", { timeout: 30_000 }, async () => {
-    fakeBackend(fleetRoutes());
+    fakeBackend({ ...fleetRoutes(), "GET /api/apps/types": () => json(200, { types: [{ type: "python", name: "Python", default_port: 8000 }] }) });
     const { container, user, location } = renderConsole("/fleet/apps");
     const table = await rows("Applications on every server");
     const api = await rowOf(table, "api.example.com");
@@ -89,7 +96,15 @@ describe("the fleet's views", () => {
     const reports = await rowOf(table, "reports.example.com");
     // db-1's row is its last good answer: said so, with its age.
     expect(within(reports).getByText(/Last answer/)).toBeInTheDocument();
+    // One primary for the view: New application, in the header; Add a server belongs to the
+    // other views, and each action to run lives with the view it acts on, never twice.
+    expect(screen.getAllByRole("link", { name: "New application" })).toHaveLength(1);
     expect(screen.getByRole("link", { name: "New application" })).toHaveAttribute("href", "/apps/new");
+    expect(screen.queryByRole("button", { name: "Add a server" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Run an action" })).not.toBeInTheDocument();
+    // The same words as the local list: the type's name, the last deploy's state and age.
+    expect(within(api).getByText("Python")).toBeInTheDocument();
+    expect(within(api).queryByText("python")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("combobox", { name: "Server" }));
     await user.click(await screen.findByRole("option", { name: "web-2" }));
@@ -98,6 +113,23 @@ describe("the fleet's views", () => {
     });
     expect(within(table).queryByText("shop.example.com")).not.toBeInTheDocument();
     await expectNoAxeViolations(container, { page: true });
+  });
+
+  it("shows a long list of applications a page at a time", { timeout: 20_000 }, async () => {
+    const many = Array.from({ length: 30 }, (_, i) => ({
+      ...(APPS_VIEW.items[0] as Record<string, unknown>),
+      domain: `app${String(i).padStart(2, "0")}.example.com`,
+      page: `/apps/app${String(i)}.example.com`,
+    }));
+    fakeBackend({ ...fleetRoutes(), "GET /api/fleet/apps": () => json(200, { ...APPS_VIEW, items: many }) });
+    const { user } = renderConsole("/fleet/apps");
+    const table = await rows("Applications on every server");
+    expect(await within(table).findByText("app24.example.com")).toBeInTheDocument();
+    expect(within(table).queryByText("app25.example.com")).not.toBeInTheDocument();
+    expect(screen.getByText("Showing 25 of 30")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Show 5 more" }));
+    expect(await within(table).findByText("app29.example.com")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Show \d+ more$/ })).not.toBeInTheDocument();
   });
 
   it("lists certificates soonest first, backups gaps first, updates and activity, with no violations", { timeout: 40_000 }, async () => {
@@ -237,8 +269,9 @@ describe("in Spanish", () => {
     });
     expect(await screen.findByRole("heading", { level: 1, name: "Flota" })).toBeInTheDocument();
     expect(screen.getByText("2 de 4 servidores no respondieron del todo")).toBeInTheDocument();
-    // The system's own words are never translated.
-    expect(screen.getByText("The tunnel to db-1 did not open")).toBeInTheDocument();
+    // The sentence is Spanish; the system's own words, under it, are never translated.
+    expect(screen.getByText("db-1 no respondió: sus filas son su última respuesta.")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Lo que dijo db-1" })).toHaveTextContent("The tunnel to db-1 did not open");
     await expectNoAxeViolations(container, { page: true });
   });
 });

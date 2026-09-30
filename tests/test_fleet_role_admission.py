@@ -138,3 +138,37 @@ def test_a_security_officer_still_cannot_reach_the_nodes_credentials(
 
     assert response.status_code == 403
     assert response.json()["error"] == "forbidden"
+
+
+def test_a_permission_the_ceiling_withholds_says_how_the_node_grants_it(
+    app: Any, fleet_token: str
+) -> None:
+    # The default ceiling is admin without host access: a raw unit is root-equivalent.
+    denied = client_from(app).post(
+        "/api/services",
+        json={"name": "worker", "command": "/usr/bin/true"},
+        headers=fleet_headers(
+            fleet_token, **{FLEET_ACTOR_HEADER: "maria", FLEET_ACTOR_ROLE_HEADER: "admin"}
+        ),
+    )
+
+    assert denied.status_code == 403
+    body = denied.json()
+    assert body["error"] == "permission_denied"
+    assert (
+        body["detail"] == "This server does not let a central use the 'root_equivalent' permission"
+    )
+    assert "noust fleet access --level admin --host-access on" in body["hint"]
+
+
+def test_a_permission_the_role_lacks_still_names_the_role(app: Any, fleet_token: str) -> None:
+    denied = client_from(app).post(
+        "/api/services",
+        json={"name": "worker", "command": "/usr/bin/true"},
+        headers=fleet_headers(
+            fleet_token, **{FLEET_ACTOR_HEADER: "maria", FLEET_ACTOR_ROLE_HEADER: "operator"}
+        ),
+    )
+
+    assert denied.status_code == 403
+    assert "which operator does not hold" in denied.json()["detail"]

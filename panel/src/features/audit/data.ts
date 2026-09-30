@@ -5,7 +5,8 @@
 
 import type { AuditEntry } from "../../api/queries/audit";
 import type { Status } from "../../components/ui/StatusPill";
-import type { T } from "../../i18n";
+import type { PlainKey, T } from "../../i18n";
+import { auditEvents } from "../../i18n/en/auditEvents";
 
 export interface AuditSearch {
   /** Words to find in the loaded events: actor, action, target, detail. */
@@ -37,8 +38,8 @@ export function isFiltered(search: AuditSearch): boolean {
   return search.q !== undefined || search.category !== undefined || search.result !== undefined || search.correlation !== undefined;
 }
 
-/** The outcomes the log records, as the server writes them. */
-export const RESULTS = ["ok", "success", "failure", "denied", "warning"] as const;
+/** The outcomes the log records, as the server writes them ("success" reads as "ok": one choice). */
+export const RESULTS = ["ok", "failure", "denied", "warning"] as const;
 
 /** An outcome in the state language: done, refused, failed, or worth a look. */
 export function outcomeView(t: T, result: string): { status: Status; label: string } {
@@ -70,4 +71,10 @@ export function matches(entry: AuditEntry, q: string | undefined): boolean {
   return [entry.action, entry.actor, entry.who?.name ?? "", entry.resource ?? "", entry.detail ?? "", entry.client_ip ?? "", entry.correlation_id ?? ""].some((value) =>
     value.toLowerCase().includes(needle),
   );
+}
+
+/** A category in words; one this console does not know, as the server wrote it. */
+export function categoryLabel(t: T, category: string): string {
+  if (!Object.hasOwn(auditEvents.category, category)) return category;
+  return t(`auditEvents.category.${category}` as PlainKey);
 }

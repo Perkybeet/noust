@@ -1,7 +1,8 @@
+import { ICONS } from "../../components/ui/icons";
 import { StatusGlyph, stateTextClass } from "../../components/ui/StatusPill";
 import type { Status } from "../../components/ui/StatusPill";
 import { cx } from "../../lib/cx";
-import type { CertTone } from "./certificates";
+import type { CertTone, CoverageTone } from "./certificates";
 
 /** A certificate's tone in the console's state language: its glyph and its colour. */
 export const CERT_STATE: Readonly<Record<CertTone, Status>> = { ok: "running", warn: "warning", fail: "failed", idle: "stopped", busy: "deploying" };
@@ -12,7 +13,16 @@ export const CERT_STATE: Readonly<Record<CertTone, Status>> = { ok: "running", w
  * The shape carries the state as much as the colour does; the words are in the text colour,
  * except an expired certificate's, which is a failure and reads as one.
  */
-export function CertificateStatus({ tone, label, className }: { tone: CertTone; label: string; className?: string }) {
+export function CertificateStatus({ tone, label, className }: { tone: CoverageTone; label: string; className?: string }) {
+  if (tone === "https") {
+    // A name served over HTTPS is a fact, not a state: neutral, with a lock.
+    return (
+      <span data-tone={tone} className={cx("inline-flex min-w-0 items-center gap-1.5 text-13", className)}>
+        <ICONS.locked aria-hidden="true" className="size-icon-xs shrink-0 text-fg-muted" />
+        <span className="truncate text-fg">{label}</span>
+      </span>
+    );
+  }
   const state = CERT_STATE[tone];
   return (
     <span data-tone={tone} className={cx("inline-flex min-w-0 items-center gap-1.5 text-13", className)}>

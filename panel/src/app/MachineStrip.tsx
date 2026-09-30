@@ -67,7 +67,7 @@ function Load({ machine }: { machine: Machine }) {
  * Noust's services on the machine, in words: "15 running, 0 failed, 1 stopped". The words give
  * way to the glyphs on a narrower strip; the sentence stays the link's name and its tooltip.
  */
-function UnitTally({ units }: { units: Machine["units"] }) {
+function UnitTally({ units, named }: { units: Machine["units"]; named: boolean }) {
   const t = useT();
   const parts = [
     { state: "running" as const, count: units.running, word: t("shell.machine.running", { count: units.running }), tone: units.running > 0 ? "text-ok" : "text-fg-muted" },
@@ -80,15 +80,20 @@ function UnitTally({ units }: { units: Machine["units"] }) {
   return (
     <Tooltip content={summary}>
       <Link to="/server/services" aria-label={summary} className={cx("flex items-center gap-3", STRIP_LINK)}>
-        <span aria-hidden="true" className="text-12 text-fg-muted">
+        <span aria-hidden="true" className="hidden text-12 text-fg-muted @min-[60rem]:inline">
           {t("shell.machine.units")}
         </span>
-        {parts.map((part) => (
-          <span key={part.state} aria-hidden="true" className={cx("inline-flex items-center gap-1 whitespace-nowrap", part.tone)}>
-            <StatusGlyph state={part.state} size={10} />
-            <span className={cx("text-13 tabular-nums", part.count > 0 && part.state === "failed" ? "font-medium" : "text-fg")}>{part.word}</span>
-          </span>
-        ))}
+        {parts.map((part) => {
+          const tone = cx("text-13 tabular-nums", part.count > 0 && part.state === "failed" ? "font-medium" : "text-fg");
+          return (
+            <span key={part.state} aria-hidden="true" className={cx("inline-flex items-center gap-1 whitespace-nowrap", part.tone)}>
+              <StatusGlyph state={part.state} size={10} />
+              {/* Beside the machine's name the words need more room: the name never gives way. */}
+              <span className={cx(tone, "hidden", named ? "@min-[50rem]:inline" : "@min-[40rem]:inline")}>{part.word}</span>
+              <span className={cx(tone, named ? "@min-[50rem]:hidden" : "@min-[40rem]:hidden")}>{part.count}</span>
+            </span>
+          );
+        })}
       </Link>
     </Tooltip>
   );
@@ -118,11 +123,10 @@ function ServerStrip({ className, showName }: { className?: string | undefined; 
     <div role="group" aria-label={t("shell.machine.landmark")} className={cx("@container min-w-0", className)}>
       <div className="flex items-center gap-2 @min-[26rem]:gap-4">
         {showName ? (
-          <Link to="/server" className={cx("flex min-w-0 items-baseline gap-2", STRIP_LINK)}>
+          // The name never gives way: which machine this is matters more than any reading.
+          <Link to="/server" className={cx("flex shrink-0 items-baseline gap-2", STRIP_LINK)}>
             {name !== undefined ? (
-              <Mono truncate className="text-13 font-medium">
-                {name}
-              </Mono>
+              <Mono className="text-13 font-medium">{name}</Mono>
             ) : (
               <Skeleton className="h-3.5 w-28" />
             )}
@@ -144,7 +148,7 @@ function ServerStrip({ className, showName }: { className?: string | undefined; 
           <>
             <div className="hidden shrink-0 items-center gap-4 @min-[36rem]:flex">
               <Divider className={showName ? undefined : "hidden @min-[62rem]:block"} />
-              <UnitTally units={machine.units} />
+              <UnitTally units={machine.units} named={showName} />
             </div>
             {/* Meters after the words: the Overview and Server show these readings in full. */}
             <div className="hidden shrink-0 items-center gap-4 @min-[43rem]:flex">
@@ -164,8 +168,12 @@ function ServerStrip({ className, showName }: { className?: string | undefined; 
                 className={cx("inline-flex shrink-0 items-center gap-1 text-12 font-medium text-fail @min-[36rem]:hidden", STRIP_LINK)}
               >
                 <StatusGlyph state="failed" size={10} />
-                <span aria-hidden="true" className="tabular-nums">
+                <span aria-hidden="true" className="hidden tabular-nums @min-[22rem]:inline">
                   {t("shell.machine.failedUnits", { count: machine.units.failed })}
+                </span>
+                {/* A phone keeps the name whole and the count beside its cross; the link says it all. */}
+                <span aria-hidden="true" className="tabular-nums @min-[22rem]:hidden">
+                  {machine.units.failed}
                 </span>
               </Link>
             ) : null}

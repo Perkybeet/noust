@@ -59,23 +59,17 @@ function RestoreFromDestinationDialog({
       domain={knownDomain ?? ""}
       offerVerify={false}
       envDescription={t("backups.restoreFromDestination.envFromDownload")}
-      pending={restoreFromDestination.isPending}
-      error={restoreFromDestination.error}
-      onReset={() => restoreFromDestination.reset()}
-      onRestore={({ targetDomain, restoreEnv }) =>
-        restoreFromDestination.mutate(
-          {
-            destination,
-            backupId: backup.backup_id,
-            appName: backup.app_name,
-            // The backup's own domain needs no target; the sidecar says it, and the server checks
-            // that it belongs to this folder.
-            targetDomain: targetDomain === knownDomain ? undefined : targetDomain,
-            restoreEnv,
-          },
-          { onSuccess: () => onOpenChange(false) },
-        )
-      }
+      onRestore={async ({ targetDomain, restoreEnv }) => {
+        await restoreFromDestination.mutateAsync({
+          destination,
+          backupId: backup.backup_id,
+          appName: backup.app_name,
+          // The backup's own domain needs no target; the sidecar says it, and the server checks
+          // that it belongs to this folder.
+          targetDomain: targetDomain === knownDomain ? undefined : targetDomain,
+          restoreEnv,
+        });
+      }}
     />
   );
 }

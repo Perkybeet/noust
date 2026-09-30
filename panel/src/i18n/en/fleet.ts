@@ -177,8 +177,18 @@ export const fleet = {
     label: "Servers that did not answer fully",
     staleSince: "showing its answer from {age}",
     missing: "It runs an older Noust, which does not offer {paths}.",
+    why: {
+      stale: "{name} did not answer: its rows are its last answer.",
+      unreachable: "{name} did not answer.",
+      unsupported: "It runs an older Noust, which cannot show everything here.",
+      forbidden: "{name} refused to show this to your account.",
+      error: "{name} answered with an error.",
+    },
+    fix: {
+      connection: "Check the connection with {command}.",
+      unsupported: "Update Noust on {name} to see everything here.",
+    },
     showOutput: "What {name} said",
-    hideOutput: "Hide what {name} said",
   },
   access: {
     level: {
@@ -318,6 +328,8 @@ export const fleet = {
     count: { one: "{count} application", other: "{count} applications" },
     countFiltered: "{shown} of {total} applications",
     empty: "No server has an application yet.",
+    shownOf: "Showing {shown} of {total}",
+    showMore: { one: "Show {count} more", other: "Show {count} more" },
     newApplication: "New application",
     update: "Update applications",
     noType: "Type not known",

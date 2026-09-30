@@ -5,9 +5,12 @@ import { isApiError } from "../../api/client";
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { describeError } from "../../lib/errors";
+import { heldOf } from "../../lib/held";
+import { openInbox } from "../../features/approvals/store";
 import { nodeErrorWords } from "../../nodes/nodeErrors";
 import { useNode } from "../../nodes/useNode";
 import { Button } from "../ui/Button";
+import { Notice } from "../ui/Notice";
 import { SystemOutput } from "../ui/SystemOutput";
 
 export interface ErrorBlockProps {
@@ -41,6 +44,7 @@ export interface ErrorBlockProps {
 export function ErrorBlock({ error, title: pageTitle, hint, onRetry, retrying = false, action, live = false, compact = false, className }: ErrorBlockProps) {
   const t = useT();
   const { node } = useNode();
+  const held = heldOf(error);
   const described = describeError(error);
   const nodeWords = nodeErrorWords(t, error, node);
   // Two answers of the central that are not failures of the page, and say so whatever the
@@ -61,6 +65,28 @@ export function ErrorBlock({ error, title: pageTitle, hint, onRetry, retrying = 
     described.output !== null && described.output.trim() !== "" && described.output.trim() !== described.detail.trim()
       ? described.output
       : null;
+  // An action the operator held is not a failure (lib/held.ts): a cancelled confirmation says
+  // nothing, a request waiting for a second person says so, neutrally.
+  if (held !== null) {
+    if (held.kind === "cancelled") return null;
+    return held.kind === "waiting" ? (
+      <Notice
+        title={t("approvals.held.waitingTitle")}
+        action={
+          <Button size="sm" onClick={openInbox}>
+            {t("approvals.held.openApprovals")}
+          </Button>
+        }
+        {...(className !== undefined ? { className } : {})}
+      >
+        {t("approvals.held.waitingDescription")}
+      </Notice>
+    ) : (
+      <Notice title={held.detail} {...(className !== undefined ? { className } : {})}>
+        {held.hint ?? ""}
+      </Notice>
+    );
+  }
   return (
     <div
       {...(live ? { role: "alert" } : {})}

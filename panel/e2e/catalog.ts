@@ -75,17 +75,20 @@ function flatten(tree: unknown, prefix = "", into = new Map<string, string>()): 
 /**
  * The English texts a Spanish console must never show: every leaf whose Spanish differs
  * from it, leaving out what cannot be told apart from data or from Spanish - texts with
- * fewer than four letters outside their placeholders ("{count}s", "OK", "{a} / {b}").
- * Whitespace is collapsed, the way the page's text is read.
+ * fewer than four letters outside their placeholders ("{count}s", "OK", "{a} / {b}"), and
+ * texts that are also what the Spanish catalog says somewhere else (the ENS family "Media" is
+ * the Spanish "Media", an average, on every chart). Whitespace is collapsed, the way the
+ * page's text is read.
  */
 export function englishLeftoverCandidates(): EnglishText[] {
   const english = flatten(en);
   const spanish = flatten(es);
+  const collapse = (text: string) => text.replace(/\s+/g, " ").trim();
+  const spanishTexts = new Set([...spanish.values()].map(collapse));
   const candidates: EnglishText[] = [];
   for (const [key, text] of english) {
-    const translated = spanish.get(key);
-    const normalized = text.replace(/\s+/g, " ").trim();
-    if (translated?.replace(/\s+/g, " ").trim() === normalized) continue;
+    const normalized = collapse(text);
+    if (spanishTexts.has(normalized)) continue;
     const literal = normalized.replace(PLACEHOLDER, "");
     if ((literal.match(/[A-Za-z]/g) ?? []).length < MIN_LETTERS) continue;
     const names = [...normalized.matchAll(PLACEHOLDER)].map((match) => match[0].slice(1, -1));

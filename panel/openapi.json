@@ -2055,7 +2055,7 @@
         "type": "object"
       },
       "ApprovalInfo": {
-        "description": "One request for a second person's approval.\n\nAttributes:\n    id: Its id; the value of ``X-Noust-Approval``.\n    action: ``root_equivalent``, ``fleet.node.add``, ``fleet.node.remove``,\n        ``db.query.write``, ``apps.local_source`` or ``user.role_change``.\n    kind: ``infrastructure`` or ``role_change``.\n    description: What the action is, in one sentence.\n    method: The call's method.\n    path: The call's path.\n    parameters: What the call carries, secrets redacted: ``method``,\n        ``path``, ``query`` and ``body``.\n    fingerprint: SHA-256 of the exact call the approval allows.\n    reason: Why the requester asked.\n    state: ``requested``, ``approved``, ``rejected``, ``expired`` or\n        ``executed``.\n    requester: Who asked.\n    created_at: When, UNIX seconds.\n    expires_at: When it expires undecided.\n    decided_at: When it was decided.\n    decider: Who decided.\n    decision_comment: What they said.\n    execute_by: Until when an approval allows the call.\n    executed_at: When the call ran.\n    mine: Whether the caller asked for it.\n    can_decide: Whether the caller may approve or reject it now.",
+        "description": "One request for a second person's approval.\n\nAttributes:\n    id: Its id; the value of ``X-Noust-Approval``.\n    action: ``root_equivalent``, ``fleet.node.add``, ``fleet.node.remove``,\n        ``db.query.write``, ``db.query.analyze``, ``db.rows.write``,\n        ``apps.local_source``, ``user.role_change``, ``user.create`` or\n        ``user.invite``.\n    kind: ``infrastructure`` or ``role_change``.\n    description: What the action is, in one sentence.\n    method: The call's method.\n    path: The call's path.\n    parameters: What the call carries, secrets redacted: ``method``,\n        ``path``, ``query`` and ``body``.\n    fingerprint: SHA-256 of the exact call the approval allows.\n    reason: Why the requester asked.\n    state: ``requested``, ``approved``, ``rejected``, ``expired`` or\n        ``executed``.\n    requester: Who asked.\n    created_at: When, UNIX seconds.\n    expires_at: When it expires undecided.\n    decided_at: When it was decided.\n    decider: Who decided.\n    decision_comment: What they said.\n    execute_by: Until when an approval allows the call.\n    executed_at: When the call ran.\n    mine: Whether the caller asked for it.\n    can_decide: Whether the caller may approve or reject it now.",
         "properties": {
           "action": {
             "title": "Action",
@@ -17641,8 +17641,14 @@
         "type": "object"
       },
       "RotatePasswordRequest": {
-        "description": "Request to rotate an account's password.\n\nAttributes:\n    propagate: Give the new password to the applications that sign in as\n        the account, restarting each behind its health gate; anything\n        that does not come back undoes the whole rotation.",
+        "description": "Request to rotate an account's password.\n\nAttributes:\n    propagate: Give the new password to the applications that sign in as\n        the account, restarting each behind its health gate; anything\n        that does not come back undoes the whole rotation.\n    first_password: Confirms giving a Redis instance that has no password\n        its first one: every application reaching it without credentials\n        stops working until it is given the password.",
         "properties": {
+          "first_password": {
+            "default": false,
+            "description": "Redis only: confirm setting a first password on an instance without one",
+            "title": "First Password",
+            "type": "boolean"
+          },
           "host": {
             "default": "localhost",
             "description": "Host restriction",
@@ -25849,7 +25855,7 @@
         "x-noust-requires-elevation": true
       },
       "put": {
-        "description": "Turn previews on for an application, or change their settings.\n\nInstalls ``noust-previews.timer`` the first time any application turns\npreviews on. A preview builds in the sandbox (as ``noust-build``, in the\nstrict network profile: dependencies install with the network and without\nthe secrets, the build runs without a network), with a copy of the\napplication's environment minus ``exclude_env``; only pull requests from\npeople trusted with the repository get one (see\n:func:`noust.managers.previews.handle_pull_request`).\n\nArgs:\n    domain: The application.\n    body: The settings.\n    request: The request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The settings as stored.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: A value is refused (400, with the reason).\n    ServiceError: The sweep timer could not be installed.",
+        "description": "Turn previews on for an application, or change their settings.\n\nInstalls ``noust-previews.timer`` the first time any application turns\npreviews on. A preview builds in the sandbox (as ``noust-build``, with the\nnetwork but without the variables classified as secret and without loading\nthe application's ``.env``; the strict profile, a build without network, is\nthe application's opt-in), with a copy of the application's environment\nminus ``exclude_env``; only pull requests from\npeople trusted with the repository get one (see\n:func:`noust.managers.previews.handle_pull_request`).\n\nArgs:\n    domain: The application.\n    body: The settings.\n    request: The request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    The settings as stored.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: A value is refused (400, with the reason).\n    ServiceError: The sweep timer could not be installed.",
         "operationId": "put_preview_settings_api_apps__domain__previews_settings_put",
         "parameters": [
           {
@@ -27582,6 +27588,11 @@
           "Authentication"
         ],
         "x-noust-permission": "accounts.manage",
+        "x-noust-requires-approval": {
+          "action": "user.create",
+          "kind": "role_change",
+          "when": "an account already exists"
+        },
         "x-noust-requires-elevation": true
       }
     },
@@ -27922,7 +27933,7 @@
     },
     "/api/auth/elevate": {
       "post": {
-        "description": "Confirm the caller's identity again, opening sudo mode for ten minutes.\n\nD5: deleting an application, a database, a service or a site, writing raw\nconfiguration or a unit file, running a write against a database console,\nrevealing a ``.env`` in clear, issuing an API token and turning\ntwo-factor authentication off all require a cookie session to have\ncalled this recently; see :func:`noust.web.api.deps.require_elevated`.\n\nAn account confirms with its password and a code from its authenticator;\nan account without one cannot enter sudo mode. The master token confirms\nas it signs in: the console's two-factor code when that is enabled, the\nmaster token otherwise. A wrong factor is counted by the same lockout a\nlogin failure is, through the same chokepoint.\n\nArgs:\n    request: The incoming request.\n    body: The factors.\n    session: The authenticated session being elevated.\n\nReturns:\n    The new elevation deadline.\n\nRaises:\n    HTTPException: 401 with ``error`` ``invalid_credentials`` for an\n        account, ``totp_required``, ``invalid_totp`` or ``invalid_token``\n        for the master token, when the factors do not verify.",
+        "description": "Confirm the caller's identity again, opening sudo mode for ten minutes.\n\nD5: deleting an application, a database, a service or a site, writing raw\nconfiguration or a unit file, running a write against a database console,\nrevealing a ``.env`` in clear, issuing an API token and turning\ntwo-factor authentication off all require a cookie session to have\ncalled this recently; see :func:`noust.web.api.deps.require_elevated`.\n\nAn account confirms with its password and a code from its authenticator;\nan account without one cannot enter sudo mode. The master token confirms\nas it signs in: the console's two-factor code when that is enabled, the\nmaster token otherwise. A wrong factor is counted by the same lockout a\nlogin failure is, through the same chokepoint.\n\nArgs:\n    request: The incoming request.\n    body: The factors.\n    session: The authenticated session being elevated.\n\nReturns:\n    The new elevation deadline.\n\nRaises:\n    HTTPException: 401 with ``error`` ``invalid_credentials`` for an\n        account, ``totp_required``, ``invalid_totp`` or ``invalid_token``\n        for the master token, when the factors do not verify; 403\n        ``notice_required`` before the usage notice is accepted.",
         "operationId": "elevate_api_auth_elevate_post",
         "requestBody": {
           "content": {
@@ -28160,6 +28171,11 @@
           "Authentication"
         ],
         "x-noust-permission": "accounts.manage",
+        "x-noust-requires-approval": {
+          "action": "user.invite",
+          "kind": "role_change",
+          "when": "an account already exists"
+        },
         "x-noust-requires-elevation": true
       }
     },
@@ -28383,7 +28399,7 @@
     },
     "/api/auth/passkeys/elevate": {
       "post": {
-        "description": "Confirm it's you with a passkey, opening sudo mode for ten minutes.\n\nArgs:\n    request: The request.\n    body: The assertion.\n    session: The authenticated payload.\n\nReturns:\n    The new elevation deadline.\n\nRaises:\n    HTTPException: 401 as for a passkey sign-in, and\n        ``passkey_wrong_owner`` for somebody else's passkey.",
+        "description": "Confirm it's you with a passkey, opening sudo mode for ten minutes.\n\nArgs:\n    request: The request.\n    body: The assertion.\n    session: The authenticated payload.\n\nReturns:\n    The new elevation deadline.\n\nRaises:\n    HTTPException: 401 as for a passkey sign-in, and\n        ``passkey_wrong_owner`` for somebody else's passkey; 403\n        ``notice_required`` before the usage notice is accepted.",
         "operationId": "elevate_with_passkey_api_auth_passkeys_elevate_post",
         "requestBody": {
           "content": {
@@ -28920,7 +28936,7 @@
         "x-noust-permission": "self"
       },
       "post": {
-        "description": "Issue a named, scoped API token, returned in clear exactly once.\n\nA person's token belongs to them and acts with at most their role, checked\non every use. The master token's belongs to nobody until the first admin\naccount adopts it.\n\nArgs:\n    request: The incoming request.\n    body: Name, scope, optional expiry, permissions and networks.\n    session: The authenticated session, elevated (D5): issuing a token is\n        a standing credential, the same category of action as deleting\n        something.\n\nReturns:\n    The record, including the one and only clear copy of the token.\n\nRaises:\n    SecurityError: When the name is taken, the scope is not a scope, or a\n        permission, network or expiry is refused. The audit record names\n        the token; the token itself never reaches the audit log.\n    HTTPException: 403 with ``error: \"elevation_required\"`` per\n        :func:`noust.web.api.deps.require_elevated`.",
+        "description": "Issue a named, scoped API token, returned in clear exactly once.\n\nA person's token belongs to them and acts with at most their role, checked\non every use. The master token's belongs to nobody until the first admin\naccount adopts it.\n\nArgs:\n    request: The incoming request.\n    body: Name, scope, optional expiry, permissions and networks.\n    session: The authenticated session, elevated (D5): issuing a token is\n        a standing credential, the same category of action as deleting\n        something.\n\nReturns:\n    The record, including the one and only clear copy of the token.\n\nRaises:\n    SecurityError: When the name is taken, the scope is not a scope, or a\n        permission, network or expiry is refused. The audit record names\n        the token; the token itself never reaches the audit log.\n    HTTPException: 403 with ``error: \"elevation_required\"`` per\n        :func:`noust.web.api.deps.require_elevated`, or\n        ``notice_required`` before the owner accepted the usage notice.",
         "operationId": "create_api_token_api_auth_tokens_post",
         "requestBody": {
           "content": {
@@ -34219,6 +34235,11 @@
           "Databases"
         ],
         "x-noust-permission": "databases.write",
+        "x-noust-requires-approval": {
+          "action": "db.rows.write",
+          "kind": "infrastructure",
+          "when": "always"
+        },
         "x-noust-requires-elevation": true
       },
       "post": {
@@ -34281,6 +34302,11 @@
           "Databases"
         ],
         "x-noust-permission": "databases.write",
+        "x-noust-requires-approval": {
+          "action": "db.rows.write",
+          "kind": "infrastructure",
+          "when": "always"
+        },
         "x-noust-requires-elevation": true
       }
     },
@@ -34345,6 +34371,11 @@
           "Databases"
         ],
         "x-noust-permission": "databases.write",
+        "x-noust-requires-approval": {
+          "action": "db.rows.write",
+          "kind": "infrastructure",
+          "when": "always"
+        },
         "x-noust-requires-elevation": true
       }
     },
@@ -35122,7 +35153,12 @@
         "tags": [
           "Databases"
         ],
-        "x-noust-permission": "databases.read"
+        "x-noust-permission": "databases.read",
+        "x-noust-requires-approval": {
+          "action": "db.query.analyze",
+          "kind": "infrastructure",
+          "when": "analyze is true"
+        }
       }
     },
     "/api/databases/query/export": {

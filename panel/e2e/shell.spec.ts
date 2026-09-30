@@ -224,9 +224,11 @@ for (const viewport of [
   test(`a dialog taller than ${viewport.name} keeps its actions on screen and scrolls its body`, async ({ page, consoleServer }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await signIn(page, consoleServer, "/backups");
-    await page.getByRole("button", { name: "New backup" }).click();
-    const dialog = page.getByRole("dialog", { name: "Create backup" });
+    await page.getByRole("button", { name: "Back up now" }).click();
+    const dialog = page.getByRole("dialog", { name: "Back up an application" });
     await expect(dialog).toBeVisible();
+    // Everything it can show, folded options included, so it is taller than each screen here.
+    await dialog.getByRole("button", { name: "More options" }).click();
     await settle(page);
 
     // Taller than the screen, so the body scrolls (otherwise this proves nothing)...

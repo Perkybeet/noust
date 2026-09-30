@@ -272,7 +272,7 @@ describe("the new-app wizard", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Configuration" })).toBeInTheDocument();
   });
 
-  it("says what Noust found and that it can deploy it, in the backend's words", async () => {
+  it("says what Noust found and that it can deploy it, in the console's own words", async () => {
     const { harness } = wizard({
       "POST /api/apps/inspect": () =>
         json(200, {
@@ -286,9 +286,10 @@ describe("the new-app wizard", () => {
     await harness.user.type(screen.getByLabelText("Domain"), "storefront.example.com");
     await harness.user.click(screen.getByRole("button", { name: "Continue" }));
     const found = await screen.findByRole("group", { name: "What Noust found" });
-    expect(within(found).getByText(/Noust can deploy this as Next\.js\. It also looks like Node\.js/)).toBeInTheDocument();
-    // Said once: the verdict already names the other types.
-    expect(within(found).queryByText(/It also matches/)).not.toBeInTheDocument();
+    // A deployable source is said from the catalogs, not in the backend's English prose.
+    expect(within(found).getByText("Noust can deploy this as Next.js.")).toBeInTheDocument();
+    expect(within(found).queryByText(/It also looks like Node\.js/)).not.toBeInTheDocument();
+    expect(within(found).getByText(/It also matches Node\.js\./)).toBeInTheDocument();
   });
 
   it("warns on the review step when this server cannot deploy it as it is, with what to do first", async () => {

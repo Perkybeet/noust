@@ -21,7 +21,7 @@ test("merges the jobs history and the audit log, newest first, including this si
   // The sign-in this test just performed, audited by the real login endpoint. The timeline is
   // newest first and the worker's backend may carry other tests' sign-ins too, so this is the
   // most recent one - which, run just before navigating here, is this test's own.
-  const signInRow = table.getByRole("row").filter({ has: page.getByText("Sign-in attempt") }).first();
+  const signInRow = table.getByRole("row").filter({ has: page.getByText("Sign-in", { exact: true }) }).first();
   await expect(signInRow).toBeVisible();
   await expect(signInRow.getByText("Succeeded")).toBeVisible();
 
@@ -35,7 +35,7 @@ test("merges the jobs history and the audit log, newest first, including this si
   // Operations, the page's own view, leaves the sign-ins out and keeps the jobs.
   await page.getByRole("radio", { name: "Operations" }).click();
   await expect(page).toHaveURL(/\/activity$/);
-  await expect(table.getByText("Sign-in attempt")).toHaveCount(0);
+  await expect(table.getByText("Sign-in", { exact: true })).toHaveCount(0);
   await expect(table.getByRole("row").filter({ has: page.getByText("shop.example.net") }).first()).toBeVisible();
 });
 
@@ -59,7 +59,7 @@ test("filtering by result narrows the timeline to one source", async ({ page, co
     await expect(rows().nth(i).getByText("Failed", { exact: true })).toBeVisible();
   }
   // A job-only result excludes the audit log entirely: this sign-in's own row is gone.
-  await expect(table.getByText("Sign-in attempt")).toHaveCount(0);
+  await expect(table.getByText("Sign-in", { exact: true })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page).toHaveURL(/\/activity$/);
@@ -68,12 +68,13 @@ test("filtering by result narrows the timeline to one source", async ({ page, co
 test("opening a job with a captured log shows it verbatim", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/activity");
   const table = page.getByRole("region", { name: /^Activity/ });
-  // The seeded update of example.com that kept its log: the job the master token started.
-  const row = table
-    .getByRole("row")
-    .filter({ has: page.getByText("Updating the application at example.com") })
-    .filter({ has: page.getByText("master", { exact: true }) });
+  // The seeded update of example.com that kept its log: the job the master token started. The
+  // row names it in the console's words (Update, example.com); the server's English description
+  // is not repeated beside them.
+  const view = page.getByRole("button", { name: "View log of Update example.com", exact: true });
+  const row = table.getByRole("row").filter({ has: view }).filter({ has: page.getByText("master", { exact: true }) });
   await expect(row).toBeVisible();
+  await expect(row.getByText("Updating the application at example.com")).toHaveCount(0);
   await row.getByRole("button", { name: /View log of/ }).click();
 
   const drawer = page.getByRole("dialog", { name: "Update example.com" });

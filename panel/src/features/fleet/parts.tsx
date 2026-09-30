@@ -1,9 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { useId, useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { ReactNode } from "react";
 
 import { RelativeTime } from "../../components/page/RelativeTime";
-import { Button } from "../../components/ui/Button";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
@@ -59,17 +58,47 @@ export function ServerCell({ origin, outcome }: { origin: RowOrigin; outcome?: N
   );
 }
 
-/** One server that did not answer fully: its state, why, the fix, and its own words on request. */
+/** Why a server did not answer fully, in the console's words, by the kind of its outcome. */
+function whyText(t: ReturnType<typeof useT>, outcome: NodeOutcome, kind: ReturnType<typeof outcomeKind>): string {
+  const name = outcome.name;
+  switch (kind) {
+    case "unsupported":
+      return (outcome.missing ?? []).length > 0 ? t("fleet.partial.missing", { paths: (outcome.missing ?? []).join(", ") }) : t("fleet.partial.why.unsupported");
+    case "stale":
+      return t("fleet.partial.why.stale", { name });
+    case "unreachable":
+      return t("fleet.partial.why.unreachable", { name });
+    case "forbidden":
+      return t("fleet.partial.why.forbidden", { name });
+    default:
+      return t("fleet.partial.why.error", { name });
+  }
+}
+
+/**
+ * One server that did not answer fully: its state, why and the fix in the console's words,
+ * then what it (or the tunnel) said, verbatim, in mono - the system's words are never the
+ * sentence, and never paraphrased either.
+ */
 function TroubledServer({ outcome }: { outcome: NodeOutcome }) {
   const t = useT();
-  const [open, setOpen] = useState(false);
-  const outputId = useId();
   const kind = outcomeKind(outcome);
   const view = OUTCOME_VIEW[kind];
-  const why =
-    kind === "unsupported" && (outcome.missing ?? []).length > 0
-      ? t("fleet.partial.missing", { paths: (outcome.missing ?? []).join(", ") })
-      : (outcome.message ?? t(view.label));
+  const connection = kind === "stale" || kind === "unreachable";
+  const fix = connection
+    ? t.rich("fleet.partial.fix.connection", { command: <Mono key="command">{`noust node test ${outcome.name}`}</Mono> })
+    : kind === "unsupported"
+      ? t("fleet.partial.fix.unsupported", { name: outcome.name })
+      : null;
+  // What the server said. Its own hint joins it only where the console has no fix of its own.
+  const said = [
+    outcome.message,
+    fix === null ? outcome.hint : null,
+    outcome.error_verbatim,
+    ...(outcome.warnings ?? []),
+  ].filter((line): line is string => typeof line === "string" && line.trim() !== "");
+  // An older Noust's "does not offer X" is the missing sentence already, said in words.
+  const verbatim = kind === "unsupported" && (outcome.missing ?? []).length > 0 ? said.filter((line) => line !== outcome.message) : said;
   return (
     <li className="flex min-w-0 flex-col gap-1 py-2 first:pt-0 last:pb-0">
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
@@ -84,37 +113,14 @@ function TroubledServer({ outcome }: { outcome: NodeOutcome }) {
           </span>
         ) : null}
       </div>
-      <p className="max-w-measure text-13 text-pretty text-fg">{why}</p>
-      {outcome.hint !== null && outcome.hint !== undefined ? <p className="max-w-measure text-13 text-pretty text-fg-muted">{outcome.hint}</p> : null}
-      {(outcome.warnings ?? []).length > 0 ? (
-        <ul className="flex flex-col gap-0.5 text-13 text-fg-muted">
-          {(outcome.warnings ?? []).map((warning) => (
-            <li key={warning}>{warning}</li>
-          ))}
-        </ul>
-      ) : null}
-      {outcome.error_verbatim !== null && outcome.error_verbatim !== undefined && outcome.error_verbatim !== "" ? (
-        <div className="flex flex-col gap-1.5">
-          <Button
-            size="sm"
-            variant="ghost"
-            aria-expanded={open}
-            aria-controls={outputId}
-            className="-ml-2 self-start"
-            onClick={() => {
-              setOpen((value) => !value);
-            }}
-          >
-            {open ? t("fleet.partial.hideOutput", { name: outcome.name }) : t("fleet.partial.showOutput", { name: outcome.name })}
-          </Button>
-          <div id={outputId} hidden={!open}>
-            {open ? (
-              <SystemOutput label={t("fleet.partial.showOutput", { name: outcome.name })} maxHeight="max-h-40">
-                {outcome.error_verbatim}
-              </SystemOutput>
-            ) : null}
-          </div>
-        </div>
+      <p className="max-w-measure text-13 text-pretty text-fg">{whyText(t, outcome, kind)}</p>
+      {fix !== null ? <p className="max-w-measure text-13 text-pretty text-fg-muted">{fix}</p> : null}
+      {verbatim.length > 0 ? (
+        <section aria-label={t("fleet.partial.showOutput", { name: outcome.name })} className="mt-1">
+          <SystemOutput label={t("fleet.partial.showOutput", { name: outcome.name })} maxHeight="max-h-40">
+            {verbatim.join("\n")}
+          </SystemOutput>
+        </section>
       ) : null}
     </li>
   );

@@ -113,7 +113,11 @@ function Layout() {
         title: t("server.title"),
         server: node,
         status: !available ? undefined : verdict !== null ? <StatusPill state={verdict.state} label={verdictLabel(t, verdict)} /> : <Skeleton className="h-6 w-28 rounded-pill" />,
-        meta: !available ? undefined : summary.data !== undefined ? <Facts summary={summary.data} t={t} /> : <Skeleton className="h-4 w-80 max-w-full" />,
+        meta: !available ? undefined : summary.data !== undefined ? <Facts summary={summary.data} t={t} /> : (
+          <span className="flex h-5 w-80 max-w-full items-center">
+            <Skeleton className="h-3.5 w-full" />
+          </span>
+        ),
         ...(available
           ? {
               secondaryActions: (

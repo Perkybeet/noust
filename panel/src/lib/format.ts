@@ -81,6 +81,27 @@ export function formatBytes(bytes: number, locale: Locale = getLocale()): string
   return `${sign}${text} ${BYTE_UNITS[unit] ?? "B"}`;
 }
 
+/**
+ * A part and its whole ("used of total", "free of total") in one unit, the larger value's:
+ * "0.71 TB of 0.98 TB", never "727 GB of 0.98 TB", so the two read against each other.
+ */
+export function formatBytesPair(part: number, whole: number, locale: Locale = getLocale()): [string, string] {
+  if (!Number.isFinite(part) || !Number.isFinite(whole)) return [formatBytes(part, locale), formatBytes(whole, locale)];
+  let largest = Math.max(Math.abs(part), Math.abs(whole));
+  let unit = 0;
+  while (largest >= 1000 && unit < BYTE_UNITS.length - 1) {
+    largest /= 1024;
+    unit += 1;
+  }
+  const scale = 1024 ** unit;
+  const write = (bytes: number): string => {
+    const value = bytes / scale;
+    const text = unit === 0 ? String(Math.round(value)) : value === 0 ? "0" : significant(value, locale);
+    return `${text} ${BYTE_UNITS[unit] ?? "B"}`;
+  };
+  return [write(part), write(whole)];
+}
+
 /** A transfer rate: "1.2 MB/s". */
 export function formatBytesRate(bytesPerSecond: number, locale: Locale = getLocale()): string {
   return `${formatBytes(bytesPerSecond, locale)}/s`;
@@ -242,7 +263,10 @@ export function formatRelative(date: Date, now: Date = new Date(), locale: Local
   if (seconds < 3_600) return say(Math.floor(seconds / 60), "minute");
   if (seconds < 86_400) return say(Math.floor(seconds / 3_600), "hour");
   if (seconds < 7 * 86_400) return say(Math.floor(seconds / 86_400), "day");
-  return formatDate(date, { year: date.getFullYear() !== now.getFullYear() }, locale);
+  const year = date.getFullYear() !== now.getFullYear();
+  // Spanish in full: its short August, "20 ago", reads as the English "ago" next to "hace 2 d".
+  if (locale === "es") return dateFormat(locale, year ? { year: "numeric", month: "long", day: "numeric" } : { month: "long", day: "numeric" }).format(date);
+  return formatDate(date, { year }, locale);
 }
 
 /** The zone's short name where the browser knows one ("WEST", "UTC", "GMT+2"). */

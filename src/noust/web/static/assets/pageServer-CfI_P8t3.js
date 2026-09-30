@@ -1,0 +1,1 @@
+import{r as e}from"./rolldown-runtime-hePW80VL.js";import{Lt as t}from"./Button-DnIEt79G.js";var n=e(t(),1),r=(0,n.createContext)(null);function i(){return(0,n.useContext)(r)}function a(e){let t=i();return e!=null&&e!==``?e:t}export{a as n,r as t};

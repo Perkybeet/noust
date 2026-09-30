@@ -1,0 +1,1 @@
+var e=`rounded-chip font-medium text-accent-fg hover:underline hover:underline-offset-2`;export{e as t};

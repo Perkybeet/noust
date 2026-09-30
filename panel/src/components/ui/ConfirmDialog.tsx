@@ -5,6 +5,7 @@ import type { MouseEvent, ReactElement, ReactNode, SyntheticEvent } from "react"
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { describeError } from "../../lib/errors";
+import { heldOf, reportHeld } from "../../lib/held";
 import { useNamedServer } from "../../nodes/pageServer";
 import { Button } from "./Button";
 import { BACKDROP, DialogFrame, MODAL_POPUP, MODAL_VIEWPORT } from "./Dialog";
@@ -48,6 +49,11 @@ interface ConfirmDialogBase {
    * that destroys more starts unchecked (docs/DESIGN.md, "Danger").
    */
   children?: ReactNode;
+  /**
+   * False while an option in `children` still lacks what the action needs (a target to
+   * restore into): the action stays disabled, as it does until the name is typed.
+   */
+  ready?: boolean;
 }
 
 export type ConfirmDialogProps = ConfirmDialogBase &
@@ -87,6 +93,8 @@ function Immediate({ title, onConfirm, trigger, onOpenChange }: ConfirmDialogBas
     try {
       await onConfirm();
     } catch (error: unknown) {
+      // A cancelled confirmation or a request left waiting is not a failure (lib/held.ts).
+      if (reportHeld(error)) return;
       const described = describeError(error);
       toast.error(title, {
         description: described.hint ?? t("common.confirmDialog.failed"),
@@ -124,6 +132,7 @@ function Confirmation({
   onOpenChange,
   server,
   children,
+  ready = true,
 }: ConfirmDialogBase & { friction?: "simple" | "type"; confirmText?: string | undefined }) {
   const t = useT();
   const [internalOpen, setInternalOpen] = useState(false);
@@ -136,7 +145,7 @@ function Confirmation({
 
   const typing = friction === "type" && confirmText !== undefined;
   const isOpen = open ?? internalOpen;
-  const matches = !typing || typed === confirmText;
+  const matches = ready && (!typing || typed === confirmText);
 
   const setOpen = (next: boolean): void => {
     // A running action cannot be abandoned half-way from the keyboard or backdrop.
@@ -162,7 +171,19 @@ function Confirmation({
       setTyped("");
     } catch (error: unknown) {
       setPending(false);
-      setFailure(describeError(error));
+      const held = heldOf(error);
+      if (held === null) {
+        setFailure(describeError(error));
+        return;
+      }
+      // Not a failure. A cancelled "Confirm it's you" leaves the question open, to ask again
+      // or cancel; a request filed for approval is on its way, so the question is answered.
+      if (held.kind !== "cancelled") {
+        reportHeld(error);
+        if (open === undefined) setInternalOpen(false);
+        onOpenChange?.(false);
+        setTyped("");
+      }
     }
   };
 

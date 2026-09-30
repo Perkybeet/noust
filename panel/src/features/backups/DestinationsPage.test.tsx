@@ -211,7 +211,7 @@ describe("the Destinations tab", () => {
     const restoreRow = await within(browse).findByText("shop-example-com_20260101_000000");
     await user.click(within(restoreRow.closest("tr") ?? browse).getByRole("button", { name: "Restore" }));
 
-    const confirm = await screen.findByRole("dialog", { name: "Restore from offsite" });
+    const confirm = await screen.findByRole("alertdialog", { name: "Restore from offsite" });
     expect(within(confirm).getByText("shop-example-com_20260101_000000")).toBeInTheDocument();
     // The folder is named after the application; the target offered is its domain.
     const target = within(confirm).getByLabelText("Restore into");

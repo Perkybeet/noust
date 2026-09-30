@@ -28,7 +28,7 @@ test("an alias is added after DNS says it points here, and the certificate is ex
   await signIn(page, consoleServer, `/apps/${app}/domains`);
   const primary = page.getByRole("region", { name: `Domains of ${app}` }).getByRole("row").filter({ hasText: "Primary" });
   await expect(primary).toContainText(app);
-  await expect(primary).toContainText("Covered");
+  await expect(primary).toContainText("HTTPS");
   await settle(page);
   await expectNoA11yViolations(page, "an application's Domains tab");
 
@@ -53,7 +53,7 @@ test("an alias is added after DNS says it points here, and the certificate is ex
   await expect(page.getByText(`The certificate covers every domain of ${app}`)).toBeVisible({ timeout: 20_000 });
   const aliasRow = page.getByRole("region", { name: `Domains of ${app}` }).getByRole("row").filter({ hasText: alias });
   await expect(aliasRow).toContainText("Alias");
-  await expect(aliasRow).toContainText("Covered");
+  await expect(aliasRow).toContainText("HTTPS");
   await expect(page.getByRole("list", { name: "Names on the certificate" })).toContainText(alias);
   await dismissToasts(page);
   await stillness(page);
@@ -81,7 +81,7 @@ test("a name that does not point here is added, and the failed order is shown in
   await expect(page.locator("pre").filter({ hasText: `DNS problem: NXDOMAIN looking up A for ${name}` })).toBeVisible();
   const redirect = page.getByRole("region", { name: `Domains of ${app}` }).getByRole("row").filter({ hasText: name });
   await expect(redirect).toContainText("Redirect");
-  await expect(redirect).toContainText("Not covered");
+  await expect(redirect).toContainText("No HTTPS");
   await dismissToasts(page);
   await stillness(page);
   await expectNoA11yViolations(page, "a failed certificate order");

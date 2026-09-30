@@ -1,11 +1,11 @@
-import { Outlet } from "@tanstack/react-router";
-import { Network, Play } from "lucide-react";
+import { Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { Network } from "lucide-react";
 import { useState } from "react";
 
 import { LinkTabs } from "../../app/LinkTabs";
 import { FLEET_TABS } from "../../app/nav";
 import { DetailPage } from "../../components/page/DetailPage";
-import { Button } from "../../components/ui/Button";
+import { Button, buttonClassName } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { ICONS } from "../../components/ui/icons";
 import { Notice } from "../../components/ui/Notice";
@@ -15,31 +15,17 @@ import type { HubArea } from "../central/central";
 import { useCentral } from "../central/central";
 import { CentralLockedNotice } from "../central/CentralLockedNotice";
 import { AddServerDialog } from "../settings/servers/AddServerDialog";
-import { FleetActionsProvider, useFleetActions } from "./BulkActionDialog";
+import { FleetActionsProvider } from "./BulkActionDialog";
 
 export interface FleetLayoutProps {
   /** Set when a hub was asked for one of the pages it does not have. */
   hub?: HubArea | "overview" | undefined;
 }
 
-function RunAction() {
-  const t = useT();
-  const actions = useFleetActions();
-  return (
-    <Button
-      icon={<Play aria-hidden="true" />}
-      onClick={() => {
-        actions.open();
-      }}
-    >
-      {t("fleet.page.runAction")}
-    </Button>
-  );
-}
-
 /**
- * The fleet, every server at once (the "All servers" context): one header - Add a server,
- * Run an action - and a view per URL: the summary, the servers, and every server's
+ * The fleet, every server at once (the "All servers" context): one header with one primary -
+ * New application on the Applications view, Add a server on the others; what can be run on
+ * several servers lives with the view it acts on - and a view per URL: the summary, the servers, and every server's
  * applications, certificates, backups, updates and activity side by side. Each view is the
  * central's one aggregated answer; a server that is down is a row of it, never a blank page.
  */
@@ -50,6 +36,7 @@ export function FleetLayout({ hub }: FleetLayoutProps) {
   const [adding, setAdding] = useState(false);
   const Add = ICONS.add;
   const empty = servers.loaded && servers.nodes.length === 0;
+  const onApps = useRouterState({ select: (state) => state.location.pathname === "/fleet/apps" });
 
   const add = (
     <Button
@@ -69,7 +56,18 @@ export function FleetLayout({ hub }: FleetLayoutProps) {
         header={{
           title: t("fleet.page.title"),
           description: t("fleet.page.description"),
-          ...(empty ? {} : { secondaryActions: <RunAction />, primaryAction: add }),
+          ...(empty
+            ? {}
+            : {
+                primaryAction: onApps ? (
+                  <Link to="/apps/new" search={{ node: undefined }} className={buttonClassName("primary")}>
+                    <Add aria-hidden="true" />
+                    {t("fleet.apps.newApplication")}
+                  </Link>
+                ) : (
+                  add
+                ),
+              }),
         }}
         {...(central.locked || hub !== undefined || central.role === "hub"
           ? {

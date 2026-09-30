@@ -1,0 +1,1 @@
+function e(e,t){return Number.isFinite(e)?new Intl.NumberFormat(t,{style:`percent`,minimumFractionDigits:1,maximumFractionDigits:1}).format(e/100):`-`}export{e as t};

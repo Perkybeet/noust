@@ -115,14 +115,14 @@ describe("the activity timeline", () => {
     const { table } = await activityAt();
     await within(table).findByText("shop.example.com");
     expect(within(table).getByText("admin.example.com")).toBeInTheDocument();
-    expect(within(table).getByText("Sign-in attempt")).toBeInTheDocument();
-    expect(within(table).getByText("Failed a scope check")).toBeInTheDocument();
+    expect(within(table).getByText("Sign-in")).toBeInTheDocument();
+    expect(within(table).getByText("Request beyond a token's scope refused")).toBeInTheDocument();
   });
 
   it("opens on operations: what was done, not who signed in", async () => {
     const { table } = await activityAt({}, "/activity");
     await within(table).findByText("shop.example.com");
-    expect(within(table).queryByText("Sign-in attempt")).not.toBeInTheDocument();
+    expect(within(table).queryByText("Sign-in")).not.toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Operations" })).toBeChecked();
   });
 
@@ -152,7 +152,7 @@ describe("the activity timeline", () => {
     await within(table).findByText("shop.example.com");
     expect(screen.getByText(/audit log is not open to this session/)).toBeInTheDocument();
     expect(screen.queryByText(/^Could not load/)).not.toBeInTheDocument();
-    expect(within(table).queryByText("Sign-in attempt")).not.toBeInTheDocument();
+    expect(within(table).queryByText("Sign-in")).not.toBeInTheDocument();
   });
 
   it("switches views through the URL: sign-ins and access leave the jobs out", async () => {
@@ -165,7 +165,7 @@ describe("the activity timeline", () => {
     await waitFor(() => {
       expect(within(table).queryByText("shop.example.com")).not.toBeInTheDocument();
     });
-    expect(within(table).getByText("Sign-in attempt")).toBeInTheDocument();
+    expect(within(table).getByText("Sign-in")).toBeInTheDocument();
   });
 
   it("searches by who, what and to what, through the URL", async () => {
@@ -214,8 +214,8 @@ describe("the activity timeline", () => {
     await screen.findByRole("heading", { level: 1, name: "Actividad" });
     const table = await screen.findByRole("region", { name: /Actividad/ });
     await within(table).findByText("shop.example.com");
-    expect(within(table).getByText("Intento de inicio de sesión")).toBeInTheDocument();
-    expect(within(table).getByText("Falló una comprobación de alcance")).toBeInTheDocument();
+    expect(within(table).getByText("Inicio de sesión")).toBeInTheDocument();
+    expect(within(table).getByText("Solicitud fuera del alcance de un token rechazada")).toBeInTheDocument();
     expect(screen.getByRole("radiogroup", { name: "Vista" })).toBeInTheDocument();
     expect(screen.getByRole("searchbox", { name: "Buscar en la actividad" })).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));

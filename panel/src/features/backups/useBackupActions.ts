@@ -122,9 +122,7 @@ export function useBackupActions() {
     onSuccess: (result) => {
       queueJob(result, t("backups.toast.restoreQueuedDescription"));
     },
-    onError: (error) => {
-      reportActionError(t("backups.toast.restoreQueueError"), error);
-    },
+    // No onError: the restore dialog (ConfirmDialog) shows a failure where it was started.
   });
 
   const remove = useMutation({

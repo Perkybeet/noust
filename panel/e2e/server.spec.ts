@@ -30,6 +30,8 @@ test("schedules a reboot with its pre-checks in view, shows it on every tab and 
   const dialog = page.getByRole("dialog", { name: "Reboot the server" });
   const checks = dialog.getByRole("list", { name: "Checks before rebooting" });
   await expect(checks.getByText("Nothing is running", { exact: true })).toBeVisible();
+  // Judged once the dialog has finished opening: mid-fade its colours are blends of the page's.
+  await settle(page);
   await expectNoA11yViolations(page, "the reboot dialog");
   await dialog.getByRole("radio", { name: "Later" }).click();
   await dialog.getByRole("button", { name: /^Reboot/ }).click();
@@ -113,7 +115,7 @@ test("the security tab shows its findings, SSH as it runs, the firewall against 
 test("the storage, logs and system tabs show the machine", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/server/storage");
   await expect(page.getByRole("list", { name: "Filesystems" }).getByText("/srv")).toBeVisible();
-  await expect(page.getByRole("region", { name: "What takes space" }).getByText("System journal")).toBeVisible();
+  await expect(page.getByRole("region", { name: "What takes space" }).getByText("System logs")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the storage tab");
 

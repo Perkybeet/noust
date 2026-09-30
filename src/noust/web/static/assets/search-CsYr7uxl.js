@@ -1,0 +1,1 @@
+function e(e){if(typeof e!=`string`)return;let t=e.trim();return t===``?void 0:t.slice(0,200)}function t(t){let n=e(t.q);return{...n===void 0?{}:{q:n},...t.show===`attention`?{show:`attention`}:{},...t.tab===`sites`||t.tab===`certificates`?{tab:t.tab}:{}}}function n(t){let n=e(t.q);return n===void 0?{}:{q:n}}export{n,t};

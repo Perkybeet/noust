@@ -1200,10 +1200,11 @@ export interface paths {
          * @description Turn previews on for an application, or change their settings.
          *
          *     Installs ``noust-previews.timer`` the first time any application turns
-         *     previews on. A preview builds in the sandbox (as ``noust-build``, in the
-         *     strict network profile: dependencies install with the network and without
-         *     the secrets, the build runs without a network), with a copy of the
-         *     application's environment minus ``exclude_env``; only pull requests from
+         *     previews on. A preview builds in the sandbox (as ``noust-build``, with the
+         *     network but without the variables classified as secret and without loading
+         *     the application's ``.env``; the strict profile, a build without network, is
+         *     the application's opt-in), with a copy of the application's environment
+         *     minus ``exclude_env``; only pull requests from
          *     people trusted with the repository get one (see
          *     :func:`noust.managers.previews.handle_pull_request`).
          *
@@ -2587,7 +2588,8 @@ export interface paths {
          *     Raises:
          *         HTTPException: 401 with ``error`` ``invalid_credentials`` for an
          *             account, ``totp_required``, ``invalid_totp`` or ``invalid_token``
-         *             for the master token, when the factors do not verify.
+         *             for the master token, when the factors do not verify; 403
+         *             ``notice_required`` before the usage notice is accepted.
          */
         post: operations["elevate_api_auth_elevate_post"];
         delete?: never;
@@ -2979,7 +2981,8 @@ export interface paths {
          *
          *     Raises:
          *         HTTPException: 401 as for a passkey sign-in, and
-         *             ``passkey_wrong_owner`` for somebody else's passkey.
+         *             ``passkey_wrong_owner`` for somebody else's passkey; 403
+         *             ``notice_required`` before the usage notice is accepted.
          */
         post: operations["elevate_with_passkey_api_auth_passkeys_elevate_post"];
         delete?: never;
@@ -3496,7 +3499,8 @@ export interface paths {
          *             permission, network or expiry is refused. The audit record names
          *             the token; the token itself never reaches the audit log.
          *         HTTPException: 403 with ``error: "elevation_required"`` per
-         *             :func:`noust.web.api.deps.require_elevated`.
+         *             :func:`noust.web.api.deps.require_elevated`, or
+         *             ``notice_required`` before the owner accepted the usage notice.
          */
         post: operations["create_api_token_api_auth_tokens_post"];
         delete?: never;
@@ -12770,7 +12774,9 @@ export interface components {
          *     Attributes:
          *         id: Its id; the value of ``X-Noust-Approval``.
          *         action: ``root_equivalent``, ``fleet.node.add``, ``fleet.node.remove``,
-         *             ``db.query.write``, ``apps.local_source`` or ``user.role_change``.
+         *             ``db.query.write``, ``db.query.analyze``, ``db.rows.write``,
+         *             ``apps.local_source``, ``user.role_change``, ``user.create`` or
+         *             ``user.invite``.
          *         kind: ``infrastructure`` or ``role_change``.
          *         description: What the action is, in one sentence.
          *         method: The call's method.
@@ -20861,8 +20867,17 @@ export interface components {
          *         propagate: Give the new password to the applications that sign in as
          *             the account, restarting each behind its health gate; anything
          *             that does not come back undoes the whole rotation.
+         *         first_password: Confirms giving a Redis instance that has no password
+         *             its first one: every application reaching it without credentials
+         *             stops working until it is given the password.
          */
         RotatePasswordRequest: {
+            /**
+             * First Password
+             * @description Redis only: confirm setting a first password on an instance without one
+             * @default false
+             */
+            first_password: boolean;
             /**
              * Host
              * @description Host restriction

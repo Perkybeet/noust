@@ -151,7 +151,10 @@ export const appPages = {
     noDeploySucceeded: "No deploy of this app has succeeded yet",
     recentDeploysLabel: "Recent deploys",
     noneYet: "None yet",
-    lastStatusDetail: "Last {status} {time}",
+    deployTally: {
+      one: "{ok} of {count} succeeded; the last one {status} {time}",
+      other: "{ok} of {count} succeeded; the last one {status} {time}",
+    },
     deploysAppearHere: "Deploys and updates appear here",
     domainsTitle: "Domains",
     manageDomains: "Manage domains",

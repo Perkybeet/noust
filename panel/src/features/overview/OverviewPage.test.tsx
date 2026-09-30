@@ -132,7 +132,7 @@ describe("the overview", () => {
     const attention = screen.getByRole("region", { name: "Needs attention" });
     const app = await within(attention).findByRole("link", { name: "admin.example.com" });
     expect(app).toHaveAttribute("href", "/apps/admin.example.com");
-    expect(within(attention).getByText("The service has failed")).toBeInTheDocument();
+    expect(within(attention).getAllByText("The service has failed")).toHaveLength(2);
     expect(within(attention).getByText("Last deploy failed")).toBeInTheDocument();
     expect(within(attention).getByText("npm ERR! code ELIFECYCLE")).toBeInTheDocument();
     expect(within(attention).getByRole("link", { name: "View log of the deploy of admin.example.com" })).toHaveAttribute("href", "/apps/admin.example.com/deployments/12");
@@ -182,6 +182,16 @@ describe("the overview", () => {
     expect(calls[0]?.search.getAll("metric")).toEqual([...MACHINE_METRICS]);
     expect(calls[0]?.search.get("window")).toBe("24h");
     expect(within(machine).getByText(/^Showing .+, 1-minute averages\. History since /)).toBeInTheDocument();
+  });
+
+  it("folds a chart with no reading in its whole window into one line on a phone", async () => {
+    await overview({
+      "GET /api/metrics/query": (call) => json(200, metricsReadFixture(call.search.getAll("metric"), { now: NOW, cells: 1440, recordedFrom: 1440 })),
+    });
+    const machine = await screen.findByRole("region", { name: "Machine" });
+    const cpu = await within(machine).findByRole("group", { name: "CPU" });
+    expect(cpu).toHaveTextContent("No readings in this window");
+    expect(within(machine).queryByRole("img", { name: /^CPU, / })).not.toBeInTheDocument();
   });
 
   it("keeps the chosen range in the URL, and reads that window", async () => {

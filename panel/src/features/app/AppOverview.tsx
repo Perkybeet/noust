@@ -197,9 +197,13 @@ function Tiles({ app, t }: { app: App; t: T }) {
             <span className="title text-18 text-fg">{t("appPages.overview.noneYet")}</span>
           )
         }
+        // The glyphs' states in words too (DESIGN 6.1): how many succeeded, how the newest ended.
+        detailLines={2}
         detail={
           newest ? (
-            t.rich("appPages.overview.lastStatusDetail", {
+            t.rich("appPages.overview.deployTally", {
+              count: items.length,
+              ok: formatCount(items.filter((deploy) => deployStatus(deploy.status, t.locale).state === "running").length, t.locale),
               status: deployStatus(newest.status, t.locale).label.toLowerCase(),
               time: <RelativeTime value={deployMoment(newest)} />,
             })

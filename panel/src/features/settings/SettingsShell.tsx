@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouterState } from "@tanstack/react-router";
 import { Landmark, Server } from "lucide-react";
+import { createContext, useContext, useState } from "react";
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import { sessionQuery } from "../../api/queries/auth";
 import { SETTINGS_TABS } from "../../app/nav";
@@ -16,6 +18,19 @@ import { useT } from "../../i18n";
 import { useHasFleet, useReturnServer, useServerList } from "../../nodes/servers";
 import { useConsoleContext } from "../../nodes/useNode";
 import { useCentral } from "../central/central";
+
+/** Where a section's primary action goes: the settings' page header (see SettingsPrimaryAction). */
+const PrimarySlot = createContext<HTMLElement | null>(null);
+
+/**
+ * A settings section's one primary action ("Invite a person", "Create token"), put in the page's
+ * header where every view has its primary (docs/DESIGN.md 4, "One primary action per view"),
+ * although the header belongs to the layout the sections share. Renders nothing outside it.
+ */
+export function SettingsPrimaryAction({ children }: { children: ReactNode }) {
+  const slot = useContext(PrimarySlot);
+  return slot === null ? null : createPortal(children, slot);
+}
 
 function under(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
@@ -48,6 +63,7 @@ export function SettingsShell({ children }: { children: ReactNode }) {
   const back = useReturnServer();
   const { hostname } = useServerList();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
 
   const onCentral = context.kind === "central";
   // The server the server's sections are about: the one on screen, or the one to go back to.
@@ -73,7 +89,9 @@ export function SettingsShell({ children }: { children: ReactNode }) {
   );
 
   const { data: session } = useQuery(sessionQuery());
-  const items: SettingsNavItem[] = SETTINGS_TABS.filter((tab) => tab.fleetOnly !== true || hasFleet || central.sealed)
+  // On a fleet About closes the server's group; on a lone server, the one list.
+  const tabs = hasFleet ? SETTINGS_TABS : [...SETTINGS_TABS.filter((tab) => tab.to !== "/settings/about"), ...SETTINGS_TABS.filter((tab) => tab.to === "/settings/about")];
+  const items: SettingsNavItem[] = tabs.filter((tab) => tab.fleetOnly !== true || hasFleet || central.sealed)
     .filter((tab) => tab.permission === undefined || (session?.permissions?.includes(tab.permission) ?? false))
     .map((tab) => ({
     to: tab.to,
@@ -103,12 +121,14 @@ export function SettingsShell({ children }: { children: ReactNode }) {
         description,
         // The central's sections are no one server's: the header names the central instead.
         ...(onCentral && hasFleet ? { meta: <CentralLabel name={centralName} /> } : {}),
+        // Empty (and boxless) unless the section on screen puts its primary action here.
+        primaryAction: <span ref={setSlot} className="contents" />,
       }}
     >
       <div data-scope={scope} className="min-w-0">
         <SettingsLayout label={t("nav.landmarks.settingsSections")} items={items} index={pathname === "/settings"} backTo="/settings">
           {onCentral && hasFleet && back !== null && back.node !== null ? <NodeAccessNote node={back.node} /> : null}
-          {children}
+          <PrimarySlot.Provider value={slot}>{children}</PrimarySlot.Provider>
         </SettingsLayout>
       </div>
     </DetailPage>

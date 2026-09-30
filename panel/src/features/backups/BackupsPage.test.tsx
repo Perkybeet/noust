@@ -315,11 +315,14 @@ describe("the Backups tab", () => {
     await user.click(within(await appRow("shop.example.com")).getByRole("button", { name: "Actions for shop.example.com" }));
     await user.click(await screen.findByRole("menuitem", { name: "Restore the latest…" }));
 
-    const dialog = await screen.findByRole("dialog", { name: "Restore a backup of shop.example.com" });
+    const dialog = await screen.findByRole("alertdialog", { name: "Restore a backup of shop.example.com" });
     expect(within(dialog).getByText("b-new")).toBeInTheDocument();
     const restore = within(dialog).getByRole("button", { name: "Restore" });
     expect(restore).toBeDisabled();
     expect(within(dialog).getByLabelText("Restore into")).toHaveValue("shop.example.com");
+    // What destroys more starts unchecked: the .env files there now are kept unless asked.
+    expect(within(dialog).getByRole("checkbox", { name: /Restore \.env files/ })).not.toBeChecked();
+    expect(within(dialog).getByRole("checkbox", { name: /Check its integrity first/ })).toBeChecked();
     await user.type(within(dialog).getByLabelText(/to confirm$/), "shop.example.co");
     expect(restore).toBeDisabled();
     await user.type(within(dialog).getByLabelText(/to confirm$/), "m");
@@ -330,7 +333,7 @@ describe("the Backups tab", () => {
     await waitFor(() => {
       expect(backend.callsTo("POST /api/backups/b-new/restore")).toHaveLength(1);
     });
-    expect(backend.callsTo("POST /api/backups/b-new/restore")[0]?.body).toEqual({ target_domain: null, restore_env: true, verify: true });
+    expect(backend.callsTo("POST /api/backups/b-new/restore")[0]?.body).toEqual({ target_domain: null, restore_env: false, verify: true });
   });
 
   it("backs one application up from its row, the application already chosen", async () => {

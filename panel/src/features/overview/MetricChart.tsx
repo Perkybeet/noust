@@ -5,6 +5,7 @@ import type { MetricsRead } from "../../api/queries/metrics";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Card } from "../../components/ui/Card";
 import { Chart, ChartMessage, ChartSkeleton } from "../../components/ui/Chart";
+import { SM_UP, useMediaQuery } from "../../components/ui/useMediaQuery";
 import type { ChartLimit, ChartMarker } from "../../components/ui/Chart";
 import { useT } from "../../i18n";
 import { ceilingOf, chartData, prepareRead, useZoomRead } from "./metricsData";
@@ -58,6 +59,7 @@ export function MetricChart({
   couldNotLoad,
 }: MetricChartProps) {
   const t = useT();
+  const wide = useMediaQuery(SM_UP);
   const metrics = series.map((spec) => spec.metric);
   const zoom = useZoomRead(metrics, range);
 
@@ -70,6 +72,17 @@ export function MetricChart({
     );
   } else if (prepared === undefined) {
     body = <ChartSkeleton title={title} height={height} />;
+  } else if (!wide && chartData(prepared, series).series.every((line) => line.values.every((value) => value === null))) {
+    // A phone does not scroll past a screen of hatching to learn there is no history: a window
+    // with no reading at all is one line, named like the chart it stands for.
+    return (
+      <Card padding="sm" as="div">
+        <div role="group" aria-label={title} className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <p className="text-13 font-medium text-fg">{title}</p>
+          <p className="text-13 text-fg-muted">{empty ?? t("common.chart.noReadings")}</p>
+        </div>
+      </Card>
+    );
   } else {
     const data = chartData(prepared, series);
     const zoomed = zoom.read === undefined ? undefined : chartData(prepareRead(zoom.read, t), series);

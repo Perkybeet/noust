@@ -29,12 +29,13 @@ describe("a service's page", () => {
     expect(await screen.findByRole("heading", { level: 1, name: NAME })).toBeInTheDocument();
     const crumbs = screen.getByRole("navigation", { name: "Breadcrumb" });
     expect(within(crumbs).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["/server", "/server/services"]);
-    const tabs = screen.getByRole("navigation", { name: "Service sections" });
+    // The tabs come once it is known whether the unit is an application's (its banner sits above them).
+    const tabs = await screen.findByRole("navigation", { name: "Service sections" });
     expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Logs"]);
     expect(await screen.findByText("Process ID")).toBeInTheDocument();
     // Restart is the one primary action; the unit file is its own page.
     expect(screen.getByRole("button", { name: "Restart" })).toHaveAttribute("data-variant", "primary");
-    expect(screen.getByRole("link", { name: "Unit file" })).toHaveAttribute("href", `/server/services/${NAME}/unit`);
+    expect(screen.getByRole("link", { name: "Configuration" })).toHaveAttribute("href", `/server/services/${NAME}/unit`);
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
@@ -97,7 +98,7 @@ describe("a service's unit file", () => {
     const { user, backend } = servicePage(`/server/services/${NAME}/unit`, {
       "POST /api/services/verify": () => json(200, { success: false, output: "worker.service:5: Unknown key name 'ExecStrat'" }),
     });
-    const editor = await screen.findByRole("textbox", { name: `Unit file for ${NAME}` });
+    const editor = await screen.findByRole("textbox", { name: `Configuration of ${NAME}` });
     expect(screen.getByText(`/etc/systemd/system/${NAME}.service`)).toBeInTheDocument();
     expect(screen.getByText("No unsaved changes")).toBeInTheDocument();
     await user.type(editor, "ExecStrat=x");
@@ -112,7 +113,7 @@ describe("a service's unit file", () => {
       "POST /api/services/verify": () => json(200, { success: true, output: "" }),
       [`PUT /api/services/${NAME}/config`]: () => json(200, { success: true, message: "Saved" }),
     });
-    const editor = await screen.findByRole("textbox", { name: `Unit file for ${NAME}` });
+    const editor = await screen.findByRole("textbox", { name: `Configuration of ${NAME}` });
     await user.type(editor, "#");
     await user.click(screen.getByRole("button", { name: "Test and save" }));
     await waitFor(() => {

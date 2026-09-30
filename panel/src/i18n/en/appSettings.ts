@@ -282,7 +282,7 @@ export const appSettings = {
     disableTitle: "Turn off deploy on push for {domain}?",
     disableDescription: "The secret is discarded and every delivery is refused until a new one is created. Nothing else changes.",
     receivedTitle: "Pushes received",
-    receivedDescription: "Everything the forge sent, newest first, whatever became of it.",
+    receivedDescription: "Every push that arrived, newest first, whatever became of it.",
     receivedFailed: "Could not load the pushes received",
     receivedCaption: "Deliveries received for {domain}, newest first",
     receivedHeader: "Received",

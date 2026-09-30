@@ -807,6 +807,24 @@ class TestElevation:
 
         assert node.schema_fetches == 2
 
+    def test_requests_arriving_together_fetch_the_schema_once(
+        self, fake_node: tuple[FakeNode, int], node: FakeNode, manager: FakeManager
+    ) -> None:
+        # A page opened on a node asks it several things at once, on a cold cache.
+        upstream = node_proxy.Upstream(base_url=f"http://127.0.0.1:{fake_node[1]}", headers={})
+        record = manager.records["web-2"]
+
+        async def together() -> list[node_proxy.NodeSchema]:
+            async with node_proxy._new_client(upstream) as client:
+                return await asyncio.gather(
+                    *(node_proxy.node_schemas.get(record, client, upstream) for _ in range(8))
+                )
+
+        schemas = asyncio.run(together())
+
+        assert all(schema is schemas[0] for schema in schemas)
+        assert node.schema_fetches == 1
+
     def test_a_schema_over_the_size_cap_is_a_clean_502_not_a_memory_blowout(
         self, central: TestClient, master: dict[str, str], node: FakeNode
     ) -> None:

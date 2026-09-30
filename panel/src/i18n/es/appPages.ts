@@ -146,7 +146,10 @@ export const appPages: Catalog<typeof en> = {
     noDeploySucceeded: "Ningún despliegue de esta aplicación ha salido bien todavía",
     recentDeploysLabel: "Despliegues recientes",
     noneYet: "Ninguno todavía",
-    lastStatusDetail: "Último despliegue: {status}, {time}",
+    deployTally: {
+      one: "{ok} de {count} correcto; el último, {status}, {time}",
+      other: "{ok} de {count} correctos; el último, {status}, {time}",
+    },
     deploysAppearHere: "Los despliegues y actualizaciones aparecen aquí",
     domainsTitle: "Dominios",
     manageDomains: "Gestionar dominios",

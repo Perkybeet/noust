@@ -170,8 +170,18 @@ export const fleet: Catalog<typeof en> = {
     label: "Servidores que no respondieron del todo",
     staleSince: "se muestra su respuesta de {age}",
     missing: "Ejecuta un Noust anterior, que no ofrece {paths}.",
+    why: {
+      stale: "{name} no respondió: sus filas son su última respuesta.",
+      unreachable: "{name} no respondió.",
+      unsupported: "Tiene una versión anterior de Noust, que no puede mostrar todo aquí.",
+      forbidden: "{name} se negó a mostrar esto a tu cuenta.",
+      error: "{name} respondió con un error.",
+    },
+    fix: {
+      connection: "Comprueba la conexión con {command}.",
+      unsupported: "Actualiza Noust en {name} para verlo todo aquí.",
+    },
     showOutput: "Lo que dijo {name}",
-    hideOutput: "Ocultar lo que dijo {name}",
   },
   access: {
     level: {
@@ -302,6 +312,8 @@ export const fleet: Catalog<typeof en> = {
     count: { one: "{count} aplicación", other: "{count} aplicaciones" },
     countFiltered: "{shown} de {total} aplicaciones",
     empty: "Ningún servidor tiene aún una aplicación.",
+    shownOf: "Se muestran {shown} de {total}",
+    showMore: { one: "Ver {count} más", other: "Ver {count} más" },
     newApplication: "Nueva aplicación",
     update: "Actualizar aplicaciones",
     noType: "Tipo desconocido",

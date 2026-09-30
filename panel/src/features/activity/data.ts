@@ -12,6 +12,7 @@ import type { StatusView } from "../../components/page/status";
 import type { AuditEntry } from "../../api/queries/audit";
 import type { JobList } from "../../api/queries/jobs";
 import type { PlainKey, T } from "../../i18n";
+import { auditEvents } from "../../i18n/en/auditEvents";
 import { parseTimestamp } from "../../lib/format";
 
 export type { AuditEntry } from "../../api/queries/audit";
@@ -212,88 +213,6 @@ export function jobResource(job: ActivityJob): string | null {
  * backend only ever records with one result (a lockout is always `locked`) can safely describe
  * that outcome.
  */
-const AUDIT_ACTION_LABELS: Readonly<Record<string, PlainKey>> = {
-  "auth.login": "activity.auditAction.authLogin",
-  "auth.logout": "activity.auditAction.authLogout",
-  "auth.credential": "activity.auditAction.authCredential",
-  "auth.csrf": "activity.auditAction.authCsrf",
-  "auth.lockout": "activity.auditAction.authLockout",
-  "auth.elevate": "activity.auditAction.authElevate",
-  "auth.elevation": "activity.auditAction.authElevation",
-  "auth.revoke_all": "activity.auditAction.authRevokeAll",
-  "auth.revoke_others": "activity.auditAction.authRevokeOthers",
-  "auth.scope": "activity.auditAction.authScope",
-  "auth.session.revoke": "activity.auditAction.authSessionRevoke",
-  "auth.token.create": "activity.auditAction.authTokenCreate",
-  "auth.token.revoke": "activity.auditAction.authTokenRevoke",
-  "auth.ws_ticket": "activity.auditAction.authWsTicket",
-  "auth.2fa.confirm": "activity.auditAction.auth2faConfirm",
-  "auth.2fa.disable": "activity.auditAction.auth2faDisable",
-  "auth.2fa.enroll": "activity.auditAction.auth2faEnroll",
-  "auth.2fa.backup_codes": "activity.auditAction.auth2faBackupCodes",
-  "apps.env.reveal": "activity.auditAction.appsEnvReveal",
-  "apps.env.update": "activity.auditAction.appsEnvUpdate",
-  "config.update": "activity.auditAction.configUpdate",
-  "hooks.deploy": "activity.auditAction.hooksDeploy",
-  "hooks.secret.disable": "activity.auditAction.hooksSecretDisable",
-  "hooks.secret.mint": "activity.auditAction.hooksSecretMint",
-  "ws.connect": "activity.auditAction.wsConnect",
-  "auth.unlock": "activity.auditAction.authUnlock",
-  "auth.break_glass": "activity.auditAction.authBreakGlass",
-  "auth.session.timeout": "activity.auditAction.authSessionTimeout",
-  "auth.passkey.login": "activity.auditAction.authPasskeyLogin",
-  "auth.token.denied": "activity.auditAction.authTokenDenied",
-  "http.denied.permission": "activity.auditAction.httpDeniedPermission",
-  "apps.create": "activity.auditAction.appsCreate",
-  "apps.update": "activity.auditAction.appsUpdate",
-  "apps.deploy": "activity.auditAction.appsDeploy",
-  "apps.rollback": "activity.auditAction.appsRollback",
-  "apps.delete": "activity.auditAction.appsDelete",
-  "apps.restart": "activity.auditAction.appsRestart",
-  "apps.start": "activity.auditAction.appsStart",
-  "apps.stop": "activity.auditAction.appsStop",
-  "apps.limits": "activity.auditAction.appsLimits",
-  "sites.create": "activity.auditAction.sitesCreate",
-  "sites.update": "activity.auditAction.sitesUpdate",
-  "sites.delete": "activity.auditAction.sitesDelete",
-  "sites.enable": "activity.auditAction.sitesEnable",
-  "sites.disable": "activity.auditAction.sitesDisable",
-  "certs.create": "activity.auditAction.certsCreate",
-  "certs.renew": "activity.auditAction.certsRenew",
-  "certs.delete": "activity.auditAction.certsDelete",
-  "certs.revoke": "activity.auditAction.certsRevoke",
-  "cron.create": "activity.auditAction.cronCreate",
-  "cron.update": "activity.auditAction.cronUpdate",
-  "cron.delete": "activity.auditAction.cronDelete",
-  "cron.run": "activity.auditAction.cronRun",
-  "cron.enable": "activity.auditAction.cronEnable",
-  "cron.disable": "activity.auditAction.cronDisable",
-  "backups.create": "activity.auditAction.backupsCreate",
-  "backups.delete": "activity.auditAction.backupsDelete",
-  "backups.restore": "activity.auditAction.backupsRestore",
-  "backups.verify": "activity.auditAction.backupsVerify",
-  "backups.push": "activity.auditAction.backupsPush",
-  "backup.schedule.create": "activity.auditAction.backupScheduleCreate",
-  "backup.schedule.update": "activity.auditAction.backupScheduleUpdate",
-  "backup.schedule.delete": "activity.auditAction.backupScheduleDelete",
-  "backup.destination.create": "activity.auditAction.backupDestinationCreate",
-  "backup.destination.update": "activity.auditAction.backupDestinationUpdate",
-  "backup.destination.delete": "activity.auditAction.backupDestinationDelete",
-  "backup.destination.key": "activity.auditAction.backupDestinationKey",
-  "services.create": "activity.auditAction.servicesCreate",
-  "services.delete": "activity.auditAction.servicesDelete",
-  "services.start": "activity.auditAction.servicesStart",
-  "services.stop": "activity.auditAction.servicesStop",
-  "services.restart": "activity.auditAction.servicesRestart",
-  "db.create": "activity.auditAction.dbCreate",
-  "db.drop": "activity.auditAction.dbDrop",
-  "config.change": "activity.auditAction.configChange",
-  "user.create": "activity.auditAction.userCreate",
-  "user.role_change": "activity.auditAction.userRoleChange",
-  "system.update": "activity.auditAction.systemUpdate",
-  "server.update": "activity.auditAction.serverUpdate",
-  "server.reboot": "activity.auditAction.serverReboot",
-};
 
 /**
  * An audit action's words. Every mutating API call is also audited generically as
@@ -304,8 +223,9 @@ const AUDIT_ACTION_LABELS: Readonly<Record<string, PlainKey>> = {
  */
 export function auditActionLabel(t: T, action: string): string {
   if (action.startsWith("api.")) return t("activity.apiRequest", { method: action.slice("api.".length).toUpperCase() });
-  const key = AUDIT_ACTION_LABELS[action];
-  return key ? t(key) : action;
+  const key = action.replaceAll(".", "_");
+  // The whole closed catalog (src/noust/core/audit/catalog.py), in the typed catalogs.
+  return Object.hasOwn(auditEvents.action, key) ? t(`auditEvents.action.${key}` as PlainKey) : action;
 }
 
 export interface ActionWords {
@@ -355,7 +275,12 @@ export function resourceWords(row: ActivityRow): { object: string | null; raw: s
 
 /** A row's free-text context: a job's description, or an audit entry's detail. */
 export function detailOf(row: ActivityRow): string | null {
-  if (row.kind === "job") return row.job.description || row.job.name || null;
+  if (row.kind === "job") {
+    // A job the console names (its type, its application) says nothing more in the server's
+    // English description; only a type it does not know keeps the server's words.
+    if (JOB_ACTION_LABELS[row.job.type] !== undefined) return null;
+    return row.job.description || row.job.name || null;
+  }
   return row.entry.detail ?? null;
 }
 

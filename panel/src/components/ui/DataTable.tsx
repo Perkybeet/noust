@@ -1,9 +1,10 @@
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
-import { useId, useMemo, useRef, useState } from "react";
+import { isValidElement, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
+import { EmptyCell } from "./EmptyCell";
 import { Skeleton } from "./Skeleton";
 import { SM_UP, useMediaQuery } from "./useMediaQuery";
 
@@ -30,9 +31,11 @@ export interface Column<T> {
   /**
    * Its place in a card row (`mobile="cards"`): `title` is the row's name (the first column
    * by default), `status` the line above it, `meta` the line below it (every other column by
-   * default, each with its header for screen readers), `hidden` left out on a phone.
+   * default, each with its header for screen readers), `control` a control of its own (a
+   * selection checkbox) at the card's start, `hidden` left out on a phone. A meta value that is
+   * empty (nothing, or an `EmptyCell`) is left out of the line rather than drawn as a dash.
    */
-  card?: "title" | "status" | "meta" | "hidden";
+  card?: "title" | "status" | "meta" | "control" | "hidden";
 }
 
 export interface DataTableProps<T> {
@@ -67,6 +70,12 @@ export interface DataTableProps<T> {
    * page use `cards`.
    */
   mobile?: "scroll" | "cards";
+  /**
+   * `fixed`: the columns keep the widths they are given (the rest share what is left) and a
+   * long value truncates in its cell instead of widening the table past the page. For tables
+   * whose values have no natural bound (an audit event's detail, a command line).
+   */
+  layout?: "auto" | "fixed";
   className?: string;
 }
 
@@ -105,6 +114,7 @@ export function DataTable<T>({
   empty,
   density = "comfortable",
   mobile = "scroll",
+  layout = "auto",
   className,
 }: DataTableProps<T>) {
   const t = useT();
@@ -195,7 +205,7 @@ export function DataTable<T>({
         className,
       )}
     >
-      <table aria-busy={loading || undefined} className="w-full border-collapse text-left text-13">
+      <table aria-busy={loading || undefined} className={cx("w-full border-collapse text-left text-13", layout === "fixed" && "table-fixed")}>
         <caption id={captionId} className="sr-only">
           {caption}
         </caption>
@@ -295,6 +305,7 @@ export function DataTable<T>({
                           className={cx(
                             cellHeight,
                             "px-3 whitespace-nowrap text-fg first:pl-4",
+                            layout === "fixed" && "truncate",
                             column.align === "end" && "text-right",
                             column.mono && "mono text-12",
                             column.hideBelow && HIDE[column.hideBelow],
@@ -327,6 +338,12 @@ export function DataTable<T>({
       </table>
     </div>
   );
+}
+
+/** A value with nothing to show on a card's meta line: nothing at all, or an `EmptyCell`. */
+function isEmptyValue(content: ReactNode): boolean {
+  if (content === null || content === undefined || content === false || content === "") return true;
+  return isValidElement(content) && content.type === EmptyCell;
 }
 
 function cardPlace<T>(column: Column<T>, index: number): NonNullable<Column<T>["card"]> {
@@ -366,6 +383,7 @@ function CardRows<T>({
   const status = of("status");
   const titles = of("title");
   const meta = of("meta");
+  const controls = of("control");
 
   if (!loading && rows.length === 0 && empty !== undefined) return <div className={className}>{empty}</div>;
 
@@ -382,8 +400,19 @@ function CardRows<T>({
         : rows.map((row) => {
             const id = getRowId(row);
             const title = titles.map((column) => <span key={column.id}>{column.cell(row)}</span>);
+            const control = controls.map((column) => ({ column, content: column.cell(row) })).filter((entry) => !isEmptyValue(entry.content));
+            const values = meta.map((column) => ({ column, content: column.cell(row) })).filter((entry) => !isEmptyValue(entry.content));
             return (
               <li key={id} className="flex min-w-0 items-start gap-3 rounded-card border border-border bg-surface py-3 pr-2 pl-4 shadow-raised">
+                {control.length > 0 ? (
+                  <div className="flex shrink-0 items-center gap-2 pt-0.5">
+                    {control.map(({ column, content }) => (
+                      <span key={column.id} className="inline-flex">
+                        {content}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
                   {status.length > 0 ? (
                     <div className="flex min-w-0 flex-wrap items-center gap-2 text-13">
@@ -403,9 +432,9 @@ function CardRows<T>({
                   ) : (
                     <p className="min-w-0 truncate text-14 font-medium text-fg">{title}</p>
                   )}
-                  {meta.length > 0 ? (
+                  {values.length > 0 ? (
                     <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-12 text-fg-muted">
-                      {meta.map((column, index) => (
+                      {values.map(({ column, content }, index) => (
                         <span key={column.id} className={cx("min-w-0", column.mono && "mono")}>
                           {index > 0 ? (
                             <span aria-hidden="true" className="mr-1.5 text-fg-faint">
@@ -413,7 +442,7 @@ function CardRows<T>({
                             </span>
                           ) : null}
                           <span className="sr-only">{`${column.header}: `}</span>
-                          {column.cell(row)}
+                          {content}
                         </span>
                       ))}
                     </p>

@@ -89,6 +89,8 @@ describe("Settings > Integrations", () => {
     renderConsole("/settings/integrations");
     const tabs = await screen.findByRole("navigation", { name: "Settings sections" });
     expect(within(tabs).getByRole("link", { name: "Integrations" })).toHaveAttribute("aria-current", "page");
+    // About is the last section on a lone server, after everything that is configured.
+    expect(within(tabs).getAllByRole("link").at(-1)).toHaveAccessibleName("About");
   });
 
   it("explains what an App gives before there is one, and passes axe", { timeout: 20_000 }, async () => {

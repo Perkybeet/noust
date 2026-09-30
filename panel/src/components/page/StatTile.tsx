@@ -11,8 +11,9 @@ export interface StatTileProps {
   detail?: ReactNode;
   /**
    * Lines the context may take. 2 for a row of tiles whose contexts are sentences (a
-   * dashboard's): it wraps instead of cutting, and both lines are kept from the first frame so
-   * nothing moves when the words arrive. 1 by default: cut with an ellipsis.
+   * dashboard's): it wraps instead of cutting (as many lines as it needs on a phone), and both
+   * lines are kept from the first frame so nothing moves when the words arrive. 1 by default: cut with an ellipsis from 640px, and
+   * wrapped on a phone, where two tiles to a row leave a line too little room to be read.
    */
   detailLines?: 1 | 2;
   /** Set the value as a system value (a commit, a port) in mono. */
@@ -29,12 +30,12 @@ export function StatTile({ label, value, detail, detailLines = 1, mono = false, 
   const primitive = typeof value === "string" || typeof value === "number";
   return (
     <div className={cx("flex min-w-0 flex-col gap-1.5 rounded-card border border-border bg-surface px-4 py-3.5 shadow-raised", className)}>
-      <span className="truncate text-12 text-fg-muted">{label}</span>
+      <span className="break-words text-12 text-fg-muted sm:truncate">{label}</span>
       <div className="flex min-h-7 min-w-0 items-center">
         {primitive ? (
           <span
             translate={mono ? "no" : undefined}
-            className={cx("truncate text-fg", mono ? "mono text-16 font-medium" : "title text-18")}
+            className={cx("break-words text-fg sm:truncate", mono ? "mono text-16 font-medium" : "title text-18")}
           >
             {value}
           </span>
@@ -43,7 +44,7 @@ export function StatTile({ label, value, detail, detailLines = 1, mono = false, 
         )}
       </div>
       {detail !== undefined ? (
-        <div data-slot="detail" className={cx("text-12 text-fg-faint", detailLines === 2 ? "line-clamp-2 min-h-8 text-pretty" : "truncate")}>
+        <div data-slot="detail" className={cx("text-12 text-fg-faint", detailLines === 2 ? "min-h-8 break-words text-pretty sm:line-clamp-2" : "break-words text-pretty sm:truncate")}>
           {detail}
         </div>
       ) : null}

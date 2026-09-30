@@ -2,7 +2,7 @@ import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ApiError } from "../../api/errors";
+import { ApiError, ApprovalPendingError, ElevationCancelledError } from "../../api/errors";
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { ErrorBlock, QueryState } from "./QueryState";
@@ -111,6 +111,18 @@ describe("QueryState", () => {
 });
 
 describe("ErrorBlock", () => {
+  it("is not a failure when the operator cancelled \"Confirm it's you\": it shows nothing", () => {
+    const { container } = render(<ErrorBlock error={new ElevationCancelledError()} title="Could not save" />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("says a request waits for approval, neutrally, with the way to Approvals", () => {
+    render(<ErrorBlock error={new ApprovalPendingError("approval_pending", "4")} title="Could not save" />);
+    expect(screen.queryByText("Could not save")).not.toBeInTheDocument();
+    expect(screen.getByText("Waiting for approval")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open Approvals" })).toBeInTheDocument();
+  });
+
   it("offers one follow-up beside Try again, after the system's words", () => {
     render(
       <ErrorBlock error={FAILURE} title="Could not renew" onRetry={() => undefined} action={<button type="button">View output</button>} />,

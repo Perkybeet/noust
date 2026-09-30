@@ -67,7 +67,9 @@ describe("the approvals inbox", () => {
     });
     const { user, container } = renderConsole("/settings/approvals");
     const table = await screen.findByRole("region", { name: "Approval requests" });
-    expect(await within(table).findByText("Write a unit file: it runs as root")).toBeInTheDocument();
+    // What it does in plain words, from the catalogs; the backend's own English stays out of it.
+    expect(await within(table).findByText("A change with the power of root: a service, a scheduled command or a web server configuration")).toBeInTheDocument();
+    expect(within(table).queryByText("Write a unit file: it runs as root")).not.toBeInTheDocument();
     // Waiting ones by default: the decided one is behind "Decided".
     expect(within(table).queryByText("Rejected")).toBeNull();
     expect(screen.getByText("1 request")).toBeInTheDocument();

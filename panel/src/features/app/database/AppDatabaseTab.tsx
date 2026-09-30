@@ -278,7 +278,7 @@ export function AppDatabaseTab({ domain }: { domain: string }) {
           onConfirm={async () => {
             const accepted = await request("post", "/api/databases/users/{engine}/{username}/password", {
               params: { engine: rotating.engine, username: rotating.username ?? "" },
-              body: { propagate: true, host: "localhost" },
+              body: { propagate: true, host: "localhost", first_password: false },
             });
             track(accepted, "rotate", rotating.username ?? "");
           }}

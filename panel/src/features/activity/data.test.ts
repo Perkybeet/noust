@@ -10,6 +10,7 @@ import {
   auditCategory,
   auditResultStatus,
   describeActor,
+  detailOf,
   inKind,
   isFiltered,
   jobActionLabel,
@@ -85,8 +86,8 @@ describe("jobActionLabel", () => {
 
 describe("auditActionLabel", () => {
   it("translates a known action", () => {
-    expect(auditActionLabel(t, "auth.login")).toBe("Sign-in attempt");
-    expect(auditActionLabel(t, "auth.scope")).toBe("Failed a scope check");
+    expect(auditActionLabel(t, "auth.login")).toBe("Sign-in");
+    expect(auditActionLabel(t, "auth.scope")).toBe("Request beyond a token's scope refused");
   });
 
   it("words the security middleware's generic per-request entry by its method", () => {
@@ -186,7 +187,7 @@ describe("actionWords / resourceOf", () => {
         auditComplete: true,
       }).rows,
     );
-    expect(actionWords(t, row)).toEqual({ label: "Failed a scope check", raw: "auth.scope" });
+    expect(actionWords(t, row)).toEqual({ label: "Request beyond a token's scope refused", raw: "auth.scope" });
     expect(resourceOf(row)).toBe("/api/apps/shop.example.com");
   });
 });
@@ -436,5 +437,17 @@ describe("withoutRequestEchoes", () => {
       "api.post /api/apps/shop.example.com/restart",
       "auth.login /api/auth/login",
     ]);
+  });
+});
+
+describe("detailOf", () => {
+  it("adds no English description to a job the console names in its own words", () => {
+    const row = only(mergeActivity({ jobs: [job({ type: "zero_downtime", description: "Turning blue/green activation on for example.com" })], jobsComplete: true, entries: [], auditComplete: true }).rows);
+    expect(detailOf(row)).toBeNull();
+  });
+
+  it("keeps what the server wrote for a job of a type it does not know", () => {
+    const row = only(mergeActivity({ jobs: [job({ type: "mystery", description: "Doing something new" })], jobsComplete: true, entries: [], auditComplete: true }).rows);
+    expect(detailOf(row)).toBe("Doing something new");
   });
 });

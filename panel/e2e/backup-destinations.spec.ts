@@ -159,13 +159,16 @@ test("browsing a destination lists its applications and backups, and restores on
   expect(backupId).toMatch(/^shop-example-net_\d{8}_\d{6}$/);
   await oldest.getByRole("button", { name: "Restore" }).click();
 
-  const confirm = page.getByRole("dialog", { name: `Restore from ${SFTP}` });
+  // A destructive confirmation: an alert dialog, announced as one.
+  const confirm = page.getByRole("alertdialog", { name: `Restore from ${SFTP}` });
   await expect(confirm).toBeVisible();
   await expect(confirm.getByText(backupId)).toBeVisible();
   const restore = confirm.getByRole("button", { name: "Restore" });
   await expect(restore).toBeDisabled();
   // The folder is named after the application; the target offered is its domain.
   await expect(confirm.getByLabel("Restore into")).toHaveValue("shop.example.net");
+  // Replacing the .env files there now destroys them: an option that starts unchecked.
+  await expect(confirm.getByRole("checkbox", { name: "Restore .env files" })).not.toBeChecked();
   await confirm.getByLabel(/to confirm$/).fill("shop.example.net");
   await expect(restore).toBeEnabled();
   await settle(page);
@@ -179,7 +182,7 @@ test("browsing a destination lists its applications and backups, and restores on
   );
   await restore.click();
   await confirmItsYou(page, consoleServer);
-  expect((await requested).postDataJSON()).toMatchObject({ app_name: "shop-example-net", target_domain: null, restore_env: true });
+  expect((await requested).postDataJSON()).toMatchObject({ app_name: "shop-example-net", target_domain: null, restore_env: false });
   await expect(toasts(page).getByText(`Restore from ${SFTP} queued for ${backupId}`, { exact: true })).toBeVisible();
   const { job_id: jobId } = (await (await accepted).json()) as { job_id: string };
   await expectJobCompletes(page, jobId);

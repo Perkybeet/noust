@@ -25,20 +25,14 @@ export function RestoreBackupDialog({ backup, open, onOpenChange }: RestoreBacku
       domain={backup.domain}
       offerVerify
       envDescription={t("backups.restoreDialog.envFromArchive")}
-      pending={restore.isPending}
-      error={restore.error}
-      onReset={() => restore.reset()}
-      onRestore={({ targetDomain, restoreEnv, verify }) =>
-        restore.mutate(
-          {
-            backupId: backup.backup_id,
-            targetDomain: targetDomain === backup.domain ? undefined : targetDomain,
-            restoreEnv,
-            verify,
-          },
-          { onSuccess: () => onOpenChange(false) },
-        )
-      }
+      onRestore={async ({ targetDomain, restoreEnv, verify }) => {
+        await restore.mutateAsync({
+          backupId: backup.backup_id,
+          targetDomain: targetDomain === backup.domain ? undefined : targetDomain,
+          restoreEnv,
+          verify,
+        });
+      }}
     />
   );
 }

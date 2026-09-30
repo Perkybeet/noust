@@ -21,6 +21,8 @@ export interface ServiceRecord {
   refetching: boolean;
   /** The application the unit runs, when it runs one. */
   app: string | null;
+  /** Whether the applications are still being read, so `app` is not known yet. */
+  appPending: boolean;
 }
 
 /**
@@ -44,5 +46,6 @@ export function useServiceRecord(name: string): ServiceRecord {
     refetch: () => void detail.refetch(),
     refetching: detail.isRefetching,
     app: appOfUnit(apps.data?.apps ?? [], name)?.domain ?? null,
+    appPending: apps.isPending,
   };
 }

@@ -208,12 +208,11 @@ export const backups: Catalog<typeof en> = {
     submit: "Restaurar",
     restoreInto: "Restaurar en",
     restoreIntoDescription: "Otro dominio restaura una copia allí y deja este como está.",
-    domainPlaceholder: "el dominio",
-    typeToConfirm: "Escribe {domain} para confirmar",
     restoreEnv: "Restaurar archivos .env",
     envFromArchive: "Desde la copia, reemplazando los que hay ahora.",
     verifyFirst: { label: "Comprobar antes su integridad", description: "Se niega a restaurar una copia dañada o manipulada." },
-    error: "La restauración no se inició",
+    envKept: "Los archivos .env que hay ahora se conservan.",
+    envReplaced: "Los archivos .env que hay ahora también se sustituyen.",
   },
 
   restoreFromDestination: {
@@ -418,7 +417,6 @@ export const backups: Catalog<typeof en> = {
     backupQueuedDescription: "Se te avisará cuando termine la copia de seguridad.",
     restoreQueuedDescription: "Se te avisará cuando termine la restauración.",
     copyQueuedDescription: "Se te avisará cuando termine la copia.",
-    restoreQueueError: "No se pudo poner en cola la restauración",
     deleteError: "No se pudo eliminar la copia de seguridad",
     copyQueueError: "No se pudo poner en cola la copia",
     removeScheduleError: "No se pudo eliminar la programación",

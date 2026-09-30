@@ -100,6 +100,9 @@ function BackToServer() {
   const back = useReturnServer();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   if (context.kind === "server" || back === null) return null;
+  // On the central's pages the selector already names the central's own server: a way "back"
+  // to the machine on screen would only repeat it.
+  if (context.kind === "central" && back.node === null) return null;
   return (
     <Link
       to={returnTarget(pathname)}

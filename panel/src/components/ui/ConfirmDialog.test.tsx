@@ -2,10 +2,12 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import { ApprovalPendingError, ElevationCancelledError } from "../../api/errors";
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { toast } from "./toast";
 
 function setup(onConfirm: () => Promise<void>) {
   render(
@@ -247,5 +249,69 @@ describe("ConfirmDialog", () => {
     );
     const dialog = await screen.findByRole("alertdialog", { name: "Stop example.com" });
     expect(dialog).toHaveTextContent("Keep the timer running");
+  });
+
+  describe("when the action is held rather than failed", () => {
+    function simple(onConfirm: () => Promise<void>) {
+      render(
+        <ConfirmDialog
+          friction="simple"
+          title="Revoke the token"
+          description="Scripts using it stop working."
+          actionLabel="Revoke token"
+          onConfirm={onConfirm}
+          trigger={<Button>Revoke</Button>}
+        />,
+      );
+    }
+
+    it("says nothing went wrong when the operator cancels \"Confirm it's you\", and stays open", async () => {
+      const error = vi.spyOn(toast, "error");
+      simple(() => Promise.reject(new ElevationCancelledError()));
+      await userEvent.click(screen.getByRole("button", { name: "Revoke" }));
+      await userEvent.click(await screen.findByRole("button", { name: "Revoke token" }));
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "Revoke token" })).not.toHaveAttribute("aria-busy", "true");
+      });
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(screen.getByRole("alertdialog", { name: "Revoke the token" })).toBeInTheDocument();
+      expect(error).not.toHaveBeenCalled();
+      error.mockRestore();
+    });
+
+    it("says it waits for approval, with the way to Approvals, and closes", async () => {
+      const info = vi.spyOn(toast, "info");
+      const error = vi.spyOn(toast, "error");
+      simple(() => Promise.reject(new ApprovalPendingError("approval_pending", "7")));
+      await userEvent.click(screen.getByRole("button", { name: "Revoke" }));
+      await userEvent.click(await screen.findByRole("button", { name: "Revoke token" }));
+      await waitFor(() => {
+        expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+      });
+      expect(info).toHaveBeenCalledOnce();
+      const [title, options] = info.mock.calls[0] ?? [];
+      expect(title).toBe("Waiting for approval");
+      expect(options?.action?.label).toBe("Open Approvals");
+      expect(error).not.toHaveBeenCalled();
+      info.mockRestore();
+      error.mockRestore();
+    });
+
+    it("does not report a cancelled confirmation as a failure when it runs at once (none)", async () => {
+      const error = vi.spyOn(toast, "error");
+      const onConfirm = vi.fn(() => Promise.reject(new ElevationCancelledError()));
+      render(
+        <ConfirmDialog friction="none" title="Disable the job" description="It can be enabled again." actionLabel="Disable" onConfirm={onConfirm} trigger={<Button>Disable</Button>} />,
+      );
+      await userEvent.click(screen.getByRole("button", { name: "Disable" }));
+      await waitFor(() => {
+        expect(onConfirm).toHaveBeenCalledOnce();
+      });
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "Disable" })).not.toBeDisabled();
+      });
+      expect(error).not.toHaveBeenCalled();
+      error.mockRestore();
+    });
   });
 });

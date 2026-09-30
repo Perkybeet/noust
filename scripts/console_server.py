@@ -6889,20 +6889,25 @@ def use_fixed_hostname(hostname: str) -> None:
 
     Development and screenshots only: a recording or a review screenshot should not carry
     the developer's real machine name. The name is read with a bare ``socket.gethostname()``
-    in two modules - the machine snapshot (``noust.web.machine``) and the session answer and
-    TOTP account name (``noust.web.api.auth``) - neither of which uses ``socket`` for anything
-    else, so each gets a stand-in bound to its own name, and the real module is untouched for
+    in the modules patched below - the machine snapshot, the session answer and TOTP account
+    name, the Overview's header and the fleet's default names - none of which uses ``socket``
+    for anything else, so each gets a stand-in bound to its own name, and the real module is untouched for
     everything else in the process.
 
     Args:
         hostname: The name to report.
     """
+    import noust.fleet.models as fleet_models
+    import noust.managers.overview as overview_module
     import noust.web.api.auth as auth_api
     import noust.web.machine as machine_module
 
     fixed = SimpleNamespace(gethostname=lambda: hostname)
     machine_module.socket = fixed  # type: ignore[assignment]
     auth_api.socket = fixed  # type: ignore[assignment]
+    # The Overview's header (3.1) and the fleet's default names read it too.
+    overview_module.socket = fixed  # type: ignore[assignment]
+    fleet_models.socket = fixed  # type: ignore[assignment]
 
 
 def use_fixed_machine_stats(

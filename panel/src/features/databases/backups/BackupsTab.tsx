@@ -28,6 +28,7 @@ import { Menu, MenuItem, MenuSeparator } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
 import { Select } from "../../../components/ui/Select";
 import { StatusPill } from "../../../components/ui/StatusPill";
+import { Skeleton } from "../../../components/ui/Skeleton";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { useT } from "../../../i18n";
 import type { PlainKey } from "../../../i18n";
@@ -87,6 +88,9 @@ function PolicyCard({ engine, name, onEdit }: { engine: string; name: string; on
               </MenuItem>
             </Menu>
           </>
+        ) : data === undefined && !policy.isError ? (
+          // The room of Edit while the policy loads: most databases here have one.
+          <Skeleton className="h-control-sm w-24 rounded-control" />
         ) : undefined
       }
     >

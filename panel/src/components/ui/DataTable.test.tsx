@@ -6,6 +6,7 @@ import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import type { Column } from "./DataTable";
 import { DataTable } from "./DataTable";
+import { EmptyCell } from "./EmptyCell";
 import { IconButton } from "./IconButton";
 
 interface App {
@@ -46,6 +47,12 @@ describe("DataTable", () => {
     await userEvent.click(within(header).getByRole("button", { name: /Port/ }));
     expect(header).toHaveAttribute("aria-sort", "descending");
     expect(domains()).toEqual(["api.example.com", "blog.example.com", "shop.example.com"]);
+  });
+
+  it("lays out a fixed table, so a long value truncates instead of pushing columns off-screen", () => {
+    render(<DataTable caption="Applications" layout="fixed" columns={COLUMNS} rows={ROWS} getRowId={(row) => row.domain} />);
+    expect(screen.getByRole("table")).toHaveClass("table-fixed");
+    for (const cell of screen.getAllByRole("cell")) expect(cell).toHaveClass("truncate");
   });
 
   it("names the table with its caption", () => {
@@ -229,6 +236,37 @@ describe("DataTable", () => {
       expect(first).toHaveTextContent("shop.example.com");
       expect(first).toHaveTextContent("Type: Next.js");
       expect(within(first).getByRole("button", { name: "Actions for shop.example.com" })).toBeInTheDocument();
+    });
+
+    it("gives a selection its own slot and leaves empty values out of the meta line", () => {
+      wide(false);
+      render(
+        <DataTable
+          mobile="cards"
+          caption="Applications"
+          columns={[
+            { id: "pick", header: "Choose", card: "control", cell: (row) => <input type="checkbox" aria-label={`Choose ${row.domain}`} /> },
+            { id: "domain", header: "Application", cell: (row) => row.domain, card: "title" },
+            ...columns.slice(1),
+            { id: "port", header: "Port", cell: (row) => (row.domain.startsWith("shop") ? <EmptyCell reason="No port" /> : "3000") },
+            { id: "none", header: "Nothing", cell: () => null },
+          ]}
+          rows={rows}
+          getRowId={(row) => row.domain}
+        />,
+      );
+      const cards = within(screen.getByRole("list", { name: "Applications" })).getAllByRole("listitem");
+      const [first, second] = cards;
+      if (!first || !second) throw new Error("no card");
+      const box = within(first).getByRole("checkbox", { name: "Choose shop.example.com" });
+      // Not on the meta line, and no separator for the values that are not there.
+      expect(box.closest("p")).toBeNull();
+      expect(first).not.toHaveTextContent("Port");
+      expect(first).not.toHaveTextContent("Nothing");
+      expect(first).not.toHaveTextContent("–");
+      expect(within(first).queryAllByText("·", { exact: true })).toHaveLength(0);
+      expect(second).toHaveTextContent("Port: 3000");
+      expect(within(second).getAllByText("·", { exact: true })).toHaveLength(1);
     });
 
     it("opens a row from its name, as the table does", async () => {

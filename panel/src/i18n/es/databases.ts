@@ -31,10 +31,6 @@ export const databases: Catalog<typeof en> = {
     done: { one: "Se registró {count} base de datos", other: "Se registraron {count} bases de datos" },
     failed: "No se pudieron registrar las bases de datos",
   },
-  strip: {
-    label: "Motores",
-    manage: "Gestionar motores",
-  },
   engine: {
     state: {
       running: "En marcha",

@@ -18,6 +18,22 @@ import { cx } from "../../lib/cx";
 import { formatDate, parseTimestamp } from "../../lib/format";
 import type { AttentionSummary, Severity } from "./attention";
 
+/**
+ * What the monitor saw, in words, by its signal (`src/noust/monitor/models.py`) and severity
+ * (a warning asks more firmly than a notice); a signal this console does not know, by name.
+ */
+function monitorText(t: T, severity: string, signal: string): string {
+  const warning = severity === "warning";
+  switch (signal) {
+    case "name-pattern":
+      return warning ? t("overview.attention.monitor.nameWarning") : t("overview.attention.monitor.nameNotice");
+    case "resource-usage":
+      return warning ? t("overview.attention.monitor.usageWarning") : t("overview.attention.monitor.usageNotice");
+    default:
+      return t("overview.attention.monitor.other", { signal });
+  }
+}
+
 /** Turns a pure `AttentionSummary` into the sentence it stands for, in the active language. */
 export function summaryText(t: T, summary: AttentionSummary): string {
   switch (summary.key) {
@@ -42,7 +58,7 @@ export function summaryText(t: T, summary: AttentionSummary): string {
     case "unitsFailedCount":
       return t("overview.attention.unitsFailedCount", { count: summary.count });
     case "monitorFinding":
-      return t("overview.attention.monitorFinding", { severity: summary.severity, signal: summary.signal });
+      return monitorText(t, summary.severity, summary.signal);
   }
 }
 
@@ -85,7 +101,7 @@ export function reasonText(t: T, reason: OverviewAttentionReason): string {
     case "unit_restarting":
       return t("overview.attention.unitRestarting");
     case "monitor_finding":
-      return t("overview.attention.monitorFinding", { severity: text(params["severity"]) ?? "", signal: text(params["signal"]) ?? "" });
+      return monitorText(t, text(params["severity"]) ?? "", text(params["signal"]) ?? "");
     default:
       return reason.code;
   }
@@ -106,8 +122,9 @@ function Subject({ t, item }: { t: T; item: OverviewAttentionItem }) {
     );
   }
   if (kind === "certificate") {
+    // The certificates page filtered to this one, not the whole list to search through.
     return (
-      <Link to="/domains" className={SUBJECT_LINK}>
+      <Link to="/domains" search={domain !== null ? { q: domain } : {}} className={SUBJECT_LINK}>
         <span translate="no">{item.title}</span>
       </Link>
     );
@@ -177,7 +194,7 @@ function Actions({ t, item }: { t: T; item: OverviewAttentionItem }) {
     }
   } else if (item.subject["kind"] === "certificate" && domain !== null) {
     out.push(
-      <Link key="cert" to="/domains" aria-label={t("overview.attention.certificateAria", { domain })} className={ACTION}>
+      <Link key="cert" to="/domains" search={{ q: domain }} aria-label={t("overview.attention.certificateAria", { domain })} className={ACTION}>
         {t("overview.attention.certificate")}
       </Link>,
     );
@@ -221,7 +238,8 @@ function Item({ t, item }: { t: T; item: OverviewAttentionItem }) {
                 <li key={`${reason.code}-${String(index)}`} className="flex min-w-0 flex-col">
                   <span className={cx("text-13", reason.severity === "fail" ? "text-fg" : "text-fg-muted")}>{reasonText(t, reason)}</span>
                   {detail !== null ? (
-                    <Mono tone="muted" truncate title={detail} className="text-12">
+                    // The system's words wrap rather than being cut, on a phone too.
+                    <Mono tone="muted" className="text-12 break-words whitespace-pre-wrap">
                       {detail}
                     </Mono>
                   ) : null}
@@ -316,9 +334,10 @@ export function NeedsAttention({ items, total }: NeedsAttentionProps) {
             ) : null}
           </span>
         }
+        // "Show all" in the card's header, as every card that folds a list has it.
         {...(more
           ? {
-              footer: (
+              actions: (
                 <Button
                   size="sm"
                   variant="ghost"

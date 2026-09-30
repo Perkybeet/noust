@@ -27,6 +27,7 @@ import { CreateTokenDialog } from "./CreateTokenDialog";
 import { RowAction } from "./RowAction";
 import { sortTokens, tokenState } from "./tokens";
 import type { TokenState } from "./tokens";
+import { SettingsPrimaryAction } from "./SettingsShell";
 
 /**
  * A token's state. Working is not a running state, so "Active" is plain words with an icon;
@@ -141,10 +142,10 @@ export function TokensSettings() {
 
   return (
     <Sections>
+      {query.data !== undefined && query.data.tokens.length > 0 ? <SettingsPrimaryAction>{create}</SettingsPrimaryAction> : null}
       <Section
         title={t("accounts.tokens.title")}
         description={t("accounts.tokens.description")}
-        actions={query.data !== undefined && query.data.tokens.length > 0 ? create : undefined}
       >
         <QueryState
           query={query}

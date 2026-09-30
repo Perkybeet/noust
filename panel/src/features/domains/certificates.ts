@@ -14,6 +14,12 @@ export { CERT_WARNING_DAYS };
 
 export type CertTone = "ok" | "warn" | "fail" | "idle" | "busy";
 
+/**
+ * What a certificate does for one name: a certificate's tone, or `https` - the name is served
+ * over HTTPS by a valid certificate, a fact said neutrally, with a lock, never in green.
+ */
+export type CoverageTone = CertTone | "https";
+
 export interface CertificateView {
   tone: CertTone;
   /** The state in words, for a table cell: "Valid for 46 days", "Expires in 12 days". */
@@ -107,7 +113,7 @@ export function coverageOf(
   lineage: CertEntry | null | undefined,
   extending: boolean,
   locale: Locale = getLocale(),
-): { tone: CertTone; label: string } {
+): { tone: CoverageTone; label: string } {
   if (lineage === undefined) return { tone: "idle", label: translate(locale, "domains.certificates.checking") };
   if (lineage === null) return { tone: "idle", label: translate(locale, "domains.certificates.noCertificateHttpOnly") };
   if (!covers(lineage, name)) {
@@ -116,5 +122,5 @@ export function coverageOf(
       : { tone: "warn", label: translate(locale, "domains.certificates.notCovered") };
   }
   const view = certificateView(lineage, locale);
-  return { tone: view.tone, label: view.tone === "ok" ? translate(locale, "domains.certificates.covered") : view.label };
+  return view.tone === "ok" ? { tone: "https", label: translate(locale, "domains.certificates.covered") } : { tone: view.tone, label: view.label };
 }

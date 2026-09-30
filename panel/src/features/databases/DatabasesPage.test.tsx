@@ -53,12 +53,10 @@ describe("the databases list", () => {
     expect(screen.queryByText("2 databases have no backup schedule")).not.toBeInTheDocument();
   });
 
-  it("shows the engines in one line, a version past upstream support warned about", async () => {
+  it("leaves the engines to their own tab: only the filters and one notice above the list", async () => {
     await listAt();
-    const strip = await screen.findByRole("navigation", { name: "Engines" });
-    expect(within(strip).getByText("MongoDB")).toBeInTheDocument();
-    expect(within(strip).getByText("Not installed")).toBeInTheDocument();
-    expect(within(strip).getByRole("link", { name: /Upstream support for version 8\.0 ended/ })).toHaveAttribute("href", "/databases/engines");
+    expect(await screen.findByRole("region", { name: "Databases" })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Engines" })).not.toBeInTheDocument();
   });
 
   it("creates a database and opens it", async () => {

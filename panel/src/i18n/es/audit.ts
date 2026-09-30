@@ -77,6 +77,7 @@ export const audit: Catalog<typeof en> = {
     seq: "Posición en la cadena",
   },
   drawer: {
+    recorded: "Lo que registró el servidor",
     details: "Detalles",
     sameRequest: "Eventos de la misma petición",
     sensitive: "Este evento registra que alguien leyó algo sensible, como secretos.",

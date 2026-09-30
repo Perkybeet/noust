@@ -5,7 +5,34 @@
 
 import type { HeldCall, Method } from "../../api/client";
 import { nodeOfProxyPath } from "../../api/nodeScope";
+import type { PlainKey, T } from "../../i18n";
 import type { Approval, ApprovalState } from "./api";
+
+/** Each approval rule (`src/noust/core/accounts/approvals.py`) in plain words, by its action. */
+const ACTIONS: Readonly<Record<string, PlainKey>> = {
+  root_equivalent: "approvals.actions.rootEquivalent",
+  "fleet.node.add": "approvals.actions.fleetNodeAdd",
+  "fleet.node.remove": "approvals.actions.fleetNodeRemove",
+  "db.rows.write": "approvals.actions.dbRowsWrite",
+  "db.query.write": "approvals.actions.dbQueryWrite",
+  "db.query.analyze": "approvals.actions.dbQueryAnalyze",
+  "apps.local_source": "approvals.actions.appsLocalSource",
+  "user.role_change": "approvals.actions.userRoleChange",
+  "user.create": "approvals.actions.userCreate",
+  "user.invite": "approvals.actions.userInvite",
+};
+
+/**
+ * What a request does, in the operator's words: by its rule's action, else by its kind, and only
+ * for a rule this console has never heard of, the server's own sentence.
+ */
+export function approvalDescription(t: T, approval: Pick<Approval, "action" | "kind" | "description">): string {
+  const key = ACTIONS[approval.action];
+  if (key !== undefined) return t(key);
+  if (approval.kind === "role_change") return t("approvals.actions.roleChange");
+  if (approval.kind === "infrastructure") return t("approvals.actions.infrastructure");
+  return approval.description;
+}
 
 export type ApprovalsView = "waiting" | "decided" | "all";
 

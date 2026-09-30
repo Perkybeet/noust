@@ -102,9 +102,7 @@ export function useDestinationActions() {
       void queryClient.invalidateQueries({ queryKey: jobKeys.active });
       toast.info(result.message, { description: t("backups.toast.restoreQueuedDescription") });
     },
-    onError: (error) => {
-      reportActionError(t("backups.toast.restoreQueueError"), error);
-    },
+    // No onError: the restore dialog (ConfirmDialog) shows a failure where it was started.
   });
 
   return { create, update, remove, test, showKey, restoreFromDestination };

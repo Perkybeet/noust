@@ -24,7 +24,6 @@ import type { T } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
 import { DatabasesTable } from "./DatabasesTable";
 import { can, engineName, sortEngines } from "./engines";
-import { EnginesStrip } from "./EnginesStrip";
 import { filterDatabases, isFiltered } from "./filters";
 import type { DatabasesSearch } from "./filters";
 import { useDatabasesHeader } from "./listHeader";
@@ -82,8 +81,8 @@ function RowActions({ database, engines, t }: { database: Database; engines: rea
 
 /**
  * Every database on the server, as a T1 list: the name first and whether it is backed up
- * beside it, the engine, who uses it, its size and its newest dump. The engines sit in one
- * line above (their own tab holds the controls); a port open to the network is the one notice.
+ * beside it, the engine, who uses it, its size and its newest dump. Above it, the filters and
+ * at most one notice (a port open to the network first); the engines have their own tab.
  */
 export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
   const t = useT();
@@ -166,7 +165,7 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
 
   if (all.length === 0) {
     return (
-      <ListPage header={header} tabs={tabs} filters={<EnginesStrip engines={engines.data?.engines} />} footer={<CommandHint command="noust db list" label={t("databases.common.fromTerminal")} />}>
+      <ListPage header={header} tabs={tabs} footer={<CommandHint command="noust db list" label={t("databases.common.fromTerminal")} />}>
         <EmptyState
           variant="firstUse"
           icon={<DatabaseIcon />}
@@ -195,8 +194,6 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
       tabs={tabs}
       {...(notice !== undefined ? { notice } : {})}
       filters={
-        <div className="flex flex-col gap-4">
-          <EnginesStrip engines={engines.data?.engines} />
           <FilterBar
             label={t("databases.list.filterLabel")}
             search={{
@@ -237,7 +234,6 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
                 }
               : {})}
           />
-        </div>
       }
       footer={<CommandHint command="noust db list" label={t("databases.common.fromTerminal")} />}
     >

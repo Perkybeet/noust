@@ -73,9 +73,9 @@ test("creates a service in simple mode and finds it in the list", async ({ page,
 test("saving the unit file asks to confirm it's you, then says it was saved", async ({ page, consoleServer, problems }) => {
   problems.expect(/status of 403 .*\/api\/services\/wasm-shop-example-net\/config$/);
   await signIn(page, consoleServer, "/server/services/wasm-shop-example-net");
-  await page.getByRole("link", { name: "Unit file" }).click();
+  await page.getByRole("link", { name: "Configuration" }).click();
   await expect(page).toHaveURL(/\/server\/services\/wasm-shop-example-net\/unit$/);
-  const editor = page.getByLabel("Unit file for wasm-shop-example-net", { exact: true });
+  const editor = page.getByLabel("Configuration of wasm-shop-example-net", { exact: true });
   await expect(editor).toBeVisible();
   await expectNoA11yViolations(page, "the unit file page");
   const original = await editor.inputValue();
@@ -95,12 +95,12 @@ test("saving the unit file asks to confirm it's you, then says it was saved", as
   // The elevation covers the next ten minutes; reloading the unit file's own read (no
   // elevation needed for GET) confirms the write actually landed.
   await page.reload();
-  await expect(page.getByLabel("Unit file for wasm-shop-example-net", { exact: true })).toHaveValue(/# edited by e2e/);
+  await expect(page.getByLabel("Configuration of wasm-shop-example-net", { exact: true })).toHaveValue(/# edited by e2e/);
 });
 
 test("checks the unit with systemd-analyze before saving, and blocks a save it rejects", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/server/services/wasm-shop-example-net/unit");
-  const editor = page.getByLabel("Unit file for wasm-shop-example-net", { exact: true });
+  const editor = page.getByLabel("Configuration of wasm-shop-example-net", { exact: true });
   const original = await editor.inputValue();
   // The fake systemd-analyze refuses a unit with no ExecStart=; nothing else about the file
   // needs to be realistic for the check to fail.
@@ -121,7 +121,7 @@ test("checks the unit with systemd-analyze before saving, and blocks a save it r
 
   // Nothing was written: reloading shows the unit exactly as it was before the attempt.
   await page.reload();
-  await expect(page.getByLabel("Unit file for wasm-shop-example-net", { exact: true })).toHaveValue(original);
+  await expect(page.getByLabel("Configuration of wasm-shop-example-net", { exact: true })).toHaveValue(original);
 });
 
 test("shows every unit of the system, one Noust did not create read only", async ({ page, consoleServer, problems }) => {
@@ -147,7 +147,7 @@ test("shows every unit of the system, one Noust did not create read only", async
   await expect(page).toHaveURL(/\/server\/services\/postgresql$/);
   await expect(page.getByText("Noust did not create this service")).toBeVisible();
   await expect(page.getByRole("button", { name: "More actions" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Unit file" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Configuration" })).toHaveCount(0);
   await expectNoA11yViolations(page, "a foreign unit's own page");
 });
 

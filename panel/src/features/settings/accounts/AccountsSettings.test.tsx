@@ -91,7 +91,7 @@ describe("Settings > Accounts", () => {
   it("lists every account with its state, role and second factor, and passes axe", { timeout: 20_000 }, async () => {
     accountsBackend();
     const { container } = renderConsole("/settings/accounts");
-    const table = await screen.findByRole("region", { name: "Accounts" });
+    const table = await screen.findByRole("region", { name: "Every account" });
     const row = (name: string) => {
       const found = within(table).getByText(name).closest("tr");
       if (found === null) throw new Error(`no row for ${name}`);
@@ -119,6 +119,17 @@ describe("Settings > Accounts", () => {
     await user.click(screen.getByRole("button", { name: "Clear filters" }));
     expect(await screen.findByText("ana")).toBeInTheDocument();
     expect(location().search).toEqual({});
+  });
+
+  it("puts Invite a person in the page's header, as the view's one primary action", async () => {
+    accountsBackend();
+    renderConsole("/settings/accounts");
+    await screen.findByText("ana");
+    const invite = screen.getByRole("button", { name: "Invite a person" });
+    const header = screen.getByRole("heading", { level: 1, name: "Settings" }).closest("header");
+    if (header === null) throw new Error("no page header");
+    expect(header).toContainElement(invite);
+    expect(invite).toHaveAttribute("data-variant", "primary");
   });
 
   it("invites a person and shows the link once, with the code after the #", { timeout: 20_000 }, async () => {

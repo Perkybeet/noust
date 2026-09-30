@@ -45,7 +45,7 @@ const PAGES: [path: string, heading: string, content: string][] = [
   ["/settings/security", "Settings", "Two-factor authentication"],
   ["/settings/notifications", "Settings", "Channels"],
   ["/settings/tokens", "Settings", "Issued tokens"],
-  ["/settings/accounts", "Settings", "People"],
+  ["/settings/accounts", "Settings", "Accounts"],
   ["/settings/approvals", "Settings", "Requests"],
   ["/settings/audit", "Settings", "Events"],
   ["/settings/compliance", "Settings", "ENS category MEDIUM"],
